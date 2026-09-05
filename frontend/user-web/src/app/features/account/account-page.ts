@@ -5,7 +5,7 @@ import { finalize } from 'rxjs';
 import { AuthService, Session, errorMessage } from '../../core/auth.service';
 import { ADMIN_APP } from '../../core/runtime-config';
 
-@Component({ selector: 'app-account-page', imports: [DatePipe], templateUrl: './account-page.html' })
+@Component({ selector: 'app-account-page', imports: [DatePipe], templateUrl: './account-page.html', styleUrl: './account-page.scss' })
 export class AccountPage {
   readonly auth = inject(AuthService);
   readonly admin = ADMIN_APP;

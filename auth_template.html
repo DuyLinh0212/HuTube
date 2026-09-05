@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HuTube - Authentication Template & Logo Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #FF2B66;
+      --primary-hover: #E61952;
+      --primary-gradient: linear-gradient(135deg, #FF3B69 0%, #FF2B66 50%, #E61952 100%);
+      --text-dark: #111827;
+      --text-muted: #6B7280;
+      --text-light: #9CA3AF;
+      --border-color: #E5E7EB;
+      --card-bg: #FFFFFF;
+      --page-bg: #FAF8F7;
+      --shadow-card: 0 20px 45px -12px rgba(255, 43, 102, 0.12), 0 8px 20px -4px rgba(0, 0, 0, 0.03);
+      --font-main: 'Plus Jakarta Sans', sans-serif;
+      --font-hand: 'Caveat', cursive;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--page-bg);
+      color: var(--text-dark);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 5% 10%, rgba(255, 182, 193, 0.35) 0%, transparent 45%),
+        radial-gradient(circle at 10% 90%, rgba(255, 200, 210, 0.3) 0%, transparent 40%),
+        radial-gradient(circle at 95% 85%, rgba(255, 182, 193, 0.25) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    /* Top Floating Bar with State & Logo Switchers */
+    .top-toolbar {
+      position: fixed;
+      top: 10px;
+      right: 20px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(14px);
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(229, 231, 235, 0.85);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+    .toolbar-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding: 0 8px 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .state-btn {
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: var(--font-main);
+    }
+    .state-btn.active {
+      background: var(--primary-gradient);
+      color: #FFF;
+      box-shadow: 0 3px 10px rgba(255, 43, 102, 0.3);
+    }
+
+    /* Container */
+    .app-container {
+      width: 100%;
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 14px 32px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      justify-content: space-between;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .logo-svg-wrap {
+      display: flex;
+      align-items: center;
+      transition: transform 0.25s ease;
+    }
+    .logo-svg-wrap:hover {
+      transform: scale(1.02);
+    }
+    .logo-badge-indicator {
+      font-size: 10.5px;
+      font-weight: 700;
+      background: rgba(255, 43, 102, 0.1);
+      color: var(--primary);
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 43, 102, 0.2);
+    }
+
+    .header-tagline {
+      font-size: 12.5px; font-weight: 600; color: #374151; display: flex; align-items: center; gap: 8px; position: relative;
+    }
+    .header-tagline::after {
+      content: ""; position: absolute; bottom: -3px; right: 0; width: 34px; height: 2px; background: var(--primary); border-radius: 2px;
+    }
+
+    /* Main Grid: Left Section Targets 898px Width */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 898px 1fr;
+      gap: 36px;
+      align-items: center;
+      flex: 1;
+    }
+
+    /* Left Section: Dimensions 898px x 542px */
+    .left-section {
+      width: 898px;
+      min-height: 542px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      position: relative;
+    }
+
+    /* Info Column (~370px wide) */
+    .info-col {
+      width: 370px;
+      flex: 0 0 370px;
+      display: flex;
+      flex-direction: column;
+      z-index: 2;
+    }
+    .category-tracker {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2.2px;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 10px;
+    }
+    .hero-heading {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.04;
+      letter-spacing: -1.2px;
+      color: var(--text-dark);
+      margin-bottom: 14px;
+    }
+    .hero-heading .highlight {
+      color: var(--primary);
+    }
+    .hero-desc {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      max-width: 340px;
+    }
+
+    /* Feature Pills */
+    .features-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .feature-icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(255, 43, 102, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+    .feature-icon-box svg { width: 18px; height: 18px; }
+    .feature-text { display: flex; flex-direction: column; }
+    .feature-title { font-size: 13px; font-weight: 700; color: #1F2937; }
+    .feature-sub { font-size: 11px; color: var(--text-muted); }
+
+    /* Handwritten Slogan */
+    .handwritten-tag {
+      font-family: var(--font-hand);
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1;
+      transform: rotate(-6deg);
+      display: inline-block;
+      user-select: none;
+    }
+
+    /* 3D Showcase Floating Cards Cluster (~480px wide) */
+    .showcase-cluster {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    .cards-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      position: relative;
+      perspective: 1200px;
+    }
+
+    /* Main Tilted Card: Scaled to 295px x 425px */
+    .main-tilted-card {
+      width: 295px;
+      height: 425px;
+      border-radius: 26px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.6);
+      transform: rotate(-6.5deg);
+      transition: transform 0.4s ease, box-shadow 0.4s ease;
+      background-color: #222;
+      flex-shrink: 0;
+    }
+    .main-tilted-card:hover {
+      transform: rotate(-3deg) scale(1.02);
+      box-shadow: 0 32px 60px -12px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Carousel Slides inside Main Card */
+    .carousel-slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.7s ease, transform 0.7s ease, visibility 0.7s ease;
+      transform: scale(1.04);
+    }
+    .carousel-slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1);
+    }
+    .carousel-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .main-card-annotation {
+      position: absolute;
+      top: 22px;
+      left: 20px;
+      right: 20px;
+      font-family: var(--font-hand);
+      font-size: 26px;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.1;
+      text-shadow: 0 1px 4px rgba(255, 255, 255, 0.85);
+      z-index: 3;
+    }
+    .main-card-annotation::after {
+      content: "";
+      display: block;
+      width: 44px;
+      height: 2.5px;
+      background: var(--primary);
+      margin-top: 4px;
+      border-radius: 2px;
+    }
+
+    /* Mini Cards Stack: 5 cards x 68px = 340px + 32px gap = 372px height */
+    .mini-cards-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 4;
+    }
+    .mini-card {
+      width: 122px;
+      height: 68px;
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 6px 16px -3px rgba(0, 0, 0, 0.2);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      cursor: pointer;
+      background: #333;
+    }
+    .mini-card:hover {
+      transform: scale(1.08) translateX(4px);
+      box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.3);
+      z-index: 10;
+    }
+    .mini-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .mini-card-label {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.18) 60%, transparent 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+    }
+
+    /* Showcase Bottom Pagination */
+    .showcase-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .dots-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .dot-pill {
+      height: 4px;
+      border-radius: 2px;
+      background: #D1D5DB;
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 14px;
+      cursor: pointer;
+    }
+    .dot-pill.active {
+      width: 24px;
+      background: var(--primary);
+    }
+    .sub-tagline {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 2.2px;
+      color: #9CA3AF;
+      text-transform: uppercase;
+    }
+
+    /* Form Container & Card (Compact Non-scroll Height) */
+    .form-container {
+      display: flex;
+      justify-content: center;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 424px;
+      background: var(--card-bg);
+      border-radius: 26px;
+      padding: 24px 28px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      position: relative;
+    }
+    .form-header {
+      margin-bottom: 14px;
+    }
+    .form-title {
+      font-size: 23px;
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--text-dark);
+      letter-spacing: -0.4px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+    }
+    .form-title .brand-name {
+      color: #111827;
+    }
+    .form-title .brand-name span {
+      color: var(--primary);
+    }
+    .form-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Form Elements */
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .input-field {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: #FFF;
+      border: 1.5px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0 12px;
+      height: 44px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .input-field:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(255, 43, 102, 0.08);
+    }
+    .input-icon {
+      color: var(--text-light);
+      display: flex;
+      align-items: center;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+    .input-icon svg { width: 16px; height: 16px; }
+    .input-inner {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex: 1;
+      height: 100%;
+    }
+    .input-label {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      line-height: 1;
+      margin-bottom: 1px;
+    }
+    .input-inner input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: var(--font-main);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dark);
+      width: 100%;
+      padding: 0;
+    }
+    .input-inner input::placeholder {
+      color: #9CA3AF;
+      font-weight: 400;
+    }
+    .input-toggle {
+      background: transparent;
+      border: none;
+      color: var(--text-light);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      transition: color 0.2s ease;
+    }
+    .input-toggle:hover { color: var(--text-dark); }
+    .input-toggle svg { width: 16px; height: 16px; }
+
+    /* Compact Checkbox Row */
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #4B5563;
+      line-height: 1.35;
+      margin: 2px 0 3px 0;
+    }
+    .checkbox-row.space-between {
+      justify-content: space-between;
+    }
+    .custom-checkbox {
+      position: relative;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .custom-checkbox input {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .checkmark {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background-color: #FFF;
+      border: 1.5px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+      margin-right: 6px;
+    }
+    .custom-checkbox input:checked ~ .checkmark {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .checkmark svg {
+      width: 10px;
+      height: 10px;
+      fill: none;
+      stroke: #FFF;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .custom-checkbox input:checked ~ .checkmark svg { opacity: 1; }
+    .terms-text a, .forgot-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .terms-text a:hover, .forgot-link:hover { text-decoration: underline; }
+
+    /* Submit Button */
+    .submit-btn {
+      width: 100%;
+      height: 44px;
+      border: none;
+      border-radius: 12px;
+      background: var(--primary-gradient);
+      color: #FFF;
+      font-family: var(--font-main);
+      font-size: 14.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 6px 16px -2px rgba(255, 43, 102, 0.32);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+      margin-top: 3px;
+    }
+    .submit-btn:hover {
+      filter: brightness(1.04);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px -2px rgba(255, 43, 102, 0.4);
+    }
+    .submit-btn:active { transform: translateY(1px); }
+    .submit-btn svg { width: 16px; height: 16px; }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      color: #9CA3AF;
+      font-size: 11px;
+      font-weight: 500;
+      margin: 8px 0;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .divider:not(:empty)::before { margin-right: 10px; }
+    .divider:not(:empty)::after { margin-left: 10px; }
+
+    /* Social Group */
+    .social-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .social-btn {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #FFF;
+      border: 1.5px solid var(--border-color);
+      border-radius: 11px;
+      font-family: var(--font-main);
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .social-btn:hover {
+      background: #F9FAFB;
+      border-color: #D1D5DB;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .social-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* Form Footer */
+    .form-footer {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .form-footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .form-footer a:hover { text-decoration: underline; }
+
+    /* Responsive */
+    @media (max-width: 1380px) {
+      .main-grid {
+        grid-template-columns: 1fr 400px;
+        gap: 24px;
+      }
+      .left-section {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 1080px) {
+      body { overflow-y: auto; }
+      .top-toolbar { position: static; justify-content: center; margin-bottom: 12px; }
+      .app-container { padding: 18px 20px; }
+      .main-grid { grid-template-columns: 1fr; gap: 28px; }
+      .left-section { flex-direction: column; text-align: center; width: 100%; min-height: auto; }
+      .info-col { width: 100%; flex: 1; align-items: center; }
+      .hero-desc { max-width: 100%; }
+      .header-tagline { display: none; }
+      .form-title { white-space: normal; }
+    }
+
+    @media (max-width: 680px) {
+      body { overflow-y: auto; }
+      .app-container { padding: 12px; }
+      header { justify-content: center; margin-bottom: 6px; }
+      .info-col { display: none; }
+      .left-section { gap: 0; margin-bottom: -15px; }
+      .showcase-cluster { transform: scale(0.85); }
+      .showcase-footer { display: none; }
+      .main-tilted-card { width: 230px; height: 330px; }
+      .mini-card { width: 95px; height: 54px; }
+      .auth-card { padding: 20px 16px; border-radius: 20px; }
+      .social-group { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-mode="register">
+
+  <!-- Top Floating Controls: Mode Switcher + Logo Concept Switcher -->
+  <div class="top-toolbar">
+    <!-- Logo Switcher (6 Concepts) -->
+    <div class="toolbar-group">
+      <span class="toolbar-label">Thử Logo:</span>
+      <button class="state-btn active" id="btnL1" onclick="setLogo(1)">⚡ 1. H-Play</button>
+      <button class="state-btn" id="btnL2" onclick="setLogo(2)">♾️ 2. Ribbon</button>
+      <button class="state-btn" id="btnL3" onclick="setLogo(3)">🎬 3. Prism</button>
+      <button class="state-btn" id="btnL4" onclick="setLogo(4)">🚀 4. Cyber</button>
+      <button class="state-btn" id="btnL5" onclick="setLogo(5)">💖 5. Heart</button>
+      <button class="state-btn" id="btnL6" onclick="setLogo(6)">💎 6. Origami</button>
+    </div>
+
+    <!-- Mode Switcher -->
+    <div class="toolbar-group">
+      <button class="state-btn active" id="btnRegister" onclick="setMode('register')">Đăng ký</button>
+      <button class="state-btn" id="btnLogin" onclick="setMode('login')">Đăng nhập</button>
+    </div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- Header -->
+    <header>
+      <div class="logo-container" onclick="cycleLogo()" title="Bấm vào để đổi qua lại giữa 3 mẫu Logo">
+        <div class="logo-svg-wrap" id="logoSlot">
+          <!-- Dynamically filled by setLogo(1) -->
+        </div>
+        <span class="logo-badge-indicator" id="logoBadge">Mẫu 1 đang bật</span>
+      </div>
+      <div class="header-tagline" id="headerTagline">More Videos. A Brighter You.</div>
+    </header>
+
+    <!-- Main Grid (Left frame: 898px x 542px) -->
+    <main class="main-grid">
+
+      <!-- Left Section: 898px x 542px -->
+      <section class="left-section">
+
+        <!-- Info Column (~370px) -->
+        <div class="info-col">
+          <div class="category-tracker" id="categoryTracker">CREATORS · VIEWERS · COMMUNITY</div>
+
+          <h1 class="hero-heading" id="heroHeading">
+            Create.<br>Share.<br><span class="highlight">Belong.</span>
+          </h1>
+
+          <p class="hero-desc" id="heroDesc">
+            HuTube empowers you to create, share, and discover amazing videos with a global community that celebrates your ideas, passions, and unique perspective.
+          </p>
+
+          <div class="features-list" id="featuresList">
+            <!-- Feature 1 -->
+            <div class="feature-item">
+              <div class="feature-icon-box" id="featIcon1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+              </div>
+              <div class="feature-text">
+                <span class="feature-title" id="featTitle1">Create Without Limits</span>
+                <span class="feature-sub" id="featSub1">Turn your ideas into amazing videos</span>
+              </div>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="feature-item">
+              <div class="feature-icon-box" id="featIcon2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div class="feature-text">
+                <span class="feature-title" id="featTitle2">Share Your World</span>
+                <span class="feature-sub" id="featSub2">Reach real people, real stories</span>
+              </div>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="feature-item">
+              <div class="feature-icon-box" id="featIcon3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              </div>
+              <div class="feature-text">
+                <span class="feature-title" id="featTitle3">Discover & Belong</span>
+                <span class="feature-sub" id="featSub3">Find content and a community that feels like home</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="handwritten-tag">Good Videos Better People</div>
+        </div>
+
+        <!-- 3D Showcase with 3s Auto-Carousel (~480px) -->
+        <div class="showcase-cluster">
+          <div class="cards-wrapper">
+
+            <!-- Main Card with 3-Slide Carousel (Scaled to 295px x 425px) -->
+            <div class="main-tilted-card" id="carouselCard">
+
+              <!-- Slide 1: Register Hero -->
+              <div class="carousel-slide active" data-slide="0">
+                <div class="main-card-annotation">Your Story<br>Belongs Here</div>
+                <img src="frontend/user-web/public/assets/auth/hero_register.jpg" alt="Your Story Belongs Here" onerror="this.src='assets/auth/hero_register.jpg'">
+              </div>
+
+              <!-- Slide 2: Login Hero -->
+              <div class="carousel-slide" data-slide="1">
+                <div class="main-card-annotation">A Bigger World<br>in Every Video</div>
+                <img src="frontend/user-web/public/assets/auth/hero_login.jpg" alt="A Bigger World in Every Video" onerror="this.src='assets/auth/hero_login.jpg'">
+              </div>
+
+              <!-- Slide 3: Community Hero -->
+              <div class="carousel-slide" data-slide="2">
+                <div class="main-card-annotation">Inspire The<br>World Around You</div>
+                <img src="frontend/user-web/public/assets/auth/hero_community.jpg" alt="Inspire The World" onerror="this.src='assets/auth/hero_community.jpg'">
+              </div>
+
+            </div>
+
+            <!-- 5 Mini Cards (122px x 68px each) -->
+            <div class="mini-cards-stack">
+              <div class="mini-card" onclick="goToSlide(0)">
+                <img src="frontend/user-web/public/assets/auth/card_explore.jpg" alt="Explore" onerror="this.src='assets/auth/card_explore.jpg'">
+                <div class="mini-card-label">EXPLORE</div>
+              </div>
+              <div class="mini-card" onclick="goToSlide(1)">
+                <img src="frontend/user-web/public/assets/auth/card_create.jpg" alt="Create" onerror="this.src='assets/auth/card_create.jpg'">
+                <div class="mini-card-label">CREATE</div>
+              </div>
+              <div class="mini-card" onclick="goToSlide(2)">
+                <img src="frontend/user-web/public/assets/auth/card_learn.jpg" alt="Learn" onerror="this.src='assets/auth/card_learn.jpg'">
+                <div class="mini-card-label">LEARN</div>
+              </div>
+              <div class="mini-card" onclick="goToSlide(0)">
+                <img src="frontend/user-web/public/assets/auth/card_share.jpg" alt="Share" onerror="this.src='assets/auth/card_share.jpg'">
+                <div class="mini-card-label">SHARE</div>
+              </div>
+              <div class="mini-card" onclick="goToSlide(1)">
+                <img src="frontend/user-web/public/assets/auth/card_belong.jpg" alt="Belong" onerror="this.src='assets/auth/card_belong.jpg'">
+                <div class="mini-card-label">BELONG</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Carousel Dots Indicator (Auto updates each 3s) -->
+          <div class="showcase-footer">
+            <div class="dots-indicator" id="dotsContainer">
+              <div class="dot-pill active" onclick="goToSlide(0)"></div>
+              <div class="dot-pill" onclick="goToSlide(1)"></div>
+              <div class="dot-pill" onclick="goToSlide(2)"></div>
+            </div>
+            <div class="sub-tagline">A MORE OPEN, CREATIVE, KINDER INTERNET</div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- Right Section: Compact Auth Card -->
+      <section class="form-container">
+        <div class="auth-card">
+
+          <div class="form-header">
+            <h2 class="form-title" id="formTitle">
+              Create your <span class="brand-name">Hu<span>Tube</span></span> account
+            </h2>
+            <p class="form-sub" id="formSub">Join a global community of creators, dreamers and curious minds.</p>
+          </div>
+
+          <form class="auth-form" onsubmit="event.preventDefault();">
+
+            <!-- Full Name (Register only) -->
+            <div class="input-field" id="fieldDisplayName">
+              <div class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+              </div>
+              <div class="input-inner">
+                <span class="input-label">FULL NAME</span>
+                <input type="text" placeholder="John Doe" autocomplete="name">
+              </div>
+            </div>
+
+            <!-- Email Address -->
+            <div class="input-field">
+              <div class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </div>
+              <div class="input-inner">
+                <span class="input-label">EMAIL ADDRESS</span>
+                <input type="email" placeholder="you@example.com" autocomplete="email">
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div class="input-field">
+              <div class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="input-inner">
+                <span class="input-label">PASSWORD</span>
+                <input type="password" id="inputPass" placeholder="Min. 8 characters" autocomplete="new-password">
+              </div>
+              <button type="button" class="input-toggle" onclick="togglePass('inputPass')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+
+            <!-- Confirm Password (Register only) -->
+            <div class="input-field" id="fieldConfirmPass">
+              <div class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="input-inner">
+                <span class="input-label">CONFIRM PASSWORD</span>
+                <input type="password" id="inputConfirmPass" placeholder="Repeat your password" autocomplete="new-password">
+              </div>
+              <button type="button" class="input-toggle" onclick="togglePass('inputConfirmPass')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+
+            <!-- Compact Terms Checkbox (Register only) -->
+            <div class="checkbox-row" id="termsRow">
+              <label class="custom-checkbox">
+                <input type="checkbox" checked>
+                <span class="checkmark">
+                  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              </label>
+              <span class="terms-text">
+                I agree to the <a href="#">Terms</a> & <a href="#">Privacy Policy</a> and creator tips.
+              </span>
+            </div>
+
+            <!-- Remember me & Forgot Password (Login only) -->
+            <div class="checkbox-row space-between" id="rememberRow" style="display: none;">
+              <label class="custom-checkbox">
+                <input type="checkbox" checked>
+                <span class="checkmark">
+                  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span>Remember me</span>
+              </label>
+              <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="submit-btn" id="submitBtn">
+              <span>Create Account</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+
+            <!-- Divider -->
+            <div class="divider" id="socialDivider">or sign up with</div>
+
+            <!-- Social Buttons -->
+            <div class="social-group">
+              <button type="button" class="social-btn">
+                <svg viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.9C6.2 7.4 8.9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.3 14.7c-.2-.7-.4-1.5-.4-2.7s.1-2 .4-2.7L1.6 6.4C.6 8.4 0 10.6 0 13s.6 4.6 1.6 6.6l3.7-4.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.4-6.7-5.3L1.6 17.9C3.5 21.8 7.5 23 12 23z"/></svg>
+                Google
+              </button>
+              <button type="button" class="social-btn">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 0.92-2.87-.92.04-2.02.62-2.67 1.37-.58.66-1.09 1.73-.95 2.76 1.03.08 2.07-.51 2.7-1.26z"/></svg>
+                Apple
+              </button>
+            </div>
+
+          </form>
+
+          <div class="form-footer" id="formFooter">
+            Already have an account? <a href="javascript:void(0)" onclick="setMode('login')">Sign in</a>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <script>
+    // 3 Logo SVG Definitions
+    const LOGO_TEMPLATES = {
+      1: {
+        name: 'Mẫu 1: The Dynamic H-Play',
+        badge: 'Mẫu 1 đang bật (H-Play)',
+        svg: `<svg width="158" height="42" viewBox="0 0 220 54" fill="none">
+          <defs>
+            <linearGradient id="l1_a" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF4D80"/><stop offset="100%" stop-color="#FF2B66"/></linearGradient>
+            <linearGradient id="l1_b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF2B66"/><stop offset="100%" stop-color="#7C3AED"/></linearGradient>
+            <linearGradient id="l1_c" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#FF2B66"/><stop offset="50%" stop-color="#FF6584"/><stop offset="100%" stop-color="#9333EA"/></linearGradient>
+          </defs>
+          <g transform="translate(2, 1)">
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="#FFF"/>
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="url(#l1_c)" fill-opacity="0.08"/>
+            <rect x="0.5" y="0.5" width="49" height="49" rx="14.5" stroke="#FF2B66" stroke-opacity="0.2"/>
+            <rect x="10" y="10" width="8" height="30" rx="4" fill="url(#l1_a)"/>
+            <rect x="32" y="10" width="8" height="30" rx="4" fill="url(#l1_b)"/>
+            <path d="M 16 17 C 16 15.6 17.5 14.8 18.7 15.5 L 29.8 22.8 C 30.8 23.5 30.8 25.1 29.8 25.8 L 18.7 33.1 C 17.5 33.8 16 33.0 16 31.6 Z" fill="url(#l1_c)"/>
+            <circle cx="21" cy="24.3" r="2.2" fill="#FFF" fill-opacity="0.9"/>
+          </g>
+          <g transform="translate(64, 35)">
+            <text font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#111827">Hu</text>
+            <text x="36" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#FF2B66">Tube</text>
+            <circle cx="106" cy="-8" r="3" fill="#7C3AED"/>
+          </g>
+        </svg>`
+      },
+      2: {
+        name: 'Mẫu 2: The Creative Ribbon (Vô cực)',
+        badge: 'Mẫu 2 đang bật (Ribbon)',
+        svg: `<svg width="158" height="42" viewBox="0 0 220 54" fill="none">
+          <defs>
+            <linearGradient id="l2_g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF2B66"/><stop offset="60%" stop-color="#FF6B35"/><stop offset="100%" stop-color="#FFA800"/></linearGradient>
+          </defs>
+          <g transform="translate(2, 1)">
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="#FFF"/>
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="url(#l2_g)" fill-opacity="0.08"/>
+            <rect x="0.5" y="0.5" width="49" height="49" rx="14.5" stroke="#FFA800" stroke-opacity="0.25"/>
+            <path d="M 12 15 C 12 11 15 8 19 8 C 23 8 26 11 26 15 L 26 23 C 27 20 30 18 34 18 C 39 18 42 22 42 27 L 42 35 C 42 39 39 42 35 42 C 31 42 28 39 28 35 L 28 27 C 27 30 24 32 20 32 C 15 32 12 28 12 23 Z" fill="url(#l2_g)"/>
+            <path d="M 21 19 L 32 25 L 21 31 Z" fill="#FFF" fill-opacity="0.95"/>
+          </g>
+          <g transform="translate(64, 35)">
+            <text font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#111827">Hu</text>
+            <text x="36" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#FF2B66">Tube</text>
+            <circle cx="106" cy="-8" r="3" fill="#FFA800"/>
+          </g>
+        </svg>`
+      },
+      3: {
+        name: 'Mẫu 3: The Prism Aperture (Điện ảnh)',
+        badge: 'Mẫu 3 đang bật (Prism)',
+        svg: `<svg width="158" height="42" viewBox="0 0 220 54" fill="none">
+          <defs>
+            <linearGradient id="l3_a" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF2B66"/><stop offset="100%" stop-color="#FF5E8A"/></linearGradient>
+            <linearGradient id="l3_b" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#4F46E5"/></linearGradient>
+            <linearGradient id="l3_c" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#06B6D4"/><stop offset="100%" stop-color="#3B82F6"/></linearGradient>
+          </defs>
+          <g transform="translate(2, 1)">
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="#FFF"/>
+            <rect x="0.5" y="0.5" width="49" height="49" rx="14.5" stroke="#E5E7EB"/>
+            <path d="M 12 14 C 18 10 32 10 38 15 C 33 22 25 24 18 20 Z" fill="url(#l3_a)" opacity="0.95"/>
+            <path d="M 38 16 C 42 22 42 36 36 41 C 31 34 30 25 33 17 Z" fill="url(#l3_b)" opacity="0.95"/>
+            <path d="M 12 36 C 8 30 10 16 16 12 C 19 20 25 26 20 34 Z" fill="url(#l3_c)" opacity="0.92"/>
+            <path d="M 21 19 C 21 17.8 22.4 17.1 23.4 17.7 L 33.2 23.6 C 34.1 24.2 34.1 25.6 33.2 26.2 L 23.4 32.1 C 22.4 32.7 21 32.0 21 30.8 Z" fill="#FFF"/>
+          </g>
+          <g transform="translate(64, 35)">
+            <text font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#111827">Hu</text>
+            <text x="36" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#FF2B66">Tube</text>
+            <circle cx="106" cy="-8" r="3" fill="#06B6D4"/>
+          </g>
+        </svg>`
+      },
+      4: {
+        name: 'Mẫu 4: HyperTube Velocity (Cyber Stream)',
+        badge: 'Mẫu 4 đang bật (Cyber)',
+        svg: `<svg width="158" height="42" viewBox="0 0 220 54" fill="none">
+          <defs>
+            <linearGradient id="l4_tl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00F2FE"/><stop offset="40%" stop-color="#4FACFE"/><stop offset="100%" stop-color="#7F00FF"/></linearGradient>
+            <linearGradient id="l4_tr" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF1361"/><stop offset="60%" stop-color="#FF4E50"/><stop offset="100%" stop-color="#F9D423"/></linearGradient>
+            <linearGradient id="l4_glow" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#FF1361"/><stop offset="100%" stop-color="#00F2FE"/></linearGradient>
+          </defs>
+          <g transform="translate(2, 1)">
+            <rect x="0" y="0" width="50" height="50" rx="16" fill="#0F172A"/>
+            <rect x="0.5" y="0.5" width="49" height="49" rx="15.5" stroke="url(#l4_glow)" stroke-opacity="0.4"/>
+            <path d="M 12 11 C 12 9.5 13.5 8.5 15 9.2 L 19 11.2 C 20.2 11.8 21 13 21 14.4 L 21 38 C 21 39.7 19.3 41 17.6 40.2 L 13.6 38.2 C 12.6 37.7 12 36.7 12 35.6 Z" fill="url(#l4_tl)"/>
+            <path d="M 33 11 C 33 9.5 34.5 8.5 36 9.2 L 40 11.2 C 41.2 11.8 42 13 42 14.4 L 42 38 C 42 39.7 40.3 41 38.6 40.2 L 34.6 38.2 C 33.6 37.7 33 36.7 33 35.6 Z" fill="url(#l4_tr)"/>
+            <path d="M 18 19 L 32 25 L 18 31 Z" fill="#FFF"/>
+            <path d="M 23 21.5 L 30.5 25 L 23 28.5 Z" fill="url(#l4_tr)"/>
+            <circle cx="35" cy="25" r="2" fill="#00F2FE"/>
+          </g>
+          <g transform="translate(64, 35)">
+            <text font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#111827">Hu</text>
+            <text x="36" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#FF1361">Tube</text>
+            <circle cx="106" cy="-8" r="3" fill="#00F2FE"/>
+          </g>
+        </svg>`
+      },
+      5: {
+        name: 'Mẫu 5: Hu-Heart Play (CHÍNH THỨC ĐƯỢC CHỌN)',
+        badge: 'Mẫu 5 (Hu-Heart ★)',
+        svg: `<svg width="158" height="42" viewBox="0 0 220 54" fill="none">
+          <defs>
+            <linearGradient id="l5_hg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF4D80"/><stop offset="50%" stop-color="#FF2B66"/><stop offset="100%" stop-color="#E61952"/></linearGradient>
+            <filter id="l5_hs" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#FF2B66" flood-opacity="0.36"/></filter>
+            <filter id="l5_ps" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#880026" flood-opacity="0.3"/></filter>
+          </defs>
+          <g transform="translate(2, 1)">
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="#FFF"/>
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="url(#l5_hg)" fill-opacity="0.06"/>
+            <rect x="0.5" y="0.5" width="49" height="49" rx="14.5" stroke="#FF2B66" stroke-opacity="0.18"/>
+            <g filter="url(#l5_hs)">
+              <path d="M 25 15.5 C 23.2 12, 19.5 7.5, 13.8 7.5 C 7.8 7.5, 4 12.8, 4 19.2 C 4 26.8, 12.5 33.8, 25 42.5 C 37.5 33.8, 46 26.8, 46 19.2 C 46 12.8, 42.2 7.5, 36.2 7.5 C 30.5 7.5, 26.8 12, 25 15.5 Z" fill="url(#l5_hg)"/>
+              <path d="M 13.8 9.5 C 9.2 9.5, 6 13.8, 6 19.2 C 6 22.5, 8.2 26.2, 12 29.8 C 10 26, 9.5 22, 9.5 19.2 C 9.5 15, 11.5 11.5, 15.5 10.5 C 14.9 9.8, 14.3 9.5, 13.8 9.5 Z" fill="#FFFFFF" fill-opacity="0.3"/>
+              <path d="M 20.5 16 C 19.4 15.3, 18 16.1, 18 17.4 L 18 30.6 C 18 31.9, 19.4 32.7, 20.5 32 L 32 25.4 C 33.1 24.7, 33.1 23.3, 32 22.6 Z" fill="#FFFFFF" filter="url(#l5_ps)"/>
+            </g>
+          </g>
+          <g transform="translate(64, 35)">
+            <text font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#111827">Hu</text>
+            <text x="36" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#FF2B66">Tube</text>
+            <path d="M 104 -10 C 104 -12 106 -13 107.5 -11.5 C 109 -13 111 -12 111 -10 C 111 -8 107.5 -6 107.5 -6 C 107.5 -6 104 -8 104 -10 Z" fill="#FF2B66"/>
+          </g>
+        </svg>`
+      },
+      6: {
+        name: 'Mẫu 6: Origami Film 3D (Đa Chiều Studio)',
+        badge: 'Mẫu 6 đang bật (Origami)',
+        svg: `<svg width="158" height="42" viewBox="0 0 220 54" fill="none">
+          <defs>
+            <linearGradient id="l6_l" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF2B66"/><stop offset="100%" stop-color="#BE123C"/></linearGradient>
+            <linearGradient id="l6_f" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FF4D80"/><stop offset="60%" stop-color="#FF2B66"/><stop offset="100%" stop-color="#9333EA"/></linearGradient>
+            <linearGradient id="l6_r" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#4C1D95"/></linearGradient>
+          </defs>
+          <g transform="translate(2, 1)">
+            <rect x="0" y="0" width="50" height="50" rx="15" fill="#FFF"/>
+            <rect x="0.5" y="0.5" width="49" height="49" rx="14.5" stroke="#E2E8F0"/>
+            <path d="M 11 11 C 11 9.5 12.5 8.5 14 9 L 19 11 C 20.5 11.5 21 12.5 21 14 L 21 40 C 21 41.5 19.5 42.5 18 42 L 13 40 C 11.5 39.5 11 38.5 11 37 Z" fill="url(#l6_l)"/>
+            <path d="M 19 16 C 19 14.8 20.2 14 21.3 14.6 L 33 21.5 C 34.2 22.2 34.2 23.8 33 24.5 L 21.3 31.4 C 20.2 32 19 31.2 19 30 Z" fill="url(#l6_f)"/>
+            <path d="M 31 11 C 31 9.5 32.5 8.5 34 9 L 39 11 C 40.5 11.5 41 12.5 41 14 L 41 40 C 41 41.5 39.5 42.5 38 42 L 33 40 C 31.5 39.5 31 38.5 31 37 Z" fill="url(#l6_r)"/>
+            <path d="M 21.5 16 L 31.5 22 L 21.5 24 Z" fill="#FFF" fill-opacity="0.35"/>
+          </g>
+          <g transform="translate(64, 35)">
+            <text font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#111827">Hu</text>
+            <text x="36" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#FF2B66">Tube</text>
+            <path d="M 106 -9 L 109 -6 L 106 -3 L 103 -6 Z" fill="#7C3AED"/>
+          </g>
+        </svg>`
+      }
+    };
+
+    let activeLogo = 5;
+    function setLogo(id) {
+      activeLogo = id;
+      const config = LOGO_TEMPLATES[id];
+      document.getElementById('logoSlot').innerHTML = config.svg;
+      document.getElementById('logoBadge').innerText = config.badge;
+      [1, 2, 3, 4, 5, 6].forEach(num => {
+        const btn = document.getElementById('btnL' + num);
+        if (btn) btn.classList.toggle('active', num === id);
+      });
+    }
+
+    function cycleLogo() {
+      const next = activeLogo === 6 ? 1 : activeLogo + 1;
+      setLogo(next);
+    }
+
+    // Set initial logo to Concept 5 (Hu-Heart)
+    setLogo(5);
+
+    // Carousel Logic: 3s auto rotation
+    let currentSlide = 0;
+    const totalSlides = 3;
+    let carouselInterval = null;
+
+    function goToSlide(index) {
+      currentSlide = (index + totalSlides) % totalSlides;
+      const slides = document.querySelectorAll('.carousel-slide');
+      slides.forEach((slide, idx) => {
+        slide.classList.toggle('active', idx === currentSlide);
+      });
+      const dots = document.querySelectorAll('.dot-pill');
+      dots.forEach((dot, idx) => {
+        dot.classList.toggle('active', idx === currentSlide);
+      });
+    }
+
+    function nextSlide() {
+      goToSlide(currentSlide + 1);
+    }
+
+    function startCarouselTimer() {
+      if (carouselInterval) clearInterval(carouselInterval);
+      carouselInterval = setInterval(nextSlide, 3000);
+    }
+
+    startCarouselTimer();
+
+    const cardEl = document.getElementById('carouselCard');
+    if (cardEl) {
+      cardEl.addEventListener('mouseenter', () => clearInterval(carouselInterval));
+      cardEl.addEventListener('mouseleave', () => startCarouselTimer());
+    }
+
+    // Toggle between Register and Login Modes
+    function setMode(mode) {
+      document.body.setAttribute('data-mode', mode);
+      const isReg = mode === 'register';
+
+      document.getElementById('btnRegister').classList.toggle('active', isReg);
+      document.getElementById('btnLogin').classList.toggle('active', !isReg);
+
+      document.getElementById('categoryTracker').innerText = isReg
+        ? 'CREATORS · VIEWERS · COMMUNITY'
+        : 'VIDEOS BRING US CLOSER';
+
+      document.getElementById('heroHeading').innerHTML = isReg
+        ? 'Create.<br>Share.<br><span class="highlight">Belong.</span>'
+        : 'Watch.<br>Learn.<br><span class="highlight">Belong.</span>';
+
+      document.getElementById('heroDesc').innerText = isReg
+        ? 'HuTube empowers you to create, share, and discover amazing videos with a global community that celebrates your ideas, passions, and unique perspective.'
+        : 'HuTube is a home for creators, dreamers and curious minds. Discover amazing videos, new perspectives, and a community that inspires you — every day.';
+
+      document.getElementById('featTitle1').innerText = isReg ? 'Create Without Limits' : 'Endless Content';
+      document.getElementById('featSub1').innerText = isReg ? 'Turn your ideas into amazing videos' : 'From entertainment to education';
+
+      document.getElementById('featTitle2').innerText = isReg ? 'Share Your World' : 'A Global Community';
+      document.getElementById('featSub2').innerText = isReg ? 'Reach real people, real stories' : 'Real people. Real stories.';
+
+      document.getElementById('featTitle3').innerText = isReg ? 'Discover & Belong' : 'A Brighter Tomorrow';
+      document.getElementById('featSub3').innerText = isReg ? 'Find content and a community that feels like home' : 'Ideas that move the world forward';
+
+      goToSlide(isReg ? 0 : 1);
+
+      document.getElementById('formTitle').innerHTML = isReg
+        ? 'Create your <span class="brand-name">Hu<span>Tube</span></span> account'
+        : 'Welcome to <span class="brand-name">Hu<span>Tube</span></span>';
+
+      document.getElementById('formSub').innerText = isReg
+        ? 'Join a global community of creators, dreamers and curious minds.'
+        : 'Sign in to continue watching, creating and exploring.';
+
+      document.getElementById('fieldDisplayName').style.display = isReg ? 'flex' : 'none';
+      document.getElementById('fieldConfirmPass').style.display = isReg ? 'flex' : 'none';
+      document.getElementById('termsRow').style.display = isReg ? 'flex' : 'none';
+      document.getElementById('rememberRow').style.display = isReg ? 'none' : 'flex';
+
+      document.getElementById('submitBtn').querySelector('span').innerText = isReg ? 'Create Account' : 'Sign In';
+      document.getElementById('socialDivider').innerText = isReg ? 'or sign up with' : 'or continue with';
+      document.getElementById('formFooter').innerHTML = isReg
+        ? 'Already have an account? <a href="javascript:void(0)" onclick="setMode(\'login\')">Sign in</a>'
+        : 'Don\'t have an account? <a href="javascript:void(0)" onclick="setMode(\'register\')">Create one</a>';
+    }
+
+    function togglePass(id) {
+      const input = document.getElementById(id);
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+  </script>
+</body>
+</html>

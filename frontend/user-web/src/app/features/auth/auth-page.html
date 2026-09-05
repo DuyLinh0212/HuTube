@@ -1,15 +1,134 @@
 <main id="main-content" class="auth-layout">
-  <section class="auth-intro" aria-label="Giới thiệu">
-    <span class="brand-mark large" aria-hidden="true">▶</span>
-    <h1>{{ admin ? 'Không gian quản trị HuTube' : 'Một tài khoản. Kết nối mọi trải nghiệm.' }}</h1>
-    <p>{{ admin ? 'Đăng nhập bằng tài khoản được cấp quyền quản trị để tiếp tục công việc.' : 'Đăng nhập HuTube để bắt đầu trải nghiệm của bạn và quản lý tài khoản trên các thiết bị.' }}</p>
-    <div class="intro-note"><span aria-hidden="true">✓</span> {{ admin ? 'Quyền truy cập được kiểm tra mỗi lần đăng nhập.' : 'Bạn luôn kiểm soát những thiết bị đang đăng nhập.' }}</div>
+
+  <!-- Left Showcase Section (898px x 542px) -->
+  <section class="left-section" aria-label="Giới thiệu HuTube">
+
+    <!-- Info Column (~370px) -->
+    <div class="info-col">
+      <div class="category-tracker">CREATORS · VIEWERS · COMMUNITY</div>
+
+      <h1 class="hero-heading">
+        Create.<br>Share.<br><span class="highlight">Belong.</span>
+      </h1>
+
+      <p class="hero-desc">
+        HuTube trao quyền để bạn sáng tạo, kết nối và khám phá thế giới video cùng cộng đồng tôn vinh câu chuyện và góc nhìn của bạn.
+      </p>
+
+      <div class="features-list">
+        <div class="feature-item">
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+          </div>
+          <div class="feature-text">
+            <span class="feature-title">Sáng tạo không giới hạn</span>
+            <span class="feature-sub">Biến ý tưởng thành những video tuyệt vời</span>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="feature-text">
+            <span class="feature-title">Chia sẻ thế giới của bạn</span>
+            <span class="feature-sub">Kết nối hàng triệu người xem đồng điệu</span>
+          </div>
+        </div>
+
+        <div class="feature-item">
+          <div class="feature-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+          </div>
+          <div class="feature-text">
+            <span class="feature-title">Khám phá & Thuộc về</span>
+            <span class="feature-sub">Nơi bạn luôn tìm thấy nguồn cảm hứng</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="handwritten-tag">Good Videos Better People</div>
+    </div>
+
+    <!-- 3D Showcase with 3s Auto-Carousel (~480px) -->
+    <div class="showcase-cluster">
+      <div class="cards-wrapper">
+        <!-- Main Card with 3-Slide Carousel (295px x 425px) -->
+        <div class="main-tilted-card">
+          <!-- Slide 0 -->
+          <div class="carousel-slide" [class.active]="currentSlide() === 0">
+            <div class="main-card-annotation">Your Story<br>Belongs Here</div>
+            <img src="/assets/auth/hero_register.jpg" alt="Your Story Belongs Here">
+          </div>
+
+          <!-- Slide 1 -->
+          <div class="carousel-slide" [class.active]="currentSlide() === 1">
+            <div class="main-card-annotation">A Bigger World<br>in Every Video</div>
+            <img src="/assets/auth/hero_login.jpg" alt="A Bigger World in Every Video">
+          </div>
+
+          <!-- Slide 2 -->
+          <div class="carousel-slide" [class.active]="currentSlide() === 2">
+            <div class="main-card-annotation">Inspire The<br>World Around You</div>
+            <img src="/assets/auth/hero_community.jpg" alt="Inspire The World">
+          </div>
+        </div>
+
+        <!-- 5 Mini Cards Stack (122px x 68px each) -->
+        <div class="mini-cards-stack">
+          <div class="mini-card" (click)="goToSlide(0)" role="button" tabindex="0">
+            <img src="/assets/auth/card_explore.jpg" alt="Explore">
+            <div class="mini-card-label">EXPLORE</div>
+          </div>
+          <div class="mini-card" (click)="goToSlide(1)" role="button" tabindex="0">
+            <img src="/assets/auth/card_create.jpg" alt="Create">
+            <div class="mini-card-label">CREATE</div>
+          </div>
+          <div class="mini-card" (click)="goToSlide(2)" role="button" tabindex="0">
+            <img src="/assets/auth/card_learn.jpg" alt="Learn">
+            <div class="mini-card-label">LEARN</div>
+          </div>
+          <div class="mini-card" (click)="goToSlide(0)" role="button" tabindex="0">
+            <img src="/assets/auth/card_share.jpg" alt="Share">
+            <div class="mini-card-label">SHARE</div>
+          </div>
+          <div class="mini-card" (click)="goToSlide(1)" role="button" tabindex="0">
+            <img src="/assets/auth/card_belong.jpg" alt="Belong">
+            <div class="mini-card-label">BELONG</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Carousel Dots Indicator (Auto updates each 3s) -->
+      <div class="showcase-footer">
+        <div class="dots-indicator">
+          <div class="dot-pill" [class.active]="currentSlide() === 0" (click)="goToSlide(0)"></div>
+          <div class="dot-pill" [class.active]="currentSlide() === 1" (click)="goToSlide(1)"></div>
+          <div class="dot-pill" [class.active]="currentSlide() === 2" (click)="goToSlide(2)"></div>
+        </div>
+        <div class="sub-tagline">A MORE OPEN, CREATIVE, KINDER INTERNET</div>
+      </div>
+    </div>
   </section>
+
+  <!-- Right Auth Panel -->
   <section class="auth-panel" [attr.aria-busy]="busy()" aria-labelledby="auth-heading">
-    <h2 id="auth-heading">{{ title }}</h2>
+    <h2 id="auth-heading">
+      @switch (mode()) {
+        @case ('register') { Tạo tài khoản Hu<span class="brand-tube">Tube</span> }
+        @case ('login') { Đăng nhập Hu<span class="brand-tube">Tube</span> }
+        @default { {{ title }} }
+      }
+    </h2>
     <p class="muted">@switch (mode()) { @case ('login') { {{ admin ? 'Dành cho đội ngũ quản trị.' : 'Chào mừng bạn trở lại HuTube.' }} } @case ('register') { Bắt đầu với email của bạn. } @case ('verify-email') { Hoàn tất xác minh để bảo vệ tài khoản. } @case ('forgot-password') { Nhập email để nhận liên kết đặt lại mật khẩu. } @case ('reset-password') { Chọn mật khẩu mới cho tài khoản của bạn. } }</p>
     @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
-    @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
+    @if (error()) {
+      <p class="notice error" role="alert">{{ error() }}</p>
+      @if (mode() === 'login' && verificationSuggested()) {
+        <p class="verification-help">Chưa nhận được email xác minh? <a routerLink="/verify-email" [queryParams]="{ email: email }">Gửi lại email</a></p>
+      }
+    }
     @if (mode() !== 'verify-email' && !completed()) {
       <form #form="ngForm" (ngSubmit)="submit(form)" novalidate>
         @if (mode() === 'register') {
@@ -25,10 +144,10 @@
         }
         @if (mode() !== 'forgot-password') {
           <div class="label-row"><label for="password">{{ mode() === 'reset-password' ? 'Mật khẩu mới' : 'Mật khẩu' }}</label>@if (mode() === 'login') { <a routerLink="/forgot-password">Quên mật khẩu?</a> }</div>
-          <div class="password-field"><input id="password" name="password" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" #passwordInput="ngModel" required [minlength]="mode() === 'login' ? 1 : 10" maxlength="128" [pattern]="mode() === 'login' ? '.*' : '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}'" [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'" [attr.aria-describedby]="mode() === 'login' ? null : 'password-hint'" [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched" /><button type="button" class="reveal" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" [attr.aria-pressed]="showPassword">{{ showPassword ? 'Ẩn' : 'Hiện' }}</button></div>
+          <div class="password-field"><input id="password" name="password" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" #passwordInput="ngModel" required [minlength]="mode() === 'login' ? 1 : 10" maxlength="128" [pattern]="mode() === 'login' ? '.*' : '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}'" [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'" [attr.aria-describedby]="mode() === 'login' ? null : 'password-hint'" [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched" /><button type="button" class="reveal" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" [attr.aria-pressed]="showPassword"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">@if (showPassword) { <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/> } @else { <path d="m3 3 18 18"/><path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c6 0 9.5 7 9.5 7a16.7 16.7 0 0 1-2.5 3.5M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3-.5"/> } </svg></button></div>
           @if (mode() !== 'login') {
             <p id="password-hint" class="field-hint">10–128 ký tự, gồm chữ hoa, chữ thường và số.</p>
-            <label for="confirmPassword">Nhập lại mật khẩu</label><input id="confirmPassword" name="confirmPassword" type="password" [(ngModel)]="confirmPassword" required maxlength="128" autocomplete="new-password" />
+            <label for="confirmPassword">Nhập lại mật khẩu</label><div class="password-field"><input id="confirmPassword" name="confirmPassword" [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="confirmPassword" required maxlength="128" autocomplete="new-password" /><button type="button" class="reveal" (click)="showConfirmPassword = !showConfirmPassword" [attr.aria-label]="showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'" [attr.aria-pressed]="showConfirmPassword"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">@if (showConfirmPassword) { <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/> } @else { <path d="m3 3 18 18"/><path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c6 0 9.5 7 9.5 7a16.7 16.7 0 0 1-2.5 3.5M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3-.5"/> } </svg></button></div>
           }
           @if (passwordInput.invalid && passwordInput.touched) { <p class="field-error">{{ mode() === 'login' ? 'Nhập mật khẩu của bạn.' : 'Mật khẩu chưa đáp ứng yêu cầu.' }}</p> }
         }
@@ -41,7 +160,7 @@
       <form #resendForm="ngForm" (ngSubmit)="resend(resendForm)"><label for="resendEmail">Email nhận liên kết mới</label><input id="resendEmail" name="resendEmail" type="email" [(ngModel)]="email" required email autocomplete="email" /><button class="primary full" type="submit" [disabled]="busy()">Gửi lại email xác minh</button></form>
     }
     <div class="auth-links">
-      @if (mode() === 'login') { @if (!admin) { <p>Chưa có tài khoản? <a routerLink="/register">Đăng ký</a></p> } <a routerLink="/verify-email">Gửi lại email xác minh</a> }
+      @if (mode() === 'login') { @if (!admin) { <p>Chưa có tài khoản? <a routerLink="/register">Đăng ký</a></p> } }
       @else { <a routerLink="/login">Trở về đăng nhập</a> }
       @if (mode() === 'reset-password' && !completed()) { <a routerLink="/forgot-password">Yêu cầu liên kết mới</a> }
       @if (!admin && mode() === 'reset-password' && hasResetToken && !completed()) { <a [href]="mobileResetLink">Mở trong ứng dụng HuTube</a> }

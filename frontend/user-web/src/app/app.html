@@ -1,4 +1,11 @@
 <a class="skip-link" href="#main-content">Chuyển đến nội dung</a>
-<header class="topbar"><a class="brand" routerLink="/account" aria-label="HuTube — tài khoản"><span class="brand-mark" aria-hidden="true">▶</span>HuTube</a><span class="app-label">{{ admin ? 'Quản trị' : 'Tài khoản HuTube' }}</span></header>
+<header class="topbar">
+  <a class="brand" routerLink="/account" aria-label="HuTube — tài khoản">
+    <img src="/assets/logo.svg" alt="HuTube" class="brand-logo" height="38" />
+  </a>
+  <div class="header-tagline">
+    {{ admin ? 'Quản trị hệ thống' : 'More Videos. A Brighter You.' }}
+  </div>
+</header>
 <router-outlet />
 <footer class="footer">HuTube <span>·</span> Kết nối trải nghiệm của bạn</footer>

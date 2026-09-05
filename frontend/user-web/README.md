@@ -2,6 +2,8 @@
 
 Ứng dụng Angular độc lập cho S4-01/S4-02. Các route: `/register`, `/verify-email?token=…`, `/login`, `/forgot-password`, `/reset-password?token=…`, `/account`.
 
+Bản User Web mặc định gọi API Render `https://hutube.onrender.com/api/v1`. Khi phát triển local, đặt `API_BASE_URL=http://localhost:5080/api/v1` trước `npm start` hoặc `npm run build`.
+
 ```powershell
 npm ci
 $env:API_BASE_URL = 'http://localhost:5080/api/v1'
@@ -10,7 +12,7 @@ npm start
 
 Mặc định chạy tại `http://localhost:4200`. API phải cho phép origin này qua CORS. Theo quyết định hiện tại của chủ dự án, API dùng local; chưa có Render Staging.
 
-`public/config.json` là cấu hình runtime, được tải trước khi Angular khởi động. `npm start` và `npm run build` nhận biến môi trường `API_BASE_URL` qua `scripts/configure-api.mjs`. Nếu không có biến, giữ giá trị trong config. Có thể thay `dist/user-web/browser/config.json` sau build mà không biên dịch lại. Không đặt secret trong cấu hình web. Hosting phải fallback các route về `index.html` và phục vụ `config.json` với Cache-Control no-store.
+`public/config.json` là cấu hình runtime, được tải trước khi Angular khởi động. `npm start` và `npm run build` nhận biến môi trường `API_BASE_URL` qua `scripts/configure-api.mjs`. Nếu không có biến, giữ giá trị Render trong config. Có thể thay `dist/user-web/browser/config.json` sau build mà không biên dịch lại. Không đặt secret trong cấu hình web. Hosting phải fallback các route về `index.html` và phục vụ `config.json` với Cache-Control no-store.
 
 ```powershell
 npm run build

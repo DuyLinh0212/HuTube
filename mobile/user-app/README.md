@@ -1,6 +1,6 @@
 # HuTube Mobile — S4-01 / S4-02
 
-Ứng dụng Flutter dùng chung API với User Web và Admin Web. Giao diện tiếng Việt bám mẫu sáng, điểm nhấn xanh trong `docs/design`.
+Ứng dụng Flutter dùng chung API với User Web và Admin Web. Mặc định bản mobile đã nối tới `https://hutube.onrender.com/api/v1`; có thể ghi đè bằng `--dart-define=API_BASE_URL=...` khi chạy local.
 
 ## Chạy local
 
@@ -15,7 +15,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1
 - Điện thoại Android nối USB: chạy `adb reverse tcp:5080 tcp:5080` rồi dùng `http://127.0.0.1:5080/api/v1`.
 - iOS Simulator: dùng `http://localhost:5080/api/v1` khi backend chạy trên máy Mac. iOS cần Xcode để build.
 - Điện thoại thật cùng LAN: truyền IP LAN máy backend và bind backend vào địa chỉ có thể truy cập. Không lưu URL vào source để chuyển môi trường.
-- Khi có Staging, truyền `--dart-define=API_BASE_URL=https://<staging-host>/api/v1`. Build release dùng HTTPS; Android chỉ cho HTTP ở debug/profile.
+- Khi dùng Render, không cần truyền `API_BASE_URL`; mặc định đã là `https://hutube.onrender.com/api/v1`. Build release dùng HTTPS; Android chỉ cho HTTP ở debug/profile.
 
 Biểu tượng kết nối trên thanh đầu trang gọi `GET /system/info`, hiện trạng thái thực từ backend.
 

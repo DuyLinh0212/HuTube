@@ -19,7 +19,9 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
         if (!IsWeb) return;
         var origin = Request.Headers.Origin.ToString();
         var expectedOrigin = Platform == "admin" ? options.AdminBaseUrl.TrimEnd('/') : options.WebBaseUrl.TrimEnd('/');
-        if (origin.Length > 0 && origin != expectedOrigin)
+        var allowedOrigins = (options.AllowedOrigins ?? []).Select(value => value.TrimEnd('/'));
+        if (origin.Length > 0 && !string.Equals(origin, expectedOrigin, StringComparison.OrdinalIgnoreCase)
+            && !allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
             throw new AuthException(403, "ORIGIN_NOT_ALLOWED", "Nguồn yêu cầu không được phép.");
     }
     private string? ReadRefresh(RefreshRequest request)

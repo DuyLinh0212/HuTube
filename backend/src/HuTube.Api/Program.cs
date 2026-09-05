@@ -19,10 +19,20 @@ var emailOptions = builder.Configuration.GetSection("Email").Get<EmailOptions>()
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
 if (authOptions.AccessTokenMinutes is < 1 or > 60 || authOptions.RefreshTokenDays is < 1 or > 90)
     throw new InvalidOperationException("Auth token lifetime configuration is outside its supported range.");
-foreach (var url in new[] { authOptions.WebBaseUrl, authOptions.AdminBaseUrl })
+var requiredAuthOrigins = new[] { authOptions.WebBaseUrl, authOptions.AdminBaseUrl };
+var additionalAuthOrigins = (authOptions.AllowedOrigins ?? []).Select(url => url.TrimEnd('/'))
+    .Where(url => !string.IsNullOrWhiteSpace(url)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+foreach (var url in requiredAuthOrigins)
     if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) || parsed.AbsolutePath != "/" || parsed.Query.Length > 0 || parsed.Fragment.Length > 0
-        || (builder.Environment.IsDevelopment() ? parsed.Scheme is not ("http" or "https") : parsed.Scheme != "https"))
-        throw new InvalidOperationException("Auth client URLs must be origins; HTTPS is required outside Development.");
+        || parsed.UserInfo.Length > 0 || (builder.Environment.IsDevelopment()
+            ? parsed.Scheme is not ("http" or "https")
+            : parsed.Scheme != "https" && !(parsed.IsLoopback && parsed.Scheme == "http" && additionalAuthOrigins.Contains(url.TrimEnd('/'), StringComparer.OrdinalIgnoreCase))))
+        throw new InvalidOperationException("Auth client URLs must be valid origins; non-HTTPS local origins must be explicitly allowlisted.");
+foreach (var url in additionalAuthOrigins)
+    if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) || parsed.AbsolutePath != "/" || parsed.Query.Length > 0 || parsed.Fragment.Length > 0
+        || parsed.UserInfo.Length > 0 || parsed.Scheme is not ("http" or "https")
+        || (!builder.Environment.IsDevelopment() && parsed.Scheme == "http" && !parsed.IsLoopback))
+        throw new InvalidOperationException("Auth client URLs must be valid origins; non-HTTPS local origins must be explicitly allowlisted.");
 if (emailOptions.Mode is not ("Pickup" or "Smtp") || (!builder.Environment.IsDevelopment() && emailOptions.Mode == "Pickup"))
     throw new InvalidOperationException("Email pickup is Development-only. Configure SMTP for Staging/Production.");
 if (emailOptions.Mode == "Smtp" && string.IsNullOrWhiteSpace(emailOptions.Host)) throw new InvalidOperationException("Email__Host is required for SMTP.");
@@ -40,7 +50,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options
     var result = new BadRequestObjectResult(problem); result.ContentTypes.Add("application/problem+json"); return result;
 });
 builder.Services.AddOpenApi();
-var corsOrigins = new[] { authOptions.WebBaseUrl.TrimEnd('/'), authOptions.AdminBaseUrl.TrimEnd('/'), "http://localhost:4200", "http://localhost:4201" }
+var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url => url.TrimEnd('/'))
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
     .WithMethods("GET", "POST", "DELETE", "OPTIONS").WithHeaders("Content-Type", "Authorization", "X-HuTube-Client", "X-HuTube-App").AllowCredentials()));

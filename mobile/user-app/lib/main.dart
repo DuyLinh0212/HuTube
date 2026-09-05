@@ -28,42 +28,189 @@ class HuTubeApp extends StatelessWidget {
     theme: ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xff2458dc),
-        primary: const Color(0xff2458dc),
+        seedColor: const Color(0xFFFF2B66),
+        primary: const Color(0xFFFF2B66),
         surface: Colors.white,
       ),
-      scaffoldBackgroundColor: const Color(0xfff5f8ff),
+      scaffoldBackgroundColor: const Color(0xFFFAF8F7),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
+        backgroundColor: Color(0xFFFAF8F7),
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xffc7d1e2)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFFF2B66), width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 18,
+          vertical: 16,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          backgroundColor: const Color(0xFFFF2B66),
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(50),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+        style: TextButton.styleFrom(
+          foregroundColor: const Color(0xFFFF2B66),
+          minimumSize: const Size(48, 48),
+        ),
       ),
     ),
     home: AuthScreen(auth: auth, links: links),
   );
+}
+
+class HuHeartLogo extends StatelessWidget {
+  const HuHeartLogo({super.key, this.size = 32, this.showWordmark = true});
+  final double size;
+  final bool showWordmark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: size,
+          height: size,
+          child: CustomPaint(
+            painter: _HuHeartPainter(),
+          ),
+        ),
+        if (showWordmark) ...[
+          const SizedBox(width: 8),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Hu',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: size * 0.68,
+                    color: const Color(0xFF111827),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Tube',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: size * 0.68,
+                    color: const Color(0xFFFF2B66),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _HuHeartPainter extends CustomPainter {
+  const _HuHeartPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final bgRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, w, h),
+      Radius.circular(w * 0.28),
+    );
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF3B213D), Color(0xFF1E1628)],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawRRect(bgRRect, bgPaint);
+
+    final borderPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawRRect(bgRRect, borderPaint);
+
+    final heartPath = Path();
+    heartPath.moveTo(w * 0.5, h * 0.36);
+    heartPath.cubicTo(w * 0.46, h * 0.27, w * 0.39, h * 0.17, w * 0.28, h * 0.17);
+    heartPath.cubicTo(w * 0.15, h * 0.17, w * 0.08, h * 0.28, w * 0.08, h * 0.42);
+    heartPath.cubicTo(w * 0.08, h * 0.58, w * 0.26, h * 0.73, w * 0.5, h * 0.88);
+    heartPath.cubicTo(w * 0.74, h * 0.73, w * 0.92, h * 0.58, w * 0.92, h * 0.42);
+    heartPath.cubicTo(w * 0.92, h * 0.28, w * 0.85, h * 0.17, w * 0.72, h * 0.17);
+    heartPath.cubicTo(w * 0.61, h * 0.17, w * 0.54, h * 0.27, w * 0.5, h * 0.36);
+    heartPath.close();
+
+    canvas.drawShadow(heartPath, const Color(0xFFFF2B66), 4.0, true);
+
+    final heartPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFF4D80), Color(0xFFFF2B66), Color(0xFFE61952)],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawPath(heartPath, heartPaint);
+
+    final specPath = Path();
+    specPath.moveTo(w * 0.28, h * 0.21);
+    specPath.cubicTo(w * 0.18, h * 0.21, w * 0.12, h * 0.30, w * 0.12, h * 0.42);
+    specPath.cubicTo(w * 0.12, h * 0.49, w * 0.17, h * 0.57, w * 0.25, h * 0.65);
+    specPath.cubicTo(w * 0.21, h * 0.57, w * 0.20, h * 0.49, w * 0.20, h * 0.42);
+    specPath.cubicTo(w * 0.20, h * 0.33, w * 0.24, h * 0.25, w * 0.32, h * 0.23);
+    specPath.close();
+    final specPaint = Paint()..color = Colors.white.withValues(alpha: 0.3);
+    canvas.drawPath(specPath, specPaint);
+
+    final playPath = Path();
+    playPath.moveTo(w * 0.42, h * 0.36);
+    playPath.lineTo(w * 0.42, h * 0.66);
+    playPath.lineTo(w * 0.66, h * 0.51);
+    playPath.close();
+
+    canvas.drawShadow(playPath, const Color(0xFF880026), 2.0, false);
+    final playPaint = Paint()..color = Colors.white;
+    canvas.drawPath(playPath, playPaint);
+
+    final spark = Path()
+      ..moveTo(w * 0.83, h * 0.08)
+      ..lineTo(w * 0.87, h * 0.19)
+      ..lineTo(w * 0.98, h * 0.23)
+      ..lineTo(w * 0.87, h * 0.27)
+      ..lineTo(w * 0.83, h * 0.38)
+      ..lineTo(w * 0.79, h * 0.27)
+      ..lineTo(w * 0.68, h * 0.23)
+      ..lineTo(w * 0.79, h * 0.19)
+      ..close();
+    canvas.drawPath(spark, Paint()..color = const Color(0xFFFFB6C8));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class AuthScreen extends StatefulWidget {
@@ -86,6 +233,7 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _token;
   String? _message;
   bool _error = false;
+  bool _verificationSuggested = false;
   bool _busy = false;
   bool _hidden = true;
   bool _sessionsLoading = false;
@@ -148,6 +296,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ? 'Đăng nhập để tiếp tục đến tài khoản của bạn.'
           : null;
       _error = false;
+      _verificationSuggested = false;
       _password.clear();
       _confirm.clear();
       _hidden = true;
@@ -163,6 +312,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _busy = true;
       _message = null;
       _error = false;
+      _verificationSuggested = false;
     });
     try {
       await action();
@@ -171,6 +321,9 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _message = error.message;
           _error = true;
+          _verificationSuggested =
+              error.code == 'EMAIL_NOT_VERIFIED' ||
+              error.code == 'EMAIL_UNVERIFIED';
         });
       }
     } catch (_) {
@@ -178,6 +331,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _message = 'Có lỗi xảy ra. Vui lòng thử lại.';
           _error = true;
+          _verificationSuggested = false;
         });
       }
     } finally {
@@ -290,20 +444,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final message = _message ?? auth.notice;
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.play_circle_fill_rounded, color: Color(0xff2458dc)),
-            SizedBox(width: 8),
-            Text(
-              'HuTube',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: Color(0xff2458dc),
-              ),
-            ),
-          ],
-        ),
+        title: const HuHeartLogo(size: 28),
         actions: [
           IconButton(
             onPressed: _busy ? null : _diagnostic,
@@ -343,21 +484,27 @@ class _AuthScreenState extends State<AuthScreen> {
                               decoration: BoxDecoration(
                                 color: _error
                                     ? const Color(0xffffeae8)
-                                    : const Color(0xffe8f0ff),
-                                borderRadius: BorderRadius.circular(12),
+                                    : const Color(0xfffff0f4),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: _error
+                                      ? const Color(0xffffc8c4)
+                                      : const Color(0xffffccd8),
+                                ),
                               ),
                               child: Text(
                                 message,
                                 style: TextStyle(
                                   color: _error
                                       ? const Color(0xff962c26)
-                                      : const Color(0xff183c82),
+                                      : const Color(0xffc2185b),
                                   height: 1.5,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
                         ],
                         if (_page == '/account' && auth.authenticated)
                           ..._account()
@@ -492,12 +639,27 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               if (!missingToken)
                 FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF2B66),
+                    foregroundColor: Colors.white,
+                    elevation: 3,
+                    shadowColor: const Color(0xFFFF2B66).withValues(alpha: 0.5),
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                   onPressed: _busy ? null : _submit,
                   child: _busy
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
                         )
                       : Text(
                           login
@@ -509,11 +671,22 @@ class _AuthScreenState extends State<AuthScreen> {
                               : reset
                               ? 'Lưu mật khẩu mới'
                               : 'Gửi email',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                 ),
               if (login) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                   onPressed: _busy ? null : () => _run(auth.loginWithGoogle),
                   child: const Text('Tiếp tục với Google'),
                 ),
@@ -528,10 +701,11 @@ class _AuthScreenState extends State<AuthScreen> {
           onPressed: _busy ? null : () => _navigate('/register'),
           child: const Text('Chưa có tài khoản? Đăng ký'),
         ),
-        TextButton(
-          onPressed: _busy ? null : () => _navigate('/resend-verification'),
-          child: const Text('Chưa nhận email xác minh?'),
-        ),
+        if (_verificationSuggested)
+          TextButton(
+            onPressed: _busy ? null : () => _navigate('/resend-verification'),
+            child: const Text('Gửi lại email xác minh'),
+          ),
         if (auth.notice != null)
           TextButton(
             onPressed: _busy ? null : auth.restore,

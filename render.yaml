@@ -26,6 +26,10 @@ services:
         sync: false
       - key: Auth__AdminBaseUrl
         sync: false
+      - key: Auth__AllowedOrigins__0
+        value: http://localhost:4200
+      - key: Auth__AllowedOrigins__1
+        value: http://localhost:4201
       - key: Google__ClientId
         sync: false
       - key: Email__Mode

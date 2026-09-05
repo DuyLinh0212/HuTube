@@ -23,7 +23,7 @@ class ApiClient {
           baseUrl ??
           const String.fromEnvironment(
             'API_BASE_URL',
-            defaultValue: 'http://10.0.2.2:5080/api/v1',
+            defaultValue: 'https://hutube.onrender.com/api/v1',
           );
   final http.Client client;
   final String baseUrl;
@@ -42,6 +42,7 @@ class ApiClient {
       request.headers.addAll({
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'X-HuTube-Client': 'mobile',
         if (accessToken != null) 'Authorization': 'Bearer $accessToken',
       });
       if (body != null) request.body = jsonEncode(body);
@@ -130,6 +131,8 @@ class AuthController extends ChangeNotifier {
   Future<void>? _googleInitialization;
   static const _googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
+    defaultValue:
+        '968220896298-or85f9g8ibu45tdbf0svsbiqt54g7iml.apps.googleusercontent.com',
   );
   static const _googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',

@@ -39,6 +39,7 @@ public sealed class AuthOptions
     public int RefreshTokenDays { get; set; } = 30;
     public string WebBaseUrl { get; set; } = "http://localhost:4200";
     public string AdminBaseUrl { get; set; } = "http://localhost:4201";
+    public string[] AllowedOrigins { get; set; } = [];
 }
 public sealed class GoogleOptions
 {

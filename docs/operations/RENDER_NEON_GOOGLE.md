@@ -9,10 +9,14 @@ Backend nhận trực tiếp `ConnectionStrings__Database` ở dạng PostgreSQL
 | `ConnectionStrings__Database` | PostgreSQL URL từ Neon |
 | `Auth__WebBaseUrl` | URL HTTPS của User Web, ví dụ `https://hutube-web.onrender.com` |
 | `Auth__AdminBaseUrl` | URL HTTPS của Admin Web, ví dụ `https://hutube-admin.onrender.com` |
+| `Auth__AllowedOrigins__0` | Tùy chọn: User Web local, `http://localhost:4200` |
+| `Auth__AllowedOrigins__1` | Tùy chọn: Admin Web local, `http://localhost:4201` |
 | `Google__ClientId` | OAuth 2.0 **Web client ID** từ Google Cloud Console |
 | `Email__Host`, `Email__From`, `Email__Username`, `Email__Password` | SMTP production; dùng port 587 mặc định hoặc đổi `Email__Port` theo nhà cung cấp |
 
 `Jwt__SigningKey` được Render tự tạo khi Blueprint được tạo. Các biến `ASPNETCORE_ENVIRONMENT`, JWT issuer/audience, email mode và port HTTP có giá trị sẵn trong Blueprint.
+
+Nếu chỉ deploy API/database để phát triển, bạn có thể giữ `Auth__WebBaseUrl=http://localhost:4200` và `Auth__AdminBaseUrl=http://localhost:4201` miễn là đồng thời cấu hình hai biến `Auth__AllowedOrigins__0=http://localhost:4200` và `Auth__AllowedOrigins__1=http://localhost:4201`. Backend chỉ chấp nhận hai origin loopback được khai báo rõ; origin HTTP khác vẫn bị chặn.
 
 ## Google Cloud Console
 

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 54" fill="none">
+  <defs>
+    <!-- Concept 6 Gradients: Origami Film Ribbon (Isometric Shading & Cinema Rose) -->
+    <linearGradient id="c6_facet_left" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF2B66"/>
+      <stop offset="100%" stop-color="#BE123C"/>
+    </linearGradient>
+    <linearGradient id="c6_facet_fold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4D80"/>
+      <stop offset="60%" stop-color="#FF2B66"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+    <linearGradient id="c6_facet_right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#4C1D95"/>
+    </linearGradient>
+    <linearGradient id="c6_facet_shadow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#881337"/>
+      <stop offset="100%" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <filter id="c6_depth_shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#BE123C" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <!-- Logo Mark Container (52x52) -->
+  <g transform="translate(2, 1)">
+    <!-- Pristine Glass Base -->
+    <rect x="0" y="0" width="50" height="50" rx="15" fill="#FFFFFF" />
+    <rect x="0.5" y="0.5" width="49" height="49" rx="14.5" stroke="#E2E8F0" />
+
+    <!-- Icon: Isometric Origami Film Strip Fold forming H and 3D Play -->
+    <g filter="url(#c6_depth_shadow)">
+      <!-- Left Vertical Ribbon Facet -->
+      <path d="M 11 11 C 11 9.5 12.5 8.5 14 9 L 19 11 C 20.5 11.5 21 12.5 21 14 L 21 40 C 21 41.5 19.5 42.5 18 42 L 13 40 C 11.5 39.5 11 38.5 11 37 Z"
+            fill="url(#c6_facet_left)" />
+
+      <!-- Shadow Under Origami Fold -->
+      <path d="M 19 23 L 29 27.5 L 19 32 Z" fill="url(#c6_facet_shadow)" opacity="0.45" />
+
+      <!-- Center Diagonal Origami Play Fold (The bridge that points forward) -->
+      <path d="M 19 16 C 19 14.8 20.2 14 21.3 14.6 L 33 21.5 C 34.2 22.2 34.2 23.8 33 24.5 L 21.3 31.4 C 20.2 32 19 31.2 19 30 Z"
+            fill="url(#c6_facet_fold)" />
+
+      <!-- Right Vertical Ribbon Facet -->
+      <path d="M 31 11 C 31 9.5 32.5 8.5 34 9 L 39 11 C 40.5 11.5 41 12.5 41 14 L 41 40 C 41 41.5 39.5 42.5 38 42 L 33 40 C 31.5 39.5 31 38.5 31 37 Z"
+            fill="url(#c6_facet_right)" />
+
+      <!-- Precision Light Specular Ray -->
+      <path d="M 21.5 16 L 31.5 22 L 21.5 24 Z" fill="#FFFFFF" fill-opacity="0.35" />
+    </g>
+  </g>
+
+  <!-- Wordmark: HuTube -->
+  <g transform="translate(64, 35)">
+    <text font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#111827">Hu</text>
+    <text x="36" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          font-weight="800" font-size="27" letter-spacing="-0.6px" fill="#FF2B66">Tube</text>
+    <!-- Facet Diamond Mark -->
+    <path d="M 106 -9 L 109 -6 L 106 -3 L 103 -6 Z" fill="#7C3AED" />
+  </g>
+</svg>

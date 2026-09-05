@@ -8,7 +8,7 @@ import { ADMIN_APP, RuntimeConfig } from '../../core/runtime-config';
 
 declare global { interface Window { google?: { accounts: { id: { initialize(config: { client_id: string; callback: (response: { credential?: string }) => void; auto_select: boolean }): void; renderButton(parent: HTMLElement, options: { theme: string; size: string; width: number }): void; }; }; }; } }
 
-@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink], templateUrl: './auth-page.html' })
+@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
 export class AuthPage implements AfterViewChecked {
   readonly admin = ADMIN_APP;
   readonly auth = inject(AuthService);
@@ -22,20 +22,44 @@ export class AuthPage implements AfterViewChecked {
   readonly error = signal('');
   readonly completed = signal(false);
   showPassword = false;
+  showConfirmPassword = false;
+  readonly verificationSuggested = signal(false);
   email = ''; username = ''; displayName = ''; password = ''; confirmPassword = '';
   private token = '';
   private googleRendered = false;
   private googleLoading = false;
   @ViewChild('googleButton') googleButton?: ElementRef<HTMLDivElement>;
+  readonly currentSlide = signal(0);
+  private slideTimer: ReturnType<typeof setInterval> | null = null;
   readonly titles: Record<string, string> = { login: 'Đăng nhập', register: 'Tạo tài khoản', 'verify-email': 'Xác minh email', 'forgot-password': 'Quên mật khẩu?', 'reset-password': 'Đặt lại mật khẩu' };
   constructor() {
+    this.startCarousel();
+    this.destroyRef.onDestroy(() => this.stopCarousel());
     this.route.url.pipe(takeUntilDestroyed()).subscribe(segments => {
-      this.mode.set(segments[0]?.path || 'login'); this.googleRendered = false; this.googleLoading = false; this.message.set(''); this.error.set(''); this.completed.set(false); this.password = ''; this.confirmPassword = '';
+      this.mode.set(segments[0]?.path || 'login'); this.googleRendered = false; this.googleLoading = false; this.message.set(''); this.error.set(''); this.completed.set(false); this.verificationSuggested.set(false); this.password = ''; this.confirmPassword = '';
+      this.email = this.route.snapshot.queryParamMap.get('email') || '';
+      this.showPassword = false; this.showConfirmPassword = false;
       this.token = this.route.snapshot.queryParamMap.get('token') || '';
       if (this.route.snapshot.queryParamMap.get('reason') === 'expired') this.message.set('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.');
       if (this.mode() === 'verify-email' && this.token) this.verify();
       if (this.mode() === 'reset-password' && !this.token) this.error.set('Liên kết thiếu mã xác nhận. Vui lòng yêu cầu đặt lại mật khẩu.');
     });
+  }
+  startCarousel() {
+    this.stopCarousel();
+    this.slideTimer = setInterval(() => {
+      this.currentSlide.update(i => (i + 1) % 3);
+    }, 3000);
+  }
+  stopCarousel() {
+    if (this.slideTimer) {
+      clearInterval(this.slideTimer);
+      this.slideTimer = null;
+    }
+  }
+  goToSlide(index: number) {
+    this.currentSlide.set(index);
+    this.startCarousel();
   }
   ngAfterViewChecked() {
     if (this.mode() !== 'login' || this.googleRendered || this.googleLoading || !this.googleButton || !this.authGoogleClientId()) return;
@@ -63,8 +87,15 @@ export class AuthPage implements AfterViewChecked {
   get hasResetToken() { return !!this.token; }
   get mobileResetLink() { return 'hutube://auth/reset-password?token=' + encodeURIComponent(this.token); }
   private run(request: Observable<unknown>, success: () => void) {
-    this.busy.set(true); this.error.set(''); this.message.set('');
-    request.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: success, error: error => this.error.set(errorMessage(error)) });
+    this.busy.set(true); this.error.set(''); this.message.set(''); this.verificationSuggested.set(false);
+    request.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: success, error: error => {
+      this.verificationSuggested.set(this.isEmailVerificationError(error));
+      this.error.set(errorMessage(error));
+    } });
+  }
+  private isEmailVerificationError(error: unknown): boolean {
+    const candidate = error as { error?: { code?: unknown } } | null;
+    return candidate?.error?.code === 'EMAIL_NOT_VERIFIED' || candidate?.error?.code === 'EMAIL_UNVERIFIED';
   }
   submit(form: NgForm) {
     if (this.busy()) return;
