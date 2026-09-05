@@ -128,7 +128,7 @@ jobs:
       Auth__AdminBaseUrl: http://localhost:4201
       Email__Mode: Pickup
       Email__PickupDirectory: ${{ github.workspace }}/.work/mail
-      API_BASE_URL: http://127.0.0.1:5080/api/v1
+      API_BASE_URL: http://localhost:5080/api/v1
       PLAYWRIGHT_CHANNEL: chrome
     steps:
       - uses: actions/checkout@v4
@@ -173,9 +173,10 @@ jobs:
         if: failure()
         with:
           name: e2e-diagnostics
+          include-hidden-files: true
           path: |
             .work/e2e-*.log
-            .work/screenshots
+            frontend/user-web/.work/screenshots
 
   container:
     needs: [backend, web, mobile, e2e]
