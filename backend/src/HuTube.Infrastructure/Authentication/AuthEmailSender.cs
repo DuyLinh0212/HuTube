@@ -2,6 +2,7 @@ using HuTube.Application.Auth;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using Microsoft.Extensions.Logging;
 
 namespace HuTube.Infrastructure.Authentication;
 
@@ -15,7 +16,7 @@ public sealed class EmailOptions
     public string Username { get; set; } = "";
     public string Password { get; set; } = "";
 }
-public sealed class AuthEmailSender(EmailOptions options) : IAuthEmailSender
+public sealed class AuthEmailSender(EmailOptions options, ILogger<AuthEmailSender> logger) : IAuthEmailSender
 {
     public async Task SendAsync(string email, string subject, string body, CancellationToken ct)
     {
@@ -30,13 +31,16 @@ public sealed class AuthEmailSender(EmailOptions options) : IAuthEmailSender
                 await message.WriteToAsync(Path.Combine(options.PickupDirectory, $"{Guid.NewGuid():N}.eml"), ct);
                 return;
             }
-            using var client = new SmtpClient();
+            using var client = new SmtpClient { Timeout = 15_000 };
             await client.ConnectAsync(options.Host, options.Port, options.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls, ct);
-            if (!string.IsNullOrEmpty(options.Username)) await client.AuthenticateAsync(options.Username, options.Password, ct);
+            var username = options.Username.Trim();
+            var password = options.Password.Replace(" ", "", StringComparison.Ordinal);
+            if (!string.IsNullOrEmpty(username)) await client.AuthenticateAsync(username, password, ct);
             await client.SendAsync(message, ct); await client.DisconnectAsync(true, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            logger.LogError(ex, "SMTP email delivery failed for {Recipient}", email);
             throw new AuthException(503, "EMAIL_DELIVERY_UNAVAILABLE", "Chưa thể gửi email. Vui lòng thử lại sau.");
         }
     }

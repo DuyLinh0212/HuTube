@@ -48,7 +48,7 @@ function emailLink(email, route) {
  if(await page.locator('body').evaluate(element=>element.scrollWidth>window.innerWidth)) throw Error('Account mobile overflow');
  await login(other,userOrigin,password); await other.getByRole('heading',{name:'Thiết bị đang đăng nhập'}).waitFor();
  await page.reload(); await page.getByRole('button',{name:'Đăng xuất các thiết bị khác',exact:true}).click(); await page.getByRole('status').filter({hasText:'Đã đăng xuất khỏi các thiết bị khác'}).waitFor();
- await other.reload(); await other.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
+ await other.reload(); await other.getByRole('heading',{name:/^Đăng nhập/}).waitFor();
  await page.goto(userOrigin+'/forgot-password'); await page.getByLabel('Email',{exact:true}).fill(email); await page.getByRole('button',{name:'Gửi liên kết',exact:true}).click(); await page.getByRole('status').filter({hasText:'Nếu email có trong hệ thống'}).waitFor();
  await page.goto(emailLink(email,'reset-password'));
  const appLink=await page.getByRole('link',{name:'Mở trong ứng dụng HuTube'}).getAttribute('href');
@@ -56,20 +56,20 @@ function emailLink(email, route) {
  await page.getByLabel('Mật khẩu mới',{exact:true}).fill(newPassword); await page.getByLabel('Nhập lại mật khẩu',{exact:true}).fill(newPassword); await page.getByRole('button',{name:'Đặt lại mật khẩu',exact:true}).click(); await page.getByRole('status').filter({hasText:'Đã đổi mật khẩu'}).waitFor();
  await login(page,userOrigin,password); await page.getByRole('alert').filter({hasText:'Email hoặc mật khẩu chưa đúng'}).waitFor();
  await page.getByLabel('Mật khẩu',{exact:true}).fill(newPassword); await page.getByRole('button',{name:'Đăng nhập',exact:true}).click(); await page.getByRole('heading',{name:'Thiết bị đang đăng nhập'}).waitFor();
- await page.getByRole('button',{name:'Đăng xuất',exact:true}).click(); await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor(); await page.goto(userOrigin+'/account'); await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Đăng xuất',exact:true}).click(); await page.getByRole('heading',{name:/^Đăng nhập/}).waitFor(); await page.goto(userOrigin+'/account'); await page.getByRole('heading',{name:/^Đăng nhập/}).waitFor();
  await login(other,adminOrigin,newPassword); await other.getByRole('alert').filter({hasText:'quyền quản trị'}).waitFor(); if(!other.url().includes('/login')) throw Error('Normal user entered admin');
  await other.screenshot({path:path.join(outputDir,'admin-access-denied.png'),fullPage:true});
  if(process.env.RUN_ADMIN_DB_TESTS === '1') {
   adminSql(email,fs.readFileSync(path.resolve('database/scripts/grant-local-admin.sql'),'utf8'));
   await login(other,adminOrigin,newPassword); await other.getByRole('heading',{name:'Tài khoản quản trị',exact:true}).waitFor();
   await other.getByRole('heading',{name:'Thiết bị đang đăng nhập'}).waitFor(); await other.screenshot({path:path.join(outputDir,'admin-account-enabled.png'),fullPage:true});
-  adminSql(email,"UPDATE hutube.admin_accounts SET status='disabled', disabled_at=now() WHERE user_id=(SELECT user_id FROM hutube.users WHERE email=:'email'::citext);\n");
-  await other.reload(); await other.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
+  adminSql(email,"UPDATE public.users SET role_id=(SELECT role_id FROM public.roles WHERE code='user'), status='active', updated_at=now() WHERE email=:'email'::citext;\n");
+  await other.reload(); await other.getByRole('heading',{name:/^Đăng nhập/}).waitFor();
   await login(other,adminOrigin,newPassword); await other.getByRole('alert').filter({hasText:'quyền quản trị'}).waitFor();
   await other.screenshot({path:path.join(outputDir,'admin-access-disabled.png'),fullPage:true});
   // Disabling admin access must not disable the ordinary user account.
   await login(page,userOrigin,newPassword); await page.getByRole('heading',{name:'Thiết bị đang đăng nhập'}).waitFor();
-  await page.getByRole('button',{name:'Đăng xuất',exact:true}).click(); await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Đăng xuất',exact:true}).click(); await page.getByRole('heading',{name:/^Đăng nhập/}).waitFor();
   console.log('PASS admin E2E: granted access signs in, disabled access blocks reload/new login, ordinary user login remains active.');
  }
  await browser.close(); if(exceptions.length) throw Error(exceptions.join('\n'));
