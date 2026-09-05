@@ -1,0 +1,81 @@
+Authentication
+- Đăng Nhập
+- Đăng xuất
+- Đổi Mật Khẩu
+
+Điều khoản sử dụng
+Nhóm người dùng
+- Quản lý tài khoản
+    - Đăng Nhập
+    - Đăng xuất
+    - Đổi Mật Khẩu
+    - Chỉnh sửa thông tin cá nhân
+- Xem Video
+    - Phát lại
+    - Tua nhanh (x2,x3,...)
+    - Pause
+    - Chỉnh chất lượng (Nếu được)
+- Tìm kiếm
+    - Keyword
+    - Lọc theo view
+    - Lọc theo ngày đăng
+    - Lọc theo thời lượng
+- Khám phá
+    - Hiển thị video theo Đề xuất (CF)
+- Quản lý Kênh của mình
+    - Đăng video
+        - Title
+        - Description
+        - Tags
+        - Topic
+    - Sửa video
+    - Xóa video
+- Tương tác video
+    - Like/Dislike
+    - Comment
+        - Like/Dislike
+        - Report
+        - Reply Comment
+    - Follow
+        - Nhận thông báo khi có video mới
+    - Report
+    - Share
+- Quản lý Playlist
+    - Tạo Playlist
+        - Thêm vào Playlist
+        - Xóa khỏi playlist
+    - Sửa Playlist
+    - Xóa Playlist
+    - Sắp xếp Playlist
+- Quản lý lịch sử xem
+    - Xem lại lịch sử
+    - Xóa hoặc lưu lại các video
+- Quản lý thông báo
+    - Bật/Tắt thông báo
+    - Nhận thông báo
+        - Có người reply comment
+        - Video bị gỡ
+        - Kênh follow ra video mới
+- Nâng cấp tài khoản
+    - Thanh toán
+    - Nâng cấp tài khoản theo Gói (Free, Pro, Vip, Max,....)
+
+Nhóm chức năng quản trị
+- Quản lý kênh
+    - Mở khỏa/Cấm kênh
+- Kiểm duyệt
+    - Video
+        - Xóa video (vi phạm đã xác nhận)
+        - Ẩn Video (vi phạm chờ kháng cáo)
+    - Comment
+        - Ấn/Xóa Comment
+- Quản lí tài khoản
+    - Ban/Unban Account
+    - Nâng cấp tài khoản trực tiếp
+- Phân quyền
+    - Tạo Role
+    - Gán quyền
+- Quản lý gói tài khoản
+    - Nâng dung lượng
+    - Khác
+- Báo cáo thống kê

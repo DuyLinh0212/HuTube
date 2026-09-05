@@ -1,0 +1,8 @@
+.git
+.work
+**/bin
+**/obj
+**/node_modules
+**/.dart_tool
+.env*
+**/TestResults

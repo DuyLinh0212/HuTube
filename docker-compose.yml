@@ -1,0 +1,44 @@
+name: hutube-local
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hutube}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.local}
+      POSTGRES_DB: ${POSTGRES_DB:-hutube}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  migrate:
+    profiles: [api]
+    build:
+      context: ./backend
+    env_file: .env.local
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=${POSTGRES_DB:-hutube};Username=${POSTGRES_USER:-hutube};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    command: ["--migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  api:
+    profiles: [api]
+    build:
+      context: ./backend
+    env_file: .env.local
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=${POSTGRES_DB:-hutube};Username=${POSTGRES_USER:-hutube};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    ports:
+      - "5080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+volumes:
+  postgres-data:
