@@ -12,6 +12,10 @@ COPY --from=build /app .
 ARG HUTUBE_COMMIT_SHA=local
 ENV HUTUBE_COMMIT_SHA=$HUTUBE_COMMIT_SHA
 ENV ASPNETCORE_URLS=http://+:8080
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /app/.work/mail && chown -R $APP_UID:$APP_UID /app/.work
 USER $APP_UID
 EXPOSE 8080

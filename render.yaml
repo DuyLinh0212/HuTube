@@ -44,3 +44,9 @@ services:
         sync: false
       - key: Email__Password
         sync: false
+      - key: Email__Gmail__ClientId
+        sync: false
+      - key: Email__Gmail__ClientSecret
+        sync: false
+      - key: Email__Gmail__RefreshToken
+        sync: false

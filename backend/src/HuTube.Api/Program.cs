@@ -33,9 +33,14 @@ foreach (var url in additionalAuthOrigins)
         || parsed.UserInfo.Length > 0 || parsed.Scheme is not ("http" or "https")
         || (!builder.Environment.IsDevelopment() && parsed.Scheme == "http" && !parsed.IsLoopback))
         throw new InvalidOperationException("Auth client URLs must be valid origins; non-HTTPS local origins must be explicitly allowlisted.");
-if (emailOptions.Mode is not ("Pickup" or "Smtp") || (!builder.Environment.IsDevelopment() && emailOptions.Mode == "Pickup"))
-    throw new InvalidOperationException("Email pickup is Development-only. Configure SMTP for Staging/Production.");
+if (emailOptions.Mode is not ("Pickup" or "Smtp" or "GmailApi") || (!builder.Environment.IsDevelopment() && emailOptions.Mode == "Pickup"))
+    throw new InvalidOperationException("Email pickup is Development-only. Configure SMTP or Gmail API for Staging/Production.");
 if (emailOptions.Mode == "Smtp" && string.IsNullOrWhiteSpace(emailOptions.Host)) throw new InvalidOperationException("Email__Host is required for SMTP.");
+if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.From)
+    || string.IsNullOrWhiteSpace(emailOptions.Gmail.ClientId)
+    || string.IsNullOrWhiteSpace(emailOptions.Gmail.ClientSecret)
+    || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
+    throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
 builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions);
 builder.Services.AddSingleton(TimeProvider.System);
@@ -43,6 +48,7 @@ builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(conn
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<IPasswordService, PasswordService>(); builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IGoogleTokenVerifier, GoogleTokenVerifier>();
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
     var problem = ApiErrors.Create(context.HttpContext, 400, "VALIDATION_ERROR", "Vui lòng kiểm tra các trường dữ liệu.");
