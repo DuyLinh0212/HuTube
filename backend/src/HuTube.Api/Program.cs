@@ -40,7 +40,9 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options
     var result = new BadRequestObjectResult(problem); result.ContentTypes.Add("application/problem+json"); return result;
 });
 builder.Services.AddOpenApi();
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(authOptions.WebBaseUrl.TrimEnd('/'), authOptions.AdminBaseUrl.TrimEnd('/'))
+var corsOrigins = new[] { authOptions.WebBaseUrl.TrimEnd('/'), authOptions.AdminBaseUrl.TrimEnd('/'), "http://localhost:4200", "http://localhost:4201" }
+    .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
     .WithMethods("GET", "POST", "DELETE", "OPTIONS").WithHeaders("Content-Type", "Authorization", "X-HuTube-Client", "X-HuTube-App").AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
     options.MapInboundClaims = false;
