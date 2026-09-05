@@ -5,7 +5,9 @@ public sealed class User
     public Guid UserId { get; set; } = Guid.NewGuid();
     public string Username { get; set; } = "";
     public string Email { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
     public string DisplayName { get; set; } = "";
+    public Guid RoleId { get; set; }
     public string Status { get; set; } = "pending";
     public DateTimeOffset? EmailVerifiedAt { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
@@ -14,7 +16,28 @@ public sealed class User
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+    public string? EmailVerificationTokenHash { get; set; }
+    public DateTimeOffset? EmailVerificationCreatedAt { get; set; }
+    public DateTimeOffset? EmailVerificationExpiresAt { get; set; }
+    public DateTimeOffset? EmailVerificationUsedAt { get; set; }
+    public string? PasswordResetTokenHash { get; set; }
+    public DateTimeOffset? PasswordResetCreatedAt { get; set; }
+    public DateTimeOffset? PasswordResetExpiresAt { get; set; }
+    public DateTimeOffset? PasswordResetUsedAt { get; set; }
     public bool IsBlocked => DeletedAt != null || Status is "suspended" or "banned" or "deleted";
+}
+
+public static class UserRoles
+{
+    public static readonly Guid User = Guid.Parse("00000000-0000-0000-0000-000000000001");
+    public static readonly Guid Admin = Guid.Parse("00000000-0000-0000-0000-000000000002");
+}
+
+public sealed class Role
+{
+    public Guid RoleId { get; set; }
+    public string Code { get; set; } = "";
+    public string Status { get; set; } = "active";
 }
 
 public sealed class AuthIdentity

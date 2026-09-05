@@ -25,9 +25,9 @@ Trạng thái kiểm chứng local ghi nhận trong lượt triển khai ngày 2
 
 | Hạng mục | Kết quả đã xác nhận / phần còn chờ |
 | --- | --- |
-| PostgreSQL local | Cluster `.local/postgres`, loopback cổng 55432, database `hutube`; dữ liệu và secret được Git bỏ qua |
+| PostgreSQL local | PostgreSQL native loopback cổng 5432, database `hutube`; bootstrap xác nhận đúng 42 bảng nghiệp vụ và roles auth được seed |
 | Migration và API | Migration local đạt; `/health`, `/api/v1/system/info`, `/openapi/v1.json` hoạt động |
-| Backend | Release đạt 19 unit + 33 integration test trên PostgreSQL thật; publish Release đạt |
+| Backend | Release build và test auth chạy trên PostgreSQL thật; số test cuối cập nhật theo CI/PR |
 | Hai Angular app | 34/34 test mỗi app đạt; production build của cả hai app đạt |
 | Browser E2E | API/PostgreSQL thật đạt: register, verify qua pickup email, login/restore, refresh, revoke/logout, forgot/reset; user thường bị chặn Admin; Admin được cấp quyền đăng nhập được và bị chặn ngay sau disable |
 | Flutter unit/widget | 17 test mặc định đạt; analyze không có issue |
