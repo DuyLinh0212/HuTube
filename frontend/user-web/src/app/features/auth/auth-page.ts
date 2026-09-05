@@ -1,18 +1,21 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { AfterViewChecked, Component, DestroyRef, ElementRef, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, Observable } from 'rxjs';
 import { AuthService, errorMessage, safeReturnUrl } from '../../core/auth.service';
-import { ADMIN_APP } from '../../core/runtime-config';
+import { ADMIN_APP, RuntimeConfig } from '../../core/runtime-config';
+
+declare global { interface Window { google?: { accounts: { id: { initialize(config: { client_id: string; callback: (response: { credential?: string }) => void; auto_select: boolean }): void; renderButton(parent: HTMLElement, options: { theme: string; size: string; width: number }): void; }; }; }; } }
 
 @Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink], templateUrl: './auth-page.html' })
-export class AuthPage {
+export class AuthPage implements AfterViewChecked {
   readonly admin = ADMIN_APP;
   readonly auth = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
+  private authConfig = inject(RuntimeConfig);
   readonly mode = signal('login');
   readonly busy = signal(false);
   readonly message = signal('');
@@ -21,14 +24,39 @@ export class AuthPage {
   showPassword = false;
   email = ''; username = ''; displayName = ''; password = ''; confirmPassword = '';
   private token = '';
+  private googleRendered = false;
+  private googleLoading = false;
+  @ViewChild('googleButton') googleButton?: ElementRef<HTMLDivElement>;
   readonly titles: Record<string, string> = { login: 'Đăng nhập', register: 'Tạo tài khoản', 'verify-email': 'Xác minh email', 'forgot-password': 'Quên mật khẩu?', 'reset-password': 'Đặt lại mật khẩu' };
   constructor() {
     this.route.url.pipe(takeUntilDestroyed()).subscribe(segments => {
-      this.mode.set(segments[0]?.path || 'login'); this.message.set(''); this.error.set(''); this.completed.set(false); this.password = ''; this.confirmPassword = '';
+      this.mode.set(segments[0]?.path || 'login'); this.googleRendered = false; this.googleLoading = false; this.message.set(''); this.error.set(''); this.completed.set(false); this.password = ''; this.confirmPassword = '';
       this.token = this.route.snapshot.queryParamMap.get('token') || '';
       if (this.route.snapshot.queryParamMap.get('reason') === 'expired') this.message.set('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.');
       if (this.mode() === 'verify-email' && this.token) this.verify();
       if (this.mode() === 'reset-password' && !this.token) this.error.set('Liên kết thiếu mã xác nhận. Vui lòng yêu cầu đặt lại mật khẩu.');
+    });
+  }
+  ngAfterViewChecked() {
+    if (this.mode() !== 'login' || this.googleRendered || this.googleLoading || !this.googleButton || !this.authGoogleClientId()) return;
+    this.googleLoading = true;
+    this.loadGoogleScript().then(() => {
+      if (!window.google || !this.googleButton || this.googleRendered) return;
+      window.google.accounts.id.initialize({ client_id: this.authGoogleClientId(), auto_select: false, callback: response => {
+        if (!response.credential) { this.error.set('Không nhận được thông tin xác thực từ Google.'); return; }
+        this.run(this.auth.google(response.credential), () => void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'))));
+      }});
+      window.google.accounts.id.renderButton(this.googleButton.nativeElement, { theme: 'outline', size: 'large', width: 360 });
+      this.googleRendered = true;
+    }).catch(() => this.error.set('Không tải được đăng nhập Google. Vui lòng thử lại.')).finally(() => this.googleLoading = false);
+  }
+  authGoogleClientId() { return this.authConfig.googleClientId; }
+  private loadGoogleScript(): Promise<void> {
+    if (window.google) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>('script[data-hutube-google]');
+      if (existing) { existing.addEventListener('load', () => resolve(), { once: true }); existing.addEventListener('error', () => reject(), { once: true }); return; }
+      const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.defer = true; script.dataset['hutubeGoogle'] = 'true'; script.onload = () => resolve(); script.onerror = () => reject(); document.head.appendChild(script);
     });
   }
   get title() { return this.titles[this.mode()]; }

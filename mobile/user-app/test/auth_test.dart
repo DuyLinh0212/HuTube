@@ -61,6 +61,26 @@ void main() {
     expect(auth.restoring, isFalse);
     expect(store.writes, ['refresh-1']);
   });
+  test('Google credential creates a mobile session', () async {
+    final store = MemoryStore();
+    final auth = AuthController(
+      ApiClient(
+        client: MockClient((request) async {
+          expect(request.url.path, '/api/v1/auth/google');
+          expect(
+            jsonDecode(request.body),
+            containsPair('credential', 'google-id-token'),
+          );
+          expect(jsonDecode(request.body), containsPair('platform', 'mobile'));
+          return jsonResponse(session());
+        }),
+      ),
+      store,
+    );
+    await auth.loginWithGoogleCredential('google-id-token');
+    expect(auth.authenticated, isTrue);
+    expect(store.writes, ['refresh-1']);
+  });
   test(
     'parallel 401s share one refresh and retry with new access token',
     () async {

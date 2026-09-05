@@ -37,6 +37,14 @@ export class AuthService {
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
     );
   }
+  google(credential: string): Observable<User> {
+    const generation = ++this.generation;
+    return this.post<LoginResponse>('/auth/google', { credential, platform: 'web', deviceName: 'HuTube Web / Google' }).pipe(
+      tap(response => { if (generation !== this.generation) throw new Error('Yêu cầu đăng nhập đã bị hủy.'); this.accept(response); }),
+      switchMap(() => this.me()),
+      catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
+    );
+  }
   refresh(): Observable<LoginResponse> {
     if (!this.refreshFlight) {
       const generation = this.generation;
@@ -97,7 +105,10 @@ export function errorMessage(error: unknown): string {
     ADMIN_DISABLED: 'Quyền quản trị của tài khoản đã bị vô hiệu hóa.',
     EMAIL_EXISTS: 'Email này đã được sử dụng.', USERNAME_EXISTS: 'Tên người dùng này đã được sử dụng.',
     INVALID_TOKEN: 'Liên kết không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.',
-    TOKEN_EXPIRED: 'Liên kết đã hết hạn. Hãy yêu cầu liên kết mới.'
+    TOKEN_EXPIRED: 'Liên kết đã hết hạn. Hãy yêu cầu liên kết mới.',
+    GOOGLE_LOGIN_NOT_CONFIGURED: 'Đăng nhập Google chưa được cấu hình.',
+    INVALID_GOOGLE_TOKEN: 'Không thể xác thực tài khoản Google. Vui lòng thử lại.',
+    GOOGLE_ACCOUNT_CONFLICT: 'Email này đã được liên kết với một tài khoản Google khác.'
   };
   if (error.status === 0) return 'Chưa kết nối được máy chủ. Kiểm tra kết nối và thử lại.';
   if (error.status === 429) return 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.';

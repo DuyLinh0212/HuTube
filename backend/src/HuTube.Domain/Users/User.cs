@@ -6,6 +6,7 @@ public sealed class User
     public string Username { get; set; } = "";
     public string Email { get; set; } = "";
     public string PasswordHash { get; set; } = "";
+    public string? GoogleSubject { get; set; }
     public string DisplayName { get; set; } = "";
     public Guid RoleId { get; set; }
     public string Status { get; set; } = "pending";

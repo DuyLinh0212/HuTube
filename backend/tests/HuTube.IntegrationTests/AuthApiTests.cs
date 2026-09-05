@@ -46,6 +46,18 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         Assert.NotEqual(factory.Emails.Token(email), user.EmailVerificationTokenHash);
     }
     [Fact]
+    public async Task GoogleLogin_VerifiedIdentity_ShouldCreateActiveAccountAndIssueSession()
+    {
+        var response = await Client().PostAsJsonAsync("/api/v1/auth/google", new { credential = "valid-google-token-123", platform = "mobile", deviceName = "Google integration test" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var login = (await response.Content.ReadFromJsonAsync<LoginResponse>())!;
+        Assert.True(login.User.EmailVerified);
+        await using var db = factory.CreateDb();
+        var user = await db.Users.SingleAsync(x => x.Email == "google.user@example.com");
+        Assert.Equal("google-subject-123", user.GoogleSubject);
+        Assert.NotEmpty(login.AccessToken);
+    }
+    [Fact]
     public async Task Register_DuplicateEmailIgnoringCase_ShouldReturnConflict()
     {
         var (client, email, _) = await RegisterAsync();

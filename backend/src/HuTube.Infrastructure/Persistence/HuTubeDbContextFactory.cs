@@ -9,6 +9,6 @@ public sealed class HuTubeDbContextFactory : IDesignTimeDbContextFactory<HuTubeD
     {
         var connection = Environment.GetEnvironmentVariable("ConnectionStrings__Database")
             ?? "Host=localhost;Database=hutube;Username=postgres";
-        return new(new DbContextOptionsBuilder<HuTubeDbContext>().UseNpgsql(connection).Options);
+        return new(new DbContextOptionsBuilder<HuTubeDbContext>().UseNpgsql(DatabaseConnectionString.Normalize(connection)).Options);
     }
 }

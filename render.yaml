@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: hutube-api
+    runtime: docker
+    region: singapore
+    plan: free
+    branch: develop
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Staging
+      - key: ASPNETCORE_URLS
+        value: http://+:8080
+      - key: ConnectionStrings__Database
+        sync: false
+      - key: Jwt__SigningKey
+        generateValue: true
+      - key: Jwt__Issuer
+        value: HuTube
+      - key: Jwt__Audience
+        value: HuTube.Clients
+      - key: Auth__WebBaseUrl
+        sync: false
+      - key: Auth__AdminBaseUrl
+        sync: false
+      - key: Google__ClientId
+        sync: false
+      - key: Email__Mode
+        value: Smtp
+      - key: Email__Host
+        sync: false
+      - key: Email__Port
+        value: "587"
+      - key: Email__From
+        sync: false
+      - key: Email__Username
+        sync: false
+      - key: Email__Password
+        sync: false

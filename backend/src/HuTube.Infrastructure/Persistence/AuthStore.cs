@@ -21,6 +21,7 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
     }
 
     public Task<User?> FindUserByEmailAsync(string email, CancellationToken ct) => db.Users.SingleOrDefaultAsync(x => x.Email == email, ct);
+    public Task<User?> FindUserByGoogleSubjectAsync(string subject, CancellationToken ct) => db.Users.SingleOrDefaultAsync(x => x.GoogleSubject == subject, ct);
     public Task<User?> FindUserAsync(Guid id, CancellationToken ct) => db.Users.SingleOrDefaultAsync(x => x.UserId == id, ct);
     public Task<bool> UsernameExistsAsync(string username, CancellationToken ct) => db.Users.AnyAsync(x => x.Username == username, ct);
     public Task<string?> FindPasswordHashAsync(Guid userId, CancellationToken ct) => db.Users.Where(x => x.UserId == userId).Select(x => x.PasswordHash).SingleOrDefaultAsync(ct);

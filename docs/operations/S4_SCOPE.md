@@ -1,21 +1,21 @@
 # Phạm vi bàn giao S4-01 và S4-02
 
-Ngày: 2026-09-05. Nguồn yêu cầu: `docs/features/Sprint4.md` và chỉ đạo người dùng tạm dùng API/database local vì chưa có Render.
+Ngày: 2026-09-05. Nguồn yêu cầu: `docs/features/Sprint4.md`, triển khai Neon và cấu hình Render/Google Login theo yêu cầu người dùng.
 
 ## Phạm vi triển khai
 
 | Slice | Nội dung |
 | --- | --- |
 | S4-01 | API dùng chung, môi trường Development/Staging/Production, cấu hình secret/DB/CORS/JWT, lỗi chuẩn, validation, OpenAPI, health, conventions/migrations; URL cấu hình cho ba client; CI và chuẩn bị deploy |
-| S4-02 | Đăng ký/xác minh/resend, đăng nhập, refresh, logout, forgot/reset, session restore và thu hồi phiên; status/disabled-admin enforcement; web/mobile auth UI |
+| S4-02 | Đăng ký/xác minh/resend, đăng nhập mật khẩu hoặc Google, refresh, logout, forgot/reset, session restore và thu hồi phiên; status/disabled-admin enforcement; web/mobile auth UI |
 
 API local mặc định `http://localhost:5080`. PostgreSQL local lưu dữ liệu bền. Web và Flutter dùng cùng contract `/api/v1`, riêng auth session transport phù hợp từng nền tảng.
 
 ## Hoãn hoặc ngoài phạm vi
 
-- Staging URL, Swagger trên staging, deployment Render thật và E2E staging: hoãn theo xác nhận người dùng. Workflow opt-in chưa chứng minh deploy thành công.
+- Staging URL, Swagger trên staging, deployment Render thật và E2E staging: chờ tạo Render service và điền các biến môi trường. Blueprint, schema Neon và migration đã sẵn sàng.
 - S4-03 chỉnh sửa profile/settings; S4-04 Channel; S4-05 membership/invitation; S4-06 permission engine/admin shell đầy đủ: ngoài yêu cầu hai slice lần này.
-- Google/Facebook external login: conditional scope chưa được chốt credential/provider.
+- Google Login đã có backend và UI Web/Mobile; còn chờ OAuth client IDs/origins thực tế để kiểm thử với Google. Facebook chưa triển khai.
 - Danh sách session thuộc S4-02; không diễn giải màn hình account auth thành hoàn tất profile/settings.
 - Admin access guard thuộc S4-02; không diễn giải nó thành hoàn tất RBAC permission engine.
 
@@ -35,7 +35,7 @@ Trạng thái kiểm chứng local ghi nhận trong lượt triển khai ngày 2
 | APK/native | Debug APK build đạt; emulator headless không boot xong nên chưa xác nhận secure storage/UI trên thiết bị Android; iOS cần macOS/Xcode |
 | PowerShell và YAML | Parse scripts/CI/Compose đạt; loader literal và truyền lỗi lệnh con đạt; PostgreSQL native xác nhận đúng instance cổng 5432 |
 | GitHub/CI/container | Nhánh `develop` baseline đã được tạo/push; workflow có backend/web/mobile, browser E2E, image và deploy opt-in. Chờ commit feature và kết quả GitHub Actions; container chưa được chạy local vì máy không có Docker CLI |
-| Render/SMTP staging | Chưa triển khai; không có URL staging hoặc kiểm thử SMTP thật |
+| Neon/Render/SMTP staging | Neon đã migration 42 bảng; Render Blueprint và các key môi trường đã có. Chưa có service URL/OAuth client ID/SMTP thật để deploy và E2E cloud |
 
 Workflow Flutter chạy analyze/unit/widget; test HTTP thật trong `api_smoke_test.dart` được bỏ qua có lý do khi không đặt `LIVE_API_BASE_URL` và `EMAIL_PICKUP_DIRECTORY`. Smoke này được chạy riêng trên local với cấu hình đúng. CI hiện không build APK hoặc chạy emulator.
 

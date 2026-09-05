@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
 class ApiFailure implements Exception {
@@ -126,6 +127,13 @@ class AuthController extends ChangeNotifier {
   Future<void>? _refreshing;
   Future<void> _storageWork = Future.value();
   bool _disposed = false;
+  Future<void>? _googleInitialization;
+  static const _googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+  static const _googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+  );
   bool get authenticated => user != null;
   int get sessionGeneration => _generation;
 
@@ -210,6 +218,72 @@ class AuthController extends ChangeNotifier {
       },
     );
     await _accept(result, generation);
+  }
+
+  Future<void> loginWithGoogleCredential(String credential) async {
+    if (credential.trim().isEmpty) {
+      throw const ApiFailure(
+        401,
+        'INVALID_GOOGLE_TOKEN',
+        'Google không trả về mã xác thực hợp lệ.',
+      );
+    }
+    final generation = ++_generation;
+    final result = await api.request(
+      'POST',
+      '/auth/google',
+      body: {
+        'credential': credential,
+        'platform': 'mobile',
+        'deviceName': Platform.isIOS
+            ? 'HuTube · iPhone / iPad'
+            : 'HuTube · Android',
+      },
+    );
+    await _accept(result, generation);
+  }
+
+  Future<void> loginWithGoogle() async {
+    if (_googleWebClientId.isEmpty) {
+      throw const ApiFailure(
+        503,
+        'GOOGLE_LOGIN_NOT_CONFIGURED',
+        'Đăng nhập Google chưa được cấu hình cho ứng dụng.',
+      );
+    }
+    await (_googleInitialization ??= GoogleSignIn.instance.initialize(
+      clientId: Platform.isIOS && _googleIosClientId.isNotEmpty
+          ? _googleIosClientId
+          : null,
+      serverClientId: _googleWebClientId,
+    ));
+    if (!GoogleSignIn.instance.supportsAuthenticate()) {
+      throw const ApiFailure(
+        503,
+        'GOOGLE_LOGIN_NOT_CONFIGURED',
+        'Thiết bị này chưa hỗ trợ đăng nhập Google.',
+      );
+    }
+    try {
+      final account = await GoogleSignIn.instance.authenticate();
+      final credential = account.authentication.idToken;
+      if (credential == null || credential.isEmpty) {
+        throw const ApiFailure(
+          401,
+          'INVALID_GOOGLE_TOKEN',
+          'Google không trả về mã xác thực hợp lệ.',
+        );
+      }
+      await loginWithGoogleCredential(credential);
+    } on ApiFailure {
+      rethrow;
+    } catch (_) {
+      throw const ApiFailure(
+        401,
+        'INVALID_GOOGLE_TOKEN',
+        'Không thể hoàn tất đăng nhập Google. Vui lòng thử lại.',
+      );
+    }
   }
 
   Future<void> refresh() =>

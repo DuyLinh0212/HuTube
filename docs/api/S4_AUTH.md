@@ -20,6 +20,7 @@ Auth response: `{accessToken, expiresAt, refreshToken, user}`. `refreshToken` nu
 | `POST /auth/forgot-password` | Public | `{email}` → `{message}` |
 | `POST /auth/reset-password` | Public | `{token,password}` → `{message}`; thu hồi các phiên |
 | `POST /auth/login` | Public | `{email,password,platform,deviceName}` → auth response; platform `web`, `mobile`, `admin` |
+| `POST /auth/google` | Public | `{credential,platform,deviceName}` → auth response; chỉ `web` hoặc `mobile`; credential là Google ID token đã xác minh ở backend |
 | `POST /auth/refresh` | Cookie/token | `{refreshToken?}` → auth response |
 | `POST /auth/logout` | Cookie/token | `{refreshToken?}` → `{message}`; thu hồi phiên hiện tại |
 | `GET /auth/me` | Bearer | user hiện tại |
@@ -45,6 +46,7 @@ Access token từ session đã logout/revoke không tiếp tục truy cập API 
 | `INVALID_OR_EXPIRED_TOKEN` | 400 | Link verify/reset sai, hết hạn hoặc đã sử dụng |
 | `VALIDATION_ERROR`, `INVALID_EMAIL`, `INVALID_PASSWORD` | 400 | DTO hoặc quy tắc dữ liệu không đạt |
 | `CLIENT_PLATFORM_MISMATCH` | 400 | Header nhận diện client không khớp platform login |
+| `INVALID_GOOGLE_TOKEN` | 401 | Google ID token thiếu, sai, hết hạn hoặc email chưa được Google xác minh |
 | `INVALID_CREDENTIALS` | 401 | Email/mật khẩu đăng nhập không khớp |
 | `INVALID_REFRESH_TOKEN` | 401 | Refresh token thiếu, hết hạn, đã revoke, reuse hoặc sai platform |
 | `SESSION_EXPIRED` | 401 | Bearer token/phiên không còn hợp lệ; gồm session admin khi admin access bị vô hiệu hóa |
@@ -56,6 +58,7 @@ Access token từ session đã logout/revoke không tiếp tục truy cập API 
 | `SESSION_NOT_FOUND` | 404 | Phiên cần revoke không thuộc user hiện tại |
 | `ACCOUNT_LOCKED`, `RATE_LIMIT_EXCEEDED` | 429 | Khóa login tạm thời hoặc vượt giới hạn request |
 | `EMAIL_DELIVERY_UNAVAILABLE` | 503 | Không gửi được email |
+| `GOOGLE_LOGIN_NOT_CONFIGURED` | 503 | Chưa cấu hình Google OAuth client ID trên backend |
 | `INTERNAL_ERROR` | 500 | Lỗi hệ thống không được trả chi tiết nhạy cảm |
 
 ## Quy ước nền

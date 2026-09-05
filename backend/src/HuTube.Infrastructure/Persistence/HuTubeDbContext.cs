@@ -21,6 +21,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasQueryFilter(x => x.DeletedAt == null);
             b.Property(x => x.Email).HasColumnType("citext"); b.Property(x => x.Username).HasColumnType("citext");
             b.Property(x => x.UserId).HasColumnName("user_id"); b.Property(x => x.PasswordHash).HasColumnName("password_hash");
+            b.Property(x => x.GoogleSubject).HasColumnName("google_subject");
             b.Property(x => x.DisplayName).HasColumnName("display_name"); b.Property(x => x.RoleId).HasColumnName("role_id");
             b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.EmailVerifiedAt).HasColumnName("email_verified_at");
             b.Property(x => x.LastLoginAt).HasColumnName("last_login_at"); b.Property(x => x.FailedLoginAttempts).HasColumnName("failed_login_attempts");
@@ -36,6 +37,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.PasswordResetUsedAt).HasColumnName("password_reset_used_at");
             b.HasIndex(x => x.Email).IsUnique().HasDatabaseName("ux_users_email_ci");
             b.HasIndex(x => x.Username).IsUnique().HasDatabaseName("ux_users_username_ci");
+            b.HasIndex(x => x.GoogleSubject).IsUnique().HasDatabaseName("ux_users_google_subject");
         });
         model.Entity<Role>(b => { b.ToTable("roles"); b.HasKey(x => x.RoleId); b.Property(x => x.RoleId).HasColumnName("role_id"); b.Property(x => x.Code).HasColumnName("code"); b.Property(x => x.Status).HasColumnName("status"); });
         model.Entity<UserSession>(b => {

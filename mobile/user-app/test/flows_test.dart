@@ -35,7 +35,9 @@ void main() {
       );
       await tester.pumpWidget(HuTubeApp(auth: auth, links: links.stream));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Chưa có tài khoản? Đăng ký'));
+      final registerLink = find.text('Chưa có tài khoản? Đăng ký');
+      await tester.ensureVisible(registerLink);
+      await tester.tap(registerLink);
       await tester.pumpAndSettle();
       for (final entry in {
         'Tên hiển thị': 'Linh',

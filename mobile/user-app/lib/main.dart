@@ -511,6 +511,13 @@ class _AuthScreenState extends State<AuthScreen> {
                               : 'Gửi email',
                         ),
                 ),
+              if (login) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: _busy ? null : () => _run(auth.loginWithGoogle),
+                  child: const Text('Tiếp tục với Google'),
+                ),
+              ],
             ],
           ),
         ),

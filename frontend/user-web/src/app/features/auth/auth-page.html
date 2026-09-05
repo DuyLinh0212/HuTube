@@ -34,6 +34,7 @@
         }
         <button class="primary full" type="submit" [disabled]="busy() || (mode() === 'reset-password' && !hasResetToken)">{{ busy() ? 'Đang xử lý…' : mode() === 'forgot-password' ? 'Gửi liên kết' : title }}</button>
       </form>
+      @if (mode() === 'login' && !admin && authGoogleClientId()) { <div class="oauth-divider" aria-hidden="true">hoặc</div><div #googleButton class="google-login" aria-label="Đăng nhập bằng Google"></div> }
     }
     @if (mode() === 'verify-email' && !completed()) {
       @if (busy()) { <p role="status">Đang xác minh email…</p> }

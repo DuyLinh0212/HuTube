@@ -13,6 +13,10 @@ public sealed record LoginRequest(
     [Required, StringLength(128)] string Password,
     [RegularExpression("^(web|mobile|admin)$")] string Platform = "web",
     [StringLength(200)] string DeviceName = "Unknown device");
+public sealed record GoogleLoginRequest(
+    [Required, StringLength(8192, MinimumLength = 20)] string Credential,
+    [RegularExpression("^(web|mobile)$")] string Platform = "web",
+    [StringLength(200)] string DeviceName = "Google sign-in");
 public sealed record EmailRequest([Required, EmailAddress, StringLength(254)] string Email);
 public sealed record TokenRequest([Required, StringLength(256)] string Token);
 public sealed record ResetPasswordRequest([Required, StringLength(256)] string Token,
@@ -36,6 +40,11 @@ public sealed class AuthOptions
     public string WebBaseUrl { get; set; } = "http://localhost:4200";
     public string AdminBaseUrl { get; set; } = "http://localhost:4201";
 }
+public sealed class GoogleOptions
+{
+    public string ClientId { get; set; } = "";
+}
+public sealed record GoogleIdentity(string Subject, string Email, string DisplayName, string? AvatarUrl);
 
 public interface IPasswordService
 {
@@ -52,6 +61,10 @@ public interface IAuthEmailSender
 {
     Task SendAsync(string email, string subject, string body, CancellationToken cancellationToken);
 }
+public interface IGoogleTokenVerifier
+{
+    Task<GoogleIdentity> VerifyAsync(string credential, CancellationToken cancellationToken);
+}
 public interface IAuthTransaction : IAsyncDisposable
 {
     Task CommitAsync(CancellationToken cancellationToken);
@@ -60,6 +73,7 @@ public interface IAuthStore
 {
     Task<IAuthTransaction> LockUserAsync(Guid userId, CancellationToken ct);
     Task<User?> FindUserByEmailAsync(string email, CancellationToken ct);
+    Task<User?> FindUserByGoogleSubjectAsync(string subject, CancellationToken ct);
     Task<User?> FindUserAsync(Guid id, CancellationToken ct);
     Task<bool> UsernameExistsAsync(string username, CancellationToken ct);
     Task<string?> FindPasswordHashAsync(Guid userId, CancellationToken ct);

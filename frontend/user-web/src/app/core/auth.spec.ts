@@ -36,6 +36,15 @@ describe('Authentication boundary', () => {
     const local = spyOn(localStorage, 'setItem'); const session = spyOn(sessionStorage, 'setItem');
     expect(await login()).toEqual(user); expect(auth.user()).toEqual(user); expect(local).not.toHaveBeenCalled(); expect(session).not.toHaveBeenCalled();
   });
+  it('exchanges a Google ID credential for the normal web session', async () => {
+    const promise = firstValueFrom(auth.google('google-id-token'));
+    const request = controller.expectOne(base + '/auth/google');
+    expect(request.request.body).toEqual({ credential: 'google-id-token', platform: 'web', deviceName: 'HuTube Web / Google' });
+    expect(request.request.withCredentials).toBeTrue();
+    request.flush(response);
+    controller.expectOne(base + '/auth/me').flush(user);
+    expect(await promise).toEqual(user);
+  });
   it('never leaks bearer headers or cookies to an external URL or a prefix lookalike', async () => {
     await login();
     for (const url of ['https://example.test/api', base + '-other/auth/me']) {

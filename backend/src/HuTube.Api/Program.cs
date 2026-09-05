@@ -10,11 +10,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
-var connection = builder.Configuration.GetConnectionString("Database") ?? throw new InvalidOperationException("Set ConnectionStrings__Database using your environment or local secret file.");
+var rawConnection = builder.Configuration.GetConnectionString("Database") ?? throw new InvalidOperationException("Set ConnectionStrings__Database using your environment or local secret file.");
+var connection = DatabaseConnectionString.Normalize(rawConnection);
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new();
 var authOptions = builder.Configuration.GetSection("Auth").Get<AuthOptions>() ?? new();
+var googleOptions = builder.Configuration.GetSection("Google").Get<GoogleOptions>() ?? new();
 var emailOptions = builder.Configuration.GetSection("Email").Get<EmailOptions>() ?? new();
-if (jwt.SigningKey.Length < 64) throw new InvalidOperationException("Jwt__SigningKey must contain at least 64 random characters.");
+if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
 if (authOptions.AccessTokenMinutes is < 1 or > 60 || authOptions.RefreshTokenDays is < 1 or > 90)
     throw new InvalidOperationException("Auth token lifetime configuration is outside its supported range.");
 foreach (var url in new[] { authOptions.WebBaseUrl, authOptions.AdminBaseUrl })
@@ -25,11 +27,12 @@ if (emailOptions.Mode is not ("Pickup" or "Smtp") || (!builder.Environment.IsDev
     throw new InvalidOperationException("Email pickup is Development-only. Configure SMTP for Staging/Production.");
 if (emailOptions.Mode == "Smtp" && string.IsNullOrWhiteSpace(emailOptions.Host)) throw new InvalidOperationException("Email__Host is required for SMTP.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(emailOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<IPasswordService, PasswordService>(); builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddSingleton<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
     var problem = ApiErrors.Create(context.HttpContext, 400, "VALIDATION_ERROR", "Vui lòng kiểm tra các trường dữ liệu.");
@@ -97,6 +100,7 @@ app.MapGet("/health", async (HuTubeDbContext db, CancellationToken ct) => {
 }).AllowAnonymous();
 app.MapGet("/api/v1/system/info", () => new { name = "HuTube", apiVersion = "v1", environment = app.Environment.EnvironmentName,
     serverTime = DateTimeOffset.UtcNow, commitSha = Environment.GetEnvironmentVariable("RENDER_GIT_COMMIT") ?? Environment.GetEnvironmentVariable("HUTUBE_COMMIT_SHA") ?? "local" }).AllowAnonymous();
+app.MapGet("/api/v1/system/config", () => new { googleClientId = googleOptions.ClientId }).AllowAnonymous();
 app.MapControllers();
 app.Run();
 public partial class Program { }

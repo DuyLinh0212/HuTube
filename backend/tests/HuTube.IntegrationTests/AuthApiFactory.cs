@@ -16,6 +16,12 @@ public sealed class TestEmails : IAuthEmailSender
     public Task SendAsync(string email, string subject, string body, CancellationToken cancellationToken) { Bodies[email] = body; return Task.CompletedTask; }
     public string Token(string email) => Uri.UnescapeDataString(Bodies[email].Split("?token=")[1]);
 }
+public sealed class TestGoogleTokenVerifier : IGoogleTokenVerifier
+{
+    public Task<GoogleIdentity> VerifyAsync(string credential, CancellationToken cancellationToken) => credential == "valid-google-token-123"
+        ? Task.FromResult(new GoogleIdentity("google-subject-123", "google.user@example.com", "Google User", null))
+        : throw new AuthException(401, "INVALID_GOOGLE_TOKEN", "Google token không hợp lệ.");
+}
 
 public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -47,7 +53,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("RateLimit:AuthPermitLimit", "10000");
         builder.UseSetting("Auth:WebBaseUrl", "http://localhost:4200");
         builder.UseSetting("Auth:AdminBaseUrl", "http://localhost:4201");
-        builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.AddSingleton<IAuthEmailSender>(Emails); });
+        builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.RemoveAll<IGoogleTokenVerifier>(); services.AddSingleton<IAuthEmailSender>(Emails); services.AddSingleton<IGoogleTokenVerifier, TestGoogleTokenVerifier>(); });
     }
     async Task IAsyncLifetime.DisposeAsync()
     {

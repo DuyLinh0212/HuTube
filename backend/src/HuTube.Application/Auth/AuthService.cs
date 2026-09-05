@@ -3,7 +3,7 @@ using HuTube.Domain.Users;
 namespace HuTube.Application.Auth;
 
 public sealed class AuthService(IAuthStore store, IPasswordService passwords, ITokenService tokens,
-    IAuthEmailSender emailSender, AuthOptions options, TimeProvider clock)
+    IAuthEmailSender emailSender, IGoogleTokenVerifier google, AuthOptions options, TimeProvider clock)
 {
     private DateTimeOffset Now => clock.GetUtcNow();
     private static readonly MessageResponse EmailSent = new("Nếu email phù hợp, hướng dẫn đã được gửi. Vui lòng kiểm tra hộp thư.");
@@ -63,11 +63,56 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             throw new AuthException(403, "ADMIN_ACCESS_DENIED", "Tài khoản không có quyền truy cập quản trị.");
         if (request.Platform is not ("web" or "mobile" or "admin"))
             throw new AuthException(400, "VALIDATION_ERROR", "Nền tảng không hợp lệ.");
-        user.FailedLoginAttempts = 0; user.LockedUntil = null; user.LastLoginAt = Now;
-        var (session, refresh) = CreateSession(user.UserId, request.Platform, request.DeviceName);
-        store.AddSession(session);
-        await store.SaveAsync(ct);
-        var response = await CreateLoginResponseAsync(user, session, refresh, ct);
+        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, ct);
+        await transaction.CommitAsync(ct);
+        return response;
+    }
+
+    public async Task<LoginResponse> GoogleLoginAsync(GoogleLoginRequest request, CancellationToken ct = default)
+    {
+        if (request.Platform is not ("web" or "mobile"))
+            throw new AuthException(400, "VALIDATION_ERROR", "Nền tảng không hợp lệ.");
+        var identity = await google.VerifyAsync(request.Credential, ct);
+        var candidate = await store.FindUserByGoogleSubjectAsync(identity.Subject, ct)
+            ?? await store.FindUserByEmailAsync(AuthRules.NormalizeEmail(identity.Email), ct);
+
+        if (candidate is null)
+        {
+            var username = await CreateGoogleUsernameAsync(identity.Email, ct);
+            var user = new User {
+                Email = AuthRules.NormalizeEmail(identity.Email), Username = username, DisplayName = identity.DisplayName.Trim()[..Math.Min(identity.DisplayName.Trim().Length, 120)],
+                GoogleSubject = identity.Subject, EmailVerifiedAt = Now, Status = "active", CreatedAt = Now, UpdatedAt = Now
+            };
+            Guid? concurrentUserId = null;
+            await using (var transaction = await store.LockUserAsync(user.UserId, ct))
+            {
+                var concurrent = await store.FindUserByEmailAsync(user.Email, ct);
+                if (concurrent is not null) concurrentUserId = concurrent.UserId;
+                else
+                {
+                    store.AddUser(user, passwords.Hash(tokens.CreateOpaqueToken()));
+                    var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, ct);
+                    await transaction.CommitAsync(ct);
+                    return response;
+                }
+                await transaction.CommitAsync(ct);
+            }
+            return await GoogleLoginExistingAsync(concurrentUserId!.Value, identity, request, ct);
+        }
+        return await GoogleLoginExistingAsync(candidate.UserId, identity, request, ct);
+    }
+
+    private async Task<LoginResponse> GoogleLoginExistingAsync(Guid userId, GoogleIdentity identity, GoogleLoginRequest request, CancellationToken ct)
+    {
+        await using var transaction = await store.LockUserAsync(userId, ct);
+        var user = await store.FindUserAsync(userId, ct) ?? throw new AuthException(401, "INVALID_GOOGLE_TOKEN", "Không tìm thấy tài khoản Google.");
+        if (user.IsBlocked) EnsureActive(user);
+        if (user.GoogleSubject is not null && user.GoogleSubject != identity.Subject)
+            throw new AuthException(409, "GOOGLE_ACCOUNT_CONFLICT", "Email này đã được liên kết với một tài khoản Google khác.");
+        user.GoogleSubject = identity.Subject;
+        user.EmailVerifiedAt ??= Now;
+        if (user.Status == "pending") user.Status = "active";
+        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, ct);
         await transaction.CommitAsync(ct);
         return response;
     }
@@ -247,6 +292,28 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         var raw = tokens.CreateOpaqueToken();
         return (new() { UserId = userId, RefreshTokenHash = tokens.HashToken(raw), Platform = platform,
             DeviceName = deviceName, IssuedAt = Now, LastActiveAt = Now, ExpiresAt = Now.AddDays(options.RefreshTokenDays) }, raw);
+    }
+    private async Task<LoginResponse> CompleteLoginAsync(User user, string platform, string deviceName, CancellationToken ct)
+    {
+        EnsureActive(user);
+        user.FailedLoginAttempts = 0; user.LockedUntil = null; user.LastLoginAt = Now; user.UpdatedAt = Now;
+        var (session, refresh) = CreateSession(user.UserId, platform, deviceName);
+        store.AddSession(session);
+        await store.SaveAsync(ct);
+        return await CreateLoginResponseAsync(user, session, refresh, ct);
+    }
+    private async Task<string> CreateGoogleUsernameAsync(string email, CancellationToken ct)
+    {
+        var stem = System.Text.RegularExpressions.Regex.Replace(email.Split('@')[0], "[^A-Za-z0-9_.-]", "-").Trim('-', '.', '_');
+        if (stem.Length < 3) stem = "google-user";
+        stem = stem[..Math.Min(stem.Length, 38)];
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var suffix = Guid.NewGuid().ToString("N")[..12];
+            var candidate = $"{stem[..Math.Min(stem.Length, 50 - suffix.Length - 1)]}-{suffix}";
+            if (!await store.UsernameExistsAsync(candidate, ct)) return candidate;
+        }
+        throw new AuthException(503, "USERNAME_ALLOCATION_FAILED", "Không thể tạo tài khoản Google. Vui lòng thử lại.");
     }
     private async Task<LoginResponse> CreateLoginResponseAsync(User user, UserSession session, string refresh, CancellationToken ct)
     {
