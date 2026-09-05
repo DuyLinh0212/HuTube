@@ -1,0 +1,10 @@
+**/bin
+**/obj
+**/.work
+**/*.eml
+**/TestResults
+**/.env*
+**/appsettings.Local.json
+**/*.user
+**/*.log
+.git

@@ -1,0 +1,247 @@
+name: HuTube CI
+
+on:
+  push:
+    branches: [develop, "feature/**", "fix/**", "ci/**", "test/**", "db/**"]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      deploy_staging:
+        description: "Deploy develop to the configured Render staging service after all checks pass"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hutube-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: hutube_test
+          POSTGRES_PASSWORD: ci-only-isolated-password
+          POSTGRES_DB: hutube_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hutube_test -d hutube_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=hutube_test;Username=hutube_test;Password=ci-only-isolated-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet restore backend/HuTube.sln
+      - run: dotnet build backend/HuTube.sln --no-restore --configuration Release
+      - name: Unit tests
+        run: dotnet test backend/tests/HuTube.UnitTests --no-build --configuration Release --logger trx
+      - name: Integration tests against PostgreSQL
+        run: dotnet test backend/tests/HuTube.IntegrationTests --no-build --configuration Release --logger trx
+      - name: Publish API
+        run: dotnet publish backend/src/HuTube.Api --no-restore --configuration Release --output artifacts/api
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-${{ github.sha }}
+          path: artifacts/api
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: backend/tests/**/TestResults/*.trx
+
+  web:
+    strategy:
+      fail-fast: false
+      matrix:
+        client: [user-web, admin-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend/${{ matrix.client }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/${{ matrix.client }}/package-lock.json
+      - run: npm ci
+      - run: npm test -- --watch=false --browsers=ChromeHeadless
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.client }}-${{ github.sha }}
+          path: frontend/${{ matrix.client }}/dist
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile/user-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos
+      - run: flutter test
+
+  e2e:
+    needs: [backend, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: hutube_e2e
+          POSTGRES_PASSWORD: ci-only-e2e-password
+          POSTGRES_DB: hutube_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hutube_e2e -d hutube_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://127.0.0.1:5080
+      ConnectionStrings__Database: Host=127.0.0.1;Port=5432;Database=hutube_e2e;Username=hutube_e2e;Password=ci-only-e2e-password
+      Jwt__SigningKey: ci-e2e-signing-key-is-deliberately-ephemeral-and-longer-than-sixty-four-characters
+      Jwt__Issuer: HuTube
+      Jwt__Audience: HuTube.Clients
+      Auth__WebBaseUrl: http://localhost:4200
+      Auth__AdminBaseUrl: http://localhost:4201
+      Email__Mode: Pickup
+      Email__PickupDirectory: ${{ github.workspace }}/.work/mail
+      API_BASE_URL: http://localhost:5080/api/v1
+      PLAYWRIGHT_CHANNEL: chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            frontend/user-web/package-lock.json
+            frontend/admin-web/package-lock.json
+      - name: Build and migrate API
+        shell: bash
+        run: |
+          mkdir -p .work/mail
+          dotnet build backend/HuTube.sln --configuration Release
+          dotnet run --project backend/src/HuTube.Api --no-build --configuration Release --no-launch-profile -- --migrate
+          nohup dotnet run --project backend/src/HuTube.Api --no-build --configuration Release --no-launch-profile > .work/e2e-api.log 2>&1 &
+      - name: Start web clients
+        shell: bash
+        run: |
+          npm ci --prefix frontend/user-web
+          npm ci --prefix frontend/admin-web
+          nohup npm start --prefix frontend/user-web -- --host 127.0.0.1 > .work/e2e-user-web.log 2>&1 &
+          nohup npm start --prefix frontend/admin-web -- --host 127.0.0.1 > .work/e2e-admin-web.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --max-time 5 http://127.0.0.1:5080/health > /dev/null \
+              && curl --fail --silent --max-time 5 http://127.0.0.1:4200/login > /dev/null \
+              && curl --fail --silent --max-time 5 http://127.0.0.1:4201/login > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Local E2E services did not become ready.'
+          exit 1
+      - name: Browser authentication E2E
+        working-directory: frontend/user-web
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-diagnostics
+          include-hidden-files: true
+          path: |
+            .work/e2e-*.log
+            frontend/user-web/.work/screenshots
+
+  container:
+    needs: [backend, web, mobile, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Image name
+        id: image
+        shell: bash
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/api" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: ${{ github.ref == 'refs/heads/develop' && github.event_name != 'pull_request' }}
+          build-args: HUTUBE_COMMIT_SHA=${{ github.sha }}
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:develop
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_staging && github.ref == 'refs/heads/develop'
+    needs: [container]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    env:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+      STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+      EXPECTED_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Validate staging settings
+        shell: bash
+        run: |
+          test -n "$RENDER_DEPLOY_HOOK" || { echo 'Configure the staging RENDER_DEPLOY_HOOK secret.'; exit 1; }
+          test -n "$STAGING_API_URL" || { echo 'Configure the staging STAGING_API_URL variable.'; exit 1; }
+          [[ "$RENDER_DEPLOY_HOOK" == https://api.render.com/deploy/* ]] || { echo 'Expected a Render HTTPS deploy hook.'; exit 1; }
+          [[ "$STAGING_API_URL" == https://* ]] || { echo 'Staging API requires HTTPS.'; exit 1; }
+      - name: Deploy (Render pre-deploy command applies migrations)
+        shell: bash
+        run: curl --fail --silent --show-error --max-time 30 --get --data-urlencode "ref=$EXPECTED_COMMIT" "$RENDER_DEPLOY_HOOK" > /dev/null
+      - name: Wait for expected revision and smoke test
+        shell: bash
+        run: |
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent --max-time 10 "${STAGING_API_URL%/}/health" > /dev/null; then
+              actual=$(curl --fail --silent --max-time 10 "${STAGING_API_URL%/}/api/v1/system/info" | jq -r '.commitSha // empty') || actual=''
+              if [ "$actual" = "$EXPECTED_COMMIT" ]; then
+                echo 'Expected deployment is healthy and responds to the shared client diagnostic endpoint.'
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo 'Expected staging revision did not become healthy. Inspect Render deploy and migration logs.'
+          exit 1

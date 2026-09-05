@@ -1,0 +1,50 @@
+<main id="main-content" class="auth-layout">
+  <section class="auth-intro" aria-label="Giới thiệu">
+    <span class="brand-mark large" aria-hidden="true">▶</span>
+    <h1>{{ admin ? 'Không gian quản trị HuTube' : 'Một tài khoản. Kết nối mọi trải nghiệm.' }}</h1>
+    <p>{{ admin ? 'Đăng nhập bằng tài khoản được cấp quyền quản trị để tiếp tục công việc.' : 'Đăng nhập HuTube để bắt đầu trải nghiệm của bạn và quản lý tài khoản trên các thiết bị.' }}</p>
+    <div class="intro-note"><span aria-hidden="true">✓</span> {{ admin ? 'Quyền truy cập được kiểm tra mỗi lần đăng nhập.' : 'Bạn luôn kiểm soát những thiết bị đang đăng nhập.' }}</div>
+  </section>
+  <section class="auth-panel" [attr.aria-busy]="busy()" aria-labelledby="auth-heading">
+    <h2 id="auth-heading">{{ title }}</h2>
+    <p class="muted">@switch (mode()) { @case ('login') { {{ admin ? 'Dành cho đội ngũ quản trị.' : 'Chào mừng bạn trở lại HuTube.' }} } @case ('register') { Bắt đầu với email của bạn. } @case ('verify-email') { Hoàn tất xác minh để bảo vệ tài khoản. } @case ('forgot-password') { Nhập email để nhận liên kết đặt lại mật khẩu. } @case ('reset-password') { Chọn mật khẩu mới cho tài khoản của bạn. } }</p>
+    @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
+    @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
+    @if (mode() !== 'verify-email' && !completed()) {
+      <form #form="ngForm" (ngSubmit)="submit(form)" novalidate>
+        @if (mode() === 'register') {
+          <label for="displayName">Tên hiển thị</label><input id="displayName" name="displayName" [(ngModel)]="displayName" #display="ngModel" required maxlength="100" autocomplete="nickname" [attr.aria-invalid]="display.invalid && display.touched" />
+          @if (display.invalid && display.touched) { <p class="field-error">Nhập tên hiển thị của bạn.</p> }
+          <label for="username">Tên người dùng</label><input id="username" name="username" [(ngModel)]="username" #handle="ngModel" required minlength="3" maxlength="50" pattern="[a-zA-Z0-9_.\-]+" autocomplete="username" aria-describedby="username-hint" [attr.aria-invalid]="handle.invalid && handle.touched" />
+          <p id="username-hint" class="field-hint">3–50 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.</p>
+          @if (handle.invalid && handle.touched) { <p class="field-error">Tên người dùng chưa đúng định dạng.</p> }
+        }
+        @if (mode() !== 'reset-password') {
+          <label for="email">Email</label><input id="email" name="email" type="email" [(ngModel)]="email" #emailInput="ngModel" required email maxlength="254" autocomplete="email" [attr.aria-invalid]="emailInput.invalid && emailInput.touched" />
+          @if (emailInput.invalid && emailInput.touched) { <p class="field-error">Nhập địa chỉ email hợp lệ.</p> }
+        }
+        @if (mode() !== 'forgot-password') {
+          <div class="label-row"><label for="password">{{ mode() === 'reset-password' ? 'Mật khẩu mới' : 'Mật khẩu' }}</label>@if (mode() === 'login') { <a routerLink="/forgot-password">Quên mật khẩu?</a> }</div>
+          <div class="password-field"><input id="password" name="password" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" #passwordInput="ngModel" required [minlength]="mode() === 'login' ? 1 : 10" maxlength="128" [pattern]="mode() === 'login' ? '.*' : '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}'" [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'" [attr.aria-describedby]="mode() === 'login' ? null : 'password-hint'" [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched" /><button type="button" class="reveal" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" [attr.aria-pressed]="showPassword">{{ showPassword ? 'Ẩn' : 'Hiện' }}</button></div>
+          @if (mode() !== 'login') {
+            <p id="password-hint" class="field-hint">10–128 ký tự, gồm chữ hoa, chữ thường và số.</p>
+            <label for="confirmPassword">Nhập lại mật khẩu</label><input id="confirmPassword" name="confirmPassword" type="password" [(ngModel)]="confirmPassword" required maxlength="128" autocomplete="new-password" />
+          }
+          @if (passwordInput.invalid && passwordInput.touched) { <p class="field-error">{{ mode() === 'login' ? 'Nhập mật khẩu của bạn.' : 'Mật khẩu chưa đáp ứng yêu cầu.' }}</p> }
+        }
+        <button class="primary full" type="submit" [disabled]="busy() || (mode() === 'reset-password' && !hasResetToken)">{{ busy() ? 'Đang xử lý…' : mode() === 'forgot-password' ? 'Gửi liên kết' : title }}</button>
+      </form>
+    }
+    @if (mode() === 'verify-email' && !completed()) {
+      @if (busy()) { <p role="status">Đang xác minh email…</p> }
+      <form #resendForm="ngForm" (ngSubmit)="resend(resendForm)"><label for="resendEmail">Email nhận liên kết mới</label><input id="resendEmail" name="resendEmail" type="email" [(ngModel)]="email" required email autocomplete="email" /><button class="primary full" type="submit" [disabled]="busy()">Gửi lại email xác minh</button></form>
+    }
+    <div class="auth-links">
+      @if (mode() === 'login') { @if (!admin) { <p>Chưa có tài khoản? <a routerLink="/register">Đăng ký</a></p> } <a routerLink="/verify-email">Gửi lại email xác minh</a> }
+      @else { <a routerLink="/login">Trở về đăng nhập</a> }
+      @if (mode() === 'reset-password' && !completed()) { <a routerLink="/forgot-password">Yêu cầu liên kết mới</a> }
+      @if (!admin && mode() === 'reset-password' && hasResetToken && !completed()) { <a [href]="mobileResetLink">Mở trong ứng dụng HuTube</a> }
+      @if (!admin && mode() === 'verify-email' && completed()) { <a href="hutube://auth/login">Đăng nhập trên ứng dụng HuTube</a> }
+    </div>
+  </section>
+</main>
