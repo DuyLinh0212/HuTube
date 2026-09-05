@@ -6,7 +6,7 @@ Phạm vi hiện tại: **S4-01 API/infrastructure và S4-02 auth/session**. The
 
 ## Bắt đầu
 
-Máy phát triển hiện dùng PostgreSQL 18 riêng tại `.local/postgres`, cổng `127.0.0.1:55432`, database `hutube`; cấu hình riêng nằm trong `.env.local`. Chạy `./scripts/local-postgres.ps1 -Action Start` trước khi chạy API; xem [thiết lập local của máy này](docs/operations/LOCAL_SETUP.md). Các bước dưới đây dành cho thiết lập mới.
+Máy phát triển dùng PostgreSQL native tại `127.0.0.1:5432`, database `hutube`; cấu hình riêng nằm trong `.env.local`. Xem [thiết lập local](docs/operations/LOCAL_SETUP.md). Các bước dưới đây dành cho thiết lập mới.
 
 1. Cài .NET 10, Node 22.12+, Flutter stable (ít nhất 3.38.4, Dart tương thích `^3.10.7`), PostgreSQL 18 và Chrome.
 2. Copy `.env.example` thành `.env.local`, cấu hình database ứng dụng và test riêng, JWT key ngẫu nhiên ít nhất 64 ký tự.
