@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -13,6 +14,7 @@ export class AuthPage {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
+  private document = inject(DOCUMENT);
   readonly mode = signal('login');
   readonly busy = signal(false);
   readonly message = signal('');
@@ -40,6 +42,7 @@ export class AuthPage {
   }
   submit(form: NgForm) {
     if (this.busy()) return;
+    this.syncAutofilledEmail(form, 'email');
     if (form.invalid) { form.control.markAllAsTouched(); this.error.set('Vui lòng kiểm tra các trường được đánh dấu.'); return; }
     if (['register', 'reset-password'].includes(this.mode()) && this.password !== this.confirmPassword) { this.error.set('Mật khẩu xác nhận chưa khớp.'); return; }
     switch (this.mode()) {
@@ -51,7 +54,18 @@ export class AuthPage {
   }
   verify() { this.run(this.auth.verify(this.token), () => { this.completed.set(true); this.message.set('Email đã được xác minh. Bạn có thể đăng nhập ngay.'); }); }
   resend(form: NgForm) {
+    this.syncAutofilledEmail(form, 'resendEmail');
     if (form.invalid || this.busy()) { form.control.markAllAsTouched(); return; }
     this.run(this.auth.resend(this.email.trim()), () => this.message.set('Nếu tài khoản cần xác minh, một liên kết mới sẽ được gửi đến email của bạn.'));
+  }
+
+  private syncAutofilledEmail(form: NgForm, controlName: string) {
+    const input = this.document.querySelector<HTMLInputElement>(`input[name="${controlName}"]`);
+    const domValue = input?.value.trim();
+    if (!domValue || domValue === this.email.trim()) return;
+
+    this.email = domValue;
+    form.controls[controlName]?.setValue(domValue);
+    form.control.updateValueAndValidity();
   }
 }
