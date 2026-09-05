@@ -91,7 +91,6 @@ if (args.Contains("--migrate"))
     await scope.ServiceProvider.GetRequiredService<HuTubeDbContext>().Database.MigrateAsync();
     return;
 }
-app.UseMiddleware<ExceptionMiddleware>();
 app.Use(async (context, next) => {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "no-referrer";
@@ -99,7 +98,9 @@ app.Use(async (context, next) => {
     await next(context);
 });
 if (!app.Environment.IsDevelopment()) app.UseHsts();
-app.UseCors(); app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
+app.UseCors();
+app.UseMiddleware<ExceptionMiddleware>();
+app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
 app.UseStatusCodePages(context => ApiErrors.WriteAsync(context.HttpContext, context.HttpContext.Response.StatusCode, "HTTP_ERROR", "Yêu cầu không được xử lý."));
 if (!app.Environment.IsProduction()) {
     app.MapOpenApi();
