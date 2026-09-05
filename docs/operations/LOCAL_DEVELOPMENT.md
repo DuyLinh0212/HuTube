@@ -1,6 +1,6 @@
 # Chạy HuTube local — S4-01/S4-02
 
-Máy phát triển hiện đã có cluster riêng ở `.local/postgres`, cổng 55432; xem [LOCAL_SETUP.md](LOCAL_SETUP.md) để khởi động/dừng. Hướng dẫn tạo role/database dưới đây dành cho thiết lập mới, không cần chạy lại trên cluster đã bàn giao.
+Máy phát triển dùng PostgreSQL native ở cổng 5432; xem [LOCAL_SETUP.md](LOCAL_SETUP.md) để cấu hình database và migration. Hướng dẫn tạo role/database dưới đây dành cho thiết lập mới.
 
 ## Yêu cầu
 

@@ -33,7 +33,7 @@ Trạng thái kiểm chứng local ghi nhận trong lượt triển khai ngày 2
 | Flutter unit/widget | 17 test mặc định đạt; analyze không có issue |
 | Mobile HTTP smoke | Tổng 18/18 đạt khi bật live test; controller mobile gọi API/PostgreSQL thật qua toàn bộ auth/session flow. Đây không phải kiểm thử giao diện native trên thiết bị |
 | APK/native | Debug APK build đạt; emulator headless không boot xong nên chưa xác nhận secure storage/UI trên thiết bị Android; iOS cần macOS/Xcode |
-| PowerShell và YAML | Parse scripts/CI/Compose đạt; loader literal và truyền lỗi lệnh con đạt; PostgreSQL Status xác nhận đúng instance cổng 55432 |
+| PowerShell và YAML | Parse scripts/CI/Compose đạt; loader literal và truyền lỗi lệnh con đạt; PostgreSQL native xác nhận đúng instance cổng 5432 |
 | GitHub/CI/container | Nhánh `develop` baseline đã được tạo/push; workflow có backend/web/mobile, browser E2E, image và deploy opt-in. Chờ commit feature và kết quả GitHub Actions; container chưa được chạy local vì máy không có Docker CLI |
 | Render/SMTP staging | Chưa triển khai; không có URL staging hoặc kiểm thử SMTP thật |
 
