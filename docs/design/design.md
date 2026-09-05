@@ -172,8 +172,8 @@ Toàn bộ ảnh đã được khởi tạo chuẩn tỉ lệ và lưu đồng b
 - **Màu sắc**: Neon Coral (`#FF1361`) ➔ Neon Cyan (`#00F2FE`) trên nền Dark Slate (`#0F172A`).
 - **Phong cách**: Gen Z, gaming, livestreaming, công nghệ tương lai (Futuristic streaming).
 
-### Phương Án 5: Hu-Heart Play (CHÍNH THỨC ĐƯỢC CHỌN) 💖
-- **File vector chính thức**: [`docs/design/logos/logo_hutube.svg`](file:///f:/NgDuyLinh/Khoa_Luan_Tot_Nghiep/HuTube/docs/design/logos/logo_hutube.svg) & [`docs/design/logos/logo_concept_5.svg`](file:///f:/NgDuyLinh/Khoa_Luan_Tot_Nghiep/HuTube/docs/design/logos/logo_concept_5.svg)
+### Phương Án 5: Hu-Heart Play (Legacy)
+- **File vector lưu trữ**: [`docs/design/logos/logo_concept_5.svg`](logos/logo_concept_5.svg)
 - **Thiết kế tinh chỉnh theo phản hồi người dùng**:
   - **Hình khối trái tim (Heart Silhouette)**: Rõ ràng, cân đối tuyệt đối với 2 vòm cánh cong mềm mại và chóp nhọn phía dưới, góc phản quang 3D bóng bẩy.
   - **Nút Play (▶)**: Sắc nét, nổi bật với màu trắng tinh khôi `#FFFFFF`, bóng đổ tương phản cao, căn chỉnh quang học chính xác ở tâm trái tim.
@@ -187,6 +187,13 @@ Toàn bộ ảnh đã được khởi tạo chuẩn tỉ lệ và lưu đồng b
 - **Ý nghĩa & Triết lý**: Dải phim điện ảnh gấp nếp theo nghệ thuật Origami đa chiều. Nếp gấp chéo tạo thành mũi tên Play với đổ bóng Isometric tinh xảo.
 - **Màu sắc**: Deep Crimson (`#BE123C`) ➔ Ruby Rose (`#FF2B66`) ➔ Royal Amethyst (`#7C3AED`).
 - **Phong cách**: Sang trọng, Studio chuyên nghiệp, đẳng cấp và trường tồn.
+
+### Logo Chính Thức: HuTube Orbit
+- **File mark chính thức**: [`docs/design/brand/hutube-orbit-mark.png`](brand/hutube-orbit-mark.png).
+- **Concept do AI tạo**: [`docs/design/brand/hutube-orbit-concept.png`](brand/hutube-orbit-concept.png).
+- **Ý nghĩa**: Hai dải quỹ đạo đan quanh chữ **H**, đại diện cho luồng nội dung liên tục giữa người xem và nhà sáng tạo; điểm tròn phía trên là một thành viên trong cộng đồng HuTube.
+- **Màu sắc**: Coral Rose (`#FF2B66`) kết hợp Royal Violet (`#7C3AED`) trên nền Deep Plum (`#17111F`) khi dùng làm launcher icon.
+- **Nguyên tắc sử dụng**: Mark 3D là logo hiển thị chính trên web, admin và mobile. Wordmark `HuTube` được ghép bằng typography giao diện để luôn sắc nét. Favicon và app icon phải được sinh từ chính mark này.
 
 > [!TIP]
 > Bạn có thể mở trực tiếp file [`docs/design/logo-preview.html`](file:///f:/NgDuyLinh/Khoa_Luan_Tot_Nghiep/HuTube/docs/design/logo-preview.html) trên trình duyệt để so sánh trực quan cả 6 logo trên nền sáng/tối và thử nghiệm thanh Menu thực tế!

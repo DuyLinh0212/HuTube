@@ -1,4 +1,70 @@
 <a class="skip-link" href="#main-content">Chuyển đến nội dung</a>
-<header class="topbar"><a class="brand" routerLink="/account" aria-label="HuTube — tài khoản"><span class="brand-mark" aria-hidden="true">▶</span>HuTube</a><span class="app-label">{{ admin ? 'Quản trị' : 'Tài khoản HuTube' }}</span></header>
-<router-outlet />
-<footer class="footer">HuTube <span>·</span> Kết nối trải nghiệm của bạn</footer>
+
+@if (isAuthLayout()) {
+  <header class="auth-topbar">
+    <a class="brand" routerLink="/account" aria-label="HuTube Quản trị">
+      <img src="/assets/logo-mark.png" alt="" class="brand-mark-image" />
+      <span class="brand-wordmark"><strong>Hu</strong><em>Tube</em></span>
+      <span class="brand-role">Quản trị</span>
+    </a>
+    <p>Không gian vận hành an toàn</p>
+  </header>
+  <router-outlet />
+  <footer class="footer">HuTube Orbit <span>·</span> Trung tâm quản trị</footer>
+} @else {
+  <div class="admin-shell" [class.nav-open]="navOpen()">
+    <button class="nav-scrim" type="button" aria-label="Đóng menu" (click)="closeNavigation()"></button>
+    <aside class="side-nav" aria-label="Điều hướng quản trị">
+      <div class="side-nav__head">
+        <a class="brand" routerLink="/account" aria-label="HuTube Quản trị">
+          <img src="/assets/logo-mark.png" alt="" class="brand-mark-image" />
+          <span class="brand-wordmark"><strong>Hu</strong><em>Tube</em></span>
+          <span class="brand-role">Quản trị</span>
+        </a>
+        <button class="nav-close" type="button" aria-label="Đóng menu" (click)="closeNavigation()">×</button>
+      </div>
+      <nav class="nav-groups">
+        <section class="nav-group" aria-labelledby="operation-label">
+          <p id="operation-label" class="nav-label">Vận hành</p>
+          <span class="nav-item"><span aria-hidden="true">⌂</span>Tổng quan</span>
+          <span class="nav-item"><span aria-hidden="true">▻</span>Kiểm duyệt video<i>12</i></span>
+          <span class="nav-item"><span aria-hidden="true">▤</span>Báo cáo<i>8</i></span>
+          <span class="nav-item"><span aria-hidden="true">◌</span>Bình luận<i>24</i></span>
+          <span class="nav-item"><span aria-hidden="true">!</span>Khiếu nại</span>
+        </section>
+        <section class="nav-group" aria-labelledby="community-label">
+          <p id="community-label" class="nav-label">Cộng đồng</p>
+          <span class="nav-item"><span aria-hidden="true">♙</span>Người dùng</span>
+          <span class="nav-item"><span aria-hidden="true">▣</span>Kênh</span>
+        </section>
+        <section class="nav-group" aria-labelledby="system-label">
+          <p id="system-label" class="nav-label">Hệ thống</p>
+          <span class="nav-item"><span aria-hidden="true">⌁</span>Thống kê</span>
+          <span class="nav-item"><span aria-hidden="true">◇</span>Gói & doanh thu</span>
+          <span class="nav-item"><span aria-hidden="true">≡</span>Nhật ký hệ thống</span>
+        </section>
+      </nav>
+      <a class="profile-link active" routerLink="/account" aria-current="page" (click)="closeNavigation()">
+        <span class="profile-avatar" aria-hidden="true">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'Q' }}</span>
+        <span><strong>{{ auth.user()?.displayName || 'Tài khoản quản trị' }}</strong><small>Hồ sơ & phiên đăng nhập</small></span>
+        <span aria-hidden="true">›</span>
+      </a>
+    </aside>
+    <section class="shell-stage">
+      <header class="topbar">
+        <button class="menu-button" type="button" aria-label="Mở menu" (click)="navOpen.set(true)"><span></span><span></span><span></span></button>
+        <a class="mobile-mark" routerLink="/account" aria-label="HuTube Quản trị"><img src="/assets/logo-mark.png" alt="" /></a>
+        <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" placeholder="Tìm hồ sơ, video, người dùng, kênh…" aria-label="Tìm kiếm trong quản trị" /></label>
+        <div class="top-actions" aria-label="Thông tin quản trị">
+          <span class="date-range"><span aria-hidden="true">□</span>30 ngày gần nhất</span>
+          <span class="notification" role="img" aria-label="8 thông báo">♢<i>8</i></span>
+          <a class="admin-profile" routerLink="/account">
+            <span class="profile-avatar">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'Q' }}</span>
+            <span><strong>{{ auth.user()?.displayName || 'Quản trị viên' }}</strong><small>Moderator</small></span>
+          </a>
+        </div>
+      </header>
+      <div class="content-frame"><router-outlet /></div>
+    </section>
+  </div>
+}

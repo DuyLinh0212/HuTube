@@ -1,29 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 244 60" fill="none">
-  <defs>
-    <linearGradient id="mark-bg" x1="4" y1="4" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3B213D"/>
-      <stop offset="1" stop-color="#1E1628"/>
-    </linearGradient>
-    <linearGradient id="heart" x1="12" y1="13" x2="47" y2="47" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FF789B"/>
-      <stop offset=".48" stop-color="#FF3F73"/>
-      <stop offset="1" stop-color="#E51C58"/>
-    </linearGradient>
-    <filter id="shadow" x="4" y="7" width="49" height="47" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="#FF3F73" flood-opacity=".35"/>
-    </filter>
-  </defs>
-  <rect x="2" y="2" width="56" height="56" rx="18" fill="url(#mark-bg)"/>
-  <path d="M13 13.5A18 18 0 0 1 43.5 9l-4.2 4.2A12 12 0 0 0 17.2 18L13 13.5Z" fill="#fff" fill-opacity=".1"/>
-  <g filter="url(#shadow)">
-    <path d="M30 45.8C19.7 38.3 11 31.8 11 22.9 11 17.4 14.8 13 20.1 13c4.1 0 7.2 2.3 9.9 5.7 2.7-3.4 5.8-5.7 9.9-5.7C45.2 13 49 17.4 49 22.9c0 8.9-8.7 15.4-19 22.9Z" fill="url(#heart)"/>
-    <path d="M19.5 16.3c-3.4.3-5.5 3.1-5.5 6.7 0 3.1 1.4 5.9 4.3 8.8-1.1-2.7-1.5-5.1-1.2-7.2.4-3.1 1.8-5.8 4.5-7.6l-2.1-.7Z" fill="#fff" fill-opacity=".27"/>
-    <path d="m27.2 21.3 10.6 7.1c.9.6.9 1.9 0 2.5l-10.6 7.1c-1 .7-2.4 0-2.4-1.3V22.6c0-1.3 1.4-2 2.4-1.3Z" fill="#fff"/>
-  </g>
-  <path d="m51.8 7.4.9 2.7 2.7.9-2.7.9-.9 2.7-.9-2.7-2.7-.9 2.7-.9.9-2.7Z" fill="#FFB6C8"/>
-  <g font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="29" font-weight="800" letter-spacing="-1.2">
-    <text x="72" y="40" fill="#171321">Hu</text>
-    <text x="109" y="40" fill="#F12661">Tube</text>
-  </g>
-  <path d="M211 20.4c0-2.2 1.8-4 4-4 .8 0 1.5.2 2.1.6-.5-1.6.7-3.4 2.4-3.4 1.9 0 3.1 2.2 3.1 3.8 1.3-.5 2.8.5 2.8 2 0 1.3-1 2.3-2.3 2.3h-11.1Z" fill="#FF3F73" fill-opacity=".9"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 228 64" role="img" aria-labelledby="title desc">
+  <title id="title">HuTube Orbit</title>
+  <desc id="desc">Biểu tượng chữ H với quỹ đạo kết nối giữa người xem và nhà sáng tạo</desc>
+  <defs><linearGradient id="orbit" x1="8" y1="14" x2="58" y2="52" gradientUnits="userSpaceOnUse"><stop stop-color="#FF2B66"/><stop offset="1" stop-color="#7C3AED"/></linearGradient></defs>
+  <rect x="13" y="10" width="10" height="44" rx="5" fill="#FF2B66"/><rect x="41" y="10" width="10" height="44" rx="5" fill="#FF2B66"/>
+  <path d="M7 32c8-12 17-12 25 0s17 12 25 0c-8-12-17-12-25 0S15 44 7 32Z" fill="none" stroke="url(#orbit)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="53" cy="9" r="5" fill="#7C3AED" stroke="#FAF8F7" stroke-width="2"/>
+  <text x="72" y="42" fill="#111827" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="30" font-weight="800" letter-spacing="-1.4">Hu</text><text x="112" y="42" fill="#FF2B66" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="30" font-weight="800" letter-spacing="-1.4">Tube</text>
 </svg>

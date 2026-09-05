@@ -1,4 +1,17 @@
 :root {
+  --primary: #ff2b66;
+  --primary-hover: #e61952;
+  --primary-light: #ff4d80;
+  --primary-soft: rgba(255, 43, 102, 0.08);
+  --primary-glow: rgba(255, 43, 102, 0.32);
+  --primary-gradient: linear-gradient(135deg, #ff3b69 0%, #ff2b66 50%, #e61952 100%);
+  --page-bg: #faf8f7;
+  --card-bg: #ffffff;
+  --card-border: #e5e7eb;
+  --card-hover: #f9fafb;
+  --text-dark: #111827;
+  --text-muted: #6b7280;
+  --text-light: #9ca3af;
   --brand: #ff2b66;
   --brand-hover: #e61952;
   --brand-gradient: linear-gradient(135deg, #ff4d80 0%, #ff2b66 52%, #e61952 100%);
@@ -6,8 +19,8 @@
   --text-body: #374151;
   --muted: #6b7280;
   --line: #e5e7eb;
-  --canvas: #faf8f7;
-  --surface: #ffffff;
+  --canvas: var(--page-bg);
+  --surface: var(--card-bg);
   --tint: rgba(255, 43, 102, 0.08);
   --danger: #dc3d4f;
   --success: #0e9f6e;

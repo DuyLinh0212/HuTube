@@ -1,5 +1,4 @@
 <main id="main-content" class="account-layout">
-  <aside class="account-nav" aria-label="Điều hướng tài khoản"><span class="nav-selected">{{ admin ? 'Tài khoản quản trị' : 'Tài khoản của bạn' }}</span><p>Quản lý đăng nhập và các thiết bị đang sử dụng HuTube.</p></aside>
   <section class="account-content" aria-labelledby="account-title">
     <div class="section-heading"><div><h1 id="account-title">{{ admin ? 'Tài khoản quản trị' : 'Tài khoản của bạn' }}</h1><p class="muted">Thông tin đăng nhập và bảo mật phiên.</p></div><button type="button" class="secondary" [disabled]="busy()" (click)="logout()">Đăng xuất</button></div>
     @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }

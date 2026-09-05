@@ -39,6 +39,13 @@ class HuTubeApp extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        indicatorColor: Color(0xFFFFE6EE),
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -80,8 +87,8 @@ class HuTubeApp extends StatelessWidget {
   );
 }
 
-class HuHeartLogo extends StatelessWidget {
-  const HuHeartLogo({super.key, this.size = 32, this.showWordmark = true});
+class HuTubeLogo extends StatelessWidget {
+  const HuTubeLogo({super.key, this.size = 32, this.showWordmark = true});
   final double size;
   final bool showWordmark;
 
@@ -91,12 +98,12 @@ class HuHeartLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SizedBox(
+        Image.asset(
+          'assets/logo-mark.png',
           width: size,
           height: size,
-          child: CustomPaint(
-            painter: _HuHeartPainter(),
-          ),
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
         ),
         if (showWordmark) ...[
           const SizedBox(width: 8),
@@ -130,89 +137,6 @@ class HuHeartLogo extends StatelessWidget {
   }
 }
 
-class _HuHeartPainter extends CustomPainter {
-  const _HuHeartPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final bgRRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, w, h),
-      Radius.circular(w * 0.28),
-    );
-    final bgPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF3B213D), Color(0xFF1E1628)],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-    canvas.drawRRect(bgRRect, bgPaint);
-
-    final borderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRRect(bgRRect, borderPaint);
-
-    final heartPath = Path();
-    heartPath.moveTo(w * 0.5, h * 0.36);
-    heartPath.cubicTo(w * 0.46, h * 0.27, w * 0.39, h * 0.17, w * 0.28, h * 0.17);
-    heartPath.cubicTo(w * 0.15, h * 0.17, w * 0.08, h * 0.28, w * 0.08, h * 0.42);
-    heartPath.cubicTo(w * 0.08, h * 0.58, w * 0.26, h * 0.73, w * 0.5, h * 0.88);
-    heartPath.cubicTo(w * 0.74, h * 0.73, w * 0.92, h * 0.58, w * 0.92, h * 0.42);
-    heartPath.cubicTo(w * 0.92, h * 0.28, w * 0.85, h * 0.17, w * 0.72, h * 0.17);
-    heartPath.cubicTo(w * 0.61, h * 0.17, w * 0.54, h * 0.27, w * 0.5, h * 0.36);
-    heartPath.close();
-
-    canvas.drawShadow(heartPath, const Color(0xFFFF2B66), 4.0, true);
-
-    final heartPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFFF4D80), Color(0xFFFF2B66), Color(0xFFE61952)],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-    canvas.drawPath(heartPath, heartPaint);
-
-    final specPath = Path();
-    specPath.moveTo(w * 0.28, h * 0.21);
-    specPath.cubicTo(w * 0.18, h * 0.21, w * 0.12, h * 0.30, w * 0.12, h * 0.42);
-    specPath.cubicTo(w * 0.12, h * 0.49, w * 0.17, h * 0.57, w * 0.25, h * 0.65);
-    specPath.cubicTo(w * 0.21, h * 0.57, w * 0.20, h * 0.49, w * 0.20, h * 0.42);
-    specPath.cubicTo(w * 0.20, h * 0.33, w * 0.24, h * 0.25, w * 0.32, h * 0.23);
-    specPath.close();
-    final specPaint = Paint()..color = Colors.white.withValues(alpha: 0.3);
-    canvas.drawPath(specPath, specPaint);
-
-    final playPath = Path();
-    playPath.moveTo(w * 0.42, h * 0.36);
-    playPath.lineTo(w * 0.42, h * 0.66);
-    playPath.lineTo(w * 0.66, h * 0.51);
-    playPath.close();
-
-    canvas.drawShadow(playPath, const Color(0xFF880026), 2.0, false);
-    final playPaint = Paint()..color = Colors.white;
-    canvas.drawPath(playPath, playPaint);
-
-    final spark = Path()
-      ..moveTo(w * 0.83, h * 0.08)
-      ..lineTo(w * 0.87, h * 0.19)
-      ..lineTo(w * 0.98, h * 0.23)
-      ..lineTo(w * 0.87, h * 0.27)
-      ..lineTo(w * 0.83, h * 0.38)
-      ..lineTo(w * 0.79, h * 0.27)
-      ..lineTo(w * 0.68, h * 0.23)
-      ..lineTo(w * 0.79, h * 0.19)
-      ..close();
-    canvas.drawPath(spark, Paint()..color = const Color(0xFFFFB6C8));
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, required this.auth, this.links});
   final AuthController auth;
@@ -238,6 +162,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _hidden = true;
   bool _sessionsLoading = false;
   bool _sessionsLoaded = false;
+  int _selectedDestination = 4;
   List<Map<String, dynamic>> _sessions = [];
   int _operation = 0;
   AuthController get auth => widget.auth;
@@ -429,6 +354,29 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  void _onDestinationSelected(int index) {
+    if (index == 4) {
+      setState(() => _selectedDestination = 4);
+      return;
+    }
+    const labels = ['Trang chủ', 'Khám phá', 'Đăng video', 'Kênh đăng ký'];
+    _showNavigationNotice(labels[index]);
+  }
+
+  void _showNavigationNotice(String label) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            '$label sẽ được kết nối khi module tương ứng hoàn tất.',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
   @override
   void dispose() {
     auth.removeListener(_authChanged);
@@ -444,8 +392,21 @@ class _AuthScreenState extends State<AuthScreen> {
     final message = _message ?? auth.notice;
     return Scaffold(
       appBar: AppBar(
-        title: const HuHeartLogo(size: 28),
+        automaticallyImplyLeading: false,
+        title: const HuTubeLogo(size: 28),
         actions: [
+          if (auth.authenticated && _page == '/account')
+            IconButton(
+              onPressed: () => _showNavigationNotice('Tìm kiếm'),
+              tooltip: 'Tìm kiếm',
+              icon: const Icon(Icons.search_rounded),
+            ),
+          if (auth.authenticated && _page == '/account')
+            IconButton(
+              onPressed: () => _showNavigationNotice('Thông báo'),
+              tooltip: 'Thông báo',
+              icon: const Icon(Icons.notifications_none_rounded),
+            ),
           IconButton(
             onPressed: _busy ? null : _diagnostic,
             tooltip: 'Kiểm tra kết nối',
@@ -453,6 +414,39 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: auth.authenticated && _page == '/account'
+          ? NavigationBar(
+              selectedIndex: _selectedDestination,
+              onDestinationSelected: _onDestinationSelected,
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Trang chủ',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.explore_outlined),
+                  selectedIcon: Icon(Icons.explore_rounded),
+                  label: 'Khám phá',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.add_circle_outline_rounded),
+                  selectedIcon: Icon(Icons.add_circle_rounded),
+                  label: 'Đăng video',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.subscriptions_outlined),
+                  selectedIcon: Icon(Icons.subscriptions_rounded),
+                  label: 'Đăng ký',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Hồ sơ',
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         child: auth.restoring
             ? const Center(
@@ -785,7 +779,7 @@ class _AuthScreenState extends State<AuthScreen> {
         const CircleAvatar(
           radius: 28,
           backgroundColor: Color(0xffe1eaff),
-          child: Icon(Icons.person_outline, size: 30, color: Color(0xff2458dc)),
+          child: Icon(Icons.person_outline, size: 30, color: Color(0xffff2b66)),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -811,7 +805,7 @@ class _AuthScreenState extends State<AuthScreen> {
     const SizedBox(height: 16),
     const Row(
       children: [
-        Icon(Icons.verified_outlined, size: 18, color: Color(0xff2458dc)),
+        Icon(Icons.verified_outlined, size: 18, color: Color(0xffff2b66)),
         SizedBox(width: 8),
         Text('Email đã xác minh'),
       ],
@@ -859,7 +853,7 @@ class _AuthScreenState extends State<AuthScreen> {
               : 'Hoạt động: ${_date(session['lastActiveAt'] as String)}',
         ),
         trailing: session['isCurrent'] == true
-            ? const Icon(Icons.check_circle_outline, color: Color(0xff2458dc))
+            ? const Icon(Icons.check_circle_outline, color: Color(0xffff2b66))
             : TextButton(
                 onPressed: _busy
                     ? null
