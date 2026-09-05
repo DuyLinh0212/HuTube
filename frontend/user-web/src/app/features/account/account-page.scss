@@ -1,8 +1,5 @@
 :host { display: block; }
-.account-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); width: min(1200px, 100%); min-height: calc(100dvh - 132px); margin: 0 auto; }
-.account-nav { padding: 36px 20px; border-right: 1px solid var(--line); }
-.nav-selected { display: block; padding: 12px 14px; border-radius: 10px; color: var(--brand); background: var(--tint); font-size: 0.86rem; font-weight: 800; }
-.account-nav p { margin: 22px 10px; color: var(--muted); font-size: 0.76rem; line-height: 1.55; }
+.account-layout { width: min(1040px, 100%); min-height: calc(100dvh - 88px); margin: 0 auto; }
 .account-content { min-width: 0; padding: 42px; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .section-heading h1 { margin-bottom: 6px; font-size: 1.8rem; letter-spacing: -0.05em; }
@@ -35,13 +32,10 @@
 .connection { margin-top: 32px; color: var(--muted); font-size: 0.72rem; }
 .connection span { color: var(--success); font-size: 0.65rem; }
 @media (max-width: 900px) {
-  .account-layout { grid-template-columns: 180px minmax(0, 1fr); }
   .account-content { padding: 32px 24px; }
 }
 @media (max-width: 680px) {
-  .account-layout { display: block; min-height: auto; }
-  .account-nav { padding: 16px 20px 0; border-right: 0; }
-  .account-nav p { display: none; }
+  .account-layout { min-height: auto; }
   .account-content { padding: 28px 20px; }
   .section-heading h1 { font-size: 1.55rem; }
   .section-heading button { width: 100%; }
