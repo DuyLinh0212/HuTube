@@ -20,7 +20,7 @@
           @if (handle.invalid && handle.touched) { <p class="field-error">Tên người dùng chưa đúng định dạng.</p> }
         }
         @if (mode() !== 'reset-password') {
-          <label for="email">Email</label><input id="email" name="email" type="email" [(ngModel)]="email" #emailInput="ngModel" required email maxlength="254" autocomplete="email" [attr.aria-invalid]="emailInput.invalid && emailInput.touched" />
+          <label for="email">Email</label><input id="email" name="email" type="email" [(ngModel)]="email" #emailInput="ngModel" (input)="syncAutofilledEmailControl(emailInput)" (change)="syncAutofilledEmailControl(emailInput)" (blur)="syncAutofilledEmailControl(emailInput)" required email maxlength="254" autocomplete="email" [attr.aria-invalid]="emailInput.invalid && emailInput.touched" />
           @if (emailInput.invalid && emailInput.touched) { <p class="field-error">Nhập địa chỉ email hợp lệ.</p> }
         }
         @if (mode() !== 'forgot-password') {

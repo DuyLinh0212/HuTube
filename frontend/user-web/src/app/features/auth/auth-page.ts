@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { AfterViewChecked, Component, DestroyRef, ElementRef, ViewChild, inject, signal } from '@angular/core';
-import { FormsModule, NgForm } from '@angular/forms';
+import { FormsModule, NgForm, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, Observable } from 'rxjs';
@@ -98,6 +98,14 @@ export class AuthPage implements AfterViewChecked {
   private isEmailVerificationError(error: unknown): boolean {
     const candidate = error as { error?: { code?: unknown } } | null;
     return candidate?.error?.code === 'EMAIL_NOT_VERIFIED' || candidate?.error?.code === 'EMAIL_UNVERIFIED';
+  }
+  syncAutofilledEmailControl(control: NgModel) {
+    const input = this.document.querySelector<HTMLInputElement>('#email');
+    const domValue = input?.value.trim() ?? '';
+    if (domValue === this.email && control.control.value === domValue) return;
+    this.email = domValue;
+    control.control.setValue(domValue);
+    control.control.updateValueAndValidity();
   }
   submit(form: NgForm) {
     if (this.busy()) return;

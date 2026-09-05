@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
-import { FormsModule, NgForm } from '@angular/forms';
+import { FormsModule, NgForm, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, Observable } from 'rxjs';
@@ -67,5 +67,14 @@ export class AuthPage {
     this.email = domValue;
     form.controls[controlName]?.setValue(domValue);
     form.control.updateValueAndValidity();
+  }
+
+  syncAutofilledEmailControl(control: NgModel) {
+    const input = this.document.querySelector<HTMLInputElement>('#email');
+    const domValue = input?.value.trim() ?? '';
+    if (domValue === this.email && control.control.value === domValue) return;
+    this.email = domValue;
+    control.control.setValue(domValue);
+    control.control.updateValueAndValidity();
   }
 }
