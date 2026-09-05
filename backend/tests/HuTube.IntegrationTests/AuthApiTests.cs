@@ -42,8 +42,8 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         await using var db = factory.CreateDb();
         var user = await db.Users.SingleAsync(x => x.UserId == id);
         Assert.Null(user.EmailVerifiedAt); Assert.Equal("pending", user.Status);
-        Assert.DoesNotContain(Password, (await db.Identities.SingleAsync(x => x.UserId == id)).PasswordHash);
-        Assert.NotEqual(factory.Emails.Token(email), (await db.VerificationTokens.SingleAsync(x => x.UserId == id)).TokenHash);
+        Assert.DoesNotContain(Password, user.PasswordHash);
+        Assert.NotEqual(factory.Emails.Token(email), user.EmailVerificationTokenHash);
     }
     [Fact]
     public async Task Register_DuplicateEmailIgnoringCase_ShouldReturnConflict()
@@ -69,7 +69,7 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     {
         var (client, email, id) = await RegisterAsync(false);
         await using var db = factory.CreateDb();
-        await db.VerificationTokens.Where(t => t.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(t => t.CreatedAt, DateTimeOffset.UtcNow.AddDays(-2)).SetProperty(t => t.ExpiresAt, DateTimeOffset.UtcNow.AddDays(-1)));
+        await db.Users.Where(t => t.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(t => t.EmailVerificationCreatedAt, DateTimeOffset.UtcNow.AddDays(-2)).SetProperty(t => t.EmailVerificationExpiresAt, DateTimeOffset.UtcNow.AddDays(-1)));
         await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/verify-email", new { token = factory.Emails.Token(email) }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
     }
     [Fact]
@@ -188,11 +188,11 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     public async Task Admin_DisabledAfterLogin_ShouldBlockImmediately()
     {
         var (client, email, id) = await RegisterAsync();
-        await using var db = factory.CreateDb(); db.AdminAccounts.Add(new() { UserId = id }); await db.SaveChangesAsync();
+        await using var db = factory.CreateDb(); await db.Users.Where(x => x.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.RoleId, UserRoles.Admin));
         client.DefaultRequestHeaders.Add("X-HuTube-Client", "web"); client.DefaultRequestHeaders.Add("X-HuTube-App", "admin");
         var login = await LoginAsync(client, email, platform: "admin");
         Assert.Equal(HttpStatusCode.OK, (await Bearer(client, login.AccessToken).GetAsync("/api/v1/admin/me")).StatusCode);
-        await db.AdminAccounts.Where(x => x.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, "disabled"));
+        await db.Users.Where(x => x.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.RoleId, UserRoles.User));
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/admin/me")).StatusCode);
         await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = Password, platform = "admin" }), HttpStatusCode.Forbidden, "ADMIN_ACCESS_DENIED");
     }
@@ -228,8 +228,8 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     public async Task Migration_Reapplied_ShouldPreserveFullBootstrapSchema()
     {
         await using var db = factory.CreateDb(); await db.Database.MigrateAsync();
-        var count = await db.Database.SqlQueryRaw<int>("SELECT count(*)::integer AS \"Value\" FROM information_schema.tables WHERE table_schema='hutube'").SingleAsync();
-        Assert.True(count > 50);
+        var count = await db.Database.SqlQueryRaw<int>("SELECT count(*)::integer AS \"Value\" FROM information_schema.tables WHERE table_schema='public' AND table_name <> '__EFMigrationsHistory'").SingleAsync();
+        Assert.Equal(42, count);
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     public async Task Web_UserOriginWithAdminCookie_ShouldDenyCrossAppRefresh()
     {
         var (client, email, id) = await RegisterAsync();
-        await using var db = factory.CreateDb(); db.AdminAccounts.Add(new() { UserId = id }); await db.SaveChangesAsync();
+        await using var db = factory.CreateDb(); await db.Users.Where(x => x.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.RoleId, UserRoles.Admin));
         client.DefaultRequestHeaders.Add("X-HuTube-Client", "web"); client.DefaultRequestHeaders.Add("X-HuTube-App", "admin");
         client.DefaultRequestHeaders.Add("Origin", "http://localhost:4201");
         var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = Password, platform = "admin" });
@@ -303,7 +303,7 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     {
         var (client, email, id) = await RegisterAsync(); await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email });
         await using var db = factory.CreateDb();
-        await db.ResetTokens.Where(x => x.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.CreatedAt, DateTimeOffset.UtcNow.AddDays(-2)).SetProperty(x => x.ExpiresAt, DateTimeOffset.UtcNow.AddDays(-1)));
+        await db.Users.Where(x => x.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.PasswordResetCreatedAt, DateTimeOffset.UtcNow.AddDays(-2)).SetProperty(x => x.PasswordResetExpiresAt, DateTimeOffset.UtcNow.AddDays(-1)));
         await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { token = factory.Emails.Token(email), password = "NextPassword42!" }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
     }
 

@@ -23,7 +23,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             throw new AuthException(409, "EMAIL_ALREADY_EXISTS", "Email đã được sử dụng.");
         if (await store.UsernameExistsAsync(user.Username, ct))
             throw new AuthException(409, "USERNAME_ALREADY_EXISTS", "Tên người dùng đã được sử dụng.");
-        store.AddUser(user, new AuthIdentity { UserId = user.UserId, PasswordHash = passwords.Hash(request.Password), CreatedAt = Now, UpdatedAt = Now });
+        store.AddUser(user, passwords.Hash(request.Password));
         await store.SaveAsync(ct);
         await SendVerificationAsync(user, ct);
         await transaction.CommitAsync(ct);
@@ -50,8 +50,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         await using var transaction = await store.LockUserAsync(candidate.UserId, ct);
         var user = (await store.FindUserAsync(candidate.UserId, ct))!;
         if (user.LockedUntil > Now) throw new AuthException(429, "ACCOUNT_LOCKED", "Thử đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.");
-        var identity = await store.FindIdentityAsync(user.UserId, ct);
-        if (identity == null || !passwords.Verify(request.Password, identity.PasswordHash))
+        if (string.IsNullOrWhiteSpace(user.PasswordHash) || !passwords.Verify(request.Password, user.PasswordHash))
         {
             user.FailedLoginAttempts++;
             if (user.FailedLoginAttempts >= 5) { user.LockedUntil = Now.AddMinutes(15); user.FailedLoginAttempts = 0; }
@@ -166,7 +165,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         if (user == null || user.IsBlocked || user.EmailVerifiedAt == null) return EmailSent;
         await store.InvalidateTokensAsync(user.UserId, true, Now, ct);
         var raw = tokens.CreateOpaqueToken();
-        store.AddReset(new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddMinutes(30) });
+        store.AddReset(user, new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddMinutes(30) });
         await store.SaveAsync(ct);
         await emailSender.SendAsync(user.Email, "Đặt lại mật khẩu HuTube", $"Mở liên kết trong 30 phút: {options.WebBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(raw)}", ct);
         await transaction.CommitAsync(ct);
@@ -183,8 +182,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         if (token.UsedAt != null || token.ExpiresAt <= Now) throw InvalidLink();
         var user = await store.FindUserAsync(token.UserId, ct) ?? throw InvalidLink();
         EnsureActive(user);
-        var identity = await store.FindIdentityAsync(user.UserId, ct) ?? throw InvalidLink();
-        identity.PasswordHash = passwords.Hash(request.Password); identity.UpdatedAt = Now;
+        user.PasswordHash = passwords.Hash(request.Password); user.UpdatedAt = Now;
         user.FailedLoginAttempts = 0; user.LockedUntil = null; token.UsedAt = Now;
         await store.InvalidateTokensAsync(user.UserId, true, Now, ct);
         foreach (var session in await store.GetSessionsAsync(user.UserId, ct)) session.Revoke(Now, "password-reset");
@@ -239,7 +237,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
     private async Task SendVerificationAsync(User user, CancellationToken ct)
     {
         var raw = tokens.CreateOpaqueToken();
-        store.AddVerification(new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddHours(24) });
+        store.AddVerification(user, new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddHours(24) });
         await store.SaveAsync(ct);
         await emailSender.SendAsync(user.Email, "Xác minh email HuTube", $"Mở liên kết trong 24 giờ: {options.WebBaseUrl.TrimEnd('/')}/verify-email?token={Uri.EscapeDataString(raw)}", ct);
     }

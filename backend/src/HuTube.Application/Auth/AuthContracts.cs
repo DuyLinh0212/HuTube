@@ -62,7 +62,7 @@ public interface IAuthStore
     Task<User?> FindUserByEmailAsync(string email, CancellationToken ct);
     Task<User?> FindUserAsync(Guid id, CancellationToken ct);
     Task<bool> UsernameExistsAsync(string username, CancellationToken ct);
-    Task<AuthIdentity?> FindIdentityAsync(Guid userId, CancellationToken ct);
+    Task<string?> FindPasswordHashAsync(Guid userId, CancellationToken ct);
     Task<UserSession?> FindSessionByHashAsync(string hash, CancellationToken ct);
     Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct);
     Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct);
@@ -71,10 +71,10 @@ public interface IAuthStore
     Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct);
     Task<PasswordResetToken?> FindResetAsync(string hash, CancellationToken ct);
     Task<bool> IsAdminAsync(Guid userId, CancellationToken ct);
-    void AddUser(User user, AuthIdentity identity);
+    void AddUser(User user, string passwordHash);
     void AddSession(UserSession session);
-    void AddVerification(EmailVerificationToken token);
-    void AddReset(PasswordResetToken token);
+    void AddVerification(User user, EmailVerificationToken token);
+    void AddReset(User user, PasswordResetToken token);
     Task InvalidateTokensAsync(Guid userId, bool reset, DateTimeOffset now, CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
 }
