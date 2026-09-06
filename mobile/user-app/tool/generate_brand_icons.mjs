@@ -33,7 +33,7 @@ const targets = [
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1024, height: 1024 } });
-await page.setContent(`<!doctype html><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}body{display:grid;place-items:center;background:linear-gradient(135deg,#2a1a31,#140f1b)}img{display:block;width:82%;height:82%;object-fit:contain}</style><img src="data:image/png;base64,${encodedMark}">`);
+await page.setContent(`<!doctype html><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}body{display:grid;place-items:center;background:#fff}img{display:block;width:82%;height:82%;object-fit:contain}</style><img src="data:image/png;base64,${encodedMark}">`);
 
 for (const [relativePath, size] of targets) {
   const outputPath = resolve(appDirectory, relativePath);

@@ -8,6 +8,7 @@ export const routes: Routes = [
   { path: 'verify-email', loadComponent: authPage, title: 'Xác minh email · HuTube' },
   { path: 'forgot-password', loadComponent: authPage, title: 'Quên mật khẩu · HuTube' },
   { path: 'reset-password', loadComponent: authPage, title: 'Đặt lại mật khẩu · HuTube' },
+  { path: 'users', canActivate: [authGuard], loadComponent: () => import('./features/users/admin-users-page').then(m => m.AdminUsersPage), title: 'Người dùng · HuTube' },
   { path: 'account', canActivate: [authGuard], loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'Tài khoản · HuTube' },
   { path: '', pathMatch: 'full', redirectTo: 'account' },
   { path: '**', redirectTo: 'account' }

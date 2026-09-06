@@ -1,0 +1,33 @@
+<main id="main-content" class="users-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">Người dùng</p>
+      <h1>Danh sách người dùng</h1>
+      <p class="muted">Quản lý tài khoản, nhóm quyền và vai trò trong hệ thống.</p>
+    </div>
+    @if (tab() === 'roles') {
+      <div class="heading-actions"><button class="secondary-action" type="button"><img src="/assets/icons/system-administrator.png" alt="" /> Nhật ký thay đổi</button><button class="primary-action" type="button"><span aria-hidden="true">＋</span> Tạo nhóm quyền</button></div>
+    }
+  </header>
+
+  <nav class="tabs" aria-label="Các mục quản lý người dùng" role="tablist">
+    <button type="button" role="tab" [class.is-active]="tab() === 'users'" [attr.aria-selected]="tab() === 'users'" (click)="setTab('users')">Danh sách người dùng</button>
+    <button type="button" role="tab" [class.is-active]="tab() === 'roles'" [attr.aria-selected]="tab() === 'roles'" (click)="setTab('roles')">Phân quyền & tạo role</button>
+  </nav>
+
+  @if (tab() === 'users') {
+    <section class="empty-panel" role="tabpanel" aria-label="Danh sách người dùng">
+      <div class="empty-icon"><img src="/assets/icons/user.png" alt="" /></div>
+      <h2>Chưa có danh sách người dùng</h2>
+      <p>Trang này sẽ hiển thị danh sách, trạng thái, Plan và role của người dùng sau khi kết nối API quản trị.</p>
+      <span class="placeholder-badge">Trang tượng trưng</span>
+    </section>
+  } @else {
+    <section class="empty-panel" role="tabpanel" aria-label="Phân quyền và tạo role">
+      <div class="empty-icon"><img src="/assets/icons/system-administrator.png" alt="" /></div>
+      <h2>Chưa có nhóm quyền</h2>
+      <p>Khu vực này sẽ chứa ma trận phân quyền, danh sách role và thao tác gán vai trò cho user.</p>
+      <span class="placeholder-badge">Trang tượng trưng</span>
+    </section>
+  }
+</main>

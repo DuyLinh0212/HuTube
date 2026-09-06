@@ -1,0 +1,21 @@
+.users-page { max-width: 1200px; margin: 0 auto; padding: 34px 34px 52px; }
+.page-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.eyebrow { margin: 0 0 5px; color: var(--brand); font-size: .7rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.page-heading h1 { margin-bottom: 7px; }
+.page-heading .muted { margin: 0; font-size: .8rem; }
+.heading-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.primary-action, .secondary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 1px solid var(--line); border-radius: 10px; font-size: .74rem; font-weight: 750; }
+.primary-action { color: #fff; background: var(--primary); box-shadow: 0 10px 20px -14px var(--primary); }
+.secondary-action { color: var(--text-body); background: #fff; }
+.secondary-action img { width: 18px; height: 18px; object-fit: contain; }
+.tabs { display: flex; gap: 24px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.tabs button { position: relative; min-height: 46px; padding: 8px 2px; border-radius: 0; color: var(--text-muted); background: transparent; font-size: .78rem; font-weight: 750; }
+.tabs button.is-active { color: var(--brand); }
+.tabs button.is-active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 3px; border-radius: 8px 8px 0 0; background: var(--brand); content: ''; }
+.empty-panel { display: grid; min-height: 390px; place-items: center; align-content: center; padding: 42px 24px; border: 1px dashed #d6dbe4; border-radius: 14px; background: rgba(255,255,255,.78); text-align: center; }
+.empty-icon { display: grid; width: 66px; height: 66px; margin-bottom: 18px; place-items: center; border-radius: 18px; background: var(--primary-soft); }
+.empty-icon img { width: 34px; height: 34px; object-fit: contain; }
+.empty-panel h2 { margin-bottom: 8px; font-size: 1.05rem; }
+.empty-panel p { max-width: 490px; margin: 0; color: var(--text-muted); font-size: .78rem; line-height: 1.65; }
+.placeholder-badge { margin-top: 18px; border-radius: 999px; padding: 5px 10px; color: var(--text-muted); background: var(--card-hover); font-size: .62rem; font-weight: 750; }
+@media (max-width: 760px) { .users-page { padding: 24px 16px 42px; }.page-heading { align-items: start; flex-direction: column; }.tabs { gap: 15px; overflow-x: auto; }.empty-panel { min-height: 320px; } }

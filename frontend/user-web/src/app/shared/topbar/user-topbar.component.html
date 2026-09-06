@@ -1,6 +1,6 @@
 <header class="topbar">
   <button class="menu-button" type="button" aria-label="Mở menu" (click)="menuOpened.emit()"><span></span><span></span><span></span></button>
   <a class="mobile-mark" routerLink="/account" aria-label="HuTube"><img src="/assets/logo-mark.png" alt="" /></a>
-  <label class="search-box"><img src="/assets/icons/compass.png" alt="" /><input type="search" placeholder="Tìm video, kênh hoặc chủ đề" aria-label="Tìm kiếm trên HuTube" /><kbd>Ctrl K</kbd></label>
+  <label class="search-box"><span class="search-glyph" aria-hidden="true"></span><input type="search" placeholder="Tìm video, kênh hoặc chủ đề" aria-label="Tìm kiếm trên HuTube" /><kbd>Ctrl K</kbd></label>
   <div class="top-actions" aria-label="Tác vụ nhanh"><span class="create-action"><img src="/assets/icons/upload_video.png" alt="" />Tạo video</span><span class="icon-action" aria-label="Thông báo" role="img"><img src="/assets/icons/notification.png" alt="" /><i aria-hidden="true"></i></span><a class="top-avatar" routerLink="/account" aria-label="Mở tài khoản">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }}</a></div>
 </header>
