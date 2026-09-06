@@ -14,6 +14,7 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     private string CookieName => Platform == "admin" ? "hutube_admin_refresh" : "hutube_refresh";
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
     private Guid SessionId => Guid.Parse(User.FindFirst("sid")!.Value);
+
     private void ValidateBrowser()
     {
         if (!IsWeb) return;
