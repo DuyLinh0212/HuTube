@@ -26,6 +26,10 @@ try {
             Push-Location 'mobile/user-app'
             try {
                 $arguments = @('run', "--dart-define=API_BASE_URL=$env:MOBILE_API_BASE_URL")
+                $googleWebClientId = $env:Google__ClientId
+                if (-not [string]::IsNullOrWhiteSpace($googleWebClientId) -and -not $googleWebClientId.Contains('REPLACE_WITH')) {
+                    $arguments += "--dart-define=GOOGLE_WEB_CLIENT_ID=$googleWebClientId"
+                }
                 if ($Device) { $arguments += @('-d', $Device) }
                 Invoke-CheckedCommand flutter $arguments
             } finally { Pop-Location }

@@ -22,7 +22,7 @@ Nếu chỉ deploy API/database để phát triển, bạn có thể giữ `Auth
 
 Tạo OAuth 2.0 Client ID loại **Web application**, rồi thêm đúng URL User Web vào **Authorized JavaScript origins**. Luồng web dùng Google Identity Services để nhận ID token, vì vậy không cần client secret hay redirect URI. Dán Client ID đó vào `Google__ClientId` của Render. Backend kiểm tra chữ ký token, issuer, expiry, audience và `email_verified`, sau đó phát access/refresh token HuTube riêng.
 
-Ứng dụng Flutter cũng có nút Google. Khi build Android, truyền Web client ID đó làm `GOOGLE_WEB_CLIENT_ID`; Google Console cần thêm Android OAuth client có đúng package name và SHA-1/SHA-256 của khóa ký. Khi build iOS, truyền thêm `GOOGLE_IOS_CLIENT_ID`, tạo iOS OAuth client và thêm reversed client ID vào `Info.plist`. Các giá trị này là client ID công khai, không phải Render secret:
+Ứng dụng Flutter cũng có nút Google. Khi build Android, truyền Web client ID đó làm `GOOGLE_WEB_CLIENT_ID`; Google Console cần thêm Android OAuth client có package name `com.hutube.user_app` và SHA-1/SHA-256 của từng khóa ký (debug, upload/release). Lấy fingerprint local bằng `cd mobile/user-app/android; ./gradlew signingReport`. Khi build iOS, truyền thêm `GOOGLE_IOS_CLIENT_ID`, tạo iOS OAuth client và thêm reversed client ID vào `Info.plist`. Các giá trị này là client ID công khai, không phải Render secret:
 
 ```powershell
 flutter build apk --dart-define=GOOGLE_WEB_CLIENT_ID='<web-client-id>'

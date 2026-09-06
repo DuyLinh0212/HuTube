@@ -131,8 +131,6 @@ class AuthController extends ChangeNotifier {
   Future<void>? _googleInitialization;
   static const _googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
-    defaultValue:
-        '968220896298-or85f9g8ibu45tdbf0svsbiqt54g7iml.apps.googleusercontent.com',
   );
   static const _googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
@@ -280,6 +278,32 @@ class AuthController extends ChangeNotifier {
       await loginWithGoogleCredential(credential);
     } on ApiFailure {
       rethrow;
+    } on GoogleSignInException catch (error) {
+      throw switch (error.code) {
+        GoogleSignInExceptionCode.canceled => const ApiFailure(
+          400,
+          'GOOGLE_LOGIN_CANCELLED',
+          'Bạn đã hủy đăng nhập Google.',
+        ),
+        GoogleSignInExceptionCode.clientConfigurationError ||
+        GoogleSignInExceptionCode.providerConfigurationError =>
+          const ApiFailure(
+            503,
+            'GOOGLE_LOGIN_NOT_CONFIGURED',
+            'Google Sign-In của ứng dụng chưa được cấu hình đúng. '
+                'Kiểm tra Web client ID, package Android và SHA chứng chỉ ký.',
+          ),
+        GoogleSignInExceptionCode.uiUnavailable => const ApiFailure(
+          503,
+          'GOOGLE_LOGIN_NOT_CONFIGURED',
+          'Thiết bị hiện không thể mở màn hình đăng nhập Google.',
+        ),
+        _ => const ApiFailure(
+          401,
+          'INVALID_GOOGLE_TOKEN',
+          'Không thể hoàn tất đăng nhập Google. Vui lòng thử lại.',
+        ),
+      };
     } catch (_) {
       throw const ApiFailure(
         401,

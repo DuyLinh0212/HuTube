@@ -19,6 +19,23 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1
 
 Biểu tượng kết nối trên thanh đầu trang gọi `GET /system/info`, hiện trạng thái thực từ backend.
 
+## Google Sign-In Android
+
+Mobile không dùng một client ID được ghi cứng trong mã nguồn. Khi chạy qua
+`./scripts/run-local.ps1 -Component mobile`, script chuyển `Google__ClientId`
+từ `.env.local` thành `GOOGLE_WEB_CLIENT_ID`; khi chạy/build trực tiếp, truyền
+cùng Web OAuth client ID đang cấu hình ở backend:
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1 --dart-define=GOOGLE_WEB_CLIENT_ID='<web-oauth-client-id>'
+```
+
+Trong Google Cloud Console phải có OAuth client **Android** với package name
+`com.hutube.user_app` và SHA-1/SHA-256 của đúng khóa ký APK. Lấy fingerprint
+debug bằng `cd android; ./gradlew signingReport`; trước release, thêm
+fingerprint của upload/release key nữa. Backend `Google__ClientId` phải là
+chính Web OAuth client ID truyền vào mobile. Không commit `google-services.json`, private key hoặc client secret.
+
 ## Auth và phiên
 
 Đăng ký → xác minh email → đăng nhập. Hỗ trợ gửi lại xác minh, quên/đặt lại mật khẩu, khôi phục phiên, tự refresh một lần khi API trả 401, tải/thu hồi phiên và đăng xuất thiết bị khác. Tài khoản bị tạm khóa/cấm được xử lý từ lỗi backend.
