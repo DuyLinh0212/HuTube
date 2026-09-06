@@ -26,7 +26,7 @@ p { line-height: 1.6; text-wrap: pretty; }
 .auth-intro h1 { max-width: 340px; font-size: 2rem; line-height: 1.32; margin-bottom: 20px; }
 .auth-intro p { color: var(--muted); max-width: 350px; }
 .intro-note { border-top: 1px solid var(--line); margin-top: 35px; padding-top: 22px; font-size: 0.875rem; color: var(--muted); display: flex; gap: 9px; line-height: 1.5; }
-.intro-note span { color: var(--brand); }
+.intro-note img { width: 20px; height: 20px; object-fit: contain; flex: none; }
 .auth-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 32px; }
 .auth-panel h2 { font-size: 1.6rem; }
 .muted { color: var(--muted); }
@@ -75,14 +75,14 @@ input[aria-invalid='true'] { border-color: var(--danger); }
 .verified, .current { display: inline-block; font-size: 0.75rem; border-radius: 4px; font-weight: 500; padding: 3px 7px; vertical-align: middle; background: var(--tint); color: var(--brand); margin-left: 8px; }
 .session-list { list-style: none; padding: 0; margin: 8px 0 0; }
 .session-list li { display: flex; align-items: center; gap: 18px; padding: 22px 0; border-bottom: 1px solid var(--line); }
-.device-icon { color: var(--muted); font-size: 1.7rem; }
+.device-icon img { display: block; width: 29px; height: 29px; object-fit: contain; }
 .session-details { flex: 1; min-width: 0; }
 .session-details p { font-size: 0.8rem; margin: 2px 0; }
 .session-details h3 { overflow-wrap: anywhere; }
 .text-button { color: var(--brand); background: transparent; font-size: 0.85rem; padding: 8px; }
 .text-button:hover:not(:disabled) { background: var(--tint); }
 .connection { margin-top: 35px; font-size: 0.8rem; color: var(--muted); }
-.connection span { font-size: 0.7rem; }
+.connection-dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: var(--success); }
 .skeleton { background: var(--tint); color: var(--muted); padding: 28px 20px; border-radius: 7px; font-size: 0.9rem; }
 @media (max-width: 850px) { .auth-layout { grid-template-columns: 1fr 400px; gap: 32px; padding: 40px 28px; } .auth-intro h1 { font-size: 1.65rem; } .account-content { padding: 32px 24px; } }
 @media (max-width: 680px) { .topbar { height: 66px; padding: 0 20px; } .brand { font-size: 1.4rem; } .app-label { font-size: 0.78rem; padding-left: 16px; } .auth-layout { display: block; padding: 30px 18px; min-height: calc(100dvh - 135px); max-width: 470px; } .auth-intro { display: none; } .auth-panel { padding: 27px 23px; } .account-layout { display: block; } .account-nav { padding: 14px 20px 0; border: 0; } .account-nav p { display: none; } .account-content { padding: 28px 20px; } .session-list li { gap: 10px; align-items: start; } .device-icon { display: none; } .session-list .text-button { padding: 5px; } .current { margin: 5px 0 0; display: table; } .profile-summary { gap: 14px; } .verified { display: table; margin: 6px 0 0; } .avatar { width: 48px; height: 48px; } .footer { font-size: 0.7rem; gap: 8px; } }

@@ -1,0 +1,5 @@
+<div class="app-shell" [class.nav-open]="navOpen()" [class.nav-collapsed]="navCollapsed()">
+  <button class="nav-scrim" type="button" aria-label="Đóng menu" (click)="closeNavigation()"></button>
+  <app-user-sidebar [collapsed]="navCollapsed()" (collapsedChange)="setCollapsed($event)" (navigationClosed)="closeNavigation()" />
+  <section class="shell-stage"><app-user-topbar (menuOpened)="navOpen.set(true)" /><div class="content-frame"><router-outlet /></div></section>
+</div>

@@ -3,7 +3,7 @@
     <img src="/assets/logo-mark.png" class="brand-symbol large" alt="" aria-hidden="true" />
     <h1>{{ admin ? 'Không gian quản trị HuTube' : 'Một tài khoản. Kết nối mọi trải nghiệm.' }}</h1>
     <p>{{ admin ? 'Đăng nhập bằng tài khoản được cấp quyền quản trị để tiếp tục công việc.' : 'Đăng nhập HuTube để bắt đầu trải nghiệm của bạn và quản lý tài khoản trên các thiết bị.' }}</p>
-    <div class="intro-note"><span aria-hidden="true">✓</span> {{ admin ? 'Quyền truy cập được kiểm tra mỗi lần đăng nhập.' : 'Bạn luôn kiểm soát những thiết bị đang đăng nhập.' }}</div>
+    <div class="intro-note"><img src="/assets/icons/system-administrator.png" alt="" /> {{ admin ? 'Quyền truy cập được kiểm tra mỗi lần đăng nhập.' : 'Bạn luôn kiểm soát những thiết bị đang đăng nhập.' }}</div>
   </section>
   <section class="auth-panel" [attr.aria-busy]="busy()" aria-labelledby="auth-heading">
     <h2 id="auth-heading">{{ title }}</h2>

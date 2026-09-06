@@ -1,0 +1,6 @@
+<header class="topbar">
+  <button class="menu-button" type="button" aria-label="Mở menu" (click)="menuOpened.emit()"><span></span><span></span><span></span></button>
+  <a class="mobile-mark" routerLink="/account" aria-label="HuTube Quản trị"><img src="/assets/logo-mark.png" alt="" /></a>
+  <label class="search-box"><img src="/assets/icons/compass.png" alt="" /><input type="search" placeholder="Tìm hồ sơ, video, người dùng, kênh…" aria-label="Tìm kiếm trong quản trị" /></label>
+  <div class="top-actions" aria-label="Thông tin quản trị"><span class="date-range">30 ngày gần nhất</span><span class="notification" role="img" aria-label="8 thông báo"><img src="/assets/icons/notification.png" alt="" /><i>8</i></span><a class="admin-profile" routerLink="/account"><span class="profile-avatar">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'Q' }}</span><span><strong>{{ auth.user()?.displayName || 'Quản trị viên' }}</strong><small>Quản trị viên</small></span></a></div>
+</header>

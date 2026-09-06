@@ -1,73 +1,7 @@
 <a class="skip-link" href="#main-content">Chuyển đến nội dung</a>
 
 @if (isAuthLayout()) {
-  <header class="auth-topbar">
-    <a class="brand" routerLink="/account" aria-label="HuTube — trang tài khoản">
-      <img src="/assets/logo-mark.png" alt="" class="brand-mark-image" />
-      <span class="brand-wordmark"><strong>Hu</strong><em>Tube</em></span>
-    </a>
-    <p>Mỗi video mở ra một kết nối mới.</p>
-  </header>
-  <router-outlet />
-  <footer class="footer">HuTube Orbit <span>·</span> Kết nối bằng điều tử tế</footer>
+  <app-auth-layout />
 } @else {
-  <div class="app-shell" [class.nav-open]="navOpen()">
-    <button class="nav-scrim" type="button" aria-label="Đóng menu" (click)="closeNavigation()"></button>
-    <aside class="side-nav" aria-label="Điều hướng HuTube">
-      <div class="side-nav__head">
-        <a class="brand" routerLink="/account" aria-label="HuTube">
-          <img src="/assets/logo-mark.png" alt="" class="brand-mark-image" />
-          <span class="brand-wordmark"><strong>Hu</strong><em>Tube</em></span>
-        </a>
-        <button class="nav-close" type="button" aria-label="Đóng menu" (click)="closeNavigation()">×</button>
-      </div>
-
-      <nav class="nav-groups">
-        <section class="nav-group" aria-labelledby="discover-label">
-          <p id="discover-label" class="nav-label">Khám phá</p>
-          <span class="nav-item"><span aria-hidden="true">⌂</span>Dành cho bạn</span>
-          <span class="nav-item"><span aria-hidden="true">◇</span>Khám phá</span>
-          <span class="nav-item"><span aria-hidden="true">◉</span>Kênh đăng ký</span>
-        </section>
-        <section class="nav-group" aria-labelledby="library-label">
-          <p id="library-label" class="nav-label">Thư viện</p>
-          <span class="nav-item"><span aria-hidden="true">↺</span>Lịch sử xem</span>
-          <span class="nav-item"><span aria-hidden="true">♡</span>Video đã thích</span>
-          <span class="nav-item"><span aria-hidden="true">▣</span>Danh sách phát</span>
-          <span class="nav-item"><span aria-hidden="true">⇩</span>Tải xuống</span>
-        </section>
-        <section class="nav-group" aria-labelledby="creator-label">
-          <p id="creator-label" class="nav-label">Sáng tạo</p>
-          <span class="nav-item"><span aria-hidden="true">＋</span>Đăng video</span>
-          <span class="nav-item"><span aria-hidden="true">▤</span>Video của bạn</span>
-        </section>
-      </nav>
-
-      <a class="profile-link active" routerLink="/account" aria-current="page" (click)="closeNavigation()">
-        <span class="profile-avatar" aria-hidden="true">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }}</span>
-        <span><strong>{{ auth.user()?.displayName || 'Tài khoản HuTube' }}</strong><small>Hồ sơ & bảo mật</small></span>
-        <span aria-hidden="true">›</span>
-      </a>
-    </aside>
-
-    <section class="shell-stage">
-      <header class="topbar">
-        <button class="menu-button" type="button" aria-label="Mở menu" (click)="navOpen.set(true)">
-          <span></span><span></span><span></span>
-        </button>
-        <a class="mobile-mark" routerLink="/account" aria-label="HuTube"><img src="/assets/logo-mark.png" alt="" /></a>
-        <label class="search-box">
-          <span aria-hidden="true">⌕</span>
-          <input type="search" placeholder="Tìm video, kênh hoặc chủ đề" aria-label="Tìm kiếm trên HuTube" />
-          <kbd>Ctrl K</kbd>
-        </label>
-        <div class="top-actions" aria-label="Tác vụ nhanh">
-          <span class="create-action"><span aria-hidden="true">＋</span>Tạo video</span>
-          <span class="icon-action" aria-label="Thông báo" role="img">♢<i aria-hidden="true"></i></span>
-          <a class="top-avatar" routerLink="/account" aria-label="Mở tài khoản">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }}</a>
-        </div>
-      </header>
-      <div class="content-frame"><router-outlet /></div>
-    </section>
-  </div>
+  <app-shell-layout />
 }

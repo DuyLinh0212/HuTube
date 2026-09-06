@@ -9,7 +9,7 @@
 .features-list { display: flex; flex-direction: column; gap: 13px; margin-bottom: 22px; }
 .feature-item { display: flex; align-items: center; gap: 12px; }
 .feature-icon-box { display: grid; flex: 0 0 38px; place-items: center; width: 38px; height: 38px; border-radius: 13px; color: var(--brand); background: var(--tint); }
-.feature-icon-box svg { width: 18px; height: 18px; }
+.feature-icon-box img { width: 20px; height: 20px; object-fit: contain; }
 .feature-text { display: flex; flex-direction: column; gap: 2px; }
 .feature-title { color: var(--text-body); font-size: 0.78rem; font-weight: 800; }
 .feature-sub { color: var(--muted); font-size: 0.68rem; }
@@ -48,7 +48,6 @@
 .password-field input { padding-right: 52px; }
 .reveal { position: absolute; top: 4px; right: 4px; display: grid; min-width: 38px; min-height: 38px; padding: 7px; place-items: center; border-radius: 9px; color: #9b6c79; background: transparent; }
 .reveal:hover { color: var(--brand); background: var(--tint); }
-.reveal svg { width: 19px; height: 19px; }
 .field-hint, .field-error { margin: 5px 0 0; font-size: 0.7rem; line-height: 1.45; }
 .field-hint { color: var(--muted); }
 .field-error { color: var(--danger); }

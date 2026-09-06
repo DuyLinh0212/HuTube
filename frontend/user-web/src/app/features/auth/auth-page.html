@@ -18,7 +18,7 @@
       <div class="features-list">
         <div class="feature-item">
           <div class="feature-icon-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+            <img src="/assets/icons/upload_video.png" alt="" />
           </div>
           <div class="feature-text">
             <span class="feature-title">Sáng tạo không giới hạn</span>
@@ -28,7 +28,7 @@
 
         <div class="feature-item">
           <div class="feature-icon-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <img src="/assets/icons/user.png" alt="" />
           </div>
           <div class="feature-text">
             <span class="feature-title">Chia sẻ thế giới của bạn</span>
@@ -38,7 +38,7 @@
 
         <div class="feature-item">
           <div class="feature-icon-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <img src="/assets/icons/favorite.png" alt="" />
           </div>
           <div class="feature-text">
             <span class="feature-title">Khám phá & Thuộc về</span>
@@ -144,10 +144,10 @@
         }
         @if (mode() !== 'forgot-password') {
           <div class="label-row"><label for="password">{{ mode() === 'reset-password' ? 'Mật khẩu mới' : 'Mật khẩu' }}</label>@if (mode() === 'login') { <a routerLink="/forgot-password">Quên mật khẩu?</a> }</div>
-          <div class="password-field"><input id="password" name="password" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" #passwordInput="ngModel" required [minlength]="mode() === 'login' ? 1 : 10" maxlength="128" [pattern]="mode() === 'login' ? '.*' : '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}'" [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'" [attr.aria-describedby]="mode() === 'login' ? null : 'password-hint'" [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched" /><button type="button" class="reveal" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" [attr.aria-pressed]="showPassword"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">@if (showPassword) { <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/> } @else { <path d="m3 3 18 18"/><path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c6 0 9.5 7 9.5 7a16.7 16.7 0 0 1-2.5 3.5M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3-.5"/> } </svg></button></div>
+          <div class="password-field"><input id="password" name="password" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" #passwordInput="ngModel" required [minlength]="mode() === 'login' ? 1 : 10" maxlength="128" [pattern]="mode() === 'login' ? '.*' : '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}'" [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'" [attr.aria-describedby]="mode() === 'login' ? null : 'password-hint'" [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched" /><button type="button" class="reveal" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" [attr.aria-pressed]="showPassword">{{ showPassword ? 'Ẩn' : 'Hiện' }}</button></div>
           @if (mode() !== 'login') {
             <p id="password-hint" class="field-hint">10–128 ký tự, gồm chữ hoa, chữ thường và số.</p>
-            <label for="confirmPassword">Nhập lại mật khẩu</label><div class="password-field"><input id="confirmPassword" name="confirmPassword" [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="confirmPassword" required maxlength="128" autocomplete="new-password" /><button type="button" class="reveal" (click)="showConfirmPassword = !showConfirmPassword" [attr.aria-label]="showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'" [attr.aria-pressed]="showConfirmPassword"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">@if (showConfirmPassword) { <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/> } @else { <path d="m3 3 18 18"/><path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c6 0 9.5 7 9.5 7a16.7 16.7 0 0 1-2.5 3.5M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3-.5"/> } </svg></button></div>
+            <label for="confirmPassword">Nhập lại mật khẩu</label><div class="password-field"><input id="confirmPassword" name="confirmPassword" [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="confirmPassword" required maxlength="128" autocomplete="new-password" /><button type="button" class="reveal" (click)="showConfirmPassword = !showConfirmPassword" [attr.aria-label]="showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'" [attr.aria-pressed]="showConfirmPassword">{{ showConfirmPassword ? 'Ẩn' : 'Hiện' }}</button></div>
           }
           @if (passwordInput.invalid && passwordInput.touched) { <p class="field-error">{{ mode() === 'login' ? 'Nhập mật khẩu của bạn.' : 'Mật khẩu chưa đáp ứng yêu cầu.' }}</p> }
         }
