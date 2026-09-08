@@ -3,7 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, defer, finalize, firstValueFrom, map, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
 
-export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; }
+export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; role?: string; permissions?: string[]; }
 export interface LoginResponse { accessToken: string; expiresAt: string; user: User; }
 export interface Session { sessionId: string; deviceName: string; platform: string; issuedAt: string; lastActiveAt: string; expiresAt: string; isCurrent: boolean; }
 export interface Message { message: string; }
@@ -77,6 +77,12 @@ export class AuthService {
   revoke(id: string) { return this.http.delete<Message>(this.config.apiBaseUrl + '/auth/sessions/' + encodeURIComponent(id)); }
   logout() { this.clear(); return this.post<Message>('/auth/logout', {}); }
   info() { return this.raw.get(this.config.apiBaseUrl + '/system/info'); }
+  hasPermission(code: string): boolean {
+    const u = this.user();
+    if (!u || !u.isAdmin) return false;
+    if (u.role === 'super_admin') return true;
+    return u.permissions?.includes(code) ?? false;
+  }
 }
 
 export function safeReturnUrl(value: string | null): string {

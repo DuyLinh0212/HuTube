@@ -38,6 +38,8 @@ public sealed class Role
 {
     public Guid RoleId { get; set; }
     public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
     public string Status { get; set; } = "active";
 }
 

@@ -1,3 +1,5 @@
+using HuTube.Domain.Channels;
+using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +10,12 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserSession> Sessions => Set<UserSession>();
+    public DbSet<Channel> Channels => Set<Channel>();
+    public DbSet<ChannelMember> ChannelMembers => Set<ChannelMember>();
+    public DbSet<ChannelInvitation> ChannelInvitations => Set<ChannelInvitation>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
@@ -51,6 +59,37 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.RevokeReason).HasColumnName("revoke_reason"); b.Property(x => x.ReplacedBySessionId).HasColumnName("replaced_by_token_id");
             b.HasOne<UserSession>().WithMany().HasForeignKey(x => x.ReplacedBySessionId).OnDelete(DeleteBehavior.SetNull);
             b.HasIndex(x => x.RefreshTokenHash).IsUnique(); b.HasIndex(x => x.Jti).IsUnique();
+        });
+        model.Entity<Channel>(b => {
+            b.ToTable("channels"); b.HasKey(x => x.ChannelId); b.Ignore(x => x.IsActive);
+            b.HasQueryFilter(x => x.Status != "deleted");
+            b.Property(x => x.Handle).HasColumnType("citext");
+        });
+        model.Entity<ChannelMember>(b => {
+            b.ToTable("channel_members"); b.HasKey(x => x.ChannelMemberId);
+            b.HasIndex(x => new { x.ChannelId, x.UserId }).IsUnique();
+        });
+        model.Entity<ChannelInvitation>(b => {
+            b.ToTable("channel_invitations"); b.HasKey(x => x.ChannelInvitationId);
+            b.Property(x => x.InvitedEmail).HasColumnType("citext");
+        });
+        model.Entity<Permission>(b => {
+            b.ToTable("permissions"); b.HasKey(x => x.PermissionId);
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+        model.Entity<RolePermission>(b => {
+            b.ToTable("role_permissions"); b.HasKey(x => x.RolePermissionId);
+            b.HasIndex(x => new { x.RoleId, x.PermissionId }).IsUnique();
+        });
+        model.Entity<AuditLog>(b => {
+            b.ToTable("audit_logs"); b.HasKey(x => x.AuditLogId);
+            b.Property(x => x.OldValues).HasColumnType("jsonb");
+            b.Property(x => x.NewValues).HasColumnType("jsonb");
+            b.Property(x => x.IpAddress)
+                .HasConversion(
+                    v => string.IsNullOrWhiteSpace(v) ? null : System.Net.IPAddress.Parse(v),
+                    v => v == null ? null : v.ToString())
+                .HasColumnType("inet");
         });
         foreach (var entity in model.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
