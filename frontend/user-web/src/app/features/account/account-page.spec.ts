@@ -21,18 +21,26 @@ describe('Active device management', () => {
     const fixture=TestBed.createComponent(AccountPage);
     const current={sessionId:'current',deviceName:'Chrome',platform:'web',issuedAt:'2026-09-01T00:00:00Z',lastActiveAt:'2026-09-05T00:00:00Z',expiresAt:'2026-10-01T00:00:00Z',isCurrent:true};
     const other={...current,sessionId:'other',deviceName:'Điện thoại',platform:'mobile',isCurrent:false};
+    http.expectOne(base+'/account/profile').flush({userId:'1',username:'linh',email:'linh@example.test',displayName:'Linh',avatarUrl:null,bio:'',country:'Việt Nam',emailVerified:true,createdAt:'2026-09-01T00:00:00Z'});
+    http.expectOne(base+'/account/notifications').flush({notifyNewVideos:true,notifyComments:true,notifySubscriptions:true,notifyMarketing:false});
+    http.expectOne(base+'/account/settings').flush({theme:'system',defaultPlaybackQuality:'auto',autoplayNext:true});
+    http.expectOne(base+'/channels/me').flush(null, {status: 404, statusText: 'Not Found'});
     http.expectOne(base+'/auth/sessions').flush({items:[current,other]}); http.expectOne(base+'/system/info').flush({name:'HuTube'}); fixture.detectChanges();
     return {fixture,current,other};
   }
   it('shows the current device and requires confirmation before revoking another',()=>{
-    const {fixture,other}=setup(); expect(fixture.nativeElement.textContent).toContain('Thiết bị này');
+    const {fixture,other}=setup();
+    fixture.componentInstance.activeTab.set('sessions'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Thiết bị này');
     fixture.componentInstance.pendingRevoke.set(other); fixture.detectChanges(); http.expectNone(base+'/auth/sessions/other');
-    expect(fixture.nativeElement.textContent).toContain('Kết thúc phiên trên'); fixture.componentInstance.revoke();
+    expect(fixture.nativeElement.textContent).toContain('đăng xuất phiên trên thiết bị'); fixture.componentInstance.revoke();
     const request=http.expectOne(base+'/auth/sessions/other'); expect(request.request.method).toBe('DELETE'); request.flush({message:'revoked'});
     http.expectOne(base+'/auth/sessions').flush({items:[]}); fixture.detectChanges(); expect(fixture.componentInstance.pendingRevoke()).toBeNull();
   });
   it('refreshes device data after ending all other sessions',()=>{
-    const {fixture,current}=setup(); fixture.componentInstance.logoutOthers(); http.expectOne(base+'/auth/logout-others').flush({message:'ok'});
+    const {fixture,current}=setup();
+    fixture.componentInstance.activeTab.set('sessions'); fixture.detectChanges();
+    fixture.componentInstance.logoutOthers(); http.expectOne(base+'/auth/logout-others').flush({message:'ok'});
     http.expectOne(base+'/auth/sessions').flush({items:[current]}); fixture.detectChanges(); expect(fixture.componentInstance.sessions().length).toBe(1); expect(fixture.nativeElement.textContent).toContain('Đã đăng xuất khỏi các thiết bị khác');
   });
   it('revokes the current session and returns to login',()=>{
