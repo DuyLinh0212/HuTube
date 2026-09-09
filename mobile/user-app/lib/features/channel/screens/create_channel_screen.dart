@@ -43,7 +43,9 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
 
   void _onHandleChanged(String value) {
     _debounceTimer?.cancel();
-    final clean = value.startsWith('@') ? value.substring(1).trim() : value.trim();
+    final clean = value.startsWith('@')
+        ? value.substring(1).trim()
+        : value.trim();
 
     if (clean.length < 3) {
       setState(() {
@@ -119,7 +121,9 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
     } on ApiFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Không thể tạo kênh. Vui lòng thử lại sau.');
+      if (mounted) {
+        setState(() => _error = 'Không thể tạo kênh. Vui lòng thử lại sau.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -152,7 +156,11 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info_outline, color: AppColors.primary, size: 22),
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
                     SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -193,7 +201,10 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                   ),
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: AppColors.danger, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -232,14 +243,17 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                           child: SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
                           ),
                         )
                       : _handleAvailable == true
-                          ? const Icon(Icons.check_circle, color: AppColors.success)
-                          : _handleAvailable == false
-                              ? const Icon(Icons.cancel, color: AppColors.danger)
-                              : null,
+                      ? const Icon(Icons.check_circle, color: AppColors.success)
+                      : _handleAvailable == false
+                      ? const Icon(Icons.cancel, color: AppColors.danger)
+                      : null,
                 ),
               ),
               Padding(
@@ -248,15 +262,15 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                   _handleAvailable == true
                       ? '✓ Handle khả dụng'
                       : _handleAvailable == false
-                          ? '✗ Handle này đã có người sử dụng'
-                          : 'Handle sẽ hiển thị dạng @tenkenh, từ 3-50 ký tự (chữ cái, số, dấu . _ -)',
+                      ? '✗ Handle này đã có người sử dụng'
+                      : 'Handle sẽ hiển thị dạng @tenkenh, từ 3-50 ký tự (chữ cái, số, dấu . _ -)',
                   style: TextStyle(
                     fontSize: 12,
                     color: _handleAvailable == true
                         ? AppColors.success
                         : _handleAvailable == false
-                            ? AppColors.danger
-                            : AppColors.textMuted,
+                        ? AppColors.danger
+                        : AppColors.textMuted,
                   ),
                 ),
               ),
@@ -272,7 +286,8 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                 enabled: !_busy,
                 maxLines: 4,
                 decoration: const InputDecoration(
-                  hintText: 'Giới thiệu về nội dung mà bạn sẽ đăng tải trên kênh...',
+                  hintText:
+                      'Giới thiệu về nội dung mà bạn sẽ đăng tải trên kênh...',
                 ),
               ),
               const SizedBox(height: 32),
@@ -283,7 +298,10 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Tạo kênh'),
               ),

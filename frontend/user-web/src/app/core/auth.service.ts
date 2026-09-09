@@ -16,6 +16,7 @@ export class AuthService {
   readonly user = signal<User | null>(null);
   readonly accessToken = signal<string | null>(null);
   private refreshFlight?: Observable<LoginResponse>;
+  private readonly verificationFlights = new Map<string, Observable<Message>>();
   private generation = 0;
   private restored = false;
   get sessionVersion(): number { return this.generation; }
@@ -76,7 +77,18 @@ export class AuthService {
     }));
   }
   register(body: unknown) { return this.post<Message>('/auth/register', body); }
-  verify(token: string) { return this.post<Message>('/auth/verify-email', { token }); }
+  verify(token: string): Observable<Message> {
+    const existing = this.verificationFlights.get(token);
+    if (existing) return existing;
+    const request = this.post<Message>('/auth/verify-email', { token }).pipe(
+      finalize(() => {
+        if (this.verificationFlights.get(token) === request) this.verificationFlights.delete(token);
+      }),
+      shareReplay({ bufferSize: 1, refCount: false })
+    );
+    this.verificationFlights.set(token, request);
+    return request;
+  }
   resend(email: string) { return this.post<Message>('/auth/resend-verification', { email }); }
   forgot(email: string) { return this.post<Message>('/auth/forgot-password', { email }); }
   reset(token: string, password: string) { return this.post<Message>('/auth/reset-password', { token, password }).pipe(tap(() => this.clear())); }

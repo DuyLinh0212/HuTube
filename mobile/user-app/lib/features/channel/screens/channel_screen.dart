@@ -19,7 +19,8 @@ class ChannelScreen extends StatefulWidget {
   State<ChannelScreen> createState() => _ChannelScreenState();
 }
 
-class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProviderStateMixin {
+class _ChannelScreenState extends State<ChannelScreen>
+    with SingleTickerProviderStateMixin {
   late final ChannelService _channelService;
   late final TabController _tabController;
 
@@ -84,7 +85,9 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isSubscribed ? 'Đã đăng ký kênh' : 'Đã hủy đăng ký kênh'),
+        content: Text(
+          _isSubscribed ? 'Đã đăng ký kênh' : 'Đã hủy đăng ký kênh',
+        ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -111,9 +114,16 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+                const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: AppColors.danger,
+                ),
                 const SizedBox(height: 12),
-                Text(_error ?? 'Kênh không tồn tại hoặc đã bị xóa.', textAlign: TextAlign.center),
+                Text(
+                  _error ?? 'Kênh không tồn tại hoặc đã bị xóa.',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(onPressed: _load, child: const Text('Thử lại')),
               ],
@@ -129,10 +139,7 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
       appBar: AppBar(
         title: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
-          ),
+          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
           IconButton(
             icon: const Icon(Icons.share_outlined),
             onPressed: () {
@@ -157,7 +164,9 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                   height: 120,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    gradient: c.bannerUrl == null ? AppColors.primaryGradient : null,
+                    gradient: c.bannerUrl == null
+                        ? AppColors.primaryGradient
+                        : null,
                     image: c.bannerUrl != null
                         ? DecorationImage(
                             image: NetworkImage(c.bannerUrl!),
@@ -173,7 +182,9 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                               color: Colors.white,
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
-                              shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
+                              shadows: [
+                                Shadow(color: Colors.black26, blurRadius: 4),
+                              ],
                             ),
                           ),
                         )
@@ -189,10 +200,14 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                       CircleAvatar(
                         radius: 36,
                         backgroundColor: AppColors.primaryLight,
-                        backgroundImage: c.avatarUrl != null ? NetworkImage(c.avatarUrl!) : null,
+                        backgroundImage: c.avatarUrl != null
+                            ? NetworkImage(c.avatarUrl!)
+                            : null,
                         child: c.avatarUrl == null
                             ? Text(
-                                c.name.isNotEmpty ? c.name[0].toUpperCase() : 'C',
+                                c.name.isNotEmpty
+                                    ? c.name[0].toUpperCase()
+                                    : 'C',
                                 style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
@@ -220,7 +235,11 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.check_circle, size: 16, color: AppColors.primary),
+                                const Icon(
+                                  Icons.check_circle,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 2),
@@ -231,15 +250,22 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                                 color: AppColors.textSecondary,
                               ),
                             ),
-                            if (c.description != null && c.description!.isNotEmpty) ...[
+                            if (c.description != null &&
+                                c.description!.isNotEmpty) ...[
                               const SizedBox(height: 6),
                               GestureDetector(
-                                onTap: () => setState(() => _showFullDesc = !_showFullDesc),
+                                onTap: () => setState(
+                                  () => _showFullDesc = !_showFullDesc,
+                                ),
                                 child: Text(
                                   c.description!,
                                   maxLines: _showFullDesc ? 10 : 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12, color: AppColors.textPrimary, height: 1.3),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textPrimary,
+                                    height: 1.3,
+                                  ),
                                 ),
                               ),
                             ],
@@ -252,7 +278,10 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
 
                 // Action Buttons
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: c.isOwner
                       ? Row(
                           children: [
@@ -266,14 +295,15 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                                 icon: const Icon(Icons.tune_rounded, size: 18),
                                 label: const Text('Quản lý kênh & Cài đặt'),
                                 onPressed: () async {
-                                  final result = await Navigator.of(context).push<bool>(
-                                    MaterialPageRoute(
-                                      builder: (_) => ChannelSettingsScreen(
-                                        auth: widget.auth,
-                                        channel: c,
-                                      ),
-                                    ),
-                                  );
+                                  final result = await Navigator.of(context)
+                                      .push<bool>(
+                                        MaterialPageRoute(
+                                          builder: (_) => ChannelSettingsScreen(
+                                            auth: widget.auth,
+                                            channel: c,
+                                          ),
+                                        ),
+                                      );
                                   if (result == true) _load();
                                 },
                               ),
@@ -285,18 +315,26 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                             Expanded(
                               child: FilledButton(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: _isSubscribed ? const Color(0xFFF3F4F6) : AppColors.primary,
-                                  foregroundColor: _isSubscribed ? AppColors.textPrimary : Colors.white,
+                                  backgroundColor: _isSubscribed
+                                      ? const Color(0xFFF3F4F6)
+                                      : AppColors.primary,
+                                  foregroundColor: _isSubscribed
+                                      ? AppColors.textPrimary
+                                      : Colors.white,
                                   elevation: 0,
                                 ),
                                 onPressed: _toggleSubscribe,
-                                child: Text(_isSubscribed ? 'Đã đăng ký ✓' : 'Đăng ký'),
+                                child: Text(
+                                  _isSubscribed ? 'Đã đăng ký ✓' : 'Đăng ký',
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
                               onPressed: () {},
-                              icon: const Icon(Icons.notifications_none_rounded),
+                              icon: const Icon(
+                                Icons.notifications_none_rounded,
+                              ),
                               style: IconButton.styleFrom(
                                 backgroundColor: const Color(0xFFF3F4F6),
                                 foregroundColor: AppColors.textPrimary,
@@ -316,7 +354,10 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                 indicatorColor: AppColors.primary,
                 labelColor: AppColors.primary,
                 unselectedLabelColor: AppColors.textSecondary,
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
                 tabs: const [
                   Tab(text: 'TRANG CHỦ'),
                   Tab(text: 'VIDEO'),
@@ -329,12 +370,7 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
         ],
         body: TabBarView(
           controller: _tabController,
-          children: [
-            _homeTab(c),
-            _videosTab(c),
-            _playlistsTab(),
-            _aboutTab(c),
-          ],
+          children: [_homeTab(c), _videosTab(c), _playlistsTab(), _aboutTab(c)],
         ),
       ),
     );
@@ -400,7 +436,10 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text('Mô tả', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const Text(
+          'Mô tả',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         const SizedBox(height: 8),
         Text(
           c.description != null && c.description!.isNotEmpty
@@ -411,13 +450,22 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
         const SizedBox(height: 24),
         const Divider(),
         const SizedBox(height: 16),
-        const Text('Thông tin chi tiết', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const Text(
+          'Thông tin chi tiết',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         const SizedBox(height: 12),
         _aboutRow(Icons.link, 'mach.vn/@${c.handle}'),
         _aboutRow(Icons.people_outline, '$_subscriberCount người đăng ký'),
-        _aboutRow(Icons.video_library_outlined, '${c.videoCount} video đã đăng tải'),
+        _aboutRow(
+          Icons.video_library_outlined,
+          '${c.videoCount} video đã đăng tải',
+        ),
         _aboutRow(Icons.visibility_outlined, '${c.viewCount} tổng lượt xem'),
-        _aboutRow(Icons.calendar_today_outlined, 'Đã tham gia: ${_formatDate(c.createdAt)}'),
+        _aboutRow(
+          Icons.calendar_today_outlined,
+          'Đã tham gia: ${_formatDate(c.createdAt)}',
+        ),
       ],
     );
   }
@@ -458,21 +506,32 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
                 width: double.infinity,
                 color: const Color(0xFFF3F4F6),
                 child: const Center(
-                  child: Icon(Icons.play_circle_fill, size: 50, color: AppColors.primary),
+                  child: Icon(
+                    Icons.play_circle_fill,
+                    size: 50,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
               Positioned(
                 bottom: 8,
                 right: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withAlpha(190),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     duration,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -485,14 +544,20 @@ class _ChannelScreenState extends State<ChannelScreen> with SingleTickerProvider
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '$views · $date',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -519,11 +584,12 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Colors.white,
-      child: _tabBar,
-    );
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(color: Colors.white, child: _tabBar);
   }
 
   @override

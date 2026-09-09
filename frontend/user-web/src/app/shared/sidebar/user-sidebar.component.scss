@@ -44,3 +44,15 @@
     color: var(--primary);
   }
 }
+
+.nav-icon-badge--mail {
+  display:inline-grid;
+  flex:none;
+  width:22px;
+  height:22px;
+  place-items:center;
+  border-radius:7px;
+  color:var(--primary-hover);
+  background:var(--primary-soft);
+  font-size:.72rem;
+}

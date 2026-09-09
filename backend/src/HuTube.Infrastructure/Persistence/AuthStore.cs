@@ -52,7 +52,7 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
 
     public Task<bool> IsAdminAsync(Guid userId, CancellationToken ct) =>
         db.Users.Where(u => u.UserId == userId).Join(db.Roles, u => u.RoleId, r => r.RoleId,
-            (_, r) => r.Code == "admin" && r.Status == "active").SingleOrDefaultAsync(ct);
+            (_, r) => r.Code != "user" && r.Status == "active").SingleOrDefaultAsync(ct);
 
     public void AddUser(User user, string passwordHash)
     {

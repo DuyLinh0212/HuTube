@@ -18,6 +18,7 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.72.0" />
+    <PackageReference Include="CloudinaryDotNet" Version="1.29.3" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <EmbeddedResource Include="Persistence/Migrations/Bootstrap.sql" />
   </ItemGroup>

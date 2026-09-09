@@ -1,0 +1,22 @@
+.invitations-page { width:min(980px,calc(100% - 32px)); margin:0 auto; padding:38px 0 64px; }
+.page-header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:24px; }
+.eyebrow { margin:0 0 7px; color:var(--primary); font-size:.72rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+h1 { margin:0; color:var(--text-dark); font-size:clamp(1.55rem,3vw,2.1rem); letter-spacing:-.035em; }
+.page-header p:not(.eyebrow) { max-width:620px; margin:9px 0 0; color:var(--text-muted); }
+.notice { margin:0 0 16px; padding:12px 15px; border-radius:12px; font-size:.86rem; }
+.notice--error { color:#991b1b; border:1px solid #fecaca; background:#fef2f2; }
+.notice--success { color:#166534; border:1px solid #bbf7d0; background:#f0fdf4; }
+.state-card { display:grid; min-height:300px; place-items:center; align-content:center; gap:10px; padding:40px; border:1px solid var(--line); border-radius:16px; background:#fff; text-align:center; }
+.state-card h2,.state-card p { margin:0; }.state-card p { color:var(--text-muted); }.state-card .btn-primary { margin-top:10px; }
+.state-icon { display:grid; width:48px; height:48px; place-items:center; border-radius:50%; color:#15803d; background:#dcfce7; font-size:1.3rem; font-weight:800; }
+.spinner { width:30px; height:30px; border:3px solid var(--primary-soft); border-top-color:var(--primary); border-radius:50%; animation:spin .8s linear infinite; }
+.invitation-list { display:grid; gap:14px; }
+.invitation-card { display:grid; grid-template-columns:54px minmax(0,1fr) auto; align-items:center; gap:17px; padding:20px; border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow:0 8px 30px -26px rgba(17,24,39,.55); }
+.channel-avatar { display:grid; width:54px; height:54px; place-items:center; border-radius:50%; color:#fff; background:var(--primary-gradient); font-size:1.15rem; font-weight:800; }
+.invitation-copy { min-width:0; }.title-row { display:flex; align-items:center; justify-content:space-between; gap:14px; }.title-row h2 { margin:0; color:var(--text-dark); font-size:1rem; }.title-row span:not(.role-badge) { color:var(--text-muted); font-size:.76rem; }
+.role-badge { flex:none; padding:5px 9px; border-radius:999px; color:var(--primary-hover); background:var(--primary-soft); font-size:.7rem; font-weight:800; }
+.invitation-copy p { margin:8px 0 6px; color:var(--text-body); font-size:.83rem; }.invitation-copy small { color:var(--text-muted); }
+.actions { display:flex; gap:8px; }.btn-primary,.btn-secondary { min-height:40px; padding:9px 15px; border-radius:10px; font-size:.78rem; font-weight:750; text-decoration:none; }.btn-primary { color:#fff; background:var(--primary); }.btn-secondary { color:var(--text-body); border:1px solid var(--line); background:#fff; }.btn-primary:disabled,.btn-secondary:disabled { opacity:.55; cursor:not-allowed; }
+@keyframes spin { to { transform:rotate(360deg); } }
+@media (max-width:720px) { .page-header { align-items:flex-start; flex-direction:column; }.invitation-card { grid-template-columns:44px minmax(0,1fr); }.channel-avatar { width:44px; height:44px; }.actions { grid-column:1/-1; }.actions button { flex:1; }.title-row { align-items:flex-start; flex-direction:column; gap:6px; } }
+@media (prefers-reduced-motion:reduce) { .spinner { animation:none; } }

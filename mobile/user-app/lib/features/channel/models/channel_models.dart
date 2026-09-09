@@ -21,7 +21,7 @@ class ChannelSummary {
 
   factory ChannelSummary.fromJson(Map<String, dynamic> json) {
     return ChannelSummary(
-      id: json['id'] as String? ?? '',
+      id: json['channelId'] as String? ?? json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       handle: json['handle'] as String? ?? '',
       avatarUrl: json['avatarUrl'] as String?,
@@ -58,6 +58,8 @@ class ChannelDetail {
     required this.isOwner,
     required this.isSubscribed,
     required this.createdAt,
+    this.myRole,
+    this.permissions = const [],
   });
 
   final String id;
@@ -72,10 +74,12 @@ class ChannelDetail {
   final bool isOwner;
   final bool isSubscribed;
   final String createdAt;
+  final String? myRole;
+  final List<String> permissions;
 
   factory ChannelDetail.fromJson(Map<String, dynamic> json) {
     return ChannelDetail(
-      id: json['id'] as String? ?? '',
+      id: json['channelId'] as String? ?? json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       handle: json['handle'] as String? ?? '',
       description: json['description'] as String?,
@@ -87,6 +91,10 @@ class ChannelDetail {
       isOwner: json['isOwner'] as bool? ?? false,
       isSubscribed: json['isSubscribed'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
+      myRole: json['myRole'] as String?,
+      permissions: (json['permissions'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(),
     );
   }
 
@@ -103,6 +111,8 @@ class ChannelDetail {
     'isOwner': isOwner,
     'isSubscribed': isSubscribed,
     'createdAt': createdAt,
+    'myRole': myRole,
+    'permissions': permissions,
   };
 
   ChannelDetail copyWith({
@@ -126,6 +136,78 @@ class ChannelDetail {
       isOwner: isOwner,
       isSubscribed: isSubscribed ?? this.isSubscribed,
       createdAt: createdAt,
+      myRole: myRole,
+      permissions: permissions,
     );
   }
+}
+
+class ChannelRole {
+  const ChannelRole({
+    required this.code,
+    required this.name,
+    required this.description,
+  });
+  final String code;
+  final String name;
+  final String description;
+
+  factory ChannelRole.fromJson(Map<String, dynamic> json) => ChannelRole(
+    code: json['code'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    description: json['description'] as String? ?? '',
+  );
+}
+
+class ChannelMember {
+  const ChannelMember({
+    required this.userId,
+    required this.displayName,
+    required this.email,
+    required this.roleCode,
+    this.avatarUrl,
+  });
+  final String userId;
+  final String displayName;
+  final String email;
+  final String roleCode;
+  final String? avatarUrl;
+
+  factory ChannelMember.fromJson(Map<String, dynamic> json) => ChannelMember(
+    userId: json['userId'] as String? ?? '',
+    displayName: json['displayName'] as String? ?? '',
+    email: json['email'] as String? ?? '',
+    roleCode: json['roleCode'] as String? ?? 'viewer',
+    avatarUrl: json['avatarUrl'] as String?,
+  );
+}
+
+class ChannelInvitation {
+  const ChannelInvitation({
+    required this.id,
+    required this.channelId,
+    required this.channelName,
+    required this.channelHandle,
+    required this.roleCode,
+    required this.expiresAt,
+    this.invitedEmail,
+  });
+  final String id;
+  final String channelId;
+  final String channelName;
+  final String channelHandle;
+  final String roleCode;
+  final String expiresAt;
+  final String? invitedEmail;
+
+  factory ChannelInvitation.fromJson(Map<String, dynamic> json) =>
+      ChannelInvitation(
+        id: json['channelInvitationId'] as String? ?? '',
+        channelId: json['channelId'] as String? ?? '',
+        channelName: json['channelName'] as String? ?? '',
+        channelHandle: json['channelHandle'] as String? ?? '',
+        roleCode: json['roleCode'] as String? ?? 'viewer',
+        expiresAt: json['expiresAt'] as String? ?? '',
+        invitedEmail: json['invitedEmail'] as String?,
+      );
 }

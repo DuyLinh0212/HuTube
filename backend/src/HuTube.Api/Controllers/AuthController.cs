@@ -1,4 +1,5 @@
 using HuTube.Application.Auth;
+using HuTube.Application.Rbac;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -7,7 +8,7 @@ namespace HuTube.Api.Controllers;
 
 [ApiController, Route("api/v1/auth"), EnableRateLimiting("auth")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class AuthController(AuthService auth, AuthOptions options, IWebHostEnvironment environment) : ControllerBase
+public sealed class AuthController(AuthService auth, AuthOptions options, IWebHostEnvironment environment, RbacService rbacService) : ControllerBase
 {
     private bool IsWeb => Request.Headers["X-HuTube-Client"] == "web";
     private string Platform => IsWeb ? (Request.Headers["X-HuTube-App"] == "admin" ? "admin" : "web") : "mobile";
@@ -46,7 +47,21 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     {
         ValidateBrowser();
         if (request.Platform != Platform) throw new AuthException(400, "CLIENT_PLATFORM_MISMATCH", "Cấu hình client không khớp nền tảng đăng nhập.");
-        return SetSession(await auth.LoginAsync(request, ct));
+        var response = await auth.LoginAsync(request, ct);
+
+        if (Platform == "admin")
+        {
+            await rbacService.LogAuditAsync(new AuditLogEntry(
+                response.User.UserId,
+                "admin.login",
+                "user",
+                response.User.UserId,
+                "Admin login succeeded",
+                IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+                UserAgent: Request.Headers.UserAgent.ToString()), ct);
+        }
+
+        return SetSession(response);
     }
     [HttpPost("google")]
     public async Task<ActionResult<LoginResponse>> GoogleAsync(GoogleLoginRequest request, CancellationToken ct)
@@ -65,6 +80,19 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
         var response = await auth.LogoutAsync(ReadRefresh(request), Platform, ct);
         if (IsWeb) Response.Cookies.Delete(CookieName, new CookieOptions { Path = "/api/v1/auth", Secure = !environment.IsDevelopment(), HttpOnly = true,
             SameSite = environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None });
+
+        if (Platform == "admin" && User.Identity?.IsAuthenticated == true && Guid.TryParse(User.FindFirst("sub")?.Value, out var adminUserId))
+        {
+            await rbacService.LogAuditAsync(new AuditLogEntry(
+                adminUserId,
+                "admin.logout",
+                "user",
+                adminUserId,
+                "Admin logout",
+                IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+                UserAgent: Request.Headers.UserAgent.ToString()), ct);
+        }
+
         return response;
     }
     [HttpPost("verify-email")]
@@ -83,12 +111,4 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     public Task<MessageResponse> LogoutOthersAsync(CancellationToken ct) => auth.RevokeSessionsAsync(UserId, SessionId, null, ct);
     [Authorize, HttpDelete("sessions/{sessionId:guid}")]
     public Task<MessageResponse> RevokeSessionAsync(Guid sessionId, CancellationToken ct) => auth.RevokeSessionsAsync(UserId, SessionId, sessionId, ct);
-}
-
-[ApiController, Authorize, Route("api/v1/admin")]
-[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class AdminController(AuthService auth) : ControllerBase
-{
-    [HttpGet("me")]
-    public Task<UserResponse> GetMeAsync(CancellationToken ct) => auth.GetMeAsync(Guid.Parse(User.FindFirst("sub")!.Value), true, ct);
 }

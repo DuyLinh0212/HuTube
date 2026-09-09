@@ -1,0 +1,52 @@
+<main id="main-content" class="invitations-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Cộng tác trên HuTube</p>
+      <h1>Lời mời tham gia kênh</h1>
+      <p>Kiểm tra vai trò và phạm vi quyền trước khi bạn tham gia một kênh.</p>
+    </div>
+    <button type="button" class="btn-secondary" (click)="load()" [disabled]="loading()">Tải lại</button>
+  </header>
+
+  @if (error()) { <div class="notice notice--error" role="alert">{{ error() }}</div> }
+  @if (success()) { <div class="notice notice--success" role="status">{{ success() }}</div> }
+
+  @if (loading()) {
+    <section class="state-card" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <p>Đang tải lời mời…</p>
+    </section>
+  } @else if (invitations().length === 0) {
+    <section class="state-card">
+      <span class="state-icon" aria-hidden="true">✓</span>
+      <h2>Không có lời mời đang chờ</h2>
+      <p>Lời mời mới gửi tới email tài khoản của bạn sẽ xuất hiện tại đây.</p>
+      <a routerLink="/account" class="btn-primary">Về hồ sơ</a>
+    </section>
+  } @else {
+    <section class="invitation-list" aria-label="Danh sách lời mời">
+      @for (invitation of invitations(); track invitation.channelInvitationId) {
+        <article class="invitation-card">
+          <div class="channel-avatar" aria-hidden="true">{{ invitation.channelName.slice(0, 1).toUpperCase() }}</div>
+          <div class="invitation-copy">
+            <div class="title-row">
+              <div>
+                <h2>{{ invitation.channelName }}</h2>
+                <span>&#64;{{ invitation.channelHandle }}</span>
+              </div>
+              <span class="role-badge">{{ roleName(invitation.roleCode) }}</span>
+            </div>
+            <p>{{ roleDescription(invitation.roleCode) }}</p>
+            <small>Hết hạn {{ invitation.expiresAt | date:'dd/MM/yyyy, HH:mm' }}</small>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-primary" (click)="accept(invitation)" [disabled]="busyId() !== null">
+              {{ busyId() === invitation.channelInvitationId ? 'Đang xử lý…' : 'Chấp nhận' }}
+            </button>
+            <button type="button" class="btn-secondary" (click)="decline(invitation)" [disabled]="busyId() !== null">Từ chối</button>
+          </div>
+        </article>
+      }
+    </section>
+  }
+</main>

@@ -17,6 +17,7 @@ export const routes: Routes = [
     children: [
       { path: 'account', loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'Hồ sơ · HuTube' },
       { path: 'channel/create', loadComponent: () => import('./features/channel/channel-create-page').then(m => m.ChannelCreatePage), title: 'Tạo kênh · HuTube' },
+      { path: 'channel-invitations', loadComponent: () => import('./features/channel/channel-invitations-page').then(m => m.ChannelInvitationsPage), title: 'Lời mời kênh · HuTube' },
       { path: 'channel/:handle', loadComponent: () => import('./features/channel/channel-page').then(m => m.ChannelPage), title: 'Kênh · HuTube' },
       { path: 'channel/:handle/customize', loadComponent: () => import('./features/channel/channel-settings-page').then(m => m.ChannelSettingsPage), title: 'Tùy chỉnh kênh · HuTube' },
       { path: '', pathMatch: 'full', redirectTo: 'account' }

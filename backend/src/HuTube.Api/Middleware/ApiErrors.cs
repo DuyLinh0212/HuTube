@@ -24,10 +24,13 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
     {
         try { await next(context); }
         catch (AuthException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
+        catch (HuTube.Application.Channels.ChannelException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
+        catch (HuTube.Application.Rbac.RbacException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
+        catch (HuTube.Application.Storage.ObjectStorageException ex) { logger.LogWarning(ex, "Object storage request failed for {TraceId}", context.TraceIdentifier); await ApiErrors.WriteAsync(context, 502, "STORAGE_UPLOAD_FAILED", ex.Message); }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            logger.LogError("Request {TraceId} failed with {ExceptionType}", context.TraceIdentifier, ex.GetType().Name);
+            logger.LogError(ex, "Request {TraceId} failed with {ExceptionType}", context.TraceIdentifier, ex.GetType().Name);
             await ApiErrors.WriteAsync(context, 500, "INTERNAL_ERROR", "Đã có lỗi xảy ra. Vui lòng thử lại và cung cấp mã truy vết nếu cần hỗ trợ.");
         }
     }

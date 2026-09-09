@@ -742,7 +742,7 @@ CREATE TABLE IF NOT EXISTS channel_members (
     joined_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_channel_members UNIQUE(channel_id, user_id),
-    CONSTRAINT ck_channel_members_role CHECK (role_code IN ('manager','editor','viewer')),
+    CONSTRAINT ck_channel_members_role CHECK (role_code IN ('manager','editor','moderator','viewer')),
     CONSTRAINT ck_channel_members_status CHECK (status IN ('active','suspended','removed'))
 );
 
@@ -760,7 +760,7 @@ CREATE TABLE IF NOT EXISTS channel_invitations (
     responded_at          TIMESTAMPTZ,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_channel_invitations_target CHECK (invited_user_id IS NOT NULL OR invited_email IS NOT NULL),
-    CONSTRAINT ck_channel_invitations_role CHECK (role_code IN ('manager','editor','viewer','comment_moderator')),
+    CONSTRAINT ck_channel_invitations_role CHECK (role_code IN ('manager','editor','moderator','viewer')),
     CONSTRAINT ck_channel_invitations_status CHECK (status IN ('pending','accepted','declined','expired','revoked')),
     CONSTRAINT ck_channel_invitations_expiry CHECK (expires_at > created_at)
 );

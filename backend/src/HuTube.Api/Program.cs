@@ -7,7 +7,6 @@ using HuTube.Application.Channels;
 using HuTube.Application.Storage;
 using HuTube.Infrastructure.Account;
 using HuTube.Infrastructure.Authentication;
-using HuTube.Infrastructure.Channels;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -23,6 +22,7 @@ var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new();
 var authOptions = builder.Configuration.GetSection("Auth").Get<AuthOptions>() ?? new();
 var googleOptions = builder.Configuration.GetSection("Google").Get<GoogleOptions>() ?? new();
 var emailOptions = builder.Configuration.GetSection("Email").Get<EmailOptions>() ?? new();
+var storageOptions = builder.Configuration.GetSection("Storage").Get<StorageOptions>() ?? new();
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
 if (authOptions.AccessTokenMinutes is < 1 or > 60 || authOptions.RefreshTokenDays is < 1 or > 90)
     throw new InvalidOperationException("Auth token lifetime configuration is outside its supported range.");
@@ -49,15 +49,26 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
     || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
     throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<HuTube.Application.Channels.IChannelStore, ChannelStore>();
+builder.Services.AddScoped<HuTube.Application.Channels.ChannelService>();
+builder.Services.AddScoped<HuTube.Application.Rbac.IRbacStore, RbacStore>();
+builder.Services.AddScoped<HuTube.Application.Rbac.RbacService>();
 builder.Services.AddSingleton<IPasswordService, PasswordService>(); builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IGoogleTokenVerifier, GoogleTokenVerifier>();
-builder.Services.AddSingleton<IObjectStorage, LocalStorageService>();
+var hasCloudinaryCredentials = !string.IsNullOrWhiteSpace(storageOptions.CloudName)
+    && !string.IsNullOrWhiteSpace(storageOptions.ApiKey)
+    && !string.IsNullOrWhiteSpace(storageOptions.ApiSecret);
+if (string.Equals(storageOptions.Provider, "Cloudinary", StringComparison.OrdinalIgnoreCase) && hasCloudinaryCredentials)
+    builder.Services.AddSingleton<IObjectStorage, CloudinaryStorageService>();
+else if (builder.Environment.IsDevelopment())
+    builder.Services.AddSingleton<IObjectStorage, LocalStorageService>();
+else
+    throw new InvalidOperationException("Cloudinary storage is required outside Development. Configure Storage__CloudName, Storage__ApiKey and Storage__ApiSecret.");
 builder.Services.AddScoped<IAccountService, AccountService>();
-builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {

@@ -1,4 +1,3 @@
-import 'package:http/http.dart' as http;
 import '../../../auth.dart';
 import '../models/channel_models.dart';
 
@@ -17,8 +16,13 @@ class ChannelService {
   }
 
   Future<ChannelDetail> getChannel(String handleOrId) async {
-    final clean = handleOrId.startsWith('@') ? handleOrId.substring(1) : handleOrId;
-    final res = await auth.protected('GET', '/channels/${Uri.encodeComponent(clean)}');
+    final clean = handleOrId.startsWith('@')
+        ? handleOrId.substring(1)
+        : handleOrId;
+    final res = await auth.protected(
+      'GET',
+      '/channels/handle/${Uri.encodeComponent(clean)}',
+    );
     return ChannelDetail.fromJson(res);
   }
 
@@ -29,7 +33,7 @@ class ChannelService {
         'GET',
         '/channels/check-handle?handle=${Uri.encodeQueryComponent(clean)}',
       );
-      return res['available'] as bool? ?? false;
+      return res['isAvailable'] as bool? ?? false;
     } catch (_) {
       return false;
     }
@@ -59,12 +63,9 @@ class ChannelService {
     String? description,
   }) async {
     final res = await auth.protected(
-      'PUT',
+      'PATCH',
       '/channels/${Uri.encodeComponent(id)}',
-      body: {
-        'name': name.trim(),
-        'description': description?.trim(),
-      },
+      body: {'name': name.trim(), 'description': description?.trim()},
     );
     return ChannelDetail.fromJson(res);
   }
@@ -73,19 +74,80 @@ class ChannelService {
     await auth.protected('DELETE', '/channels/${Uri.encodeComponent(id)}');
   }
 
-  Future<String?> uploadAvatar(String channelId, List<int> bytes, String filename) async {
-    final uri = Uri.parse('${auth.api.baseUrl}/channels/$channelId/avatar');
-    final req = http.MultipartRequest('POST', uri);
-    req.headers['Accept'] = 'application/json';
-    req.headers['X-HuTube-Client'] = 'mobile';
-    
-    // We can use auth.protected or attach the token directly
-    // Let's attach file
-    req.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
-    
-    // If auth has token, add it
-    // Wait, let's check how to send multipart with token
-    // We can get token from a private getter or through auth
-    return null;
+  Future<List<ChannelRole>> getRoles() async {
+    final items = await auth.protectedList('/channels/roles');
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(ChannelRole.fromJson)
+        .toList();
+  }
+
+  Future<List<ChannelMember>> getMembers(String channelId) async {
+    final items = await auth.protectedList('/channels/$channelId/members');
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(ChannelMember.fromJson)
+        .toList();
+  }
+
+  Future<List<ChannelInvitation>> getPendingInvitations(
+    String channelId,
+  ) async {
+    final items = await auth.protectedList('/channels/$channelId/invitations');
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(ChannelInvitation.fromJson)
+        .toList();
+  }
+
+  Future<List<ChannelInvitation>> getMyInvitations() async {
+    final items = await auth.protectedList('/channels/invitations/me');
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(ChannelInvitation.fromJson)
+        .toList();
+  }
+
+  Future<void> inviteMember(
+    String channelId,
+    String email,
+    String roleCode,
+  ) async {
+    await auth.protected(
+      'POST',
+      '/channels/$channelId/members/invite',
+      body: {'email': email.trim(), 'roleCode': roleCode},
+    );
+  }
+
+  Future<void> acceptInvitation(String invitationId) async {
+    await auth.protected('POST', '/channels/invitations/$invitationId/accept');
+  }
+
+  Future<void> declineInvitation(String invitationId) async {
+    await auth.protected('POST', '/channels/invitations/$invitationId/decline');
+  }
+
+  Future<void> revokeInvitation(String channelId, String invitationId) async {
+    await auth.protected(
+      'DELETE',
+      '/channels/$channelId/invitations/$invitationId',
+    );
+  }
+
+  Future<void> changeMemberRole(
+    String channelId,
+    String userId,
+    String roleCode,
+  ) async {
+    await auth.protected(
+      'PATCH',
+      '/channels/$channelId/members/$userId/role',
+      body: {'roleCode': roleCode},
+    );
+  }
+
+  Future<void> removeMember(String channelId, String userId) async {
+    await auth.protected('DELETE', '/channels/$channelId/members/$userId');
   }
 }

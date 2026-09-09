@@ -3,7 +3,7 @@
     <header class="settings-header">
       <div>
         <h1 class="page-title">Tùy chỉnh kênh</h1>
-        <p class="page-subtitle">Quản lý thương hiệu, thông tin hiển thị và cấu hình kênh &#64;{{ ch.handle }}</p>
+        <p class="page-subtitle">Quản lý kênh &#64;{{ ch.handle }} với vai trò <strong>{{ roleName(ch.myRole ?? '') }}</strong></p>
       </div>
       <div class="header-actions">
         <a [routerLink]="['/channel', ch.handle]" class="btn-secondary">
@@ -24,15 +24,18 @@
     }
 
     <nav class="settings-tabs-nav">
-      <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'" (click)="setTab('basic')">
-        Thông tin cơ bản
-      </button>
-      <button type="button" class="tab-btn" [class.active]="activeTab() === 'branding'" (click)="setTab('branding')">
-        Xây dựng thương hiệu
-      </button>
-      <button type="button" class="tab-btn danger-tab" [class.active]="activeTab() === 'danger'" (click)="setTab('danger')">
-        Xóa kênh
-      </button>
+      @if (can('channel.edit_profile')) {
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'" (click)="setTab('basic')">Thông tin cơ bản</button>
+      }
+      @if (can('channel.edit_branding')) {
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'branding'" (click)="setTab('branding')">Xây dựng thương hiệu</button>
+      }
+      @if (can('member.view')) {
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'members'" (click)="setTab('members')">Thành viên &amp; quyền</button>
+      }
+      @if (can('channel.delete')) {
+        <button type="button" class="tab-btn danger-tab" [class.active]="activeTab() === 'danger'" (click)="setTab('danger')">Xóa kênh</button>
+      }
     </nav>
 
     <div class="settings-tab-content">
@@ -124,6 +127,98 @@
             </div>
           </div>
         </div>
+      }
+
+      @if (activeTab() === 'members') {
+        <section class="members-pane" aria-labelledby="members-title">
+          <div class="section-heading">
+            <div>
+              <h2 id="members-title">Thành viên &amp; quyền</h2>
+              <p>Mỗi vai trò có một tập quyền cố định và luôn được kiểm tra lại tại API.</p>
+            </div>
+          </div>
+
+          @if (can('member.invite')) {
+            <form class="invite-form" (ngSubmit)="inviteMember()">
+              <div class="form-group invite-email">
+                <label for="inviteEmail" class="input-label">Email người dùng</label>
+                <input id="inviteEmail" name="inviteEmail" type="email" class="text-input" [(ngModel)]="inviteEmail" required [disabled]="busy()" placeholder="member@example.com" />
+              </div>
+              <div class="form-group invite-role">
+                <label for="inviteRole" class="input-label">Vai trò</label>
+                <select id="inviteRole" name="inviteRole" class="text-input" [(ngModel)]="inviteRole" [disabled]="busy()">
+                  @for (role of roles(); track role.code) {
+                    <option [value]="role.code">{{ role.name }}</option>
+                  }
+                </select>
+              </div>
+              <button type="submit" class="btn-primary" [disabled]="busy() || !inviteEmail.trim()">Gửi lời mời</button>
+            </form>
+
+            @if (roles().length) {
+              <div class="role-explainer" aria-label="Mô tả vai trò đã chọn">
+                @for (role of roles(); track role.code) {
+                  @if (role.code === inviteRole) {
+                    <strong>{{ role.name }}</strong>
+                    <span>{{ role.description }}</span>
+                  }
+                }
+              </div>
+            }
+          }
+
+          <div class="member-list" role="list" aria-label="Danh sách thành viên kênh">
+            @for (member of members(); track member.userId) {
+              <article class="member-row" role="listitem">
+                <div class="member-identity">
+                  @if (member.avatarUrl) {
+                    <img [src]="member.avatarUrl" alt="" class="member-avatar" />
+                  } @else {
+                    <span class="member-avatar member-avatar-fallback" aria-hidden="true">{{ member.displayName.slice(0, 1).toUpperCase() }}</span>
+                  }
+                  <div>
+                    <strong>{{ member.displayName }}</strong>
+                    <span>{{ member.email }}</span>
+                  </div>
+                </div>
+                <div class="member-actions">
+                  @if (member.roleCode === 'owner' || !can('member.change_role')) {
+                    <span class="role-badge">{{ roleName(member.roleCode) }}</span>
+                  } @else {
+                    <label class="sr-only" [for]="'role-' + member.userId">Vai trò của {{ member.displayName }}</label>
+                    <select class="role-select" [id]="'role-' + member.userId" [value]="member.roleCode" [disabled]="busy()" (change)="changeRole(member, $any($event.target).value)">
+                      @for (role of roles(); track role.code) {
+                        <option [value]="role.code">{{ role.name }}</option>
+                      }
+                    </select>
+                  }
+                  @if (member.roleCode !== 'owner' && can('member.remove')) {
+                    <button type="button" class="btn-link-danger" (click)="removeMember(member)" [disabled]="busy()">Gỡ</button>
+                  }
+                </div>
+              </article>
+            } @empty {
+              <p class="empty-state">Chưa có thành viên nào ngoài chủ sở hữu.</p>
+            }
+          </div>
+
+          @if (can('member.invite')) {
+            <section class="pending-section" aria-labelledby="pending-title">
+              <h3 id="pending-title">Lời mời đang chờ</h3>
+              @for (invitation of invitations(); track invitation.channelInvitationId) {
+                <div class="invitation-row">
+                  <div>
+                    <strong>{{ invitation.invitedEmail }}</strong>
+                    <span>{{ roleName(invitation.roleCode) }} · hết hạn {{ invitation.expiresAt | date:'dd/MM/yyyy' }}</span>
+                  </div>
+                  <button type="button" class="btn-link-danger" (click)="revokeInvitation(invitation)" [disabled]="busy()">Thu hồi</button>
+                </div>
+              } @empty {
+                <p class="empty-state">Không có lời mời nào đang chờ.</p>
+              }
+            </section>
+          }
+        </section>
       }
 
       <!-- TAB 3: DANGER ZONE -->

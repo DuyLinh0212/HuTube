@@ -53,6 +53,8 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("RateLimit:AuthPermitLimit", "10000");
         builder.UseSetting("Auth:WebBaseUrl", "http://localhost:4200");
         builder.UseSetting("Auth:AdminBaseUrl", "http://localhost:4201");
+        builder.UseSetting("Auth:AllowedOrigins:0", "");
+        builder.UseSetting("Auth:AllowedOrigins:1", "");
         builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.RemoveAll<IGoogleTokenVerifier>(); services.AddSingleton<IAuthEmailSender>(Emails); services.AddSingleton<IGoogleTokenVerifier, TestGoogleTokenVerifier>(); });
     }
     async Task IAsyncLifetime.DisposeAsync()

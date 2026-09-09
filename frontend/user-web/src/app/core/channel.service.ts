@@ -2,7 +2,6 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { RuntimeConfig } from './runtime-config';
-import { Message } from './auth.service';
 
 export interface ChannelSummary {
   channelId: string;
@@ -33,6 +32,46 @@ export interface ChannelDetail {
   subscriberCount: number;
   videoCount: number;
   isOwner: boolean;
+  myRole: ChannelRoleCode | null;
+  permissions: string[];
+  createdAt: string;
+}
+
+export type ChannelRoleCode = 'owner' | 'manager' | 'editor' | 'moderator' | 'viewer';
+
+export interface ChannelRole {
+  code: Exclude<ChannelRoleCode, 'owner'>;
+  name: string;
+  description: string;
+  permissions: string[];
+}
+
+export interface ChannelMember {
+  channelMemberId: string;
+  channelId: string;
+  userId: string;
+  username: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  roleCode: ChannelRoleCode;
+  permissions: string[];
+  status: string;
+  joinedAt: string;
+}
+
+export interface ChannelInvitation {
+  channelInvitationId: string;
+  channelId: string;
+  channelName: string;
+  channelHandle: string;
+  invitedUserId: string | null;
+  invitedEmail: string | null;
+  invitedByUserId: string;
+  roleCode: Exclude<ChannelRoleCode, 'owner'>;
+  permissions: string[];
+  status: 'pending' | 'accepted' | 'declined' | 'expired' | 'revoked';
+  expiresAt: string;
   createdAt: string;
 }
 
@@ -74,7 +113,7 @@ export class ChannelService {
 
   getChannel(handle: string): Observable<ChannelDetail> {
     const clean = handle.startsWith('@') ? handle.slice(1) : handle;
-    return this.http.get<ChannelDetail>(`${this.base}/${encodeURIComponent(clean)}`);
+    return this.http.get<ChannelDetail>(`${this.base}/handle/${encodeURIComponent(clean)}`);
   }
 
   createChannel(request: CreateChannelRequest): Observable<ChannelSummary> {
@@ -85,8 +124,8 @@ export class ChannelService {
     return this.http.patch<ChannelSummary>(`${this.base}/${channelId}`, request);
   }
 
-  deleteChannel(channelId: string): Observable<Message> {
-    return this.http.delete<Message>(`${this.base}/${channelId}`);
+  deleteChannel(channelId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${channelId}`);
   }
 
   checkHandle(handle: string, currentChannelId?: string): Observable<CheckHandleResponse> {
@@ -107,5 +146,45 @@ export class ChannelService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<ChannelSummary>(`${this.base}/${channelId}/banner`, formData);
+  }
+
+  getRoles(): Observable<ChannelRole[]> {
+    return this.http.get<ChannelRole[]>(`${this.base}/roles`);
+  }
+
+  getMembers(channelId: string): Observable<ChannelMember[]> {
+    return this.http.get<ChannelMember[]>(`${this.base}/${channelId}/members`);
+  }
+
+  getPendingInvitations(channelId: string): Observable<ChannelInvitation[]> {
+    return this.http.get<ChannelInvitation[]>(`${this.base}/${channelId}/invitations`);
+  }
+
+  getMyInvitations(): Observable<ChannelInvitation[]> {
+    return this.http.get<ChannelInvitation[]>(`${this.base}/invitations/me`);
+  }
+
+  inviteMember(channelId: string, email: string, roleCode: ChannelRole['code']): Observable<ChannelInvitation> {
+    return this.http.post<ChannelInvitation>(`${this.base}/${channelId}/members/invite`, { email, roleCode });
+  }
+
+  acceptInvitation(invitationId: string): Observable<ChannelMember> {
+    return this.http.post<ChannelMember>(`${this.base}/invitations/${invitationId}/accept`, {});
+  }
+
+  declineInvitation(invitationId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/invitations/${invitationId}/decline`, {});
+  }
+
+  revokeInvitation(channelId: string, invitationId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${channelId}/invitations/${invitationId}`);
+  }
+
+  changeMemberRole(channelId: string, userId: string, roleCode: ChannelRole['code']): Observable<ChannelMember> {
+    return this.http.patch<ChannelMember>(`${this.base}/${channelId}/members/${userId}/role`, { roleCode });
+  }
+
+  removeMember(channelId: string, userId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${channelId}/members/${userId}`);
   }
 }

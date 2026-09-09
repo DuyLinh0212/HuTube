@@ -38,8 +38,8 @@ jobs:
     env:
       TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=hutube_test;Username=hutube_test;Password=ci-only-isolated-password
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       - run: dotnet restore backend/HuTube.sln
@@ -50,11 +50,11 @@ jobs:
         run: dotnet test backend/tests/HuTube.IntegrationTests --no-build --configuration Release --logger trx
       - name: Publish API
         run: dotnet publish backend/src/HuTube.Api --no-restore --configuration Release --output artifacts/api
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: api-${{ github.sha }}
           path: artifacts/api
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: backend-test-results
@@ -71,8 +71,8 @@ jobs:
       run:
         working-directory: frontend/${{ matrix.client }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -80,7 +80,7 @@ jobs:
       - run: npm ci
       - run: npm test -- --watch=false --browsers=ChromeHeadless
       - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.client }}-${{ github.sha }}
           path: frontend/${{ matrix.client }}/dist
@@ -92,8 +92,8 @@ jobs:
       run:
         working-directory: mobile/user-app
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -107,7 +107,7 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release --build-number=${{ github.run_number }}
       - name: Upload release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: hutube-user-app-apk-${{ github.sha }}
           path: mobile/user-app/build/app/outputs/flutter-apk/app-release.apk
@@ -144,11 +144,11 @@ jobs:
       API_BASE_URL: http://localhost:5080/api/v1
       PLAYWRIGHT_CHANNEL: chrome
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -182,7 +182,7 @@ jobs:
       - name: Browser authentication E2E
         working-directory: frontend/user-web
         run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: e2e-diagnostics
@@ -199,7 +199,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v3
       - name: Image name
         id: image

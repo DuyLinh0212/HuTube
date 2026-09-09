@@ -28,6 +28,8 @@ export class AuthPage implements AfterViewChecked {
   readonly verificationSuggested = signal(false);
   email = ''; username = ''; displayName = ''; password = ''; confirmPassword = '';
   private token = '';
+  private verificationAttemptedToken = '';
+  private routeStateKey = '';
   private googleRendered = false;
   private googleLoading = false;
   @ViewChild('googleButton') googleButton?: ElementRef<HTMLDivElement>;
@@ -38,12 +40,21 @@ export class AuthPage implements AfterViewChecked {
     this.startCarousel();
     this.destroyRef.onDestroy(() => this.stopCarousel());
     this.route.url.pipe(takeUntilDestroyed()).subscribe(segments => {
-      this.mode.set(segments[0]?.path || 'login'); this.googleRendered = false; this.googleLoading = false; this.message.set(''); this.error.set(''); this.completed.set(false); this.verificationSuggested.set(false); this.password = ''; this.confirmPassword = '';
-      this.email = this.route.snapshot.queryParamMap.get('email') || '';
+      const mode = segments[0]?.path || 'login';
+      const email = this.route.snapshot.queryParamMap.get('email') || '';
+      const token = this.route.snapshot.queryParamMap.get('token') || '';
+      const routeStateKey = `${mode}|${email}|${token}`;
+      if (routeStateKey === this.routeStateKey) return;
+      this.routeStateKey = routeStateKey;
+      this.mode.set(mode); this.googleRendered = false; this.googleLoading = false; this.message.set(''); this.error.set(''); this.completed.set(false); this.verificationSuggested.set(false); this.password = ''; this.confirmPassword = '';
+      this.email = email;
       this.showPassword = false; this.showConfirmPassword = false;
-      this.token = this.route.snapshot.queryParamMap.get('token') || '';
+      this.token = token;
       if (this.route.snapshot.queryParamMap.get('reason') === 'expired') this.message.set('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.');
-      if (this.mode() === 'verify-email' && this.token) this.verify();
+      if (this.mode() === 'verify-email' && this.token && this.verificationAttemptedToken !== this.token) {
+        this.verificationAttemptedToken = this.token;
+        this.verify();
+      }
       if (this.mode() === 'reset-password' && !this.token) this.error.set('Liên kết thiếu mã xác nhận. Vui lòng yêu cầu đặt lại mật khẩu.');
     });
   }

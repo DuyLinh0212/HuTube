@@ -32,6 +32,14 @@ services:
         value: http://localhost:4201
       - key: Google__ClientId
         sync: false
+      - key: Storage__Provider
+        value: Cloudinary
+      - key: Storage__CloudName
+        sync: false
+      - key: Storage__ApiKey
+        sync: false
+      - key: Storage__ApiSecret
+        sync: false
       - key: Email__Mode
         value: Smtp
       - key: Email__Host

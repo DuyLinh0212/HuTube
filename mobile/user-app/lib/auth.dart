@@ -34,6 +34,36 @@ class ApiClient {
     Map<String, dynamic>? body,
     String? accessToken,
   }) async {
+    final data = await _requestJson(
+      method,
+      path,
+      body: body,
+      accessToken: accessToken,
+    );
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  Future<List<dynamic>> requestList(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    String? accessToken,
+  }) async {
+    final data = await _requestJson(
+      method,
+      path,
+      body: body,
+      accessToken: accessToken,
+    );
+    return data is List<dynamic> ? data : <dynamic>[];
+  }
+
+  Future<dynamic> _requestJson(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    String? accessToken,
+  }) async {
     try {
       final request = http.Request(
         method,
@@ -49,18 +79,19 @@ class ApiClient {
       final response = await http.Response.fromStream(
         await client.send(request).timeout(const Duration(seconds: 20)),
       ).timeout(const Duration(seconds: 20));
-      Map<String, dynamic> data = {};
+      dynamic data = <String, dynamic>{};
       try {
         if (response.body.isNotEmpty) {
-          data =
-              jsonDecode(utf8.decode(response.bodyBytes))
-                  as Map<String, dynamic>;
+          data = jsonDecode(utf8.decode(response.bodyBytes));
         }
       } on FormatException {
         /* Proxies may return HTML errors. */
       }
       if (response.statusCode >= 400) {
-        final code = data['code'] as String? ?? 'REQUEST_FAILED';
+        final errorData = data is Map<String, dynamic>
+            ? data
+            : <String, dynamic>{};
+        final code = errorData['code'] as String? ?? 'REQUEST_FAILED';
         throw ApiFailure(response.statusCode, code, switch (code) {
           'INVALID_CREDENTIALS' => 'Email hoặc mật khẩu chưa đúng.',
           'EMAIL_NOT_VERIFIED' => 'Bạn cần xác minh email trước khi đăng nhập.',
@@ -71,7 +102,7 @@ class ApiClient {
           'RATE_LIMITED' =>
             'Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc rồi thử lại.',
           _ =>
-            data['detail'] as String? ??
+            errorData['detail'] as String? ??
                 'Không thể thực hiện yêu cầu. Vui lòng thử lại.',
         });
       }
@@ -378,6 +409,32 @@ class AuthController extends ChangeNotifier {
           body: body,
           accessToken: _accessToken,
         );
+      } on ApiFailure catch (retryError) {
+        if (retryError.status == 401) {
+          await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
+        }
+        rethrow;
+      }
+    }
+  }
+
+  Future<List<dynamic>> protectedList(String path) async {
+    final generation = _generation;
+    final sentToken = _accessToken;
+    try {
+      return await api.requestList('GET', path, accessToken: _accessToken);
+    } on ApiFailure catch (error) {
+      if (error.status != 401 || generation != _generation) rethrow;
+      if (sentToken == _accessToken) await refresh();
+      if (generation != _generation) {
+        throw const ApiFailure(
+          401,
+          'SESSION_EXPIRED',
+          'Vui lòng đăng nhập lại.',
+        );
+      }
+      try {
+        return await api.requestList('GET', path, accessToken: _accessToken);
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
           await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
