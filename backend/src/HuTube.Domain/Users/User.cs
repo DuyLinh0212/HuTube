@@ -8,6 +8,8 @@ public sealed class User
     public string PasswordHash { get; set; } = "";
     public string? GoogleSubject { get; set; }
     public string DisplayName { get; set; } = "";
+    public string? AvatarUrl { get; set; }
+    public string? Bio { get; set; }
     public Guid RoleId { get; set; }
     public string Status { get; set; } = "pending";
     public DateTimeOffset? EmailVerifiedAt { get; set; }

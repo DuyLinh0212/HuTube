@@ -1,0 +1,107 @@
+<main id="main-content" class="create-channel-container">
+  @if (existingChannel(); as channel) {
+    <div class="existing-channel-card">
+      <div class="card-icon">📺</div>
+      <h2>Bạn đã sở hữu một kênh trên HuTube</h2>
+      <p>Mỗi tài khoản được liên kết tối đa với một kênh phát sóng.</p>
+
+      <div class="channel-preview-row">
+        <div class="preview-avatar">
+          @if (channel.avatarUrl) {
+            <img [src]="channel.avatarUrl" alt="" />
+          } @else {
+            {{ channel.name.slice(0, 1).toUpperCase() }}
+          }
+        </div>
+        <div class="preview-info">
+          <h3>{{ channel.name }}</h3>
+          <p class="handle-text">&#64;{{ channel.handle }}</p>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <a [routerLink]="['/channel', channel.handle]" class="btn-primary">Xem kênh của bạn</a>
+        <a [routerLink]="['/channel', channel.handle, 'customize']" class="btn-secondary">Tùy chỉnh kênh</a>
+      </div>
+    </div>
+  } @else {
+    <div class="create-form-card">
+      <header class="card-header">
+        <h1 class="card-title">Tạo kênh HuTube của bạn</h1>
+        <p class="card-subtitle">Bắt đầu chia sẻ nội dung video sáng tạo và kết nối với cộng đồng người xem.</p>
+      </header>
+
+      @if (error()) {
+        <div class="alert-banner alert-error" role="alert">
+          <span>⚠️ {{ error() }}</span>
+        </div>
+      }
+
+      <form (ngSubmit)="onSubmit()" class="create-form">
+        <!-- Visual Previews (Banner & Avatar) -->
+        <div class="visuals-group">
+          <div class="banner-box" (click)="bannerInput.click()" title="Nhấp để tải lên ảnh bìa">
+            @if (bannerPreview) {
+              <img [src]="bannerPreview" alt="Xem trước ảnh bìa" class="banner-img" />
+            } @else {
+              <div class="banner-empty">
+                <span class="icon">🖼️</span>
+                <span>Tải lên ảnh bìa kênh (khuyên dùng tỉ lệ 16:9 hoặc ảnh ngang)</span>
+              </div>
+            }
+            <input #bannerInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onBannerSelected($event)" hidden />
+          </div>
+
+          <div class="avatar-overlap-box" (click)="avatarInput.click()" title="Nhấp để tải lên ảnh đại diện kênh">
+            @if (avatarPreview) {
+              <img [src]="avatarPreview" alt="Xem trước ảnh đại diện" class="avatar-img" />
+            } @else {
+              <div class="avatar-empty">
+                <span>📷</span>
+              </div>
+            }
+            <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="onAvatarSelected($event)" hidden />
+          </div>
+        </div>
+
+        <!-- Inputs -->
+        <div class="form-group">
+          <label for="channelName" class="input-label">Tên kênh <span class="required">*</span></label>
+          <input id="channelName" type="text" class="text-input" [(ngModel)]="name" name="name" placeholder="Ví dụ: Khoa Học TV, Đi Để Trưởng Thành..." [disabled]="busy()" required />
+        </div>
+
+        <div class="form-group">
+          <label for="channelHandle" class="input-label">Handle (Tên định danh) <span class="required">*</span></label>
+          <div class="handle-input-wrap">
+            <span class="handle-prefix">&#64;</span>
+            <input id="channelHandle" type="text" class="text-input handle-field" [(ngModel)]="handle" name="handle" (input)="onHandleInput()" placeholder="mychannel" [disabled]="busy()" required />
+          </div>
+          @if (handleFeedback()) {
+            <p class="feedback-text" [class.is-valid]="handleValid() === true" [class.is-invalid]="handleValid() === false">
+              {{ handleFeedback() }}
+            </p>
+          } @else {
+            <p class="field-help">Handle sẽ là địa chỉ duy nhất của bạn: mach.vn/&#64;{{ handle || 'handle' }}</p>
+          }
+        </div>
+
+        <div class="form-group">
+          <label for="channelDescription" class="input-label">Mô tả kênh</label>
+          <textarea id="channelDescription" class="textarea-input" [(ngModel)]="description" name="description" rows="3" placeholder="Giới thiệu về nội dung kênh của bạn để người xem hiểu thêm..." [disabled]="busy()"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="channelEmail" class="input-label">Email liên hệ công việc</label>
+          <input id="channelEmail" type="email" class="text-input" [(ngModel)]="contactEmail" name="contactEmail" placeholder="contact@example.com" [disabled]="busy()" />
+        </div>
+
+        <div class="form-actions">
+          <button type="button" routerLink="/account" class="btn-secondary" [disabled]="busy()">Hủy</button>
+          <button type="submit" class="btn-primary" [disabled]="busy() || !name || !handle || handleValid() === false">
+            @if (busy()) { <span class="spinner"></span> Đang tạo kênh... } @else { Tạo kênh }
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+</main>

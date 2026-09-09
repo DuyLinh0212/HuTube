@@ -1,0 +1,168 @@
+<main id="main-content" class="settings-page-container">
+  @if (channel(); as ch) {
+    <header class="settings-header">
+      <div>
+        <h1 class="page-title">Tùy chỉnh kênh</h1>
+        <p class="page-subtitle">Quản lý thương hiệu, thông tin hiển thị và cấu hình kênh &#64;{{ ch.handle }}</p>
+      </div>
+      <div class="header-actions">
+        <a [routerLink]="['/channel', ch.handle]" class="btn-secondary">
+          👁️ Xem trang kênh
+        </a>
+      </div>
+    </header>
+
+    @if (error()) {
+      <div class="alert-banner alert-error" role="alert">
+        <span>⚠️ {{ error() }}</span>
+      </div>
+    }
+    @if (message()) {
+      <div class="alert-banner alert-success" role="status">
+        <span>✓ {{ message() }}</span>
+      </div>
+    }
+
+    <nav class="settings-tabs-nav">
+      <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'" (click)="setTab('basic')">
+        Thông tin cơ bản
+      </button>
+      <button type="button" class="tab-btn" [class.active]="activeTab() === 'branding'" (click)="setTab('branding')">
+        Xây dựng thương hiệu
+      </button>
+      <button type="button" class="tab-btn danger-tab" [class.active]="activeTab() === 'danger'" (click)="setTab('danger')">
+        Xóa kênh
+      </button>
+    </nav>
+
+    <div class="settings-tab-content">
+      <!-- TAB 1: BASIC INFO -->
+      @if (activeTab() === 'basic') {
+        <div class="basic-tab-pane">
+          <div class="form-group">
+            <label for="chName" class="input-label">Tên kênh <span class="required">*</span></label>
+            <input id="chName" type="text" class="text-input" [(ngModel)]="name" [disabled]="busy()" />
+          </div>
+
+          <div class="form-group">
+            <label for="chHandle" class="input-label">Handle kênh <span class="required">*</span></label>
+            <div class="handle-input-wrap">
+              <span class="handle-prefix">&#64;</span>
+              <input id="chHandle" type="text" class="text-input handle-field" [(ngModel)]="handle" [disabled]="busy()" />
+            </div>
+            <p class="field-help">Địa chỉ kênh của bạn: mach.vn/&#64;{{ handle }}</p>
+          </div>
+
+          <div class="form-group">
+            <label for="chDesc" class="input-label">Mô tả kênh</label>
+            <textarea id="chDesc" class="textarea-input" [(ngModel)]="description" rows="4" [disabled]="busy()"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="chEmail" class="input-label">Email liên hệ kinh doanh</label>
+            <input id="chEmail" type="email" class="text-input" [(ngModel)]="contactEmail" [disabled]="busy()" />
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">
+              Lưu thay đổi
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- TAB 2: BRANDING -->
+      @if (activeTab() === 'branding') {
+        <div class="branding-tab-pane">
+          <!-- Avatar section -->
+          <div class="branding-card">
+            <div class="branding-text">
+              <h3>Ảnh đại diện kênh</h3>
+              <p>Ảnh đại diện sẽ xuất hiện bên cạnh video và bình luận của bạn trên HuTube.</p>
+              <button type="button" class="btn-secondary" (click)="avatarInput.click()" [disabled]="busy()">
+                Thay đổi ảnh đại diện
+              </button>
+              <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onAvatarSelected($event)" hidden />
+            </div>
+            <div class="branding-preview avatar-preview">
+              @if (ch.avatarUrl) {
+                <img [src]="ch.avatarUrl" alt="" />
+              } @else {
+                <div class="avatar-placeholder">{{ ch.name.slice(0, 1).toUpperCase() }}</div>
+              }
+            </div>
+          </div>
+
+          <!-- Banner section -->
+          <div class="branding-card">
+            <div class="branding-text">
+              <h3>Hình ảnh biểu ngữ (Banner)</h3>
+              <p>Hình ảnh này sẽ xuất hiện ở đầu trang kênh của bạn.</p>
+              <button type="button" class="btn-secondary" (click)="bannerInput.click()" [disabled]="busy()">
+                Thay đổi biểu ngữ
+              </button>
+              <input #bannerInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onBannerSelected($event)" hidden />
+            </div>
+            <div class="branding-preview banner-preview">
+              @if (ch.bannerUrl) {
+                <img [src]="ch.bannerUrl" alt="" />
+              } @else {
+                <div class="banner-placeholder">Chưa có banner</div>
+              }
+            </div>
+          </div>
+
+          <!-- Watermark section -->
+          <div class="branding-card">
+            <div class="branding-text">
+              <h3>Hình mờ video (Watermark)</h3>
+              <p>Hình mờ sẽ xuất hiện ở góc dưới bên phải trình phát video của bạn.</p>
+              <input type="text" class="text-input" [(ngModel)]="watermarkUrl" placeholder="https://example.com/watermark.png" [disabled]="busy()" />
+              <div class="watermark-action">
+                <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">Lưu watermark</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- TAB 3: DANGER ZONE -->
+      @if (activeTab() === 'danger') {
+        <div class="danger-tab-pane">
+          <div class="danger-box">
+            <div class="danger-header">
+              <span class="danger-icon">⚠️</span>
+              <div>
+                <h3>Xóa kênh này</h3>
+                <p>Thao tác này sẽ gỡ bỏ kênh của bạn khỏi kết quả tìm kiếm và trang công khai. Chỉ chủ sở hữu mới có quyền xóa.</p>
+              </div>
+            </div>
+            <button type="button" class="btn-danger" (click)="showDeleteModal.set(true)" [disabled]="busy()">
+              Xóa kênh của tôi
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Modal confirm delete -->
+    @if (showDeleteModal()) {
+      <div class="modal-backdrop">
+        <div class="modal-dialog">
+          <h2>Xác nhận xóa kênh</h2>
+          <p class="modal-warning">
+            Bạn đang chuẩn bị xóa kênh <strong>{{ ch.name }}</strong>. Vui lòng nhập chính xác tên kênh để xác nhận:
+          </p>
+          <input type="text" class="text-input" [(ngModel)]="confirmChannelName" placeholder="Nhập tên kênh: {{ ch.name }}" />
+
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" (click)="showDeleteModal.set(false)" [disabled]="busy()">Hủy</button>
+            <button type="button" class="btn-danger" (click)="onConfirmDeleteChannel()" [disabled]="busy() || confirmChannelName.trim() !== ch.name.trim()">
+              Xác nhận xóa
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+  }
+</main>

@@ -4,3 +4,26 @@
 
 .search-glyph { display:inline-block; position:relative; width:16px; height:16px; flex:none; border:1.8px solid currentColor; border-radius:50%; }
 .search-glyph::after { position:absolute; right:-4px; bottom:-2px; width:7px; height:1.8px; border-radius:2px; background:currentColor; content:''; transform:rotate(45deg); transform-origin:left center; }
+
+.create-action.create-channel-btn {
+  background: var(--primary) !important;
+  color: #fff !important;
+  border-color: var(--primary) !important;
+  text-decoration: none;
+  font-weight: 700;
+  box-shadow: 0 4px 14px -4px rgba(255, 43, 102, 0.45);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--primary-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px -4px rgba(255, 43, 102, 0.55);
+  }
+
+  .action-plus {
+    font-size: 15px;
+    font-weight: 800;
+    margin-right: 4px;
+    line-height: 1;
+  }
+}

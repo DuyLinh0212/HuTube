@@ -1,3 +1,4 @@
+using HuTube.Domain.Channels;
 using HuTube.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,9 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserSession> Sessions => Set<UserSession>();
+    public DbSet<Channel> Channels => Set<Channel>();
+    public DbSet<ChannelQuota> ChannelQuotas => Set<ChannelQuota>();
+    public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
@@ -17,12 +21,13 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.HasDefaultSchema("public");
         model.HasPostgresExtension("citext");
         model.Entity<User>(b => {
-            b.ToTable("users"); b.HasKey(x => x.UserId); b.Ignore(x => x.IsBlocked);
+            b.ToTable("users"); b.HasKey(x => x.UserId); b.Ignore(x => x.IsBlocked); b.Ignore(x => x.Bio);
             b.HasQueryFilter(x => x.DeletedAt == null);
             b.Property(x => x.Email).HasColumnType("citext"); b.Property(x => x.Username).HasColumnType("citext");
             b.Property(x => x.UserId).HasColumnName("user_id"); b.Property(x => x.PasswordHash).HasColumnName("password_hash");
             b.Property(x => x.GoogleSubject).HasColumnName("google_subject");
-            b.Property(x => x.DisplayName).HasColumnName("display_name"); b.Property(x => x.RoleId).HasColumnName("role_id");
+            b.Property(x => x.DisplayName).HasColumnName("display_name"); b.Property(x => x.AvatarUrl).HasColumnName("avatar_url");
+            b.Property(x => x.RoleId).HasColumnName("role_id");
             b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.EmailVerifiedAt).HasColumnName("email_verified_at");
             b.Property(x => x.LastLoginAt).HasColumnName("last_login_at"); b.Property(x => x.FailedLoginAttempts).HasColumnName("failed_login_attempts");
             b.Property(x => x.LockedUntil).HasColumnName("locked_until"); b.Property(x => x.CreatedAt).HasColumnName("created_at");
@@ -52,6 +57,23 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<UserSession>().WithMany().HasForeignKey(x => x.ReplacedBySessionId).OnDelete(DeleteBehavior.SetNull);
             b.HasIndex(x => x.RefreshTokenHash).IsUnique(); b.HasIndex(x => x.Jti).IsUnique();
         });
+        model.Entity<Channel>(b => {
+            b.ToTable("channels"); b.HasKey(x => x.ChannelId);
+            b.HasQueryFilter(x => x.Status != "deleted");
+            b.Property(x => x.Handle).HasColumnType("citext");
+            b.Property(x => x.ContactEmail).HasColumnType("citext");
+            b.Property(x => x.Settings).HasColumnType("jsonb");
+            b.HasIndex(x => x.OwnerUserId).IsUnique().HasDatabaseName("ux_channels_owner_user_id");
+            b.HasIndex(x => x.Handle).IsUnique().HasDatabaseName("ux_channels_handle_ci");
+        });
+        model.Entity<ChannelQuota>(b => {
+            b.ToTable("channel_quotas"); b.HasKey(x => x.ChannelQuotaId);
+            b.HasIndex(x => x.ChannelId).IsUnique().HasDatabaseName("uq_channel_quotas_channel");
+        });
+        model.Entity<NotificationSetting>(b => {
+            b.ToTable("notification_settings"); b.HasKey(x => x.NotificationSettingId);
+            b.HasIndex(x => x.UserId).IsUnique().HasDatabaseName("uq_notification_settings_user");
+        });
         foreach (var entity in model.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
                 property.SetColumnName(System.Text.RegularExpressions.Regex.Replace(property.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant());
@@ -60,3 +82,4 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<UserSession>().Property(x => x.ReplacedBySessionId).HasColumnName("replaced_by_token_id");
     }
 }
+

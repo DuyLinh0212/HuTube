@@ -1,12 +1,19 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using HuTube.Api.Middleware;
+using HuTube.Application.Account;
 using HuTube.Application.Auth;
+using HuTube.Application.Channels;
+using HuTube.Application.Storage;
+using HuTube.Infrastructure.Account;
 using HuTube.Infrastructure.Authentication;
+using HuTube.Infrastructure.Channels;
 using HuTube.Infrastructure.Persistence;
+using HuTube.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +55,9 @@ builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(conn
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<IPasswordService, PasswordService>(); builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<IGoogleTokenVerifier, GoogleTokenVerifier>();
+builder.Services.AddSingleton<IObjectStorage, LocalStorageService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
@@ -59,7 +69,7 @@ builder.Services.AddOpenApi();
 var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url => url.TrimEnd('/'))
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
-    .WithMethods("GET", "POST", "DELETE", "OPTIONS").WithHeaders("Content-Type", "Authorization", "X-HuTube-Client", "X-HuTube-App").AllowCredentials()));
+    .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS").WithHeaders("Content-Type", "Authorization", "X-HuTube-Client", "X-HuTube-App").AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
     options.MapInboundClaims = false;
     options.TokenValidationParameters = new() {
@@ -105,6 +115,13 @@ app.Use(async (context, next) => {
 });
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.UseCors();
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+Directory.CreateDirectory(uploadsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
 app.UseStatusCodePages(context => ApiErrors.WriteAsync(context.HttpContext, context.HttpContext.Response.StatusCode, "HTTP_ERROR", "Yêu cầu không được xử lý."));

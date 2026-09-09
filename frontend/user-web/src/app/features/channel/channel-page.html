@@ -1,0 +1,138 @@
+<main id="main-content" class="channel-view-container">
+  @if (loading()) {
+    <div class="channel-loading-skeleton">
+      <div class="skeleton-banner"></div>
+      <div class="skeleton-header">
+        <div class="skeleton-avatar"></div>
+        <div class="skeleton-lines">
+          <div class="line title"></div>
+          <div class="line subtitle"></div>
+        </div>
+      </div>
+    </div>
+  } @else if (error()) {
+    <div class="channel-error-state">
+      <div class="error-icon">📺</div>
+      <h2>Kênh này không khả dụng</h2>
+      <p>{{ error() }}</p>
+      <a routerLink="/account" class="btn-primary">Quay lại trang cá nhân</a>
+    </div>
+  } @else if (channel(); as ch) {
+    <!-- Channel Banner -->
+    <div class="channel-banner-container">
+      @if (ch.bannerUrl) {
+        <img [src]="ch.bannerUrl" alt="Ảnh bìa kênh {{ ch.name }}" class="banner-image" />
+      } @else {
+        <div class="banner-default-gradient">
+          <div class="pattern-overlay"></div>
+        </div>
+      }
+    </div>
+
+    <!-- Channel Header Profile Info -->
+    <header class="channel-header-section">
+      <div class="channel-avatar-wrapper">
+        @if (ch.avatarUrl) {
+          <img [src]="ch.avatarUrl" alt="Ảnh đại diện kênh {{ ch.name }}" class="avatar-image" />
+        } @else {
+          <div class="avatar-fallback">
+            {{ ch.name.slice(0, 1).toUpperCase() }}
+          </div>
+        }
+      </div>
+
+      <div class="channel-meta-content">
+        <div class="channel-title-row">
+          <h1 class="channel-name">{{ ch.name }}</h1>
+          <span class="verified-badge" title="Kênh đã xác minh">✓</span>
+        </div>
+
+        <p class="channel-sub-meta">
+          <span class="handle-tag">&#64;{{ ch.handle }}</span> ·
+          <span class="stats">{{ ch.subscriberCount }} người đăng ký</span> ·
+          <span class="stats">{{ ch.videoCount }} video</span>
+        </p>
+
+        @if (ch.description) {
+          <p class="channel-desc-preview">{{ ch.description }}</p>
+        }
+
+        <div class="channel-cta-row">
+          @if (ch.isOwner) {
+            <a [routerLink]="['/channel', ch.handle, 'customize']" class="btn-primary">
+              ⚙️ Tùy chỉnh kênh
+            </a>
+            <button type="button" class="btn-secondary" title="Tính năng quản lý video">
+              Quản lý video
+            </button>
+          } @else {
+            <button type="button" class="btn-subscribe" [class.is-subscribed]="isSubscribed()" (click)="toggleSubscribe()">
+              {{ isSubscribed() ? 'Đã đăng ký' : 'Theo dõi' }}
+            </button>
+            @if (isSubscribed()) {
+              <button type="button" class="btn-bell-notice" title="Thông báo">🔔</button>
+            }
+          }
+        </div>
+      </div>
+    </header>
+
+    <!-- Channel Navigation Tabs -->
+    <nav class="channel-tabs-bar" aria-label="Nội dung kênh">
+      <button type="button" class="tab-item" [class.active]="activeTab() === 'home'" (click)="setTab('home')">
+        Trang chủ
+      </button>
+      <button type="button" class="tab-item" [class.active]="activeTab() === 'videos'" (click)="setTab('videos')">
+        Video
+      </button>
+      <button type="button" class="tab-item" [class.active]="activeTab() === 'playlists'" (click)="setTab('playlists')">
+        Danh sách phát
+      </button>
+      <button type="button" class="tab-item" [class.active]="activeTab() === 'about'" (click)="setTab('about')">
+        Giới thiệu
+      </button>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="channel-tab-content">
+      @if (activeTab() === 'home' || activeTab() === 'videos') {
+        <div class="empty-videos-box">
+          <div class="box-icon">🎬</div>
+          <h3>Chưa có video nào</h3>
+          <p>Kênh này chưa tải lên video nào. Hãy quay lại sau nhé!</p>
+        </div>
+      }
+
+      @if (activeTab() === 'playlists') {
+        <div class="empty-videos-box">
+          <div class="box-icon">📑</div>
+          <h3>Chưa có danh sách phát</h3>
+          <p>Chưa có playlist công khai nào được tạo trên kênh này.</p>
+        </div>
+      }
+
+      @if (activeTab() === 'about') {
+        <div class="about-tab-container">
+          <div class="about-left-col">
+            <h3>Mô tả</h3>
+            <p class="about-text">{{ ch.description || 'Chưa có mô tả chi tiết cho kênh này.' }}</p>
+
+            @if (ch.contactEmail) {
+              <h3>Chi tiết liên hệ</h3>
+              <p class="about-email">✉️ Email công việc: <a [href]="'mailto:' + ch.contactEmail">{{ ch.contactEmail }}</a></p>
+            }
+          </div>
+
+          <div class="about-right-col">
+            <h3>Thống kê</h3>
+            <ul class="stats-list">
+              <li>Đã tham gia: {{ ch.createdAt | date:'dd/MM/yyyy' }}</li>
+              <li>Tổng lượt xem: 0 lượt xem</li>
+              <li>Trạng thái kênh: <span class="badge-status">{{ ch.status }}</span></li>
+            </ul>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</main>
