@@ -63,6 +63,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     try {
       final p = await _accountService.getProfile();
+      if (p.userId.isEmpty || p.email.isEmpty) return;
       if (mounted) {
         setState(() {
           _profile = p;
@@ -93,11 +94,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final email = _profile?.email ?? user['email'] as String? ?? '';
     final username = _profile?.username ?? user['username'] as String? ?? '';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
           // Header title for test compatibility & UI hierarchy
           const Text(
             'Tài khoản của bạn',
@@ -564,8 +563,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: widget.onLogout,
             child: const Text('Đăng xuất'),
           ),
-        ],
-      ),
+      ],
     );
   }
 

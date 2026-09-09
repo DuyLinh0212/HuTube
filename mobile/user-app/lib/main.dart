@@ -5,16 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'auth.dart';
-import 'features/account/models/account_models.dart';
-import 'features/account/screens/change_password_screen.dart';
-import 'features/account/screens/edit_profile_screen.dart';
-import 'features/account/screens/notification_settings_screen.dart';
-import 'features/account/screens/preferences_screen.dart';
-import 'features/channel/models/channel_models.dart';
-import 'features/channel/screens/channel_screen.dart';
-import 'features/channel/screens/channel_settings_screen.dart';
-import 'features/channel/screens/create_channel_screen.dart';
-import 'features/channel/services/channel_service.dart';
+import 'features/account/screens/profile_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -174,25 +165,8 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _sessionsLoaded = false;
   int _selectedDestination = 4;
   List<Map<String, dynamic>> _sessions = [];
-  ChannelDetail? _channel;
-  bool _channelLoading = false;
   int _operation = 0;
   AuthController get auth => widget.auth;
-
-  Future<void> _loadChannel() async {
-    if (!auth.authenticated || _channelLoading) return;
-    setState(() => _channelLoading = true);
-    try {
-      final service = ChannelService(auth);
-      final c = await service.getMyChannel();
-      if (mounted && auth.authenticated) {
-        setState(() => _channel = c);
-      }
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _channelLoading = false);
-    }
-  }
 
   @override
   void initState() {
@@ -228,7 +202,6 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     if (_page == '/account' && !_sessionsLoaded && !_sessionsLoading) {
       unawaited(_loadSessions());
-      unawaited(_loadChannel());
     }
   }
 
@@ -256,7 +229,6 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     if (_page == '/account') {
       unawaited(_loadSessions());
-      unawaited(_loadChannel());
     }
   }
 
@@ -800,343 +772,27 @@ class _AuthScreenState extends State<AuthScreen> {
   );
 
   List<Widget> _account() => [
-    const Text(
-      'Tài khoản của bạn',
-      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-    ),
-    const SizedBox(height: 24),
-    Row(
-      children: [
-        const CircleAvatar(
-          radius: 28,
-          backgroundColor: Color(0xffe1eaff),
-          child: Icon(Icons.person_outline, size: 30, color: Color(0xffff2b66)),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                auth.user!['displayName'] as String,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                auth.user!['email'] as String,
-                style: const TextStyle(color: Color(0xff526179)),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-    const SizedBox(height: 16),
-    const Row(
-      children: [
-        Icon(Icons.verified_outlined, size: 18, color: Color(0xffff2b66)),
-        SizedBox(width: 8),
-        Text('Email đã xác minh'),
-      ],
-    ),
-    const SizedBox(height: 20),
-
-    // Channel Card (Sprint 4: S4-04 1-channel rule)
-    if (_channel != null)
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xfffff0f4),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xffffccd8)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: const Color(0xffff2b66),
-                  backgroundImage: _channel!.avatarUrl != null ? NetworkImage(_channel!.avatarUrl!) : null,
-                  child: _channel!.avatarUrl == null
-                      ? Text(
-                          _channel!.name.isNotEmpty ? _channel!.name[0].toUpperCase() : 'K',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _channel!.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.check_circle, size: 14, color: Color(0xffff2b66)),
-                        ],
-                      ),
-                      Text(
-                        '@${_channel!.handle} · ${_channel!.subscriberCount} người đăng ký',
-                        style: const TextStyle(fontSize: 12, color: Color(0xff526179)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xffff2b66),
-                      minimumSize: const Size.fromHeight(38),
-                    ),
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ChannelScreen(
-                            auth: auth,
-                            channelOrHandle: _channel!.handle,
-                          ),
-                        ),
-                      );
-                      _loadChannel();
-                    },
-                    child: const Text('Xem kênh', style: TextStyle(fontSize: 13)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(38),
-                    ),
-                    onPressed: () async {
-                      final res = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => ChannelSettingsScreen(
-                            auth: auth,
-                            channel: _channel!,
-                          ),
-                        ),
-                      );
-                      if (res == true) _loadChannel();
-                    },
-                    child: const Text('Quản lý kênh', style: TextStyle(fontSize: 13)),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      )
-    else
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xffe5e7eb)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.video_call_rounded, color: Color(0xffff2b66), size: 26),
-                SizedBox(width: 10),
-                Text(
-                  'Kênh HuTube của bạn',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Tạo kênh để xuất bản video và xây dựng cộng đồng người xem.',
-              style: TextStyle(fontSize: 13, color: Color(0xff526179)),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xffff2b66),
-                minimumSize: const Size.fromHeight(40),
-              ),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Tạo kênh ngay', style: TextStyle(fontSize: 13)),
-              onPressed: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => CreateChannelScreen(auth: auth),
-                  ),
-                );
-                _loadChannel();
-              },
-            ),
-          ],
-        ),
-      ),
-    const SizedBox(height: 16),
-
-    // Menu Settings
-    Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xffe5e7eb)),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.person_outline_rounded, color: Color(0xffff2b66)),
-            title: const Text('Chỉnh sửa thông tin cá nhân', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            trailing: const Icon(Icons.chevron_right, color: Color(0xff526179), size: 20),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => EditProfileScreen(
-                  auth: auth,
-                  profile: UserProfile(
-                    userId: auth.user!['userId'] as String? ?? '',
-                    username: auth.user!['username'] as String? ?? '',
-                    email: auth.user!['email'] as String? ?? '',
-                    displayName: auth.user!['displayName'] as String? ?? '',
-                    emailVerified: auth.user!['emailVerified'] as bool? ?? false,
-                    createdAt: '',
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.lock_outline_rounded, color: Color(0xffff2b66)),
-            title: const Text('Đổi mật khẩu', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            trailing: const Icon(Icons.chevron_right, color: Color(0xff526179), size: 20),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ChangePasswordScreen(auth: auth),
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.notifications_none_rounded, color: Color(0xffff2b66)),
-            title: const Text('Cài đặt thông báo', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            trailing: const Icon(Icons.chevron_right, color: Color(0xff526179), size: 20),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => NotificationSettingsScreen(auth: auth),
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.tune_rounded, color: Color(0xffff2b66)),
-            title: const Text('Cài đặt & Giao diện', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            trailing: const Icon(Icons.chevron_right, color: Color(0xff526179), size: 20),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PreferencesScreen(auth: auth),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-    const SizedBox(height: 24),
-    const Divider(),
-    Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Thiết bị đăng nhập',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Tải lại thiết bị',
-          onPressed: _sessionsLoading || _busy ? null : _loadSessions,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
-    const Text(
-      'Thu hồi phiên trên thiết bị bạn không còn sử dụng.',
-      style: TextStyle(color: Color(0xff526179), height: 1.5),
-    ),
-    const SizedBox(height: 16),
-    if (_sessionsLoading) const LinearProgressIndicator(),
-    if (!_sessionsLoading && _sessions.isEmpty)
-      const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20),
-        child: Text('Chưa tải được danh sách thiết bị. Chọn tải lại để thử.'),
-      ),
-    for (final session in _sessions)
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(
-          session['platform'] == 'mobile'
-              ? Icons.phone_android
-              : Icons.computer,
-        ),
-        title: Text(session['deviceName'] as String),
-        subtitle: Text(
-          session['isCurrent'] == true
-              ? 'Thiết bị này'
-              : 'Hoạt động: ${_date(session['lastActiveAt'] as String)}',
-        ),
-        trailing: session['isCurrent'] == true
-            ? const Icon(Icons.check_circle_outline, color: Color(0xffff2b66))
-            : TextButton(
-                onPressed: _busy
-                    ? null
-                    : () => _run(() async {
-                        await auth.protected(
-                          'DELETE',
-                          '/auth/sessions/${Uri.encodeComponent(session['sessionId'] as String)}',
-                        );
-                        await _loadSessions();
-                      }),
-                child: const Text('Thu hồi'),
-              ),
-      ),
-    const SizedBox(height: 16),
-    OutlinedButton(
-      onPressed: _busy
-          ? null
-          : () => _run(() async {
-              await auth.protected('POST', '/auth/logout-others');
-              await _loadSessions();
-              if (mounted) {
-                setState(() => _message = 'Đã đăng xuất tất cả thiết bị khác.');
-              }
-            }),
-      child: const Text('Đăng xuất thiết bị khác'),
-    ),
-    const SizedBox(height: 12),
-    FilledButton(
-      onPressed: _busy ? null : () => _run(auth.logout),
-      child: const Text('Đăng xuất'),
+    ProfileScreen(
+      auth: auth,
+      sessions: _sessions,
+      sessionsLoading: _sessionsLoading,
+      onRefreshSessions: _loadSessions,
+      onRevokeSession: (sessionId) => _run(() async {
+        await auth.protected(
+          'DELETE',
+          '/auth/sessions/${Uri.encodeComponent(sessionId)}',
+        );
+        await _loadSessions();
+      }),
+      onLogoutOthers: () => _run(() async {
+        await auth.protected('POST', '/auth/logout-others');
+        await _loadSessions();
+        if (mounted) {
+          setState(() => _message = 'Đã đăng xuất tất cả thiết bị khác.');
+        }
+      }),
+      onLogout: () => _run(auth.logout),
     ),
   ];
 
-  String _date(String raw) {
-    final date = DateTime.tryParse(raw)?.toLocal();
-    if (date == null) return 'Không rõ';
-    return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
 }
