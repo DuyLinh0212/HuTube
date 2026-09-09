@@ -28,6 +28,8 @@ Thumbs.db
 .env.*
 !.env.example
 **/appsettings.Local.json
+client_secret_*.json
+backend/src/HuTube.Api/uploads/
 **/TestResults/
 **/playwright-report/
 **/test-results/

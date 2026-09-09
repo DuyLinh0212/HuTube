@@ -1,9 +1,10 @@
 using HuTube.Application.Storage;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 
 namespace HuTube.Infrastructure.Storage;
 
-public sealed class LocalStorageService(IWebHostEnvironment environment) : IObjectStorage
+public sealed class LocalStorageService(IWebHostEnvironment environment, IHttpContextAccessor httpContextAccessor) : IObjectStorage
 {
     private readonly string _uploadRoot = Path.Combine(environment.ContentRootPath, "uploads");
 
@@ -19,7 +20,9 @@ public sealed class LocalStorageService(IWebHostEnvironment environment) : IObje
         await using var outputStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
         await content.CopyToAsync(outputStream, ct);
 
-        return $"/uploads/{folder}/{uniqueFileName}";
+        var relativeUrl = $"/uploads/{folder}/{uniqueFileName}";
+        var request = httpContextAccessor.HttpContext?.Request;
+        return request == null ? relativeUrl : $"{request.Scheme}://{request.Host}{relativeUrl}";
     }
 
     public Task DeleteFileAsync(string relativePath, CancellationToken ct = default)

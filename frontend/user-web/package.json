@@ -10,7 +10,8 @@
     "prestart": "node scripts/configure-api.mjs",
     "prebuild": "node scripts/configure-api.mjs",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
-    "test:e2e": "node e2e/auth.cjs"
+    "test:e2e": "node e2e/sprint4.cjs",
+    "test:e2e:auth": "node e2e/auth.cjs"
   },
   "prettier": {
     "printWidth": 100,

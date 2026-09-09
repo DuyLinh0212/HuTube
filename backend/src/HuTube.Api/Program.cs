@@ -52,6 +52,7 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
 builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<HuTube.Application.Channels.IChannelStore, ChannelStore>();
 builder.Services.AddScoped<HuTube.Application.Channels.ChannelService>();

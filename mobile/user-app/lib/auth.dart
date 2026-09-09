@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class ApiFailure implements Exception {
   const ApiFailure(this.status, this.code, this.message);
@@ -14,6 +15,18 @@ class ApiFailure implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+class UploadPayload {
+  const UploadPayload({
+    required this.bytes,
+    required this.fileName,
+    required this.contentType,
+  });
+
+  final List<int> bytes;
+  final String fileName;
+  final String contentType;
 }
 
 class ApiClient {
@@ -27,6 +40,55 @@ class ApiClient {
           );
   final http.Client client;
   final String baseUrl;
+
+  Future<Map<String, dynamic>> upload(
+    String path,
+    UploadPayload payload, {
+    String? accessToken,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path'),
+      );
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'X-HuTube-Client': 'mobile',
+        if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+      });
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          payload.bytes,
+          filename: payload.fileName,
+          contentType: MediaType.parse(payload.contentType),
+        ),
+      );
+      final response = await http.Response.fromStream(
+        await client.send(request).timeout(const Duration(seconds: 40)),
+      ).timeout(const Duration(seconds: 40));
+      final data = _decodeResponse(response);
+      return data is Map<String, dynamic> ? data : <String, dynamic>{};
+    } on TimeoutException {
+      throw const ApiFailure(
+        0,
+        'NETWORK_ERROR',
+        'Tải ảnh quá thời gian. Vui lòng kiểm tra mạng và thử lại.',
+      );
+    } on SocketException {
+      throw const ApiFailure(
+        0,
+        'NETWORK_ERROR',
+        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
+      );
+    } on http.ClientException {
+      throw const ApiFailure(
+        0,
+        'NETWORK_ERROR',
+        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
+      );
+    }
+  }
 
   Future<Map<String, dynamic>> request(
     String method,
@@ -79,34 +141,7 @@ class ApiClient {
       final response = await http.Response.fromStream(
         await client.send(request).timeout(const Duration(seconds: 20)),
       ).timeout(const Duration(seconds: 20));
-      dynamic data = <String, dynamic>{};
-      try {
-        if (response.body.isNotEmpty) {
-          data = jsonDecode(utf8.decode(response.bodyBytes));
-        }
-      } on FormatException {
-        /* Proxies may return HTML errors. */
-      }
-      if (response.statusCode >= 400) {
-        final errorData = data is Map<String, dynamic>
-            ? data
-            : <String, dynamic>{};
-        final code = errorData['code'] as String? ?? 'REQUEST_FAILED';
-        throw ApiFailure(response.statusCode, code, switch (code) {
-          'INVALID_CREDENTIALS' => 'Email hoặc mật khẩu chưa đúng.',
-          'EMAIL_NOT_VERIFIED' => 'Bạn cần xác minh email trước khi đăng nhập.',
-          'ACCOUNT_SUSPENDED' || 'USER_SUSPENDED' =>
-            'Tài khoản đang bị tạm khóa. Vui lòng liên hệ hỗ trợ.',
-          'ACCOUNT_BANNED' ||
-          'USER_BANNED' => 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.',
-          'RATE_LIMITED' =>
-            'Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc rồi thử lại.',
-          _ =>
-            errorData['detail'] as String? ??
-                'Không thể thực hiện yêu cầu. Vui lòng thử lại.',
-        });
-      }
-      return data;
+      return _decodeResponse(response);
     } on TimeoutException {
       throw const ApiFailure(
         0,
@@ -126,6 +161,39 @@ class ApiClient {
         'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
       );
     }
+  }
+
+  dynamic _decodeResponse(http.Response response) {
+    dynamic data = <String, dynamic>{};
+    try {
+      if (response.body.isNotEmpty) {
+        data = jsonDecode(utf8.decode(response.bodyBytes));
+      }
+    } on FormatException {
+      /* Proxies may return HTML errors. */
+    }
+    if (response.statusCode >= 400) {
+      final errorData = data is Map<String, dynamic>
+          ? data
+          : <String, dynamic>{};
+      final code = errorData['code'] as String? ?? 'REQUEST_FAILED';
+      throw ApiFailure(response.statusCode, code, switch (code) {
+        'INVALID_CREDENTIALS' => 'Email hoặc mật khẩu chưa đúng.',
+        'EMAIL_NOT_VERIFIED' => 'Bạn cần xác minh email trước khi đăng nhập.',
+        'ACCOUNT_SUSPENDED' || 'USER_SUSPENDED' =>
+          'Tài khoản đang bị tạm khóa. Vui lòng liên hệ hỗ trợ.',
+        'ACCOUNT_BANNED' ||
+        'USER_BANNED' => 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.',
+        'RATE_LIMITED' || 'RATE_LIMIT_EXCEEDED' =>
+          'Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc rồi thử lại.',
+        'STORAGE_UPLOAD_FAILED' =>
+          'Không thể tải ảnh lên kho lưu trữ. Vui lòng thử lại.',
+        _ =>
+          errorData['detail'] as String? ??
+              'Không thể thực hiện yêu cầu. Vui lòng thử lại.',
+      });
+    }
+    return data;
   }
 }
 
@@ -162,6 +230,8 @@ class AuthController extends ChangeNotifier {
   Future<void>? _googleInitialization;
   static const _googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
+    defaultValue:
+        '968220896298-or85f9g8ibu45tdbf0svsbiqt54g7iml.apps.googleusercontent.com',
   );
   static const _googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
@@ -435,6 +505,35 @@ class AuthController extends ChangeNotifier {
       }
       try {
         return await api.requestList('GET', path, accessToken: _accessToken);
+      } on ApiFailure catch (retryError) {
+        if (retryError.status == 401) {
+          await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
+        }
+        rethrow;
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> protectedUpload(
+    String path,
+    UploadPayload payload,
+  ) async {
+    final generation = _generation;
+    final sentToken = _accessToken;
+    try {
+      return await api.upload(path, payload, accessToken: _accessToken);
+    } on ApiFailure catch (error) {
+      if (error.status != 401 || generation != _generation) rethrow;
+      if (sentToken == _accessToken) await refresh();
+      if (generation != _generation) {
+        throw const ApiFailure(
+          401,
+          'SESSION_EXPIRED',
+          'Vui lòng đăng nhập lại.',
+        );
+      }
+      try {
+        return await api.upload(path, payload, accessToken: _accessToken);
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
           await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');

@@ -1,4 +1,5 @@
 import '../../../auth.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/channel_models.dart';
 
 class ChannelService {
@@ -68,6 +69,66 @@ class ChannelService {
       body: {'name': name.trim(), 'description': description?.trim()},
     );
     return ChannelDetail.fromJson(res);
+  }
+
+  Future<ChannelDetail> uploadAvatar(String channelId, XFile file) =>
+      _uploadImage(channelId, file, avatar: true);
+
+  Future<ChannelDetail> uploadBanner(String channelId, XFile file) =>
+      _uploadImage(channelId, file, avatar: false);
+
+  Future<ChannelDetail> _uploadImage(
+    String channelId,
+    XFile file, {
+    required bool avatar,
+  }) async {
+    final contentType = file.mimeType ?? _contentTypeFromName(file.name);
+    if (!_allowedImageTypes.contains(contentType) ||
+        (!avatar && contentType == 'image/gif')) {
+      throw ApiFailure(
+        400,
+        'INVALID_FILE_TYPE',
+        avatar
+            ? 'Ảnh đại diện chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.'
+            : 'Ảnh bìa chỉ hỗ trợ JPG, PNG hoặc WEBP.',
+      );
+    }
+    final bytes = await file.readAsBytes();
+    final maximumBytes = avatar ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (bytes.length > maximumBytes) {
+      throw ApiFailure(
+        400,
+        'FILE_TOO_LARGE',
+        'Kích thước ảnh tối đa là ${maximumBytes ~/ 1024 ~/ 1024}MB.',
+      );
+    }
+    final response = await auth.protectedUpload(
+      '/channels/${Uri.encodeComponent(channelId)}/${avatar ? 'avatar' : 'banner'}',
+      UploadPayload(
+        bytes: bytes,
+        fileName: file.name.trim().isEmpty
+            ? (avatar ? 'channel-avatar.jpg' : 'channel-banner.jpg')
+            : file.name,
+        contentType: contentType,
+      ),
+    );
+    return ChannelDetail.fromJson(response);
+  }
+
+  static const _allowedImageTypes = {
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+  };
+
+  static String _contentTypeFromName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'application/octet-stream';
   }
 
   Future<void> deleteChannel(String id) async {

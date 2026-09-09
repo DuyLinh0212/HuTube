@@ -142,6 +142,7 @@ jobs:
       Email__Mode: Pickup
       Email__PickupDirectory: ${{ github.workspace }}/.work/mail
       API_BASE_URL: http://localhost:5080/api/v1
+      MOBILE_API_BASE_URL: http://localhost:5080/api/v1
       PLAYWRIGHT_CHANNEL: chrome
     steps:
       - uses: actions/checkout@v6
@@ -179,7 +180,7 @@ jobs:
           done
           echo 'Local E2E services did not become ready.'
           exit 1
-      - name: Browser authentication E2E
+      - name: Sprint 4 browser smoke E2E (6 scenarios)
         working-directory: frontend/user-web
         run: npm run test:e2e
       - uses: actions/upload-artifact@v6

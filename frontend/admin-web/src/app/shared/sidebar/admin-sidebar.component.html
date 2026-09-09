@@ -48,12 +48,20 @@
         <span class="nav-item" title="Warning và strike"><img src="/assets/icons/warning_strike.png" alt="" /><span>Warning & strike</span></span>
       </section>
     }
-    <section class="nav-group" aria-label="Kinh doanh">
-      <p class="nav-label">Kinh doanh</p>
-      <span class="nav-item" title="Plan"><img src="/assets/icons/plan.png" alt="" /><span>Plan</span></span>
-      <span class="nav-item" title="Subscription"><img src="/assets/icons/user.png" alt="" /><span>Subscription</span></span>
-      <span class="nav-item" title="Payment và doanh thu"><img src="/assets/icons/revenue.png" alt="" /><span>Payment & doanh thu</span></span>
-    </section>
+    @if (can('plan.view') || can('subscription.view') || can('payment.view')) {
+      <section class="nav-group" aria-label="Kinh doanh">
+        <p class="nav-label">Kinh doanh</p>
+        @if (can('plan.view')) {
+          <span class="nav-item" title="Plan"><img src="/assets/icons/plan.png" alt="" /><span>Plan</span></span>
+        }
+        @if (can('subscription.view')) {
+          <span class="nav-item" title="Subscription"><img src="/assets/icons/user.png" alt="" /><span>Subscription</span></span>
+        }
+        @if (can('payment.view')) {
+          <span class="nav-item" title="Payment và doanh thu"><img src="/assets/icons/revenue.png" alt="" /><span>Payment & doanh thu</span></span>
+        }
+      </section>
+    }
     @if (can('audit.view') || can('system.view_setting')) {
       <section class="nav-group" aria-label="Hệ thống">
         <p class="nav-label">Hệ thống</p>

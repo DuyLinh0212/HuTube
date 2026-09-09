@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../auth.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
+
+typedef ChannelImagePicker = Future<XFile?> Function(bool avatar);
 
 class ChannelSettingsScreen extends StatefulWidget {
   const ChannelSettingsScreen({
     super.key,
     required this.auth,
     required this.channel,
+    this.imagePicker,
   });
 
   final AuthController auth;
   final ChannelDetail channel;
+  final ChannelImagePicker? imagePicker;
 
   @override
   State<ChannelSettingsScreen> createState() => _ChannelSettingsScreenState();
@@ -23,19 +28,24 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _inviteEmailController;
   late final ChannelService _channelService;
+  late ChannelDetail _channel;
+  final ImagePicker _picker = ImagePicker();
   List<ChannelRole> _roles = const [];
   String _inviteRole = 'editor';
 
   bool _busy = false;
+  bool _uploadingAvatar = false;
+  bool _uploadingBanner = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _channel = widget.channel;
     _channelService = ChannelService(widget.auth);
-    _nameController = TextEditingController(text: widget.channel.name);
+    _nameController = TextEditingController(text: _channel.name);
     _descriptionController = TextEditingController(
-      text: widget.channel.description ?? '',
+      text: _channel.description ?? '',
     );
     _inviteEmailController = TextEditingController();
     _loadRoles();
@@ -69,7 +79,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       _error = null;
     });
     try {
-      await _channelService.inviteMember(widget.channel.id, email, _inviteRole);
+      await _channelService.inviteMember(_channel.id, email, _inviteRole);
       if (!mounted) return;
       _inviteEmailController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,7 +110,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
 
     try {
       await _channelService.updateChannel(
-        widget.channel.id,
+        _channel.id,
         name: name,
         description: _descriptionController.text.trim(),
       );
@@ -123,14 +133,82 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     }
   }
 
+  bool get _canEditBranding =>
+      _channel.isOwner ||
+      _channel.permissions.contains('channel.edit_branding');
+
+  Future<XFile?> _pickFromGallery(bool avatar) {
+    final customPicker = widget.imagePicker;
+    if (customPicker != null) return customPicker(avatar);
+    return _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: avatar ? 1200 : 2560,
+      maxHeight: avatar ? 1200 : 1440,
+      imageQuality: 88,
+      requestFullMetadata: false,
+    );
+  }
+
+  Future<void> _pickAndUpload(bool avatar) async {
+    if (!_canEditBranding || _busy || _uploadingAvatar || _uploadingBanner) {
+      return;
+    }
+    try {
+      final file = await _pickFromGallery(avatar);
+      if (file == null || !mounted) return;
+      setState(() {
+        _error = null;
+        if (avatar) {
+          _uploadingAvatar = true;
+        } else {
+          _uploadingBanner = true;
+        }
+      });
+      final updated = avatar
+          ? await _channelService.uploadAvatar(_channel.id, file)
+          : await _channelService.uploadBanner(_channel.id, file);
+      if (!mounted) return;
+      setState(() => _channel = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            avatar
+                ? 'Đã cập nhật ảnh đại diện kênh.'
+                : 'Đã cập nhật ảnh bìa kênh.',
+          ),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiFailure catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Không thể đọc hoặc tải ảnh lên. Vui lòng chọn ảnh khác.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (avatar) {
+            _uploadingAvatar = false;
+          } else {
+            _uploadingBanner = false;
+          }
+        });
+      }
+    }
+  }
+
   Future<void> _confirmDelete() async {
     final confirmController = TextEditingController();
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final matches =
-              confirmController.text.trim() == widget.channel.name.trim();
+          final matches = confirmController.text.trim() == _channel.name.trim();
           return AlertDialog(
             title: const Text('Xác nhận xóa kênh?'),
             content: Column(
@@ -147,7 +225,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Nhập chính xác tên kênh "${widget.channel.name}" để xác nhận:',
+                  'Nhập chính xác tên kênh "${_channel.name}" để xác nhận:',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -183,7 +261,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     if (shouldDelete == true) {
       setState(() => _busy = true);
       try {
-        await _channelService.deleteChannel(widget.channel.id);
+        await _channelService.deleteChannel(_channel.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -205,6 +283,128 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         }
       }
     }
+  }
+
+  Widget _bannerEditor() {
+    final url = _channel.bannerUrl;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            key: const ValueKey('channel-banner-preview'),
+            height: 132,
+            color: AppColors.primaryLight,
+            child: url == null || url.isEmpty
+                ? const Center(
+                    child: Icon(
+                      Icons.panorama_outlined,
+                      size: 42,
+                      color: AppColors.primary,
+                    ),
+                  )
+                : Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    semanticLabel: 'Ảnh bìa kênh hiện tại',
+                    errorBuilder: (_, _, _) => const Center(
+                      child: Icon(Icons.broken_image_outlined, size: 40),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          key: const ValueKey('upload-channel-banner'),
+          onPressed: _uploadingBanner || _uploadingAvatar
+              ? null
+              : () => _pickAndUpload(false),
+          icon: _uploadingBanner
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.add_photo_alternate_outlined),
+          label: Text(_uploadingBanner ? 'Đang tải ảnh bìa…' : 'Đổi ảnh bìa'),
+        ),
+      ],
+    );
+  }
+
+  Widget _avatarEditor() {
+    final url = _channel.avatarUrl;
+    return Column(
+      children: [
+        CircleAvatar(
+          key: const ValueKey('channel-avatar-preview'),
+          radius: 48,
+          backgroundColor: AppColors.primaryLight,
+          backgroundImage: url == null || url.isEmpty
+              ? null
+              : NetworkImage(url),
+          child: url == null || url.isEmpty
+              ? Text(
+                  _channel.name.isEmpty ? 'C' : _channel.name[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          key: const ValueKey('upload-channel-avatar'),
+          onPressed: _uploadingAvatar || _uploadingBanner
+              ? null
+              : () => _pickAndUpload(true),
+          icon: _uploadingAvatar
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.account_circle_outlined),
+          label: Text(
+            _uploadingAvatar ? 'Đang tải ảnh đại diện…' : 'Đổi ảnh đại diện',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _brandingSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Hình ảnh kênh',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Ảnh JPG, PNG hoặc WEBP. Ảnh đại diện tối đa 5MB, ảnh bìa tối đa 10MB.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _bannerEditor(),
+          const SizedBox(height: 18),
+          _avatarEditor(),
+        ],
+      ),
+    );
   }
 
   @override
@@ -242,6 +442,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 const SizedBox(height: 16),
               ],
 
+              if (_canEditBranding) ...[
+                _brandingSection(),
+                const SizedBox(height: 28),
+              ],
+
               const Text(
                 'Thông tin cơ bản',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -269,7 +474,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               ),
               const SizedBox(height: 6),
               TextFormField(
-                initialValue: '@${widget.channel.handle}',
+                initialValue: '@${_channel.handle}',
                 readOnly: true,
                 enabled: false,
                 decoration: const InputDecoration(
@@ -308,8 +513,8 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                     : const Text('Lưu thay đổi'),
               ),
 
-              if (widget.channel.permissions.contains('member.invite') ||
-                  widget.channel.isOwner) ...[
+              if (_channel.permissions.contains('member.invite') ||
+                  _channel.isOwner) ...[
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 22),
@@ -386,8 +591,8 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               const SizedBox(height: 24),
 
               // Danger Zone
-              if (widget.channel.permissions.contains('channel.delete') ||
-                  widget.channel.isOwner)
+              if (_channel.permissions.contains('channel.delete') ||
+                  _channel.isOwner)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
