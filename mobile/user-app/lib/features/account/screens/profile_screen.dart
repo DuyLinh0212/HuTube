@@ -390,12 +390,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 20),
 
           // Menu Options List
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
+          Material(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              side: const BorderSide(color: AppColors.border),
             ),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 _menuTile(
@@ -497,52 +498,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
           else
             ...widget.sessions.map((session) {
               final isCurrent = session['isCurrent'] == true;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isCurrent ? AppColors.primary : AppColors.border,
-                    width: isCurrent ? 1.5 : 1.0,
-                  ),
-                ),
-                child: ListTile(
-                  leading: Icon(
-                    session['platform'] == 'mobile'
-                        ? Icons.phone_android
-                        : Icons.computer,
-                    color: isCurrent
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
-                  ),
-                  title: Text(
-                    session['deviceName'] as String? ?? 'Thiết bị',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isCurrent ? AppColors.primary : AppColors.border,
+                      width: isCurrent ? 1.5 : 1.0,
                     ),
                   ),
-                  subtitle: Text(
-                    isCurrent ? 'Thiết bị này' : 'Phiên đăng nhập',
-                    style: TextStyle(
+                  clipBehavior: Clip.antiAlias,
+                  child: ListTile(
+                    leading: Icon(
+                      session['platform'] == 'mobile'
+                          ? Icons.phone_android
+                          : Icons.computer,
                       color: isCurrent
                           ? AppColors.primary
                           : AppColors.textSecondary,
-                      fontSize: 12,
                     ),
-                  ),
-                  trailing: isCurrent
-                      ? const Icon(
-                          Icons.check_circle_outline,
-                          color: AppColors.primary,
-                        )
-                      : TextButton(
-                          onPressed: () => widget.onRevokeSession(
-                            session['sessionId'] as String,
+                    title: Text(
+                      session['deviceName'] as String? ?? 'Thiết bị',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Text(
+                      isCurrent ? 'Thiết bị này' : 'Phiên đăng nhập',
+                      style: TextStyle(
+                        color: isCurrent
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    trailing: isCurrent
+                        ? const Icon(
+                            Icons.check_circle_outline,
+                            color: AppColors.primary,
+                          )
+                        : TextButton(
+                            onPressed: () => widget.onRevokeSession(
+                              session['sessionId'] as String,
+                            ),
+                            child: const Text('Thu hồi'),
                           ),
-                          child: const Text('Thu hồi'),
-                        ),
+                  ),
                 ),
               );
             }),
