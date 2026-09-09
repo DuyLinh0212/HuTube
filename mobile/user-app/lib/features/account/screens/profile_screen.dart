@@ -510,42 +510,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: ListTile(
-                    leading: Icon(
-                      session['platform'] == 'mobile'
-                          ? Icons.phone_android
-                          : Icons.computer,
-                      color: isCurrent
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
-                    title: Text(
-                      session['deviceName'] as String? ?? 'Thiết bị',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    subtitle: Text(
-                      isCurrent ? 'Thiết bị này' : 'Phiên đăng nhập',
-                      style: TextStyle(
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      leading: Icon(
+                        session['platform'] == 'mobile'
+                            ? Icons.phone_android
+                            : Icons.computer,
                         color: isCurrent
                             ? AppColors.primary
                             : AppColors.textSecondary,
-                        fontSize: 12,
                       ),
-                    ),
-                    trailing: isCurrent
-                        ? const Icon(
-                            Icons.check_circle_outline,
-                            color: AppColors.primary,
-                          )
-                        : TextButton(
-                            onPressed: () => widget.onRevokeSession(
-                              session['sessionId'] as String,
+                      title: Text(
+                        session['deviceName'] as String? ?? 'Thiết bị',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        isCurrent ? 'Thiết bị này' : 'Phiên đăng nhập',
+                        style: TextStyle(
+                          color: isCurrent
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: isCurrent
+                          ? const Icon(
+                              Icons.check_circle_outline,
+                              color: AppColors.primary,
+                            )
+                          : TextButton(
+                              onPressed: () => widget.onRevokeSession(
+                                session['sessionId'] as String,
+                              ),
+                              child: const Text('Thu hồi'),
                             ),
-                            child: const Text('Thu hồi'),
-                          ),
+                    ),
                   ),
                 ),
               );
@@ -571,18 +574,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String title,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: AppColors.primary, size: 22),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        leading: Icon(icon, color: AppColors.primary, size: 22),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        ),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: AppColors.textSecondary,
+          size: 20,
+        ),
+        onTap: onTap,
       ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: AppColors.textSecondary,
-        size: 20,
-      ),
-      onTap: onTap,
     );
   }
 }
