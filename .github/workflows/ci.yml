@@ -117,9 +117,13 @@ jobs:
           [[ "$MOBILE_API_BASE_URL" == https://* ]] || { echo 'MOBILE_API_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
           [[ "$GOOGLE_WEB_CLIENT_ID" == *.apps.googleusercontent.com ]] || { echo 'GOOGLE_WEB_CLIENT_ID is invalid.'; exit 1; }
       - name: Build release APK
-        run: flutter build apk --release --build-number=${{ github.run_number }} \
-          --dart-define=API_BASE_URL="$MOBILE_API_BASE_URL" \
-          --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID"
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/hutube-mobile-defines.json" <<EOF
+          {"API_BASE_URL":"$MOBILE_API_BASE_URL","GOOGLE_WEB_CLIENT_ID":"$GOOGLE_WEB_CLIENT_ID"}
+          EOF
+          flutter build apk --release --build-number=${{ github.run_number }} \
+            --dart-define-from-file="$RUNNER_TEMP/hutube-mobile-defines.json"
       - name: Upload release APK
         uses: actions/upload-artifact@v6
         with:

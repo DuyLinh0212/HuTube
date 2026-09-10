@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Channels;
+using HuTube.Application.Rbac;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
