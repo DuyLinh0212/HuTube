@@ -69,7 +69,7 @@ Cả 3 client cùng sử dụng một Backend ASP.NET Core.
              ┌─────────────────┼─────────────────┐
              │                 │                 │
              ▼                 ▼                 ▼
-        SQL Server       Cloudflare R2      External Services
+        PostgreSQL       Cloudinary        External Services
                                             ├── Google
                                             ├── VNPay
                                             ├── MoMo
@@ -101,7 +101,7 @@ HuTube/
 │   └── admin-web/
 │
 ├── mobile/
-│   └── user-app/
+│   └── user-app/                 # Flutter User App
 │
 ├── database/
 │   ├── migrations/
@@ -228,10 +228,10 @@ Quy định:
 Domain không được phụ thuộc:
 
 - Entity Framework Core.
-- SQL Server implementation.
+- PostgreSQL implementation.
 - JWT library.
 - SignalR.
-- Cloudflare R2 SDK.
+- Cloudinary SDK.
 - Google SDK.
 - VNPay SDK.
 - MoMo SDK.
@@ -357,8 +357,8 @@ Persistence/
 
 ```text
 Storage/
-├── CloudflareR2Storage.cs
-└── CloudflareR2Options.cs
+├── CloudinaryStorageService.cs
+└── LocalStorageService.cs
 ```
 
 ## Payments
@@ -597,7 +597,7 @@ moderator
 
 # 17. Storage Architecture
 
-Cloudflare R2 dùng để lưu:
+Object storage dùng để lưu:
 
 - Video.
 - Thumbnail.
@@ -605,19 +605,20 @@ Cloudflare R2 dùng để lưu:
 - Channel Banner.
 - Media file lớn.
 
-Application định nghĩa:
+Application định nghĩa abstraction:
 
 ```text
 IObjectStorage
 ```
 
-Infrastructure triển khai:
+Infrastructure có hai implementation:
 
 ```text
-CloudflareR2Storage
+CloudinaryStorageService      # Staging/Production khi đã cấu hình credential
+LocalStorageService           # Development/local fallback
 ```
 
-SQL Server chỉ lưu metadata cần thiết, không lưu binary video trực tiếp.
+PostgreSQL chỉ lưu metadata và URL/object key; không lưu binary media trực tiếp.
 
 ---
 
@@ -654,7 +655,7 @@ Không viết logic riêng của từng Payment Provider trực tiếp trong Con
 Database chính:
 
 ```text
-SQL Server
+PostgreSQL
 ```
 
 Backend truy cập qua:
@@ -677,8 +678,8 @@ Repository Interface
 Infrastructure Repository
   ↓
 EF Core
-  ↓
-SQL Server
+   ↓
+PostgreSQL
 ```
 
 Frontend và Mobile không được truy cập Database trực tiếp.
@@ -815,21 +816,155 @@ Nếu Workspace chung làm cấu trúc phức tạp hơn lợi ích nhận đư�
 
 # 24. Mobile Architecture
 
-Mobile App dành cho User.
+Mobile App là ứng dụng Flutter dành cho User. Đây là native client, không nhúng
+User Web và không truy cập trực tiếp vào PostgreSQL.
 
 ```text
 mobile/
 └── user-app/
+    ├── lib/
+    │   ├── main.dart                 # Composition root, MaterialApp, AuthScreen
+    │   ├── auth.dart                 # API client, auth/session, token store
+    │   ├── core/
+    │   │   └── theme/
+    │   └── features/
+    │       ├── account/
+    │       │   ├── models/
+    │       │   ├── services/
+    │       │   └── screens/
+    │       └── channel/
+    │           ├── models/
+    │           ├── services/
+    │           └── screens/
+    ├── assets/
+    ├── android/
+    ├── ios/
+    ├── test/
+    └── pubspec.yaml
 ```
 
-Mobile framework chưa được quyết định trong tài liệu này.
+## 24.1. Các lớp và trách nhiệm
+
+```text
+Flutter Widgets / Screens
+        ↓
+Feature Services
+        ↓
+AuthController + ApiClient
+        ↓
+HuTube REST API
+```
+
+- `screens/` và các widget chịu trách nhiệm hiển thị, nhập liệu, validation
+  và trạng thái cục bộ của màn hình.
+- `features/*/models/` ánh xạ JSON response thành model dùng trong UI.
+- `features/*/services/` đóng gói Use Case theo feature, ví dụ account và
+  channel; không chứa quyền quyết định bảo mật thay cho Backend.
+- `auth.dart` chứa `ApiClient` cho JSON/multipart HTTP, `AuthController` cho
+  phiên đăng nhập và `SecureTokenStore` cho refresh token.
+- `main.dart` khởi tạo dependency, theme, `MaterialApp`, deep-link stream và
+  màn hình xác thực.
+- Trạng thái hiện tại dùng `ChangeNotifier`/state cục bộ; chưa thêm một thư
+  viện state management riêng.
+
+## 24.2. Giao tiếp với Backend
+
+Mobile dùng chung REST API versioned với User Web:
+
+```text
+Mobile App
+  ├── JSON request/response: http package
+  ├── Multipart upload: http.MultipartRequest
+  ├── Authorization: Bearer HuTube access token
+  └── X-HuTube-Client: mobile
+```
+
+Mobile chỉ biết `API_BASE_URL` qua `--dart-define`, không hard-code connection
+string, JWT signing key, database credential, storage secret hay payment secret.
+
+Các URL local theo môi trường thiết bị:
+
+| Môi trường | API URL |
+|---|---|
+| Android Emulator | `http://10.0.2.2:5080/api/v1` |
+| Android USB với `adb reverse` | `http://127.0.0.1:5080/api/v1` |
+| iOS Simulator | `http://localhost:5080/api/v1` |
+| Thiết bị thật cùng LAN | `http://<IP-máy-chạy-backend>:5080/api/v1` |
+| Staging/Production | `https://<api-domain>/api/v1` |
+
+`10.0.2.2` chỉ là địa chỉ đặc biệt của Android Emulator để trỏ về máy host;
+nó không phải địa chỉ của Backend trên Internet.
+
+## 24.3. Authentication và phiên
+
+```text
+Login email/password ──────┐
+                           ├──> POST /auth/... ──> HuTube JWT pair
+Google Sign-In ────────────┘
+```
+
+- Access token chỉ nằm trong bộ nhớ của app.
+- Refresh token được lưu bằng `flutter_secure_storage` (Keychain trên iOS,
+  encrypted storage trên Android).
+- Khi khởi động, app đọc refresh token và gọi refresh để khôi phục phiên.
+- Khi API trả `401`, app thực hiện một lần refresh rồi thử lại Use Case đang
+  chờ nếu phiên vẫn hợp lệ.
+- Logout xóa token local và yêu cầu Backend thu hồi phiên.
+- Backend vẫn là nơi kiểm tra tài khoản, token, role và permission.
+
+Với Google Login, mobile dùng package `google_sign_in` để lấy Google ID token,
+sau đó gửi credential tới `POST /api/v1/auth/google`. Backend xác minh token
+và phát hành token HuTube riêng; mobile không dùng Google ID token để gọi các
+API nghiệp vụ khác.
+
+## 24.4. Deep link và điều hướng
+
+`app_links` chuyển các URL scheme `hutube://auth/...` vào `AuthScreen`. App chỉ
+chấp nhận host `auth` và các path đã whitelist:
+
+```text
+hutube://auth/account
+hutube://auth/login
+hutube://auth/verify-email?token=<token>
+hutube://auth/reset-password?token=<token>
+```
+
+Luồng điều hướng auth hiện tại được quản lý bằng state nội bộ của
+`AuthScreen`; các màn hình feature được mở từ flow tài khoản/kênh. Khi thêm
+module lớn, có thể tách router hoặc feature navigator nhưng không thay đổi
+contract API.
+
+## 24.5. Tích hợp nền tảng và upload
+
+- `google_sign_in`: xác thực Google native; Android cần package name và
+  fingerprint SHA đúng với OAuth client, iOS cần iOS client ID khi build.
+- `image_picker`: chọn ảnh từ thiết bị.
+- `http.MultipartRequest`: gửi avatar/banner lên Backend; Backend quyết định
+  lưu Cloudinary hay local fallback theo môi trường.
+- `app_links`: nhận deep link từ email và hệ điều hành.
+- `flutter_secure_storage`: bảo vệ refresh token.
+
+SignalR là điểm mở rộng cho notification realtime; mobile hiện không tự truy
+cập database và không được xem việc ẩn/hiện UI là một lớp authorization.
+
+## 24.6. Kiểm thử Mobile
+
+```text
+flutter analyze
+flutter test
+flutter build apk --debug --dart-define=API_BASE_URL=...
+```
+
+Unit/widget test dùng mock HTTP cho contract của controller và UI. Smoke test
+có thể chạy với Backend và PostgreSQL thật để kiểm tra các flow auth quan trọng;
+đây là kiểm thử tích hợp, không thay thế kiểm thử native trên Android/iOS.
 
 Mobile phải:
 
 - Gọi cùng Backend API với User Web nếu Use Case giống nhau.
 - Dùng JWT của HuTube.
 - Có thể kết nối SignalR nếu cần notification realtime.
-- Không truy cập SQL Server trực tiếp.
+- Không truy cập PostgreSQL trực tiếp.
 - Không chứa secret của Backend.
 - Không tin dữ liệu phân quyền phía client.
 
@@ -874,7 +1009,7 @@ backend/tests/
 
 Unit Test tập trung business logic.
 
-Integration Test tập trung API, EF Core, SQL Server, Authentication, Authorization, Middleware, Payment callback, SignalR và Storage integration quan trọng.
+Integration Test tập trung API, EF Core, PostgreSQL, Authentication, Authorization, Middleware, Payment callback, SignalR và Storage integration quan trọng.
 
 ---
 
@@ -964,8 +1099,9 @@ DATABASE_CONNECTION_STRING
 JWT_SECRET_KEY
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
+CLOUDINARY_CLOUD_NAME
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
 VNPAY_SECRET_KEY
 MOMO_SECRET_KEY
 ZALOPAY_KEY1
@@ -995,7 +1131,8 @@ Admin Web ─────┼──> Backend API
 Mobile App ────┘
 ```
 
-Backend kết nối SQL Server, Cloudflare R2 và các External Service.
+Backend kết nối PostgreSQL, Cloudinary hoặc local storage trong Development,
+và các External Service.
 
 ---
 
@@ -1058,11 +1195,10 @@ HuTube/
 4. User Web và Mobile dùng chung API nếu Use Case giống nhau.
 5. Backend là nơi quyết định Authentication và Authorization.
 6. Domain không phụ thuộc framework hoặc SDK bên ngoài.
-7. Infrastructure chịu trách nhiệm tích hợp SQL Server, R2, SignalR, Google và Payment Provider.
+7. Infrastructure chịu trách nhiệm tích hợp PostgreSQL, Cloudinary/local storage, SignalR, Google và Payment Provider.
 8. Application sử dụng abstraction để dễ thay implementation.
 9. Không tạo quá nhiều folder hoặc interface nếu chưa cần.
 10. Không chuyển Microservices khi chưa có nhu cầu thực tế.
 11. Database thay đổi phải có migration hoặc update script.
 12. Kiến trúc quan trọng phải được ghi bằng ADR.
 13. Ưu tiên code dễ đọc và dễ lần theo luồng xử lý.
-
