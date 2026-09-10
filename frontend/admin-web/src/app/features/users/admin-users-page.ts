@@ -1,6 +1,4 @@
-import { Component, signal } from '@angular/core';
-
-type UsersTab = 'users' | 'roles';
+import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-admin-users-page',
@@ -8,6 +6,4 @@ type UsersTab = 'users' | 'roles';
   styleUrl: './admin-users-page.scss',
 })
 export class AdminUsersPage {
-  readonly tab = signal<UsersTab>('users');
-  setTab(tab: UsersTab) { this.tab.set(tab); }
 }

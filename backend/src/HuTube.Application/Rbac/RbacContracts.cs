@@ -16,6 +16,19 @@ public sealed record RoleResponse(
     string? Description,
     IReadOnlyList<string> Permissions);
 
+public sealed record CreateRoleRequest(
+    string Code,
+    string Name,
+    string? Description,
+    IReadOnlyList<string>? PermissionCodes,
+    string Reason);
+
+public sealed record UpdateRoleRequest(
+    string Name,
+    string? Description,
+    IReadOnlyList<string>? PermissionCodes,
+    string Reason);
+
 public sealed record AuditLogEntry(
     Guid? ActorUserId,
     string Action,

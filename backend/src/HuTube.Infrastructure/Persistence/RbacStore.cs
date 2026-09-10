@@ -1,5 +1,6 @@
 using HuTube.Application.Rbac;
 using HuTube.Domain.Rbac;
+using HuTube.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
 namespace HuTube.Infrastructure.Persistence;
@@ -57,6 +58,32 @@ public sealed class RbacStore(HuTubeDbContext db) : IRbacStore
             r.Name,
             r.Description,
             rolePermissions.Where(rp => rp.RoleId == r.RoleId).Select(rp => rp.Code).ToList())).ToList();
+    }
+
+    public Task<Role?> FindRoleAsync(Guid roleId, CancellationToken ct) =>
+        db.Roles.SingleOrDefaultAsync(role => role.RoleId == roleId, ct);
+
+    public Task<bool> RoleCodeExistsAsync(string code, CancellationToken ct) =>
+        db.Roles.AnyAsync(role => role.Code == code, ct);
+
+    public Task<List<Permission>> GetActivePermissionsByCodesAsync(IReadOnlyCollection<string> codes, CancellationToken ct) =>
+        codes.Count == 0
+            ? Task.FromResult(new List<Permission>())
+            : db.Permissions.Where(permission => permission.Status == "active" && codes.Contains(permission.Code)).ToListAsync(ct);
+
+    public void AddRole(Role role) => db.Roles.Add(role);
+
+    public async Task ReplaceRolePermissionsAsync(Guid roleId, IReadOnlyCollection<Guid> permissionIds, CancellationToken ct)
+    {
+        var current = await db.RolePermissions.Where(item => item.RoleId == roleId).ToListAsync(ct);
+        db.RolePermissions.RemoveRange(current);
+        db.RolePermissions.AddRange(permissionIds.Distinct().Select(permissionId => new RolePermission
+        {
+            RolePermissionId = Guid.NewGuid(),
+            RoleId = roleId,
+            PermissionId = permissionId,
+            AssignedAt = DateTimeOffset.UtcNow
+        }));
     }
 
     public void AddAuditLog(AuditLog log) => db.AuditLogs.Add(log);

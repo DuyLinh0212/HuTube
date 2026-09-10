@@ -13,6 +13,11 @@ public sealed class RbacTests
         public Dictionary<Guid, List<string>> UserPermissions { get; } = [];
         public Dictionary<Guid, (string? Code, string? Name)> UserRoles { get; } = [];
         public List<AuditLog> AuditLogs { get; } = [];
+        public List<Role> Roles { get; } = [];
+        public List<Permission> Permissions { get; } = AdminPermissions.All
+            .Select(code => new Permission { PermissionId = Guid.NewGuid(), Code = code, Name = code, Status = "active" })
+            .ToList();
+        public Dictionary<Guid, List<Guid>> RolePermissionIds { get; } = [];
 
         public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct) =>
             Task.FromResult(UserPermissions.TryGetValue(userId, out var list) ? list : []);
@@ -24,11 +29,30 @@ public sealed class RbacTests
             Task.FromResult(UserPermissions.TryGetValue(userId, out var list) && list.Contains(permissionCode, StringComparer.OrdinalIgnoreCase));
 
         public Task<List<Permission>> GetAllPermissionsAsync(CancellationToken ct) =>
-            Task.FromResult(AdminPermissions.All.Select(p => new Permission { Code = p, Name = p }).ToList());
+            Task.FromResult(Permissions.ToList());
 
         public Task<List<RoleWithPermissions>> GetAllRolesWithPermissionsAsync(CancellationToken ct) =>
-            Task.FromResult(new List<RoleWithPermissions>());
+            Task.FromResult(Roles.Select(role => new RoleWithPermissions(
+                role.RoleId,
+                role.Code,
+                role.Name,
+                role.Description,
+                RolePermissionIds.TryGetValue(role.RoleId, out var ids)
+                    ? Permissions.Where(permission => ids.Contains(permission.PermissionId)).Select(permission => permission.Code).ToList()
+                    : [])).ToList());
 
+        public Task<Role?> FindRoleAsync(Guid roleId, CancellationToken ct) =>
+            Task.FromResult(Roles.SingleOrDefault(role => role.RoleId == roleId));
+        public Task<bool> RoleCodeExistsAsync(string code, CancellationToken ct) =>
+            Task.FromResult(Roles.Any(role => role.Code == code));
+        public Task<List<Permission>> GetActivePermissionsByCodesAsync(IReadOnlyCollection<string> codes, CancellationToken ct) =>
+            Task.FromResult(Permissions.Where(permission => permission.Status == "active" && codes.Contains(permission.Code)).ToList());
+        public void AddRole(Role role) => Roles.Add(role);
+        public Task ReplaceRolePermissionsAsync(Guid roleId, IReadOnlyCollection<Guid> permissionIds, CancellationToken ct)
+        {
+            RolePermissionIds[roleId] = permissionIds.Distinct().ToList();
+            return Task.CompletedTask;
+        }
         public void AddAuditLog(AuditLog log) => AuditLogs.Add(log);
         public Task<List<AuditLog>> GetAuditLogsAsync(int limit, CancellationToken ct) =>
             Task.FromResult(AuditLogs.OrderByDescending(a => a.CreatedAt).Take(limit).ToList());
@@ -138,5 +162,50 @@ public sealed class RbacTests
         Assert.Single(rbacStore.AuditLogs);
         Assert.Equal("admin.login", rbacStore.AuditLogs[0].Action);
         Assert.Equal(actorId, rbacStore.AuditLogs[0].ActorUserId);
+    }
+
+    [Fact]
+    public async Task CreateRole_AsSuperAdmin_CreatesPermissionsAndAuditEntry()
+    {
+        var rbacStore = new FakeRbacStore();
+        var authStore = new FakeAuthStore();
+        var service = new RbacService(rbacStore, authStore);
+        var actorId = Guid.NewGuid();
+        rbacStore.UserRoles[actorId] = ("super_admin", "Super Administrator");
+
+        var result = await service.CreateRoleAsync(actorId, new CreateRoleRequest(
+            "content_reviewer",
+            "Content reviewer",
+            "Review flagged content",
+            [AdminPermissions.ModerationViewQueue, AdminPermissions.ModerationReview],
+            "Thiết lập vai trò kiểm duyệt nội dung"));
+
+        Assert.Equal("content_reviewer", result.Code);
+        Assert.Equal(2, result.Permissions.Count);
+        Assert.Single(rbacStore.Roles);
+        Assert.Equal(2, rbacStore.RolePermissionIds[result.RoleId].Count);
+        Assert.Contains(rbacStore.AuditLogs, entry => entry.Action == "rbac.role_created" && entry.ActorUserId == actorId);
+    }
+
+    [Fact]
+    public async Task UpdateRole_RejectsPermissionBeyondActorDelegation()
+    {
+        var rbacStore = new FakeRbacStore();
+        var authStore = new FakeAuthStore();
+        var service = new RbacService(rbacStore, authStore);
+        var actorId = Guid.NewGuid();
+        var role = new Role { RoleId = Guid.NewGuid(), Code = "moderator", Name = "Moderator", Status = "active" };
+        rbacStore.Roles.Add(role);
+        rbacStore.UserRoles[actorId] = ("role_manager", "Role manager");
+        rbacStore.UserPermissions[actorId] = [AdminPermissions.RoleEdit];
+
+        var exception = await Assert.ThrowsAsync<RbacException>(() => service.UpdateRoleAsync(actorId, role.RoleId, new UpdateRoleRequest(
+            "Moderator",
+            "Kiểm duyệt",
+            [AdminPermissions.UserBan],
+            "Thử gán quyền vượt quá phạm vi")));
+
+        Assert.Equal(403, exception.Status);
+        Assert.Equal("PERMISSION_DELEGATION_DENIED", exception.Code);
     }
 }

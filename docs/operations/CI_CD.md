@@ -6,7 +6,7 @@
 
 1. .NET 10 restore/build Release, unit test và integration test PostgreSQL 18, publish API artifact.
 2. Node 22 `npm ci`, Karma ChromeHeadless và Angular build cho cả hai web.
-3. Flutter stable `pub get`, `analyze --fatal-infos`, `test` tại `mobile/user-app`.
+3. Flutter stable `pub get`, `analyze --fatal-infos`, `test` tại `mobile/user-app` và build release APK. Job mobile dùng GitHub Environment `mobile`; có thể override hai biến public `MOBILE_API_BASE_URL` và `GOOGLE_WEB_CLIENT_ID`, mặc định trỏ về API Render hiện tại và Google Web client hiện tại.
 4. Sau khi cả ba nhóm pass, build Docker API. Chỉ push image GHCR từ `develop` với tag commit SHA và `develop`; feature/PR chỉ kiểm tra build container.
 
 CI PostgreSQL là service dùng một lần, tài khoản test có quyền tạo database. Connection string CI chỉ thuộc service tạm thời, không phải credential local hay staging. Test không dùng database ứng dụng. Kết quả TRX và sản phẩm publish được lưu bằng workflow artifacts.

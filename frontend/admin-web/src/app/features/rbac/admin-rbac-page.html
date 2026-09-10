@@ -1,0 +1,257 @@
+<main id="main-content" class="rbac-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">Quản trị truy cập</p>
+      <h1>Nhóm quyền & vai trò</h1>
+      <p class="muted">Xem các quyền được backend cấp cho từng vai trò quản trị.</p>
+    </div>
+    <div class="heading-actions">
+      <span class="read-only-badge">Dữ liệu từ API</span>
+      @if (canEdit()) {
+        <button class="primary-action" type="button" (click)="openCreate()">＋ Tạo nhóm quyền</button>
+      }
+      <button class="secondary-action" type="button" (click)="load()" [disabled]="loading()">
+        <span aria-hidden="true">↻</span> Làm mới
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <section class="state-card error-state" role="alert">
+      <div>
+        <h2>Không tải được quyền quản trị</h2>
+        <p>{{ error() }}</p>
+      </div>
+      <button class="primary-action" type="button" (click)="load()">Thử lại</button>
+    </section>
+  } @else if (loading()) {
+    <section class="rbac-grid skeleton-grid" aria-busy="true" aria-label="Đang tải quyền quản trị">
+      <div class="skeleton-panel"></div>
+      <div class="skeleton-panel skeleton-panel--wide"></div>
+      <div class="skeleton-panel"></div>
+    </section>
+  } @else if (!roles().length) {
+    <section class="state-card">
+      <div class="state-mark" aria-hidden="true">⌘</div>
+      <h2>Chưa có vai trò quản trị</h2>
+      <p>Backend chưa trả về role nào. Hãy kiểm tra seed RBAC và quyền role.view của tài khoản đang đăng nhập.</p>
+    </section>
+  } @else {
+    <section class="rbac-grid">
+      <aside class="role-browser" aria-label="Danh sách vai trò">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-kicker">Role</p>
+            <h2>Nhóm quyền</h2>
+          </div>
+          <span>{{ filteredRoles().length }}</span>
+        </div>
+
+        <label class="search-field">
+          <span class="search-field__icon" aria-hidden="true"></span>
+          <span class="sr-only">Tìm nhóm quyền</span>
+          <input type="search" [value]="roleSearch()" (input)="roleSearch.set($any($event.target).value)" placeholder="Tìm nhóm quyền…" />
+        </label>
+
+        <div class="role-list" role="listbox" aria-label="Các vai trò">
+          @for (role of filteredRoles(); track role.roleId) {
+            <button class="role-card" type="button" role="option" [class.is-selected]="role.roleId === selectedRole().roleId"
+              [attr.aria-selected]="role.roleId === selectedRole().roleId" (click)="selectRole(role)">
+              <span class="role-card__icon" aria-hidden="true">⌘</span>
+              <span class="role-card__body">
+                <strong>{{ role.name }}</strong>
+                <small>{{ role.code }}</small>
+                <span>{{ permissionCount(role) }} quyền được cấp</span>
+              </span>
+              <span class="role-card__more" aria-hidden="true">⋮</span>
+            </button>
+          } @empty {
+            <p class="no-results">Không tìm thấy nhóm quyền phù hợp.</p>
+          }
+        </div>
+
+        <p class="results-note">Hiển thị {{ filteredRoles().length }} trong {{ roles().length }} vai trò từ API.</p>
+      </aside>
+
+      <section class="permission-workspace" aria-label="Chi tiết quyền của vai trò">
+        @if (selectedRole(); as role) {
+          <header class="role-summary">
+            <span class="role-summary__icon" aria-hidden="true">⌘</span>
+            <div>
+              <p class="panel-kicker">Vai trò được chọn</p>
+              <h2>{{ role.name }}</h2>
+              <p>{{ role.description || 'Vai trò quản trị được cấu hình và enforce bởi backend HuTube.' }}</p>
+              <dl>
+                <div><dt>Mã vai trò</dt><dd>{{ role.code }}</dd></div>
+                <div><dt>Phạm vi</dt><dd>Toàn hệ thống</dd></div>
+                <div><dt>Quyền được cấp</dt><dd>{{ permissionCount(role) }}</dd></div>
+              </dl>
+            </div>
+          </header>
+
+          <div class="matrix-toolbar">
+            <div>
+              <h3>Ma trận quyền</h3>
+              <p>@if (editing()) { Chọn quyền cần cấp hoặc thu hồi, sau đó lưu kèm lý do. } @else { Mỗi dòng phản ánh permission đang được gán cho role từ API. }</p>
+            </div>
+            <div class="matrix-actions">
+              @if (canEdit()) {
+                @if (editing()) {
+                  <button class="secondary-action" type="button" (click)="cancelEdit()" [disabled]="saving()">Hủy</button>
+                } @else {
+                  <button class="secondary-action" type="button" (click)="beginEdit()">Chỉnh sửa quyền</button>
+                }
+              }
+              <label class="search-field search-field--compact">
+                <span class="search-field__icon" aria-hidden="true"></span>
+                <span class="sr-only">Lọc quyền</span>
+                <input type="search" [value]="permissionSearch()" (input)="permissionSearch.set($any($event.target).value)" placeholder="Lọc quyền…" />
+              </label>
+            </div>
+          </div>
+
+          <div class="matrix-scroll">
+            <table class="permission-matrix">
+              <caption class="sr-only">Ma trận quyền của {{ role.name }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Module / quyền</th>
+                  <th scope="col">Không có</th>
+                  <th scope="col">Chỉ xem</th>
+                  <th scope="col">Thao tác</th>
+                  <th scope="col">Quản trị</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (group of groups(); track group.name) {
+                  <tr class="module-row"><th colspan="5" scope="colgroup">{{ group.name }}</th></tr>
+                  @for (permission of group.permissions; track permission.permissionId) {
+                    <tr>
+                      <th scope="row">
+                        <strong>{{ permission.name }}</strong>
+                        <small>{{ permission.code }}</small>
+                        @if (permission.description) { <span>{{ permission.description }}</span> }
+                      </th>
+                      @for (level of ['none', 'view', 'action', 'admin']; track level) {
+                        <td>
+                          <button class="matrix-cell" type="button" [disabled]="!editing() || !canEdit()"
+                            (click)="togglePermission(permission)" [attr.aria-label]="editing() ? 'Bật hoặc tắt quyền ' + permission.name : levelLabel($any(level))">
+                            <span class="permission-dot" [class.is-selected]="accessLevel(permission) === level"
+                              [attr.aria-label]="levelLabel($any(level))" [title]="levelLabel($any(level))"></span>
+                          </button>
+                        </td>
+                      }
+                    </tr>
+                  }
+                } @empty {
+                  <tr><td class="no-permission-results" colspan="5">Không tìm thấy quyền phù hợp.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <footer class="matrix-legend" aria-label="Chú thích ma trận quyền">
+            @for (level of ['none', 'view', 'action', 'admin']; track level) {
+              <span><i class="permission-dot" [class.is-selected]="level !== 'none'" [class.is-view]="level === 'view'"
+                [class.is-action]="level === 'action'" [class.is-admin]="level === 'admin'"></i>{{ levelLabel($any(level)) }}</span>
+            }
+            <em>@if (canEdit()) { Chọn “Chỉnh sửa quyền” để thay đổi; API sẽ kiểm tra role.edit. } @else { Chỉ đọc: tài khoản chưa có quyền role.edit. }</em>
+          </footer>
+        }
+      </section>
+
+      <aside class="role-scope" aria-label="Phạm vi và quyền được cấp">
+        @if (selectedRole(); as role) {
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">Backend enforced</p>
+              <h2>Phạm vi & quyền</h2>
+            </div>
+            <span class="shield" aria-hidden="true">◈</span>
+          </div>
+
+          <section class="scope-block">
+            <p>Phạm vi</p>
+            <strong><span aria-hidden="true">◎</span> Toàn hệ thống</strong>
+            <small>Permission được kiểm tra bởi API trước khi thực hiện nghiệp vụ.</small>
+          </section>
+
+          <section class="scope-block">
+            <div class="scope-block__heading">
+              <p>Quyền đang cấp</p>
+              <strong>{{ permissionCount(role) }}</strong>
+            </div>
+            <ul class="assigned-list">
+              @for (permission of assignedPermissions(); track permission.permissionId) {
+                <li><span aria-hidden="true">✓</span><div><strong>{{ permission.name }}</strong><small>{{ permission.code }}</small></div></li>
+              } @empty {
+                <li class="assigned-list__empty">Vai trò này chưa được gán permission nào.</li>
+              }
+            </ul>
+          </section>
+
+          <section class="enforcement-note">
+            <span aria-hidden="true">i</span>
+            <p>Ẩn menu chỉ giúp điều hướng. API vẫn trả 403 nếu session không có permission yêu cầu.</p>
+          </section>
+        }
+      </aside>
+    </section>
+
+    @if (editing() && isDirty()) {
+      <section class="save-drawer" aria-label="Lưu thay đổi nhóm quyền">
+        <div>
+          <p class="panel-kicker">Thay đổi chưa lưu</p>
+          <h2>Lưu thay đổi {{ selectedRole().name }}?</h2>
+          <p>{{ draftPermissionCodes().length }} quyền sẽ được áp dụng. Mọi thay đổi được ghi vào nhật ký quản trị.</p>
+        </div>
+        <label>
+          <span>Lý do thay đổi <b>*</b></span>
+          <input [ngModel]="saveReason()" (ngModelChange)="saveReason.set($event)" maxlength="300" placeholder="Ví dụ: Cấp quyền xử lý hàng đợi kiểm duyệt" />
+        </label>
+        <div class="save-drawer__actions">
+          <button class="secondary-action" type="button" (click)="cancelEdit()" [disabled]="saving()">Hủy</button>
+          <button class="primary-action" type="button" (click)="saveRole()" [disabled]="saving() || saveReason().trim().length < 3">
+            {{ saving() ? 'Đang lưu…' : 'Lưu thay đổi' }}
+          </button>
+        </div>
+      </section>
+    }
+
+    @if (saveMessage()) {
+      <p class="save-message" [class.is-error]="saveFailed()">{{ saveMessage() }}</p>
+    }
+
+    @if (createOpen()) {
+      <div class="dialog-backdrop" (click)="closeCreate()">
+        <section class="role-dialog" role="dialog" aria-modal="true" aria-labelledby="create-role-title" (click)="$event.stopPropagation()">
+          <header>
+            <div><p class="panel-kicker">RBAC foundation</p><h2 id="create-role-title">Tạo nhóm quyền</h2></div>
+            <button class="dialog-close" type="button" (click)="closeCreate()" [disabled]="creating()" aria-label="Đóng">×</button>
+          </header>
+          <p class="dialog-intro">Role mới là role quản trị. Permission chỉ có hiệu lực sau khi backend xác nhận và ghi audit log.</p>
+          <div class="role-form">
+            <label><span>Tên vai trò <b>*</b></span><input [ngModel]="createName()" (ngModelChange)="createName.set($event)" maxlength="80" placeholder="Ví dụ: Content reviewer" /></label>
+            <label><span>Mã vai trò <b>*</b></span><input [ngModel]="createCode()" (ngModelChange)="createCode.set($event)" maxlength="48" placeholder="content_reviewer" /></label>
+            <label class="role-form__wide"><span>Mô tả</span><textarea [ngModel]="createDescription()" (ngModelChange)="createDescription.set($event)" maxlength="500" placeholder="Phạm vi và trách nhiệm của vai trò"></textarea></label>
+            <fieldset class="role-form__wide">
+              <legend>Permission được cấp</legend>
+              <div class="permission-picker">
+                @for (permission of permissions(); track permission.permissionId) {
+                  <label><input type="checkbox" [checked]="createPermissionCodes().includes(permission.code)" (change)="toggleCreatePermission(permission)" /><span>{{ permission.name }}<small>{{ permission.code }}</small></span></label>
+                }
+              </div>
+            </fieldset>
+            <label class="role-form__wide"><span>Lý do tạo <b>*</b></span><input [ngModel]="createReason()" (ngModelChange)="createReason.set($event)" maxlength="300" placeholder="Ví dụ: Bổ sung nhóm kiểm duyệt nội dung" /></label>
+          </div>
+          <footer>
+            <button class="secondary-action" type="button" (click)="closeCreate()" [disabled]="creating()">Hủy</button>
+            <button class="primary-action" type="button" (click)="createRole()" [disabled]="creating() || createName().trim().length < 2 || createCode().trim().length < 3 || createReason().trim().length < 3">
+              {{ creating() ? 'Đang tạo…' : 'Tạo nhóm quyền' }}
+            </button>
+          </footer>
+        </section>
+      </div>
+    }
+  }
+</main>

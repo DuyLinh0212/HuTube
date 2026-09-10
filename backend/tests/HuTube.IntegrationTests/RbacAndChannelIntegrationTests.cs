@@ -82,6 +82,48 @@ public sealed class RbacAndChannelIntegrationTests(AuthApiFactory factory) : ICl
     }
 
     [Fact]
+    public async Task INT_S4_06_AdminRbac_SuperAdminCanCreateAndUpdateCustomRole()
+    {
+        var (superAdminClient, _, _) = await CreateUserAsync("super_admin", SystemRoles.SuperAdmin);
+        var suffix = Guid.NewGuid().ToString("N")[..10];
+        var code = $"content_reviewer_{suffix}";
+
+        var createRes = await superAdminClient.PostAsJsonAsync("/api/v1/admin/roles", new
+        {
+            code,
+            name = "Content reviewer",
+            description = "Review reported content",
+            permissionCodes = new[] { AdminPermissions.ModerationViewQueue },
+            reason = "Tạo role kiểm duyệt nội dung cho Sprint 4"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createRes.StatusCode);
+        var created = await createRes.Content.ReadFromJsonAsync<RoleResponse>(JsonOptions);
+        Assert.NotNull(created);
+        Assert.Equal(code, created.Code);
+        Assert.Contains(AdminPermissions.ModerationViewQueue, created.Permissions);
+
+        var updateRes = await superAdminClient.PutAsJsonAsync($"/api/v1/admin/roles/{created.RoleId}", new
+        {
+            name = "Content reviewer",
+            description = "Review and decide reported content",
+            permissionCodes = new[] { AdminPermissions.ModerationViewQueue, AdminPermissions.ModerationReview },
+            reason = "Bổ sung quyền review cho role kiểm duyệt"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateRes.StatusCode);
+        var updated = await updateRes.Content.ReadFromJsonAsync<RoleResponse>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Contains(AdminPermissions.ModerationReview, updated.Permissions);
+
+        var auditRes = await superAdminClient.GetAsync("/api/v1/admin/audit-logs");
+        Assert.Equal(HttpStatusCode.OK, auditRes.StatusCode);
+        var auditJson = await auditRes.Content.ReadAsStringAsync();
+        Assert.Contains("rbac.role_created", auditJson);
+        Assert.Contains("rbac.role_updated", auditJson);
+    }
+
+    [Fact]
     public async Task INT_S4_04_ChannelMembership_OwnerAndEditor_PermissionEnforcement()
     {
         // Setup Owner and Editor users

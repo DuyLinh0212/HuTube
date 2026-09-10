@@ -23,7 +23,9 @@
           </a>
         }
         @if (can('role.view')) {
-          <span class="nav-item" title="Tài khoản quản trị"><img src="/assets/icons/system-administrator.png" alt="" /><span>Tài khoản quản trị</span></span>
+          <a class="nav-item" routerLink="/roles" routerLinkActive="is-active" title="Nhóm quyền & vai trò" (click)="closeNavigation()">
+            <img src="/assets/icons/system-administrator.png" alt="" /><span>Nhóm quyền & vai trò</span>
+          </a>
         }
       </section>
     }

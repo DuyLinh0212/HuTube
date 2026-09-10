@@ -24,6 +24,17 @@ public sealed class AdminController(RbacService rbac) : ControllerBase
     public Task<List<RoleResponse>> GetRolesAsync(CancellationToken ct) =>
         rbac.GetAllRolesAsync(ct);
 
+    [HttpPost("roles"), RequirePermission(AdminPermissions.RoleEdit)]
+    public async Task<ActionResult<RoleResponse>> CreateRoleAsync([FromBody] CreateRoleRequest request, CancellationToken ct)
+    {
+        var created = await rbac.CreateRoleAsync(UserId, request, ct);
+        return Created($"/api/v1/admin/roles/{created.RoleId}", created);
+    }
+
+    [HttpPut("roles/{roleId:guid}"), RequirePermission(AdminPermissions.RoleEdit)]
+    public Task<RoleResponse> UpdateRoleAsync(Guid roleId, [FromBody] UpdateRoleRequest request, CancellationToken ct) =>
+        rbac.UpdateRoleAsync(UserId, roleId, request, ct);
+
     [HttpGet("moderation/queue"), RequirePermission(AdminPermissions.ModerationViewQueue)]
     public IActionResult GetModerationQueue() =>
         Ok(new { items = Array.Empty<object>(), message = "Hàng đợi kiểm duyệt nội dung." });
