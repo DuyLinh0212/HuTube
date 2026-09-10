@@ -1,1204 +1,791 @@
-# HuTube - Kiến trúc Project dự kiến
-
-> Phiên bản: 0.2  
-> Trạng thái: Draft  
-> Kiến trúc tổng thể: Modular Monolith + Clean Architecture rút gọn  
-> Backend dùng chung cho 3 nền tảng: Mobile User, User Web và Admin Web
-
----
-
-# 1. Mục tiêu kiến trúc
-
-HuTube được thiết kế theo các mục tiêu:
-
-- Dễ đọc source code.
-- Dễ bảo trì.
-- Dễ mở rộng.
-- Dễ thay đổi công nghệ bên ngoài.
-- Không tạo quá nhiều project hoặc thư mục nhỏ gây khó theo dõi.
-- Tách biệt rõ nghiệp vụ và hạ tầng kỹ thuật.
-- Hạn chế phụ thuộc chéo giữa các module.
-- Dùng chung một Backend cho nhiều client.
-- Có tài liệu kỹ thuật đi cùng source code.
-- Có khả năng mở rộng hoặc tách service trong tương lai nếu thật sự cần.
-- Đảm bảo logic phân quyền nằm ở Backend, không phụ thuộc việc client là Web hay Mobile.
-
-Kiến trúc lựa chọn:
-
-```text
-Modular Monolith
-+
-Clean Architecture rút gọn
-```
-
-Không sử dụng Microservices ở giai đoạn đầu.
-
----
-
-# 2. Tổng quan hệ thống
-
-HuTube có 3 nền tảng phía Client:
-
-1. Mobile App dành cho User.
-2. User Web dành cho User.
-3. Admin Web dành cho Admin/Moderator.
-
-Cả 3 client cùng sử dụng một Backend ASP.NET Core.
-
-```text
-                    ┌─────────────────────┐
-                    │   Mobile User App   │
-                    └──────────┬──────────┘
-                               │
-                               │
-┌─────────────────────┐        │        ┌─────────────────────┐
-│      User Web       │────────┼────────│      Admin Web      │
-│      Angular        │        │        │      Angular        │
-└─────────────────────┘        │        └─────────────────────┘
-                               │
-                     REST API / SignalR
-                               │
-                               ▼
-                  ┌─────────────────────────┐
-                  │   ASP.NET Core Backend  │
-                  │                         │
-                  │   Modular Monolith      │
-                  │   Clean Architecture    │
-                  └────────────┬────────────┘
-                               │
-             ┌─────────────────┼─────────────────┐
-             │                 │                 │
-             ▼                 ▼                 ▼
-        PostgreSQL       Cloudinary        External Services
-                                            ├── Google
-                                            ├── VNPay
-                                            ├── MoMo
-                                            └── ZaloPay
-```
-
----
-
-# 3. Cấu trúc Repository
-
-```text
-HuTube/
-│
-├── backend/
-│   ├── HuTube.sln
-│   │
-│   ├── src/
-│   │   ├── HuTube.Domain/
-│   │   ├── HuTube.Application/
-│   │   ├── HuTube.Infrastructure/
-│   │   └── HuTube.Api/
-│   │
-│   └── tests/
-│       ├── HuTube.UnitTests/
-│       └── HuTube.IntegrationTests/
-│
-├── frontend/
-│   ├── user-web/
-│   └── admin-web/
-│
-├── mobile/
-│   └── user-app/                 # Flutter User App
-│
-├── database/
-│   ├── migrations/
-│   ├── updates/
-│   ├── seed/
-│   └── scripts/
-│
-├── docs/
-│   ├── architecture/
-│   ├── api/
-│   ├── features/
-│   ├── conventions/
-│   ├── operations/
-│   ├── database/
-│   └── decisions/
-│
-├── scripts/
-├── .github/
-│   └── workflows/
-│
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── CHANGELOG.md
-└── README.md
-```
-
----
-
-# 4. Nguyên tắc Backend dùng chung
-
-HuTube chỉ sử dụng một Backend API chính cho cả 3 client.
-
-```text
-Mobile User ──┐
-              │
-User Web ─────┼────> HuTube.Api
-              │
-Admin Web ────┘
-```
-
-Không tạo riêng:
-
-```text
-HuTube.MobileApi
-HuTube.UserWebApi
-HuTube.AdminApi
-```
-
-nếu nghiệp vụ vẫn dùng chung.
-
-Mục tiêu:
-
-- Tránh lặp business logic.
-- Tránh lặp validation.
-- Tránh lặp authentication.
-- Tránh lặp repository.
-- Dễ bảo trì.
-- Dễ kiểm soát permission.
-- Giảm số lượng service cần deploy.
-
----
-
-# 5. Backend Architecture
-
-Backend sử dụng 4 project chính.
-
-```text
-backend/
-│
-├── HuTube.sln
-│
-├── src/
-│   ├── HuTube.Domain/
-│   ├── HuTube.Application/
-│   ├── HuTube.Infrastructure/
-│   └── HuTube.Api/
-│
-└── tests/
-    ├── HuTube.UnitTests/
-    └── HuTube.IntegrationTests/
-```
-
-Không tạo thêm quá nhiều project như:
-
-```text
-HuTube.Core
-HuTube.Common
-HuTube.SharedKernel
-HuTube.Persistence
-HuTube.Repository
-HuTube.Services
-HuTube.Contracts
-HuTube.Web
-```
-
-trừ khi sau này thật sự có nhu cầu rõ ràng.
-
----
-
-# 6. Dependency Rule của Backend
-
-Dependency phải tuân theo:
-
-```text
-HuTube.Domain
-      ↑
-HuTube.Application
-      ↑
-HuTube.Api
-
-HuTube.Infrastructure
-      ├──> HuTube.Application
-      └──> HuTube.Domain
-```
-
-Quy định:
-
-- `HuTube.Domain` không reference project nào khác.
-- `HuTube.Application` chỉ reference `HuTube.Domain`.
-- `HuTube.Infrastructure` reference `HuTube.Application` và `HuTube.Domain`.
-- `HuTube.Api` reference `HuTube.Application` và `HuTube.Infrastructure`.
-
-Domain không được phụ thuộc:
-
-- Entity Framework Core.
-- PostgreSQL implementation.
-- JWT library.
-- SignalR.
-- Cloudinary SDK.
-- Google SDK.
-- VNPay SDK.
-- MoMo SDK.
-- ZaloPay SDK.
-- HTTP.
-- Controller.
-- Frontend.
-- Mobile framework.
-
----
-
-# 7. HuTube.Domain
-
-Chứa nghiệp vụ cốt lõi.
-
-```text
-HuTube.Domain/
-├── Users/
-├── Channels/
-├── Videos/
-├── Comments/
-├── Playlists/
-├── Subscriptions/
-├── Notifications/
-├── Moderation/
-├── Payments/
-├── Recommendations/
-└── Common/
-```
-
-Ví dụ module Videos:
-
-```text
-Videos/
-├── Video.cs
-├── VideoStatus.cs
-├── VideoVisibility.cs
-└── IVideoRepository.cs
-```
-
-Không chia thêm `Entities/`, `Enums/`, `Repositories/`, `ValueObjects/` nếu mỗi thư mục chỉ có vài file.
-
-Chỉ tách thêm khi module đủ lớn và việc tách giúp dễ đọc hơn.
-
----
-
-# 8. HuTube.Application
-
-Chứa Use Case và logic điều phối.
-
-```text
-HuTube.Application/
-├── Auth/
-├── Users/
-├── Channels/
-├── Videos/
-├── Comments/
-├── Playlists/
-├── Subscriptions/
-├── Notifications/
-├── Moderation/
-├── Payments/
-├── Recommendations/
-└── Common/
-```
-
-Ví dụ:
-
-```text
-Videos/
-├── VideoService.cs
-├── VideoDto.cs
-├── CreateVideoRequest.cs
-├── UpdateVideoRequest.cs
-└── VideoMapping.cs
-```
-
-Application chịu trách nhiệm:
-
-- Điều phối Use Case.
-- Gọi Repository abstraction.
-- Gọi Storage abstraction.
-- Gọi Payment abstraction.
-- Gọi Notification abstraction.
-- Áp dụng business rule cần thiết.
-- Trả kết quả cho API layer.
-
-Không bắt buộc sử dụng MediatR.
-
-Ưu tiên Application Service dễ đọc.
-
-Chỉ bổ sung MediatR/CQRS nếu hệ thống sau này đủ phức tạp để mang lại lợi ích rõ ràng.
-
----
-
-# 9. HuTube.Infrastructure
-
-Chứa implementation kỹ thuật.
-
-```text
-HuTube.Infrastructure/
-├── Persistence/
-├── Authentication/
-├── Storage/
-├── Notifications/
-├── Payments/
-├── ExternalAuth/
-├── Recommendation/
-└── DependencyInjection.cs
-```
-
-## Persistence
-
-```text
-Persistence/
-├── HuTubeDbContext.cs
-├── Configurations/
-├── Repositories/
-└── Migrations/
-```
-
-## Storage
-
-```text
-Storage/
-├── CloudinaryStorageService.cs
-└── LocalStorageService.cs
-```
-
-## Payments
-
-```text
-Payments/
-├── VNPay/
-├── MoMo/
-└── ZaloPay/
-```
-
-## External Authentication
-
-```text
-ExternalAuth/
-└── Google/
-```
-
-## Realtime Notification
-
-```text
-Notifications/
-└── SignalR/
-```
-
----
-
-# 10. HuTube.Api
-
-API layer phải mỏng.
-
-```text
-HuTube.Api/
-├── Controllers/
-├── Middleware/
-├── Filters/
-├── Extensions/
-├── Authorization/
-├── Hubs/
-├── Program.cs
-├── appsettings.json
-└── appsettings.Development.json
-```
-
-Controller chỉ chịu trách nhiệm:
-
-```text
-HTTP Request
-    ↓
-Authentication
-    ↓
-Authorization
-    ↓
-Validation
-    ↓
-Application Service
-    ↓
-HTTP Response
-```
-
-Không viết business logic dài trong Controller.
-
----
-
-# 11. API dùng chung cho Web và Mobile
-
-User Web và Mobile User phải ưu tiên dùng chung endpoint nếu cùng một Use Case.
-
-Ví dụ:
-
-```text
-GET    /api/v1/videos
-GET    /api/v1/videos/{videoId}
-POST   /api/v1/videos/{videoId}/comments
-POST   /api/v1/videos/{videoId}/reactions
-POST   /api/v1/reports
-GET    /api/v1/me/notifications
-```
-
-Không tạo:
-
-```text
-/api/mobile/videos
-/api/web/videos
-```
-
-chỉ vì client khác nhau.
-
-Chỉ tạo endpoint khác khi Use Case hoặc yêu cầu dữ liệu thật sự khác.
-
----
-
-# 12. API dành cho Admin
-
-Admin vẫn dùng cùng Backend nhưng endpoint quản trị có namespace riêng.
-
-Ví dụ:
-
-```text
-GET    /api/v1/admin/users
-GET    /api/v1/admin/reports
-GET    /api/v1/admin/appeals
-PATCH  /api/v1/admin/reports/{reportId}/resolve
-PATCH  /api/v1/admin/appeals/{appealId}/approve
-PATCH  /api/v1/admin/users/{userId}/status
-GET    /api/v1/admin/payments
-```
-
-Việc endpoint nằm dưới `/admin` không đủ để bảo mật.
-
-Backend vẫn phải kiểm tra Authentication, Role, Permission và Policy.
-
----
-
-# 13. Authentication Architecture
-
-Cả 3 client xác thực thông qua Backend.
-
-```text
-Mobile User ──┐
-              │
-User Web ─────┼──> Authentication API
-              │
-Admin Web ────┘
-```
-
-Backend phát hành:
-
-```text
-JWT Access Token
-+
-Refresh Token
-```
-
-JWT là token chính của HuTube.
-
----
-
-# 14. Google Login Architecture
-
-Google Login áp dụng cho User.
-
-```text
-User Web / Mobile
-        ↓
-Google Login
-        ↓
-Google Identity Token
-        ↓
-HuTube Backend
-        ↓
-Verify Google Token
-        ↓
-Find/Create HuTube User
-        ↓
-Generate HuTube JWT
-        ↓
-Return Access Token + Refresh Token
-```
-
-Google Token không được sử dụng trực tiếp như token truy cập toàn bộ API HuTube.
-
----
-
-# 15. Authorization Architecture
-
-Backend là nơi quyết định quyền.
-
-Không tin:
-
-- Role từ Frontend.
-- Permission từ Frontend.
-- Route Admin Web.
-- Việc UI đã ẩn nút.
-- Client tự khai báo mình là Admin.
-
-Ví dụ permission:
-
-```text
-video.upload
-video.manage_own
-video.manage_all
-report.create
-report.review
-appeal.create
-appeal.review
-user.manage
-payment.manage
-admin.dashboard.view
-```
-
-Ưu tiên Policy-based Authorization.
-
----
-
-# 16. SignalR Architecture
-
-SignalR dùng chung cho cả 3 client nếu cần realtime.
-
-```text
-                     SignalR
-                        │
-          ┌─────────────┼─────────────┐
-          │             │             │
-          ▼             ▼             ▼
-      Mobile User    User Web      Admin Web
-```
-
-Application định nghĩa:
-
-```text
-IRealtimeNotificationService
-```
-
-Infrastructure triển khai:
-
-```text
-SignalRNotificationService
-```
-
-API chứa:
-
-```text
-NotificationHub
-```
-
-Có thể tổ chức group:
-
-```text
-user:{userId}
-admin
-moderator
-```
-
----
-
-# 17. Storage Architecture
-
-Object storage dùng để lưu:
-
-- Video.
-- Thumbnail.
-- Avatar.
-- Channel Banner.
-- Media file lớn.
-
-Application định nghĩa abstraction:
-
-```text
-IObjectStorage
-```
-
-Infrastructure có hai implementation:
-
-```text
-CloudinaryStorageService      # Staging/Production khi đã cấu hình credential
-LocalStorageService           # Development/local fallback
-```
-
-PostgreSQL chỉ lưu metadata và URL/object key; không lưu binary media trực tiếp.
-
----
-
-# 18. Payment Architecture
-
-Các Payment Provider:
-
-```text
-VNPay
-MoMo
-ZaloPay
-```
-
-Application định nghĩa:
-
-```text
-IPaymentGateway
-```
-
-Infrastructure triển khai:
-
-```text
-VNPayPaymentGateway
-MoMoPaymentGateway
-ZaloPayPaymentGateway
-```
-
-Không viết logic riêng của từng Payment Provider trực tiếp trong Controller.
-
----
-
-# 19. Database Architecture
-
-Database chính:
-
-```text
-PostgreSQL
-```
-
-Backend truy cập qua:
-
-```text
-Entity Framework Core
-```
-
-Luồng:
-
-```text
-Client
-  ↓
-ASP.NET Core API
-  ↓
-Application
-  ↓
-Repository Interface
-  ↓
-Infrastructure Repository
-  ↓
-EF Core
-   ↓
-PostgreSQL
-```
-
-Frontend và Mobile không được truy cập Database trực tiếp.
-
----
-
-# 20. Frontend Architecture tổng thể
-
-HuTube có hai Web Application:
-
-```text
-frontend/
-├── user-web/
-└── admin-web/
-```
-
-Hai ứng dụng build và deploy độc lập.
-
-Không gom toàn bộ User + Admin vào một Angular application chỉ bằng route và role nếu chưa có lý do rõ ràng.
-
----
-
-# 21. User Web Architecture
-
-```text
-frontend/user-web/
-└── src/
-    ├── app/
-    │   ├── core/
-    │   ├── shared/
-    │   ├── features/
-    │   ├── layouts/
-    │   ├── app.config.ts
-    │   └── app.routes.ts
-    │
-    ├── assets/
-    ├── environments/
-    └── styles/
-```
-
-Các feature dự kiến:
-
-```text
-features/
-├── auth/
-├── home/
-├── video/
-├── channel/
-├── search/
-├── comment/
-├── playlist/
-├── subscription/
-├── notification/
-├── report/
-├── payment/
-├── recommendation/
-└── profile/
-```
-
----
-
-# 22. Admin Web Architecture
-
-```text
-frontend/admin-web/
-└── src/
-    ├── app/
-    │   ├── core/
-    │   ├── shared/
-    │   ├── features/
-    │   ├── layouts/
-    │   ├── app.config.ts
-    │   └── app.routes.ts
-    │
-    ├── assets/
-    ├── environments/
-    └── styles/
-```
-
-Các feature dự kiến:
-
-```text
-features/
-├── auth/
-├── dashboard/
-├── users/
-├── videos/
-├── channels/
-├── reports/
-├── appeals/
-├── payments/
-├── categories/
-├── permissions/
-└── system/
-```
-
-Admin Web chỉ chứa chức năng quản trị.
-
----
-
-# 23. Angular Workspace dùng chung
-
-Do User Web và Admin Web đều dùng Angular, team có thể cân nhắc một Angular Workspace chung.
-
-Ví dụ:
-
-```text
-frontend/
-├── projects/
-│   ├── user-web/
-│   └── admin-web/
-├── angular.json
-└── package.json
-```
-
-Hoặc:
-
-```text
-frontend/
-├── apps/
-│   ├── user-web/
-│   └── admin-web/
-└── libs/
-    ├── api-models/
-    ├── ui/
-    └── utilities/
-```
-
-Chỉ share thành phần thực sự dùng chung.
-
-Nếu Workspace chung làm cấu trúc phức tạp hơn lợi ích nhận được thì giữ hai Angular project độc lập.
-
----
-
-# 24. Mobile Architecture
-
-Mobile App là ứng dụng Flutter dành cho User. Đây là native client, không nhúng
-User Web và không truy cập trực tiếp vào PostgreSQL.
-
-```text
+# HuTube Mobile User App - Kiến trúc toàn bộ
+
+> Tài liệu này mô tả kiến trúc của riêng Mobile User App. Backend, database, User Web và Admin Web không thuộc phạm vi chỉnh sửa của tài liệu này.
+
+## 1. Vai trò và phạm vi
+
+Mobile User App là Flutter client cho người dùng cuối. Ứng dụng phụ trách:
+
+- đăng ký, đăng nhập, Google Sign-In và khôi phục session;
+- quản lý tài khoản, thiết bị và cài đặt;
+- tạo/quản lý channel;
+- gửi, nhận và xử lý channel invitation;
+- upload avatar/banner;
+- mở xác thực email và password reset qua deep link;
+- hiển thị dữ liệu, loading, empty state và lỗi nhất quán;
+- mở rộng về video, playlist, notification và report.
+
+Ứng dụng không truy cập PostgreSQL trực tiếp, không giữ JWT signing key, không giữ Cloudinary API secret và không thay thế authorization của backend.
+
+Backend API là nguồn sự thật cho identity, permission, channel role, quota, validation và trạng thái dữ liệu.
+
+## 2. Vị trí trong hệ thống
+
+~~~text
+Flutter Mobile App
+        |
+        | HTTPS / JSON / multipart
+        v
+HuTube ASP.NET Core API
+        |
+        +-- PostgreSQL
+        +-- Cloudinary hoặc local storage
+        +-- Email provider
+        +-- Google token validation
+~~~
+
+Mobile chỉ nhận API base URL và các cấu hình client-safe. Secret của database, JWT, mail và storage chỉ tồn tại ở backend/environment server.
+
+## 3. Công nghệ hiện tại
+
+- Flutter/Dart.
+- Material UI và theme dùng chung.
+- package http cho REST request.
+- package flutter_secure_storage cho refresh token.
+- package google_sign_in cho đăng nhập Google native.
+- package app_links cho deep link.
+- package image_picker cho chọn ảnh.
+- package http_parser cho MIME type multipart.
+- ChangeNotifier cho auth/session state hiện tại.
+
+## 4. Nguyên tắc kiến trúc
+
+1. Widget không gọi HTTP trực tiếp.
+2. Feature service không tự lưu token.
+3. Access token chỉ ở memory.
+4. Refresh token chỉ ở secure storage.
+5. Mọi protected request đi qua một ApiClient dùng chung.
+6. Backend luôn kiểm tra lại quyền, dù UI đã ẩn nút.
+7. Model phải typed và parse nullability đúng với API.
+8. API error phải được map thành AppError thống nhất.
+9. Logout phải dọn local session kể cả khi server mất mạng.
+10. Feature mới phải có state, loading, empty, error và test.
+11. Core không import ngược feature cụ thể.
+12. Không đưa nghiệp vụ quan trọng vào một screen hoặc main.dart.
+
+## 5. Cấu trúc thư mục mục tiêu
+
+~~~text
 mobile/
-└── user-app/
-    ├── lib/
-    │   ├── main.dart                 # Composition root, MaterialApp, AuthScreen
-    │   ├── auth.dart                 # API client, auth/session, token store
-    │   ├── core/
-    │   │   └── theme/
-    │   └── features/
-    │       ├── account/
-    │       │   ├── models/
-    │       │   ├── services/
-    │       │   └── screens/
-    │       └── channel/
-    │           ├── models/
-    │           ├── services/
-    │           └── screens/
-    ├── assets/
-    ├── android/
-    ├── ios/
-    ├── test/
-    └── pubspec.yaml
-```
+└─ user-app/
+   ├─ lib/
+   │  ├─ main.dart
+   │  ├─ auth.dart
+   │  ├─ core/
+   │  │  ├─ config/
+   │  │  ├─ network/
+   │  │  ├─ storage/
+   │  │  ├─ errors/
+   │  │  ├─ routing/
+   │  │  ├─ deep_links/
+   │  │  ├─ widgets/
+   │  │  └─ theme/
+   │  ├─ account/
+   │  │  ├─ models/
+   │  │  ├─ services/
+   │  │  ├─ state/
+   │  │  ├─ screens/
+   │  │  └─ widgets/
+   │  ├─ channel/
+   │  │  ├─ models/
+   │  │  ├─ services/
+   │  │  ├─ state/
+   │  │  ├─ screens/
+   │  │  └─ widgets/
+   │  ├─ video/
+   │  ├─ playlist/
+   │  ├─ notifications/
+   │  └─ moderation/
+   ├─ test/
+   │  ├─ api_smoke_test.dart
+   │  ├─ auth_test.dart
+   │  ├─ channel_upload_test.dart
+   │  ├─ flows_test.dart
+   │  └─ widget_test.dart
+   ├─ android/
+   ├─ ios/
+   ├─ pubspec.yaml
+   └─ README.md
+~~~
 
-## 24.1. Các lớp và trách nhiệm
+Account và channel là các feature đang có. Video, playlist, notifications và moderation là các boundary mở rộng; không dồn chúng vào auth hoặc app entry point.
 
-```text
-Flutter Widgets / Screens
-        ↓
-Feature Services
-        ↓
-AuthController + ApiClient
-        ↓
-HuTube REST API
-```
+## 6. Phân lớp bên trong mobile
 
-- `screens/` và các widget chịu trách nhiệm hiển thị, nhập liệu, validation
-  và trạng thái cục bộ của màn hình.
-- `features/*/models/` ánh xạ JSON response thành model dùng trong UI.
-- `features/*/services/` đóng gói Use Case theo feature, ví dụ account và
-  channel; không chứa quyền quyết định bảo mật thay cho Backend.
-- `auth.dart` chứa `ApiClient` cho JSON/multipart HTTP, `AuthController` cho
-  phiên đăng nhập và `SecureTokenStore` cho refresh token.
-- `main.dart` khởi tạo dependency, theme, `MaterialApp`, deep-link stream và
-  màn hình xác thực.
-- Trạng thái hiện tại dùng `ChangeNotifier`/state cục bộ; chưa thêm một thư
-  viện state management riêng.
+~~~text
+Screen / Widget
+        |
+        v
+Feature State / Controller
+        |
+        v
+Feature Service
+        |
+        v
+ApiClient / SecureTokenStore / DeepLinkService
+        |
+        v
+HTTP / platform SDK / device storage
+~~~
 
-## 24.2. Giao tiếp với Backend
+### 6.1. Presentation layer
 
-Mobile dùng chung REST API versioned với User Web:
+Chứa screen, widget, form, dialog, loading, empty và error state.
 
-```text
-Mobile App
-  ├── JSON request/response: http package
-  ├── Multipart upload: http.MultipartRequest
-  ├── Authorization: Bearer HuTube access token
-  └── X-HuTube-Client: mobile
-```
+Presentation chỉ nhận action, gọi state/controller, render state và điều hướng. Presentation không tự ghép URL, tự gắn Authorization, tự parse JSON hoặc tự quyết định permission.
 
-Mobile chỉ biết `API_BASE_URL` qua `--dart-define`, không hard-code connection
-string, JWT signing key, database credential, storage secret hay payment secret.
+### 6.2. State layer
 
-Các URL local theo môi trường thiết bị:
+Controller/state giữ:
 
-| Môi trường | API URL |
-|---|---|
-| Android Emulator | `http://10.0.2.2:5080/api/v1` |
-| Android USB với `adb reverse` | `http://127.0.0.1:5080/api/v1` |
-| iOS Simulator | `http://localhost:5080/api/v1` |
-| Thiết bị thật cùng LAN | `http://<IP-máy-chạy-backend>:5080/api/v1` |
-| Staging/Production | `https://<api-domain>/api/v1` |
+- trạng thái loading, submitting, refreshing;
+- dữ liệu hiện tại;
+- empty state;
+- lỗi có thể hiển thị;
+- pagination;
+- optimistic state nếu use case an toàn;
+- trạng thái retry/cancel.
 
-`10.0.2.2` chỉ là địa chỉ đặc biệt của Android Emulator để trỏ về máy host;
-nó không phải địa chỉ của Backend trên Internet.
+Auth hiện dùng ChangeNotifier. Khi feature tăng, có thể tách controller theo feature hoặc chuyển sang Riverpod/BLoC mà không đổi API contract.
 
-## 24.3. Authentication và phiên
+### 6.3. Feature service layer
 
-```text
-Login email/password ──────┐
-                           ├──> POST /auth/... ──> HuTube JWT pair
-Google Sign-In ────────────┘
-```
+Service là nơi định nghĩa use case:
 
-- Access token chỉ nằm trong bộ nhớ của app.
-- Refresh token được lưu bằng `flutter_secure_storage` (Keychain trên iOS,
-  encrypted storage trên Android).
-- Khi khởi động, app đọc refresh token và gọi refresh để khôi phục phiên.
-- Khi API trả `401`, app thực hiện một lần refresh rồi thử lại Use Case đang
-  chờ nếu phiên vẫn hợp lệ.
-- Logout xóa token local và yêu cầu Backend thu hồi phiên.
-- Backend vẫn là nơi kiểm tra tài khoản, token, role và permission.
+- AuthService/AuthController: login, restore, refresh, logout.
+- AccountService: profile, avatar, password, settings.
+- ChannelService: channel, member, role, invitation, upload.
+- VideoService: feed, detail, upload, playback khi triển khai.
 
-Với Google Login, mobile dùng package `google_sign_in` để lấy Google ID token,
-sau đó gửi credential tới `POST /api/v1/auth/google`. Backend xác minh token
-và phát hành token HuTube riêng; mobile không dùng Google ID token để gọi các
-API nghiệp vụ khác.
+Service trả model/result đã chuẩn hóa, không trả raw HTTP response cho UI.
 
-## 24.4. Deep link và điều hướng
+### 6.4. Core layer
 
-`app_links` chuyển các URL scheme `hutube://auth/...` vào `AuthScreen`. App chỉ
-chấp nhận host `auth` và các path đã whitelist:
+Core chứa config, network, secure storage, error mapping, routing, deep link, theme, shared widgets và logging adapter. Core phải độc lập với từng feature.
 
-```text
-hutube://auth/account
-hutube://auth/login
-hutube://auth/verify-email?token=<token>
-hutube://auth/reset-password?token=<token>
-```
+## 7. Bootstrap và app lifecycle
 
-Luồng điều hướng auth hiện tại được quản lý bằng state nội bộ của
-`AuthScreen`; các màn hình feature được mở từ flow tài khoản/kênh. Khi thêm
-module lớn, có thể tách router hoặc feature navigator nhưng không thay đổi
-contract API.
+~~~text
+main
+  -> initialize Flutter binding
+  -> load app configuration
+  -> create ApiClient
+  -> create SecureTokenStore
+  -> create AuthController
+  -> register deep-link listener
+  -> restore session
+  -> runApp
+~~~
 
-## 24.5. Tích hợp nền tảng và upload
+Khi restore:
 
-- `google_sign_in`: xác thực Google native; Android cần package name và
-  fingerprint SHA đúng với OAuth client, iOS cần iOS client ID khi build.
-- `image_picker`: chọn ảnh từ thiết bị.
-- `http.MultipartRequest`: gửi avatar/banner lên Backend; Backend quyết định
-  lưu Cloudinary hay local fallback theo môi trường.
-- `app_links`: nhận deep link từ email và hệ điều hành.
-- `flutter_secure_storage`: bảo vệ refresh token.
+- hiển thị splash/loading;
+- không render protected screen trước khi biết session;
+- refresh thành công thì vào app shell;
+- token invalid thì xóa token và về auth screen;
+- lỗi mạng tạm thời thì cho retry, không crash.
 
-SignalR là điểm mở rộng cho notification realtime; mobile hiện không tự truy
-cập database và không được xem việc ẩn/hiện UI là một lớp authorization.
+Không gọi network tùy ý trong build vì widget có thể build nhiều lần. Khi app chuyển background/foreground, có thể refresh dữ liệu stale nhưng phải tránh tạo nhiều request trùng.
 
-## 24.6. Kiểm thử Mobile
+## 8. Authentication và session
 
-```text
+### 8.1. Auth state
+
+Các trạng thái chuẩn:
+
+- unauthenticated;
+- restoring;
+- authenticating;
+- authenticated;
+- refreshing;
+- signing out;
+- auth error.
+
+Authenticated state chứa access token trong memory và user hiện tại. Refresh token không đưa vào UI state, log hoặc model hiển thị.
+
+### 8.2. Email/password login
+
+~~~text
+LoginScreen
+  -> local form validation
+  -> AuthController.login
+  -> POST /api/v1/auth/login
+       X-HuTube-Client: mobile
+  -> receive access and refresh token
+  -> access token in memory
+  -> refresh token in secure storage
+  -> load current user
+  -> authenticated
+~~~
+
+Local validation chỉ cải thiện UX; backend vẫn validate đầy đủ.
+
+### 8.3. Restore session
+
+~~~text
+app start
+  -> read refresh token from secure storage
+  -> missing token: unauthenticated
+  -> token exists: POST /auth/refresh
+  -> success: replace rotated tokens
+  -> failure: delete tokens and sign out
+~~~
+
+Khi refresh thành công phải ghi đè refresh token cũ. Không giữ nhiều refresh token song song.
+
+### 8.4. Logout
+
+~~~text
+logout
+  -> call POST /auth/logout when possible
+  -> clear access token
+  -> delete refresh token
+  -> clear protected cache/state
+  -> navigate to auth flow
+~~~
+
+Nếu API logout thất bại do mất mạng, vẫn xóa local credential để không giữ session trên thiết bị.
+
+### 8.5. Google Sign-In
+
+~~~text
+Google native SDK
+  -> choose Google account
+  -> receive Google ID token
+  -> POST /api/v1/auth/google
+       X-HuTube-Client: mobile
+  -> backend validates issuer, audience and expiry
+  -> find/create HuTube identity
+  -> issue HuTube access and refresh session
+~~~
+
+Google token chỉ dùng để chứng minh danh tính với backend. Mobile không dùng Google token để gọi API HuTube sau bước login.
+
+Google login của mobile là user flow, không cấp quyền admin. Role và permission luôn do backend RBAC quyết định.
+
+## 9. Token security
+
+### 9.1. Access token
+
+- chỉ lưu trong memory;
+- gắn Bearer header;
+- không lưu plain preferences/file;
+- không đưa vào URL;
+- không log;
+- xóa khi logout hoặc refresh thất bại.
+
+### 9.2. Refresh token
+
+- lưu bằng flutter_secure_storage;
+- không hiển thị;
+- không log;
+- rotate khi refresh;
+- xóa khi logout/revoke/session invalid;
+- chỉ gửi tới API HuTube.
+
+### 9.3. Refresh concurrency
+
+Nhiều request cùng nhận 401 không được tự refresh độc lập:
+
+~~~text
+request A -> 401
+request B -> 401
+  -> một refresh lock duy nhất
+  -> A và B chờ cùng kết quả
+  -> success: retry request an toàn
+  -> failure: sign out một lần
+~~~
+
+Chỉ retry request idempotent hoặc request có idempotency key. Không retry mù upload/mutation vì có thể tạo dữ liệu trùng.
+
+## 10. ApiClient
+
+ApiClient là cổng duy nhất cho REST API.
+
+Trách nhiệm:
+
+- ghép base URL và path;
+- set Accept/Content-Type;
+- set X-HuTube-Client: mobile;
+- attach access token;
+- encode JSON;
+- gửi multipart;
+- timeout/cancellation;
+- parse JSON;
+- map status code thành AppError;
+- chuyển 401 cho auth refresh flow.
+
+Header chuẩn:
+
+- Accept: application/json;
+- Content-Type: application/json cho JSON body;
+- Authorization: Bearer access token khi protected;
+- X-HuTube-Client: mobile.
+
+Multipart phải xác định MIME type đúng, kiểm tra file trước khi gửi và không dùng extension làm kiểm tra duy nhất.
+
+## 11. Error handling
+
+AppError nên có nhóm:
+
+- network unavailable;
+- timeout;
+- cancelled;
+- unauthorized;
+- forbidden;
+- not found;
+- validation;
+- conflict;
+- server;
+- unknown.
+
+Backend trả ProblemDetails gồm title, status, detail, code và traceId. Mobile hiển thị message an toàn theo code/detail; không hiển thị stack trace, SQL hoặc secret.
+
+Với lỗi 500:
+
+- hiển thị thông báo thử lại;
+- giữ traceId để hỗ trợ;
+- không reset dữ liệu hiện tại nếu chưa cần;
+- log tối thiểu và đã redact.
+
+## 12. Routing và app shell
+
+Nên tách các flow:
+
+- auth flow;
+- protected app shell;
+- account;
+- channel;
+- video;
+- playlist;
+- settings;
+- notifications.
+
+App shell chịu trách nhiệm auth gate, navigation bar/tab, theme, global snackbar/dialog, deep-link target và refresh khi resume.
+
+Feature screen không tạo MaterialApp thứ hai. Nếu hiện tại auth screen chứa nhiều page nội bộ, khi feature tăng nên chuyển sang route map rõ ràng để back stack và deep link ổn định.
+
+## 13. Account feature
+
+### 13.1. Use cases
+
+- xem/cập nhật profile;
+- upload avatar;
+- đổi password;
+- notification settings;
+- user preferences;
+- xem active sessions;
+- revoke session.
+
+### 13.2. Avatar upload
+
+~~~text
+AccountScreen
+  -> ImagePicker
+  -> validate local file
+  -> multipart POST /account/avatar
+  -> backend checks type, size and ownership
+  -> storage provider saves object
+  -> response returns profile/avatar URL
+  -> update account state
+~~~
+
+Không giữ binary lớn trong state quá lâu. Nếu widget bị dispose trong lúc upload, không gọi setState trên widget đã hủy.
+
+Profile cache có thể dùng ngắn hạn để render nhanh; sau mutation phải update/invalidate cache. Token không được nằm trong profile cache.
+
+## 14. Channel feature
+
+### 14.1. Models
+
+Mobile cần model typed cho:
+
+- Channel;
+- ChannelMember;
+- ChannelInvitation;
+- ChannelRole;
+- ChannelQuota nếu API trả;
+- paged list khi API phân trang.
+
+### 14.2. Create/manage channel
+
+~~~text
+ChannelScreen
+  -> validate name and handle
+  -> POST /channels
+  -> backend creates channel, owner membership and quota
+  -> receive channel model
+  -> update current channel
+~~~
+
+Handle uniqueness và owner permission do backend quyết định.
+
+### 14.3. Invitation
+
+Gửi lời mời:
+
+~~~text
+manager/editor
+  -> enter email and role
+  -> local email/role validation
+  -> POST /channels/{id}/invite
+  -> show success, conflict or forbidden state
+~~~
+
+Nhận lời mời:
+
+~~~text
+my invitations
+  -> GET /channels/invitations
+  -> accept or decline
+  -> refresh invitations and memberships
+~~~
+
+Role hợp lệ:
+
+- manager;
+- editor;
+- moderator;
+- viewer.
+
+Mobile không gửi role comment_moderator cũ. Role đúng là moderator; backend/database constraint là lớp bảo vệ cuối.
+
+### 14.4. Members
+
+Đổi role/remove member chỉ hiển thị khi phù hợp, nhưng backend vẫn authorize request. Sau mutation nên refresh member list thay vì tự sửa local theo giả định.
+
+## 15. Video feature boundary
+
+Khi hoàn thiện video, tách:
+
+- Video model;
+- VideoRendition model;
+- VideoService;
+- feed/detail state;
+- upload state;
+- processing state;
+- player abstraction;
+- pagination.
+
+Upload file lớn nên theo flow:
+
+~~~text
+select file
+  -> validate size/type
+  -> request upload session
+  -> upload object or direct upload
+  -> notify API
+  -> poll processing status
+  -> show playback/renditions
+~~~
+
+Không giữ toàn bộ video trong memory. Cần progress, cancel, retry/resume và idempotency cho upload lớn.
+
+## 16. Playlist, notification và moderation
+
+### 16.1. Playlist
+
+Tách playlist list/detail/edit khỏi video screen. Reorder phải gửi thứ tự rõ ràng và xử lý conflict khi nhiều thiết bị cùng sửa.
+
+### 16.2. Notification
+
+Notification record lấy từ API. Push notification chỉ là delivery adapter:
+
+~~~text
+backend notification
+  -> optional push provider
+  -> mobile receives deep-link payload
+  -> app opens target
+  -> app fetches fresh entity
+~~~
+
+Payload push không phải nguồn sự thật; mobile phải fetch lại dữ liệu.
+
+### 16.3. Moderation/report
+
+Mobile chỉ gửi target, reason và evidence metadata theo API. Quyết định xử lý thuộc backend/admin; không nhúng rule phạt vào app.
+
+## 17. Deep link
+
+Scheme hiện dùng là hutube://auth/....
+
+DeepLinkService cần:
+
+- đọc initial link khi cold start;
+- subscribe link khi app đang chạy;
+- parse path/query;
+- xử lý success, error và expired;
+- chống xử lý một link hai lần;
+- chuyển kết quả tới AuthController/screen đúng mục tiêu.
+
+Android cần intent filter đúng scheme/host/path. iOS cần URL scheme hoặc universal link và forwarding qua scene/app delegate. Phải test cả cold start và warm start.
+
+Backend/frontend phải tạo link đúng scheme đã đăng ký. Không dùng link Android cho iOS.
+
+## 18. Configuration theo môi trường
+
+### 18.1. API URL
+
+- Android emulator: http://10.0.2.2:5080/api/v1
+- Android thật qua USB reverse: http://127.0.0.1:5080/api/v1
+- iOS simulator: http://localhost:5080/api/v1
+- thiết bị thật trong LAN: http://IP-máy-chạy-api:5080/api/v1
+- production: HTTPS domain API
+
+localhost trên điện thoại thật là chính điện thoại, không phải máy phát triển.
+
+### 18.2. Môi trường
+
+- Development: API local, database local, email pickup.
+- Staging: API/dependency staging.
+- Production: Render API, Neon PostgreSQL, Cloudinary và email thật.
+
+API base URL và Google client ID là client-safe nhưng phải tách theo build flavor. Không đưa vào app:
+
+- database connection string;
+- JWT signing key;
+- Cloudinary API secret;
+- SMTP password;
+- Gmail refresh token;
+- admin credential.
+
+### 18.3. Build flavors
+
+Khuyến nghị có dev, staging và production flavor. Mỗi flavor có API URL, app name/icon, Google config và logging policy riêng. Không sửa endpoint thủ công sau khi build.
+
+## 19. Network, offline và lifecycle
+
+Ứng dụng phải xử lý:
+
+- mất mạng;
+- timeout;
+- API free instance cold start;
+- app background/foreground;
+- request bị hủy khi rời screen;
+- token hết hạn khi app đang ngủ;
+- thiết bị đổi network.
+
+Nguyên tắc:
+
+- loading có giới hạn;
+- có retry rõ ràng;
+- không xóa dữ liệu đang hiển thị vì lỗi refresh tạm thời;
+- protected action kiểm tra session trước khi submit;
+- request dài có timeout/cancel;
+- mutation có pending state;
+- foreground resume refresh dữ liệu stale.
+
+Offline cache chỉ nên bắt đầu với read-only data hoặc mutation có idempotency. Không tự xây cơ chế lưu refresh token ngoài secure storage.
+
+## 20. Theme, localization và accessibility
+
+### 20.1. Theme
+
+core/theme tập trung color scheme, typography, spacing, shape, button/input style và light/dark policy. Feature dùng token chung thay vì hard-code màu/layout.
+
+### 20.2. Localization
+
+Text UI phải dùng localization key. Không trộn tiếng Việt, tiếng Anh và tiếng Nhật bằng chuỗi hard-code. Ngôn ngữ mặc định và fallback được định nghĩa một nơi.
+
+Khi thêm ngôn ngữ:
+
+- thêm đủ translation key;
+- kiểm tra text dài/ngắn;
+- không ghép câu bằng các mảnh cố định nếu ngữ pháp khác;
+- kiểm tra date, number và role label.
+
+### 20.3. Accessibility
+
+- semantic label cho icon button;
+- vùng chạm đủ lớn;
+- contrast đủ;
+- hỗ trợ text scale;
+- focus order hợp lý;
+- không chỉ dùng màu để biểu thị lỗi/trạng thái.
+
+## 21. Media và upload
+
+Trước upload:
+
+- kiểm tra file tồn tại;
+- kiểm tra kích thước;
+- xác định MIME;
+- preview nếu phù hợp;
+- cảnh báo file lớn trên mobile network;
+- cho phép cancel.
+
+Trong upload:
+
+- progress;
+- khóa submit trùng;
+- timeout;
+- xử lý cancel;
+- không retry mù mutation;
+- dùng response làm nguồn URL cuối.
+
+Sau upload:
+
+- dọn temporary reference;
+- refresh profile/channel;
+- hiển thị provider error an toàn.
+
+## 22. Testing strategy
+
+### 22.1. Unit test
+
+Test model JSON parsing, AppError mapping, token state transition, refresh lock, email/role validation, deep-link parser, pagination và localization key.
+
+### 22.2. Service test
+
+Mock HTTP để kiểm tra method/path/header, JSON body, multipart file, access token, 401 refresh, 403/409/500 mapping và logout cleanup.
+
+### 22.3. Widget test
+
+Kiểm tra form validation, loading/error/success, invitation accept/decline, action visibility, empty list, retry, text overflow và semantics.
+
+### 22.4. Integration/E2E
+
+Luồng tối thiểu:
+
+1. Cold start và restore session.
+2. Register/login/logout.
+3. Google login trên platform tương ứng.
+4. Verify/reset flow qua deep link.
+5. Tạo channel.
+6. Gửi invitation.
+7. Accept/decline invitation.
+8. Upload avatar/banner.
+9. Token expiry và refresh.
+10. 401 đồng thời không tạo refresh race.
+11. Deep link cold start/warm start.
+12. Mất mạng, retry và cancel.
+
+Test cần chạy Android emulator; trước release cần thêm thiết bị thật. iOS phải test riêng scheme, bundle ID và signing.
+
+## 23. Build và release
+
+Development flow:
+
+~~~text
+flutter pub get
 flutter analyze
 flutter test
-flutter build apk --debug --dart-define=API_BASE_URL=...
-```
+flutter run
+~~~
 
-Unit/widget test dùng mock HTTP cho contract của controller và UI. Smoke test
-có thể chạy với Backend và PostgreSQL thật để kiểm tra các flow auth quan trọng;
-đây là kiểm thử tích hợp, không thay thế kiểm thử native trên Android/iOS.
+Release checklist:
 
-Mobile phải:
+- API URL đúng flavor và dùng HTTPS ở staging/production;
+- debug log nhạy cảm đã tắt;
+- Google client ID đúng package/bundle/signing;
+- deep link đúng platform;
+- app icon/name/version đúng;
+- secure token storage hoạt động trên release;
+- upload permission đã khai báo;
+- không còn mock endpoint;
+- crash/error reporting đã redact token và PII.
 
-- Gọi cùng Backend API với User Web nếu Use Case giống nhau.
-- Dùng JWT của HuTube.
-- Có thể kết nối SignalR nếu cần notification realtime.
-- Không truy cập PostgreSQL trực tiếp.
-- Không chứa secret của Backend.
-- Không tin dữ liệu phân quyền phía client.
+## 24. Performance
 
----
+- dùng const widget khi có thể;
+- resize/decode ảnh theo kích thước hiển thị;
+- dùng thumbnail cho list;
+- pagination;
+- debounce search;
+- không gọi API trong mỗi build;
+- cancel request khi dispose;
+- không giữ media/list lớn trong memory;
+- tách parsing nặng khỏi UI isolate nếu cần.
 
-# 25. Không duplicate business logic theo Client
+## 25. Logging và support
 
-Không triển khai:
+Log mobile nên có feature, action, status, duration và traceId backend nếu có.
 
-```text
-MobileVideoService
-WebVideoService
-AdminVideoService
-```
+Không log password, access token, refresh token, Google ID token, secret hoặc PII không cần thiết.
 
-ở Backend nếu cùng một nghiệp vụ.
+Thông tin hữu ích khi hỗ trợ lỗi:
 
-Ưu tiên:
+- app version;
+- platform/device;
+- environment;
+- action/endpoint;
+- HTTP status;
+- traceId;
+- timestamp.
 
-```text
-VideoService
-```
+## 26. Quy tắc thêm feature
 
-Nếu Admin có Use Case riêng thì tạo theo nghiệp vụ:
+Mỗi feature mới nên có:
 
-```text
-VideoService
-VideoModerationService
-```
+~~~text
+feature/
+  models/
+  services/
+  state/
+  screens/
+  widgets/
+  tests/
+~~~
 
-thay vì đặt theo tên client.
+Trình tự:
 
----
+1. chốt API contract;
+2. tạo typed model;
+3. tạo service dùng ApiClient;
+4. tạo state/controller;
+5. tạo screen/widget;
+6. thêm loading/empty/error;
+7. thêm auth/permission UX;
+8. thêm unit/service/widget/E2E test;
+9. cập nhật localization/theme;
+10. cập nhật tài liệu và release checklist.
 
-# 26. Testing Architecture
+Không gọi HTTP trực tiếp từ widget và không mở rộng một screen thành file khổng lồ.
 
-```text
-backend/tests/
-├── HuTube.UnitTests/
-└── HuTube.IntegrationTests/
-```
+## 27. Những phần cần hoàn thiện tiếp
 
-Unit Test tập trung business logic.
+- tách core config/network/storage/deep_links nếu code hiện tại còn tập trung;
+- chuẩn hóa AppError và ProblemDetails mapping;
+- thêm refresh lock cho nhiều request 401;
+- hoàn thiện route/auth gate cho protected shell;
+- tách state/controller riêng cho account và channel;
+- hoàn thiện Google config Android/iOS release;
+- kiểm thử deep link cold/warm start;
+- chuẩn hóa localization;
+- bổ sung upload progress/cancel;
+- triển khai video, playlist, notification và moderation theo boundary;
+- thêm push notification và deep-link payload;
+- thêm crash/error reporting có redaction.
 
-Integration Test tập trung API, EF Core, PostgreSQL, Authentication, Authorization, Middleware, Payment callback, SignalR và Storage integration quan trọng.
+## 28. Definition of Done cho màn hình mobile
 
----
+Một màn hình chỉ hoàn thành khi:
 
-# 27. Database Directory
+- có route/entry point rõ;
+- có loading, success, empty và error state;
+- không gọi API trực tiếp từ UI;
+- dùng typed model;
+- xử lý 401, 403 và 409;
+- có back/retry/cancel behavior;
+- dùng localization key và theme token;
+- hỗ trợ text scale/accessibility cơ bản;
+- có widget/service test;
+- không log secret/PII;
+- chạy được với API local và môi trường target.
 
-```text
-database/
-├── migrations/
-├── updates/
-├── seed/
-└── scripts/
-```
+## 29. Tài liệu và mã nguồn liên quan
 
-Không sửa Production Database mà không có migration hoặc SQL update script lưu trong repository.
+- mobile/user-app/README.md: hướng dẫn chạy mobile.
+- mobile/user-app/pubspec.yaml: SDK và dependencies.
+- mobile/user-app/lib/main.dart: bootstrap/app entry point.
+- mobile/user-app/lib/auth.dart: auth/session controller.
+- mobile/user-app/lib/account: account feature.
+- mobile/user-app/lib/channel: channel feature.
+- mobile/user-app/test: mobile test suite.
+- README.md: URL local và cách chạy hệ thống.
+- docs/development/LOCAL_DEVELOPMENT.md: API/database local.
+- docs/deployment/RENDER_NEON_GOOGLE.md: cloud và Google OAuth.
 
----
+## 30. Kết luận
 
-# 28. Documentation Architecture
-
-```text
-docs/
-├── architecture/
-├── api/
-├── features/
-├── conventions/
-├── operations/
-├── database/
-└── decisions/
-```
-
-Các quyết định lớn nên dùng ADR.
-
-Ví dụ:
-
-```text
-ADR-001-modular-monolith.md
-ADR-002-clean-architecture.md
-ADR-003-sql-server.md
-ADR-004-cloudflare-r2.md
-ADR-005-angular.md
-ADR-006-multiple-client-architecture.md
-ADR-007-payment-gateway-abstraction.md
-```
-
----
-
-# 29. Security Boundary
-
-Backend là Security Boundary chính.
-
-```text
-Mobile
-User Web
-Admin Web
-    ↓
-Không đáng tin tuyệt đối
-    ↓
-Backend
-    ↓
-Authentication
-Authorization
-Validation
-Business Rules
-```
-
-Client chỉ hỗ trợ UX.
-
-Backend phải kiểm tra lại toàn bộ quyền.
-
----
-
-# 30. Secret Management
-
-Không lưu secret trong Angular, Mobile source, Git repository hoặc Markdown.
-
-Secret chỉ lưu trong:
-
-- Environment Variables.
-- Secret Manager.
-- CI/CD Secrets.
-- Hosting Environment.
-
-Ví dụ:
-
-```text
-DATABASE_CONNECTION_STRING
-JWT_SECRET_KEY
-GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET
-CLOUDINARY_CLOUD_NAME
-CLOUDINARY_API_KEY
-CLOUDINARY_API_SECRET
-VNPAY_SECRET_KEY
-MOMO_SECRET_KEY
-ZALOPAY_KEY1
-ZALOPAY_KEY2
-```
-
----
-
-# 31. Deployment Model dự kiến
-
-Deploy độc lập:
-
-```text
-HuTube Backend
-User Web
-Admin Web
-Mobile Build
-```
-
-Cả ba client cùng truy cập Backend.
-
-```text
-User Web ──────┐
-               │
-Admin Web ─────┼──> Backend API
-               │
-Mobile App ────┘
-```
-
-Backend kết nối PostgreSQL, Cloudinary hoặc local storage trong Development,
-và các External Service.
-
----
-
-# 32. Cấu trúc cuối cùng đề xuất
-
-```text
-HuTube/
-│
-├── backend/
-│   ├── HuTube.sln
-│   ├── src/
-│   │   ├── HuTube.Domain/
-│   │   ├── HuTube.Application/
-│   │   ├── HuTube.Infrastructure/
-│   │   └── HuTube.Api/
-│   └── tests/
-│       ├── HuTube.UnitTests/
-│       └── HuTube.IntegrationTests/
-│
-├── frontend/
-│   ├── user-web/
-│   └── admin-web/
-│
-├── mobile/
-│   └── user-app/
-│
-├── database/
-│   ├── migrations/
-│   ├── updates/
-│   ├── seed/
-│   └── scripts/
-│
-├── docs/
-│   ├── architecture/
-│   ├── api/
-│   ├── features/
-│   ├── conventions/
-│   ├── operations/
-│   ├── database/
-│   └── decisions/
-│
-├── scripts/
-├── .github/
-│   └── workflows/
-│
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── CHANGELOG.md
-└── README.md
-```
-
----
-
-# 33. Nguyên tắc kiến trúc cần giữ
-
-1. Một Backend dùng chung cho cả 3 client.
-2. Không duplicate business logic theo Mobile/Web/Admin.
-3. Admin Web tách khỏi User Web.
-4. User Web và Mobile dùng chung API nếu Use Case giống nhau.
-5. Backend là nơi quyết định Authentication và Authorization.
-6. Domain không phụ thuộc framework hoặc SDK bên ngoài.
-7. Infrastructure chịu trách nhiệm tích hợp PostgreSQL, Cloudinary/local storage, SignalR, Google và Payment Provider.
-8. Application sử dụng abstraction để dễ thay implementation.
-9. Không tạo quá nhiều folder hoặc interface nếu chưa cần.
-10. Không chuyển Microservices khi chưa có nhu cầu thực tế.
-11. Database thay đổi phải có migration hoặc update script.
-12. Kiến trúc quan trọng phải được ghi bằng ADR.
-13. Ưu tiên code dễ đọc và dễ lần theo luồng xử lý.
+Mobile User App là Flutter client phân lớp: UI gọi state/controller, state gọi feature service, feature service dùng ApiClient và các adapter platform. Auth/session là trục ngang của ứng dụng: access token ở memory, refresh token ở secure storage, Google chỉ cung cấp danh tính và backend HuTube cấp session/quyền. Account và channel là feature hiện có; video, playlist, notification và moderation được mở rộng độc lập theo cùng boundary mà không làm phình app entry point hoặc trộn nghiệp vụ vào widget.
