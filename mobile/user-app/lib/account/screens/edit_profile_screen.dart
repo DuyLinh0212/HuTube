@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../auth.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../auth.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_banner.dart';
 import '../models/account_models.dart';
 import '../services/account_service.dart';
 
@@ -111,54 +112,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_error != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.dangerBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.dangerBorder),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(color: AppColors.danger, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ErrorBanner(message: _error!),
                 const SizedBox(height: 16),
               ],
 
               // Avatar center display
               Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundColor: AppColors.primaryLight,
-                      backgroundImage: widget.profile.avatarUrl != null
-                          ? NetworkImage(widget.profile.avatarUrl!)
-                          : null,
-                      child: widget.profile.avatarUrl == null
-                          ? Text(
-                              (widget.profile.displayName.isNotEmpty
-                                      ? widget.profile.displayName[0]
-                                      : 'U')
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ],
+                child: CircleAvatar(
+                  radius: 48,
+                  backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
+                  backgroundImage: widget.profile.avatarUrl != null
+                      ? NetworkImage(widget.profile.avatarUrl!)
+                      : null,
+                  child: widget.profile.avatarUrl == null
+                      ? Text(
+                          (widget.profile.displayName.isNotEmpty
+                                  ? widget.profile.displayName[0]
+                                  : 'U')
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryPink,
+                          ),
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(height: 8),

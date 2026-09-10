@@ -211,3 +211,22 @@ class ChannelInvitation {
         invitedEmail: json['invitedEmail'] as String?,
       );
 }
+
+class HandleAvailability {
+  const HandleAvailability({
+    required this.handle,
+    required this.isAvailable,
+    this.reason,
+  });
+
+  final String handle;
+  final bool isAvailable;
+  final String? reason;
+
+  factory HandleAvailability.fromJson(Map<String, dynamic> json) =>
+      HandleAvailability(
+        handle: json['handle'] as String? ?? '',
+        isAvailable: json['isAvailable'] as bool? ?? false,
+        reason: json['reason'] as String?,
+      );
+}

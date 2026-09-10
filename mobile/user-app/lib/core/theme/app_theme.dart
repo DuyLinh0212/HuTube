@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   static const Color primary = Color(0xFFFF2B66); // Coral Rose
+  static const Color primaryPink = Color(0xFFFF2B66); // Coral Rose Brand Color
   static const Color primaryHover = Color(0xFFFF4D80);
   static const Color primaryDark = Color(0xFFE61952);
   static const Color primaryLight = Color(0xFFFFF0F4);
   static const Color primaryIndicator = Color(0xFFFFE6EE);
 
   static const Color background = Color(0xFFFAF8F7);
+  static const Color backgroundCard = Colors.white;
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF1E1E2A);
   static const Color textSecondary = Color(0xFF757575);
   static const Color textMuted = Color(0xFF9E9E9E);
   static const Color border = Color(0xFFE5E7EB);
+  static const Color cardBorder = Color(0xFFE5E7EB);
   static const Color borderSubtle = Color(0xFFF0F0F2);
 
   static const Color danger = Color(0xFFEF4444);
@@ -30,6 +33,7 @@ class AppColors {
 }
 
 class AppTheme {
+  static ThemeData get theme => lightTheme;
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,

@@ -1,4 +1,4 @@
-import '../../../auth.dart';
+import '../../auth.dart';
 import '../models/account_models.dart';
 
 class AccountService {
@@ -77,5 +77,18 @@ class AccountService {
       body: preferences.toJson(),
     );
     return UserPreferencesModel.fromJson(res);
+  }
+
+  Future<List<Map<String, dynamic>>> getSessions() async {
+    final list = await auth.protectedList('/auth/sessions');
+    return list.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<void> revokeSession(String sessionId) async {
+    await auth.protected('DELETE', '/auth/sessions/$sessionId');
+  }
+
+  Future<void> revokeOtherSessions() async {
+    await auth.protected('POST', '/auth/sessions/revoke-others');
   }
 }

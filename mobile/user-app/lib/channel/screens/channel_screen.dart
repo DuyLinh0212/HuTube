@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../auth.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../auth.dart';
+import '../../core/theme/app_theme.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
 import 'channel_settings_screen.dart';
@@ -100,7 +100,7 @@ class _ChannelScreenState extends State<ChannelScreen>
       return Scaffold(
         appBar: AppBar(title: const Text('Kênh')),
         body: const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+          child: CircularProgressIndicator(color: AppColors.primaryPink),
         ),
       );
     }
@@ -165,7 +165,15 @@ class _ChannelScreenState extends State<ChannelScreen>
                   width: double.infinity,
                   decoration: BoxDecoration(
                     gradient: c.bannerUrl == null
-                        ? AppColors.primaryGradient
+                        ? const LinearGradient(
+                            colors: [
+                              Color(0xFF33101E),
+                              Color(0xFF1E1020),
+                              Color(0xFF10121E),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
                         : null,
                     image: c.bannerUrl != null
                         ? DecorationImage(
@@ -199,7 +207,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                     children: [
                       CircleAvatar(
                         radius: 36,
-                        backgroundColor: AppColors.primaryLight,
+                        backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
                         backgroundImage: c.avatarUrl != null
                             ? NetworkImage(c.avatarUrl!)
                             : null,
@@ -211,7 +219,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                                 style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
+                                  color: AppColors.primaryPink,
                                 ),
                               )
                             : null,
@@ -229,6 +237,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -238,7 +247,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                                 const Icon(
                                   Icons.check_circle,
                                   size: 16,
-                                  color: AppColors.primary,
+                                  color: AppColors.primaryPink,
                                 ),
                               ],
                             ),
@@ -288,8 +297,8 @@ class _ChannelScreenState extends State<ChannelScreen>
                             Expanded(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.primaryLight,
-                                  foregroundColor: AppColors.primary,
+                                  backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
+                                  foregroundColor: AppColors.primaryPink,
                                   elevation: 0,
                                 ),
                                 icon: const Icon(Icons.tune_rounded, size: 18),
@@ -316,8 +325,8 @@ class _ChannelScreenState extends State<ChannelScreen>
                               child: FilledButton(
                                 style: FilledButton.styleFrom(
                                   backgroundColor: _isSubscribed
-                                      ? const Color(0xFFF3F4F6)
-                                      : AppColors.primary,
+                                      ? AppColors.cardBorder
+                                      : AppColors.primaryPink,
                                   foregroundColor: _isSubscribed
                                       ? AppColors.textPrimary
                                       : Colors.white,
@@ -336,7 +345,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                                 Icons.notifications_none_rounded,
                               ),
                               style: IconButton.styleFrom(
-                                backgroundColor: const Color(0xFFF3F4F6),
+                                backgroundColor: AppColors.cardBorder,
                                 foregroundColor: AppColors.textPrimary,
                               ),
                             ),
@@ -351,8 +360,8 @@ class _ChannelScreenState extends State<ChannelScreen>
             delegate: _SliverAppBarDelegate(
               TabBar(
                 controller: _tabController,
-                indicatorColor: AppColors.primary,
-                labelColor: AppColors.primary,
+                indicatorColor: AppColors.primaryPink,
+                labelColor: AppColors.primaryPink,
                 unselectedLabelColor: AppColors.textSecondary,
                 labelStyle: const TextStyle(
                   fontWeight: FontWeight.bold,
@@ -421,7 +430,7 @@ class _ChannelScreenState extends State<ChannelScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.playlist_play_rounded, size: 64, color: AppColors.border),
+          Icon(Icons.playlist_play_rounded, size: 64, color: AppColors.cardBorder),
           SizedBox(height: 8),
           Text(
             'Chưa có danh sách phát nào',
@@ -455,7 +464,7 @@ class _ChannelScreenState extends State<ChannelScreen>
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
-        _aboutRow(Icons.link, 'mach.vn/@${c.handle}'),
+        _aboutRow(Icons.link, 'hutube.app/@${c.handle}'),
         _aboutRow(Icons.people_outline, '$_subscriberCount người đăng ký'),
         _aboutRow(
           Icons.video_library_outlined,
@@ -491,9 +500,9 @@ class _ChannelScreenState extends State<ChannelScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.backgroundCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -504,12 +513,12 @@ class _ChannelScreenState extends State<ChannelScreen>
               Container(
                 height: 160,
                 width: double.infinity,
-                color: const Color(0xFFF3F4F6),
+                color: AppColors.cardBorder.withValues(alpha: 0.5),
                 child: const Center(
                   child: Icon(
                     Icons.play_circle_fill,
                     size: 50,
-                    color: AppColors.primary,
+                    color: AppColors.primaryPink,
                   ),
                 ),
               ),
@@ -547,6 +556,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
+                    color: AppColors.textPrimary,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -589,7 +599,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(color: Colors.white, child: _tabBar);
+    return Container(color: AppColors.backgroundCard, child: _tabBar);
   }
 
   @override

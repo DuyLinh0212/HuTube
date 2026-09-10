@@ -7,9 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:user_app/auth.dart';
-import 'package:user_app/features/channel/models/channel_models.dart';
-import 'package:user_app/features/channel/screens/channel_settings_screen.dart';
-import 'package:user_app/features/channel/services/channel_service.dart';
+import 'package:user_app/channel/models/channel_models.dart';
+import 'package:user_app/channel/screens/channel_settings_screen.dart';
+import 'package:user_app/channel/services/channel_service.dart';
 
 import 'auth_test.dart' show MemoryStore, jsonResponse, session;
 

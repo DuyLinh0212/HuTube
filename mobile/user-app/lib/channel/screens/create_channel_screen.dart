@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../../auth.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../auth.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_banner.dart';
 import '../services/channel_service.dart';
 import 'channel_screen.dart';
 
@@ -149,33 +150,35 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
+                  color: AppColors.primaryPink.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFFFCCD8)),
+                  border: Border.all(
+                    color: AppColors.primaryPink.withValues(alpha: 0.3),
+                  ),
                 ),
-                child: const Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.info_outline,
-                      color: AppColors.primary,
+                      color: AppColors.primaryPink,
                       size: 22,
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Quy định kênh HuTube',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryDark,
+                              color: AppColors.primaryPink,
                               fontSize: 14,
                             ),
                           ),
-                          SizedBox(height: 4),
-                          Text(
+                          const SizedBox(height: 4),
+                          const Text(
                             'Mỗi tài khoản người dùng được sở hữu tối đa 1 kênh duy nhất. Bạn có thể cập nhật thông tin và hình ảnh kênh bất kỳ lúc nào sau khi tạo.',
                             style: TextStyle(
                               color: AppColors.textPrimary,
@@ -192,21 +195,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               const SizedBox(height: 24),
 
               if (_error != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.dangerBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.dangerBorder),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(
-                      color: AppColors.danger,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
+                ErrorBanner(message: _error!),
                 const SizedBox(height: 16),
               ],
 
@@ -245,7 +234,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppColors.primary,
+                              color: AppColors.primaryPink,
                             ),
                           ),
                         )

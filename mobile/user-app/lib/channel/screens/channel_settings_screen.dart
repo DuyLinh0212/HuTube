@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../auth.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../auth.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_banner.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
 
@@ -295,13 +296,13 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           child: Container(
             key: const ValueKey('channel-banner-preview'),
             height: 132,
-            color: AppColors.primaryLight,
+            color: AppColors.primaryPink.withValues(alpha: 0.15),
             child: url == null || url.isEmpty
                 ? const Center(
                     child: Icon(
                       Icons.panorama_outlined,
                       size: 42,
-                      color: AppColors.primary,
+                      color: AppColors.primaryPink,
                     ),
                   )
                 : Image.network(
@@ -339,7 +340,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         CircleAvatar(
           key: const ValueKey('channel-avatar-preview'),
           radius: 48,
-          backgroundColor: AppColors.primaryLight,
+          backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
           backgroundImage: url == null || url.isEmpty
               ? null
               : NetworkImage(url),
@@ -347,7 +348,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               ? Text(
                   _channel.name.isEmpty ? 'C' : _channel.name[0].toUpperCase(),
                   style: const TextStyle(
-                    color: AppColors.primary,
+                    color: AppColors.primaryPink,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
@@ -378,9 +379,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.backgroundCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -424,21 +425,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_error != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.dangerBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.dangerBorder),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(
-                      color: AppColors.danger,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
+                ErrorBanner(message: _error!),
                 const SizedBox(height: 16),
               ],
 

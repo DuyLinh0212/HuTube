@@ -1,218 +1,18 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 
-class ApiFailure implements Exception {
-  const ApiFailure(this.status, this.code, this.message);
-  final int status;
-  final String code;
-  final String message;
-  @override
-  String toString() => message;
-}
+import 'core/errors/app_error.dart';
+import 'core/network/api_client.dart';
+import 'core/storage/token_store.dart';
 
-class UploadPayload {
-  const UploadPayload({
-    required this.bytes,
-    required this.fileName,
-    required this.contentType,
-  });
-
-  final List<int> bytes;
-  final String fileName;
-  final String contentType;
-}
-
-class ApiClient {
-  ApiClient({http.Client? client, String? baseUrl})
-    : client = client ?? http.Client(),
-      baseUrl =
-          baseUrl ??
-          const String.fromEnvironment(
-            'API_BASE_URL',
-            defaultValue: 'https://hutube.onrender.com/api/v1',
-          );
-  final http.Client client;
-  final String baseUrl;
-
-  Future<Map<String, dynamic>> upload(
-    String path,
-    UploadPayload payload, {
-    String? accessToken,
-  }) async {
-    try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path'),
-      );
-      request.headers.addAll({
-        'Accept': 'application/json',
-        'X-HuTube-Client': 'mobile',
-        if (accessToken != null) 'Authorization': 'Bearer $accessToken',
-      });
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          payload.bytes,
-          filename: payload.fileName,
-          contentType: MediaType.parse(payload.contentType),
-        ),
-      );
-      final response = await http.Response.fromStream(
-        await client.send(request).timeout(const Duration(seconds: 40)),
-      ).timeout(const Duration(seconds: 40));
-      final data = _decodeResponse(response);
-      return data is Map<String, dynamic> ? data : <String, dynamic>{};
-    } on TimeoutException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Tải ảnh quá thời gian. Vui lòng kiểm tra mạng và thử lại.',
-      );
-    } on SocketException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
-    } on http.ClientException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
-    }
-  }
-
-  Future<Map<String, dynamic>> request(
-    String method,
-    String path, {
-    Map<String, dynamic>? body,
-    String? accessToken,
-  }) async {
-    final data = await _requestJson(
-      method,
-      path,
-      body: body,
-      accessToken: accessToken,
-    );
-    return data is Map<String, dynamic> ? data : <String, dynamic>{};
-  }
-
-  Future<List<dynamic>> requestList(
-    String method,
-    String path, {
-    Map<String, dynamic>? body,
-    String? accessToken,
-  }) async {
-    final data = await _requestJson(
-      method,
-      path,
-      body: body,
-      accessToken: accessToken,
-    );
-    return data is List<dynamic> ? data : <dynamic>[];
-  }
-
-  Future<dynamic> _requestJson(
-    String method,
-    String path, {
-    Map<String, dynamic>? body,
-    String? accessToken,
-  }) async {
-    try {
-      final request = http.Request(
-        method,
-        Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path'),
-      );
-      request.headers.addAll({
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-HuTube-Client': 'mobile',
-        if (accessToken != null) 'Authorization': 'Bearer $accessToken',
-      });
-      if (body != null) request.body = jsonEncode(body);
-      final response = await http.Response.fromStream(
-        await client.send(request).timeout(const Duration(seconds: 20)),
-      ).timeout(const Duration(seconds: 20));
-      return _decodeResponse(response);
-    } on TimeoutException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Kết nối quá thời gian. Vui lòng thử lại.',
-      );
-    } on SocketException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
-    } on http.ClientException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
-    }
-  }
-
-  dynamic _decodeResponse(http.Response response) {
-    dynamic data = <String, dynamic>{};
-    try {
-      if (response.body.isNotEmpty) {
-        data = jsonDecode(utf8.decode(response.bodyBytes));
-      }
-    } on FormatException {
-      /* Proxies may return HTML errors. */
-    }
-    if (response.statusCode >= 400) {
-      final errorData = data is Map<String, dynamic>
-          ? data
-          : <String, dynamic>{};
-      final code = errorData['code'] as String? ?? 'REQUEST_FAILED';
-      throw ApiFailure(response.statusCode, code, switch (code) {
-        'INVALID_CREDENTIALS' => 'Email hoặc mật khẩu chưa đúng.',
-        'EMAIL_NOT_VERIFIED' => 'Bạn cần xác minh email trước khi đăng nhập.',
-        'ACCOUNT_SUSPENDED' || 'USER_SUSPENDED' =>
-          'Tài khoản đang bị tạm khóa. Vui lòng liên hệ hỗ trợ.',
-        'ACCOUNT_BANNED' ||
-        'USER_BANNED' => 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.',
-        'RATE_LIMITED' || 'RATE_LIMIT_EXCEEDED' =>
-          'Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc rồi thử lại.',
-        'STORAGE_UPLOAD_FAILED' =>
-          'Không thể tải ảnh lên kho lưu trữ. Vui lòng thử lại.',
-        _ =>
-          errorData['detail'] as String? ??
-              'Không thể thực hiện yêu cầu. Vui lòng thử lại.',
-      });
-    }
-    return data;
-  }
-}
-
-abstract interface class TokenStore {
-  Future<String?> read();
-  Future<void> write(String token);
-  Future<void> clear();
-}
-
-class SecureTokenStore implements TokenStore {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  static const _key = 'hutube.refreshToken';
-  @override
-  Future<String?> read() => _storage.read(key: _key);
-  @override
-  Future<void> write(String token) => _storage.write(key: _key, value: token);
-  @override
-  Future<void> clear() => _storage.delete(key: _key);
-}
+export 'core/config/app_config.dart';
+export 'core/errors/app_error.dart';
+export 'core/network/api_client.dart';
+export 'core/storage/token_store.dart';
+export 'core/deep_links/deep_link_service.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController(this.api, this.store);
@@ -414,6 +214,60 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  Future<void> register({
+    required String username,
+    required String email,
+    required String displayName,
+    required String password,
+  }) async {
+    await api.request(
+      'POST',
+      '/auth/register',
+      body: {
+        'username': username.trim(),
+        'email': email.trim(),
+        'displayName': displayName.trim(),
+        'password': password,
+      },
+    );
+  }
+
+  Future<void> verifyEmail(String token) async {
+    await api.request(
+      'POST',
+      '/auth/verify-email',
+      body: {'token': token},
+    );
+  }
+
+  Future<void> forgotPassword(String email) async {
+    await api.request(
+      'POST',
+      '/auth/forgot-password',
+      body: {'email': email.trim()},
+    );
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    await api.request(
+      'POST',
+      '/auth/reset-password',
+      body: {'token': token, 'password': password},
+    );
+    await clearSession();
+  }
+
+  Future<void> resendVerification(String email) async {
+    await api.request(
+      'POST',
+      '/auth/resend-verification',
+      body: {'email': email.trim()},
+    );
+  }
+
   Future<void> refresh() =>
       _refreshing ??= _refresh().whenComplete(() => _refreshing = null);
   Future<void> _refresh() async {
@@ -577,29 +431,6 @@ class AuthController extends ChangeNotifier {
     _disposed = true;
     api.client.close();
     super.dispose();
-  }
-}
-
-class AuthLink {
-  const AuthLink(this.path, this.token);
-  final String path;
-  final String? token;
-  static AuthLink? parse(Uri uri) {
-    if (uri.scheme != 'hutube' ||
-        uri.host != 'auth' ||
-        uri.userInfo.isNotEmpty ||
-        uri.hasPort) {
-      return null;
-    }
-    if (!{
-      '/login',
-      '/account',
-      '/verify-email',
-      '/reset-password',
-    }.contains(uri.path)) {
-      return null;
-    }
-    return AuthLink(uri.path, uri.queryParameters['token']);
   }
 }
 

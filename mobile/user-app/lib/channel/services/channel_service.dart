@@ -1,5 +1,5 @@
-import '../../../auth.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../auth.dart';
 import '../models/channel_models.dart';
 
 class ChannelService {

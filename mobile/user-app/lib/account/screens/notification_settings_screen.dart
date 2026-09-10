@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../auth.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../auth.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_banner.dart';
 import '../models/account_models.dart';
 import '../services/account_service.dart';
 
@@ -79,23 +80,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPink))
             : ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
                   if (_error != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.dangerBg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.dangerBorder),
-                      ),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: AppColors.danger, fontSize: 13),
-                      ),
-                    ),
+                    ErrorBanner(message: _error!),
                     const SizedBox(height: 16),
                   ],
 
@@ -138,7 +128,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryPink),
                         ),
                         SizedBox(width: 8),
                         Text('Đang tự động lưu...', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
@@ -179,7 +169,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         const SizedBox(width: 12),
         Switch.adaptive(
           value: value,
-          activeTrackColor: AppColors.primary,
+          activeTrackColor: AppColors.primaryPink,
           activeThumbColor: Colors.white,
           onChanged: _saving ? null : onChanged,
         ),
