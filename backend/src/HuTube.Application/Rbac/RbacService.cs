@@ -70,6 +70,9 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
         };
 
         rbacStore.AddRole(role);
+        // RolePermission only carries RoleId, so persist the principal first.
+        // This keeps PostgreSQL from receiving the dependent row before roles.
+        await rbacStore.SaveAsync(ct);
         await rbacStore.ReplaceRolePermissionsAsync(role.RoleId, permissions.Select(permission => permission.PermissionId).ToList(), ct);
         await LogAuditAsync(new AuditLogEntry(
             actorUserId,
