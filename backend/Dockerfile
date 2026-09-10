@@ -16,7 +16,8 @@ USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /app/.work/mail && chown -R $APP_UID:$APP_UID /app/.work
+RUN mkdir -p /app/.work/mail /app/uploads \
+    && chown -R $APP_UID:$APP_UID /app/.work /app/uploads
 USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "HuTube.Api.dll"]
