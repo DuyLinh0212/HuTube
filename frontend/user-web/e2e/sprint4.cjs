@@ -123,7 +123,7 @@ async function login(page, origin, email, platform = 'web') {
   const responsePromise = page.waitForResponse(response =>
     response.url() === `${apiBase}/auth/login` && response.request().method() === 'POST'
   );
-  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await page.locator('form button[type="submit"]').click();
   const response = await responsePromise;
   assert(response.status() === 200, `${platform} login failed for ${email}: ${response.status()}`);
   const payload = await response.json();
@@ -197,7 +197,7 @@ async function mobileLogin(page, email) {
   await deniedPage.goto(`${adminOrigin}/login`);
   await deniedPage.getByLabel('Email', { exact: true }).fill(owner.email);
   await deniedPage.getByLabel('Mật khẩu', { exact: true }).fill(password);
-  await deniedPage.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await deniedPage.locator('form button[type="submit"]').click();
   await deniedPage.getByRole('alert').filter({ hasText: 'quyền quản trị' }).waitFor();
   assert(deniedPage.url().includes('/login'), 'Ordinary user entered the Admin UI.');
   const deniedApi = await api(deniedPage, 'GET', '/admin/me', ownerToken);
