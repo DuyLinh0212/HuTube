@@ -1,69 +1,61 @@
-<aside class="side-nav" [class.is-collapsed]="collapsed" aria-label="Điều hướng HuTube">
+<aside class="side-nav" [class.is-collapsed]="collapsed" [class.is-open]="open" [attr.aria-hidden]="!open" aria-label="Điều hướng HuTube">
   <div class="side-nav__head">
     <a class="brand" routerLink="/account" aria-label="HuTube">
       <img src="/assets/logo-mark.png" alt="" />
       <span><strong>Hu</strong><em>Tube</em></span>
     </a>
-    <button class="sidebar-toggle" type="button" (click)="toggleCollapsed()" [attr.aria-label]="collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'" [attr.aria-pressed]="collapsed">
+    <button class="sidebar-toggle" type="button" (click)="toggleCollapsed()" [attr.aria-label]="collapsed ? ('nav.expandSidebar' | translate) : ('nav.collapseSidebar' | translate)" [attr.aria-pressed]="collapsed">
       <span aria-hidden="true">{{ collapsed ? '›' : '‹' }}</span>
     </button>
-    <button class="nav-close" type="button" aria-label="Đóng menu" (click)="closeNavigation()">×</button>
+    <button class="nav-close" type="button" [attr.aria-label]="'common.close' | translate" (click)="closeNavigation()">×</button>
   </div>
 
   <nav class="nav-groups">
-    <section class="nav-group" aria-label="Khám phá">
-      <p class="nav-label">Khám phá</p>
-      <a class="nav-item" routerLink="/account" (click)="closeNavigation()" title="Trang chủ">
+    <section class="nav-group" [attr.aria-label]="'nav.explore' | translate">
+      <p class="nav-label">{{ 'nav.explore' | translate }}</p>
+      <a class="nav-item" routerLink="/home" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.home' | translate">
         <img src="/assets/icons/home.png" alt="" />
-        <span>Trang chủ</span>
+        <span>{{ 'nav.home' | translate }}</span>
       </a>
-      <span class="nav-item" title="Khám phá">
+      <a class="nav-item" routerLink="/explore" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.explore' | translate">
         <img src="/assets/icons/compass.png" alt="" />
-        <span>Khám phá</span>
-      </span>
-      <span class="nav-item" title="Kênh đăng ký">
+        <span>{{ 'nav.explore' | translate }}</span>
+      </a>
+      <span class="nav-item" [title]="'nav.subscriptions' | translate">
         <img src="/assets/icons/channel.png" alt="" />
-        <span>Kênh đăng ký</span>
+        <span>{{ 'nav.subscriptions' | translate }}</span>
       </span>
     </section>
 
-    <section class="nav-group" aria-label="Thư viện">
-      <p class="nav-label">Thư viện</p>
-      <span class="nav-item" title="Lịch sử xem">
+    <section class="nav-group" [attr.aria-label]="'nav.library' | translate">
+      <p class="nav-label">{{ 'nav.library' | translate }}</p>
+      <a class="nav-item" routerLink="/history" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.history' | translate">
         <img src="/assets/icons/history.png" alt="" />
-        <span>Lịch sử xem</span>
-      </span>
-      <span class="nav-item" title="Video đã thích">
+        <span>{{ 'nav.history' | translate }}</span>
+      </a>
+      <a class="nav-item" routerLink="/liked" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.likedVideos' | translate">
         <img src="/assets/icons/favorite.png" alt="" />
-        <span>Video đã thích</span>
-      </span>
-      <span class="nav-item" title="Danh sách phát">
+        <span>{{ 'nav.likedVideos' | translate }}</span>
+      </a>
+      <span class="nav-item" [title]="'nav.playlists' | translate">
         <img src="/assets/icons/playlist.png" alt="" />
-        <span>Danh sách phát</span>
+        <span>{{ 'nav.playlists' | translate }}</span>
       </span>
     </section>
 
-    <section class="nav-group" aria-label="Kênh của bạn">
-      <p class="nav-label">Kênh của bạn</p>
-      <a class="nav-item" (click)="openMyChannel()" style="cursor: pointer;" title="Kênh của bạn">
+    <section class="nav-group" [attr.aria-label]="'nav.yourChannel' | translate">
+      <p class="nav-label">{{ 'nav.yourChannel' | translate }}</p>
+      <a class="nav-item" (click)="openMyChannel()" style="cursor: pointer;" [title]="'nav.yourChannel' | translate">
         <img src="/assets/icons/my_channel.png" alt="" />
-        <span>Kênh của bạn</span>
-      </a>
-      <a class="nav-item nav-item--cta" routerLink="/channel/create" (click)="closeNavigation()" routerLinkActive="active" title="Tạo kênh mới">
-        <span class="nav-icon-badge">+</span>
-        <span>Tạo kênh mới</span>
-      </a>
-      <a class="nav-item" routerLink="/channel-invitations" (click)="closeNavigation()" routerLinkActive="active" title="Lời mời tham gia kênh">
-        <span class="nav-icon-badge nav-icon-badge--mail" aria-hidden="true">✉</span>
-        <span>Lời mời tham gia</span>
+        <span>{{ 'nav.yourChannel' | translate }}</span>
       </a>
     </section>
 
-    <section class="nav-group" aria-label="Cài đặt">
-      <p class="nav-label">Cài đặt</p>
-      <a class="nav-item" routerLink="/account" (click)="closeNavigation()" routerLinkActive="active" title="Hồ sơ & Tài khoản">
+    <section class="nav-group" [attr.aria-label]="'nav.settings' | translate">
+      <p class="nav-label">{{ 'nav.settings' | translate }}</p>
+      <a class="nav-item" routerLink="/account" (click)="closeNavigation()" routerLinkActive="active" [title]="'nav.profile' | translate">
         <img src="/assets/icons/setting.png" alt="" />
-        <span>Hồ sơ cá nhân</span>
+        <span>{{ 'nav.profile' | translate }}</span>
       </a>
     </section>
   </nav>

@@ -1,0 +1,95 @@
+<header class="studio-topbar">
+  <button class="menu-button" type="button" [attr.aria-label]="'nav.expandSidebar' | translate" (click)="menuOpened.emit()">
+    <span></span><span></span><span></span>
+  </button>
+
+  <label class="search-box">
+    <span class="search-glyph" aria-hidden="true"></span>
+    <input type="search" [placeholder]="'studio.searchPlaceholder' | translate" [attr.aria-label]="'studio.searchPlaceholder' | translate" />
+    <kbd>⌘ K</kbd>
+  </label>
+
+  <div class="topbar-actions">
+    <!-- Nút + Tạo (Blue primary CTA as in design template) -->
+    <a routerLink="/studio/upload" class="btn-create-studio">
+      <span class="plus-icon">+</span>
+      <span>{{ 'studio.create' | translate }}</span>
+    </a>
+
+    <!-- Notification Bell -->
+    <button class="icon-btn notif-btn" type="button" (click)="toggleNotifications()" [attr.aria-label]="'nav.notifications' | translate">
+      <span class="bell-icon">🔔</span>
+      @if (notifications.unread()) { <span class="notif-badge">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</span> }
+    </button>
+    @if (notificationsOpen()) { <app-notification-panel (closed)="notificationsOpen.set(false)" /> }
+
+    <!-- Creator Profile Capsule -->
+    <div class="creator-capsule-container">
+      <button class="creator-capsule" type="button" (click)="toggleDropdown()" [attr.aria-expanded]="dropdownOpen()" aria-haspopup="true">
+        @if (myChannel(); as ch) {
+          @if (ch.avatarUrl) {
+            <img [src]="profile()?.avatarUrl || ch.avatarUrl" alt="" class="capsule-avatar" />
+          } @else {
+            <div class="capsule-avatar-fallback">{{ ch.name.slice(0, 1).toUpperCase() }}</div>
+          }
+          <div class="capsule-text">
+            <span class="capsule-name">{{ ch.name }}</span>
+            <span class="capsule-role">{{ 'studio.creator' | translate }}</span>
+          </div>
+        } @else {
+          @if (profile()?.avatarUrl) { <img [src]="profile()!.avatarUrl!" alt="" class="capsule-avatar" /> } @else { <div class="capsule-avatar-fallback">{{ (auth.user()?.displayName || 'H').slice(0, 1).toUpperCase() }}</div> }
+          <div class="capsule-text">
+            <span class="capsule-name">{{ auth.user()?.displayName || 'Nắng Lang Thang' }}</span>
+            <span class="capsule-role">{{ 'studio.creator' | translate }}</span>
+          </div>
+        }
+        <span class="capsule-chevron">▾</span>
+      </button>
+
+      @if (dropdownOpen()) {
+        <div class="studio-dropdown">
+          <div class="dropdown-header">
+            <strong>{{ myChannel()?.name || auth.user()?.displayName || 'Nắng Lang Thang' }}</strong>
+            <small>{{ auth.user()?.email || '@creator' }}</small>
+          </div>
+
+          <div class="dropdown-body">
+            <a class="dropdown-item" routerLink="/account" (click)="closeDropdown()">
+              <span class="item-icon">🏠</span>
+              <span>{{ 'studio.backToWeb' | translate }}</span>
+            </a>
+
+            @if (myChannel(); as ch) {
+              <a class="dropdown-item" [routerLink]="['/channel', ch.handle]" (click)="closeDropdown()">
+                <span class="item-icon">📺</span>
+                <span>{{ 'nav.yourChannel' | translate }}</span>
+              </a>
+            }
+
+            <a class="dropdown-item" routerLink="/studio/settings" (click)="closeDropdown()">
+              <span class="item-icon">⚙️</span>
+              <span>{{ 'studio.settings' | translate }}</span>
+            </a>
+
+            <button class="dropdown-item" type="button" (click)="toggleTheme()">
+              <span class="item-icon">{{ themeService.currentTheme() === 'dark' ? '☀️' : '🌙' }}</span>
+              <span>{{ 'nav.theme' | translate }}: <strong>{{ themeService.currentTheme() === 'dark' ? ('nav.themeDark' | translate) : ('nav.themeLight' | translate) }}</strong></span>
+            </button>
+
+            <button class="dropdown-item" type="button" (click)="toggleLanguage()">
+              <span class="item-icon">🌐</span>
+              <span>{{ 'nav.language' | translate }}: <strong>{{ i18n.currentLang() === 'vi' ? 'Tiếng Việt' : 'English' }}</strong></span>
+            </button>
+
+            <div class="dropdown-divider"></div>
+
+            <button class="dropdown-item dropdown-item--danger" type="button" (click)="logout()">
+              <span class="item-icon">🚪</span>
+              <span>{{ 'nav.logout' | translate }}</span>
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</header>

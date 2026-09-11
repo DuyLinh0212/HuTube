@@ -32,8 +32,28 @@
   font-size: 16px;
 }
 
+[data-theme="dark"], body.dark-theme {
+  --page-bg: #0f1218;
+  --card-bg: #181d27;
+  --card-border: #262e3d;
+  --card-hover: #222a38;
+  --text-dark: #f8fafc;
+  --text-body: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+  --ink: #f8fafc;
+  --muted: #94a3b8;
+  --line: #262e3d;
+  --canvas: var(--page-bg);
+  --surface: var(--card-bg);
+  --tint: rgba(255, 43, 102, 0.14);
+  --primary-soft: rgba(255, 43, 102, 0.16);
+  --primary-glow: rgba(255, 43, 102, 0.45);
+  --shadow-card: 0 22px 56px -28px rgba(0, 0, 0, 0.6);
+}
+
 * { box-sizing: border-box; }
-html { min-width: 320px; background: var(--canvas); }
+html { min-width: 320px; background: var(--canvas); color: var(--ink); }
 body {
   min-width: 320px;
   margin: 0;
@@ -41,10 +61,19 @@ body {
     radial-gradient(circle at 7% 8%, rgba(255, 182, 193, 0.32), transparent 34rem),
     radial-gradient(circle at 96% 88%, rgba(255, 203, 216, 0.28), transparent 32rem),
     var(--canvas);
+  color: var(--ink);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-button, input { font: inherit; }
-button, a, input { -webkit-tap-highlight-color: transparent; }
+body.dark-theme {
+  background:
+    radial-gradient(circle at 7% 8%, rgba(255, 43, 102, 0.08), transparent 34rem),
+    radial-gradient(circle at 96% 88%, rgba(124, 58, 237, 0.08), transparent 32rem),
+    var(--canvas);
+}
+
+button, input, select, textarea { font: inherit; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; border: 0; }
 button:disabled { cursor: not-allowed; opacity: 0.58; }
 button:active:not(:disabled) { transform: translateY(1px); }
@@ -55,6 +84,95 @@ h1, h2, h3, p { margin-top: 0; }
 h1, h2, h3 { text-wrap: balance; }
 p { line-height: 1.6; text-wrap: pretty; }
 
+input, select, textarea {
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--ink) !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface) inset !important;
+  box-shadow: 0 0 0px 1000px var(--surface) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+[data-theme="dark"], body.dark-theme {
+  .create-form-card,
+  .existing-channel-card,
+  .channel-header-card,
+  .channel-content-card,
+  .channel-settings-card,
+  .invitations-card,
+  .tab-content-area,
+  .modal-dialog,
+  .table-container,
+  .settings-section,
+  .channel-card-banner {
+    background-color: var(--surface) !important;
+    border-color: var(--line) !important;
+    color: var(--ink) !important;
+  }
+
+  .banner-box,
+  .avatar-overlap-box,
+  .channel-empty-box,
+  .member-item,
+  .invitation-item,
+  .stat-card {
+    background-color: var(--canvas) !important;
+    border-color: var(--line) !important;
+  }
+
+  .text-input,
+  .textarea-input,
+  .select-input,
+  .input-field,
+  .custom-select,
+  .form-control {
+    background-color: var(--canvas) !important;
+    border-color: var(--line) !important;
+    color: var(--ink) !important;
+  }
+
+  // Eliminate black PNG icons on dark backgrounds
+  .nav-item img,
+  .side-nav img:not(.brand img),
+  .topbar img:not(.mobile-mark img),
+  .create-action img,
+  .icon-action img,
+  .btn-upload-avatar img,
+  .change-avatar-btn img,
+  .stat-icon img,
+  .session-device img,
+  img.icon-img,
+  img.nav-icon {
+    filter: brightness(0) invert(0.92);
+    transition: filter 0.16s ease;
+  }
+
+  .nav-item:hover img,
+  .nav-item.active img,
+  .nav-item.is-active img,
+  .create-action:hover img,
+  .icon-action:hover img {
+    filter: brightness(0) saturate(100%) invert(32%) sepia(82%) saturate(3981%) hue-rotate(330deg) brightness(101%) contrast(103%) !important;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #f8fafc !important;
+    -webkit-box-shadow: 0 0 0px 1000px #181d27 inset !important;
+    box-shadow: 0 0 0px 1000px #181d27 inset !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+

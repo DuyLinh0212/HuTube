@@ -145,6 +145,8 @@ public sealed class RbacAndChannelIntegrationTests(AuthApiFactory factory) : ICl
         var invite = await inviteRes.Content.ReadFromJsonAsync<ChannelInvitationResponse>(JsonOptions);
         Assert.NotNull(invite);
         Assert.Equal("pending", invite.Status);
+        Assert.Contains("/channel-invitations?invitation=", factory.Emails.Bodies[editorUser.Email]);
+        Assert.Contains("Gaming Channel", factory.Emails.Bodies[editorUser.Email]);
 
         // The recipient can discover the pending invitation from their own account.
         var myInvitationsRes = await editorClient.GetAsync("/api/v1/channels/invitations/me");

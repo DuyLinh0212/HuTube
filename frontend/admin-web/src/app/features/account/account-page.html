@@ -1,15 +1,100 @@
 <main id="main-content" class="account-layout">
   <section class="account-content" aria-labelledby="account-title">
-    <div class="section-heading"><div><h1 id="account-title">{{ admin ? 'Tài khoản quản trị' : 'Tài khoản của bạn' }}</h1><p class="muted">Thông tin đăng nhập và bảo mật phiên.</p></div><button type="button" class="secondary" [disabled]="busy()" (click)="logout()">Đăng xuất</button></div>
+    <div class="section-heading">
+      <div>
+        <h1 id="account-title">{{ 'account.title' | translate }}</h1>
+        <p class="muted">{{ 'account.tabProfile' | translate }} & {{ 'account.tabPassword' | translate }}</p>
+      </div>
+      <button type="button" class="secondary" [disabled]="busy()" (click)="logout()">{{ 'auth.logout' | translate }}</button>
+    </div>
+
     @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
     @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
-    @if (auth.user(); as user) { <section class="profile-summary" aria-label="Thông tin tài khoản"><div class="avatar" aria-hidden="true">{{ user.displayName.slice(0, 1).toUpperCase() }}</div><div><h2>{{ user.displayName }}</h2><p>{{ user.email }}</p><p class="muted">&#64;{{ user.username }} <span class="verified">{{ user.emailVerified ? 'Email đã xác minh' : 'Email chưa xác minh' }}</span></p></div></section> }
-    <section class="sessions-section" aria-labelledby="sessions-title">
-      <div class="section-heading"><div><h2 id="sessions-title">Thiết bị đang đăng nhập</h2><p class="muted">Đăng xuất khỏi thiết bị bạn không còn sử dụng.</p></div><button class="secondary" type="button" (click)="logoutOthers()" [disabled]="busy() || loading() || sessions().length < 2">Đăng xuất các thiết bị khác</button></div>
-      @if (pendingRevoke(); as pending) { <div class="notice confirm" role="group" aria-label="Xác nhận đăng xuất thiết bị"><p>Kết thúc phiên trên <strong>{{ pending.deviceName }}</strong>?</p><div class="actions"><button class="danger" type="button" (click)="revoke()" [disabled]="busy()">Đăng xuất thiết bị</button><button class="secondary" type="button" (click)="pendingRevoke.set(null)" [disabled]="busy()">Hủy</button></div></div> }
-      @if (loading()) { <div class="skeleton" role="status">Đang tải danh sách thiết bị…</div> }
-      @else { <ul class="session-list">@for (session of sessions(); track session.sessionId) { <li><div class="device-icon" aria-hidden="true"><img src="/assets/icons/device.png" alt="" /></div><div class="session-details"><h3>{{ session.deviceName }} @if (session.isCurrent) { <span class="current">Thiết bị này</span> }</h3><p>Hoạt động gần nhất: {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p><p class="muted">Đăng nhập: {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }}</p></div>@if (!session.isCurrent) { <button class="text-button" type="button" (click)="pendingRevoke.set(session)" [disabled]="busy()" [attr.aria-label]="'Đăng xuất ' + session.deviceName">Đăng xuất</button> }</li> } @empty { <li>Không có phiên nào để hiển thị. <button type="button" class="text-button" (click)="load()">Tải lại</button></li> }</ul> }
+
+    @if (auth.user(); as user) {
+      <section class="profile-summary" aria-label="Thông tin tài khoản">
+        <div class="avatar" aria-hidden="true">{{ user.displayName.slice(0, 1).toUpperCase() }}</div>
+        <div>
+          <h2>{{ user.displayName }}</h2>
+          <p>{{ user.email }}</p>
+          <p class="muted">&#64;{{ user.username }} <span class="verified">{{ user.emailVerified ? ('users.verified' | translate) : ('users.unverified' | translate) }}</span></p>
+        </div>
+      </section>
+    }
+
+    <!-- Appearance & Language Preferences -->
+    <section class="preferences-section" aria-labelledby="prefs-title" style="margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid var(--line);">
+      <div class="section-heading">
+        <div>
+          <h2 id="prefs-title">{{ 'account.tabPreferences' | translate }}</h2>
+          <p class="muted">Tùy chỉnh màu sắc giao diện và ngôn ngữ hiển thị của trang quản trị</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 16px;">
+        <div>
+          <label for="adminThemeSelect" style="margin-top: 0; font-size: 0.88rem;">{{ 'account.themeLabel' | translate }}</label>
+          <select id="adminThemeSelect" style="width: 100%; height: 42px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); margin-top: 6px;"
+                  [value]="themeService.currentTheme()" (change)="onThemeChange($event)">
+            <option value="light">{{ 'account.themeLight' | translate }}</option>
+            <option value="dark">{{ 'account.themeDark' | translate }}</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="adminLangSelect" style="margin-top: 0; font-size: 0.88rem;">{{ 'account.langLabel' | translate }}</label>
+          <select id="adminLangSelect" style="width: 100%; height: 42px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); margin-top: 6px;"
+                  [value]="i18n.currentLang()" (change)="onLanguageChange($event)">
+            <option value="vi">Tiếng Việt (VI)</option>
+            <option value="en">English (EN)</option>
+          </select>
+        </div>
+      </div>
     </section>
-    <p class="connection" role="status"><span class="connection-dot" aria-hidden="true"></span> HuTube · {{ apiState() }}</p>
+
+    <!-- Sessions Section -->
+    <section class="sessions-section" aria-labelledby="sessions-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="sessions-title">{{ 'account.tabSessions' | translate }}</h2>
+          <p class="muted">Đăng xuất khỏi thiết bị bạn không còn sử dụng.</p>
+        </div>
+        <button class="secondary" type="button" (click)="logoutOthers()" [disabled]="busy() || loading() || sessions().length < 2">Đăng xuất các thiết bị khác</button>
+      </div>
+
+      @if (pendingRevoke(); as pending) {
+        <div class="notice confirm" role="group" aria-label="Xác nhận đăng xuất thiết bị">
+          <p>Kết thúc phiên trên <strong>{{ pending.deviceName }}</strong>?</p>
+          <div class="actions">
+            <button class="danger" type="button" (click)="revoke()" [disabled]="busy()">Đăng xuất thiết bị</button>
+            <button class="secondary" type="button" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
+          </div>
+        </div>
+      }
+
+      @if (loading()) {
+        <div class="skeleton" role="status">{{ 'common.loading' | translate }}</div>
+      } @else {
+        <ul class="session-list">
+          @for (session of sessions(); track session.sessionId) {
+            <li>
+              <div class="device-icon" aria-hidden="true"><img src="/assets/icons/device.png" alt="" /></div>
+              <div class="session-details">
+                <h3>{{ session.deviceName }} @if (session.isCurrent) { <span class="current">Thiết bị này</span> }</h3>
+                <p>Hoạt động gần nhất: {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>
+                <p class="muted">Đăng nhập: {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }}</p>
+              </div>
+              @if (!session.isCurrent) {
+                <button class="text-button" type="button" (click)="pendingRevoke.set(session)" [disabled]="busy()" [attr.aria-label]="'Đăng xuất ' + session.deviceName">Đăng xuất</button>
+              }
+            </li>
+          } @empty {
+            <li>Không có phiên nào để hiển thị. <button type="button" class="text-button" (click)="load()">Tải lại</button></li>
+          }
+        </ul>
+      }
+    </section>
+
+    <p class="connection" role="status"><span class="connection-dot" aria-hidden="true"></span> HuTube Quản trị · {{ apiState() }}</p>
   </section>
 </main>

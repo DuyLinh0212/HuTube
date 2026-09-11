@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../auth.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_notifier.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/account_models.dart';
 import '../services/account_service.dart';
@@ -36,12 +38,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
           _preferences = res;
           _loading = false;
         });
+        ThemeNotifier.setTheme(res.theme);
       }
     } catch (_) {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Không thể tải cài đặt & giao diện.';
+          _error = AppStrings.t('prefs.loadError');
         });
       }
     }
@@ -54,11 +57,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       _error = null;
     });
 
+    ThemeNotifier.setTheme(updated.theme);
+
     try {
       final res = await _accountService.updatePreferences(updated);
       if (mounted) setState(() => _preferences = res);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Không thể lưu cài đặt.');
+      if (mounted) setState(() => _error = AppStrings.t('prefs.saveError'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -66,9 +71,11 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cài đặt & Giao diện'),
+        title: Text(AppStrings.t('prefs.title')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -86,18 +93,35 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   ],
 
                   // Theme Selection
-                  const Text(
-                    'Giao diện ứng dụng',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Text(
+                    AppStrings.t('prefs.themeHeading'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _themeOption('system', 'Hệ thống', Icons.settings_suggest_outlined),
+                      _themeOption('system', AppStrings.t('prefs.themeSystem'), Icons.settings_suggest_outlined, isDark),
                       const SizedBox(width: 8),
-                      _themeOption('light', 'Sáng', Icons.light_mode_outlined),
+                      _themeOption('light', AppStrings.t('prefs.themeLight'), Icons.light_mode_outlined, isDark),
                       const SizedBox(width: 8),
-                      _themeOption('dark', 'Tối', Icons.dark_mode_outlined),
+                      _themeOption('dark', AppStrings.t('prefs.themeDark'), Icons.dark_mode_outlined, isDark),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 16),
+
+                  // Language Selection
+                  Text(
+                    AppStrings.t('prefs.langHeading'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _langOption('vi', AppStrings.t('prefs.langVi'), '🇻🇳', isDark),
+                      const SizedBox(width: 12),
+                      _langOption('en', AppStrings.t('prefs.langEn'), '🇺🇸', isDark),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -105,14 +129,14 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   const SizedBox(height: 16),
 
                   // Playback
-                  const Text(
-                    'Phát video',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Text(
+                    AppStrings.t('prefs.playbackHeading'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 12),
                   _switchTile(
-                    title: 'Tự động phát video tiếp theo',
-                    subtitle: 'Tiếp tục phát các video liên quan khi video hiện tại kết thúc.',
+                    title: AppStrings.t('prefs.autoplay'),
+                    subtitle: AppStrings.t('prefs.autoplaySub'),
                     value: _preferences.autoplayNext,
                     onChanged: (val) => _save(_preferences.copyWith(autoplayNext: val)),
                   ),
@@ -121,22 +145,23 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Chất lượng video mặc định',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                            AppStrings.t('prefs.quality'),
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                           ),
                           Text(
-                            'Áp dụng khi xem video',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            AppStrings.t('prefs.qualitySub'),
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                           ),
                         ],
                       ),
                       DropdownButton<String>(
                         value: _preferences.defaultPlaybackQuality,
                         underline: const SizedBox(),
+                        dropdownColor: isDark ? AppColors.darkBackgroundCard : Colors.white,
                         onChanged: _saving
                             ? null
                             : (val) {
@@ -145,7 +170,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                                 }
                               },
                         items: const [
-                          DropdownMenuItem(value: 'auto', child: Text('Tự động')),
+                          DropdownMenuItem(value: 'auto', child: Text('Tự động / Auto')),
                           DropdownMenuItem(value: '1080p', child: Text('1080p (FHD)')),
                           DropdownMenuItem(value: '720p', child: Text('720p (HD)')),
                           DropdownMenuItem(value: '480p', child: Text('480p (SD)')),
@@ -159,37 +184,37 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   const SizedBox(height: 16),
 
                   // Privacy
-                  const Text(
-                    'Quyền riêng tư',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Text(
+                    AppStrings.t('prefs.privacyHeading'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 12),
                   _switchTile(
-                    title: 'Giữ các kênh đã đăng ký ở chế độ riêng tư',
-                    subtitle: 'Không hiển thị danh sách kênh bạn đăng ký trên trang cá nhân.',
+                    title: AppStrings.t('prefs.subsPrivate'),
+                    subtitle: AppStrings.t('prefs.subsPrivateSub'),
                     value: _preferences.keepSubscriptionsPrivate,
                     onChanged: (val) => _save(_preferences.copyWith(keepSubscriptionsPrivate: val)),
                   ),
                   const Divider(height: 24),
                   _switchTile(
-                    title: 'Giữ danh sách phát đã lưu riêng tư',
-                    subtitle: 'Chỉ bạn mới có thể xem các playlist đã tạo và lưu.',
+                    title: AppStrings.t('prefs.playlistsPrivate'),
+                    subtitle: AppStrings.t('prefs.playlistsPrivateSub'),
                     value: _preferences.keepPlaylistsPrivate,
                     onChanged: (val) => _save(_preferences.copyWith(keepPlaylistsPrivate: val)),
                   ),
 
                   if (_saving) ...[
                     const SizedBox(height: 20),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryPink),
                         ),
-                        SizedBox(width: 8),
-                        Text('Đang tự động lưu...', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        const SizedBox(width: 8),
+                        Text(AppStrings.t('prefs.autoSaving'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                       ],
                     ),
                   ],
@@ -199,8 +224,12 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     );
   }
 
-  Widget _themeOption(String key, String label, IconData icon) {
+  Widget _themeOption(String key, String label, IconData icon, bool isDark) {
     final selected = _preferences.theme == key;
+    final cardBg = isDark ? AppColors.darkBackgroundCard : AppColors.backgroundCard;
+    final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.cardBorder;
+    final defaultText = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Expanded(
       child: GestureDetector(
         onTap: _saving ? null : () => _save(_preferences.copyWith(theme: key)),
@@ -209,10 +238,10 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
           decoration: BoxDecoration(
             color: selected
                 ? AppColors.primaryPink.withValues(alpha: 0.15)
-                : AppColors.backgroundCard,
+                : cardBg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppColors.primaryPink : AppColors.cardBorder,
+              color: selected ? AppColors.primaryPink : cardBorder,
               width: selected ? 1.5 : 1.0,
             ),
           ),
@@ -229,7 +258,52 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                  color: selected ? AppColors.primaryPink : AppColors.textPrimary,
+                  color: selected ? AppColors.primaryPink : defaultText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _langOption(String key, String label, String flag, bool isDark) {
+    final selected = AppStrings.currentLang.value == key;
+    final cardBg = isDark ? AppColors.darkBackgroundCard : AppColors.backgroundCard;
+    final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.cardBorder;
+    final defaultText = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            AppStrings.setLanguage(key);
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primaryPink.withValues(alpha: 0.15)
+                : cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppColors.primaryPink : cardBorder,
+              width: selected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(flag, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                  color: selected ? AppColors.primaryPink : defaultText,
                 ),
               ),
             ],

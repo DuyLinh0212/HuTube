@@ -6,13 +6,16 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, Observable } from 'rxjs';
 import { AuthService, errorMessage, safeReturnUrl } from '../../core/auth.service';
 import { ADMIN_APP, RuntimeConfig } from '../../core/runtime-config';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 declare global { interface Window { google?: { accounts: { id: { initialize(config: { client_id: string; callback: (response: { credential?: string }) => void; auto_select: boolean }): void; renderButton(parent: HTMLElement, options: { theme: string; size: string; width: number }): void; }; }; }; } }
 
-@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
+@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink, TranslatePipe], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
 export class AuthPage implements AfterViewChecked {
   readonly admin = ADMIN_APP;
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
@@ -35,7 +38,14 @@ export class AuthPage implements AfterViewChecked {
   @ViewChild('googleButton') googleButton?: ElementRef<HTMLDivElement>;
   readonly currentSlide = signal(0);
   private slideTimer: ReturnType<typeof setInterval> | null = null;
-  readonly titles: Record<string, string> = { login: 'Đăng nhập', register: 'Tạo tài khoản', 'verify-email': 'Xác minh email', 'forgot-password': 'Quên mật khẩu?', 'reset-password': 'Đặt lại mật khẩu' };
+  get title(): string {
+    const m = this.mode();
+    if (m === 'register') return this.i18n.t('auth.registerTitle');
+    if (m === 'verify-email') return this.i18n.t('auth.verifyEmailTitle');
+    if (m === 'forgot-password') return this.i18n.t('auth.forgotPasswordTitle');
+    if (m === 'reset-password') return this.i18n.t('auth.resetPasswordTitle');
+    return this.i18n.t('auth.loginTitle');
+  }
   constructor() {
     this.startCarousel();
     this.destroyRef.onDestroy(() => this.stopCarousel());
@@ -96,7 +106,6 @@ export class AuthPage implements AfterViewChecked {
       const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.defer = true; script.dataset['hutubeGoogle'] = 'true'; script.onload = () => resolve(); script.onerror = () => reject(); document.head.appendChild(script);
     });
   }
-  get title() { return this.titles[this.mode()]; }
   get hasResetToken() { return !!this.token; }
   get mobileResetLink() { return 'hutube://auth/reset-password?token=' + encodeURIComponent(this.token); }
   private run(request: Observable<unknown>, success: () => void) {

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import 'auth.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_notifier.dart';
+import 'core/localization/app_strings.dart';
 import 'core/widgets/app_shell.dart';
 
 export 'core/widgets/app_logo.dart';
@@ -25,10 +27,24 @@ class HuTubeApp extends StatelessWidget {
   final Stream<Uri>? links;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'HuTube',
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.theme,
-    home: AppShell(auth: auth, links: links),
-  );
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeNotifier.themeMode,
+      builder: (context, currentThemeMode, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: AppStrings.currentLang,
+          builder: (context, lang, child) {
+            return MaterialApp(
+              title: 'HuTube',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: currentThemeMode,
+              home: AppShell(auth: auth, links: links),
+            );
+          },
+        );
+      },
+    );
+  }
 }

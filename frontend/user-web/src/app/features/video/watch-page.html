@@ -1,0 +1,223 @@
+<main id="main-content" class="watch-page">
+  @if (loading()) {
+    <div class="watch-layout watch-layout--loading" aria-label="Đang tải video">
+      <section class="watch-main">
+        <div class="skeleton skeleton-player"></div>
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-meta"></div>
+        <div class="skeleton skeleton-channel"></div>
+        <div class="skeleton skeleton-description"></div>
+      </section>
+      <aside class="recommendations" aria-hidden="true">
+        @for (item of [1, 2, 3, 4, 5]; track item) {
+          <div class="recommendation-skeleton"><div class="skeleton"></div><div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line--short"></div></div></div>
+        }
+      </aside>
+    </div>
+  } @else if (error()) {
+    <section class="watch-state">
+      <div class="state-icon" aria-hidden="true">!</div>
+      <h1>Không thể mở video</h1>
+      <p>{{ error() }}</p>
+      <a routerLink="/home" class="primary-button">Về trang chủ</a>
+    </section>
+  } @else if (video(); as item) {
+    <div class="watch-layout">
+      <section class="watch-main">
+        <div class="player-shell" [class.is-mini-player]="miniPlayer()">
+          <div #playerStage class="player-stage">
+            @if (activeRendition(); as source) {
+              <video #player class="video-player" playsinline preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()"></video>
+            } @else {
+              <div class="player-empty"><span aria-hidden="true">▶</span><p>Video chưa sẵn sàng để phát.</p></div>
+            }
+            @if (activeRendition()) {
+              <div class="player-brand" aria-hidden="true"><span class="player-brand__mark">▶</span><span>HUTUBE ORIGINAL</span></div>
+              <button type="button" class="player-info" title="Thông tin video" aria-label="Thông tin video">i</button>
+            }
+            @if (activeRendition()) {
+              @if (!isPlaying()) {
+                <button type="button" class="player-big-play" (click)="$event.stopPropagation(); togglePlayback()" aria-label="Phát video">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" fill="currentColor"/></svg>
+                </button>
+              }
+              <div class="player-controls" [class.player-controls--visible]="!isPlaying()">
+                <input class="player-progress" type="range" min="0" [max]="totalDuration() || 1" step="0.1" [value]="currentTime()" (input)="seekFromSlider($any($event.target).value)" aria-label="Tiến trình video" />
+                <div class="player-control-row">
+                  <div class="player-control-group">
+                    <button type="button" class="player-icon-button" (click)="togglePlayback()" [attr.aria-label]="isPlaying() ? 'Tạm dừng' : 'Phát'">
+                      @if (isPlaying()) { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14M17 5v14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg> } @else { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" fill="currentColor"/></svg> }
+                    </button>
+                    <button type="button" class="player-icon-button player-icon-button--skip" (click)="seekBy(-10)" aria-label="Lùi 10 giây"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 8 5 12l4 4M6 12h8a5 5 0 1 1-4.8 6.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 9.5V6.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+                    <button type="button" class="player-icon-button player-icon-button--skip" (click)="seekBy(10)" aria-label="Tiến 10 giây"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 8 4 4-4 4M18 12h-8a5 5 0 1 0 4.8 6.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.5 9.5V6.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+                    <button type="button" class="player-icon-button player-volume-button" (click)="toggleMute()" [attr.aria-label]="muted() ? 'Bật âm thanh' : 'Tắt âm thanh'">
+                      @if (muted() || volume() === 0) { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Zm12 1 4 4m0-4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> } @else { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Zm12-1.5a5 5 0 0 1 0 7M18.5 6a9 9 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> }
+                    </button>
+                    <input class="player-volume" type="range" min="0" max="1" step="0.05" [value]="volume()" (input)="setVolume($any($event.target).value)" aria-label="Âm lượng" />
+                    <span class="player-time">{{ duration(currentTime()) }} / {{ duration(totalDuration()) }}</span>
+                  </div>
+                  <div class="player-control-group player-control-group--right">
+                    @if (playback()?.renditions?.length) {
+                      <label class="player-option"><span>Chất lượng</span><select [ngModel]="quality()" (ngModelChange)="changeQuality($event)" aria-label="Chất lượng video">
+                        @for (rendition of playback()!.renditions; track rendition.quality) { <option [value]="rendition.quality">{{ rendition.quality }}</option> }
+                      </select></label>
+                    }
+                    <label class="player-option"><span>Tốc độ</span><select [ngModel]="speed()" (ngModelChange)="changeSpeed($event)" aria-label="Tốc độ phát">
+                      @for (value of speeds; track value) { <option [ngValue]="value">{{ value }}×</option> }
+                    </select></label>
+                    <button type="button" class="player-icon-button player-mini-button" (click)="toggleMiniPlayer()" [attr.aria-pressed]="miniPlayer()" [attr.aria-label]="miniPlayer() ? 'Khôi phục kích thước video' : 'Thu nhỏ video'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H4zM11 13h9v6h-9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+                    <button type="button" class="player-icon-button" (click)="toggleFullscreen()" aria-label="Toàn màn hình"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <header class="video-header">
+          <h1>{{ item.title }}</h1>
+          <p class="video-meta"><span>{{ item.stats.views | number }} lượt xem</span><span aria-hidden="true">·</span><span>{{ item.createdAt | date:'d MMM y' }}</span><span class="status-chip">{{ item.visibility }}</span></p>
+        </header>
+
+        <div class="video-actions-anchor">
+        <div class="video-actions" aria-label="Tác vụ video">
+          <div class="reaction-group">
+              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'like'" [attr.aria-pressed]="item.viewerState?.reaction === 'like'" (click)="react('like')" aria-label="Thích video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.94-1.53l1.5-6A2 2 0 0 0 17.9 10H14l.7-3.5A2.05 2.05 0 0 0 12.7 4L7 10v10Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.likes | number }}</span></button>
+              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'dislike'" [attr.aria-pressed]="item.viewerState?.reaction === 'dislike'" (click)="react('dislike')" aria-label="Không thích video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3ZM17 4H7.6a2 2 0 0 0-1.94 1.53l-1.5 6A2 2 0 0 0 6.1 14H10l-.7 3.5A2.05 2.05 0 0 0 11.3 20L17 14V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.dislikes | number }}</span></button>
+          </div>
+          <button type="button" class="action-button" (click)="share()" [attr.aria-expanded]="shareOpen()" aria-controls="share-popover"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5-5 5M19 10H9a4 4 0 0 0-4 4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Chia sẻ</span></button>
+          <div class="rating-control" role="group" aria-label="Đánh giá video từ 1 đến 5 sao">
+            <span class="rating-label">Đánh giá</span>
+            <div class="rating-stars">
+              @for (star of [1, 2, 3, 4, 5]; track star) {
+                <button type="button" class="rating-star" [class.is-selected]="ratingSelected(item, star)" [attr.aria-pressed]="ratingSelected(item, star)" [attr.aria-label]="'Đánh giá ' + star + ' sao'" (click)="rate(star)">★</button>
+              }
+            </div>
+            @if (item.viewerState?.rating; as selectedRating) {
+              <span class="rating-value">{{ selectedRating }}/5</span>
+              <button type="button" class="rating-clear" (click)="rate(null)" aria-label="Bỏ đánh giá">×</button>
+            }
+          </div>
+          <span class="shortcut-hint">K / Space phát · J/L ±10s · F toàn màn hình · M tắt tiếng · I thu nhỏ</span>
+        </div>
+
+        @if (shareOpen()) {
+          <div id="share-popover" class="share-popover" role="dialog" aria-label="Chia sẻ video">
+            <div class="share-popover__header"><div><strong>Chia sẻ video</strong><p>Sao chép liên kết để gửi cho người khác.</p></div><button type="button" class="share-popover__close" (click)="closeShare()" aria-label="Đóng popup">×</button></div>
+            <label class="share-link-field">Liên kết video<input readonly [value]="shareUrl()" (focus)="$any($event.target).select()" /></label>
+            <div class="share-popover__actions"><button type="button" class="primary-button" (click)="copyShareLink()">Sao chép liên kết</button><a [href]="shareUrl()" target="_blank" rel="noreferrer">Mở liên kết</a></div>
+          </div>
+        }
+        </div>
+
+        <section class="channel-row">
+          <a class="channel-identity" [routerLink]="['/channel', item.channelHandle]">
+            @if (channel(); as currentChannel) {
+              @if (currentChannel.avatarUrl) { <img class="channel-avatar" [src]="currentChannel.avatarUrl" alt="" /> } @else { <span class="channel-avatar channel-avatar--fallback">{{ initials(item.channelName) }}</span> }
+            } @else { <span class="channel-avatar channel-avatar--fallback">{{ initials(item.channelName) }}</span> }
+            <span class="channel-copy"><strong>{{ item.channelName }}</strong><small>@{{ item.channelHandle }}</small></span>
+          </a>
+          @if (channel(); as currentChannel) {
+            @if (currentChannel.subscriberCount !== undefined) { <span class="subscriber-count">{{ currentChannel.subscriberCount | number }} người đăng ký</span> }
+          }
+        </section>
+
+        <div class="video-details-grid">
+          <section class="description-panel">
+            <div class="description-heading"><strong>{{ item.stats.views | number }} lượt xem</strong><span>{{ item.languageCode || 'Tiếng Việt' }}</span></div>
+            <p>{{ item.description || 'Video này chưa có phần mô tả.' }}</p>
+            @if (item.tags.length) { <div class="tag-list">@for (tag of item.tags; track tag) { <a [routerLink]="['/explore']" [queryParams]="{q: tag}">#{{ tag }}</a> }</div> }
+          </section>
+
+          @if (item.chapters.length) {
+            <section class="chapters-panel">
+              <header class="section-heading"><div><h2>Nội dung video</h2><p>Các chương giúp bạn đi thẳng đến phần muốn xem.</p></div><span>{{ item.chapters.length }} chương</span></header>
+              <div class="chapter-list">
+                @for (chapter of item.chapters; track chapter.startSeconds) { <button type="button" class="chapter-row" (click)="seekTo(chapter.startSeconds)"><time>{{ duration(chapter.startSeconds) }}</time><span>{{ chapter.title }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button> }
+              </div>
+            </section>
+          }
+        </div>
+
+        <section class="comments-section">
+          <header class="section-heading comments-heading"><div><h2>Bình luận</h2><p>{{ item.stats.comments | number }} bình luận trong video này</p></div><span class="comments-sort">Mới nhất</span></header>
+          <form class="comment-composer" (ngSubmit)="comment()">
+            <span class="comment-avatar comment-avatar--self">{{ initials(auth.user()?.displayName) }}</span>
+            <div class="composer-body"><textarea name="comment" [(ngModel)]="commentText" rows="2" placeholder="Viết bình luận của bạn…"></textarea><div class="composer-footer"><span>Hãy giữ cuộc trò chuyện văn minh.</span><button type="submit" class="primary-button" [disabled]="!commentText.trim()">Gửi bình luận</button></div></div>
+          </form>
+          <div class="comment-list">
+            @for (comment of comments(); track comment.commentId) {
+              <article class="comment-row" [class.is-hidden]="comment.status === 'hidden'">
+                <span class="comment-avatar">{{ initials(comment.displayName) }}</span>
+                <div class="comment-body">
+                  <div class="comment-author"><strong>{{ comment.displayName }}</strong><time>{{ comment.createdAt | date:'d MMM y' }}</time></div>
+                  <p>{{ comment.content }}</p>
+                  <div class="comment-actions">
+                      <button type="button" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" (click)="reactComment(comment, 'like')">Thích <span>{{ comment.likes | number }}</span></button>
+                      <button type="button" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" (click)="reactComment(comment, 'dislike')">Không thích <span>{{ comment.dislikes | number }}</span></button>
+                    <button type="button" (click)="replyTo.set(comment.commentId)">Trả lời</button>
+                    @if (comment.replyCount > 0) {
+                      <button type="button" class="reply-toggle" [attr.aria-expanded]="isRepliesOpen(comment.commentId)" (click)="toggleReplies(comment)">
+                        {{ isRepliesOpen(comment.commentId) ? 'Ẩn câu trả lời' : ('Xem ' + comment.replyCount + ' câu trả lời') }}
+                      </button>
+                    }
+                    @if (isOwner()) { <button type="button" (click)="hide(comment)">{{ comment.status === 'hidden' ? 'Hiện' : 'Ẩn' }}</button> }
+                    @if (isOwnComment(comment)) { <button type="button" class="is-danger" (click)="remove(comment)">Xóa</button> } @else { <button type="button" (click)="report(comment)">Báo cáo</button> }
+                  </div>
+                  @if (replyTo() === comment.commentId) {
+                    <form class="reply-composer" (ngSubmit)="reply(comment)"><input name="reply" [(ngModel)]="replyText" placeholder="Viết câu trả lời…"/><button type="submit" class="primary-button">Gửi</button></form>
+                  }
+                  @if (isRepliesOpen(comment.commentId)) {
+                    <div class="replies-list" aria-label="Các câu trả lời">
+                      @if (isRepliesLoading(comment.commentId)) { <p class="replies-status">Đang tải câu trả lời…</p> }
+                      @for (replyItem of repliesFor(comment.commentId); track replyItem.commentId) {
+                        <article class="comment-row comment-row--reply" [class.is-hidden]="replyItem.status === 'hidden'">
+                          <span class="comment-avatar">{{ initials(replyItem.displayName) }}</span>
+                          <div class="comment-body">
+                            <div class="comment-author"><strong>{{ replyItem.displayName }}</strong><time>{{ replyItem.createdAt | date:'d MMM y' }}</time></div>
+                            <p>{{ replyItem.content }}</p>
+                            <div class="comment-actions">
+                              <button type="button" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" (click)="reactComment(replyItem, 'like')">Thích <span>{{ replyItem.likes | number }}</span></button>
+                              <button type="button" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" (click)="reactComment(replyItem, 'dislike')">Không thích <span>{{ replyItem.dislikes | number }}</span></button>
+                              @if (isOwner()) { <button type="button" (click)="hide(replyItem)">{{ replyItem.status === 'hidden' ? 'Hiện' : 'Ẩn' }}</button> }
+                              @if (isOwnComment(replyItem)) { <button type="button" class="is-danger" (click)="remove(replyItem)">Xóa</button> } @else { <button type="button" (click)="report(replyItem)">Báo cáo</button> }
+                            </div>
+                          </div>
+                        </article>
+                      } @empty {
+                        @if (!isRepliesLoading(comment.commentId)) { <p class="replies-status">Chưa có câu trả lời.</p> }
+                      }
+                    </div>
+                  }
+                </div>
+              </article>
+            } @empty { <div class="empty-comments"><span aria-hidden="true">✦</span><strong>Chưa có bình luận nào</strong><p>Hãy là người đầu tiên chia sẻ cảm nhận về video này.</p></div> }
+          </div>
+        </section>
+        @if (actionMessage()) { <p class="action-message" role="status">{{ actionMessage() }}</p> }
+      </section>
+
+      <aside class="recommendations" aria-label="Video đề xuất">
+        <div class="recommendation-filters" role="tablist" aria-label="Bộ lọc video đề xuất">
+          <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'all'" [class.is-active]="recommendationFilter() === 'all'" (click)="setRecommendationFilter('all')">Tất cả</button>
+          <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'related'" [class.is-active]="recommendationFilter() === 'related'" (click)="setRecommendationFilter('related')">Video liên quan</button>
+          <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'channel'" [class.is-active]="recommendationFilter() === 'channel'" (click)="setRecommendationFilter('channel')">Cùng của kênh</button>
+          <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'category'" [class.is-active]="recommendationFilter() === 'category'" (click)="setRecommendationFilter('category')">Du lịch Việt Nam</button>
+        </div>
+        <div class="recommendations-header"><div><h2>Đề xuất cho bạn</h2><p>Tiếp tục khám phá trên HuTube</p></div><button type="button" class="autoplay-toggle" [class.is-on]="autoplay()" [attr.aria-pressed]="autoplay()" (click)="toggleAutoplay()"><span class="autoplay-toggle__dot"></span><span>Tự động phát</span></button></div>
+        @if (visibleRelatedVideos().length) {
+          <div class="recommendation-list">
+            @for (recommended of visibleRelatedVideos(); track recommended.videoId) {
+              <a class="recommendation-card" [routerLink]="['/watch', recommended.videoId]">
+                <div class="recommendation-thumb">@if (recommended.thumbnailUrl) { <img [src]="recommended.thumbnailUrl" alt="" /> } @else { <span aria-hidden="true">▶</span> }<time>{{ duration(recommended.duration) }}</time></div>
+                <div class="recommendation-copy"><h3>{{ recommended.title }}</h3><p>{{ recommended.channelName }}</p><small>{{ recommended.views | number }} lượt xem<span aria-hidden="true"> · </span>{{ recommended.publishedAt ? (recommended.publishedAt | date:'d MMM y') : 'Mới đăng' }}</small></div>
+              </a>
+            }
+          </div>
+        } @else {
+          <div class="recommendations-empty"><span aria-hidden="true">◌</span><p>Chưa có video đề xuất.</p></div>
+        }
+      </aside>
+    </div>
+  }
+</main>

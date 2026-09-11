@@ -1,6 +1,7 @@
 using HuTube.Domain.Channels;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
+using HuTube.Domain.Videos;
 using Microsoft.EntityFrameworkCore;
 
 namespace HuTube.Infrastructure.Persistence;
@@ -18,6 +19,24 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Video> Videos => Set<Video>();
+    public DbSet<VideoRendition> VideoRenditions => Set<VideoRendition>();
+    public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<VideoTag> VideoTags => Set<VideoTag>();
+    public DbSet<ViewingHistory> ViewingHistories => Set<ViewingHistory>();
+    public DbSet<ShareHistory> ShareHistories => Set<ShareHistory>();
+    public DbSet<VideoReaction> VideoReactions => Set<VideoReaction>();
+    public DbSet<VideoRating> VideoRatings => Set<VideoRating>();
+    public DbSet<Comment> Comments => Set<Comment>();
+    public DbSet<CommentReaction> CommentReactions => Set<CommentReaction>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<ViolationType> ViolationTypes => Set<ViolationType>();
+    public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ModerationCase> ModerationCases => Set<ModerationCase>();
+    public DbSet<CommentModerationAction> CommentModerationActions => Set<CommentModerationAction>();
+    public DbSet<VideoDownload> VideoDownloads => Set<VideoDownload>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
@@ -34,6 +53,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.GoogleSubject).HasColumnName("google_subject");
             b.Property(x => x.DisplayName).HasColumnName("display_name"); b.Property(x => x.AvatarUrl).HasColumnName("avatar_url");
             b.Property(x => x.RoleId).HasColumnName("role_id");
+            b.Property(x => x.PlanId).HasColumnName("plan_id");
             b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.EmailVerifiedAt).HasColumnName("email_verified_at");
             b.Property(x => x.LastLoginAt).HasColumnName("last_login_at"); b.Property(x => x.FailedLoginAttempts).HasColumnName("failed_login_attempts");
             b.Property(x => x.LockedUntil).HasColumnName("locked_until"); b.Property(x => x.CreatedAt).HasColumnName("created_at");
@@ -107,6 +127,24 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
                     v => v == null ? null : v.ToString())
                 .HasColumnType("inet");
         });
+        model.Entity<Plan>(b => { b.ToTable("plans"); b.HasKey(x => x.PlanId); b.Property(x => x.Features).HasColumnType("jsonb"); });
+        model.Entity<Category>(b => { b.ToTable("categories"); b.HasKey(x => x.CategoryId); b.HasIndex(x => x.Slug).IsUnique(); });
+        model.Entity<Video>(b => { b.ToTable("videos"); b.HasKey(x => x.VideoId); b.Property(x => x.Metadata).HasColumnType("jsonb"); });
+        model.Entity<VideoRendition>(b => { b.ToTable("video_renditions"); b.HasKey(x => x.VideoRenditionId); b.HasIndex(x => new { x.VideoId, x.QualityLabel }).IsUnique(); });
+        model.Entity<Tag>(b => { b.ToTable("tags"); b.HasKey(x => x.TagId); });
+        model.Entity<VideoTag>(b => { b.ToTable("video_tags"); b.HasKey(x => x.VideoTagId); b.HasIndex(x => new { x.VideoId, x.TagId }).IsUnique(); });
+        model.Entity<ViewingHistory>(b => { b.ToTable("viewing_histories"); b.HasKey(x => x.ViewingHistoryId); });
+        model.Entity<ShareHistory>(b => { b.ToTable("share_histories"); b.HasKey(x => x.ShareHistoryId); });
+        model.Entity<VideoReaction>(b => { b.ToTable("video_reactions"); b.HasKey(x => x.VideoReactionId); b.HasIndex(x => new { x.UserId, x.VideoId }).IsUnique(); });
+        model.Entity<VideoRating>(b => { b.ToTable("video_ratings"); b.HasKey(x => x.VideoRatingId); b.HasIndex(x => new { x.UserId, x.VideoId }).IsUnique(); });
+        model.Entity<Comment>(b => { b.ToTable("comments"); b.HasKey(x => x.CommentId); });
+        model.Entity<CommentReaction>(b => { b.ToTable("comment_reactions"); b.HasKey(x => x.CommentReactionId); b.HasIndex(x => new { x.UserId, x.CommentId }).IsUnique(); });
+        model.Entity<Notification>(b => { b.ToTable("notifications"); b.HasKey(x => x.NotificationId); });
+        model.Entity<ViolationType>(b => { b.ToTable("violation_types"); b.HasKey(x => x.ViolationTypeId); });
+        model.Entity<Report>(b => { b.ToTable("reports"); b.HasKey(x => x.ReportId); });
+        model.Entity<ModerationCase>(b => { b.ToTable("moderation_cases"); b.HasKey(x => x.ModerationCaseId); });
+        model.Entity<CommentModerationAction>(b => { b.ToTable("comment_moderation_actions"); b.HasKey(x => x.CommentModerationActionId); });
+        model.Entity<VideoDownload>(b => { b.ToTable("video_downloads"); b.HasKey(x => x.VideoDownloadId); b.HasIndex(x => new { x.UserId, x.VideoId, x.QualityLabel }).IsUnique(); });
         foreach (var entity in model.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
                 property.SetColumnName(System.Text.RegularExpressions.Regex.Replace(property.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant());

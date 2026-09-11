@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using HuTube.Application.Account;
 using HuTube.Application.Auth;
 using HuTube.Domain.Users;
@@ -11,8 +10,6 @@ public sealed class AccountService(
     HuTubeDbContext db,
     IPasswordService passwordService) : IAccountService
 {
-    private static readonly ConcurrentDictionary<Guid, UserPreferencesDto> PreferencesCache = new();
-
     public async Task<UserProfileDto> GetProfileAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.UserId == userId, ct)
@@ -168,23 +165,28 @@ public sealed class AccountService(
         );
     }
 
-    public Task<UserPreferencesDto> GetPreferencesAsync(Guid userId, CancellationToken ct = default)
+    public async Task<UserPreferencesDto> GetPreferencesAsync(Guid userId, CancellationToken ct = default)
     {
-        var prefs = PreferencesCache.GetOrAdd(userId, _ => new UserPreferencesDto("vi", "light", true, true, "Việt Nam"));
-        return Task.FromResult(prefs);
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct)
+            ?? throw new AuthException(404, "USER_NOT_FOUND", "Không tìm thấy thông tin tài khoản.");
+        return new(user.PreferredLanguage, user.Theme, user.KeepSubscriptionsPrivate, user.KeepPlaylistsPrivate, user.Location);
     }
 
-    public Task<UserPreferencesDto> UpdatePreferencesAsync(Guid userId, UpdateUserPreferencesRequest request, CancellationToken ct = default)
+    public async Task<UserPreferencesDto> UpdatePreferencesAsync(Guid userId, UpdateUserPreferencesRequest request, CancellationToken ct = default)
     {
-        var current = PreferencesCache.GetOrAdd(userId, _ => new UserPreferencesDto("vi", "light", true, true, "Việt Nam"));
-        var updated = new UserPreferencesDto(
-            request.Language ?? current.Language,
-            request.Theme ?? current.Theme,
-            request.KeepSubscriptionsPrivate ?? current.KeepSubscriptionsPrivate,
-            request.KeepPlaylistsPrivate ?? current.KeepPlaylistsPrivate,
-            request.Location ?? current.Location
-        );
-        PreferencesCache[userId] = updated;
-        return Task.FromResult(updated);
+        var user = await db.Users.SingleOrDefaultAsync(x => x.UserId == userId, ct)
+            ?? throw new AuthException(404, "USER_NOT_FOUND", "Không tìm thấy thông tin tài khoản.");
+        if (request.Language != null && request.Language is not ("vi" or "en"))
+            throw new AuthException(400, "INVALID_LANGUAGE", "Ngôn ngữ chỉ hỗ trợ vi hoặc en.");
+        if (request.Theme != null && request.Theme is not ("light" or "dark" or "system"))
+            throw new AuthException(400, "INVALID_THEME", "Giao diện chỉ hỗ trợ light, dark hoặc system.");
+        user.PreferredLanguage = request.Language ?? user.PreferredLanguage;
+        user.Theme = request.Theme ?? user.Theme;
+        user.KeepSubscriptionsPrivate = request.KeepSubscriptionsPrivate ?? user.KeepSubscriptionsPrivate;
+        user.KeepPlaylistsPrivate = request.KeepPlaylistsPrivate ?? user.KeepPlaylistsPrivate;
+        user.Location = request.Location == null ? user.Location : string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return new(user.PreferredLanguage, user.Theme, user.KeepSubscriptionsPrivate, user.KeepPlaylistsPrivate, user.Location);
     }
 }

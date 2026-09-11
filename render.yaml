@@ -40,6 +40,24 @@ services:
         sync: false
       - key: Storage__ApiSecret
         sync: false
+      - key: Storage__R2__AccountId
+        sync: false
+      - key: Storage__R2__AccessKeyId
+        sync: false
+      - key: Storage__R2__SecretAccessKey
+        sync: false
+      - key: Storage__R2__BucketName
+        value: hutube
+      - key: Storage__R2__ReadUrlMinutes
+        value: "60"
+      - key: VideoProcessing__Enabled
+        value: "true"
+      - key: VideoProcessing__FfmpegPath
+        value: ffmpeg
+      - key: Features__ModerationEnabled
+        value: "false"
+      - key: Features__PlanEnforcementEnabled
+        value: "false"
       - key: Email__Mode
         value: Smtp
       - key: Email__Host

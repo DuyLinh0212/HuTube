@@ -74,14 +74,29 @@
           <label for="channelHandle" class="input-label">Handle (Tên định danh) <span class="required">*</span></label>
           <div class="handle-input-wrap">
             <span class="handle-prefix">&#64;</span>
-            <input id="channelHandle" type="text" class="text-input handle-field" [(ngModel)]="handle" name="handle" (input)="onHandleInput()" placeholder="mychannel" [disabled]="busy()" required />
+            <input
+              id="channelHandle"
+              type="text"
+              class="text-input handle-field"
+              [(ngModel)]="handle"
+              name="handle"
+              (input)="onHandleInput($event)"
+              (ngModelChange)="onHandleInput($event)"
+              (compositionend)="onHandleInput($event)"
+              (blur)="onHandleBlur($event)"
+              placeholder="mychannel"
+              [disabled]="busy()"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            />
           </div>
           @if (handleFeedback()) {
             <p class="feedback-text" [class.is-valid]="handleValid() === true" [class.is-invalid]="handleValid() === false">
               {{ handleFeedback() }}
             </p>
           } @else {
-            <p class="field-help">Handle sẽ là địa chỉ duy nhất của bạn: mach.vn/&#64;{{ handle || 'handle' }}</p>
+            <p class="field-help">Handle sẽ là địa chỉ duy nhất của bạn: hutube.vn/&#64;{{ handle || 'handle' }}</p>
           }
         </div>
 
@@ -96,9 +111,9 @@
         </div>
 
         <div class="form-actions">
-          <button type="button" routerLink="/account" class="btn-secondary" [disabled]="busy()">Hủy</button>
-          <button type="submit" class="btn-primary" [disabled]="busy() || !name || !handle || handleValid() === false">
-            @if (busy()) { <span class="spinner"></span> Đang tạo kênh... } @else { Tạo kênh }
+          <button type="button" [routerLink]="studioMode ? '/account' : '/account'" class="btn-secondary" [disabled]="busy()">Hủy</button>
+          <button type="submit" class="btn-primary" [disabled]="busy() || !name.trim() || !handle.trim() || handleValid() === false">
+            @if (busy()) { <span class="spinner"></span> Đang tạo kênh... } @else { Tạo kênh ngay }
           </button>
         </div>
       </form>

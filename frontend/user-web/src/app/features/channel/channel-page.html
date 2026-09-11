@@ -96,11 +96,20 @@
     <!-- Tab Content -->
     <div class="channel-tab-content">
       @if (activeTab() === 'home' || activeTab() === 'videos') {
-        <div class="empty-videos-box">
+        @if (videos().length) {
+          <div class="channel-video-grid">
+            @for (video of videos(); track video.videoId) {
+              <a class="channel-video-card" [routerLink]="['/watch', video.videoId]">
+                <div class="channel-video-thumb">@if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" alt="" /> } @else { ▶ }</div>
+                <strong>{{ video.title }}</strong><small>{{ video.stats.views }} lượt xem · {{ video.visibility }}</small>
+              </a>
+            }
+          </div>
+        } @else { <div class="empty-videos-box">
           <div class="box-icon">🎬</div>
           <h3>Chưa có video nào</h3>
           <p>Kênh này chưa tải lên video nào. Hãy quay lại sau nhé!</p>
-        </div>
+        </div> }
       }
 
       @if (activeTab() === 'playlists') {

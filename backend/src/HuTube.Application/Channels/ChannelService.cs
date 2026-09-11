@@ -1,10 +1,11 @@
 using System.Text.Json;
+using HuTube.Application.Auth;
 using HuTube.Application.Rbac;
 using HuTube.Domain.Channels;
 
 namespace HuTube.Application.Channels;
 
-public sealed class ChannelService(IChannelStore store, RbacService? audit = null)
+public sealed class ChannelService(IChannelStore store, RbacService? audit = null, IAuthEmailSender? emailSender = null, AuthOptions? authOptions = null)
 {
     private const int MaxChannelsPerUser = 1;
 
@@ -202,6 +203,31 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
 
         store.AddInvitation(invitation);
         await store.SaveAsync(ct);
+        if (emailSender != null)
+        {
+            var webBaseUrl = string.IsNullOrWhiteSpace(authOptions?.WebBaseUrl)
+                ? "http://localhost:4200"
+                : authOptions.WebBaseUrl.TrimEnd('/');
+            var invitationUrl = $"{webBaseUrl}/channel-invitations?invitation={invitation.ChannelInvitationId}";
+            var subject = $"Bạn được mời tham gia kênh {channel.Name} trên HuTube";
+            var body = $"Xin chào {targetUser.DisplayName},\n\n" +
+                       $"Bạn được mời tham gia kênh \"{channel.Name}\" với vai trò {RoleName(roleCode)}.\n" +
+                       $"Lời mời có hiệu lực đến {invitation.ExpiresAt:dd/MM/yyyy HH:mm} (giờ UTC).\n\n" +
+                       $"Mở HuTube để xem và phản hồi lời mời:\n{invitationUrl}\n\n" +
+                       "Nếu bạn không mong đợi email này, bạn có thể bỏ qua nó.";
+            try
+            {
+                await emailSender.SendAsync(targetUser.Email, subject, body, ct);
+            }
+            catch
+            {
+                // Do not leave a pending invitation that tells the owner it was sent when delivery failed.
+                invitation.Status = "revoked";
+                invitation.RespondedAt = DateTimeOffset.UtcNow;
+                try { await store.SaveAsync(CancellationToken.None); } catch { /* preserve the delivery error */ }
+                throw;
+            }
+        }
         await WriteAuditAsync(actorUserId, "channel.member_invited", channel.ChannelId, $"role={roleCode}", ct);
         return ToInvitationResponse(invitation, channel);
     }
@@ -388,6 +414,9 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         "comment_moderator" => ChannelRoles.Moderator,
         var value => value
     };
+
+    private static string RoleName(string roleCode) =>
+        Roles.FirstOrDefault(role => string.Equals(role.Code, roleCode, StringComparison.OrdinalIgnoreCase))?.Name ?? roleCode;
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

@@ -11,6 +11,12 @@ public sealed class User
     public string? AvatarUrl { get; set; }
     public string? Bio { get; set; }
     public Guid RoleId { get; set; }
+    public Guid? PlanId { get; set; }
+    public string PreferredLanguage { get; set; } = "vi";
+    public string Theme { get; set; } = "system";
+    public bool KeepSubscriptionsPrivate { get; set; } = true;
+    public bool KeepPlaylistsPrivate { get; set; } = true;
+    public string? Location { get; set; } = "Việt Nam";
     public string Status { get; set; } = "pending";
     public DateTimeOffset? EmailVerifiedAt { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }

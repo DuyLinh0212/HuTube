@@ -34,3 +34,8 @@ backend/src/HuTube.Api/uploads/
 **/playwright-report/
 **/test-results/
 .local/
+
+# Local PostgreSQL exports may contain the complete application dataset.
+hutube-*.dump
+hutube-*.backup
+hutube-*.sql

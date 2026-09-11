@@ -1,20 +1,103 @@
 <header class="topbar">
-  <button class="menu-button" type="button" aria-label="Mở menu" (click)="menuOpened.emit()"><span></span><span></span><span></span></button>
-  <a class="mobile-mark" routerLink="/account" aria-label="HuTube"><img src="/assets/logo-mark.png" alt="" /></a>
-  <label class="search-box"><span class="search-glyph" aria-hidden="true"></span><input type="search" placeholder="Tìm video, kênh hoặc chủ đề" aria-label="Tìm kiếm trên HuTube" /><kbd>Ctrl K</kbd></label>
+  <button class="menu-button" type="button" [attr.aria-label]="'nav.expandSidebar' | translate" (click)="menuOpened.emit()">
+    <span></span><span></span><span></span>
+  </button>
+
+  <a class="mobile-mark" routerLink="/account" aria-label="HuTube">
+    <img src="/assets/logo-mark.png" alt="HuTube" />
+  </a>
+
+  <label class="search-box">
+    <span class="search-glyph" aria-hidden="true"></span>
+    <input type="search" [placeholder]="'nav.searchPlaceholder' | translate" [attr.aria-label]="'nav.searchPlaceholder' | translate" />
+    <kbd>Ctrl K</kbd>
+  </label>
+
   <div class="top-actions" aria-label="Tác vụ nhanh">
     @if (myChannel(); as ch) {
-      <a class="create-action" [routerLink]="['/channel', ch.handle]" title="Kênh của tôi">
+      <a class="create-action" [routerLink]="['/channel', ch.handle]" [title]="'nav.yourChannel' | translate">
         <img src="/assets/icons/my_channel.png" alt="" />
-        <span>Kênh của tôi</span>
+        <span>{{ 'nav.yourChannel' | translate }}</span>
       </a>
     } @else {
-      <a class="create-action create-channel-btn" routerLink="/channel/create" title="Tạo kênh mới">
+      <a class="create-action create-channel-btn" routerLink="/channel/create" [title]="'nav.createChannel' | translate">
         <span class="action-plus">+</span>
-        <span>Tạo kênh</span>
+        <span>{{ 'nav.createChannel' | translate }}</span>
       </a>
     }
-    <span class="icon-action" aria-label="Thông báo" role="img"><img src="/assets/icons/notification.png" alt="" /><i aria-hidden="true"></i></span>
-    <a class="top-avatar" routerLink="/account" aria-label="Mở tài khoản">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }}</a>
+
+    <!-- Notification -->
+    <button class="icon-action notif-btn" type="button" [attr.aria-label]="'nav.notifications' | translate" (click)="toggleNotifications()">
+      <img src="/assets/icons/notification.png" alt="" />
+      @if (notifications.unread()) { <i aria-hidden="true">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</i> }
+    </button>
+    @if (notificationsOpen()) { <app-notification-panel (closed)="notificationsOpen.set(false)" /> }
+
+    <!-- Avatar with Dropdown -->
+    <div class="avatar-container">
+      <button class="top-avatar" type="button" (click)="toggleDropdown()" [attr.aria-expanded]="dropdownOpen()" aria-haspopup="true" [attr.aria-label]="'nav.profile' | translate">
+        @if (profile()?.avatarUrl) { <img class="avatar-image" [src]="profile()!.avatarUrl!" alt="" /> } @else { {{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }} }
+      </button>
+
+      @if (dropdownOpen()) {
+        <div class="avatar-dropdown">
+          <div class="dropdown-header">
+            <div class="dropdown-avatar">@if (profile()?.avatarUrl) { <img class="avatar-image" [src]="profile()!.avatarUrl!" alt="" /> } @else { {{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }} }</div>
+            <div class="dropdown-user-info">
+              <strong>{{ auth.user()?.displayName || 'Người dùng HuTube' }}</strong>
+              <small>{{ auth.user()?.email || '@user' }}</small>
+            </div>
+          </div>
+
+          <div class="dropdown-body">
+            <!-- VÀO STUDIO ACTION BUTTON -->
+            <a class="dropdown-item dropdown-item--studio" routerLink="/studio" (click)="closeDropdown()">
+              <span class="studio-badge-icon">🎬</span>
+              <div class="studio-item-text">
+                <span class="studio-title">{{ 'nav.enterStudio' | translate }}</span>
+                <span class="studio-sub">{{ 'nav.studioSub' | translate }}</span>
+              </div>
+              <span class="studio-arrow">→</span>
+            </a>
+
+            <div class="dropdown-divider"></div>
+
+            @if (myChannel(); as ch) {
+              <a class="dropdown-item" [routerLink]="['/channel', ch.handle]" (click)="closeDropdown()">
+                <span class="item-icon">📺</span>
+                <span>{{ 'nav.yourChannel' | translate }}</span>
+              </a>
+            } @else {
+              <a class="dropdown-item" routerLink="/channel/create" (click)="closeDropdown()">
+                <span class="item-icon">➕</span>
+                <span>{{ 'nav.createChannel' | translate }}</span>
+              </a>
+            }
+
+            <a class="dropdown-item" routerLink="/account" (click)="closeDropdown()">
+              <span class="item-icon">⚙️</span>
+              <span>{{ 'account.title' | translate }}</span>
+            </a>
+
+            <button class="dropdown-item" type="button" (click)="toggleTheme()">
+              <span class="item-icon">{{ themeService.currentTheme() === 'dark' ? '☀️' : '🌙' }}</span>
+              <span>{{ 'nav.theme' | translate }}: <strong>{{ themeService.currentTheme() === 'dark' ? ('nav.themeDark' | translate) : ('nav.themeLight' | translate) }}</strong></span>
+            </button>
+
+            <button class="dropdown-item" type="button" (click)="toggleLanguage()">
+              <span class="item-icon">🌐</span>
+              <span>{{ 'nav.language' | translate }}: <strong>{{ i18n.currentLang() === 'vi' ? 'Tiếng Việt' : 'English' }}</strong></span>
+            </button>
+
+            <div class="dropdown-divider"></div>
+
+            <button class="dropdown-item dropdown-item--danger" type="button" (click)="logout()">
+              <span class="item-icon">🚪</span>
+              <span>{{ 'nav.logout' | translate }}</span>
+            </button>
+          </div>
+        </div>
+      }
+    </div>
   </div>
 </header>

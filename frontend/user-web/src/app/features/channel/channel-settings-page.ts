@@ -158,7 +158,7 @@ export class ChannelSettingsPage {
       .subscribe({
         next: () => {
           this.inviteEmail = '';
-          this.message.set('Đã gửi lời mời tham gia kênh.');
+          this.message.set('Đã gửi lời mời và email thông báo cho thành viên.');
           this.loadCollaboration();
         },
         error: err => this.error.set(errorMessage(err))

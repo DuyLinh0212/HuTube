@@ -1,12 +1,12 @@
 <main id="main-content" class="account-page-container">
   <div class="account-header">
     <div class="header-titles">
-      <h1 class="page-title">Hồ sơ</h1>
-      <p class="page-subtitle">Quản lý thông tin cá nhân, bảo mật tài khoản và cài đặt nền tảng HuTube.</p>
+      <h1 class="page-title">{{ 'account.title' | translate }}</h1>
+      <p class="page-subtitle">{{ 'account.prefsDesc' | translate }}</p>
     </div>
     <div class="header-actions">
       <button type="button" class="btn-secondary" [disabled]="busy()" (click)="logout()">
-        <span class="btn-icon">🚪</span> Đăng xuất
+        <span class="btn-icon">🚪</span> {{ 'nav.logout' | translate }}
       </button>
     </div>
   </div>
@@ -28,19 +28,19 @@
   <!-- Tab Navigation Bar -->
   <nav class="account-tabs-nav" aria-label="Các mục cài đặt tài khoản">
     <button type="button" class="tab-btn" [class.active]="activeTab() === 'profile'" (click)="setTab('profile')">
-      Chỉnh sửa thông tin
+      {{ 'account.tabProfile' | translate }}
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab() === 'password'" (click)="setTab('password')">
-      Đổi mật khẩu
+      {{ 'account.tabPassword' | translate }}
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab() === 'notifications'" (click)="setTab('notifications')">
-      Thông báo
+      {{ 'account.tabNotifications' | translate }}
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab() === 'preferences'" (click)="setTab('preferences')">
-      Cài đặt & Giao diện
+      {{ 'account.tabPreferences' | translate }}
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab() === 'sessions'" (click)="setTab('sessions')">
-      Thiết bị đăng nhập
+      {{ 'account.tabSessions' | translate }}
     </button>
   </nav>
 
@@ -63,23 +63,23 @@
                 <h2 class="channel-name">{{ ch.name }}</h2>
                 <span class="verified-badge">✓</span>
               </div>
-              <p class="channel-meta">@{{ ch.handle }} · {{ ch.subscriberCount }} người đăng ký · {{ ch.videoCount }} video</p>
+              <p class="channel-meta">@{{ ch.handle }} · {{ ch.subscriberCount }} {{ 'account.subscribersCount' | translate }} · {{ ch.videoCount }} {{ 'account.videosCount' | translate }}</p>
             </div>
             <div class="channel-banner-actions">
-              <a [routerLink]="['/channel', ch.handle]" class="btn-channel-primary">Xem kênh</a>
-              <a [routerLink]="['/channel', ch.handle, 'customize']" class="btn-channel-secondary">Tùy chỉnh kênh</a>
+              <a [routerLink]="['/channel', ch.handle]" class="btn-channel-primary">{{ 'account.viewChannel' | translate }}</a>
+              <a [routerLink]="['/channel', ch.handle, 'customize']" class="btn-channel-secondary">{{ 'account.customizeChannel' | translate }}</a>
             </div>
           </div>
         } @else {
           <div class="channel-card-banner channel-promo">
             <div class="channel-promo-icon">📺</div>
             <div class="channel-banner-info">
-              <h2 class="channel-name">Kênh HuTube của bạn</h2>
-              <p class="channel-meta">Bạn chưa có kênh HuTube. Hãy tạo kênh ngay để bắt đầu tải video, xây dựng cộng đồng và chia sẻ đam mê sáng tạo!</p>
+              <h2 class="channel-name">{{ 'account.yourHuTubeChannel' | translate }}</h2>
+              <p class="channel-meta">{{ 'account.noChannelDesc' | translate }}</p>
             </div>
             <div class="channel-banner-actions">
               <a routerLink="/channel/create" class="btn-channel-cta">
-                <span class="plus-icon">+</span> Tạo kênh mới
+                <span class="plus-icon">+</span> {{ 'account.createChannelBtn' | translate }}
               </a>
             </div>
           </div>
@@ -87,22 +87,27 @@
 
         <!-- Avatar Section -->
         <section class="avatar-section">
-          <label class="section-label">Ảnh đại diện</label>
+          <label class="section-label">{{ 'account.avatarTitle' | translate }}</label>
           <div class="avatar-upload-row">
-            <div class="avatar-wrapper" (click)="triggerAvatarUpload()" title="Nhấp để chọn ảnh đại diện">
+            <div class="avatar-wrapper" (click)="triggerAvatarUpload()" [title]="'account.changeAvatar' | translate">
               @if (profile()?.avatarUrl; as url) {
-                <img [src]="url" alt="Ảnh đại diện" class="avatar-img" />
+                <img [src]="url" alt="Avatar" class="avatar-img" />
               } @else {
                 <div class="avatar-placeholder">
                   {{ (profile()?.displayName || 'H').slice(0, 1).toUpperCase() }}
                 </div>
               }
-              <div class="camera-badge" aria-hidden="true">📷</div>
+              <div class="camera-badge" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+              </div>
             </div>
             <div class="avatar-hints">
-              <p class="hint-text">JPG, PNG, WEBP hoặc GIF. Kích thước tối đa 5MB.</p>
+              <p class="hint-text">{{ 'account.avatarHint' | translate }}</p>
               <button type="button" class="btn-change-avatar" (click)="triggerAvatarUpload()" [disabled]="busy()">
-                Thay đổi ảnh
+                {{ 'account.changeAvatar' | translate }}
               </button>
               <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="onAvatarSelected($event)" hidden />
             </div>
@@ -112,54 +117,54 @@
         <!-- Form Fields Grid -->
         <div class="form-grid">
           <div class="form-group">
-            <label for="displayName" class="input-label">Họ và tên <span class="required">*</span></label>
-            <input id="displayName" type="text" class="text-input" [(ngModel)]="displayName" placeholder="Nhập họ và tên hiển thị" [disabled]="busy()" />
+            <label for="displayName" class="input-label">{{ 'account.displayName' | translate }} <span class="required">*</span></label>
+            <input id="displayName" type="text" class="text-input" [(ngModel)]="displayName" [placeholder]="'account.displayNamePlaceholder' | translate" [disabled]="busy()" />
           </div>
 
           <div class="form-group">
-            <label for="email" class="input-label">Email</label>
+            <label for="email" class="input-label">{{ 'account.email' | translate }}</label>
             <div class="email-field-row">
               <input id="email" type="email" class="text-input" [value]="profile()?.email" disabled />
               @if (profile()?.emailVerified) {
-                <span class="badge-verified">✓ Đã xác minh</span>
+                <span class="badge-verified">✓ {{ 'account.verified' | translate }}</span>
               } @else {
-                <span class="badge-unverified">Chưa xác minh</span>
+                <span class="badge-unverified">{{ 'account.unverified' | translate }}</span>
               }
             </div>
           </div>
 
           <div class="form-group">
-            <label for="username" class="input-label">Tên người dùng</label>
+            <label for="username" class="input-label">{{ 'account.username' | translate }}</label>
             <input id="username" type="text" class="text-input" [value]="profile()?.username" disabled />
-            <p class="field-help-text">URL kênh của bạn: mach.vn/&#64;{{ profile()?.username }}</p>
+            <p class="field-help-text">{{ 'account.channelUrlPrefix' | translate }} hutube.vn/&#64;{{ profile()?.username }}</p>
           </div>
 
           <div class="form-group">
-            <label for="location" class="input-label">Địa chỉ / Quốc gia</label>
+            <label for="location" class="input-label">{{ 'account.country' | translate }}</label>
             <select id="location" class="select-input" [(ngModel)]="location" [disabled]="busy()">
-              <option value="Việt Nam">Việt Nam</option>
-              <option value="United States">Hoa Kỳ</option>
-              <option value="Japan">Nhật Bản</option>
-              <option value="South Korea">Hàn Quốc</option>
-              <option value="Singapore">Singapore</option>
+              <option value="Việt Nam">{{ 'account.countryVN' | translate }}</option>
+              <option value="United States">{{ 'account.countryUS' | translate }}</option>
+              <option value="Japan">{{ 'account.countryJP' | translate }}</option>
+              <option value="South Korea">{{ 'account.countryKR' | translate }}</option>
+              <option value="Singapore">{{ 'account.countrySG' | translate }}</option>
             </select>
           </div>
 
           <div class="form-group full-width">
             <div class="label-with-counter">
-              <label for="bio" class="input-label">Giới thiệu bản thân</label>
+              <label for="bio" class="input-label">{{ 'account.bio' | translate }}</label>
               <span class="char-counter">{{ bio.length }}/160</span>
             </div>
-            <textarea id="bio" class="textarea-input" [(ngModel)]="bio" maxlength="160" rows="3" placeholder="Chia sẻ đôi nét về bạn..." [disabled]="busy()"></textarea>
+            <textarea id="bio" class="textarea-input" [(ngModel)]="bio" maxlength="160" rows="3" [placeholder]="'account.bioPlaceholder' | translate" [disabled]="busy()"></textarea>
           </div>
 
           @if (profile()?.userId; as uid) {
             <div class="form-group full-width">
-              <label class="input-label">Mã định danh tài khoản (User ID)</label>
+              <label class="input-label">{{ 'account.userId' | translate }}</label>
               <div class="userid-row">
                 <code class="userid-code">{{ uid }}</code>
-                <button type="button" class="btn-copy" (click)="copyUserId(uid)" title="Sao chép User ID">
-                  📋 Sao chép
+                <button type="button" class="btn-copy" (click)="copyUserId(uid)" [title]="'account.copy' | translate">
+                  📋 {{ 'account.copy' | translate }}
                 </button>
               </div>
             </div>
@@ -167,9 +172,9 @@
         </div>
 
         <div class="form-actions">
-          <button type="button" class="btn-secondary" (click)="loadAll()" [disabled]="busy()">Hủy</button>
+          <button type="button" class="btn-secondary" (click)="loadAll()" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
           <button type="button" class="btn-primary" (click)="onSaveProfile()" [disabled]="busy()">
-            @if (busy()) { <span class="spinner"></span> Đang lưu... } @else { Lưu thay đổi }
+            @if (busy()) { <span class="spinner"></span> {{ 'common.saving' | translate }} } @else { {{ 'common.save' | translate }} }
           </button>
         </div>
       </div>
@@ -178,28 +183,28 @@
     <!-- TAB 2: ĐỔI MẬT KHẨU -->
     @if (activeTab() === 'password') {
       <div class="password-tab-pane">
-        <h2 class="sub-pane-title">Đổi mật khẩu tài khoản</h2>
-        <p class="sub-pane-desc">Mật khẩu mới cần tối thiểu 10 ký tự, bao gồm chữ hoa, chữ thường và chữ số.</p>
+        <h2 class="sub-pane-title">{{ 'account.passwordHeading' | translate }}</h2>
+        <p class="sub-pane-desc">{{ 'account.passwordDesc' | translate }}</p>
 
         <div class="password-form-box">
           <div class="form-group">
-            <label for="currentPassword" class="input-label">Mật khẩu hiện tại</label>
-            <input id="currentPassword" type="password" class="text-input" [(ngModel)]="currentPassword" placeholder="Nhập mật khẩu hiện tại" [disabled]="busy()" />
+            <label for="currentPassword" class="input-label">{{ 'account.currentPassword' | translate }}</label>
+            <input id="currentPassword" type="password" class="text-input" [(ngModel)]="currentPassword" [placeholder]="'account.currentPassword' | translate" [disabled]="busy()" />
           </div>
 
           <div class="form-group">
-            <label for="newPassword" class="input-label">Mật khẩu mới</label>
-            <input id="newPassword" type="password" class="text-input" [(ngModel)]="newPassword" placeholder="Nhập mật khẩu mới" [disabled]="busy()" />
+            <label for="newPassword" class="input-label">{{ 'account.newPassword' | translate }}</label>
+            <input id="newPassword" type="password" class="text-input" [(ngModel)]="newPassword" [placeholder]="'account.newPassword' | translate" [disabled]="busy()" />
           </div>
 
           <div class="form-group">
-            <label for="confirmPassword" class="input-label">Xác nhận mật khẩu mới</label>
-            <input id="confirmPassword" type="password" class="text-input" [(ngModel)]="confirmPassword" placeholder="Nhập lại mật khẩu mới" [disabled]="busy()" />
+            <label for="confirmPassword" class="input-label">{{ 'account.confirmNewPassword' | translate }}</label>
+            <input id="confirmPassword" type="password" class="text-input" [(ngModel)]="confirmPassword" [placeholder]="'account.confirmNewPassword' | translate" [disabled]="busy()" />
           </div>
 
           <div class="form-actions">
             <button type="button" class="btn-primary" (click)="onChangePassword()" [disabled]="busy() || !currentPassword || !newPassword">
-              @if (busy()) { <span class="spinner"></span> Đang xử lý... } @else { Cập nhật mật khẩu }
+              @if (busy()) { <span class="spinner"></span> {{ 'common.saving' | translate }} } @else { {{ 'account.savePassword' | translate }} }
             </button>
           </div>
         </div>
@@ -209,14 +214,14 @@
     <!-- TAB 3: THÔNG BÁO -->
     @if (activeTab() === 'notifications') {
       <div class="notifications-tab-pane">
-        <h2 class="sub-pane-title">Tùy chọn nhận thông báo</h2>
-        <p class="sub-pane-desc">Chọn loại thông báo bạn muốn nhận trên HuTube và qua email.</p>
+        <h2 class="sub-pane-title">{{ 'account.notifHeading' | translate }}</h2>
+        <p class="sub-pane-desc">{{ 'account.notifDesc' | translate }}</p>
 
         <div class="switches-list">
           <div class="switch-item">
             <div class="switch-info">
-              <span class="switch-title">Thông báo trong ứng dụng</span>
-              <span class="switch-desc">Hiển thị thông báo trên chuông thông báo khi có hoạt động mới.</span>
+              <span class="switch-title">{{ 'account.notifInAppTitle' | translate }}</span>
+              <span class="switch-desc">{{ 'account.notifInAppDesc' | translate }}</span>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" [(ngModel)]="notifications.inAppEnabled" />
@@ -226,8 +231,8 @@
 
           <div class="switch-item">
             <div class="switch-info">
-              <span class="switch-title">Thông báo qua Email</span>
-              <span class="switch-desc">Nhận email thông báo về các cập nhật tài khoản quan trọng.</span>
+              <span class="switch-title">{{ 'account.notifEmailTitle' | translate }}</span>
+              <span class="switch-desc">{{ 'account.notifEmailDesc' | translate }}</span>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" [(ngModel)]="notifications.emailEnabled" />
@@ -237,8 +242,8 @@
 
           <div class="switch-item">
             <div class="switch-info">
-              <span class="switch-title">Video mới từ kênh đã đăng ký</span>
-              <span class="switch-desc">Nhận thông báo khi kênh bạn theo dõi xuất bản video mới.</span>
+              <span class="switch-title">{{ 'account.notifNewVideoTitle' | translate }}</span>
+              <span class="switch-desc">{{ 'account.notifNewVideoDesc' | translate }}</span>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" [(ngModel)]="notifications.newVideoEnabled" />
@@ -248,8 +253,8 @@
 
           <div class="switch-item">
             <div class="switch-info">
-              <span class="switch-title">Phản hồi bình luận</span>
-              <span class="switch-desc">Thông báo khi có người trả lời hoặc thích bình luận của bạn.</span>
+              <span class="switch-title">{{ 'account.notifCommentReplyTitle' | translate }}</span>
+              <span class="switch-desc">{{ 'account.notifCommentReplyDesc' | translate }}</span>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" [(ngModel)]="notifications.commentReplyEnabled" />
@@ -259,8 +264,8 @@
 
           <div class="switch-item">
             <div class="switch-info">
-              <span class="switch-title">Nhắc đến bạn (Mentions)</span>
-              <span class="switch-desc">Nhận thông báo khi ai đó nhắc đến bạn trong video hoặc bình luận.</span>
+              <span class="switch-title">{{ 'account.notifMentionTitle' | translate }}</span>
+              <span class="switch-desc">{{ 'account.notifMentionDesc' | translate }}</span>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" [(ngModel)]="notifications.mentionEnabled" />
@@ -270,8 +275,8 @@
 
           <div class="switch-item">
             <div class="switch-info">
-              <span class="switch-title">Hoạt động từ kênh của bạn</span>
-              <span class="switch-desc">Cập nhật lượt xem, người đăng ký mới và tương tác với kênh.</span>
+              <span class="switch-title">{{ 'account.notifChannelActivityTitle' | translate }}</span>
+              <span class="switch-desc">{{ 'account.notifChannelActivityDesc' | translate }}</span>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" [(ngModel)]="notifications.channelActivityEnabled" />
@@ -282,7 +287,7 @@
 
         <div class="form-actions">
           <button type="button" class="btn-primary" (click)="onSaveNotifications()" [disabled]="busy()">
-            Lưu cài đặt thông báo
+            {{ 'common.save' | translate }}
           </button>
         </div>
       </div>
@@ -291,32 +296,32 @@
     <!-- TAB 4: CÀI ĐẶT & GIAO DIỆN -->
     @if (activeTab() === 'preferences') {
       <div class="preferences-tab-pane">
-        <h2 class="sub-pane-title">Tùy chọn hiển thị & Quyền riêng tư</h2>
-        <p class="sub-pane-desc">Tùy biến trải nghiệm HuTube theo nhu cầu cá nhân.</p>
+        <h2 class="sub-pane-title">{{ 'account.prefsHeading' | translate }}</h2>
+        <p class="sub-pane-desc">{{ 'account.prefsDesc' | translate }}</p>
 
         <div class="preferences-box">
           <div class="form-group">
-            <label for="languageSelect" class="input-label">Ngôn ngữ hiển thị</label>
-            <select id="languageSelect" class="select-input" [(ngModel)]="preferences.language">
-              <option value="vi">Tiếng Việt</option>
-              <option value="en">English</option>
+            <label for="languageSelect" class="input-label">{{ 'account.langLabel' | translate }}</label>
+            <select id="languageSelect" class="select-input" [(ngModel)]="preferences.language" (ngModelChange)="onLanguageChange($event)">
+              <option value="vi">{{ 'nav.langVi' | translate }}</option>
+              <option value="en">{{ 'nav.langEn' | translate }}</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label for="themeSelect" class="input-label">Giao diện (Chế độ màu)</label>
-            <select id="themeSelect" class="select-input" [(ngModel)]="preferences.theme">
-              <option value="light">Chế độ sáng (Mặc định)</option>
-              <option value="dark">Chế độ tối (Dark Mode)</option>
+            <label for="themeSelect" class="input-label">{{ 'account.themeLabel' | translate }}</label>
+            <select id="themeSelect" class="select-input" [(ngModel)]="preferences.theme" (ngModelChange)="onThemeChange($event)">
+              <option value="light">{{ 'account.themeLight' | translate }}</option>
+              <option value="dark">{{ 'account.themeDark' | translate }}</option>
             </select>
           </div>
 
           <div class="privacy-section">
-            <h3 class="subsection-title">Quyền riêng tư cơ bản</h3>
+            <h3 class="subsection-title">{{ 'account.privacyHeading' | translate }}</h3>
             <div class="switch-item">
               <div class="switch-info">
-                <span class="switch-title">Giữ danh sách kênh đăng ký riêng tư</span>
-                <span class="switch-desc">Người xem khác sẽ không thấy các kênh bạn đang theo dõi.</span>
+                <span class="switch-title">{{ 'account.keepSubsPrivate' | translate }}</span>
+                <span class="switch-desc">{{ 'account.keepSubsPrivateDesc' | translate }}</span>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" [(ngModel)]="preferences.keepSubscriptionsPrivate" />
@@ -326,8 +331,8 @@
 
             <div class="switch-item">
               <div class="switch-info">
-                <span class="switch-title">Giữ danh sách phát đã lưu riêng tư</span>
-                <span class="switch-desc">Chỉ bạn mới có quyền xem các playlist bạn đã lưu.</span>
+                <span class="switch-title">{{ 'account.keepPlaylistsPrivate' | translate }}</span>
+                <span class="switch-desc">{{ 'account.keepPlaylistsPrivateDesc' | translate }}</span>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" [(ngModel)]="preferences.keepPlaylistsPrivate" />
@@ -338,7 +343,7 @@
 
           <div class="form-actions">
             <button type="button" class="btn-primary" (click)="onSavePreferences()" [disabled]="busy()">
-              Lưu cài đặt
+              {{ 'account.savePrefs' | translate }}
             </button>
           </div>
         </div>
@@ -350,26 +355,26 @@
       <div class="sessions-tab-pane">
         <div class="sessions-header-row">
           <div>
-            <h2 class="sub-pane-title">Thiết bị đang hoạt động</h2>
-            <p class="sub-pane-desc">Danh sách các phiên đăng nhập đang hoạt động trên tài khoản HuTube của bạn.</p>
+            <h2 class="sub-pane-title">{{ 'account.sessionsHeading' | translate }}</h2>
+            <p class="sub-pane-desc">{{ 'account.sessionsDesc' | translate }}</p>
           </div>
           <button type="button" class="btn-secondary" (click)="logoutOthers()" [disabled]="busy() || sessions().length < 2">
-            Đăng xuất các thiết bị khác
+            {{ 'account.logoutOthers' | translate }}
           </button>
         </div>
 
         @if (pendingRevoke(); as pending) {
           <div class="revoke-confirm-card">
-            <p>Bạn có chắc chắn muốn đăng xuất phiên trên thiết bị <strong>{{ pending.deviceName }}</strong>?</p>
+            <p>{{ 'account.confirmRevokeText' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
             <div class="revoke-actions">
-              <button type="button" class="btn-danger" (click)="revoke()" [disabled]="busy()">Xác nhận đăng xuất</button>
-              <button type="button" class="btn-secondary" (click)="pendingRevoke.set(null)" [disabled]="busy()">Hủy</button>
+              <button type="button" class="btn-danger" (click)="revoke()" [disabled]="busy()">{{ 'common.confirm' | translate }}</button>
+              <button type="button" class="btn-secondary" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
             </div>
           </div>
         }
 
         @if (loading()) {
-          <div class="loading-state">Đang tải danh sách phiên đăng nhập…</div>
+          <div class="loading-state">{{ 'common.loading' | translate }}</div>
         } @else {
           <div class="sessions-card-list">
             @for (session of sessions(); track session.sessionId) {
@@ -381,21 +386,21 @@
                   <div class="session-name-row">
                     <h3 class="device-name">{{ session.deviceName }}</h3>
                     @if (session.isCurrent) {
-                      <span class="badge-current">Thiết bị này</span>
+                      <span class="badge-current">{{ 'account.thisDevice' | translate }}</span>
                     }
                   </div>
-                  <p class="session-meta">Đăng nhập: {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }} · Hoạt động: {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>
+                  <p class="session-meta">{{ 'account.signedInAt' | translate }} {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>
                 </div>
                 <div class="session-action">
                   @if (!session.isCurrent) {
                     <button type="button" class="btn-revoke" (click)="pendingRevoke.set(session)" [disabled]="busy()">
-                      Thu hồi
+                      {{ 'account.revoke' | translate }}
                     </button>
                   }
                 </div>
               </div>
             } @empty {
-              <p class="empty-text">Không có phiên đăng nhập nào.</p>
+              <p class="empty-text">{{ 'account.noSessions' | translate }}</p>
             }
           </div>
         }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/localization/app_strings.dart';
 
 class SessionCard extends StatelessWidget {
   const SessionCard({
@@ -16,21 +17,23 @@ class SessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCurrent = session['isCurrent'] as bool? ?? false;
-    final deviceName = session['deviceName'] as String? ?? 'Thiết bị không rõ';
-    final ipAddress = session['ipAddress'] as String? ?? 'Chưa rõ IP';
+    final deviceName = session['deviceName'] as String? ?? AppStrings.t('session.unknownDevice');
+    final ipAddress = session['ipAddress'] as String? ?? AppStrings.t('session.unknownIp');
     final lastActiveAt = session['lastActiveAt'] as String? ?? '';
+
+    final cardBg = Theme.of(context).cardColor;
+    final borderColor = isCurrent
+        ? AppColors.primaryPink.withValues(alpha: 0.5)
+        : Theme.of(context).dividerColor;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
+        color: cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isCurrent
-              ? AppColors.primaryPink.withValues(alpha: 0.5)
-              : AppColors.cardBorder,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -39,7 +42,7 @@ class SessionCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: isCurrent
                   ? AppColors.primaryPink.withValues(alpha: 0.15)
-                  : AppColors.cardBorder.withValues(alpha: 0.5),
+                  : Theme.of(context).dividerColor.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -63,8 +66,8 @@ class SessionCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         deviceName,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: onSurface,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -82,9 +85,9 @@ class SessionCard extends StatelessWidget {
                           color: AppColors.primaryPink.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
-                          'Hiện tại',
-                          style: TextStyle(
+                        child: Text(
+                          AppStrings.t('session.current'),
+                          style: const TextStyle(
                             color: AppColors.primaryPink,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -96,7 +99,7 @@ class SessionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$ipAddress ${lastActiveAt.isNotEmpty ? '• Hoạt động: ${_formatDate(lastActiveAt)}' : ''}',
+                  '$ipAddress ${lastActiveAt.isNotEmpty ? '• ${_formatDate(lastActiveAt)}' : ''}',
                   style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 12,
@@ -118,7 +121,7 @@ class SessionCard extends StatelessWidget {
                       color: AppColors.textMuted,
                       size: 20,
                     ),
-              tooltip: 'Thu hồi phiên này',
+              tooltip: AppStrings.t('session.revoke'),
               onPressed: isRevoking ? null : onRevoke,
             ),
         ],

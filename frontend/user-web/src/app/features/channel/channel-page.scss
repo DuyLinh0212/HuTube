@@ -402,3 +402,4 @@
     margin: 0 0 24px;
   }
 }
+.channel-video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px}.channel-video-card{display:grid;gap:7px;color:var(--ink);text-decoration:none}.channel-video-card small{color:var(--text-muted)}.channel-video-thumb{display:grid;aspect-ratio:16/9;place-items:center;overflow:hidden;border-radius:12px;background:var(--canvas)}.channel-video-thumb img{width:100%;height:100%;object-fit:cover}

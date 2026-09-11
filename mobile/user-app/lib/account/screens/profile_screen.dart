@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../auth.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/localization/app_strings.dart';
 import '../../channel/models/channel_models.dart';
 import '../../channel/services/channel_service.dart';
 import '../../channel/screens/channel_screen.dart';
@@ -113,9 +114,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.backgroundCard,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.cardBorder),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Row(
             children: [
@@ -398,17 +399,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         // Menu Options List
         Material(
-          color: AppColors.backgroundCard,
+          color: Theme.of(context).cardColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppColors.cardBorder),
+            side: BorderSide(color: Theme.of(context).dividerColor),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               _menuTile(
                 icon: Icons.person_outline_rounded,
-                title: 'Chỉnh sửa thông tin hồ sơ',
+                title: AppStrings.t('profile.editProfile'),
                 onTap: () async {
                   if (_profile == null) return;
                   final updated = await Navigator.of(context)
@@ -426,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Divider(height: 1),
               _menuTile(
                 icon: Icons.lock_outline_rounded,
-                title: 'Đổi mật khẩu',
+                title: AppStrings.t('profile.password'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => ChangePasswordScreen(auth: widget.auth),
@@ -436,7 +437,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Divider(height: 1),
               _menuTile(
                 icon: Icons.notifications_none_rounded,
-                title: 'Cài đặt thông báo',
+                title: AppStrings.t('profile.notifications'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) =>
@@ -447,7 +448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Divider(height: 1),
               _menuTile(
                 icon: Icons.mark_email_unread_outlined,
-                title: 'Lời mời tham gia kênh',
+                title: AppStrings.t('profile.channelInvitations'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) =>
@@ -458,7 +459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Divider(height: 1),
               _menuTile(
                 icon: Icons.tune_rounded,
-                title: 'Cài đặt & Giao diện',
+                title: AppStrings.t('profile.preferences'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => PreferencesScreen(auth: widget.auth),

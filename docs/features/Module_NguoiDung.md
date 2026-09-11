@@ -18,6 +18,60 @@
 
 ---
 
+## Mục lục
+
+> **Quy trình Upload Video chi tiết nằm ở [mục 2.3.21](#2321-upload-và-tạo-video).**
+
+1. [2.3.1. Quy định chung về giao diện đa nền tảng](#231-quy-định-chung-về-giao-diện-đa-nền-tảng)
+2. [2.3.2. Phân loại người dùng và phạm vi chức năng](#232-phân-loại-người-dùng-và-phạm-vi-chức-năng)
+3. [2.3.3. Trang chủ](#233-trang-chủ)
+4. [2.3.4. Khám phá](#234-khám-phá)
+5. [2.3.5. Tìm kiếm](#235-tìm-kiếm)
+6. [2.3.6. Trang xem video](#236-trang-xem-video)
+7. [2.3.7. Bình luận](#237-bình-luận)
+8. [2.3.8. Kênh đăng ký](#238-kênh-đăng-ký)
+9. [2.3.9. Chi tiết kênh](#239-chi-tiết-kênh)
+10. [2.3.10. Thư viện cá nhân](#2310-thư-viện-cá-nhân)
+11. [2.3.11. Lịch sử xem](#2311-lịch-sử-xem)
+12. [2.3.12. Video đã thích](#2312-video-đã-thích)
+13. [2.3.13. Xem sau](#2313-xem-sau)
+14. [2.3.14. Nội dung tải xuống](#2314-nội-dung-tải-xuống)
+15. [2.3.15. Quản lý Playlist](#2315-quản-lý-playlist)
+16. [2.3.16. Kênh của bạn - Creator Studio](#2316-kênh-của-bạn---creator-studio)
+17. [2.3.17. Tổng quan Creator](#2317-tổng-quan-creator)
+18. [2.3.18. Thành viên và quyền kênh](#2318-thành-viên-và-quyền-kênh)
+19. [2.3.19. Tùy chỉnh kênh](#2319-tùy-chỉnh-kênh)
+20. [2.3.20. Quản lý nội dung của kênh](#2320-quản-lý-nội-dung-của-kênh)
+21. **[2.3.21. Upload và tạo Video](#2321-upload-và-tạo-video)**
+    - [Điều kiện trước khi Upload](#23211-điều-kiện-trước-khi-upload)
+    - [Chọn file và tạo phiên Upload](#23212-bước-0--chọn-file-và-tạo-phiên-upload)
+    - [Chi tiết Video](#23213-bước-1--chi-tiết-video)
+    - [Thành phần của Video](#23214-bước-2--thành-phần-của-video)
+    - [Kiểm tra ban đầu](#23215-bước-3--kiểm-tra-ban-đầu)
+    - [Chế độ hiển thị](#23216-bước-4--chế-độ-hiển-thị)
+    - [Lưu và Publish](#23217-lưu-và-publish)
+    - [Mapping với Database](#23219-mapping-với-database-hutube-localsql)
+    - [Danh mục API Sprint 5 của Linh](#232111-danh-mục-api-sprint-5-của-linh)
+22. [2.3.22. Chỉnh sửa Video](#2322-chỉnh-sửa-video)
+23. [2.3.23. Phân tích Video](#2323-phân-tích-video)
+24. [2.3.24. Phân tích kênh](#2324-phân-tích-kênh)
+25. [2.3.25. Cộng đồng - Quản lý bình luận trên kênh](#2325-cộng-đồng---quản-lý-bình-luận-trên-kênh)
+26. [2.3.26. Kiểm soát nội dung của kênh](#2326-kiểm-soát-nội-dung-của-kênh)
+27. [2.3.27. Bản quyền](#2327-bản-quyền)
+28. [2.3.28. Cài đặt kênh](#2328-cài-đặt-kênh)
+29. [2.3.29. Xóa kênh](#2329-xóa-kênh)
+30. [2.3.30. Menu Avatar / tài khoản](#2330-menu-avatar--tài-khoản)
+31. [2.3.31. Cài đặt tài khoản](#2331-cài-đặt-tài-khoản)
+32. [2.3.32. Thông báo](#2332-thông-báo)
+33. [2.3.33. Báo cáo nội dung](#2333-báo-cáo-nội-dung)
+34. [2.3.34. Chặn và ẩn người dùng](#2334-chặn-và-ẩn-người-dùng)
+35. [2.3.35. Chia sẻ](#2335-chia-sẻ)
+36. [2.3.36. Thao tác nâng cao với Video](#2336-thao-tác-nâng-cao-với-video)
+37. [2.3.37. Phím tắt](#2337-phím-tắt)
+38. [2.3.38. HuAI - Chatbot hỗ trợ nền tảng](#2338-huai---chatbot-hỗ-trợ-nền-tảng)
+
+---
+
 ## 2.3.1. Quy định chung về giao diện đa nền tảng
 
 ### A. Bố cục Web User
@@ -1351,122 +1405,409 @@ Cho phép cấu hình:
 
 ## 2.3.21. Upload và tạo Video
 
-### Bước 1 - Chọn file
-
-- Drag & Drop.
-- File Picker.
-- Kiểm tra định dạng.
-- Kiểm tra dung lượng.
-- Kiểm tra Quota còn lại.
-- Upload Progress.
-- Pause/Resume nếu Storage hỗ trợ.
-- Cancel.
-
-### Bước 2 - Chi tiết
-
-- Tên Video.
-- Description.
-- Thumbnail:
-  - Auto-generated.
-  - Custom Thumbnail.
-- Playlist.
-- Topic/Category.
-- Tag.
-- Ngôn ngữ.
-- Audience nếu có.
-- Age Restriction nếu cần.
-
-### Bước 3 - Thành phần Video
-
-Có thể hỗ trợ:
-
-- Video Card.
-- End Screen.
-- Poll/Quiz.
-- Subtitle.
-- Chapter.
-
-#### Video Card
-
-- Link Video.
-- Playlist.
-- Channel nếu chính sách cho phép.
-- Thời điểm xuất hiện.
-
-#### Quiz/Poll
-
-- Câu hỏi.
-- Danh sách lựa chọn.
-- Đáp án nếu là Quiz.
-- Thời điểm xuất hiện.
-
-### Bước 4 - Kiểm tra ban đầu
-
-Kiểm tra:
-
-- File đã xử lý chưa.
-- Metadata.
-- Policy.
-- Copyright nếu hệ thống hỗ trợ.
-- Cảnh báo.
-
-Trạng thái:
+Quy trình Upload được thiết kế theo giao diện tham chiếu YouTube Studio trong các ảnh đã cung cấp. Người dùng chọn file trước, sau đó đi qua **4 bước nghiệp vụ**:
 
 ```text
+Chọn file
+   ↓
+1. Chi tiết
+   ↓
+2. Thành phần của video
+   ↓
+3. Kiểm tra ban đầu
+   ↓
+4. Chế độ hiển thị
+   ↓
+Lưu/Publish
+```
+
+Đây là một quy trình bất đồng bộ: Upload, Transcode/Processing, kiểm tra Policy và Moderation có thể chạy lâu hơn thời gian User đang ở màn hình Upload. UI phải hiển thị trạng thái và cho phép User quay lại Creator Studio để theo dõi.
+
+### 2.3.21.1. Điều kiện trước khi Upload
+
+Trước khi mở File Picker, Backend phải kiểm tra:
+
+- User đã đăng nhập.
+- User có Channel đang `active`.
+- User là Owner hoặc Channel Member có quyền `video.upload`.
+- Plan hiện tại còn hiệu lực.
+- `channel_quotas.storage_used < storage_limit`.
+- File size không vượt `plans.max_upload_size`.
+- Thời lượng không vượt `plans.max_video_duration`.
+- Chất lượng đầu vào không vượt `plans.max_video_quality` nếu Plan có giới hạn.
+- Định dạng file nằm trong danh sách hệ thống cho phép.
+
+Nếu một điều kiện không đạt, UI phải hiển thị lý do cụ thể và không bắt đầu upload. Không được chỉ kiểm tra ở Client vì User có thể gọi API trực tiếp.
+
+### 2.3.21.2. Bước 0 — Chọn file và tạo phiên Upload
+
+#### Web
+
+- File Picker.
+- Drag & Drop.
+- Hiển thị tên file, phần mở rộng, kích thước và thông tin chất lượng đọc được.
+- Có thể chọn lại file trước khi bắt đầu.
+
+#### Mobile
+
+- Gallery/Photo Picker.
+- File Picker.
+- Camera nếu sản phẩm cho phép quay trực tiếp.
+- Xin permission đúng thời điểm, không xin ngay khi mở màn hình nếu chưa cần.
+- Hiển thị Preview và dung lượng thiết bị còn lại.
+
+#### Preflight và Upload
+
+1. Client gửi thông tin file để Backend kiểm tra nhanh.
+2. Backend trả về giới hạn Plan, quota còn lại, định dạng và chất lượng tối đa.
+3. Client xác nhận bắt đầu Upload.
+4. Storage nhận file gốc và trả về URL/key tạm.
+5. Backend tạo hoặc cập nhật bản ghi Video với trạng thái `uploading`.
+6. Quota được reserve một lần theo `file_size` để tránh hai lần upload đồng thời cùng sử dụng một phần quota.
+
+SQL hiện tại đặt `videos.video_url` là `NOT NULL`. Vì vậy có hai cách triển khai hợp lệ:
+
+- Upload vào Storage trước rồi mới tạo bản ghi `videos` sau khi có `video_url`; hoặc
+- Tạo một URL/key tạm ngay khi khởi tạo Upload và thay bằng URL chính sau khi hoàn tất.
+
+Nếu cần lưu Draft trước khi có file, nên bổ sung bảng `video_upload_sessions` hoặc cho phép `video_url` nullable. Không nên ghi chuỗi giả vào `video_url` để che lỗi dữ liệu.
+
+#### Trạng thái trong lúc Upload
+
+```text
+Selecting
 Uploading
-Processing
-Checking
-Ready
+Paused
+Retrying
+Uploaded
+Cancelled
 Failed
 ```
 
-### Bước 5 - Visibility
+Yêu cầu:
 
-- Public.
-- Private.
-- Unlisted.
-- Schedule Publish nếu hỗ trợ.
+- Progress hiển thị phần trăm và dung lượng đã tải.
+- `Cancel` dừng upload, giải phóng reservation/quota và dọn file tạm nếu có.
+- Retry không tạo Video mới nếu lần trước đã có `video_id` hoặc upload key.
+- Mất mạng chuyển sang `Paused` hoặc `Failed` theo khả năng Storage; không mất Draft/metadata đã nhập.
 
-### Bước 6 - Publish
+### 2.3.21.3. Bước 1 — Chi tiết Video
 
-- Preview.
-- Xác nhận.
-- Publish.
-- Copy URL.
-- View Video.
-- Open Analytics.
+Giao diện tham chiếu gồm phần nhập liệu bên trái và Preview/Upload status bên phải.
+
+#### Thông tin bắt buộc và cơ bản
+
+- **Tiêu đề:** bắt buộc, trim khoảng trắng, không chỉ chứa ký tự rỗng.
+- **Mô tả:** hỗ trợ xuống dòng; loại bỏ nội dung không an toàn theo rule của hệ thống.
+- **Thumbnail:**
+  - Chọn ảnh từ file.
+  - Chọn một frame trong video.
+  - Auto-generated thumbnail sau Processing.
+  - Preview trước khi lưu.
+- **Playlist:** chọn Playlist có quyền chỉnh sửa; liên kết được lưu ở `playlist_videos`.
+- **Category:** chọn Category đang `active`; lưu `category_id` trong `videos`.
+- **Tag:** tìm hoặc tạo Tag theo rule; liên kết qua `video_tags`.
+- **Ngôn ngữ:** lưu vào `videos.language_code`.
+- **Đối tượng người xem:** xác nhận video có dành cho trẻ em hay không; lưu vào `videos.age_restricted` theo ý nghĩa đã chốt.
+- **Giới hạn độ tuổi:** chỉ hiển thị khi phù hợp với Policy.
+
+Ảnh tham chiếu đang hiển thị bộ đếm tiêu đề `57/100`, trong khi SQL hiện cho phép `varchar(200)` ở `videos.title`. Cần chốt một giới hạn nghiệp vụ duy nhất; đề xuất dùng 100 ký tự ở UI và giữ 200 ký tự ở Database để có khoảng dự phòng, nhưng API phải enforce giới hạn 100 nếu đây là rule chính thức.
+
+#### Dữ liệu ghi vào Database
+
+| Thành phần UI | Bảng/cột SQL |
+|---|---|
+| Video và Channel | `videos.channel_id` |
+| Tiêu đề | `videos.title` |
+| Mô tả | `videos.description` |
+| Thumbnail | `videos.thumbnail_url` |
+| Duration | `videos.duration` |
+| File gốc | `videos.video_url`, `videos.file_size` |
+| Category | `videos.category_id` → `categories.category_id` |
+| Tag | `video_tags.video_id/tag_id` → `tags` |
+| Ngôn ngữ | `videos.language_code` |
+| Audience/Age | `videos.age_restricted` |
+| Playlist | `playlist_videos.video_id/playlist_id` |
+
+### 2.3.21.4. Bước 2 — Thành phần của Video
+
+Màn hình này cho phép Creator bổ sung các thành phần xuất hiện theo thời gian trong video. Mỗi thành phần có `start_seconds` hoặc `end_seconds` phải nằm trong khoảng `0..duration`.
+
+#### Timeline/Chapter — bắt buộc trong phạm vi Upload
+
+- Tạo Chapter bằng `title` và `start_seconds`.
+- Chapter đầu tiên nên bắt đầu từ `0`.
+- `start_seconds` phải tăng dần và không vượt duration.
+- Không cho hai Chapter trùng timestamp nếu không có rule rõ ràng.
+- Cho phép sửa, xóa và Preview trên timeline.
+- Khi phát video, Player dùng danh sách Chapter để tua tới mốc tương ứng.
+
+SQL hiện chưa có bảng `video_chapters`. Trong giai đoạn hiện tại có thể lưu tạm trong `videos.metadata`:
+
+```json
+{
+  "chapters": [
+    { "title": "Mở đầu", "start_seconds": 0 },
+    { "title": "Nội dung chính", "start_seconds": 120 }
+  ]
+}
+```
+
+Nếu cần tìm kiếm, thống kê hoặc chỉnh sửa độc lập, nên tạo bảng `video_chapters(video_chapter_id, video_id, title, start_seconds, position)`.
+
+#### Các thành phần mở rộng
+
+- **Subtitle/Caption:** ngôn ngữ, file phụ đề, trạng thái xử lý.
+- **Video Card/Thẻ:** liên kết tới Video, Playlist hoặc Channel; thời điểm xuất hiện; chỉ cho target mà User có quyền xem.
+- **End Screen/Màn hình kết thúc:** Video/Playlist/Channel liên quan và khoảng thời gian cuối video.
+- **Poll/Quiz/Bài kiểm tra:** câu hỏi, lựa chọn, đáp án nếu là Quiz, thời điểm xuất hiện.
+
+SQL chưa có bảng riêng cho các thành phần này. Nếu chưa tạo migration, lưu trong `videos.metadata` theo một schema version thống nhất, ví dụ:
+
+```json
+{
+  "schema_version": 1,
+  "chapters": [],
+  "subtitles": [],
+  "cards": [],
+  "end_screen": null,
+  "polls": []
+}
+```
+
+Không lưu dữ liệu tùy ý từ Client vào `metadata` mà không validate schema, URL, thời điểm và quyền truy cập.
+
+### 2.3.21.5. Bước 3 — Kiểm tra ban đầu
+
+Đây là bước kiểm tra tự động trước khi đưa Video vào hàng đợi Moderation hoặc cho phép Publish.
+
+#### Kiểm tra Processing
+
+- File gốc đã nhận đủ chưa.
+- Đọc được duration, width, height, codec và bitrate không.
+- Duration > 0 và không vượt Plan.
+- Có tạo được thumbnail không.
+- Có tạo được rendition tối thiểu không.
+- Có lỗi trong quá trình Transcode không.
+
+Mỗi bản chất lượng được lưu ở `video_renditions`:
+
+- `quality_label`: ví dụ `360p`, `720p`.
+- `width`, `height`.
+- `bitrate_kbps`, `codec`.
+- `file_url`, `file_size`.
+- `status`: `processing`, `ready`, `failed`.
+
+Chỉ chất lượng không vượt `plans.max_video_quality` mới được tạo hoặc công khai cho User. Không đánh dấu Video sẵn sàng khi rendition được chọn đang `processing` hoặc `failed`.
+
+#### Kiểm tra Metadata và Policy
+
+- Title và Description hợp lệ.
+- Category/Tag tồn tại và đang được phép sử dụng.
+- Chapter/timeline không vượt duration.
+- Thumbnail đúng định dạng/kích thước.
+- Audience/Age Restriction đã được chọn nếu bắt buộc.
+- Policy nội dung đã được hiển thị hoặc xác nhận theo rule.
+- Copyright/Content Check nếu hệ thống có dịch vụ kiểm tra.
+
+#### Hàng đợi Moderation
+
+Sau khi Processing và kiểm tra tự động đạt:
+
+1. Tạo một `moderation_cases` với `video_id`, `case_type = 'upload_review'`.
+2. Đặt `status = 'pending'`.
+3. Moderator claim case → `reviewing`.
+4. Moderator chọn `approved`, `rejected` hoặc `escalated`.
+5. Lưu reviewer, note, thời điểm claim và thời điểm xử lý.
+
+Một Moderation Case chỉ được tham chiếu một Video hoặc một Report; ràng buộc SQL hiện tại yêu cầu đúng một trong hai (`video_id` hoặc `report_id`).
+
+#### Trạng thái UI và trạng thái SQL
+
+```text
+Uploading        -> videos.status = uploading
+Processing       -> videos.status = processing
+Checking         -> videos.status = processing + moderation_status = not_submitted/pending
+Pending review   -> moderation_cases.status = pending
+In review        -> moderation_cases.status = reviewing
+Approved         -> moderation_cases.status = approved
+Rejected         -> moderation_cases.status = rejected; videos.status = blocked/failed
+Published        -> videos.status = published; published_at != null
+```
+
+`Ready` là trạng thái dẫn xuất của UI, không phải giá trị hợp lệ trong `videos.status` hiện tại. Video chỉ được xem là Ready khi Processing thành công, metadata hợp lệ và đã đủ điều kiện Moderation.
+
+### 2.3.21.6. Bước 4 — Chế độ hiển thị
+
+Creator chọn ai có thể xem Video:
+
+#### Private/Riêng tư
+
+- Chỉ Owner và người có quyền nội bộ được xem.
+- Không xuất hiện Home, Explore, Search hoặc Recommendation.
+- URL công khai không cấp quyền xem cho Guest.
+
+#### Unlisted/Không công khai
+
+- Không xuất hiện trong danh sách công khai.
+- Người có URL có thể xem nếu Video đã qua Processing và Policy/Moderation theo rule.
+- Không được đưa vào Recommendation công khai.
+
+#### Public/Công khai
+
+- Có thể xuất hiện Home, Explore, Search và Recommendation sau khi được Publish.
+- Guest được xem nếu không bị Blocked/Deleted và bản rendition cần thiết đã `ready`.
+
+#### Members/Thành viên
+
+- SQL hiện hỗ trợ giá trị `members` trong `videos.visibility`.
+- Chỉ người thuộc phạm vi thành viên được xem.
+- Cần xác định rõ “thành viên Channel”, “subscriber” hay “thành viên Plan” trước khi mở UI chính thức.
+
+#### Schedule Publish
+
+- Creator chọn thời điểm `scheduled_at` trong tương lai.
+- Không hiển thị Video trước thời điểm đó.
+- Worker/Job đến thời điểm phải kiểm tra lại Approval, Policy và rendition rồi mới Publish.
+- SQL có cột `scheduled_at` nhưng `videos.status` chưa có giá trị `scheduled`; nên dùng trạng thái dẫn xuất hoặc bổ sung migration để tránh dùng sai `processing` cho Video đã sẵn sàng.
+
+### 2.3.21.7. Lưu và Publish
+
+Nút cuối cùng thay đổi theo trạng thái:
+
+- `Lưu nháp`: lưu metadata/components nếu đã có cơ chế Draft.
+- `Gửi kiểm duyệt`: tạo `moderation_cases` khi Video đã Ready.
+- `Lưu`: lưu Visibility/Schedule.
+- `Publish`: chỉ được thực hiện khi mọi điều kiện đã đạt.
+
+Khi Publish thành công:
+
+1. Transaction cập nhật `videos.status = 'published'`.
+2. Ghi `videos.published_at`.
+3. Giữ `visibility` theo lựa chọn của Creator.
+4. Cập nhật quota theo file thực tế; không cộng lại nếu retry.
+5. Gửi Notification có `resource_type = 'video'`, `resource_id = video_id` và `action_url` tới trang xem video.
+6. Creator có thể Copy URL, View Video và mở Analytics placeholder.
+
+Nếu Publish thất bại, giữ Video ở trạng thái có thể Retry và không phát hành URL công khai.
+
+### 2.3.21.8. State machine đầy đủ
+
+```text
+Selecting
+  ↓
+Uploading ──Cancel──> Cancelled
+  ↓
+Uploaded
+  ↓
+Processing ──Error──> Failed ──Retry──> Processing
+  ↓
+Checking ──Invalid──> Failed/NeedsCorrection
+  ↓
+PendingModeration
+  ├──> Reviewing ──Approve──> Approved
+  │                 ├──> Publish ngay ──> Published
+  │                 └──> Schedule ─────> Scheduled/Published tại scheduled_at
+  ├──> Rejected
+  └──> Escalated ──> Reviewing
+```
+
+Các giá trị `Scheduled`, `NeedsCorrection` và `Ready` trong sơ đồ là trạng thái nghiệp vụ/UI. Nếu cần truy vấn độc lập hoặc audit chính xác, nên bổ sung cột/status riêng thay vì suy diễn không nhất quán từ `videos.status`.
+
+### 2.3.21.9. Mapping với Database `hutube-local.sql`
+
+| Nghiệp vụ | Bảng hiện có | Cách sử dụng |
+|---|---|---|
+| Plan và giới hạn Upload | `plans`, `plan_histories`, `users.plan_id` | Lấy Plan đang hiệu lực, `max_upload_size`, `max_video_duration`, `max_video_quality`, `features` |
+| Quota Channel | `channel_quotas` | Kiểm tra/reserve/cập nhật `storage_used` không vượt `storage_limit` |
+| Video gốc | `videos` | Lưu Channel, metadata, URL, duration, file size, visibility, status, moderation status |
+| Các bản chất lượng | `video_renditions` | Mỗi chất lượng một dòng; cấp phát bản có `status = ready` |
+| Category | `categories` | Chỉ dùng Category có `status = active` |
+| Tag | `tags`, `video_tags` | Chuẩn hóa Tag và chống liên kết trùng |
+| Playlist | `playlists`, `playlist_videos` | Chỉ thêm vào Playlist mà User có quyền |
+| Kiểm duyệt Upload | `moderation_cases` | `case_type = upload_review`, liên kết đúng một `video_id` |
+| Notification | `notifications` | Thông báo Processing, Moderation và Publish |
+| Lịch sử xem sau Publish | `viewing_histories` | Không ghi như một phần của Upload; chỉ bắt đầu khi User xem Video |
+
+### 2.3.21.10. Các điểm Database cần bổ sung nếu làm đầy đủ
+
+SQL hiện tại **chưa có** các bảng sau:
+
+- `video_upload_sessions`: resumable upload, retry, chunk, upload key, trạng thái và lỗi.
+- `video_drafts`: lưu Draft khi chưa có `video_url` hoặc chưa Publish.
+- `video_chapters`: lưu timeline/chapter có thể tìm kiếm và sắp xếp.
+- `video_components`: lưu Card, End Screen, Poll/Quiz, Subtitle độc lập.
+- `policies`/`policy_versions`: lưu Policy version được Moderation tham chiếu.
+
+Trong khi chưa migration, chỉ dùng `videos.metadata` cho dữ liệu phụ và phải có `schema_version`. Không dùng `metadata` để thay thế lâu dài cho dữ liệu cần filter, join, phân quyền hoặc audit.
+
+Riêng lịch sử tải xuống đã được bổ sung bằng bảng `video_downloads` trong migration `20260911110000_ContentApis`.
+
+### 2.3.21.11. Danh mục API Sprint 5 của Linh
+
+| Nhóm | API |
+|---|---|
+| Theme/ngôn ngữ | `GET`, `PUT /api/v1/account/settings` |
+| Category | `GET /api/v1/categories` |
+| Home/Explore | `GET /api/v1/feed/home`, `GET /api/v1/feed/explore` |
+| Upload | `POST /api/v1/videos/upload-preflight`, `POST /api/v1/videos` |
+| Retry/Cancel Upload | `POST /api/v1/videos/{id}/retry-processing`, `POST /api/v1/videos/{id}/cancel-upload` |
+| Creator Studio | `GET /api/v1/videos/manage`, `PATCH`, `DELETE /api/v1/videos/{id}` |
+| Moderation/Publish | `POST /api/v1/videos/{id}/submit-moderation`, `POST /api/v1/videos/{id}/publish` |
+| Xem/Player | `GET /api/v1/videos/{id}`, `GET /api/v1/videos/{id}/playback`, `PUT /api/v1/videos/{id}/watch-progress` |
+| Tương tác Video | `PUT`, `DELETE /api/v1/videos/{id}/reaction`; `PUT`, `DELETE /api/v1/videos/{id}/rating`; `POST /api/v1/videos/{id}/share` |
+| Comment | `GET`, `POST /api/v1/videos/{id}/comments`; `PATCH`, `DELETE /api/v1/comments/{id}`; `GET /api/v1/comments/{id}/replies` |
+| Tương tác/kiểm duyệt Comment | `PUT`, `DELETE /api/v1/comments/{id}/reaction`; `POST /api/v1/comments/{id}/report`; `PATCH /api/v1/comments/{id}/visibility` |
+| Download | `GET /api/v1/videos/{id}/download-options`, `POST /api/v1/videos/{id}/downloads`, `GET`, `DELETE /api/v1/downloads`, `POST /api/v1/downloads/{id}/{pause|resume|retry|cancel}` |
+
+Video và thumbnail được lưu riêng tư trên Cloudflare R2. Database chỉ lưu object key `r2://bucket/key`; API Playback/Download sinh URL ký có thời hạn, không ghi URL ký hết hạn vào Database.
 
 ---
+
+### Bố trí Upload trên Web
+
+Web dùng Wizard/Modal lớn có thể cuộn, bám theo 4 bước:
+
+```text
+[Chi tiết] ─── [Thành phần video] ─── [Kiểm tra ban đầu] ─── [Chế độ hiển thị]
+
+Khu vực chính: Form của bước hiện tại
+Khu vực phụ:   Preview + trạng thái Upload/Processing
+Thanh đáy:     Hủy | Quay lại | Tiếp tục/Lưu/Publish
+```
+
+Quy định:
+
+- Hiển thị bước hiện tại, bước đã hoàn thành và bước còn khóa.
+- Không cho `Tiếp tục` nếu thiếu trường bắt buộc hoặc còn lỗi validation.
+- Có thể đóng Wizard sau khi Upload; tiến trình phải tiếp tục ở nền nếu Backend đã nhận file.
+- Khi đóng, phải hỏi nếu còn thay đổi chưa lưu hoặc Upload chưa hoàn tất.
+- Nút `Tiếp tục` ở bước Chi tiết không đồng nghĩa Video đã Public.
 
 ### Bố trí Upload trên Mobile
 
 Upload chạy theo **Full-screen Wizard**, không dùng Modal nhỏ.
 
 ```text
-Bước 1/5
-Chọn Video
-[ Preview ]
----------------------------
-Hủy              Tiếp tục
+Chọn file
+  ↓
+Bước 1/4 — Chi tiết
+  ↓
+Bước 2/4 — Thành phần video
+  ↓
+Bước 3/4 — Kiểm tra ban đầu
+  ↓
+Bước 4/4 — Chế độ hiển thị
 ```
-
-Các bước:
-
-1. Chọn file từ Gallery/File/Camera nếu hỗ trợ.
-2. Chi tiết Video.
-3. Thumbnail + Playlist + Category/Tag.
-4. Policy Check/Visibility.
-5. Preview + Publish.
 
 Quy định:
 
 - CTA `Tiếp tục/Đăng` cố định phía dưới.
 - Upload Progress phải còn hoạt động khi User tạm chuyển màn hình nếu hệ điều hành cho phép.
-- Khi mạng mất:
-  - Pause.
-  - Giữ Draft.
-  - Retry khi có mạng.
-- Không bắt User nhập tất cả metadata trên cùng một màn hình.
+- Khi mạng mất: Pause, giữ Draft/Upload state và Retry khi có mạng.
+- Component mở bằng Bottom Sheet hoặc Full-screen Form tùy kích thước dữ liệu.
+- Timeline dùng màn hình riêng hoặc Bottom Sheet có Player Preview; không ép nhập nhiều mốc trên một form dài.
+- Trước khi Publish hiển thị lại Preview, Visibility, Schedule và cảnh báo Policy.
 
 ## 2.3.22. Chỉnh sửa Video
 

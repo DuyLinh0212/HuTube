@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using HuTube.Application.Auth;
+using HuTube.Application.Storage;
+using HuTube.Application.Videos;
 using HuTube.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -22,14 +24,46 @@ public sealed class TestGoogleTokenVerifier : IGoogleTokenVerifier
         ? Task.FromResult(new GoogleIdentity("google-subject-123", "google.user@example.com", "Google User", null))
         : throw new AuthException(401, "INVALID_GOOGLE_TOKEN", "Google token không hợp lệ.");
 }
+public sealed class TestObjectStorage : IObjectStorage
+{
+    public ConcurrentDictionary<string, byte[]> Objects { get; } = new();
+    public Task<string> SaveFileAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default) => SaveAsync(folder, fileName, content, ct);
+    public Task<string> SaveVideoAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default) => SaveAsync(folder, fileName, content, ct);
+    private async Task<string> SaveAsync(string folder, string fileName, Stream content, CancellationToken ct)
+    {
+        var path = $"test://{folder}/{Guid.NewGuid():N}{Path.GetExtension(fileName)}";
+        using var buffer = new MemoryStream(); await content.CopyToAsync(buffer, ct); Objects[path] = buffer.ToArray(); return path;
+    }
+    public Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default) => Task.FromResult(storedPath.Replace("test://", "https://storage.test/"));
+    public Task DeleteFileAsync(string relativePath, CancellationToken ct = default) { Objects.TryRemove(relativePath, out _); return Task.CompletedTask; }
+}
 
-public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class TestVideoTranscoder : IVideoTranscoder
+{
+    public async Task<IReadOnlyList<TranscodedVideo>> CreateLowerRenditionsAsync(string sourceFilePath, string sourceQuality, string workingDirectory, CancellationToken ct = default)
+    {
+        var result = new List<TranscodedVideo>();
+        foreach (var quality in HuTube.Domain.Videos.VideoRules.LowerQualities(sourceQuality))
+        {
+            var height = HuTube.Domain.Videos.VideoRules.QualityHeight(quality);
+            var output = Path.Combine(workingDirectory, quality + ".mp4");
+            await using var source = File.OpenRead(sourceFilePath);
+            await using var target = File.Create(output);
+            await source.CopyToAsync(target, ct);
+            result.Add(new(quality, height * 16 / 9, height, 1000, output, source.Length));
+        }
+        return result;
+    }
+}
+
+public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly string _databaseName = "hutube_test_" + Guid.NewGuid().ToString("N");
     private readonly string _adminConnection = Environment.GetEnvironmentVariable("TEST_DATABASE_CONNECTION")
         ?? throw new InvalidOperationException("TEST_DATABASE_CONNECTION is required. Integration tests always run against a real, isolated PostgreSQL database.");
     public string Connection { get; private set; } = "";
     public TestEmails Emails { get; } = new();
+    public TestObjectStorage Storage { get; } = new();
     public async Task InitializeAsync()
     {
         await using var connection = new NpgsqlConnection(_adminConnection); await connection.OpenAsync();
@@ -55,7 +89,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("Auth:AdminBaseUrl", "http://localhost:4201");
         builder.UseSetting("Auth:AllowedOrigins:0", "");
         builder.UseSetting("Auth:AllowedOrigins:1", "");
-        builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.RemoveAll<IGoogleTokenVerifier>(); services.AddSingleton<IAuthEmailSender>(Emails); services.AddSingleton<IGoogleTokenVerifier, TestGoogleTokenVerifier>(); });
+        builder.UseSetting("Features:ModerationEnabled", "true");
+        builder.UseSetting("Features:PlanEnforcementEnabled", "true");
+        builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.RemoveAll<IGoogleTokenVerifier>(); services.RemoveAll<IObjectStorage>(); services.RemoveAll<IVideoTranscoder>(); services.AddSingleton<IAuthEmailSender>(Emails); services.AddSingleton<IGoogleTokenVerifier, TestGoogleTokenVerifier>(); services.AddSingleton<IObjectStorage>(Storage); services.AddSingleton<IVideoTranscoder, TestVideoTranscoder>(); });
     }
     async Task IAsyncLifetime.DisposeAsync()
     {
