@@ -127,7 +127,7 @@ async function login(page, origin, email, platform = 'web') {
   const response = await responsePromise;
   assert(response.status() === 200, `${platform} login failed for ${email}: ${response.status()}`);
   const payload = await response.json();
-  await page.getByRole('heading', { name: platform === 'admin' ? 'Tài khoản quản trị' : 'Hồ sơ', exact: true }).waitFor();
+  await page.getByRole('heading', { name: platform === 'admin' ? 'Tài khoản quản trị' : 'Cài đặt tài khoản', exact: true }).waitFor();
   return payload.accessToken;
 }
 
@@ -188,7 +188,7 @@ async function mobileLogin(page, email) {
   const refreshResponse = await refreshPromise;
   assert(refreshResponse.status() === 200, `Session refresh returned ${refreshResponse.status()}.`);
   ownerToken = (await refreshResponse.json()).accessToken;
-  await ownerPage.getByRole('heading', { name: 'Hồ sơ', exact: true }).waitFor();
+  await ownerPage.getByRole('heading', { name: 'Cài đặt tài khoản', exact: true }).waitFor();
   await ownerPage.screenshot({ path: path.join(outputDir, 'e2e-s4-01-session-restored.png'), fullPage: true });
   console.log('PASS E2E-S4-01 register, verify, login, protected profile and refresh restore.');
 
@@ -239,7 +239,7 @@ async function mobileLogin(page, email) {
   const createFiles = ownerPage.locator('form input[type="file"]');
   await createFiles.nth(0).setInputFiles(bannerPath);
   await createFiles.nth(1).setInputFiles(avatarPath);
-  await ownerPage.getByRole('button', { name: 'Tạo kênh', exact: true }).click();
+  await ownerPage.locator('form button[type="submit"]').click();
   await ownerPage.waitForURL(new RegExp(`/channel/${handle}$`));
   await ownerPage.getByRole('heading', { name: channelName, exact: true }).waitFor();
   await ownerPage.getByAltText(`Ảnh đại diện kênh ${channelName}`).waitFor();
