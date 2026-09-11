@@ -493,7 +493,7 @@ public sealed class ContentService(
         if (parent != null && parent.UserId != userId)
         {
             await PublishInteractionNotificationAsync(parent.UserId, userId, "comment_reply", "Có người trả lời bình luận", content,
-                $"/watch/{videoId}?comment={comment.CommentId}", "comment", comment.CommentId, ct);
+                $"/watch/{videoId}?comment={comment.CommentId}", "comment", parent.CommentId, ct);
         }
         return await ToCommentAsync(comment, userId, ct);
     }

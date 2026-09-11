@@ -102,8 +102,8 @@ async function createVerifiedUser(page, identity, throughUi = false) {
     await page.getByLabel('Tên người dùng', { exact: true }).fill(identity.username);
     await page.getByLabel('Email', { exact: true }).fill(identity.email);
     await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-    await page.getByLabel('Nhập lại mật khẩu', { exact: true }).fill(password);
-    await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+    await page.locator('#confirmPassword').fill(password);
+    await page.locator('form button[type="submit"]').click();
     await page.getByRole('status').filter({ hasText: 'Tài khoản đã được tạo' }).waitFor();
   } else {
     const response = await page.request.post(`${apiBase}/auth/register`, {
@@ -123,11 +123,11 @@ async function login(page, origin, email, platform = 'web') {
   const responsePromise = page.waitForResponse(response =>
     response.url() === `${apiBase}/auth/login` && response.request().method() === 'POST'
   );
-  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await page.locator('form button[type="submit"]').click();
   const response = await responsePromise;
   assert(response.status() === 200, `${platform} login failed for ${email}: ${response.status()}`);
   const payload = await response.json();
-  await page.getByRole('heading', { name: platform === 'admin' ? 'Tài khoản quản trị' : 'Hồ sơ', exact: true }).waitFor();
+  await page.getByRole('heading', { name: platform === 'admin' ? 'Tài khoản quản trị' : 'Cài đặt tài khoản', exact: true }).waitFor();
   return payload.accessToken;
 }
 
@@ -188,7 +188,7 @@ async function mobileLogin(page, email) {
   const refreshResponse = await refreshPromise;
   assert(refreshResponse.status() === 200, `Session refresh returned ${refreshResponse.status()}.`);
   ownerToken = (await refreshResponse.json()).accessToken;
-  await ownerPage.getByRole('heading', { name: 'Hồ sơ', exact: true }).waitFor();
+  await ownerPage.getByRole('heading', { name: 'Cài đặt tài khoản', exact: true }).waitFor();
   await ownerPage.screenshot({ path: path.join(outputDir, 'e2e-s4-01-session-restored.png'), fullPage: true });
   console.log('PASS E2E-S4-01 register, verify, login, protected profile and refresh restore.');
 
@@ -197,7 +197,7 @@ async function mobileLogin(page, email) {
   await deniedPage.goto(`${adminOrigin}/login`);
   await deniedPage.getByLabel('Email', { exact: true }).fill(owner.email);
   await deniedPage.getByLabel('Mật khẩu', { exact: true }).fill(password);
-  await deniedPage.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+  await deniedPage.locator('form button[type="submit"]').click();
   await deniedPage.getByRole('alert').filter({ hasText: 'quyền quản trị' }).waitFor();
   assert(deniedPage.url().includes('/login'), 'Ordinary user entered the Admin UI.');
   const deniedApi = await api(deniedPage, 'GET', '/admin/me', ownerToken);
@@ -210,7 +210,7 @@ async function mobileLogin(page, email) {
   await createVerifiedUser(moderatorPage, moderator);
   assignSystemRole(moderator.email, 'moderator');
   const moderatorToken = await login(moderatorPage, adminOrigin, moderator.email, 'admin');
-  const sidebar = moderatorPage.getByRole('complementary', { name: 'Điều hướng quản trị' });
+  const sidebar = moderatorPage.locator('aside.side-nav');
   await sidebar.getByText('Kiểm duyệt', { exact: true }).waitFor();
   await sidebar.getByTitle('Video', { exact: true }).waitFor();
   assert(await sidebar.getByText('Người dùng', { exact: true }).count() === 0, 'Moderator saw the User menu.');
@@ -239,7 +239,7 @@ async function mobileLogin(page, email) {
   const createFiles = ownerPage.locator('form input[type="file"]');
   await createFiles.nth(0).setInputFiles(bannerPath);
   await createFiles.nth(1).setInputFiles(avatarPath);
-  await ownerPage.getByRole('button', { name: 'Tạo kênh', exact: true }).click();
+  await ownerPage.locator('form button[type="submit"]').click();
   await ownerPage.waitForURL(new RegExp(`/channel/${handle}$`));
   await ownerPage.getByRole('heading', { name: channelName, exact: true }).waitFor();
   await ownerPage.getByAltText(`Ảnh đại diện kênh ${channelName}`).waitFor();
