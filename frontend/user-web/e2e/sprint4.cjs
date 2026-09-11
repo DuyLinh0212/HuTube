@@ -210,7 +210,7 @@ async function mobileLogin(page, email) {
   await createVerifiedUser(moderatorPage, moderator);
   assignSystemRole(moderator.email, 'moderator');
   const moderatorToken = await login(moderatorPage, adminOrigin, moderator.email, 'admin');
-  const sidebar = moderatorPage.getByRole('complementary', { name: 'Điều hướng quản trị' });
+  const sidebar = moderatorPage.locator('aside.side-nav');
   await sidebar.getByText('Kiểm duyệt', { exact: true }).waitFor();
   await sidebar.getByTitle('Video', { exact: true }).waitFor();
   assert(await sidebar.getByText('Người dùng', { exact: true }).count() === 0, 'Moderator saw the User menu.');
