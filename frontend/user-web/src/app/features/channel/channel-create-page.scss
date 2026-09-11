@@ -6,7 +6,7 @@
 
 .create-form-card,
 .existing-channel-card {
-  background: #FFFFFF;
+  background: var(--card-bg, #FFFFFF);
   border: 1px solid var(--card-border, #E5E7EB);
   border-radius: 20px;
   padding: 36px;
@@ -39,9 +39,9 @@
   font-weight: 500;
 
   &.alert-error {
-    background: #FEF2F2;
-    border: 1px solid #FCA5A5;
-    color: #991B1B;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
   }
 }
 
@@ -53,9 +53,9 @@
   .banner-box {
     width: 100%;
     height: 150px;
-    background: #F3F4F6;
+    background: var(--card-hover, #F3F4F6);
     border-radius: 16px;
-    border: 2px dashed #D1D5DB;
+    border: 2px dashed var(--card-border, #D1D5DB);
     overflow: hidden;
     cursor: pointer;
     display: flex;
@@ -65,7 +65,7 @@
 
     &:hover {
       border-color: var(--primary, #FF2B66);
-      background: #FFF0F4;
+      background: var(--primary-soft, #FFF0F4);
     }
 
     .banner-img {
@@ -96,8 +96,8 @@
     width: 76px;
     height: 76px;
     border-radius: 50%;
-    background: #FFFFFF;
-    border: 3px solid #FFFFFF;
+    background: var(--card-bg, #FFFFFF);
+    border: 3px solid var(--card-bg, #FFFFFF);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     overflow: hidden;
     cursor: pointer;
@@ -153,16 +153,17 @@
   }
 
   .feedback-text {
-    font-size: 12px;
+    font-size: 12.5px;
     margin: 4px 0 0;
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--text-muted, #6B7280);
 
     &.is-valid {
-      color: #059669;
+      color: #10B981;
     }
 
     &.is-invalid {
-      color: #DC2626;
+      color: #EF4444;
     }
   }
 
@@ -173,14 +174,14 @@
     font-size: 14.5px;
     border: 1px solid var(--card-border, #E5E7EB);
     border-radius: 12px;
-    background: #FAF8F7;
+    background: var(--surface, #FAF8F7);
     color: var(--text-dark, #111827);
     outline: none;
     box-sizing: border-box;
     transition: all 0.2s ease;
 
     &:focus {
-      background: #FFFFFF;
+      background: var(--card-bg, #FFFFFF);
       border-color: var(--primary, #FF2B66);
       box-shadow: 0 0 0 3px rgba(255, 43, 102, 0.15);
     }
@@ -193,14 +194,14 @@
   .handle-input-wrap {
     display: flex;
     align-items: center;
-    background: #FAF8F7;
+    background: var(--surface, #FAF8F7);
     border: 1px solid var(--card-border, #E5E7EB);
     border-radius: 12px;
     overflow: hidden;
     transition: all 0.2s ease;
 
     &:focus-within {
-      background: #FFFFFF;
+      background: var(--card-bg, #FFFFFF);
       border-color: var(--primary, #FF2B66);
       box-shadow: 0 0 0 3px rgba(255, 43, 102, 0.15);
     }
@@ -210,6 +211,7 @@
       font-size: 16px;
       font-weight: 700;
       color: var(--primary, #FF2B66);
+      user-select: none;
     }
 
     .handle-field {
@@ -248,6 +250,7 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
 
   &:hover:not(:disabled) {
     background: var(--primary-hover, #E61952);
@@ -256,14 +259,15 @@
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
     cursor: not-allowed;
     box-shadow: none;
+    transform: none;
   }
 }
 
 .btn-secondary {
-  background: #FFFFFF;
+  background: var(--card-bg, #FFFFFF);
   color: var(--text-body, #374151);
   border: 1px solid var(--card-border, #E5E7EB);
   padding: 10px 20px;
@@ -277,8 +281,8 @@
   transition: all 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: #F9FAFB;
-    border-color: #D1D5DB;
+    background: var(--card-hover, #F9FAFB);
+    border-color: var(--card-border, #D1D5DB);
   }
 }
 
@@ -295,6 +299,7 @@
     font-size: 22px;
     font-weight: 800;
     margin: 0 0 6px;
+    color: var(--text-dark, #111827);
   }
 
   p {
@@ -307,7 +312,7 @@
     display: inline-flex;
     align-items: center;
     gap: 14px;
-    background: #FAF8F7;
+    background: var(--surface, #FAF8F7);
     border: 1px solid var(--card-border, #E5E7EB);
     padding: 12px 24px;
     border-radius: 16px;
@@ -339,6 +344,7 @@
         margin: 0;
         font-size: 16px;
         font-weight: 700;
+        color: var(--text-dark, #111827);
       }
 
       .handle-text {

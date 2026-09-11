@@ -1,16 +1,101 @@
 <main id="main-content" class="users-page">
   <header class="page-heading">
     <div>
-      <p class="eyebrow">Người dùng</p>
-      <h1>Danh sách người dùng</h1>
-      <p class="muted">Quản lý tài khoản, nhóm quyền và vai trò trong hệ thống.</p>
+      <p class="eyebrow">{{ 'nav.groupUser' | translate }}</p>
+      <h1>{{ 'users.title' | translate }}</h1>
+      <p class="muted">{{ 'users.subtitle' | translate }}</p>
     </div>
   </header>
 
-  <section class="empty-panel" aria-label="Danh sách người dùng">
-    <div class="empty-icon"><img src="/assets/icons/user.png" alt="" /></div>
-    <h2>Chưa có danh sách người dùng</h2>
-    <p>Trang này sẽ hiển thị danh sách, trạng thái, Plan và role của người dùng sau khi kết nối API quản trị.</p>
-    <span class="placeholder-badge">Trang tượng trưng</span>
+  <!-- Filter & Search Bar -->
+  <section class="filter-card">
+    <div class="filter-controls">
+      <div class="search-field">
+        <span class="search-glyph"></span>
+        <input type="search" [placeholder]="'users.search' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </div>
+
+      <div class="filter-dropdowns">
+        <select class="filter-select" [ngModel]="selectedRole()" (ngModelChange)="selectedRole.set($event)">
+          <option value="ALL">{{ 'users.filterRole' | translate }}: {{ 'common.all' | translate }}</option>
+          <option value="SUPER_ADMIN">Super Admin</option>
+          <option value="MODERATOR">Moderator</option>
+          <option value="CREATOR">Creator</option>
+          <option value="USER">Standard User</option>
+        </select>
+
+        <select class="filter-select" [ngModel]="selectedStatus()" (ngModelChange)="selectedStatus.set($event)">
+          <option value="ALL">{{ 'users.filterStatus' | translate }}: {{ 'common.all' | translate }}</option>
+          <option value="ACTIVE">{{ 'common.active' | translate }}</option>
+          <option value="BANNED">{{ 'common.banned' | translate }}</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Users Data Table -->
+  <section class="table-card">
+    <div class="table-responsive">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>{{ 'users.colUser' | translate }}</th>
+            <th>{{ 'users.colRole' | translate }}</th>
+            <th>{{ 'users.colStatus' | translate }}</th>
+            <th>{{ 'users.colEmailVerified' | translate }}</th>
+            <th>{{ 'users.colCreatedAt' | translate }}</th>
+            <th style="text-align: right;">{{ 'users.colActions' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of filteredUsers(); track u.id) {
+            <tr>
+              <td>
+                <div class="user-info-cell">
+                  <div class="avatar-circle">{{ u.displayName.slice(0, 1).toUpperCase() }}</div>
+                  <div class="user-text">
+                    <strong class="user-name">{{ u.displayName }}</strong>
+                    <span class="user-email">{{ u.email }} · &#64;{{ u.username }}</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="role-badge" [class.is-admin]="u.role === 'SUPER_ADMIN'" [class.is-mod]="u.role === 'MODERATOR'" [class.is-creator]="u.role === 'CREATOR'">
+                  {{ u.role }}
+                </span>
+              </td>
+              <td>
+                @if (u.status === 'ACTIVE') {
+                  <span class="status-pill is-active">🟢 {{ 'common.active' | translate }}</span>
+                } @else {
+                  <span class="status-pill is-banned">🔴 {{ 'common.banned' | translate }}</span>
+                }
+              </td>
+              <td>
+                @if (u.emailVerified) {
+                  <span class="verify-tag verified">✓ {{ 'users.verified' | translate }}</span>
+                } @else {
+                  <span class="verify-tag unverified">✕ {{ 'users.unverified' | translate }}</span>
+                }
+              </td>
+              <td class="date-cell">{{ u.createdAt }}</td>
+              <td style="text-align: right;">
+                <div class="action-buttons">
+                  <button type="button" class="btn-action" [class.btn-danger]="u.status === 'ACTIVE'" [class.btn-success]="u.status === 'BANNED'" (click)="toggleBan(u)">
+                    {{ (u.status === 'ACTIVE' ? 'users.actionBan' : 'users.actionUnban') | translate }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-cell">
+                <p>{{ 'users.empty' | translate }}</p>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </section>
 </main>

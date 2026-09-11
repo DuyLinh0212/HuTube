@@ -279,7 +279,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         return new("Đã kết thúc phiên đăng nhập.");
     }
 
-    private async Task SendVerificationAsync(User user, CancellationToken ct)
+    private async Task  SendVerificationAsync(User user, CancellationToken ct)
     {
         var raw = tokens.CreateOpaqueToken();
         store.AddVerification(user, new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddHours(24) });

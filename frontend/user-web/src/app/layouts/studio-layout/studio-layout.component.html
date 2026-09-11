@@ -1,0 +1,10 @@
+<div class="studio-shell" [class.nav-open]="navOpen()" [class.nav-collapsed]="navCollapsed()">
+  <button class="nav-scrim" type="button" aria-label="Đóng menu" (click)="closeNavigation()"></button>
+  <app-studio-sidebar [open]="navOpen()" [collapsed]="navCollapsed()" (collapsedChange)="setCollapsed($event)" (navigationClosed)="closeNavigation()" />
+  <section class="studio-stage">
+    <app-studio-topbar (menuOpened)="navOpen.set(true)" />
+    <main id="studio-content" class="studio-content-frame">
+      <router-outlet />
+    </main>
+  </section>
+</div>

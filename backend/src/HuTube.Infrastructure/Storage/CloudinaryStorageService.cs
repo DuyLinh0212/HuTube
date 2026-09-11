@@ -52,6 +52,30 @@ public sealed class CloudinaryStorageService : IObjectStorage
         return result.SecureUrl.AbsoluteUri;
     }
 
+    public async Task<string> SaveVideoAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default)
+    {
+        var parameters = new VideoUploadParams
+        {
+            File = new FileDescription(fileName, content),
+            Folder = "hutube/" + folder.Trim().Trim('/').Replace('\\', '/'),
+            UseFilename = false,
+            UniqueFilename = true,
+            Overwrite = false
+        };
+        try
+        {
+            var result = await _cloudinary.UploadAsync(parameters, ct);
+            if (result.Error != null || result.SecureUrl == null)
+                throw new ObjectStorageException("Dịch vụ lưu trữ video từ chối yêu cầu tải lên.");
+            return result.SecureUrl.AbsoluteUri;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (ObjectStorageException) { throw; }
+        catch (Exception ex) { throw new ObjectStorageException("Dịch vụ lưu trữ video tạm thời không khả dụng.", ex); }
+    }
+
+    public Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default) => Task.FromResult(storedPath);
+
     public Task DeleteFileAsync(string relativePath, CancellationToken ct = default)
     {
         // Stored records currently contain delivery URLs only. Asset deletion will be wired to

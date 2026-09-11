@@ -1,4 +1,5 @@
 using HuTube.Application.Channels;
+using HuTube.Application.Auth;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Users;
 using Xunit;
@@ -7,6 +8,17 @@ namespace HuTube.UnitTests;
 
 public sealed class ChannelTests
 {
+    private sealed class FakeEmailSender : IAuthEmailSender
+    {
+        public List<(string Email, string Subject, string Body)> Messages { get; } = [];
+
+        public Task SendAsync(string email, string subject, string body, CancellationToken cancellationToken)
+        {
+            Messages.Add((email, subject, body));
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakeChannelStore : IChannelStore
     {
         public List<Channel> Channels { get; } = [];
@@ -132,6 +144,38 @@ public sealed class ChannelTests
         var memberResponse = await service.AcceptInvitationAsync(invite.ChannelInvitationId, invitee.UserId);
         Assert.Equal(ChannelRoles.Editor, memberResponse.RoleCode);
         Assert.Equal("active", memberResponse.Status);
+    }
+
+    [Fact]
+    public async Task InviteMember_ShouldSendInvitationEmail()
+    {
+        var store = new FakeChannelStore();
+        var emailSender = new FakeEmailSender();
+        var service = new ChannelService(
+            store,
+            emailSender: emailSender,
+            authOptions: new AuthOptions { WebBaseUrl = "http://localhost:4200" });
+        var ownerId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("Channel", "channel", null));
+
+        var invitee = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "invitee@example.com",
+            Username = "invitee",
+            DisplayName = "Invitee"
+        };
+        store.Users.Add(invitee);
+
+        var invitation = await service.InviteMemberAsync(
+            channel.ChannelId,
+            ownerId,
+            new("invitee@example.com", ChannelRoles.Editor));
+
+        var message = Assert.Single(emailSender.Messages);
+        Assert.Equal(invitee.Email, message.Email);
+        Assert.Contains("Bạn được mời tham gia kênh", message.Subject);
+        Assert.Contains($"/channel-invitations?invitation={invitation.ChannelInvitationId}", message.Body);
     }
 
     [Fact]

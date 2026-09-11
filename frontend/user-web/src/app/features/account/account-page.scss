@@ -828,3 +828,36 @@
     }
   }
 }
+
+.select-input, .input-field, .text-area {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border, #E5E7EB);
+  background: var(--canvas, #FAF8F7);
+  color: var(--text-dark, #111827);
+  font-size: 14px;
+  outline: none;
+  transition: all 0.15s ease;
+
+  &:focus {
+    border-color: var(--primary, #FF2B66);
+    box-shadow: 0 0 0 3px var(--primary-soft, rgba(255, 43, 102, 0.1));
+  }
+}
+
+.switch-item {
+  background: var(--canvas, #FAF8F7) !important;
+  border-color: var(--card-border, #E5E7EB) !important;
+}
+
+.session-card {
+  background: var(--canvas, #FAF8F7) !important;
+  border-color: var(--card-border, #E5E7EB) !important;
+}
+
+.device-badge {
+  background: var(--surface, #FFFFFF) !important;
+  border-color: var(--card-border, #E5E7EB) !important;
+}
+

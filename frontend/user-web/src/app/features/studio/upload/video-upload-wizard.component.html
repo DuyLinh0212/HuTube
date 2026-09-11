@@ -1,0 +1,678 @@
+<div class="upload-container">
+  <!-- Header & Stepper -->
+  <header class="wizard-header">
+    <!-- 6-step Indicator Bar -->
+    <nav class="stepper-bar" aria-label="Các bước tải lên video">
+      <ol class="stepper-list">
+        <li class="stepper-item" [class.is-active]="currentStep() === 1" [class.is-done]="currentStep() > 1" (click)="setStep(1)">
+          <span class="step-badge">
+            @if (currentStep() > 1) { <span>✓</span> } @else { 1 }
+          </span>
+          <span class="step-name">{{ 'upload.step1' | translate }}</span>
+        </li>
+        <li class="stepper-line" [class.is-done]="currentStep() > 1"></li>
+
+        <li class="stepper-item" [class.is-active]="currentStep() === 2" [class.is-done]="currentStep() > 2" (click)="setStep(2)">
+          <span class="step-badge">
+            @if (currentStep() > 2) { <span>✓</span> } @else { 2 }
+          </span>
+          <span class="step-name">{{ 'upload.step2' | translate }}</span>
+        </li>
+        <li class="stepper-line" [class.is-done]="currentStep() > 2"></li>
+
+        <li class="stepper-item" [class.is-active]="currentStep() === 3" [class.is-done]="currentStep() > 3" (click)="setStep(3)">
+          <span class="step-badge">
+            @if (currentStep() > 3) { <span>✓</span> } @else { 3 }
+          </span>
+          <span class="step-name">{{ 'upload.step3' | translate }}</span>
+        </li>
+        <li class="stepper-line" [class.is-done]="currentStep() > 3"></li>
+
+        <li class="stepper-item" [class.is-active]="currentStep() === 4" [class.is-done]="currentStep() > 4" (click)="setStep(4)">
+          <span class="step-badge">
+            @if (currentStep() > 4) { <span>✓</span> } @else { 4 }
+          </span>
+          <span class="step-name">{{ 'upload.step4' | translate }}</span>
+        </li>
+        <li class="stepper-line" [class.is-done]="currentStep() > 4"></li>
+
+        <li class="stepper-item" [class.is-active]="currentStep() === 5" [class.is-done]="currentStep() > 5" (click)="setStep(5)">
+          <span class="step-badge">
+            @if (currentStep() > 5) { <span>✓</span> } @else { 5 }
+          </span>
+          <span class="step-name">{{ 'upload.step5' | translate }}</span>
+        </li>
+        <li class="stepper-line" [class.is-done]="currentStep() > 5"></li>
+
+        <li class="stepper-item" [class.is-active]="currentStep() === 6" [class.is-done]="currentStep() === 6">
+          <span class="step-badge">
+            @if (currentStep() === 6) { <span>✓</span> } @else { 6 }
+          </span>
+          <span class="step-name">{{ 'upload.step6' | translate }}</span>
+        </li>
+      </ol>
+    </nav>
+  </header>
+
+  <!-- Main Wizard Grid Layout -->
+  <div class="wizard-layout" [class.is-single-column]="currentStep() === 1 || currentStep() === 6">
+    <!-- Left Column: Step Content Panels -->
+    <main class="wizard-main-content">
+
+      <!-- STEP 1: CHỌN FILE -->
+      @if (currentStep() === 1) {
+        <section class="step-panel step-1">
+          <div class="dropzone-card">
+            <div class="dropzone-icon">☁️</div>
+            <h2 class="dropzone-title">{{ 'upload.step1.boxTitle' | translate }}</h2>
+            <p class="dropzone-desc">{{ 'upload.step1.boxDesc' | translate }}</p>
+
+            <div class="dropzone-area" [class.is-drag-active]="isFileDragActive()"
+                 (dragover)="onVideoDragOver($event)" (dragleave)="onVideoDragLeave($event)" (drop)="onVideoDrop($event)">
+              <span class="upload-glyph">📤</span>
+              <p class="dropzone-hint">{{ 'upload.step1.dragDrop' | translate }}</p>
+              <label class="btn-select-file" for="videoFile">{{ 'upload.step1.btn' | translate }}</label>
+              <input id="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" hidden (change)="selectVideo($event)" />
+            </div>
+
+            <p class="dropzone-formats">
+              {{ 'upload.step1.formats' | translate }} · {{ 'upload.step1.maxSize' | translate }}
+            </p>
+          </div>
+
+          <!-- Upload In-Progress Box -->
+          @if (hasFile()) { <div class="upload-progress-card">
+            <div class="progress-file-header">
+              <div class="file-icon">🎬</div>
+              <div class="file-info">
+                <strong class="file-name" [title]="selectedFileName()">{{ selectedFileName() }}</strong>
+                <span class="file-size">{{ fileSizeLabel() }} · {{ formatDuration(duration) }} · {{ resolutionLabel() }}</span>
+              </div>
+              @if (!isUploading()) {
+                <button type="button" class="btn-cancel-upload" (click)="cancelFile()">{{ 'upload.step1.cancel' | translate }}</button>
+              }
+            </div>
+
+            <div class="progress-bar-container">
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill" [style.width.%]="isUploading() ? uploadProgress() : 0"></div>
+              </div>
+              <div class="progress-bar-labels">
+                @if (isPreparing()) { <span>Đang đọc video và tách khung hình…</span> }
+                @else if (preflightLoading()) { <span>Đang kiểm tra dung lượng thật…</span> }
+                @else if (isUploading()) { <span>{{ uploadState.state().phase === 'processing' ? 'Đang tạo các chất lượng video…' : 'Đang tải lên…' }} {{ uploadProgress() }}%</span> }
+                @else { <span>Sẵn sàng tải lên</span> }
+                <span>{{ storageRemainingLabel() }}</span>
+              </div>
+            </div>
+          </div> }
+          @if (uploadError()) { <p class="continue-notice-box" role="alert">{{ uploadError() }}</p> }
+
+          <!-- Creator Tip -->
+          <div class="wizard-tip-box">
+            <span class="tip-icon">💡</span>
+            <p>{{ 'upload.step1.tip' | translate }}</p>
+          </div>
+        </section>
+      }
+
+      <!-- STEP 2: CHI TIẾT VIDEO -->
+      @if (currentStep() === 2) {
+        <section class="step-panel step-2">
+          <div class="panel-heading-group">
+            <h2 class="panel-heading">{{ 'upload.step2.heading' | translate }}</h2>
+            <p class="panel-subheading">{{ 'upload.step2.subheading' | translate }}</p>
+          </div>
+
+          <form class="detail-form" (submit)="$event.preventDefault()">
+            <!-- Title -->
+            <div class="form-group">
+              <div class="label-row">
+                <label for="videoTitle">{{ 'upload.step2.videoTitle' | translate }} <span class="required">*</span></label>
+                <span class="counter" [class.is-warning]="videoTitle.length > 90">{{ videoTitle.length }}/100</span>
+              </div>
+              <input id="videoTitle" type="text" class="text-input" [(ngModel)]="videoTitle" name="videoTitle" maxlength="100" />
+              <span class="form-hint">{{ 'upload.step2.titleHint' | translate }}</span>
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+              <div class="label-row">
+                <label for="videoDesc">{{ 'upload.step2.desc' | translate }}</label>
+                <span class="counter">{{ videoDesc.length }}/5000</span>
+              </div>
+              <textarea id="videoDesc" rows="5" class="textarea-input" [(ngModel)]="videoDesc" name="videoDesc" maxlength="5000"></textarea>
+              <span class="form-hint">{{ 'upload.step2.descHint' | translate }}</span>
+            </div>
+
+            <!-- Thumbnail -->
+            <div class="form-group">
+              <label>{{ 'upload.step2.thumbnail' | translate }}</label>
+              <div class="thumbnail-grid">
+                @for (thumb of thumbnails; track thumb.id) {
+                  <button type="button" class="thumb-card" [class.is-selected]="selectedThumbnail === thumb.id" (click)="chooseThumbnail(thumb.id)">
+                    <img [src]="thumb.url" [alt]="thumb.label" />
+                    <span class="thumb-badge">{{ thumb.label }}</span>
+                    @if (selectedThumbnail === thumb.id) {
+                      <span class="selected-indicator">✓</span>
+                    }
+                  </button>
+                }
+                <label class="thumb-upload-card" for="thumbnailFile">
+                  <span class="upload-icon">🖼️</span>
+                  <span>{{ 'upload.step2.changeThumb' | translate }}</span>
+                </label>
+                <input id="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp" hidden (change)="selectThumbnail($event)" />
+              </div>
+              <span class="form-hint">{{ 'upload.step2.thumbHint' | translate }}</span>
+            </div>
+
+            <!-- Category & Language Row -->
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="videoCategory">{{ 'upload.step2.category' | translate }}</label>
+                <select id="videoCategory" class="select-input" [(ngModel)]="category" name="category">
+                  <option value="">Không chọn</option>
+                  @for (item of categoryOptions(); track item.categoryId) { <option [value]="item.categoryId">{{ item.name }}</option> }
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="videoLang">{{ 'upload.step2.language' | translate }}</label>
+                <select id="videoLang" class="select-input" [(ngModel)]="videoLang" name="videoLang">
+                  <option value="vi">Tiếng Việt (Vietnamese)</option>
+                  <option value="en">English (US)</option>
+                  <option value="ja">日本語 (Japanese)</option>
+                </select>
+                <span class="form-hint">{{ 'upload.step2.langHint' | translate }}</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="sourceQuality">Chất lượng video nguồn</label>
+              <select id="sourceQuality" class="select-input" [(ngModel)]="sourceQuality" name="sourceQuality" (ngModelChange)="onSourceQualityChange($event)">
+                <option value="360p">360p</option><option value="480p">480p</option><option value="720p">720p</option>
+                <option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">2160p (4K)</option>
+              </select>
+              <span class="form-hint">Backend tự động tạo các bản chất lượng thấp hơn và lưu trên Cloudflare R2.</span>
+            </div>
+
+            <!-- Tags Manager -->
+            <div class="form-group">
+              <label for="newTag">{{ 'upload.step2.tags' | translate }}</label>
+              <div class="tags-box">
+                @for (tag of tags(); track tag) {
+                  <span class="tag-chip">
+                    #{{ tag }}
+                    <button type="button" class="tag-remove" (click)="removeTag(tag)">×</button>
+                  </span>
+                }
+                <input id="newTag" type="text" class="tag-input" [(ngModel)]="newTag" name="newTag"
+                       [placeholder]="'upload.step2.tagsPlaceholder' | translate"
+                       (keydown.enter)="$event.preventDefault(); addTag()" />
+              </div>
+              <span class="form-hint">{{ 'upload.step2.tagsHint' | translate }}</span>
+            </div>
+          </form>
+        </section>
+      }
+
+      <!-- STEP 3: THÀNH PHẦN VIDEO (CHAPTERS & PHỤ ĐỀ) -->
+      @if (currentStep() === 3) {
+        <section class="step-panel step-3">
+          <div class="panel-heading-group">
+            <h2 class="panel-heading">{{ 'upload.step3.heading' | translate }}</h2>
+            <p class="panel-subheading">{{ 'upload.step3.subheading' | translate }}</p>
+          </div>
+
+          <!-- Timeline thật: click/kéo để tua, kéo marker để đổi mốc chương -->
+          <div class="timeline-scrubber-card">
+            <div class="timeline-toolbar">
+              <span>Đang xem: <strong>{{ timelineLabel() }}</strong></span>
+              <div class="timeline-toolbar-actions">
+                <button type="button" class="timeline-add-button" (click)="useCurrentTimeForChapter()">+ Thêm chương tại mốc</button>
+                <button type="button" class="timeline-preview-button" (click)="togglePreview($event)">{{ previewPlaying() ? 'Tạm dừng' : 'Phát xem trước' }}</button>
+              </div>
+            </div>
+            <div #timelineTrack class="scrubber-track" role="slider" tabindex="0" aria-label="Timeline video"
+                 [attr.aria-valuemin]="0" [attr.aria-valuemax]="duration" [attr.aria-valuenow]="timelineSeconds()"
+                 (pointerdown)="beginTimelineDrag($event)">
+              <div class="timeline-played" [style.width.%]="timelinePercent()"></div>
+              @for (ch of chapters(); track ch.id) {
+                <button type="button" class="scrubber-chapter-marker" [class.is-invalid]="!isChapterValid(ch.id)"
+                        [style.left.%]="chapterPercent(ch)" [title]="ch.time + ' - ' + ch.title"
+                        (pointerdown)="beginChapterDrag($event, ch.id)">
+                  <span>{{ ch.time }} · {{ ch.title }}</span>
+                </button>
+              }
+              <div class="scrubber-playhead" [style.left.%]="timelinePercent()"></div>
+            </div>
+            <div class="timeline-scale"><span>0:00</span><span>{{ formatDuration(duration) }}</span></div>
+            <p class="timeline-help">Kéo trên thanh để tua video. Kéo chấm chương để đổi thời điểm, hoặc sửa trực tiếp bên dưới.</p>
+          </div>
+
+          <!-- Chapters Table -->
+          <div class="chapters-card">
+            <div class="card-header-row">
+              <h3 class="card-title">{{ 'upload.step3.chapterList' | translate }} ({{ chapters().length }})</h3>
+            </div>
+
+            <table class="chapters-table">
+              <thead>
+                <tr>
+                  <th style="width: 60px">#</th>
+                  <th>{{ 'upload.step3.chapterName' | translate }}</th>
+                  <th style="width: 140px">{{ 'upload.step3.chapterStart' | translate }}</th>
+                  <th style="width: 80px">{{ 'common.actions' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (ch of chapters(); track ch.id; let idx = $index) {
+                  <tr>
+                    <td class="idx-col">{{ idx + 1 }}</td>
+                    <td class="title-col"><input class="chapter-edit-input" [class.is-invalid]="!ch.title.trim()" [ngModel]="ch.title" (ngModelChange)="updateChapterTitle(ch.id, $event)" aria-label="Tên chương" /></td>
+                    <td class="time-col"><input class="chapter-edit-input chapter-time-edit" [class.is-invalid]="!isChapterValid(ch.id)" [ngModel]="ch.time" (ngModelChange)="updateChapterTime(ch.id, $event)" aria-label="Thời điểm bắt đầu" /></td>
+                    <td class="action-col">
+                      <button type="button" class="btn-icon-del" (click)="removeChapter(ch.id)" [title]="'common.delete' | translate">🗑️</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            <!-- Add Chapter Form -->
+            <div class="add-chapter-box">
+              <h4>{{ 'upload.step3.addChapter' | translate }}</h4>
+              <div class="add-chapter-row">
+                <input #newChapterTitleInput type="text" class="text-input" [(ngModel)]="newChapterTitle" [placeholder]="'upload.step3.chapterNamePlaceholder' | translate" />
+                <input type="text" class="text-input time-input" [(ngModel)]="newChapterTime" [placeholder]="'upload.step3.timePlaceholder' | translate" />
+                <button type="button" class="btn-add-ch" (click)="addChapter()">+ {{ 'upload.step3.addBtn' | translate }}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subtitle Options Box -->
+          <div class="subtitles-option-card">
+            <div class="option-row">
+              <div class="option-info">
+                <h4>{{ 'upload.step3.aiSubTitle' | translate }}</h4>
+                <p>{{ 'upload.step3.aiSubDesc' | translate }}</p>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" [(ngModel)]="autoSubtitles" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="wizard-tip-box">
+            <span class="tip-icon">💡</span>
+            <p>{{ 'upload.step3.chapterTip' | translate }}</p>
+          </div>
+        </section>
+      }
+
+      <!-- STEP 4: KIỂM TRA BAN ĐẦU -->
+      @if (currentStep() === 4) {
+        <section class="step-panel step-4">
+          <div class="panel-heading-group">
+            <h2 class="panel-heading">{{ 'upload.step4.heading' | translate }}</h2>
+            <p class="panel-subheading">{{ 'upload.step4.subheading' | translate }}</p>
+          </div>
+
+          <!-- Verification Items -->
+          <div class="checks-list">
+            <div class="check-item is-passed">
+              <div class="check-status-icon">✅</div>
+              <div class="check-content">
+                <h4>{{ 'upload.step4.checkFile' | translate }}</h4>
+                <p>{{ 'upload.step4.checkFileSub' | translate }}</p>
+              </div>
+              <span class="check-badge badge-passed">{{ 'upload.step4.passed' | translate }}</span>
+            </div>
+
+            <div class="check-item is-passed">
+              <div class="check-status-icon">✅</div>
+              <div class="check-content">
+                <h4>{{ 'upload.step4.checkMeta' | translate }}</h4>
+                <p>{{ 'upload.step4.checkMetaSub' | translate }}</p>
+              </div>
+              <span class="check-badge badge-passed">{{ 'upload.step4.passed' | translate }}</span>
+            </div>
+
+            <div class="check-item is-passed">
+              <div class="check-status-icon">✅</div>
+              <div class="check-content">
+                <h4>{{ 'upload.step4.checkThumb' | translate }}</h4>
+                <p>{{ 'upload.step4.checkThumbSub' | translate }}</p>
+              </div>
+              <span class="check-badge badge-passed">{{ 'upload.step4.passed' | translate }}</span>
+            </div>
+
+            <div class="check-item is-passed">
+              <div class="check-status-icon">✅</div>
+              <div class="check-content">
+                <h4>{{ 'upload.step4.checkCopyright' | translate }}</h4>
+                <p>{{ 'upload.step4.checkCopyrightSub' | translate }}</p>
+              </div>
+              <span class="check-badge badge-passed">{{ 'upload.step4.passed' | translate }}</span>
+            </div>
+
+            <div class="check-item is-passed">
+              <div class="check-status-icon">✅</div>
+              <div class="check-content">
+                <h4>{{ 'upload.step4.checkPolicy' | translate }}</h4>
+                <p>{{ 'upload.step4.checkPolicySub' | translate }}</p>
+              </div>
+              <span class="check-badge badge-passed">{{ 'upload.step4.passed' | translate }}</span>
+            </div>
+
+            <div class="check-item is-passed">
+              <div class="check-status-icon">✅</div>
+              <div class="check-content">
+                <h4>{{ 'upload.step4.checkTech' | translate }}</h4>
+                <p>{{ 'upload.step4.checkTechSub' | translate }}</p>
+              </div>
+              <span class="check-badge badge-passed">{{ 'upload.step4.passed' | translate }}</span>
+            </div>
+          </div>
+
+          <!-- Issues to review box -->
+          <div class="issues-card">
+            <div class="issues-header">
+              <span class="warn-icon">⚠️</span>
+              <h3 class="issues-title">{{ 'upload.step4.issuesHeading' | translate }}</h3>
+            </div>
+
+            <div class="issue-row">
+              <div class="issue-info">
+                <h4>{{ 'upload.step4.issueDesc' | translate }}</h4>
+                <p>{{ 'upload.step4.issueDescSub' | translate }}</p>
+              </div>
+              <button type="button" class="btn-fix-step" (click)="setStep(2)">{{ 'common.edit' | translate }}</button>
+            </div>
+
+            <div class="issue-row">
+              <div class="issue-info">
+                <h4>{{ 'upload.step4.issueChapter' | translate }}</h4>
+                <p>{{ 'upload.step4.issueChapterSub' | translate }}</p>
+              </div>
+              <button type="button" class="btn-fix-step" (click)="setStep(3)">{{ 'common.edit' | translate }}</button>
+            </div>
+          </div>
+
+          <div class="continue-notice-box">
+            <span>ℹ️</span>
+            <p>{{ 'upload.step4.continueNotice' | translate }}</p>
+          </div>
+        </section>
+      }
+
+      <!-- STEP 5: CHẾ ĐỘ HIỂN THỊ -->
+      @if (currentStep() === 5) {
+        <section class="step-panel step-5">
+          <div class="panel-heading-group">
+            <h2 class="panel-heading">{{ 'upload.step5.heading' | translate }}</h2>
+            <p class="panel-subheading">{{ 'upload.step5.subheading' | translate }}</p>
+          </div>
+
+          <!-- Visibility Choice Radio Cards -->
+          <div class="visibility-cards">
+            <!-- Public -->
+            <label class="visibility-card" aria-disabled="true" title="Tạm khóa vì kiểm duyệt chưa được triển khai">
+              <input type="radio" name="visibility" value="public" disabled />
+              <div class="card-body">
+                <div class="title-line">
+                  <span class="vis-icon">🌍</span>
+                  <strong class="vis-title">{{ 'upload.step5.public' | translate }}</strong>
+                  <span class="vis-recommended">Tạm khóa</span>
+                </div>
+                <p class="vis-desc">{{ 'upload.step5.publicDesc' | translate }}</p>
+              </div>
+            </label>
+
+            <!-- Unlisted -->
+            <label class="visibility-card" [class.is-selected]="visibility === 'unlisted'">
+              <input type="radio" name="visibility" value="unlisted" [(ngModel)]="visibility" />
+              <div class="card-body">
+                <div class="title-line">
+                  <span class="vis-icon">🔗</span>
+                  <strong class="vis-title">{{ 'upload.step5.unlisted' | translate }}</strong>
+                </div>
+                <p class="vis-desc">{{ 'upload.step5.unlistedDesc' | translate }}</p>
+              </div>
+            </label>
+
+            <!-- Private -->
+            <label class="visibility-card" [class.is-selected]="visibility === 'private'">
+              <input type="radio" name="visibility" value="private" [(ngModel)]="visibility" />
+              <div class="card-body">
+                <div class="title-line">
+                  <span class="vis-icon">🔒</span>
+                  <strong class="vis-title">{{ 'upload.step5.private' | translate }}</strong>
+                </div>
+                <p class="vis-desc">{{ 'upload.step5.privateDesc' | translate }}</p>
+              </div>
+            </label>
+          </div>
+
+          <!-- Publishing Schedule Section -->
+          <div class="schedule-section-card">
+            <h3>{{ 'upload.step5.publishTime' | translate }}</h3>
+            <p class="section-sub">{{ 'upload.step5.publishTimeSub' | translate }}</p>
+
+            <div class="schedule-options">
+              <label class="radio-label">
+                <input type="radio" name="publishMode" value="now" [(ngModel)]="publishMode" />
+                <span>{{ 'upload.step5.publishNow' | translate }}</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="publishMode" value="schedule" [(ngModel)]="publishMode" />
+                <span>{{ 'upload.step5.schedule' | translate }}</span>
+              </label>
+            </div>
+
+            @if (publishMode === 'schedule') {
+              <div class="schedule-picker-row">
+                <div class="picker-group">
+                  <label for="schedDate">{{ 'upload.step5.schedDate' | translate }}</label>
+                  <input id="schedDate" type="date" class="text-input" [(ngModel)]="scheduleDate" />
+                </div>
+                <div class="picker-group">
+                  <label for="schedTime">{{ 'upload.step5.schedTime' | translate }}</label>
+                  <input id="schedTime" type="time" class="text-input" [(ngModel)]="scheduleTime" />
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Other Options -->
+          <div class="other-options-card">
+            <h3>{{ 'upload.step5.otherOptions' | translate }}</h3>
+            <p class="section-sub">{{ 'upload.step5.otherOptionsSub' | translate }}</p>
+
+            <div class="option-switch-item">
+              <div class="opt-desc">
+                <strong>{{ 'upload.step5.allowComments' | translate }}</strong>
+                <p>{{ 'upload.step5.allowCommentsDesc' | translate }}</p>
+              </div>
+              <label class="switch-toggle">
+                <input type="checkbox" [(ngModel)]="allowComments" />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="playlist-select-item">
+              <label for="videoPlaylist">{{ 'upload.step5.addPlaylist' | translate }}</label>
+              <select id="videoPlaylist" class="select-input" [(ngModel)]="selectedPlaylist">
+                <option value="">-- {{ 'upload.step5.selectPlaylist' | translate }} --</option>
+                <option value="dalat-trips">Hành trình Đà Lạt 2026</option>
+                <option value="travel-vlogs">Du lịch Việt Nam 4K</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="policy-notice-box">
+            <span>🛡️</span>
+            <p>{{ 'upload.step5.policyNotice' | translate }}</p>
+          </div>
+        </section>
+      }
+
+      <!-- STEP 6: PUBLISH (HOÀN TẤT) -->
+      @if (currentStep() === 6) {
+        <section class="step-panel step-6">
+          <div class="celebration-card">
+            <div class="celebration-icon">🎉</div>
+            <h2 class="celebration-title">{{ 'upload.step6.congrats' | translate }}</h2>
+            <p class="celebration-desc">{{ 'upload.step6.congratsDesc' | translate }}</p>
+          </div>
+
+          <div class="publish-summary-card">
+            <div class="summary-preview">
+              <img [src]="selectedThumbnailUrl()" alt="Video thumbnail" class="summary-thumb" />
+              <div class="summary-meta">
+                <span class="status-pill status-ready">🟢 {{ 'upload.sidebar.statusReady' | translate }}</span>
+                <h3 class="summary-title">{{ videoTitle }}</h3>
+                <div class="meta-row">
+                  <span>{{ formatDuration(duration) }}</span> · <span>{{ resolutionLabel() }}</span> · <span>{{ category || 'Chưa phân loại' }}</span>
+                </div>
+                <div class="summary-tags">
+                  @for (t of tags(); track t) {
+                    <span class="mini-tag">#{{ t }}</span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- Video Link Box -->
+            <div class="video-link-box">
+              <label>{{ 'upload.step6.videoLink' | translate }}</label>
+              <div class="link-input-group">
+                <input type="text" class="link-input" [value]="publishedVideoUrl" readonly />
+                <button type="button" class="btn-copy" (click)="copyLink()">
+                  {{ (copied() ? 'common.copied' : 'upload.step6.copyLink') | translate }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="publish-actions">
+              <a [href]="publishedVideoUrl" target="_blank" class="btn-primary-action">
+                ▶️ {{ 'upload.step6.watchVideo' | translate }}
+              </a>
+              <button type="button" class="btn-secondary-action" (click)="navigateToContent()">
+                📁 {{ 'upload.step6.backToContent' | translate }}
+              </button>
+              <button type="button" class="btn-ghost-action" (click)="resetWizard()">
+                🔄 {{ 'upload.step6.uploadAnother' | translate }}
+              </button>
+            </div>
+          </div>
+        </section>
+      }
+
+    </main>
+
+    <!-- Right Column: Video Preview & Storage Specs (Visible in steps 2 to 5) -->
+    @if (currentStep() >= 2 && currentStep() <= 5) {
+      <aside class="wizard-side-panel">
+        <!-- Live Video Player Card -->
+        <div class="preview-player-card">
+          <div class="player-wrapper">
+            @if (previewVideoUrl()) {
+              <video #previewPlayer class="player-video" [src]="previewVideoUrl()" [poster]="selectedThumbnailUrl()"
+                     controls playsinline preload="metadata" (play)="previewPlaying.set(true)" (pause)="previewPlaying.set(false)"
+                     (ended)="previewPlaying.set(false)" (timeupdate)="onPreviewTimeUpdate($event)"></video>
+              <div class="player-overlay">
+                <button class="player-play-btn" type="button" (click)="togglePreview($event)" [attr.aria-label]="'upload.step6.watchVideo' | translate">{{ previewPlaying() ? '❚❚' : '▶' }}</button>
+                <span class="player-duration">{{ formatDuration(duration) }}</span>
+              </div>
+            } @else {
+              <div class="player-empty">Chọn video để xem bản preview</div>
+            }
+          </div>
+          <div class="player-info">
+            <h4 class="player-title">{{ videoTitle || ('upload.step2.untitled' | translate) }}</h4>
+            <span class="player-sub" [title]="selectedFileName()">{{ selectedFileName() }}</span>
+          </div>
+        </div>
+
+        <!-- Video Technical Specs -->
+        <div class="side-card specs-card">
+          <h4 class="side-card-title">{{ 'upload.sidebar.fileInfo' | translate }}</h4>
+          <dl class="specs-list">
+            <div class="spec-row">
+              <dt>{{ 'upload.sidebar.format' | translate }}</dt>
+              <dd>{{ formatType() }}</dd>
+            </div>
+            <div class="spec-row">
+              <dt>{{ 'upload.sidebar.size' | translate }}</dt>
+              <dd>{{ fileSizeLabel() }}</dd>
+            </div>
+            <div class="spec-row">
+              <dt>{{ 'upload.sidebar.duration' | translate }}</dt>
+              <dd>{{ formatDuration(duration) }}</dd>
+            </div>
+            <div class="spec-row">
+              <dt>{{ 'upload.sidebar.resolution' | translate }}</dt>
+              <dd>{{ resolutionLabel() }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <!-- Storage Quota Widget -->
+        <div class="side-card quota-card">
+          <div class="quota-head">
+            <h4 class="side-card-title">{{ 'upload.sidebar.storageQuota' | translate }}</h4>
+            <span class="quota-percent">{{ storagePercent() | number:'1.0-1' }}%</span>
+          </div>
+          <div class="quota-bar-track">
+            <div class="quota-bar-fill" [style.width.%]="storagePercent()"></div>
+          </div>
+          <p class="quota-label">{{ 'upload.sidebar.storageUsed' | translate }}: {{ storageUsageLabel() }}</p>
+        </div>
+
+        <!-- Important Guidelines -->
+        <div class="side-card guidelines-card">
+          <h4 class="side-card-title">{{ 'upload.sidebar.importantNotes' | translate }}</h4>
+          <ul class="guidelines-list">
+            <li>{{ 'upload.sidebar.note1' | translate }}</li>
+            <li>{{ 'upload.sidebar.note2' | translate }}</li>
+            <li>{{ 'upload.sidebar.note3' | translate }}</li>
+          </ul>
+          <a href="#" class="guidelines-link">{{ 'upload.sidebar.policyLink' | translate }}</a>
+        </div>
+      </aside>
+    }
+  </div>
+
+  <!-- Wizard Footer Controls (Steps 1 to 5) -->
+  @if (currentStep() <= 5) {
+    <footer class="wizard-footer">
+      <div class="footer-left">
+        @if (currentStep() > 1) {
+          <button type="button" class="btn-wizard-back" (click)="prevStep()">
+            ← {{ 'common.back' | translate }}
+          </button>
+        }
+      </div>
+
+      <div class="footer-right">
+        <button type="button" class="btn-wizard-draft">
+          {{ 'upload.step2.saveDraft' | translate }}
+        </button>
+
+        @if (currentStep() < 5) {
+          <button type="button" class="btn-wizard-next" (click)="nextStep()">
+            {{ 'common.continue' | translate }} →
+          </button>
+        } @else {
+          <button type="button" class="btn-wizard-publish" (click)="nextStep()" [disabled]="isUploading()">
+            {{ isUploading() ? 'Đang tải lên và tạo chất lượng…' : 'Lưu video' }}
+          </button>
+        }
+      </div>
+    </footer>
+  }
+</div>

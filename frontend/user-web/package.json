@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "prestart": "node scripts/configure-api.mjs",
+    "prestart": "node scripts/configure-api.mjs --local",
     "prebuild": "node scripts/configure-api.mjs",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
     "test:e2e": "node e2e/sprint4.cjs",
@@ -33,6 +33,7 @@
     "@angular/forms": "^20.3.0",
     "@angular/platform-browser": "^20.3.0",
     "@angular/router": "^20.3.0",
+    "@microsoft/signalr": "^10.0.11",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"

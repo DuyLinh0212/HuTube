@@ -1,0 +1,87 @@
+<main id="main-content" class="library-page">
+  <header class="library-header">
+    <div>
+      <span class="library-eyebrow">Thư viện</span>
+      <h1>{{ title }}</h1>
+      <p>{{ description }}</p>
+    </div>
+    <span class="library-count">{{ total() | number }} video</span>
+  </header>
+
+  @if (isLiked) {
+    <section class="rating-filter" aria-label="Lọc video theo đánh giá của bạn">
+      <span class="rating-filter__label">Lọc theo đánh giá</span>
+      <div class="rating-filter__options" role="group">
+        <button type="button" [class.is-active]="ratingFilter() === null" [attr.aria-pressed]="ratingFilter() === null" (click)="setRatingFilter(null)">Tất cả</button>
+        @for (star of [1, 2, 3, 4, 5]; track star) {
+          <button type="button" [class.is-active]="ratingFilter() === star" [attr.aria-pressed]="ratingFilter() === star" (click)="setRatingFilter(star)"><span aria-hidden="true">★</span> {{ star }}</button>
+        }
+      </div>
+    </section>
+  }
+
+  @if (error()) {
+    <div class="library-alert" role="alert">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <section class="library-list" aria-label="Đang tải thư viện video" aria-busy="true">
+      @for (placeholder of [1, 2, 3]; track placeholder) {
+        <div class="library-card library-card--skeleton"><div class="skeleton skeleton-thumb"></div><div class="skeleton-copy"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line--short"></div><div class="skeleton skeleton-line skeleton-line--tiny"></div></div></div>
+      }
+    </section>
+  } @else if (!error()) {
+    @if (items().length) {
+      <section class="library-list" [attr.aria-label]="title">
+        @for (item of items(); track item.videoId) {
+          <article class="library-card">
+            <a class="library-thumb" [routerLink]="['/watch', item.videoId]" [attr.aria-label]="'Xem ' + item.title">
+              @if (item.thumbnailUrl) {
+                <img [src]="item.thumbnailUrl" alt="" />
+              } @else {
+                <span class="library-thumb__fallback" aria-hidden="true">▶</span>
+              }
+              <time>{{ duration(item.duration) }}</time>
+              @if (!isLiked && item.progress > 0) { <span class="watch-progress" [style.width.%]="item.progress"></span> }
+            </a>
+            <div class="library-card__body">
+              <div class="library-card__heading">
+                <h2><a [routerLink]="['/watch', item.videoId]">{{ item.title }}</a></h2>
+                @if (item.visibility !== 'public') { <span class="visibility-chip">{{ item.visibility }}</span> }
+              </div>
+              <a class="library-channel" [routerLink]="['/channel', item.channelHandle]">{{ item.channelName }} <span>&#64;{{ item.channelHandle }}</span></a>
+              <div class="library-meta">
+                @if (isLiked) {
+                  <span class="your-rating"><span aria-hidden="true">★</span> Bạn: {{ ratingLabel(item) }}</span>
+                  @if (item.averageRating !== null) { <span>Điểm chung {{ item.averageRating | number:'1.1-2' }}/5 ({{ item.ratingCount }})</span> }
+                } @else {
+                  <span>Đã xem {{ progressLabel(item) }}</span>
+                  <span>{{ item.watchedSeconds | number }} giây</span>
+                }
+                <span>{{ item.activityAt | date:'d MMM y, HH:mm' }}</span>
+              </div>
+              @if (!isLiked && item.progress > 0 && item.progress < 100) {
+                <p class="resume-hint">Bạn đang xem dở video này</p>
+              }
+            </div>
+          </article>
+        }
+      </section>
+
+      @if (pageCount() > 1) {
+        <nav class="library-pagination" aria-label="Phân trang thư viện">
+          <button type="button" (click)="goToPage(page() - 1)" [disabled]="page() === 1">← Trước</button>
+          <span>Trang {{ page() }} / {{ pageCount() }}</span>
+          <button type="button" (click)="goToPage(page() + 1)" [disabled]="page() === pageCount()">Sau →</button>
+        </nav>
+      }
+    } @else {
+      <section class="library-empty">
+        <span class="library-empty__icon" aria-hidden="true">{{ isLiked ? '♡' : '◷' }}</span>
+        <h2>{{ isLiked && ratingFilter() !== null ? 'Không có video phù hợp' : (isLiked ? 'Chưa có video đã thích' : 'Chưa có lịch sử xem') }}</h2>
+        <p>{{ isLiked && ratingFilter() !== null ? 'Thử chọn một mức đánh giá khác.' : (isLiked ? 'Những video bạn bấm Thích sẽ xuất hiện ở đây.' : 'Video bạn mở và xem sẽ được lưu lại tại đây.') }}</p>
+        @if (isLiked && ratingFilter() !== null) { <button type="button" class="library-empty__action" (click)="setRatingFilter(null)">Xem tất cả video đã thích</button> }
+      </section>
+    }
+  }
+</main>

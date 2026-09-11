@@ -1,0 +1,323 @@
+.studio-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: 18px 14px 14px;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  transition: width 200ms ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.studio-nav__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.studio-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 10px;
+  flex: none;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brand-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: var(--ink);
+  line-height: 1.1;
+
+  strong { font: inherit; }
+  em { color: var(--primary); font: inherit; font-style: normal; }
+}
+
+.brand-badge {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nav-close {
+  display: none;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card-hover);
+  color: var(--text-body);
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.studio-nav-items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.studio-nav-items::-webkit-scrollbar { width: 0; height: 0; }
+
+.studio-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  color: var(--text-body);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: all 0.16s ease;
+  position: relative;
+  cursor: pointer;
+
+  .item-icon {
+    font-size: 1.05rem;
+    flex: none;
+    width: 20px;
+    text-align: center;
+  }
+
+  .item-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover {
+    background: var(--card-hover);
+    color: var(--ink);
+  }
+
+  &.active {
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-weight: 700;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 3px;
+      border-radius: 0 3px 3px 0;
+      background: var(--primary);
+    }
+  }
+
+  /* Specific style for Upload Video highlighted item */
+  &.studio-nav-item--highlight {
+    background: var(--primary-soft);
+    color: var(--primary);
+
+    &:hover {
+      background: rgba(255, 43, 102, 0.14);
+    }
+
+    &.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 3px 12px -2px var(--primary-glow);
+
+      &::before {
+        display: none;
+      }
+    }
+
+    .highlight-badge {
+      margin-left: auto;
+      font-size: 0.62rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: var(--primary);
+      color: white;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+  }
+}
+
+.studio-nav-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.pro-promo-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .pro-icon {
+    font-size: 1.4rem;
+  }
+
+  .pro-info {
+    h4 {
+      margin: 0 0 2px;
+      font-size: 0.84rem;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    p {
+      margin: 0;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+  }
+
+  .btn-upgrade-pro {
+    padding: 8px 12px;
+    border-radius: 9px;
+    border: 0;
+    background: #f59e0b;
+    color: #111827;
+    font-size: 0.74rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+
+    &:hover {
+      background: #d97706;
+      color: #fff;
+    }
+  }
+}
+
+.collapse-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  .collapse-arrow {
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  &:hover {
+    background: var(--card-hover);
+    color: var(--ink);
+  }
+}
+
+/* Collapsed State */
+.studio-nav.is-collapsed {
+  width: 76px;
+  align-items: center;
+
+  .brand-text,
+  .item-label,
+  .highlight-badge,
+  .pro-promo-card,
+  .collapse-toggle-btn span:not(.collapse-arrow) {
+    display: none;
+  }
+
+  .studio-brand {
+    justify-content: center;
+  }
+
+  .studio-nav-item {
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .collapse-toggle-btn {
+    justify-content: center;
+    padding: 9px;
+  }
+}
+
+/* Responsive Mobile Off-Canvas Drawer */
+@media (max-width: 960px) {
+  .studio-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    transform: translateX(-105%);
+    width: min(304px, 88vw);
+    box-shadow: 24px 0 60px -32px rgba(0, 0, 0, 0.45);
+    transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--surface);
+  }
+
+  .studio-nav.is-open {
+    transform: translateX(0);
+  }
+
+  .nav-close { display: grid; }
+  .collapse-toggle-btn { display: none; }
+
+  .studio-nav.is-collapsed {
+    width: min(304px, 88vw);
+    align-items: stretch;
+
+    .brand-text,
+    .item-label,
+    .highlight-badge {
+      display: initial;
+    }
+
+    .studio-nav-item {
+      justify-content: flex-start;
+      padding: 10px 14px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-nav { transition: none; }
+}

@@ -6,12 +6,15 @@ import { finalize } from 'rxjs';
 import { AuthService, Session, errorMessage } from '../../core/auth.service';
 import { AccountService, NotificationSettings, UserPreferences, UserProfile } from '../../core/account.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
+import { ThemeService, AppThemeMode } from '../../core/theme.service';
+import { I18nService, AppLang } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 type AccountTab = 'profile' | 'password' | 'notifications' | 'preferences' | 'sessions';
 
 @Component({
   selector: 'app-account-page',
-  imports: [DatePipe, FormsModule, RouterLink],
+  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './account-page.html',
   styleUrl: './account-page.scss'
 })
@@ -19,6 +22,8 @@ export class AccountPage {
   readonly auth = inject(AuthService);
   readonly account = inject(AccountService);
   readonly channelService = inject(ChannelService);
+  readonly themeService = inject(ThemeService);
+  readonly i18n = inject(I18nService);
   private router = inject(Router);
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
@@ -106,6 +111,12 @@ export class AccountPage {
       next: prefs => {
         this.preferences = { ...prefs };
         this.location = prefs.location ?? 'Việt Nam';
+        if (prefs.theme === 'light' || prefs.theme === 'dark') {
+          this.themeService.setTheme(prefs.theme);
+        }
+        if (prefs.language === 'vi' || prefs.language === 'en') {
+          this.i18n.setLang(prefs.language);
+        }
       },
       error: () => {}
     });
@@ -137,7 +148,7 @@ export class AccountPage {
     }).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: updated => {
         this.profile.set(updated);
-        this.message.set('Đã lưu thông tin hồ sơ thành công.');
+        this.message.set(this.i18n.t('account.profileSaved'));
       },
       error: err => this.error.set(errorMessage(err))
     });
@@ -153,7 +164,7 @@ export class AccountPage {
 
     const file = input.files[0];
     if (file.size > 5 * 1024 * 1024) {
-      this.error.set('Kích thước ảnh đại diện tối đa là 5MB.');
+      this.error.set(this.i18n.t('account.avatarSizeError'));
       return;
     }
 
@@ -162,7 +173,7 @@ export class AccountPage {
     this.account.uploadAvatar(file).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: updated => {
         this.profile.set(updated);
-        this.message.set('Đã cập nhật ảnh đại diện mới.');
+        this.message.set(this.i18n.t('account.avatarUpdated'));
       },
       error: err => this.error.set(errorMessage(err))
     });
@@ -171,15 +182,15 @@ export class AccountPage {
   onChangePassword() {
     if (this.busy()) return;
     if (!this.currentPassword) {
-      this.error.set('Vui lòng nhập mật khẩu hiện tại.');
+      this.error.set(this.i18n.t('account.enterCurrentPassword'));
       return;
     }
     if (!this.newPassword || this.newPassword.length < 10) {
-      this.error.set('Mật khẩu mới cần từ 10 đến 128 ký tự.');
+      this.error.set(this.i18n.t('account.newPasswordLength'));
       return;
     }
     if (this.newPassword !== this.confirmPassword) {
-      this.error.set('Mật khẩu xác nhận chưa khớp.');
+      this.error.set(this.i18n.t('account.passwordsDoNotMatch'));
       return;
     }
 
@@ -210,9 +221,21 @@ export class AccountPage {
     this.account.updateNotificationSettings(this.notifications).pipe(
       finalize(() => this.busy.set(false))
     ).subscribe({
-      next: () => this.message.set('Đã lưu tùy chọn thông báo thành công.'),
+      next: () => this.message.set(this.i18n.t('account.notifSaved')),
       error: err => this.error.set(errorMessage(err))
     });
+  }
+
+  onThemeChange(theme: string) {
+    if (theme === 'light' || theme === 'dark') {
+      this.themeService.setTheme(theme);
+    }
+  }
+
+  onLanguageChange(lang: string) {
+    if (lang === 'vi' || lang === 'en') {
+      this.i18n.setLang(lang);
+    }
   }
 
   onSavePreferences() {
@@ -222,12 +245,19 @@ export class AccountPage {
     this.message.set('');
 
     this.preferences.location = this.location;
+    if (this.preferences.theme === 'light' || this.preferences.theme === 'dark') {
+      this.themeService.setTheme(this.preferences.theme);
+    }
+    if (this.preferences.language === 'vi' || this.preferences.language === 'en') {
+      this.i18n.setLang(this.preferences.language);
+    }
+
     this.account.updatePreferences(this.preferences).pipe(
       finalize(() => this.busy.set(false))
     ).subscribe({
       next: updated => {
         this.preferences = { ...updated };
-        this.message.set('Đã lưu cài đặt giao diện và ngôn ngữ.');
+        this.message.set(this.i18n.t('account.prefsSaved'));
       },
       error: err => this.error.set(errorMessage(err))
     });
@@ -235,7 +265,7 @@ export class AccountPage {
 
   copyUserId(id: string) {
     navigator.clipboard.writeText(id).then(() => {
-      this.message.set('Đã sao chép ID người dùng vào clipboard.');
+      this.message.set(this.i18n.t('account.userIdCopied'));
     });
   }
 
@@ -245,7 +275,7 @@ export class AccountPage {
     this.error.set('');
     this.auth.logout().pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => void this.router.navigate(['/login']),
-      error: error => this.error.set(errorMessage(error) + ' Hãy thử đăng xuất lại.')
+      error: error => this.error.set(errorMessage(error) + ' ' + this.i18n.t('account.retryLogout'))
     });
   }
 
@@ -255,7 +285,7 @@ export class AccountPage {
     this.error.set('');
     this.auth.logoutOthers().pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
-        this.message.set('Đã đăng xuất khỏi các thiết bị khác.');
+        this.message.set(this.i18n.t('account.loggedOutOthers'));
         this.loadSessions();
       },
       error: error => this.error.set(errorMessage(error))
@@ -270,7 +300,7 @@ export class AccountPage {
     this.auth.revoke(session.sessionId).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
         this.pendingRevoke.set(null);
-        this.message.set('Đã kết thúc phiên đăng nhập thiết bị.');
+        this.message.set(this.i18n.t('account.sessionEnded'));
         this.loadSessions();
       },
       error: error => this.error.set(errorMessage(error))

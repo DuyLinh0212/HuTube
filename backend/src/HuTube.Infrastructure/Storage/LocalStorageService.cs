@@ -25,6 +25,11 @@ public sealed class LocalStorageService(IWebHostEnvironment environment, IHttpCo
         return request == null ? relativeUrl : $"{request.Scheme}://{request.Host}{relativeUrl}";
     }
 
+    public Task<string> SaveVideoAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default) =>
+        SaveFileAsync(folder, fileName, content, contentType, ct);
+
+    public Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default) => Task.FromResult(storedPath);
+
     public Task DeleteFileAsync(string relativePath, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(relativePath)) return Task.CompletedTask;

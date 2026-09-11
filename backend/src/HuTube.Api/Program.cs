@@ -5,11 +5,16 @@ using HuTube.Application.Account;
 using HuTube.Application.Auth;
 using HuTube.Application.Channels;
 using HuTube.Application.Storage;
+using HuTube.Application.Videos;
+using HuTube.Application.Notifications;
 using HuTube.Infrastructure.Account;
 using HuTube.Infrastructure.Authentication;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Storage;
+using HuTube.Infrastructure.Videos;
+using HuTube.Infrastructure.Notifications;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -23,6 +28,11 @@ var authOptions = builder.Configuration.GetSection("Auth").Get<AuthOptions>() ??
 var googleOptions = builder.Configuration.GetSection("Google").Get<GoogleOptions>() ?? new();
 var emailOptions = builder.Configuration.GetSection("Email").Get<EmailOptions>() ?? new();
 var storageOptions = builder.Configuration.GetSection("Storage").Get<StorageOptions>() ?? new();
+var r2Options = builder.Configuration.GetSection("Storage:R2").Get<R2Options>() ?? new();
+var featureOptions = builder.Configuration.GetSection("Features").Get<FeatureOptions>() ?? new();
+var videoProcessingOptions = builder.Configuration.GetSection("VideoProcessing").Get<VideoProcessingOptions>() ?? new();
+if (builder.Environment.IsDevelopment())
+    R2OptionsLoader.LoadDevelopmentFile(r2Options, builder.Environment.ContentRootPath, builder.Configuration["Storage:R2:CredentialsFile"]);
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
 if (authOptions.AccessTokenMinutes is < 1 or > 60 || authOptions.RefreshTokenDays is < 1 or > 90)
     throw new InvalidOperationException("Auth token lifetime configuration is outside its supported range.");
@@ -49,8 +59,9 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
     || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
     throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024);
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
@@ -63,13 +74,27 @@ builder.Services.AddSingleton<IGoogleTokenVerifier, GoogleTokenVerifier>();
 var hasCloudinaryCredentials = !string.IsNullOrWhiteSpace(storageOptions.CloudName)
     && !string.IsNullOrWhiteSpace(storageOptions.ApiKey)
     && !string.IsNullOrWhiteSpace(storageOptions.ApiSecret);
-if (string.Equals(storageOptions.Provider, "Cloudinary", StringComparison.OrdinalIgnoreCase) && hasCloudinaryCredentials)
-    builder.Services.AddSingleton<IObjectStorage, CloudinaryStorageService>();
-else if (builder.Environment.IsDevelopment())
-    builder.Services.AddSingleton<IObjectStorage, LocalStorageService>();
-else
-    throw new InvalidOperationException("Cloudinary storage is required outside Development. Configure Storage__CloudName, Storage__ApiKey and Storage__ApiSecret.");
+var hasR2Credentials = !string.IsNullOrWhiteSpace(r2Options.AccountId)
+    && !string.IsNullOrWhiteSpace(r2Options.AccessKeyId)
+    && !string.IsNullOrWhiteSpace(r2Options.SecretAccessKey)
+    && !string.IsNullOrWhiteSpace(r2Options.BucketName);
+if (!hasCloudinaryCredentials && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException("Cloudinary storage is required outside Development. Configure Storage__CloudName, Storage__ApiKey and Storage__ApiSecret for images.");
+if (!hasR2Credentials && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException("Cloudflare R2 storage is required outside Development. Configure Storage__R2__AccountId, AccessKeyId, SecretAccessKey and BucketName for videos.");
+if (hasCloudinaryCredentials) builder.Services.AddSingleton<CloudinaryStorageService>();
+else builder.Services.AddSingleton<LocalStorageService>();
+if (hasR2Credentials) builder.Services.AddSingleton<R2ObjectStorageService>();
+else builder.Services.AddSingleton<LocalStorageService>();
+builder.Services.AddSingleton<IObjectStorage>(services => new DualObjectStorageService(
+    hasCloudinaryCredentials ? services.GetRequiredService<CloudinaryStorageService>() : services.GetRequiredService<LocalStorageService>(),
+    hasR2Credentials ? services.GetRequiredService<R2ObjectStorageService>() : services.GetRequiredService<LocalStorageService>()));
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSingleton<IVideoTranscoder, FfmpegVideoTranscoder>();
+builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, NotificationUserIdProvider>();
+builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
@@ -81,7 +106,9 @@ builder.Services.AddOpenApi();
 var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url => url.TrimEnd('/'))
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
-    .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS").WithHeaders("Content-Type", "Authorization", "X-HuTube-Client", "X-HuTube-App").AllowCredentials()));
+    .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
+    .WithHeaders("Accept", "Content-Type", "Authorization", "X-Requested-With", "X-HuTube-Client", "X-HuTube-App")
+    .AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
     options.MapInboundClaims = false;
     options.TokenValidationParameters = new() {
@@ -90,6 +117,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ValidateLifetime = true, ClockSkew = TimeSpan.Zero, ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
     };
     options.Events = new() {
+        OnMessageReceived = context => {
+            var token = context.Request.Query["access_token"];
+            if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments("/hubs/notifications")) context.Token = token;
+            return Task.CompletedTask;
+        },
         OnTokenValidated = async context => {
             if (!Guid.TryParse(context.Principal?.FindFirst("sub")?.Value, out var userId)
                 || !Guid.TryParse(context.Principal?.FindFirst("sid")?.Value, out var sessionId)
@@ -150,5 +182,6 @@ app.MapGet("/api/v1/system/info", () => new { name = "HuTube", apiVersion = "v1"
     serverTime = DateTimeOffset.UtcNow, commitSha = Environment.GetEnvironmentVariable("RENDER_GIT_COMMIT") ?? Environment.GetEnvironmentVariable("HUTUBE_COMMIT_SHA") ?? "local" }).AllowAnonymous();
 app.MapGet("/api/v1/system/config", () => new { googleClientId = googleOptions.ClientId }).AllowAnonymous();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 app.Run();
 public partial class Program { }

@@ -694,7 +694,12 @@ ALTER TABLE plans
     ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS display_name VARCHAR(120);
+    ADD COLUMN IF NOT EXISTS display_name VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) NOT NULL DEFAULT 'vi',
+    ADD COLUMN IF NOT EXISTS theme VARCHAR(20) NOT NULL DEFAULT 'system',
+    ADD COLUMN IF NOT EXISTS keep_subscriptions_private BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS keep_playlists_private BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS location VARCHAR(120) DEFAULT 'Việt Nam';
 
 ALTER TABLE notification_settings
     ADD COLUMN IF NOT EXISTS recommendation_enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -834,6 +839,21 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     CONSTRAINT ck_audit_logs_action CHECK (char_length(btrim(action)) > 0)
 );
 
+CREATE TABLE IF NOT EXISTS video_downloads (
+    video_download_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    video_id UUID NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,
+    quality_label VARCHAR(20) NOT NULL,
+    file_url VARCHAR(2048) NOT NULL,
+    file_size BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ready',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_video_downloads_user_video_quality UNIQUE(user_id, video_id, quality_label),
+    CONSTRAINT ck_video_downloads_status CHECK(status IN ('pending','processing','ready','failed','cancelled')),
+    CONSTRAINT ck_video_downloads_size CHECK(file_size > 0)
+);
+
 /*=============================================================================
   Indexes
 =============================================================================*/
@@ -859,7 +879,7 @@ CREATE INDEX IF NOT EXISTS ix_audit_logs_resource ON audit_logs(resource_type, r
 
 
 /*=============================================================================
-  Verification: should return 42 for this HuTube schema in a clean database.
+  Verification: should return 43 for this HuTube schema in a clean database.
 =============================================================================*/
 SELECT COUNT(*) AS hutube_table_count
 FROM information_schema.tables
@@ -874,5 +894,5 @@ WHERE table_schema = 'public'
       'comment_reactions','recommendations','recommendation_items','violation_types',
       'resolution_types','reports','report_resolutions','appeals','channel_members',
       'channel_invitations','channel_comment_moderators','comment_moderation_actions',
-      'video_ratings','moderation_cases','audit_logs'
+      'video_ratings','moderation_cases','audit_logs','video_downloads'
   );

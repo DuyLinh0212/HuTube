@@ -33,7 +33,7 @@
 .dot-pill { width: 14px; height: 4px; border-radius: 999px; background: #d5cbd0; cursor: pointer; transition: width 250ms ease, background 250ms ease; }
 .dot-pill.active { width: 26px; background: var(--brand); }
 .sub-tagline { color: #a98c98; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.18em; }
-.auth-panel { width: 100%; padding: 30px 30px 26px; border: 1px solid rgba(255,255,255,0.92); border-radius: 26px; background: rgba(255,255,255,0.92); box-shadow: var(--shadow-card); }
+.auth-panel { width: 100%; padding: 30px 30px 26px; border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: var(--shadow-card); transition: background 0.2s ease, border-color 0.2s ease; }
 .auth-panel h2 { margin-bottom: 5px; color: var(--ink); font-size: 1.48rem; font-weight: 800; letter-spacing: -0.04em; }
 .auth-panel h2 .brand-tube { color: var(--brand); }
 .auth-panel > .muted { margin-bottom: 18px; color: var(--muted); font-size: 0.76rem; line-height: 1.45; }

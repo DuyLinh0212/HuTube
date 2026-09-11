@@ -2,6 +2,10 @@
 
 @if (isAuthLayout()) {
   <app-auth-layout />
+} @else if (isStudioLayout()) {
+  <app-studio-layout />
 } @else {
   <app-shell-layout />
 }
+
+<app-upload-progress-tray />

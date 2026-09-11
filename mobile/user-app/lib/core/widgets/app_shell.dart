@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../account/screens/profile_screen.dart';
 import '../../auth.dart';
+import '../localization/app_strings.dart';
 import '../theme/app_theme.dart';
 import 'app_logo.dart';
 
@@ -295,31 +296,31 @@ class _AppShellState extends State<AppShell> {
           ? NavigationBar(
               selectedIndex: _selectedDestination,
               onDestinationSelected: _onDestinationSelected,
-              destinations: const [
+              destinations: [
                 NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
-                  label: 'Trang chủ',
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home_rounded),
+                  label: AppStrings.t('nav.home'),
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.explore_outlined),
-                  selectedIcon: Icon(Icons.explore_rounded),
-                  label: 'Khám phá',
+                  icon: const Icon(Icons.explore_outlined),
+                  selectedIcon: const Icon(Icons.explore_rounded),
+                  label: AppStrings.t('nav.explore'),
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.add_circle_outline_rounded),
-                  selectedIcon: Icon(Icons.add_circle_rounded),
-                  label: 'Đăng video',
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  selectedIcon: const Icon(Icons.add_circle_rounded),
+                  label: AppStrings.t('nav.upload'),
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.subscriptions_outlined),
-                  selectedIcon: Icon(Icons.subscriptions_rounded),
-                  label: 'Đăng ký',
+                  icon: const Icon(Icons.subscriptions_outlined),
+                  selectedIcon: const Icon(Icons.subscriptions_rounded),
+                  label: AppStrings.t('nav.subscriptions'),
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(Icons.person_rounded),
-                  label: 'Hồ sơ',
+                  icon: const Icon(Icons.person_outline_rounded),
+                  selectedIcon: const Icon(Icons.person_rounded),
+                  label: AppStrings.t('nav.profile'),
                 ),
               ],
             )
@@ -408,10 +409,10 @@ class _AppShellState extends State<AppShell> {
     return [
       Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w700,
-          color: Color(0xff14223b),
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       const SizedBox(height: 10),
@@ -429,7 +430,7 @@ class _AppShellState extends State<AppShell> {
               ? 'Liên kết thiếu mã đặt lại. Hãy yêu cầu một email mới.'
               : 'Chọn mật khẩu mới, khác mật khẩu bạn dùng ở nơi khác.',
         _ => 'Đăng nhập để tiếp tục với tài khoản của bạn.',
-      }, style: const TextStyle(color: Color(0xff526179), height: 1.6)),
+      }, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color ?? const Color(0xff526179), height: 1.6)),
       const SizedBox(height: 28),
       Form(
         key: _form,

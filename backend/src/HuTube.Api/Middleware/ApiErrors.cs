@@ -27,6 +27,8 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
         catch (HuTube.Application.Channels.ChannelException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
         catch (HuTube.Application.Rbac.RbacException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
         catch (HuTube.Application.Storage.ObjectStorageException ex) { logger.LogWarning(ex, "Object storage request failed for {TraceId}", context.TraceIdentifier); await ApiErrors.WriteAsync(context, 502, "STORAGE_UPLOAD_FAILED", ex.Message); }
+        catch (HuTube.Application.Videos.ContentException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
+        catch (HuTube.Domain.Videos.VideoValidationException ex) { await ApiErrors.WriteAsync(context, 400, ex.Code, ex.Message); }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }
         catch (Exception ex)
         {
