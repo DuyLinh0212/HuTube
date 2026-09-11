@@ -103,7 +103,7 @@ async function createVerifiedUser(page, identity, throughUi = false) {
     await page.getByLabel('Email', { exact: true }).fill(identity.email);
     await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
     await page.locator('#confirmPassword').fill(password);
-    await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+    await page.locator('form button[type="submit"]').click();
     await page.getByRole('status').filter({ hasText: 'Tài khoản đã được tạo' }).waitFor();
   } else {
     const response = await page.request.post(`${apiBase}/auth/register`, {
