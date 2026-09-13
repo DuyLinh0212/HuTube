@@ -17,13 +17,13 @@ public sealed class CategoriesController(IContentService content) : ControllerBa
 public sealed class FeedController(IContentService content) : ControllerBase
 {
     [HttpGet("home")]
-    public Task<PageResult<VideoCardResponse>> HomeAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        content.GetFeedAsync("home", null, null, page, pageSize, ct);
+    public Task<PageResult<VideoCardResponse>> HomeAsync([FromQuery] string sort = "popular", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        content.GetFeedAsync("home", sort, null, null, page, pageSize, ct);
 
     [HttpGet("explore")]
     public Task<PageResult<VideoCardResponse>> ExploreAsync([FromQuery] string sort = "newest", [FromQuery] Guid? categoryId = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        content.GetFeedAsync("explore", sort, categoryId, page, pageSize, ct);
+        [FromQuery] string? tag = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        content.GetFeedAsync("explore", sort, categoryId, tag, page, pageSize, ct);
 }
 
 [ApiController, Route("api/v1/library"), Authorize]
@@ -73,7 +73,7 @@ public sealed class VideosController(IContentService content) : ControllerBase
     public Task<PlaybackResponse> PlaybackAsync(Guid id, CancellationToken ct) => content.GetPlaybackAsync(id, CurrentUserId, ct);
 
     [Authorize, HttpPost, DisableRequestSizeLimit]
-    public async Task<ActionResult<VideoResponse>> UploadAsync([FromForm] UploadVideoForm form, CancellationToken ct)
+    public async Task<ActionResult<VideoResponse>> UploadAsync([FromForm] UploadVideoForm form, [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey, CancellationToken ct)
     {
         if (form.Video == null || form.Video.Length == 0) throw new ContentException(400, "VIDEO_REQUIRED", "Vui lòng chọn file video.");
         IReadOnlyList<ChapterRequest> chapters = [];
@@ -87,7 +87,7 @@ public sealed class VideosController(IContentService content) : ControllerBase
         var result = await content.CreateVideoAsync(UserId, new CreateVideoCommand(form.ChannelId, form.Title, form.Description,
             form.CategoryId, form.LanguageCode, form.Visibility, form.AgeRestricted, form.Duration, form.SourceQuality, form.Video.Length,
             form.Video.FileName, form.Video.ContentType, videoStream, form.Thumbnail?.FileName, form.Thumbnail?.ContentType,
-            thumbnailStream, form.Tags, chapters), ct);
+            thumbnailStream, form.Tags, chapters, idempotencyKey), ct);
         return Created($"/api/v1/videos/{result.VideoId}", result);
     }
 

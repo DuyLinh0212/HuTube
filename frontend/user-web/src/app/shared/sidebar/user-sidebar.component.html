@@ -21,42 +21,55 @@
         <img src="/assets/icons/compass.png" alt="" />
         <span>{{ 'nav.explore' | translate }}</span>
       </a>
-      <span class="nav-item" [title]="'nav.subscriptions' | translate">
+      <a class="nav-item" routerLink="/subscriptions" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.subscriptions' | translate">
         <img src="/assets/icons/channel.png" alt="" />
         <span>{{ 'nav.subscriptions' | translate }}</span>
-      </span>
-    </section>
-
-    <section class="nav-group" [attr.aria-label]="'nav.library' | translate">
-      <p class="nav-label">{{ 'nav.library' | translate }}</p>
-      <a class="nav-item" routerLink="/history" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.history' | translate">
-        <img src="/assets/icons/history.png" alt="" />
-        <span>{{ 'nav.history' | translate }}</span>
-      </a>
-      <a class="nav-item" routerLink="/liked" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.likedVideos' | translate">
-        <img src="/assets/icons/favorite.png" alt="" />
-        <span>{{ 'nav.likedVideos' | translate }}</span>
-      </a>
-      <span class="nav-item" [title]="'nav.playlists' | translate">
-        <img src="/assets/icons/playlist.png" alt="" />
-        <span>{{ 'nav.playlists' | translate }}</span>
-      </span>
-    </section>
-
-    <section class="nav-group" [attr.aria-label]="'nav.yourChannel' | translate">
-      <p class="nav-label">{{ 'nav.yourChannel' | translate }}</p>
-      <a class="nav-item" (click)="openMyChannel()" style="cursor: pointer;" [title]="'nav.yourChannel' | translate">
-        <img src="/assets/icons/my_channel.png" alt="" />
-        <span>{{ 'nav.yourChannel' | translate }}</span>
       </a>
     </section>
 
-    <section class="nav-group" [attr.aria-label]="'nav.settings' | translate">
-      <p class="nav-label">{{ 'nav.settings' | translate }}</p>
-      <a class="nav-item" routerLink="/account" (click)="closeNavigation()" routerLinkActive="active" [title]="'nav.profile' | translate">
-        <img src="/assets/icons/setting.png" alt="" />
-        <span>{{ 'nav.profile' | translate }}</span>
-      </a>
-    </section>
+    @if (auth.user()) {
+      <section class="nav-group" [attr.aria-label]="'nav.library' | translate">
+        <p class="nav-label">{{ 'nav.library' | translate }}</p>
+        <a class="nav-item" routerLink="/history" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.history' | translate">
+          <img src="/assets/icons/history.png" alt="" />
+          <span>{{ 'nav.history' | translate }}</span>
+        </a>
+        <a class="nav-item" routerLink="/liked" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.likedVideos' | translate">
+          <img src="/assets/icons/favorite.png" alt="" />
+          <span>{{ 'nav.likedVideos' | translate }}</span>
+        </a>
+        <span class="nav-item" [title]="'nav.playlists' | translate">
+          <img src="/assets/icons/playlist.png" alt="" />
+          <span>{{ 'nav.playlists' | translate }}</span>
+        </span>
+      </section>
+
+      <section class="nav-group" [attr.aria-label]="'nav.yourChannel' | translate">
+        <p class="nav-label">{{ 'nav.yourChannel' | translate }}</p>
+        <a class="nav-item" (click)="openMyChannel()" style="cursor: pointer;" [title]="'nav.yourChannel' | translate">
+          <img src="/assets/icons/my_channel.png" alt="" />
+          <span>{{ 'nav.yourChannel' | translate }}</span>
+        </a>
+      </section>
+
+      <section class="nav-group" [attr.aria-label]="'nav.settings' | translate">
+        <p class="nav-label">{{ 'nav.settings' | translate }}</p>
+        <a class="nav-item" routerLink="/account" (click)="closeNavigation()" routerLinkActive="active" [title]="'nav.profile' | translate">
+          <img src="/assets/icons/setting.png" alt="" />
+          <span>{{ 'nav.profile' | translate }}</span>
+        </a>
+      </section>
+    } @else {
+      <!-- Guest sign-in prompt in sidebar -->
+      <section class="nav-group guest-prompt-group">
+        <div class="guest-prompt-box">
+          <p class="guest-prompt-text">Đăng nhập để thích video, bình luận và tạo kênh của riêng bạn.</p>
+          <a class="guest-login-cta" routerLink="/login" (click)="closeNavigation()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            <span>Đăng nhập</span>
+          </a>
+        </div>
+      </section>
+    }
   </nav>
 </aside>

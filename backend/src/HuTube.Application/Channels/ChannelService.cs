@@ -1,11 +1,13 @@
 using System.Text.Json;
 using HuTube.Application.Auth;
+using HuTube.Application.Notifications;
 using HuTube.Application.Rbac;
 using HuTube.Domain.Channels;
 
 namespace HuTube.Application.Channels;
 
-public sealed class ChannelService(IChannelStore store, RbacService? audit = null, IAuthEmailSender? emailSender = null, AuthOptions? authOptions = null)
+public sealed class ChannelService(IChannelStore store, RbacService? audit = null, IAuthEmailSender? emailSender = null,
+    AuthOptions? authOptions = null, INotificationService? notifications = null)
 {
     private const int MaxChannelsPerUser = 1;
 
@@ -221,14 +223,22 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
             }
             catch
             {
-                // Do not leave a pending invitation that tells the owner it was sent when delivery failed.
-                invitation.Status = "revoked";
-                invitation.RespondedAt = DateTimeOffset.UtcNow;
-                try { await store.SaveAsync(CancellationToken.None); } catch { /* preserve the delivery error */ }
-                throw;
+                // Delivery is best-effort; the persisted invitation remains the source of truth.
             }
         }
         await WriteAuditAsync(actorUserId, "channel.member_invited", channel.ChannelId, $"role={roleCode}", ct);
+        if (notifications != null)
+        {
+            try
+            {
+                await notifications.PublishInvitationAsync(targetUser.UserId,
+                    new InvitationSignal(invitation.ChannelInvitationId, channel.ChannelId, channel.Name, roleCode, invitation.ExpiresAt), ct);
+            }
+            catch
+            {
+                // Clients can always read the invitation from the backend after reconnecting.
+            }
+        }
         return ToInvitationResponse(invitation, channel);
     }
 

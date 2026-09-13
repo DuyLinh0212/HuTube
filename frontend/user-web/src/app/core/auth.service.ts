@@ -94,6 +94,16 @@ export class AuthService {
   reset(token: string, password: string) { return this.post<Message>('/auth/reset-password', { token, password }).pipe(tap(() => this.clear())); }
   sessions() { return this.http.get<{ items: Session[] }>(this.config.apiBaseUrl + '/auth/sessions'); }
   logoutOthers() { return this.http.post<Message>(this.config.apiBaseUrl + '/auth/logout-others', {}); }
+  logoutAll() { return this.http.post<Message>(this.config.apiBaseUrl + '/auth/logout-all', {}); }
+  currentSessionId(): string | null {
+    const token = this.accessToken();
+    if (!token) return null;
+    try {
+      const encoded = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(encoded.padEnd(encoded.length + (4 - encoded.length % 4) % 4, '=')));
+      return typeof payload.sid === 'string' ? payload.sid : null;
+    } catch { return null; }
+  }
   revoke(id: string) { return this.http.delete<Message>(this.config.apiBaseUrl + '/auth/sessions/' + encodeURIComponent(id)); }
   logout() { this.clear(); return this.post<Message>('/auth/logout', {}); }
   info() { return this.raw.get(this.config.apiBaseUrl + '/system/info'); }

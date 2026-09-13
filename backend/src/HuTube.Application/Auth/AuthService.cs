@@ -279,6 +279,15 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         return new("Đã kết thúc phiên đăng nhập.");
     }
 
+    public async Task<MessageResponse> RevokeAllSessionsAsync(Guid userId, CancellationToken ct = default)
+    {
+        await using var transaction = await store.LockUserAsync(userId, ct);
+        foreach (var session in await store.GetSessionsAsync(userId, ct)) session.Revoke(Now, "user-revoked-all");
+        await store.SaveAsync(ct);
+        await transaction.CommitAsync(ct);
+        return new("Đã đăng xuất khỏi tất cả thiết bị.");
+    }
+
     private async Task  SendVerificationAsync(User user, CancellationToken ct)
     {
         var raw = tokens.CreateOpaqueToken();

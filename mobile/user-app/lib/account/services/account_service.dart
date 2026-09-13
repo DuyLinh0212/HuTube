@@ -89,6 +89,10 @@ class AccountService {
   }
 
   Future<void> revokeOtherSessions() async {
-    await auth.protected('POST', '/auth/sessions/revoke-others');
+    await auth.protected('POST', '/auth/logout-others');
+  }
+
+  Future<void> revokeAllSessions() async {
+    await auth.protected('POST', '/auth/logout-all');
   }
 }

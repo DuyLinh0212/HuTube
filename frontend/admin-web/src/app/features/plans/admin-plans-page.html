@@ -1,0 +1,20 @@
+<main class="plans-page">
+  <header class="page-heading"><div><p class="eyebrow">Business / Plans</p><h1>Gói dịch vụ</h1><p class="muted">Tạo và cấu hình quota, chất lượng, thời hạn, số thành viên và giá.</p></div><div class="heading-actions"><button class="secondary-action" type="button" (click)="load()">Làm mới</button>@if (auth.hasPermission('plan.create')) { <button class="primary-action" type="button" (click)="openCreate()">＋ Tạo gói</button> }</div></header>
+  @if (error()) { <div class="alert error">{{ error() }}</div> } @if (message()) { <div class="alert success">{{ message() }}</div> }
+  @if (creating() || editing() !== null || (!plans().length && !loading())) {
+    <section class="editor"><h2>{{ editing() ? 'Chỉnh sửa gói' : 'Tạo gói mới' }}</h2>@if (!editing()) { <div class="template-actions"><span>Tạo nhanh:</span><button type="button" (click)="applyTemplate('creator')">Creator Plus</button><button type="button" (click)="applyTemplate('pro_monthly')">Pro Group 30 ngày</button><button type="button" (click)="applyTemplate('pro_yearly')">Pro Group 365 ngày</button></div> }<div class="form-grid">
+      <label>Mã gói<input [(ngModel)]="draft.code" [disabled]="!!editing()" placeholder="creator hoặc pro_family_yearly" /></label>
+      <label>Tên gói<input [(ngModel)]="draft.name" placeholder="Creator" /></label>
+      <label>Mô tả<textarea [(ngModel)]="draft.description"></textarea></label>
+      <label>Giá (VNĐ)<input type="number" [(ngModel)]="draft.price" min="0" /></label>
+      <label>Thời hạn (ngày)<input type="number" [(ngModel)]="draft.durationDays" min="1" /></label>
+      <label>Dung lượng (GB)<input type="number" [(ngModel)]="draft.storageLimit" min="1" /></label>
+      <label>Upload tối đa (GB)<input type="number" [(ngModel)]="draft.maxUploadSize" min="1" /></label>
+      <label>Thời lượng video (phút)<input type="number" [(ngModel)]="draft.maxVideoDuration" min="1" /></label>
+      <label>Chất lượng tối đa<select [(ngModel)]="draft.maxVideoQuality"><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">4K (2160p)</option></select></label>
+      <label>Số thành viên tối đa<input type="number" [(ngModel)]="draft.maxMembers" min="1" /></label>
+      @if (editing()) { <label>Trạng thái<select [(ngModel)]="draft.status"><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label> }
+    </div><div class="editor-actions"><button class="secondary-action" type="button" (click)="closeEditor()">Hủy</button><button class="primary-action" type="button" (click)="save()" [disabled]="saving()">{{ saving() ? 'Đang lưu…' : 'Lưu gói' }}</button></div></section>
+  }
+  @if (loading()) { <section class="state">Đang tải danh sách gói…</section> } @else { <section class="plan-table"><table><thead><tr><th>Gói</th><th>Quota</th><th>Quality</th><th>Thời hạn</th><th>Seats</th><th>Giá</th><th>Trạng thái</th><th></th></tr></thead><tbody>@for (plan of plans(); track plan.planId) { <tr><td><strong>{{ plan.name }}</strong><small>{{ plan.code }}</small></td><td>{{ plan.storageLimit / 1073741824 | number:'1.0-0' }} GB</td><td>{{ plan.maxVideoQuality }}</td><td>{{ plan.durationDays }} ngày</td><td>{{ plan.maxMembers }}</td><td>{{ plan.price | number:'1.0-0' }} VNĐ</td><td><span class="status" [class.inactive]="plan.status !== 'active'">{{ plan.status }}</span></td><td class="row-actions">@if (auth.hasPermission('plan.edit')) { <button type="button" (click)="openEdit(plan)">Sửa</button> } @if (auth.hasPermission('plan.archive') && plan.status === 'active') { <button type="button" class="danger" (click)="archive(plan)">Lưu trữ</button> }</td></tr> } @empty { <tr><td colspan="8" class="state">Chưa có gói dịch vụ.</td></tr> }</tbody></table></section> }
+</main>

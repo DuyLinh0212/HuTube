@@ -1,0 +1,42 @@
+<main class="plans-page">
+  <header class="plans-heading">
+    <p class="eyebrow">HuTube Plans</p>
+    <h1>Chọn gói phù hợp với kênh của bạn</h1>
+    <p>Thêm dung lượng, chất lượng video và thành viên dùng chung khi kênh phát triển.</p>
+  </header>
+  @if (loading()) { <p class="state">Đang tải các gói dịch vụ...</p> }
+  @if (error()) { <p class="state error">{{ error() }}</p> }
+  @if (!loading() && !error()) {
+    <section class="plan-grid" aria-label="Các gói dịch vụ">
+      @for (plan of plans(); track plan.planId) {
+        <article class="plan-card" [class.featured]="$index === 1" [class.current-active]="isCurrentPlan(plan.planId)">
+          @if (isCurrentPlan(plan.planId)) {
+            <span class="badge current-badge">Gói hiện tại của bạn</span>
+          } @else if ($index === 1) {
+            <span class="badge">Được chọn nhiều</span>
+          }
+          <p class="plan-code">{{ plan.code }}</p><h2>{{ plan.name }}</h2>
+          <p class="description">{{ plan.description || 'Gói dịch vụ cho nhà sáng tạo.' }}</p>
+          <strong class="price">{{ plan.price | currency:'VND':'symbol':'1.0-0' }}<small>/{{ plan.durationDays }} ngày</small></strong>
+          <dl>
+            <div><dt>Dung lượng</dt><dd>{{ formatBytes(plan.storageLimit) }}</dd></div>
+            <div><dt>Upload tối đa</dt><dd>{{ formatBytes(plan.maxUploadSize) }}</dd></div>
+            <div><dt>Thành viên</dt><dd>{{ plan.maxMembers }}</dd></div>
+            <div><dt>Chất lượng</dt><dd>{{ plan.maxVideoQuality || 'Tiêu chuẩn' }}</dd></div>
+          </dl>
+          <a class="plan-button" [routerLink]="['/plans', plan.planId]">
+            @if (isCurrentPlan(plan.planId)) {
+              Quản lý gói này
+            } @else if (canSwitch(plan.planId)) {
+              Đổi sang gói này
+            } @else if (myPlan()?.planId && myPlan()!.price > 0 && !myPlan()!.subscription?.isExpired) {
+              Chưa mua gói này
+            } @else {
+              Xem chi tiết và chia sẻ
+            }
+          </a>
+        </article>
+      }
+    </section>
+  }
+</main>

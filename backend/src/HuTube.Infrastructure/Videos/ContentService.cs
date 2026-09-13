@@ -4,6 +4,7 @@ using HuTube.Application.Storage;
 using HuTube.Application.Notifications;
 using HuTube.Application.Videos;
 using HuTube.Domain.Channels;
+using HuTube.Domain.Plans;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -26,12 +27,27 @@ public sealed class ContentService(
         await db.Categories.AsNoTracking().Where(x => x.Status == "active").OrderBy(x => x.Name)
             .Select(x => new CategoryResponse(x.CategoryId, x.Name, x.Slug, x.Description)).ToListAsync(ct);
 
-    public async Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default)
     {
         (page, pageSize) = Page(page, pageSize);
         var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId);
-        var total = await query.CountAsync(ct);
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            var normalizedTag = tag.Trim().ToLowerInvariant();
+            query = query.Where(x => db.VideoTags.Any(videoTag => videoTag.VideoId == x.VideoId &&
+                db.Tags.Any(tagRow => tagRow.TagId == videoTag.TagId && tagRow.Name.ToLower() == normalizedTag)));
+        }
+        var filteredTotal = await query.CountAsync(ct);
+        var hasColdStartFilter = categoryId.HasValue || !string.IsNullOrWhiteSpace(tag);
+        var fallbackToDefault = hasColdStartFilter && filteredTotal == 0;
+        var total = filteredTotal;
+        if (fallbackToDefault)
+        {
+            // Guest cold-start falls back from Category/Tag to the public newest/popular catalogue.
+            query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+            total = await query.CountAsync(ct);
+        }
         var rows = from video in query
                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
                    select new { video.VideoId, video.ChannelId, ChannelName = channel.Name, ChannelHandle = channel.Handle,
@@ -135,6 +151,13 @@ public sealed class ContentService(
     public async Task<VideoResponse> CreateVideoAsync(Guid actorId, CreateVideoCommand command, CancellationToken ct = default)
     {
         var channel = await RequireChannelPermissionAsync(command.ChannelId, actorId, ChannelPermissions.VideoUpload, ct);
+        var idempotencyKey = command.IdempotencyKey?.Trim();
+        if (idempotencyKey is { Length: > 128 }) throw Error(400, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key không được vượt quá 128 ký tự.");
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            var previous = await db.Videos.AsNoTracking().SingleOrDefaultAsync(x => x.ChannelId == command.ChannelId && x.IdempotencyKey == idempotencyKey, ct);
+            if (previous != null) return await ToResponseAsync(previous, actorId, ct);
+        }
         if (string.IsNullOrWhiteSpace(command.Title) || command.Title.Trim().Length > 100)
             throw Error(400, "INVALID_TITLE", "Tiêu đề cần từ 1 đến 100 ký tự.");
         if (command.Duration <= 0) throw Error(400, "INVALID_DURATION", "Thời lượng video phải lớn hơn 0.");
@@ -145,8 +168,8 @@ public sealed class ContentService(
 
         await PreflightAsync(actorId, new(command.ChannelId, command.FileSize, command.Duration, command.ContentType, command.SourceQuality), ct);
 
-        var quota = await db.ChannelQuotas.AsNoTracking().SingleOrDefaultAsync(x => x.ChannelId == channel.ChannelId, ct);
-        if (quota != null && quota.StorageUsed + command.FileSize > quota.StorageLimit)
+        var quota = await db.ChannelQuotas.SingleOrDefaultAsync(x => x.ChannelId == channel.ChannelId, ct);
+        if (quota != null && !ChannelQuotaRules.CanReserve(quota.StorageUsed, command.FileSize, quota.StorageLimit))
             throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
 
         IReadOnlyList<VideoChapter> chapters;
@@ -180,6 +203,7 @@ public sealed class ContentService(
         var video = new Video { ChannelId = command.ChannelId, CategoryId = command.CategoryId, Title = command.Title.Trim(), Description = Clean(command.Description),
             VideoUrl = videoUrl!, ThumbnailUrl = thumbnailUrl, Duration = command.Duration, FileSize = command.FileSize, Visibility = command.Visibility.ToLowerInvariant(),
             Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted, ModerationStatus = "not_submitted",
+            IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
             Metadata = JsonSerializer.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
         Exception? processingError = null;
@@ -203,9 +227,11 @@ public sealed class ContentService(
         {
             if (quota != null)
             {
-                var reserved = await db.ChannelQuotas.Where(x => x.ChannelId == channel.ChannelId && x.StorageUsed + command.FileSize <= x.StorageLimit)
-                    .ExecuteUpdateAsync(update => update.SetProperty(x => x.StorageUsed, x => x.StorageUsed + command.FileSize).SetProperty(x => x.UpdatedAt, now), ct);
-                if (reserved != 1) throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
+                var nextUsed = quota.StorageUsed + command.FileSize;
+                if (!ChannelQuotaRules.CanReserve(quota.StorageUsed, command.FileSize, quota.StorageLimit))
+                    throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
+                quota.StorageUsed = nextUsed;
+                quota.UpdatedAt = now;
             }
             db.Videos.Add(video); await db.SaveChangesAsync(ct);
             var sourceHeight = VideoRules.QualityHeight(command.SourceQuality);
@@ -249,7 +275,7 @@ public sealed class ContentService(
         if (features.PlanEnforcementEnabled)
         {
             var user = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == actorId, ct);
-            var plan = user.PlanId.HasValue ? await db.Plans.AsNoTracking().SingleOrDefaultAsync(x => x.PlanId == user.PlanId && x.Status == "active", ct) : null;
+            var plan = user.PlanId.HasValue ? await GetEffectivePlanAsync(actorId, user.PlanId.Value, ct) : null;
             maxUpload = plan?.MaxUploadSize ?? 2L * 1024 * 1024 * 1024;
             maxDuration = plan?.MaxVideoDuration ?? 12 * 60 * 60;
             maxQuality = plan?.MaxVideoQuality ?? "720p";
@@ -263,8 +289,8 @@ public sealed class ContentService(
         var quota = await db.ChannelQuotas.AsNoTracking().SingleOrDefaultAsync(x => x.ChannelId == request.ChannelId, ct);
         var limit = quota?.StorageLimit ?? maxUpload;
         var used = quota?.StorageUsed ?? 0;
-        if (used + request.FileSize > limit) throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
-        return new(true, maxUpload, maxDuration, maxQuality, limit, used, Math.Max(0, limit - used));
+        if (!ChannelQuotaRules.CanReserve(used, request.FileSize, limit)) throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
+        return new(true, maxUpload, maxDuration, maxQuality, limit, used, ChannelQuotaRules.Remaining(limit, used));
     }
 
     public async Task<PageResult<VideoResponse>> GetManagedVideosAsync(Guid actorId, Guid channelId, string? status, string? visibility, string? search, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default)
@@ -738,8 +764,25 @@ public sealed class ContentService(
     private async Task<int> MaxDownloadHeightAsync(Guid userId, CancellationToken ct)
     {
         if (!features.PlanEnforcementEnabled) return int.MaxValue;
-        var quality = await (from user in db.Users.AsNoTracking() join plan in db.Plans.AsNoTracking() on user.PlanId equals plan.PlanId into plans from plan in plans.DefaultIfEmpty() where user.UserId == userId select plan == null ? "720p" : plan.MaxVideoQuality).SingleAsync(ct);
+        var user = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == userId, ct);
+        var plan = user.PlanId.HasValue ? await GetEffectivePlanAsync(userId, user.PlanId.Value, ct) : null;
+        var quality = plan?.MaxVideoQuality ?? "720p";
         return VideoRules.QualityHeight(quality) is > 0 and var value ? value : 720;
+    }
+
+    private async Task<Plan?> GetEffectivePlanAsync(Guid userId, Guid planId, CancellationToken ct)
+    {
+        var plan = await db.Plans.AsNoTracking().SingleOrDefaultAsync(x => x.PlanId == planId && x.Status == "active", ct);
+        if (plan == null) return null;
+        var now = Now;
+        var hasSubscription = await db.PlanHistories.AsNoTracking().AnyAsync(x =>
+            x.UserId == userId && x.PlanId == planId && x.Status == "active" && x.EndedAt > now, ct)
+            || await (from member in db.PlanMembers.AsNoTracking()
+                      join history in db.PlanHistories.AsNoTracking() on member.PlanHistoryId equals history.PlanHistoryId
+                      where member.MemberUserId == userId && member.Status == "accepted" && history.PlanId == planId
+                            && history.Status == "active" && history.EndedAt > now
+                      select member.PlanMemberId).AnyAsync(ct);
+        return hasSubscription ? plan : null;
     }
 
     private static IReadOnlyList<VideoChapter> ReadChapters(string metadata)

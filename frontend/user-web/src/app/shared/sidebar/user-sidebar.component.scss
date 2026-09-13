@@ -264,6 +264,56 @@
   font-size: 0.72rem;
 }
 
+.guest-prompt-group {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.guest-prompt-box {
+  padding: 14px 12px;
+  border-radius: 12px;
+  background: var(--card-hover);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guest-prompt-text {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.guest-login-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-light);
+  text-decoration: none;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--primary);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -2px rgba(255, 43, 102, 0.35);
+  }
+}
+
+.is-collapsed .guest-prompt-box {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .side-nav { transition: none; }
 }

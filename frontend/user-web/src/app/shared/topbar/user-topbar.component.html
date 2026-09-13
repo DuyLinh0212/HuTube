@@ -1,4 +1,9 @@
 <header class="topbar">
+  @if (notifications.invitationToast(); as toast) {
+    <button class="invitation-toast" type="button" (click)="toggleNotifications()" role="status">
+      <span class="invitation-toast__icon">✉</span><span>{{ toast }}</span><strong>›</strong>
+    </button>
+  }
   <button class="menu-button" type="button" [attr.aria-label]="'nav.expandSidebar' | translate" (click)="menuOpened.emit()">
     <span></span><span></span><span></span>
   </button>
@@ -14,90 +19,116 @@
   </label>
 
   <div class="top-actions" aria-label="Tác vụ nhanh">
-    @if (myChannel(); as ch) {
-      <a class="create-action" [routerLink]="['/channel', ch.handle]" [title]="'nav.yourChannel' | translate">
-        <img src="/assets/icons/my_channel.png" alt="" />
-        <span>{{ 'nav.yourChannel' | translate }}</span>
-      </a>
-    } @else {
-      <a class="create-action create-channel-btn" routerLink="/channel/create" [title]="'nav.createChannel' | translate">
-        <span class="action-plus">+</span>
-        <span>{{ 'nav.createChannel' | translate }}</span>
-      </a>
-    }
+    @if (auth.user()) {
+      @if (myChannel(); as ch) {
+        <a class="create-action" [routerLink]="['/channel', ch.handle]" [title]="'nav.yourChannel' | translate">
+          <img src="/assets/icons/my_channel.png" alt="" />
+          <span>{{ 'nav.yourChannel' | translate }}</span>
+        </a>
+      } @else {
+        <a class="create-action create-channel-btn" routerLink="/channel/create" [title]="'nav.createChannel' | translate">
+          <span class="action-plus">+</span>
+          <span>{{ 'nav.createChannel' | translate }}</span>
+        </a>
+      }
 
-    <!-- Notification -->
-    <button class="icon-action notif-btn" type="button" [attr.aria-label]="'nav.notifications' | translate" (click)="toggleNotifications()">
-      <img src="/assets/icons/notification.png" alt="" />
-      @if (notifications.unread()) { <i aria-hidden="true">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</i> }
-    </button>
-    @if (notificationsOpen()) { <app-notification-panel (closed)="notificationsOpen.set(false)" /> }
-
-    <!-- Avatar with Dropdown -->
-    <div class="avatar-container">
-      <button class="top-avatar" type="button" (click)="toggleDropdown()" [attr.aria-expanded]="dropdownOpen()" aria-haspopup="true" [attr.aria-label]="'nav.profile' | translate">
-        @if (profile()?.avatarUrl) { <img class="avatar-image" [src]="profile()!.avatarUrl!" alt="" /> } @else { {{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }} }
+      <!-- Notification -->
+      <button class="icon-action notif-btn" type="button" [attr.aria-label]="'nav.notifications' | translate" (click)="toggleNotifications()">
+        <img src="/assets/icons/notification.png" alt="" />
+        @if (notifications.unread()) { <i aria-hidden="true">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</i> }
       </button>
+      @if (notificationsOpen()) { <app-notification-panel (closed)="notificationsOpen.set(false)" /> }
 
-      @if (dropdownOpen()) {
-        <div class="avatar-dropdown">
-          <div class="dropdown-header">
-            <div class="dropdown-avatar">@if (profile()?.avatarUrl) { <img class="avatar-image" [src]="profile()!.avatarUrl!" alt="" /> } @else { {{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }} }</div>
-            <div class="dropdown-user-info">
-              <strong>{{ auth.user()?.displayName || 'Người dùng HuTube' }}</strong>
-              <small>{{ auth.user()?.email || '@user' }}</small>
+      <!-- Avatar with Dropdown -->
+      <div class="avatar-container">
+        <button class="top-avatar" type="button" (click)="toggleDropdown()" [attr.aria-expanded]="dropdownOpen()" aria-haspopup="true" [attr.aria-label]="'nav.profile' | translate">
+          @if (profile()?.avatarUrl) { <img class="avatar-image" [src]="profile()!.avatarUrl!" alt="" /> } @else { {{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }} }
+        </button>
+
+        @if (dropdownOpen()) {
+          <div class="avatar-dropdown">
+            <div class="dropdown-header">
+              <div class="dropdown-avatar">@if (profile()?.avatarUrl) { <img class="avatar-image" [src]="profile()!.avatarUrl!" alt="" /> } @else { {{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }} }</div>
+              <div class="dropdown-user-info">
+                <strong>{{ auth.user()?.displayName || 'Người dùng HuTube' }}</strong>
+                <small>{{ auth.user()?.email || '@user' }}</small>
+              </div>
+            </div>
+
+            <div class="dropdown-body">
+              <!-- VÀO STUDIO ACTION BUTTON -->
+              <a class="dropdown-item dropdown-item--studio" routerLink="/studio" (click)="closeDropdown()">
+                <span class="studio-badge-icon">🎬</span>
+                <div class="studio-item-text">
+                  <span class="studio-title">{{ 'nav.enterStudio' | translate }}</span>
+                  <span class="studio-sub">{{ 'nav.studioSub' | translate }}</span>
+                </div>
+                <span class="studio-arrow">→</span>
+              </a>
+
+              <div class="dropdown-divider"></div>
+
+              @if (myChannel(); as ch) {
+                <a class="dropdown-item" [routerLink]="['/channel', ch.handle]" (click)="closeDropdown()">
+                  <span class="item-icon">📺</span>
+                  <span>{{ 'nav.yourChannel' | translate }}</span>
+                </a>
+              } @else {
+                <a class="dropdown-item" routerLink="/channel/create" (click)="closeDropdown()">
+                  <span class="item-icon">➕</span>
+                  <span>{{ 'nav.createChannel' | translate }}</span>
+                </a>
+              }
+
+              <a class="dropdown-item" routerLink="/my-plan" (click)="closeDropdown()">
+                <span class="item-icon">💎</span>
+                <span>Gói của tôi</span>
+              </a>
+
+              <a class="dropdown-item" routerLink="/plans" (click)="closeDropdown()">
+                <span class="item-icon">📦</span>
+                <span>Đăng ký gói</span>
+              </a>
+
+              <a class="dropdown-item" routerLink="/account" (click)="closeDropdown()">
+                <span class="item-icon">⚙️</span>
+                <span>{{ 'account.title' | translate }}</span>
+              </a>
+
+              <button class="dropdown-item" type="button" (click)="toggleTheme()">
+                <span class="item-icon">{{ themeService.currentTheme() === 'dark' ? '☀️' : '🌙' }}</span>
+                <span>{{ 'nav.theme' | translate }}: <strong>{{ themeService.currentTheme() === 'dark' ? ('nav.themeDark' | translate) : ('nav.themeLight' | translate) }}</strong></span>
+              </button>
+
+              <button class="dropdown-item" type="button" (click)="toggleLanguage()">
+                <span class="item-icon">🌐</span>
+                <span>{{ 'nav.language' | translate }}: <strong>{{ i18n.currentLang() === 'vi' ? 'Tiếng Việt' : 'English' }}</strong></span>
+              </button>
+
+              <div class="dropdown-divider"></div>
+
+              <button class="dropdown-item dropdown-item--danger" type="button" (click)="logout()">
+                <span class="item-icon">🚪</span>
+                <span>{{ 'nav.logout' | translate }}</span>
+              </button>
             </div>
           </div>
+        }
+      </div>
+    } @else {
+      <!-- Guest: Theme & Language Quick Toggle & Login Action -->
+      <button class="icon-action" type="button" (click)="toggleTheme()" [title]="'nav.theme' | translate">
+        <span class="theme-icon">{{ themeService.currentTheme() === 'dark' ? '☀️' : '🌙' }}</span>
+      </button>
 
-          <div class="dropdown-body">
-            <!-- VÀO STUDIO ACTION BUTTON -->
-            <a class="dropdown-item dropdown-item--studio" routerLink="/studio" (click)="closeDropdown()">
-              <span class="studio-badge-icon">🎬</span>
-              <div class="studio-item-text">
-                <span class="studio-title">{{ 'nav.enterStudio' | translate }}</span>
-                <span class="studio-sub">{{ 'nav.studioSub' | translate }}</span>
-              </div>
-              <span class="studio-arrow">→</span>
-            </a>
+      <button class="icon-action" type="button" (click)="toggleLanguage()" [title]="'nav.language' | translate">
+        <span class="lang-pill">{{ i18n.currentLang().toUpperCase() }}</span>
+      </button>
 
-            <div class="dropdown-divider"></div>
-
-            @if (myChannel(); as ch) {
-              <a class="dropdown-item" [routerLink]="['/channel', ch.handle]" (click)="closeDropdown()">
-                <span class="item-icon">📺</span>
-                <span>{{ 'nav.yourChannel' | translate }}</span>
-              </a>
-            } @else {
-              <a class="dropdown-item" routerLink="/channel/create" (click)="closeDropdown()">
-                <span class="item-icon">➕</span>
-                <span>{{ 'nav.createChannel' | translate }}</span>
-              </a>
-            }
-
-            <a class="dropdown-item" routerLink="/account" (click)="closeDropdown()">
-              <span class="item-icon">⚙️</span>
-              <span>{{ 'account.title' | translate }}</span>
-            </a>
-
-            <button class="dropdown-item" type="button" (click)="toggleTheme()">
-              <span class="item-icon">{{ themeService.currentTheme() === 'dark' ? '☀️' : '🌙' }}</span>
-              <span>{{ 'nav.theme' | translate }}: <strong>{{ themeService.currentTheme() === 'dark' ? ('nav.themeDark' | translate) : ('nav.themeLight' | translate) }}</strong></span>
-            </button>
-
-            <button class="dropdown-item" type="button" (click)="toggleLanguage()">
-              <span class="item-icon">🌐</span>
-              <span>{{ 'nav.language' | translate }}: <strong>{{ i18n.currentLang() === 'vi' ? 'Tiếng Việt' : 'English' }}</strong></span>
-            </button>
-
-            <div class="dropdown-divider"></div>
-
-            <button class="dropdown-item dropdown-item--danger" type="button" (click)="logout()">
-              <span class="item-icon">🚪</span>
-              <span>{{ 'nav.logout' | translate }}</span>
-            </button>
-          </div>
-        </div>
-      }
-    </div>
+      <a class="auth-login-btn" routerLink="/login">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        <span>Đăng nhập</span>
+      </a>
+    }
   </div>
 </header>

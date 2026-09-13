@@ -141,10 +141,17 @@
 
         <section class="comments-section">
           <header class="section-heading comments-heading"><div><h2>Bình luận</h2><p>{{ item.stats.comments | number }} bình luận trong video này</p></div><span class="comments-sort">Mới nhất</span></header>
-          <form class="comment-composer" (ngSubmit)="comment()">
-            <span class="comment-avatar comment-avatar--self">{{ initials(auth.user()?.displayName) }}</span>
-            <div class="composer-body"><textarea name="comment" [(ngModel)]="commentText" rows="2" placeholder="Viết bình luận của bạn…"></textarea><div class="composer-footer"><span>Hãy giữ cuộc trò chuyện văn minh.</span><button type="submit" class="primary-button" [disabled]="!commentText.trim()">Gửi bình luận</button></div></div>
-          </form>
+          @if (auth.user()) {
+            <form class="comment-composer" (ngSubmit)="comment()">
+              <span class="comment-avatar comment-avatar--self">{{ initials(auth.user()?.displayName) }}</span>
+              <div class="composer-body"><textarea name="comment" [(ngModel)]="commentText" rows="2" placeholder="Viết bình luận của bạn…"></textarea><div class="composer-footer"><span>Hãy giữ cuộc trò chuyện văn minh.</span><button type="submit" class="primary-button" [disabled]="!commentText.trim()">Gửi bình luận</button></div></div>
+            </form>
+          } @else {
+            <div class="guest-comment-box" style="padding: 16px; margin-bottom: 20px; border-radius: 12px; background: var(--canvas); border: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+              <span style="font-size: 0.86rem; color: var(--text-muted);">Đăng nhập để tham gia bình luận về video này.</span>
+              <a routerLink="/login" style="padding: 8px 18px; border-radius: 999px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 700; font-size: 0.8rem;">Đăng nhập</a>
+            </div>
+          }
           <div class="comment-list">
             @for (comment of comments(); track comment.commentId) {
               <article class="comment-row" [class.is-hidden]="comment.status === 'hidden'">
