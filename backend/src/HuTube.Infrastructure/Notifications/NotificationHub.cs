@@ -59,9 +59,18 @@ public sealed class NotificationService(
         string? resourceType, Guid? resourceId, CancellationToken ct = default) =>
         PublishInternalAsync(userId, type, title, content, actionUrl, resourceType, resourceId, true, ct);
 
+    public async Task PublishInvitationAsync(Guid userId, InvitationSignal invitation, CancellationToken ct = default)
+    {
+        await PublishInAppAsync(userId, "channel_invitation", $"Lời mời tham gia kênh {invitation.ChannelName}",
+            $"Bạn được mời tham gia với vai trò {invitation.RoleCode}.", $"/channel-invitations?invitation={invitation.InvitationId}",
+            "channel_invitation", invitation.InvitationId, ct);
+        await hub.Clients.User(userId.ToString()).SendAsync("InvitationReceived", invitation, ct);
+    }
+
     private async Task PublishInternalAsync(Guid userId, string type, string title, string content, string? actionUrl,
         string? resourceType, Guid? resourceId, bool sendEmail, CancellationToken ct)
     {
+        var mandatoryInApp = type == "channel_invitation";
         var setting = await db.NotificationSettings.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct);
         var categoryEnabled = type switch
         {
@@ -75,7 +84,7 @@ public sealed class NotificationService(
         };
         if (!categoryEnabled) return;
 
-        if (setting?.InAppEnabled ?? true)
+        if (mandatoryInApp || (setting?.InAppEnabled ?? true))
         {
             var row = new HuTube.Domain.Videos.Notification { UserId = userId, Type = type, Title = title, Content = content,
                 ActionUrl = actionUrl, ResourceType = resourceType, ResourceId = resourceId, CreatedAt = clock.GetUtcNow() };

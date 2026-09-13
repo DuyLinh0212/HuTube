@@ -27,6 +27,10 @@ public static class AdminPermissions
     public const string AuditView = "audit.view";
     public const string SystemViewSetting = "system.view_setting";
     public const string SystemEditSetting = "system.edit_setting";
+    public const string PlanView = "plan.view";
+    public const string PlanCreate = "plan.create";
+    public const string PlanEdit = "plan.edit";
+    public const string PlanArchive = "plan.archive";
 
     public static readonly IReadOnlyList<string> All = [
         DashboardView,
@@ -36,7 +40,8 @@ public static class AdminPermissions
         VideoView,
         ModerationViewQueue, ModerationClaim, ModerationReview, ModerationApprove, ModerationReject,
         AuditView,
-        SystemViewSetting, SystemEditSetting
+        SystemViewSetting, SystemEditSetting,
+        PlanView, PlanCreate, PlanEdit, PlanArchive
     ];
 }
 

@@ -23,6 +23,7 @@ const initialState = (): UploadState => ({
 export class UploadStateService {
   private readonly content = inject(ContentService);
   private request?: Subscription;
+  private idempotencyKey?: string;
   readonly state = signal<UploadState>(initialState());
 
   start(data: FormData, fileName: string, publishUnlisted: boolean): boolean {
@@ -30,8 +31,9 @@ export class UploadStateService {
     if (current === 'uploading' || current === 'processing') return false;
 
     const total = this.findFileSize(data);
+    if (!this.idempotencyKey || current === 'idle') this.idempotencyKey = crypto.randomUUID();
     this.state.set({ ...initialState(), phase: 'uploading', progress: 1, total, fileName });
-    this.request = this.content.upload(data).subscribe({
+    this.request = this.content.upload(data, this.idempotencyKey).subscribe({
       next: event => {
         if (event.type === HttpEventType.UploadProgress) {
           const loaded = event.loaded;
@@ -66,16 +68,19 @@ export class UploadStateService {
   cancel() {
     this.request?.unsubscribe();
     this.request = undefined;
+    this.idempotencyKey = undefined;
     this.state.set(initialState());
   }
 
   reset() {
     this.request?.unsubscribe();
     this.request = undefined;
+    this.idempotencyKey = undefined;
     this.state.set(initialState());
   }
 
   private finish(video: VideoDetail) {
+    this.idempotencyKey = undefined;
     this.state.update(value => ({ ...value, phase: 'completed', progress: 100, video, error: '' }));
   }
 

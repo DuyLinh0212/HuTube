@@ -32,7 +32,7 @@ public sealed record CreateVideoCommand(Guid ChannelId, string Title, string? De
     string? LanguageCode, string Visibility, bool AgeRestricted, int Duration, string SourceQuality, long FileSize,
     string FileName, string ContentType, Stream Content, string? ThumbnailFileName,
     string? ThumbnailContentType, Stream? ThumbnailContent, IReadOnlyList<string> Tags,
-    IReadOnlyList<ChapterRequest> Chapters);
+    IReadOnlyList<ChapterRequest> Chapters, string? IdempotencyKey = null);
 public sealed record UpdateVideoRequest(string? Title, string? Description, Guid? CategoryId, bool ClearCategory,
     string? LanguageCode, string? Visibility, bool? AgeRestricted, string? ThumbnailUrl,
     IReadOnlyList<string>? Tags, IReadOnlyList<ChapterRequest>? Chapters);
@@ -62,7 +62,7 @@ public sealed record UploadPreflightResponse(bool Allowed, long MaxUploadSize, i
 public interface IContentService
 {
     Task<IReadOnlyList<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default);
-    Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, int page, int pageSize, CancellationToken ct = default);
+    Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<LibraryVideoResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<LibraryVideoResponse>> GetLikedVideosAsync(Guid userId, int? rating, int page, int pageSize, CancellationToken ct = default);
     Task<VideoResponse> GetVideoAsync(Guid videoId, Guid? viewerId, CancellationToken ct = default);

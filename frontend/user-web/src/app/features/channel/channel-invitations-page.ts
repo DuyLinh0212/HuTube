@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Observable, finalize } from 'rxjs';
 import { ChannelInvitation, ChannelRole, ChannelService } from '../../core/channel.service';
+import { NotificationService } from '../../core/notification.service';
 
 @Component({
   selector: 'app-channel-invitations-page',
@@ -14,6 +15,10 @@ import { ChannelInvitation, ChannelRole, ChannelService } from '../../core/chann
 })
 export class ChannelInvitationsPage implements OnInit {
   private readonly channelService = inject(ChannelService);
+  private readonly notifications = inject(NotificationService);
+  private readonly invitationRefresh = effect(() => {
+    if (this.notifications.invitationVersion() > 0) this.load();
+  });
 
   readonly invitations = signal<ChannelInvitation[]>([]);
   readonly roles = signal<ChannelRole[]>([]);

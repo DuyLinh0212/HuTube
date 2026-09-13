@@ -159,6 +159,7 @@ jobs:
       Auth__AdminBaseUrl: http://localhost:4201
       Email__Mode: Pickup
       Email__PickupDirectory: ${{ github.workspace }}/.work/mail
+      Features__PlanEnforcementEnabled: "true"
       API_BASE_URL: http://localhost:5080/api/v1
       MOBILE_API_BASE_URL: http://localhost:5080/api/v1
       PLAYWRIGHT_CHANNEL: chrome
@@ -200,7 +201,10 @@ jobs:
           exit 1
       - name: Sprint 4 browser smoke E2E (6 scenarios)
         working-directory: frontend/user-web
-        run: npm run test:e2e
+        run: npm run test:e2e:sprint4
+      - name: Sprint 5 Tú browser smoke E2E (Guest, Plan, sharing)
+        working-directory: frontend/user-web
+        run: npm run test:e2e:sprint5:tu
       - uses: actions/upload-artifact@v6
         if: failure()
         with:

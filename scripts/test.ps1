@@ -3,6 +3,15 @@ param([string]$EnvironmentFile = (Join-Path (Split-Path -Parent $PSScriptRoot) '
 . (Join-Path $PSScriptRoot 'common.ps1')
 Import-LocalEnvironment -Path $EnvironmentFile
 Assert-EnvironmentValue 'TEST_DATABASE_CONNECTION'
+if (-not $env:CHROME_BIN) {
+    $edgePath = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+    $chromePath = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+    if (Test-Path $chromePath) {
+        $env:CHROME_BIN = $chromePath
+    } elseif (Test-Path $edgePath) {
+        $env:CHROME_BIN = $edgePath
+    }
+}
 Push-Location $script:RepositoryRoot
 try {
     Invoke-CheckedCommand dotnet @('restore', 'backend/HuTube.sln')

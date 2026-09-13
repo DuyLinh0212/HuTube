@@ -39,7 +39,13 @@ export class ContentService {
   private readonly config = inject(RuntimeConfig);
   private get base() { return this.config.apiBaseUrl; }
 
-  feed(kind: 'home' | 'explore', page = 1, pageSize = 20) { return this.http.get<PageResult<VideoCard>>(`${this.base}/feed/${kind}`, { params: { page, pageSize } }); }
+  feed(kind: 'home' | 'explore', page = 1, pageSize = 20, categoryId?: string, tag?: string, sort?: string) {
+    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
+    if (sort) params = params.set('sort', sort);
+    if (categoryId) params = params.set('categoryId', categoryId);
+    if (tag) params = params.set('tag', tag);
+    return this.http.get<PageResult<VideoCard>>(`${this.base}/feed/${kind}`, { params });
+  }
   history(page = 1, pageSize = 20) { return this.http.get<PageResult<LibraryVideo>>(`${this.base}/library/history`, { params: { page, pageSize } }); }
   liked(rating: number | null = null, page = 1, pageSize = 20) {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
@@ -71,9 +77,15 @@ export class ContentService {
   reportComment(commentId: string, violationTypeId: string, description: string) { return this.http.post(`${this.base}/comments/${commentId}/report`, { violationTypeId, description }); }
   progress(videoId: string, watchedSeconds: number) { return this.http.put(`${this.base}/videos/${videoId}/watch-progress`, { watchedSeconds, saveHistory: true }); }
   share(videoId: string) { return this.http.post<{ url: string; shareCount: number }>(`${this.base}/videos/${videoId}/share`, { method: 'copy_link' }); }
+  downloadOptions(videoId: string) { return this.http.get<Rendition[]>(`${this.base}/videos/${videoId}/download-options`); }
+  createDownload(videoId: string, quality: string) { return this.http.post<{ videoDownloadId: string; videoId: string; title: string; quality: string; fileUrl: string; fileSize: number; status: string }>(`${this.base}/videos/${videoId}/downloads`, { quality }); }
   preflight(request: { channelId: string; fileSize: number; duration: number; contentType: string; sourceQuality: string }) {
     return this.http.post<UploadPreflight>(`${this.base}/videos/upload-preflight`, request);
   }
-  upload(data: FormData) { return this.http.post<VideoDetail>(`${this.base}/videos`, data, { reportProgress: true, observe: 'events' }); }
+  upload(data: FormData, idempotencyKey?: string) {
+    return this.http.post<VideoDetail>(`${this.base}/videos`, data, {
+      reportProgress: true, observe: 'events', headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined
+    });
+  }
   publish(videoId: string) { return this.http.post<VideoDetail>(`${this.base}/videos/${videoId}/publish`, {}); }
 }

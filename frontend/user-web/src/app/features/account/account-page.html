@@ -5,6 +5,12 @@
       <p class="page-subtitle">{{ 'account.prefsDesc' | translate }}</p>
     </div>
     <div class="header-actions">
+      <a routerLink="/plans" class="btn-secondary account-plan-link">
+        <span class="btn-icon">▣</span> Gói dịch vụ
+      </a>
+      <a routerLink="/my-plan" class="btn-secondary account-plan-link">
+        <span class="btn-icon">◈</span> Gói của tôi
+      </a>
       <button type="button" class="btn-secondary" [disabled]="busy()" (click)="logout()">
         <span class="btn-icon">🚪</span> {{ 'nav.logout' | translate }}
       </button>
@@ -360,6 +366,9 @@
           </div>
           <button type="button" class="btn-secondary" (click)="logoutOthers()" [disabled]="busy() || sessions().length < 2">
             {{ 'account.logoutOthers' | translate }}
+          </button>
+          <button type="button" class="btn-danger" (click)="logoutAll()" [disabled]="busy() || !sessions().length">
+            {{ 'account.logoutAll' | translate }}
           </button>
         </div>
 

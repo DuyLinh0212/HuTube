@@ -161,6 +161,18 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         Assert.Equal(HttpStatusCode.Unauthorized, (await Bearer(client, other.AccessToken).GetAsync("/api/v1/auth/me")).StatusCode);
     }
     [Fact]
+    public async Task LogoutAll_ShouldRevokeEverySessionAndWriteAuditLog()
+    {
+        var (client, email, userId) = await RegisterAsync(); var first = await LoginAsync(client, email); var other = await LoginAsync(client, email);
+        var response = await Bearer(client, first.AccessToken).PostAsJsonAsync("/api/v1/auth/logout-all", new { });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Bearer(client, first.AccessToken).GetAsync("/api/v1/auth/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Bearer(client, other.AccessToken).GetAsync("/api/v1/auth/me")).StatusCode);
+        await using var db = factory.CreateDb();
+        Assert.All(await db.Sessions.Where(x => x.UserId == userId).ToListAsync(), session => Assert.NotNull(session.RevokedAt));
+        Assert.Contains(await db.AuditLogs.Where(x => x.ActorUserId == userId).ToListAsync(), log => log.Action == "auth.sessions_revoked_all");
+    }
+    [Fact]
     public async Task RevokeSession_AnotherUsersSession_ShouldReject()
     {
         var (client, email, _) = await RegisterAsync(); var first = await LoginAsync(client, email);
@@ -241,7 +253,7 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     {
         await using var db = factory.CreateDb(); await db.Database.MigrateAsync();
         var count = await db.Database.SqlQueryRaw<int>("SELECT count(*)::integer AS \"Value\" FROM information_schema.tables WHERE table_schema='public' AND table_name <> '__EFMigrationsHistory'").SingleAsync();
-        Assert.Equal(43, count);
+        Assert.Equal(45, count);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../core/auth.service';
 import { ChannelService } from '../../core/channel.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -13,6 +14,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 export class UserSidebarComponent {
   private channelService = inject(ChannelService);
   private router = inject(Router);
+  readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
 
   @Input() open = false;

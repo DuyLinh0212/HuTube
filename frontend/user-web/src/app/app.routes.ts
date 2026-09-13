@@ -15,6 +15,9 @@ export const routes: Routes = [
   { path: 'home', loadComponent: () => import('./features/video/home-page').then(m => m.HomePage), title: 'Trang chủ · HuTube' },
   { path: 'explore', loadComponent: () => import('./features/video/home-page').then(m => m.HomePage), title: 'Khám phá · HuTube' },
   { path: 'watch/:id', loadComponent: () => import('./features/video/watch-page').then(m => m.WatchPage), title: 'Xem video · HuTube' },
+  { path: 'plans', loadComponent: () => import('./features/plans/plans-page').then(m => m.PlansPage), title: 'Gói dịch vụ · HuTube' },
+  { path: 'plans/accept-invite', loadComponent: () => import('./features/plans/plan-invite-accept-page').then(m => m.PlanInviteAcceptPage), title: 'Nhận lời mời gói · HuTube' },
+  { path: 'plans/:planId', loadComponent: () => import('./features/plans/plan-detail-page').then(m => m.PlanDetailPage), title: 'Chi tiết gói · HuTube' },
   { path: '', pathMatch: 'full', redirectTo: 'home' },
 
   {
@@ -22,6 +25,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: 'account', loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'Hồ sơ · HuTube' },
+      { path: 'my-plan', loadComponent: () => import('./features/plans/my-plan-page').then(m => m.MyPlanPage), title: 'Gói của tôi · HuTube' },
       { path: 'history', data: { library: 'history' }, loadComponent: () => import('./features/library/library-page').then(m => m.LibraryPage), title: 'Lịch sử xem · HuTube' },
       { path: 'liked', data: { library: 'liked' }, loadComponent: () => import('./features/library/library-page').then(m => m.LibraryPage), title: 'Video đã thích · HuTube' },
       { path: 'channel/create', loadComponent: () => import('./features/channel/channel-create-page').then(m => m.ChannelCreatePage), title: 'Tạo kênh · HuTube' },

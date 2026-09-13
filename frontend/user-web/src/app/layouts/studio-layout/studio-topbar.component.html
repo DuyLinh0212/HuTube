@@ -1,4 +1,9 @@
 <header class="studio-topbar">
+  @if (notifications.invitationToast(); as toast) {
+    <button class="invitation-toast" type="button" (click)="toggleNotifications()" role="status">
+      <span>✉</span><span>{{ toast }}</span><strong>›</strong>
+    </button>
+  }
   <button class="menu-button" type="button" [attr.aria-label]="'nav.expandSidebar' | translate" (click)="menuOpened.emit()">
     <span></span><span></span><span></span>
   </button>

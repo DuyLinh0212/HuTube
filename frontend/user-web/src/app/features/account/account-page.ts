@@ -292,6 +292,16 @@ export class AccountPage {
     });
   }
 
+  logoutAll() {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    this.auth.logoutAll().pipe(finalize(() => this.busy.set(false))).subscribe({
+      next: () => void this.router.navigate(['/login'], { queryParams: { reason: 'session-revoked' } }),
+      error: error => this.error.set(errorMessage(error))
+    });
+  }
+
   revoke() {
     const session = this.pendingRevoke();
     if (!session || this.busy()) return;

@@ -33,7 +33,10 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
         catch (Exception ex)
         {
             logger.LogError(ex, "Request {TraceId} failed with {ExceptionType}", context.TraceIdentifier, ex.GetType().Name);
-            await ApiErrors.WriteAsync(context, 500, "INTERNAL_ERROR", "Đã có lỗi xảy ra. Vui lòng thử lại và cung cấp mã truy vết nếu cần hỗ trợ.");
+            var detail = context.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()
+                ? $"{ex.GetType().Name}: {ex.Message}"
+                : "Đã có lỗi xảy ra. Vui lòng thử lại và cung cấp mã truy vết nếu cần hỗ trợ.";
+            await ApiErrors.WriteAsync(context, 500, "INTERNAL_ERROR", detail);
         }
     }
 }
