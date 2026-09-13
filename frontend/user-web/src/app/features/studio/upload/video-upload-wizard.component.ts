@@ -68,6 +68,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   videoHeight = 0;
   fileType = '';
   sourceQuality = '720p';
+  readonly sourceQualityOptions = ['360p', '480p', '720p', '1080p', '1440p', '2160p'];
 
   // Video Details (Step 2)
   videoTitle = '';
@@ -366,8 +367,12 @@ export class VideoUploadWizardComponent implements OnDestroy {
   }
 
   onSourceQualityChange(value: string) {
-    this.sourceQuality = value;
+    this.sourceQuality = this.isQualityAboveSource(value) ? this.detectQuality(this.videoHeight) : value;
     this.runPreflight();
+  }
+
+  isQualityAboveSource(quality: string) {
+    return this.videoHeight > 0 && this.qualityHeight(quality) > this.videoHeight;
   }
 
   setStep(step: number) {
@@ -641,6 +646,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
 
   private detectQuality(height: number) {
     return height >= 2160 ? '2160p' : height >= 1440 ? '1440p' : height >= 1080 ? '1080p' : height >= 720 ? '720p' : height >= 480 ? '480p' : height >= 360 ? '360p' : '240p';
+  }
+
+  private qualityHeight(quality: string) {
+    return Number.parseInt(quality, 10) || 0;
   }
 
   private typeFromName(name: string) {
