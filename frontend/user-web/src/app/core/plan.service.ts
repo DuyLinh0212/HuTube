@@ -14,8 +14,11 @@ export interface Plan {
   maxUploadSize: number;
   maxVideoDuration: number;
   maxVideoQuality: string | null;
+  maxDownloadQuality?: string | null;
   maxMembers: number;
   status: string;
+  features?: Record<string, boolean>;
+  displayOrder?: number;
 }
 
 export interface PlanMember {
@@ -54,6 +57,7 @@ export interface PlanShare {
   description: string | null;
   shareUrl: string;
   status: string;
+  features?: Record<string, boolean>;
 }
 
 @Injectable({ providedIn: 'root' })

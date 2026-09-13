@@ -101,7 +101,9 @@ public sealed class Plan
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public string? MaxVideoQuality { get; set; }
+    public string? MaxDownloadQuality { get; set; } = "720p";
     public string Features { get; set; } = "{}";
+    public int DisplayOrder { get; set; }
 }
 
 public sealed class Category

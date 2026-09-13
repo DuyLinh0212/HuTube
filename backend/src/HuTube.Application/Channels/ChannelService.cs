@@ -1,13 +1,14 @@
 using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
+using HuTube.Application.Plans;
 using HuTube.Application.Rbac;
 using HuTube.Domain.Channels;
 
 namespace HuTube.Application.Channels;
 
 public sealed class ChannelService(IChannelStore store, RbacService? audit = null, IAuthEmailSender? emailSender = null,
-    AuthOptions? authOptions = null, INotificationService? notifications = null)
+    AuthOptions? authOptions = null, INotificationService? notifications = null, IPlanService? plans = null)
 {
     private const int MaxChannelsPerUser = 1;
 
@@ -56,11 +57,14 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         // Persist the principal first because ChannelQuota intentionally has no domain
         // navigation property and EF cannot infer insert ordering from the FK value alone.
         await store.SaveAsync(ct);
+        var storageLimit = plans == null
+            ? ChannelQuotaRules.DefaultStorageLimit
+            : await plans.GetEffectiveStorageLimitAsync(userId, ct) ?? ChannelQuotaRules.DefaultStorageLimit;
         store.AddChannelQuota(new ChannelQuota
         {
             ChannelQuotaId = Guid.NewGuid(),
             ChannelId = channel.ChannelId,
-            StorageLimit = 10L * 1024 * 1024 * 1024,
+            StorageLimit = storageLimit,
             StorageUsed = 0,
             UpdatedAt = now
         });
@@ -166,7 +170,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
 
     public async Task<ChannelInvitationResponse> InviteMemberAsync(Guid channelId, Guid actorUserId, InviteMemberRequest request, CancellationToken ct = default)
     {
-        var channel = await RequireChannelAsync(channelId, ct);
+        var channel = await RequireActiveChannelAsync(channelId, ct);
         var actorRole = await RequireRoleAsync(channel, actorUserId, ct);
         RequirePermission(actorRole, ChannelPermissions.MemberInvite, "Bạn không có quyền mời thành viên vào kênh.");
 
@@ -245,10 +249,13 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     public async Task<ChannelMemberResponse> AcceptInvitationAsync(Guid invitationId, Guid actorUserId, CancellationToken ct = default)
     {
         var invitation = await RequireInvitationAsync(invitationId, ct);
+        await RequireActiveChannelAsync(invitation.ChannelId, ct);
         var user = await store.FindUserByIdAsync(actorUserId, ct)
             ?? throw new ChannelException(404, "USER_NOT_FOUND", "Người dùng không tồn tại.");
         RequireInvitationTarget(invitation, user.UserId, user.Email);
 
+        if (invitation.Status == "expired")
+            throw new ChannelException(410, "INVITATION_EXPIRED", "Lời mời đã hết hạn.");
         if (invitation.Status == "revoked")
             throw new ChannelException(400, "INVITATION_REVOKED", "Lời mời đã bị thu hồi.");
         if (invitation.Status != "pending")
@@ -292,23 +299,34 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         var user = await store.FindUserByIdAsync(actorUserId, ct)
             ?? throw new ChannelException(404, "USER_NOT_FOUND", "Người dùng không tồn tại.");
         RequireInvitationTarget(invitation, user.UserId, user.Email);
+        var now = DateTimeOffset.UtcNow;
+        if (invitation.Status == "expired" || ExpireIfNeeded(invitation, now))
+        {
+            if (invitation.Status == "expired") await store.SaveAsync(ct);
+            throw new ChannelException(410, "INVITATION_EXPIRED", "Lời mời đã hết hạn.");
+        }
         if (invitation.Status != "pending")
             throw new ChannelException(409, "INVITATION_ALREADY_PROCESSED", "Lời mời không ở trạng thái chờ phản hồi.");
 
         invitation.Status = "declined";
-        invitation.RespondedAt = DateTimeOffset.UtcNow;
+        invitation.RespondedAt = now;
         await store.SaveAsync(ct);
         await WriteAuditAsync(actorUserId, "channel.invitation_declined", invitation.ChannelId, null, ct);
     }
 
     public async Task RevokeInvitationAsync(Guid channelId, Guid invitationId, Guid actorUserId, CancellationToken ct = default)
     {
-        var channel = await RequireChannelAsync(channelId, ct);
+        var channel = await RequireActiveChannelAsync(channelId, ct);
         var actorRole = await RequireRoleAsync(channel, actorUserId, ct);
         RequirePermission(actorRole, ChannelPermissions.MemberInvite, "Bạn không có quyền thu hồi lời mời.");
         var invitation = await RequireInvitationAsync(invitationId, ct);
         if (invitation.ChannelId != channelId)
             throw new ChannelException(400, "INVALID_INVITATION", "Lời mời không thuộc kênh này.");
+        if (invitation.Status == "expired" || ExpireIfNeeded(invitation, DateTimeOffset.UtcNow))
+        {
+            if (invitation.Status == "expired") await store.SaveAsync(ct);
+            throw new ChannelException(410, "INVITATION_EXPIRED", "Lời mời đã hết hạn.");
+        }
         if (invitation.Status != "pending")
             throw new ChannelException(409, "INVITATION_ALREADY_PROCESSED", "Chỉ có thể thu hồi lời mời đang chờ.");
 
@@ -329,11 +347,15 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
 
     public async Task<List<ChannelInvitationResponse>> GetPendingInvitationsAsync(Guid channelId, Guid actorUserId, CancellationToken ct = default)
     {
-        var channel = await RequireChannelAsync(channelId, ct);
+        var channel = await RequireActiveChannelAsync(channelId, ct);
         var actorRole = await RequireRoleAsync(channel, actorUserId, ct);
         RequirePermission(actorRole, ChannelPermissions.MemberInvite, "Bạn không có quyền xem danh sách lời mời.");
         var invitations = await store.GetPendingInvitationsAsync(channelId, ct);
-        return invitations.Select(i => ToInvitationResponse(i, channel)).ToList();
+        var now = DateTimeOffset.UtcNow;
+        var changed = false;
+        foreach (var invitation in invitations) changed |= ExpireIfNeeded(invitation, now);
+        if (changed) await store.SaveAsync(ct);
+        return invitations.Where(invitation => invitation.IsPending(now)).Select(i => ToInvitationResponse(i, channel)).ToList();
     }
 
     public async Task<List<ChannelInvitationResponse>> GetMyInvitationsAsync(Guid actorUserId, CancellationToken ct = default)
@@ -341,7 +363,12 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         var user = await store.FindUserByIdAsync(actorUserId, ct)
             ?? throw new ChannelException(404, "USER_NOT_FOUND", "Người dùng không tồn tại.");
         var invitations = await store.GetUserInvitationsWithChannelAsync(user.Email, actorUserId, ct);
-        return invitations.Select(i => ToInvitationResponse(i.Invitation, i.ChannelName, i.ChannelHandle)).ToList();
+        var now = DateTimeOffset.UtcNow;
+        var changed = false;
+        foreach (var item in invitations) changed |= ExpireIfNeeded(item.Invitation, now);
+        if (changed) await store.SaveAsync(ct);
+        return invitations.Where(item => item.Invitation.IsPending(now))
+            .Select(i => ToInvitationResponse(i.Invitation, i.ChannelName, i.ChannelHandle)).ToList();
     }
 
     public async Task<ChannelMemberResponse> ChangeMemberRoleAsync(Guid channelId, Guid targetUserId, Guid actorUserId, ChangeMemberRoleRequest request, CancellationToken ct = default)
@@ -392,6 +419,14 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     private async Task<Channel> RequireChannelAsync(Guid channelId, CancellationToken ct) =>
         await store.FindChannelAsync(channelId, ct) ?? throw new ChannelException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
 
+    private async Task<Channel> RequireActiveChannelAsync(Guid channelId, CancellationToken ct)
+    {
+        var channel = await RequireChannelAsync(channelId, ct);
+        if (channel.Status != "active")
+            throw new ChannelException(409, "CHANNEL_NOT_ACTIVE", "Kênh không còn hoạt động.");
+        return channel;
+    }
+
     private async Task<ChannelInvitation> RequireInvitationAsync(Guid invitationId, CancellationToken ct) =>
         await store.FindInvitationAsync(invitationId, ct) ?? throw new ChannelException(404, "INVITATION_NOT_FOUND", "Không tìm thấy lời mời.");
 
@@ -417,6 +452,14 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     {
         if (invitation.InvitedUserId != userId && !string.Equals(invitation.InvitedEmail, email, StringComparison.OrdinalIgnoreCase))
             throw new ChannelException(403, "INVITATION_ACCESS_DENIED", "Lời mời này không dành cho bạn.");
+    }
+
+    private static bool ExpireIfNeeded(ChannelInvitation invitation, DateTimeOffset now)
+    {
+        if (invitation.Status != "pending" || invitation.ExpiresAt > now) return false;
+        invitation.Status = "expired";
+        invitation.RespondedAt = now;
+        return true;
     }
 
     private static string NormalizeRole(string roleCode) => roleCode.Trim().ToLowerInvariant() switch

@@ -10,9 +10,16 @@
       <label>Thời hạn (ngày)<input type="number" [(ngModel)]="draft.durationDays" min="1" /></label>
       <label>Dung lượng (GB)<input type="number" [(ngModel)]="draft.storageLimit" min="1" /></label>
       <label>Upload tối đa (GB)<input type="number" [(ngModel)]="draft.maxUploadSize" min="1" /></label>
+      <label>Thứ tự hiển thị<input type="number" [(ngModel)]="draft.displayOrder" min="0" /></label>
       <label>Thời lượng video (phút)<input type="number" [(ngModel)]="draft.maxVideoDuration" min="1" /></label>
       <label>Chất lượng tối đa<select [(ngModel)]="draft.maxVideoQuality"><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">4K (2160p)</option></select></label>
+      <label>Chất lượng tối đa tải xuống<select [(ngModel)]="draft.maxDownloadQuality"><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">4K (2160p)</option></select></label>
       <label>Số thành viên tối đa<input type="number" [(ngModel)]="draft.maxMembers" min="1" /></label>
+      <fieldset class="feature-options"><legend>Quyền lợi</legend>
+        <label><input type="checkbox" [checked]="featureEnabled('download')" (change)="setFeature('download', $any($event.target).checked)" /> Tải xuống</label>
+        <label><input type="checkbox" [checked]="featureEnabled('background_play')" (change)="setFeature('background_play', $any($event.target).checked)" /> Phát nền</label>
+        <label><input type="checkbox" [checked]="featureEnabled('pip')" (change)="setFeature('pip', $any($event.target).checked)" /> PiP</label>
+      </fieldset>
       @if (editing()) { <label>Trạng thái<select [(ngModel)]="draft.status"><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></label> }
     </div><div class="editor-actions"><button class="secondary-action" type="button" (click)="closeEditor()">Hủy</button><button class="primary-action" type="button" (click)="save()" [disabled]="saving()">{{ saving() ? 'Đang lưu…' : 'Lưu gói' }}</button></div></section>
   }

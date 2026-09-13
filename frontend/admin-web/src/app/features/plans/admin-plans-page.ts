@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminPlan, AdminPlansService, SavePlanRequest } from './admin-plans.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
 
-const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxMembers: 1, status: 'active', features: '{}' });
+const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxDownloadQuality: '720p', maxMembers: 1, status: 'active', features: '{"download":false,"background_play":false,"pip":false}', displayOrder: 0 });
 
 @Component({ selector: 'app-admin-plans-page', imports: [FormsModule, DecimalPipe], templateUrl: './admin-plans-page.html', styleUrl: './admin-plans-page.scss' })
 export class AdminPlansPage {
@@ -25,17 +25,48 @@ export class AdminPlansPage {
   applyTemplate(template: 'creator' | 'pro_monthly' | 'pro_yearly') {
     this.openCreate();
     this.draft = template === 'creator'
-      ? { ...this.draft, code: 'creator_plus', name: 'Creator Plus', description: 'Gói nâng cao cho nhà sáng tạo.', price: 99000, durationDays: 30, storageLimit: 100, maxUploadSize: 20, maxVideoQuality: '1080p', maxMembers: 1 }
-      : { ...this.draft, code: template === 'pro_monthly' ? 'pro_family_monthly' : 'pro_family_yearly', name: template === 'pro_monthly' ? 'Pro Group Monthly' : 'Pro Group Yearly', description: 'Gói nhóm gồm chủ gói và 4 thành viên qua Gmail.', price: template === 'pro_monthly' ? 299000 : 2990000, durationDays: template === 'pro_monthly' ? 30 : 365, storageLimit: 500, maxUploadSize: 50, maxVideoQuality: '2160p', maxMembers: 5 };
+      ? { ...this.draft, code: 'creator_plus', name: 'Creator Plus', description: 'Gói nâng cao cho nhà sáng tạo.', price: 99000, durationDays: 30, storageLimit: 100, maxUploadSize: 20, maxVideoQuality: '1080p', maxDownloadQuality: '1080p', maxMembers: 1, features: '{"download":true,"background_play":true,"pip":true}', displayOrder: 2 }
+      : { ...this.draft, code: template === 'pro_monthly' ? 'pro_family_monthly' : 'pro_family_yearly', name: template === 'pro_monthly' ? 'Pro Group Monthly' : 'Pro Group Yearly', description: 'Gói nhóm gồm chủ gói và 4 thành viên qua Gmail.', price: template === 'pro_monthly' ? 299000 : 2990000, durationDays: template === 'pro_monthly' ? 30 : 365, storageLimit: 500, maxUploadSize: 50, maxVideoQuality: '2160p', maxDownloadQuality: '2160p', maxMembers: 5, features: '{"download":true,"background_play":true,"pip":true}', displayOrder: 3 };
   }
-  openEdit(plan: AdminPlan) { this.creating.set(false); this.editing.set(plan); this.draft = { code: plan.code, name: plan.name, description: plan.description ?? '', price: plan.price, durationDays: plan.durationDays, storageLimit: Math.round(plan.storageLimit / 1073741824), maxUploadSize: Math.round(plan.maxUploadSize / 1073741824), maxVideoDuration: plan.maxVideoDuration, maxVideoQuality: plan.maxVideoQuality ?? '720p', maxMembers: plan.maxMembers, status: plan.status, features: '{}' }; this.error.set(''); this.message.set(''); }
+  openEdit(plan: AdminPlan) {
+    this.creating.set(false); this.editing.set(plan);
+    this.draft = {
+      code: plan.code, name: plan.name, description: plan.description ?? '', price: plan.price,
+      durationDays: plan.durationDays, storageLimit: Math.round(plan.storageLimit / 1073741824),
+      maxUploadSize: Math.round(plan.maxUploadSize / 1073741824), maxVideoDuration: Math.max(1, Math.round(plan.maxVideoDuration / 60)),
+      maxVideoQuality: plan.maxVideoQuality ?? '720p', maxDownloadQuality: plan.maxDownloadQuality ?? plan.maxVideoQuality ?? '720p', maxMembers: plan.maxMembers, status: plan.status,
+      features: JSON.stringify(plan.features ?? {}), displayOrder: plan.displayOrder ?? 0
+    };
+    this.error.set(''); this.message.set('');
+  }
   closeEditor() { this.editing.set(null); this.creating.set(false); }
   save() {
     if (this.saving()) return;
-    const request: SavePlanRequest = { ...this.draft, storageLimit: Math.round(this.draft.storageLimit * 1073741824), maxUploadSize: Math.round(this.draft.maxUploadSize * 1073741824) };
+    const request: SavePlanRequest = {
+      ...this.draft,
+      storageLimit: Math.round(this.draft.storageLimit * 1073741824),
+      maxUploadSize: Math.round(this.draft.maxUploadSize * 1073741824),
+      maxVideoDuration: Math.round(this.draft.maxVideoDuration * 60),
+      displayOrder: Math.max(0, Math.round(this.draft.displayOrder ?? 0)),
+      features: this.draft.features || '{}'
+    };
     this.saving.set(true); this.error.set('');
     const call = this.editing() ? this.service.updatePlan(this.editing()!.planId, request) : this.service.createPlan(request);
     call.subscribe({ next: () => { this.message.set(this.editing() ? 'Đã cập nhật gói.' : 'Đã tạo gói.'); this.closeEditor(); this.load(); this.saving.set(false); }, error: error => { this.error.set(errorMessage(error)); this.saving.set(false); } });
+  }
+  featureEnabled(key: string): boolean {
+    try {
+      const parsed = JSON.parse(this.draft.features || '{}');
+      return parsed && typeof parsed === 'object' && parsed[key] === true;
+    } catch { return false; }
+  }
+  setFeature(key: string, enabled: boolean) {
+    let current: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(this.draft.features || '{}');
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) current = parsed;
+    } catch { /* The API will return a validation error for malformed custom JSON. */ }
+    this.draft = { ...this.draft, features: JSON.stringify({ ...current, [key]: enabled }) };
   }
   archive(plan: AdminPlan) { if (!confirm(`Lưu trữ gói ${plan.name}?`)) return; this.service.archivePlan(plan.planId).subscribe({ next: () => { this.message.set('Đã lưu trữ gói.'); this.load(); }, error: error => this.error.set(errorMessage(error)) }); }
 }

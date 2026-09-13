@@ -119,6 +119,13 @@ void main() {
           headers: {'content-type': 'application/json'},
         );
       }
+      if (request.url.path.endsWith('/channels/channel-1/invitations')) {
+        return http.Response(
+          '[]',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       uploadedPaths.add(request.url.path);
       return jsonResponse(channelJson());
     });

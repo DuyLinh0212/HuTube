@@ -2,6 +2,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { CommentItem, ContentService, Playback, Rendition, VideoCard, VideoDetail, ViolationType } from '../../core/content.service';
@@ -45,6 +46,9 @@ export class WatchPage {
   readonly miniPlayer = signal(false);
   readonly shareOpen = signal(false);
   readonly shareUrl = signal('');
+  readonly downloadOptions = signal<Rendition[]>([]);
+  readonly downloadOpen = signal(false);
+  readonly downloadBusy = signal(false);
   readonly visibleRelatedVideos = computed(() => {
     const items = this.relatedVideos();
     const current = this.video();
@@ -253,6 +257,7 @@ export class WatchPage {
   }
 
   react(type: 'like' | 'dislike') {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để thích hoặc không thích video.')) return;
     const item = this.video();
     if (!item) return;
     const next = item.viewerState?.reaction === type ? null : type;
@@ -267,6 +272,7 @@ export class WatchPage {
   }
 
   rate(score: number | null) {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để đánh giá video.')) return;
     const item = this.video();
     if (!item) return;
     this.content.rate(item.videoId, score).subscribe({
@@ -291,6 +297,12 @@ export class WatchPage {
     if (!item) return;
     this.shareUrl.set(window.location.href);
     this.shareOpen.set(true);
+    // A guest may share the public URL. Only authenticated viewers can persist
+    // the share event because the API endpoint is protected.
+    if (!this.auth.user()) {
+      this.actionMessage.set('Liên kết video công khai đã sẵn sàng để chia sẻ.');
+      return;
+    }
     this.content.share(item.videoId).subscribe({
       next: result => {
         if (result?.url) this.shareUrl.set(this.absoluteUrl(result.url));
@@ -322,6 +334,7 @@ export class WatchPage {
   }
 
   comment() {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để bình luận.')) return;
     const item = this.video();
     const text = this.commentText.trim();
     if (!item || !text) return;
@@ -376,6 +389,7 @@ export class WatchPage {
   }
 
   reply(comment: CommentItem) {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để trả lời bình luận.')) return;
     const text = this.replyText.trim();
     if (!text) return;
     this.content.createComment(comment.videoId, text, comment.commentId).subscribe({
@@ -398,6 +412,7 @@ export class WatchPage {
   }
 
   reactComment(comment: CommentItem, type: 'like' | 'dislike') {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để tương tác với bình luận.')) return;
     const next = comment.myReaction === type ? null : type;
     this.content.reactComment(comment.commentId, next).subscribe({
       next: result => {
@@ -425,6 +440,7 @@ export class WatchPage {
   }
 
   hide(comment: CommentItem) {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để quản lý bình luận.')) return;
     this.content.hideComment(comment.commentId, comment.status !== 'hidden').subscribe({
       next: value => this.replaceCommentInState(value),
       error: error => this.actionMessage.set(this.readError(error) || 'Không thể cập nhật bình luận.')
@@ -432,6 +448,7 @@ export class WatchPage {
   }
 
   remove(comment: CommentItem) {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để xóa bình luận.')) return;
     if (!confirm('Xóa bình luận này?')) return;
     this.content.deleteComment(comment.commentId).subscribe({
       next: () => {
@@ -482,6 +499,37 @@ export class WatchPage {
     });
   }
 
+  openDownloads() {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để tải video xuống.')) return;
+    if (this.downloadOptions().length) {
+      this.downloadOpen.update(value => !value);
+      return;
+    }
+    if (this.downloadBusy()) return;
+    this.downloadBusy.set(true);
+    this.content.downloadOptions(this.videoId).pipe(finalize(() => this.downloadBusy.set(false))).subscribe({
+      next: options => {
+        this.downloadOptions.set(options ?? []);
+        this.downloadOpen.set(true);
+        if (!options?.length) this.actionMessage.set('Gói hiện tại chưa có chất lượng tải xuống khả dụng.');
+      },
+      error: error => this.actionMessage.set(this.readError(error) || 'Gói hiện tại không hỗ trợ tải xuống video.')
+    });
+  }
+
+  download(quality: string) {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để tải video xuống.')) return;
+    this.downloadBusy.set(true);
+    this.content.createDownload(this.videoId, quality).pipe(finalize(() => this.downloadBusy.set(false))).subscribe({
+      next: result => {
+        this.downloadOpen.set(false);
+        this.actionMessage.set(result.fileUrl ? 'Đã tạo bản tải xuống. Bạn có thể mở liên kết từ thông báo tải xuống.' : 'Đã tạo bản tải xuống.');
+        if (result.fileUrl) window.open(result.fileUrl, '_blank', 'noopener,noreferrer');
+      },
+      error: error => this.actionMessage.set(this.readError(error) || 'Không thể tạo bản tải xuống.')
+    });
+  }
+
   setRecommendationFilter(filter: 'all' | 'related' | 'channel' | 'category') {
     this.recommendationFilter.set(filter);
   }
@@ -503,12 +551,23 @@ export class WatchPage {
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   }
 
+  formatBytes(bytes: number) {
+    if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} GB`;
+    return `${(bytes / 1024 ** 2).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} MB`;
+  }
+
   private viewerState(item: VideoDetail) {
     return item.viewerState ?? { reaction: null, rating: null, resumeAtSeconds: 0, progress: 0 };
   }
 
   private readError(error: any) {
     return error?.error?.detail || error?.error?.title || error?.message || '';
+  }
+
+  private requireAuthentication(message: string): boolean {
+    if (this.auth.user()) return true;
+    this.actionMessage.set(message);
+    return false;
   }
 
   @HostListener('window:keydown', ['$event'])

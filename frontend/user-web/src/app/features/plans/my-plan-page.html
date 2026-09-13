@@ -106,11 +106,19 @@
         </div>
         <div class="mini-spec">
           <span class="ms-title">Độ phân giải tối đa</span>
-          <strong class="ms-val">{{ plan.maxVideoQuality || '1080p Full HD' }}</strong>
+          <strong class="ms-val">Upload {{ plan.maxVideoQuality || '1080p' }} · Download {{ plan.maxDownloadQuality || plan.maxVideoQuality || '720p' }}</strong>
         </div>
         <div class="mini-spec">
           <span class="ms-title">Thành viên tối đa</span>
           <strong class="ms-val">{{ plan.maxMembers }} người</strong>
+        </div>
+        <div class="mini-spec">
+          <span class="ms-title">Thời lượng video tối đa</span>
+          <strong class="ms-val">{{ formatDuration(plan.maxVideoDuration) }}</strong>
+        </div>
+        <div class="mini-spec">
+          <span class="ms-title">Tải xuống / phát nền / PiP</span>
+          <strong class="ms-val">{{ featureEnabled('download') ? 'Có' : 'Không' }} / {{ featureEnabled('background_play') ? 'Có' : 'Không' }} / {{ featureEnabled('pip') ? 'Có' : 'Không' }}</strong>
         </div>
       </div>
     </section>

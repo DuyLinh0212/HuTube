@@ -77,6 +77,8 @@ export class ContentService {
   reportComment(commentId: string, violationTypeId: string, description: string) { return this.http.post(`${this.base}/comments/${commentId}/report`, { violationTypeId, description }); }
   progress(videoId: string, watchedSeconds: number) { return this.http.put(`${this.base}/videos/${videoId}/watch-progress`, { watchedSeconds, saveHistory: true }); }
   share(videoId: string) { return this.http.post<{ url: string; shareCount: number }>(`${this.base}/videos/${videoId}/share`, { method: 'copy_link' }); }
+  downloadOptions(videoId: string) { return this.http.get<Rendition[]>(`${this.base}/videos/${videoId}/download-options`); }
+  createDownload(videoId: string, quality: string) { return this.http.post<{ videoDownloadId: string; videoId: string; title: string; quality: string; fileUrl: string; fileSize: number; status: string }>(`${this.base}/videos/${videoId}/downloads`, { quality }); }
   preflight(request: { channelId: string; fileSize: number; duration: number; contentType: string; sourceQuality: string }) {
     return this.http.post<UploadPreflight>(`${this.base}/videos/upload-preflight`, request);
   }

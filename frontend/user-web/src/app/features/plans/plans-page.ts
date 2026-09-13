@@ -1,10 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
-import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { MyPlan, Plan, PlanService } from '../../core/plan.service';
 
-@Component({ selector: 'app-plans-page', imports: [CurrencyPipe, DecimalPipe, RouterLink], templateUrl: './plans-page.html', styleUrl: './plans-page.scss' })
+@Component({ selector: 'app-plans-page', imports: [CurrencyPipe, RouterLink], templateUrl: './plans-page.html', styleUrl: './plans-page.scss' })
 export class PlansPage {
   private plansService = inject(PlanService);
   readonly auth = inject(AuthService);
@@ -44,5 +44,13 @@ export class PlansPage {
   formatBytes(bytes: number): string {
     if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} GB`;
     return `${(bytes / 1024 ** 2).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} MB`;
+  }
+
+  formatDuration(seconds: number): string {
+    const minutes = Math.max(1, Math.round((seconds || 0) / 60));
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    if (!hours) return `${minutes} phút`;
+    return remainder ? `${hours} giờ ${remainder} phút` : `${hours} giờ`;
   }
 }

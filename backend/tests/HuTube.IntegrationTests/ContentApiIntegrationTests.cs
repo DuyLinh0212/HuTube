@@ -191,11 +191,14 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         var (owner, ownerId, channelId) = await CreateUserAndChannelAsync("manage_owner");
         var (other, _, _) = await CreateUserAndChannelAsync("manage_other");
         var video = await CreatePublishedVideoAsync(owner, channelId, "Video quản lý");
+        var subscribe = await owner.PostAsJsonAsync("/api/v1/plans/00000000-0000-0000-0000-000000000101/subscribe", new { autoRenew = false });
+        subscribe.EnsureSuccessStatusCode();
 
         // Act
         var settings = await owner.PutAsJsonAsync("/api/v1/account/settings", new { language = "en", theme = "dark", keepSubscriptionsPrivate = false });
         var options = await owner.GetFromJsonAsync<List<RenditionResponse>>($"/api/v1/videos/{video.VideoId}/download-options", JsonOptions);
         var createDownload = await owner.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/downloads", new { quality = "720p" });
+        var deniedDownloadOptions = await other.GetAsync($"/api/v1/videos/{video.VideoId}/download-options");
         var download = await createDownload.Content.ReadFromJsonAsync<DownloadResponse>(JsonOptions);
         var downloads = await owner.GetFromJsonAsync<List<DownloadResponse>>("/api/v1/downloads", JsonOptions);
         var forbidden = await other.PatchAsJsonAsync($"/api/v1/videos/{video.VideoId}", new { title = "Không được sửa" });
@@ -210,6 +213,7 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         await using var db = factory.CreateDb(); var persisted = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == ownerId);
         Assert.Equal("en", persisted.PreferredLanguage); Assert.Equal("dark", persisted.Theme);
         Assert.Contains(options!, x => x.Quality == "720p");
+        Assert.Equal(HttpStatusCode.Forbidden, deniedDownloadOptions.StatusCode);
         Assert.Equal(HttpStatusCode.Created, createDownload.StatusCode); Assert.Contains(downloads!, x => x.VideoDownloadId == download.VideoDownloadId);
         Assert.Equal("cancelled", (await cancelDownload.Content.ReadFromJsonAsync<DownloadResponse>(JsonOptions))!.Status);
         Assert.Equal("processing", (await retryDownload.Content.ReadFromJsonAsync<DownloadResponse>(JsonOptions))!.Status);

@@ -13,8 +13,11 @@ export interface AdminPlan {
   maxUploadSize: number;
   maxVideoDuration: number;
   maxVideoQuality: string | null;
+  maxDownloadQuality?: string | null;
   maxMembers: number;
   status: string;
+  features?: Record<string, boolean>;
+  displayOrder?: number;
 }
 
 export interface SavePlanRequest {
@@ -27,9 +30,11 @@ export interface SavePlanRequest {
   maxUploadSize: number;
   maxVideoDuration: number;
   maxVideoQuality: string;
+  maxDownloadQuality?: string;
   maxMembers: number;
   status?: string;
   features?: string;
+  displayOrder?: number;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -22,7 +22,9 @@
             <div><dt>Dung lượng</dt><dd>{{ formatBytes(plan.storageLimit) }}</dd></div>
             <div><dt>Upload tối đa</dt><dd>{{ formatBytes(plan.maxUploadSize) }}</dd></div>
             <div><dt>Thành viên</dt><dd>{{ plan.maxMembers }}</dd></div>
-            <div><dt>Chất lượng</dt><dd>{{ plan.maxVideoQuality || 'Tiêu chuẩn' }}</dd></div>
+            <div><dt>Upload / Download</dt><dd>{{ plan.maxVideoQuality || 'Tiêu chuẩn' }} / {{ plan.maxDownloadQuality || plan.maxVideoQuality || '720p' }}</dd></div>
+            <div><dt>Thời lượng</dt><dd>{{ formatDuration(plan.maxVideoDuration) }}</dd></div>
+            <div><dt>Tải xuống</dt><dd>{{ plan.features?.['download'] ? 'Có' : 'Không' }}</dd></div>
           </dl>
           <a class="plan-button" [routerLink]="['/plans', plan.planId]">
             @if (isCurrentPlan(plan.planId)) {

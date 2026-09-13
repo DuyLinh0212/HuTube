@@ -10,7 +10,9 @@
     "prestart": "node scripts/configure-api.mjs --local",
     "prebuild": "node scripts/configure-api.mjs",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
-    "test:e2e": "node e2e/sprint4.cjs",
+    "test:e2e": "npm run test:e2e:sprint4 && npm run test:e2e:sprint5:tu",
+    "test:e2e:sprint4": "node e2e/sprint4.cjs",
+    "test:e2e:sprint5:tu": "node e2e/sprint5-tu.cjs",
     "test:e2e:auth": "node e2e/auth.cjs"
   },
   "prettier": {

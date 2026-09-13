@@ -94,7 +94,7 @@ export class AuthService {
   reset(token: string, password: string) { return this.post<Message>('/auth/reset-password', { token, password }).pipe(tap(() => this.clear())); }
   sessions() { return this.http.get<{ items: Session[] }>(this.config.apiBaseUrl + '/auth/sessions'); }
   logoutOthers() { return this.http.post<Message>(this.config.apiBaseUrl + '/auth/logout-others', {}); }
-  logoutAll() { return this.http.post<Message>(this.config.apiBaseUrl + '/auth/logout-all', {}); }
+  logoutAll() { return this.http.post<Message>(this.config.apiBaseUrl + '/auth/logout-all', {}).pipe(tap(() => this.clear())); }
   currentSessionId(): string | null {
     const token = this.accessToken();
     if (!token) return null;

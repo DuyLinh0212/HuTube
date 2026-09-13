@@ -12,7 +12,10 @@ public sealed record PlanResponse(
     int MaxVideoDuration,
     string? MaxVideoQuality,
     int MaxMembers,
-    string Status);
+    string Status,
+    IReadOnlyDictionary<string, bool>? Features = null,
+    int DisplayOrder = 0,
+    string? MaxDownloadQuality = null);
 
 public sealed record PlanMemberResponse(
     Guid PlanMemberId,
@@ -31,7 +34,8 @@ public sealed record PlanShareResponse(
     string Name,
     string? Description,
     string ShareUrl,
-    string Status);
+    string Status,
+    IReadOnlyDictionary<string, bool>? Features = null);
 
 public sealed record PlanSubscriptionInfo(
     Guid PlanHistoryId,
@@ -54,7 +58,13 @@ public sealed record PlanDetailResponse(
     PlanSubscriptionInfo? Subscription = null,
     bool IsSharedMember = false,
     decimal Price = 0,
-    IReadOnlyList<Guid>? ActivePaidPlanIds = null);
+    IReadOnlyList<Guid>? ActivePaidPlanIds = null,
+    IReadOnlyDictionary<string, bool>? Features = null,
+    int DurationDays = 0,
+    int MaxVideoDuration = 0,
+    string? Description = null,
+    string? Status = null,
+    string? MaxDownloadQuality = null);
 
 public sealed record PlanSubscriptionRequest(
     string? PaymentMethod = null,
@@ -71,7 +81,9 @@ public sealed record CreatePlanRequest(
     int MaxVideoDuration,
     string MaxVideoQuality,
     int MaxMembers,
-    string? Features = null);
+    string? Features = null,
+    int DisplayOrder = 0,
+    string? MaxDownloadQuality = null);
 
 public sealed record UpdatePlanRequest(
     string Name,
@@ -84,7 +96,9 @@ public sealed record UpdatePlanRequest(
     string MaxVideoQuality,
     int MaxMembers,
     string Status,
-    string? Features = null);
+    string? Features = null,
+    int DisplayOrder = 0,
+    string? MaxDownloadQuality = null);
 
 public sealed record PlanInviteRequest(
     string Email);
@@ -107,7 +121,8 @@ public interface IPlanService
     Task ArchivePlanAsync(Guid actorUserId, Guid planId, CancellationToken ct = default);
     Task<PlanResponse> GetPlanByIdAsync(Guid planId, CancellationToken ct = default);
     Task<PlanShareResponse> GetPlanShareAsync(Guid planId, CancellationToken ct = default);
-    Task<PlanDetailResponse> GetMyPlanAsync(Guid userId, CancellationToken ct = default);
+    Task<PlanDetailResponse?> GetMyPlanAsync(Guid userId, CancellationToken ct = default);
+    Task<long?> GetEffectiveStorageLimitAsync(Guid userId, CancellationToken ct = default);
     Task<PlanResponse> SubscribeAsync(Guid userId, Guid planId, PlanSubscriptionRequest request, CancellationToken ct = default);
     Task<PlanMemberResponse> InviteMemberAsync(Guid ownerUserId, string email, CancellationToken ct = default);
     Task<PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, CancellationToken ct = default);

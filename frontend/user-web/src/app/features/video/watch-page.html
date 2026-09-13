@@ -81,11 +81,21 @@
 
         <div class="video-actions-anchor">
         <div class="video-actions" aria-label="Tác vụ video">
+          @if (auth.user()) {
           <div class="reaction-group">
               <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'like'" [attr.aria-pressed]="item.viewerState?.reaction === 'like'" (click)="react('like')" aria-label="Thích video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.94-1.53l1.5-6A2 2 0 0 0 17.9 10H14l.7-3.5A2.05 2.05 0 0 0 12.7 4L7 10v10Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.likes | number }}</span></button>
               <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'dislike'" [attr.aria-pressed]="item.viewerState?.reaction === 'dislike'" (click)="react('dislike')" aria-label="Không thích video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3ZM17 4H7.6a2 2 0 0 0-1.94 1.53l-1.5 6A2 2 0 0 0 6.1 14H10l-.7 3.5A2.05 2.05 0 0 0 11.3 20L17 14V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.dislikes | number }}</span></button>
           </div>
+          } @else {
+            <a class="action-button" routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }">Đăng nhập để tương tác</a>
+          }
           <button type="button" class="action-button" (click)="share()" [attr.aria-expanded]="shareOpen()" aria-controls="share-popover"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5-5 5M19 10H9a4 4 0 0 0-4 4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Chia sẻ</span></button>
+          @if (auth.user()) {
+            <button type="button" class="action-button" (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover">Tải xuống</button>
+          } @else {
+            <a class="action-button" routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }">Đăng nhập để tải xuống</a>
+          }
+          @if (auth.user()) {
           <div class="rating-control" role="group" aria-label="Đánh giá video từ 1 đến 5 sao">
             <span class="rating-label">Đánh giá</span>
             <div class="rating-stars">
@@ -98,14 +108,26 @@
               <button type="button" class="rating-clear" (click)="rate(null)" aria-label="Bỏ đánh giá">×</button>
             }
           </div>
+          }
           <span class="shortcut-hint">K / Space phát · J/L ±10s · F toàn màn hình · M tắt tiếng · I thu nhỏ</span>
         </div>
 
         @if (shareOpen()) {
           <div id="share-popover" class="share-popover" role="dialog" aria-label="Chia sẻ video">
             <div class="share-popover__header"><div><strong>Chia sẻ video</strong><p>Sao chép liên kết để gửi cho người khác.</p></div><button type="button" class="share-popover__close" (click)="closeShare()" aria-label="Đóng popup">×</button></div>
-            <label class="share-link-field">Liên kết video<input readonly [value]="shareUrl()" (focus)="$any($event.target).select()" /></label>
+            <label class="share-link-field">Liên kết video<input readonly aria-label="Liên kết video" [value]="shareUrl()" (focus)="$any($event.target).select()" /></label>
             <div class="share-popover__actions"><button type="button" class="primary-button" (click)="copyShareLink()">Sao chép liên kết</button><a [href]="shareUrl()" target="_blank" rel="noreferrer">Mở liên kết</a></div>
+          </div>
+        }
+        @if (downloadOpen()) {
+          <div id="download-popover" class="share-popover" role="dialog" aria-label="Tải video xuống">
+            <div class="share-popover__header"><div><strong>Tải video xuống</strong><p>Chất lượng khả dụng theo gói hiện tại.</p></div><button type="button" class="share-popover__close" (click)="downloadOpen.set(false)" aria-label="Đóng popup">×</button></div>
+            @if (downloadBusy()) { <p class="replies-status">Đang chuẩn bị…</p> }
+            <div class="share-popover__actions">
+              @for (rendition of downloadOptions(); track rendition.quality) {
+                <button type="button" class="primary-button" (click)="download(rendition.quality)" [disabled]="downloadBusy()">{{ rendition.quality }} · {{ formatBytes(rendition.fileSize) }}</button>
+              } @empty { @if (!downloadBusy()) { <p class="replies-status">Không có chất lượng tải xuống.</p> } }
+            </div>
           </div>
         }
         </div>
@@ -160,16 +182,17 @@
                   <div class="comment-author"><strong>{{ comment.displayName }}</strong><time>{{ comment.createdAt | date:'d MMM y' }}</time></div>
                   <p>{{ comment.content }}</p>
                   <div class="comment-actions">
-                      <button type="button" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" (click)="reactComment(comment, 'like')">Thích <span>{{ comment.likes | number }}</span></button>
-                      <button type="button" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" (click)="reactComment(comment, 'dislike')">Không thích <span>{{ comment.dislikes | number }}</span></button>
-                    <button type="button" (click)="replyTo.set(comment.commentId)">Trả lời</button>
+                    @if (!auth.user()) { <a routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }" class="comment-login-link">Đăng nhập để tương tác</a> }
+                      <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" (click)="reactComment(comment, 'like')">Thích <span>{{ comment.likes | number }}</span></button>
+                      <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" (click)="reactComment(comment, 'dislike')">Không thích <span>{{ comment.dislikes | number }}</span></button>
+                    <button type="button" [disabled]="!auth.user()" (click)="replyTo.set(comment.commentId)">Trả lời</button>
                     @if (comment.replyCount > 0) {
                       <button type="button" class="reply-toggle" [attr.aria-expanded]="isRepliesOpen(comment.commentId)" (click)="toggleReplies(comment)">
                         {{ isRepliesOpen(comment.commentId) ? 'Ẩn câu trả lời' : ('Xem ' + comment.replyCount + ' câu trả lời') }}
                       </button>
                     }
                     @if (isOwner()) { <button type="button" (click)="hide(comment)">{{ comment.status === 'hidden' ? 'Hiện' : 'Ẩn' }}</button> }
-                    @if (isOwnComment(comment)) { <button type="button" class="is-danger" (click)="remove(comment)">Xóa</button> } @else { <button type="button" (click)="report(comment)">Báo cáo</button> }
+                    @if (isOwnComment(comment)) { <button type="button" class="is-danger" (click)="remove(comment)">Xóa</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(comment)">Báo cáo</button> }
                   </div>
                   @if (replyTo() === comment.commentId) {
                     <form class="reply-composer" (ngSubmit)="reply(comment)"><input name="reply" [(ngModel)]="replyText" placeholder="Viết câu trả lời…"/><button type="submit" class="primary-button">Gửi</button></form>
@@ -184,10 +207,10 @@
                             <div class="comment-author"><strong>{{ replyItem.displayName }}</strong><time>{{ replyItem.createdAt | date:'d MMM y' }}</time></div>
                             <p>{{ replyItem.content }}</p>
                             <div class="comment-actions">
-                              <button type="button" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" (click)="reactComment(replyItem, 'like')">Thích <span>{{ replyItem.likes | number }}</span></button>
-                              <button type="button" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" (click)="reactComment(replyItem, 'dislike')">Không thích <span>{{ replyItem.dislikes | number }}</span></button>
+                              <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" (click)="reactComment(replyItem, 'like')">Thích <span>{{ replyItem.likes | number }}</span></button>
+                              <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" (click)="reactComment(replyItem, 'dislike')">Không thích <span>{{ replyItem.dislikes | number }}</span></button>
                               @if (isOwner()) { <button type="button" (click)="hide(replyItem)">{{ replyItem.status === 'hidden' ? 'Hiện' : 'Ẩn' }}</button> }
-                              @if (isOwnComment(replyItem)) { <button type="button" class="is-danger" (click)="remove(replyItem)">Xóa</button> } @else { <button type="button" (click)="report(replyItem)">Báo cáo</button> }
+                              @if (isOwnComment(replyItem)) { <button type="button" class="is-danger" (click)="remove(replyItem)">Xóa</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(replyItem)">Báo cáo</button> }
                             </div>
                           </div>
                         </article>

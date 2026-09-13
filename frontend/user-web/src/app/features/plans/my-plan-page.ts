@@ -21,6 +21,14 @@ export class MyPlanPage {
     if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} GB`;
     return `${(bytes / 1024 ** 2).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} MB`;
   }
+  formatDuration(seconds: number): string {
+    const minutes = Math.max(1, Math.round((seconds || 0) / 60));
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    if (!hours) return `${minutes} phút`;
+    return remainder ? `${hours} giờ ${remainder} phút` : `${hours} giờ`;
+  }
+  featureEnabled(key: string): boolean { return this.plan()?.features?.[key] === true; }
   load() {
     this.loading.set(true);
     this.plansService.getMyPlan().pipe(finalize(() => this.loading.set(false))).subscribe({
@@ -37,7 +45,7 @@ export class MyPlanPage {
         this.inviteEmail = '';
         this.message.set('Đã gửi lời mời qua email.');
       },
-      error: (err: any) => this.error.set(err?.error?.message || 'Không thể gửi lời mời.')
+      error: (err: any) => this.error.set(err?.error?.detail || err?.error?.message || 'Không thể gửi lời mời.')
     });
   }
   revoke(memberId: string) {

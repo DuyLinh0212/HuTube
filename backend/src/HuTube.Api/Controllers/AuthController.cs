@@ -138,12 +138,21 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
             "User signed out all devices",
             IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
             UserAgent: Request.Headers.UserAgent.ToString()), ct);
-        await notificationHub.Clients.User(userId.ToString()).SendAsync("SessionRevoked", new
+        if (IsWeb) Response.Cookies.Delete(CookieName, new CookieOptions { Path = "/api/v1/auth", Secure = !environment.IsDevelopment(), HttpOnly = true,
+            SameSite = environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None });
+        try
         {
-            reason = "user-revoked-all",
-            allSessions = true,
-            revokedAt = DateTimeOffset.UtcNow
-        }, ct);
+            await notificationHub.Clients.User(userId.ToString()).SendAsync("SessionRevoked", new
+            {
+                reason = "user-revoked-all",
+                allSessions = true,
+                revokedAt = DateTimeOffset.UtcNow
+            }, ct);
+        }
+        catch
+        {
+            // Session revocation and the HTTP response remain authoritative if realtime delivery is unavailable.
+        }
         return response;
     }
     [Authorize, HttpDelete("sessions/{sessionId:guid}")]

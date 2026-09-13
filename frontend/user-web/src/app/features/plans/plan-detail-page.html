@@ -100,7 +100,7 @@
               <span class="spec-dot"></span>
               Thời lượng tối đa mỗi video
             </span>
-            <strong class="spec-val">{{ plan.maxVideoDuration }} phút</strong>
+            <strong class="spec-val">{{ formatDuration(plan.maxVideoDuration) }}</strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
@@ -112,6 +112,13 @@
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
+              Chất lượng tối đa tải xuống
+            </span>
+            <strong class="spec-val badge-quality">{{ plan.maxDownloadQuality || plan.maxVideoQuality || '720p' }}</strong>
+          </li>
+          <li class="spec-item">
+            <span class="spec-label">
+              <span class="spec-dot"></span>
               Số thành viên chia sẻ gói
             </span>
             <strong class="spec-val">{{ plan.maxMembers }} người</strong>
@@ -119,9 +126,29 @@
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
+              Tải video xuống
+            </span>
+            <strong class="spec-val" [class.checkmark]="hasFeature(plan, 'download')">
+              {{ hasFeature(plan, 'download') ? '✓ Hỗ trợ' : '✕ Không hỗ trợ' }}
+            </strong>
+          </li>
+          <li class="spec-item">
+            <span class="spec-label">
+              <span class="spec-dot"></span>
+              Phát nền
+            </span>
+            <strong class="spec-val" [class.checkmark]="hasFeature(plan, 'background_play')">
+              {{ hasFeature(plan, 'background_play') ? '✓ Hỗ trợ' : '✕ Không hỗ trợ' }}
+            </strong>
+          </li>
+          <li class="spec-item">
+            <span class="spec-label">
+              <span class="spec-dot"></span>
               Chế độ phát thu nhỏ (PiP)
             </span>
-            <strong class="spec-val checkmark">✓ Hỗ trợ</strong>
+            <strong class="spec-val" [class.checkmark]="hasFeature(plan, 'pip')">
+              {{ hasFeature(plan, 'pip') ? '✓ Hỗ trợ' : '✕ Không hỗ trợ' }}
+            </strong>
           </li>
         </ul>
       </section>
