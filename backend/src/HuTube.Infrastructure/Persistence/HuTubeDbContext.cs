@@ -33,6 +33,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<CommentReaction> CommentReactions => Set<CommentReaction>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ViolationType> ViolationTypes => Set<ViolationType>();
+    public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<ModerationCase> ModerationCases => Set<ModerationCase>();
     public DbSet<CommentModerationAction> CommentModerationActions => Set<CommentModerationAction>();
@@ -141,6 +142,11 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<CommentReaction>(b => { b.ToTable("comment_reactions"); b.HasKey(x => x.CommentReactionId); b.HasIndex(x => new { x.UserId, x.CommentId }).IsUnique(); });
         model.Entity<Notification>(b => { b.ToTable("notifications"); b.HasKey(x => x.NotificationId); });
         model.Entity<ViolationType>(b => { b.ToTable("violation_types"); b.HasKey(x => x.ViolationTypeId); });
+        model.Entity<Policy>(b => {
+            b.ToTable("policies");
+            b.HasKey(x => x.PolicyId);
+            b.Property(x => x.Group).HasColumnName("group");
+        });
         model.Entity<Report>(b => { b.ToTable("reports"); b.HasKey(x => x.ReportId); });
         model.Entity<ModerationCase>(b => { b.ToTable("moderation_cases"); b.HasKey(x => x.ModerationCaseId); });
         model.Entity<CommentModerationAction>(b => { b.ToTable("comment_moderation_actions"); b.HasKey(x => x.CommentModerationActionId); });

@@ -13,6 +13,7 @@ using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Storage;
 using HuTube.Infrastructure.Videos;
 using HuTube.Infrastructure.Notifications;
+using HuTube.Infrastructure.Policies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
@@ -91,6 +92,8 @@ builder.Services.AddSingleton<IObjectStorage>(services => new DualObjectStorageS
     hasR2Credentials ? services.GetRequiredService<R2ObjectStorageService>() : services.GetRequiredService<LocalStorageService>()));
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<PolicyService>();
+builder.Services.AddScoped<ModerationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<IVideoTranscoder, FfmpegVideoTranscoder>();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, NotificationUserIdProvider>();

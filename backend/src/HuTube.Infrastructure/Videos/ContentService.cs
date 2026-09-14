@@ -177,9 +177,10 @@ public sealed class ContentService(
         }
 
         var now = Now;
+        var isPublicWithModeration = features.ModerationEnabled && command.Visibility.Equals("public", StringComparison.OrdinalIgnoreCase);
         var video = new Video { ChannelId = command.ChannelId, CategoryId = command.CategoryId, Title = command.Title.Trim(), Description = Clean(command.Description),
             VideoUrl = videoUrl!, ThumbnailUrl = thumbnailUrl, Duration = command.Duration, FileSize = command.FileSize, Visibility = command.Visibility.ToLowerInvariant(),
-            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted, ModerationStatus = "not_submitted",
+            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted, ModerationStatus = isPublicWithModeration ? "pending" : "not_submitted",
             Metadata = JsonSerializer.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
         Exception? processingError = null;
@@ -207,7 +208,24 @@ public sealed class ContentService(
                     .ExecuteUpdateAsync(update => update.SetProperty(x => x.StorageUsed, x => x.StorageUsed + command.FileSize).SetProperty(x => x.UpdatedAt, now), ct);
                 if (reserved != 1) throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
             }
-            db.Videos.Add(video); await db.SaveChangesAsync(ct);
+            db.Videos.Add(video);
+            if (isPublicWithModeration)
+            {
+                var combinedText = $"{video.Title} {video.Description}".ToLowerInvariant();
+                var highRiskKeywords = new[] { "sex", "khiêu dâm", "đồi trụy", "18+", "giết người", "tự tử", "chém", "bom", "hack", "lừa đảo" };
+                var riskLevel = highRiskKeywords.Any(k => combinedText.Contains(k)) ? "high" : "low";
+
+                db.ModerationCases.Add(new ModerationCase
+                {
+                    VideoId = video.VideoId,
+                    Status = "pending",
+                    CaseType = "upload_review",
+                    RiskLevel = riskLevel,
+                    SubmittedAt = now,
+                    UpdatedAt = now
+                });
+            }
+            await db.SaveChangesAsync(ct);
             var sourceHeight = VideoRules.QualityHeight(command.SourceQuality);
             db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = command.SourceQuality.ToLowerInvariant(), Width = sourceHeight * 16 / 9,
                 Height = sourceHeight, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "source", Status = "ready", CreatedAt = now, UpdatedAt = now });
@@ -299,7 +317,39 @@ public sealed class ContentService(
             video.Title = title;
         }
         if (request.Description != null) video.Description = Clean(request.Description);
-        if (request.Visibility != null) { VideoRules.ValidateVisibility(request.Visibility); EnsureVisibilityAvailable(request.Visibility); video.Visibility = request.Visibility.ToLowerInvariant(); }
+        if (request.Visibility != null)
+        {
+            var oldVisibility = video.Visibility;
+            var newVisibility = request.Visibility.ToLowerInvariant();
+            VideoRules.ValidateVisibility(newVisibility);
+            EnsureVisibilityAvailable(newVisibility);
+            video.Visibility = newVisibility;
+
+            if (features.ModerationEnabled && newVisibility == "public" && oldVisibility != "public")
+            {
+                if (video.ModerationStatus != "approved")
+                {
+                    video.ModerationStatus = "pending";
+                    var combinedText = $"{video.Title} {video.Description}".ToLowerInvariant();
+                    var highRiskKeywords = new[] { "sex", "khiêu dâm", "đồi trụy", "18+", "giết người", "tự tử", "chém", "bom", "hack", "lừa đảo" };
+                    var riskLevel = highRiskKeywords.Any(k => combinedText.Contains(k)) ? "high" : "low";
+
+                    var hasPendingCase = await db.ModerationCases.AnyAsync(c => c.VideoId == video.VideoId && (c.Status == "pending" || c.Status == "reviewing"), ct);
+                    if (!hasPendingCase)
+                    {
+                        db.ModerationCases.Add(new ModerationCase
+                        {
+                            VideoId = video.VideoId,
+                            Status = "pending",
+                            CaseType = "upload_review",
+                            RiskLevel = riskLevel,
+                            SubmittedAt = Now,
+                            UpdatedAt = Now
+                        });
+                    }
+                }
+            }
+        }
         if (request.ClearCategory) video.CategoryId = null;
         else if (request.CategoryId.HasValue)
         {
@@ -334,8 +384,21 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
         if (video.ModerationStatus is "pending" or "approved") throw Error(409, "INVALID_MODERATION_STATE", "Video đã được gửi hoặc đã duyệt.");
-        video.ModerationStatus = "pending"; video.Status = "processing"; video.UpdatedAt = Now;
-        db.ModerationCases.Add(new ModerationCase { VideoId = video.VideoId, Status = "pending", CaseType = "upload_review", SubmittedAt = Now, UpdatedAt = Now });
+        video.ModerationStatus = "pending";
+        video.UpdatedAt = Now;
+        var combinedText = $"{video.Title} {video.Description}".ToLowerInvariant();
+        var highRiskKeywords = new[] { "sex", "khiêu dâm", "đồi trụy", "18+", "giết người", "tự tử", "chém", "bom", "hack", "lừa đảo" };
+        var riskLevel = highRiskKeywords.Any(k => combinedText.Contains(k)) ? "high" : "low";
+
+        db.ModerationCases.Add(new ModerationCase
+        {
+            VideoId = video.VideoId,
+            Status = "pending",
+            CaseType = "upload_review",
+            RiskLevel = riskLevel,
+            SubmittedAt = Now,
+            UpdatedAt = Now
+        });
         await db.SaveChangesAsync(ct);
         return await ToResponseAsync(video, actorId, ct);
     }

@@ -167,10 +167,55 @@ public sealed class Comment
     public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; }
 }
 public sealed class CommentReaction { public Guid CommentReactionId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid CommentId { get; set; } public string Type { get; set; } = "like"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }
+public sealed class Policy
+{
+    public Guid PolicyId { get; set; } = Guid.NewGuid();
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Group { get; set; } = "content";
+    public string Content { get; set; } = "";
+    public string Severity { get; set; } = "medium";
+    public string Version { get; set; } = "1.0";
+    public string Status { get; set; } = "published";
+    public DateTimeOffset EffectiveAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+public static class PolicyCodes
+{
+    public const string SexualExplicit = "SEXUAL.EXPLICIT";
+    public const string ViolenceGraphic = "VIOLENCE.GRAPHIC";
+    public const string HateSpeech = "HATE.SPEECH";
+    public const string HarassmentBullying = "HARASSMENT.BULLYING";
+    public const string ChildSafety = "CHILD_SAFETY.VIOLATION";
+    public const string DangerousContent = "DANGEROUS.CONTENT";
+    public const string SpamMisleading = "SPAM.MISLEADING";
+    public const string CopyrightUnauthorized = "COPYRIGHT.UNAUTHORIZED";
+}
+
 public sealed class Notification { public Guid NotificationId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public string Type { get; set; } = ""; public string Title { get; set; } = ""; public string Content { get; set; } = ""; public string? ActionUrl { get; set; } public bool IsRead { get; set; } public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset? ReadAt { get; set; } public string? ResourceType { get; set; } public Guid? ResourceId { get; set; } }
 public sealed class ViolationType { public Guid ViolationTypeId { get; set; } public string Code { get; set; } = ""; public string Name { get; set; } = ""; public string? Description { get; set; } public string Status { get; set; } = "active"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }
 public sealed class Report { public Guid ReportId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid ViolationTypeId { get; set; } public Guid? VideoId { get; set; } public Guid? ChannelId { get; set; } public Guid? CommentId { get; set; } public string Description { get; set; } = ""; public string Status { get; set; } = "pending"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }
-public sealed class ModerationCase { public Guid ModerationCaseId { get; set; } = Guid.NewGuid(); public Guid? VideoId { get; set; } public Guid? ReportId { get; set; } public Guid? ReviewerId { get; set; } public string CaseType { get; set; } = "upload_review"; public string Status { get; set; } = "pending"; public string? Note { get; set; } public DateTimeOffset SubmittedAt { get; set; } public DateTimeOffset? ClaimedAt { get; set; } public DateTimeOffset? ResolvedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }
+public sealed class ModerationCase
+{
+    public Guid ModerationCaseId { get; set; } = Guid.NewGuid();
+    public Guid? VideoId { get; set; }
+    public Guid? ReportId { get; set; }
+    public Guid? ReviewerId { get; set; }
+    public string CaseType { get; set; } = "upload_review";
+    public string Status { get; set; } = "pending";
+    public string? Note { get; set; }
+    public string? PolicyCode { get; set; }
+    public string? PolicyVersion { get; set; }
+    public string? Decision { get; set; }
+    public string? InternalNote { get; set; }
+    public string RiskLevel { get; set; } = "normal";
+    public DateTimeOffset SubmittedAt { get; set; }
+    public DateTimeOffset? ClaimedAt { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
 public sealed class CommentModerationAction { public Guid CommentModerationActionId { get; set; } = Guid.NewGuid(); public Guid CommentId { get; set; } public Guid ModeratorUserId { get; set; } public string ActionType { get; set; } = "hide"; public string? Reason { get; set; } public DateTimeOffset CreatedAt { get; set; } }
 
 public sealed class VideoDownload
