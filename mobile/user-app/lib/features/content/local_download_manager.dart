@@ -177,10 +177,11 @@ class LocalDownloadManager extends ChangeNotifier {
       status: 'queued',
       progress: 0,
     );
-    if (index >= 0)
+    if (index >= 0) {
       _items[index] = initial;
-    else
+    } else {
       _items.insert(0, initial);
+    }
     await _persist();
     notifyListeners();
     unawaited(_start(id));
@@ -220,8 +221,9 @@ class LocalDownloadManager extends ChangeNotifier {
     );
     try {
       final response = await client.send(http.Request('GET', uri));
-      if (response.statusCode < 200 || response.statusCode >= 300)
+      if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpException('Máy chủ trả về ${response.statusCode}.');
+      }
       final sink = temporary.openWrite();
       var received = 0;
       final expected = response.contentLength ?? item.totalBytes;
@@ -244,7 +246,7 @@ class LocalDownloadManager extends ChangeNotifier {
       if (await file.exists()) await file.delete();
       await temporary.rename(file.path);
       final current = _items.indexWhere((entry) => entry.id == id);
-      if (current >= 0)
+      if (current >= 0) {
         _replace(
           current,
           _items[current].copyWith(
@@ -254,9 +256,10 @@ class LocalDownloadManager extends ChangeNotifier {
             clearError: true,
           ),
         );
+      }
     } catch (_) {
       final current = _items.indexWhere((entry) => entry.id == id);
-      if (current >= 0)
+      if (current >= 0) {
         _replace(
           current,
           _items[current].copyWith(
@@ -264,6 +267,7 @@ class LocalDownloadManager extends ChangeNotifier {
             error: 'Không thể tải file. Kiểm tra kết nối hoặc thử lại.',
           ),
         );
+      }
     } finally {
       _clients.remove(id)?.close();
     }

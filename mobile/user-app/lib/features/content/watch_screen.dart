@@ -90,28 +90,31 @@ class _WatchScreenState extends State<WatchScreen> {
             : detail.viewerState.resumeAt,
       );
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Không thể tải video này. Vui lòng thử lại.';
           _loading = false;
         });
+      }
     }
   }
 
   Future<void> _startPlayer(String url, {int resumeAt = 0}) async {
     final uri = Uri.tryParse(url);
     if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _actionMessage =
               'Nguồn video không hợp lệ. Máy chủ cần trả về URL HTTP(S).',
         );
+      }
       return;
     }
     // The native player keeps media alive in the background by default. A
@@ -372,11 +375,12 @@ class _WatchScreenState extends State<WatchScreen> {
         url: '${record['fileUrl'] ?? chosen.url}',
         fileSize: asInt(record['fileSize']),
       );
-      if (mounted)
+      if (mounted) {
         setState(
           () =>
               _actionMessage = 'Đã thêm vào danh sách tải xuống trên thiết bị.',
         );
+      }
     } on ApiFailure catch (error) {
       if (mounted) setState(() => _actionMessage = error.message);
     }
@@ -392,27 +396,30 @@ class _WatchScreenState extends State<WatchScreen> {
     setState(() => _sendingComment = true);
     try {
       final comment = await _content.createComment(widget.videoId, text);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _comments = [comment, ..._comments];
           _comment.clear();
           _sendingComment = false;
         });
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _actionMessage = error.message;
           _sendingComment = false;
         });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primaryPink),
       );
+    }
     if (_error != null || _video == null) {
       return Center(
         child: Padding(
@@ -771,11 +778,12 @@ class _CommentTileState extends State<_CommentTile> {
     setState(() => _loading = true);
     try {
       final replies = await widget.content.replies(_item.id);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _replies = replies.items;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

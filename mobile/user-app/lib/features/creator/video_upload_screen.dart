@@ -5,8 +5,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
-import '../../core/errors/app_error.dart';
-import '../../core/network/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../content/content_models.dart';
 import '../content/content_service.dart';
@@ -63,11 +61,12 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   Future<void> _loadCategories() async {
     try {
       final categories = await _content.categories();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _categories = categories;
           _loadingCategories = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingCategories = false);
     }
@@ -180,13 +179,15 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
     } on ApiFailure catch (error) {
       if (mounted) setState(() => _error = error.message);
     } on FileSystemException {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = 'Không thể đọc file đã chọn. Hãy chọn lại file.',
         );
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Tải video thất bại. Vui lòng thử lại.');
+      }
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -256,7 +257,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String?>(
-              value: _categoryId,
+              initialValue: _categoryId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Chủ đề'),
               items: [
@@ -286,7 +287,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              value: _visibility,
+              initialValue: _visibility,
               decoration: const InputDecoration(labelText: 'Chế độ hiển thị'),
               items: const [
                 DropdownMenuItem(value: 'private', child: Text('Riêng tư')),

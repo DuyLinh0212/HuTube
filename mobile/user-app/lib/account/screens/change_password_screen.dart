@@ -81,8 +81,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     } on ApiFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Không thể đổi mật khẩu. Vui lòng thử lại.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

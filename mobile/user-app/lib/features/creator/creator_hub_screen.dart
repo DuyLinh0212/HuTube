@@ -36,17 +36,19 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
     });
     try {
       final channel = await ChannelService(widget.auth).getMyChannel();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _channel = channel;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Không thể tải Creator Studio.';
           _loading = false;
         });
+      }
     }
   }
 
@@ -57,14 +59,16 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primaryPink),
       );
-    if (_error != null)
+    }
+    if (_error != null) {
       return Center(
         child: FilledButton(onPressed: _load, child: Text(_error!)),
       );
+    }
     if (_channel == null) {
       return Center(
         child: Padding(

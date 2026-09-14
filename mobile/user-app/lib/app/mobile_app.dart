@@ -70,7 +70,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
       return !auth.authenticated && needsAuth ? '/auth' : null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, __) => const _SplashScreen()),
+      GoRoute(path: '/splash', builder: (_, _) => const _SplashScreen()),
       GoRoute(
         path: '/auth',
         builder: (_, state) => AppShell(
@@ -85,11 +85,11 @@ class _HuTubeAppState extends State<HuTubeApp> {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (_, __) => FeedScreen(auth: auth),
+            builder: (_, _) => FeedScreen(auth: auth),
           ),
           GoRoute(
             path: '/explore',
-            builder: (_, __) => FeedScreen(auth: auth, explore: true),
+            builder: (_, _) => FeedScreen(auth: auth, explore: true),
           ),
           GoRoute(
             path: '/watch/:videoId',
@@ -100,27 +100,27 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/library',
-            builder: (_, __) => LibraryScreen(auth: auth),
+            builder: (_, _) => LibraryScreen(auth: auth),
           ),
           GoRoute(
             path: '/downloads',
-            builder: (_, __) => DownloadsScreen(auth: auth),
+            builder: (_, _) => DownloadsScreen(auth: auth),
           ),
           GoRoute(
             path: '/account',
-            builder: (_, __) => AccountHubScreen(auth: auth),
+            builder: (_, _) => AccountHubScreen(auth: auth),
           ),
           GoRoute(
             path: '/creator',
-            builder: (_, __) => CreatorHubScreen(auth: auth),
+            builder: (_, _) => CreatorHubScreen(auth: auth),
           ),
           GoRoute(
             path: '/notifications',
-            builder: (_, __) => NotificationsScreen(auth: auth),
+            builder: (_, _) => NotificationsScreen(auth: auth),
           ),
           GoRoute(
             path: '/plans',
-            builder: (_, __) => MobilePlansScreen(auth: auth),
+            builder: (_, _) => MobilePlansScreen(auth: auth),
           ),
           GoRoute(
             path: '/policies',
@@ -143,8 +143,9 @@ class _HuTubeAppState extends State<HuTubeApp> {
       );
       return;
     }
-    if (uri.scheme != 'hutube' || uri.userInfo.isNotEmpty || uri.hasPort)
+    if (uri.scheme != 'hutube' || uri.userInfo.isNotEmpty || uri.hasPort) {
       return;
+    }
     final segment = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
     final target = switch ((uri.host, segment)) {
       ('watch', final id?) => '/watch/${Uri.encodeComponent(id)}',
@@ -168,7 +169,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
     valueListenable: ThemeNotifier.themeMode,
     builder: (context, themeMode, _) => ValueListenableBuilder<String>(
       valueListenable: AppStrings.currentLang,
-      builder: (context, _, __) => MaterialApp.router(
+      builder: (context, _, _) => MaterialApp.router(
         title: 'HuTube',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,

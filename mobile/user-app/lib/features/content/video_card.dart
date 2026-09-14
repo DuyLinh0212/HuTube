@@ -32,7 +32,7 @@ class VideoCardTile extends StatelessWidget {
                         ? Image.network(
                             video.thumbnailUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
+                            errorBuilder: (_, _, _) =>
                                 const _VideoFallback(),
                           )
                         : const _VideoFallback(),

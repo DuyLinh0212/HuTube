@@ -26,7 +26,7 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
   Future<void> _load() async {
     try {
       final list = await widget.auth.api.requestList('GET', '/policies');
-      if (mounted)
+      if (mounted) {
         setState(() {
           _policies = list
               .whereType<Map>()
@@ -34,6 +34,7 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
               .toList();
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

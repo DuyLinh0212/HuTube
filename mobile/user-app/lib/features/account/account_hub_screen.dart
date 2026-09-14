@@ -34,11 +34,12 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
   Future<void> _loadChannel() async {
     try {
       final channel = await ChannelService(widget.auth).getMyChannel();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _channelHandle = channel?.handle;
           _loadingChannel = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingChannel = false);
     }
@@ -185,7 +186,8 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         OutlinedButton.icon(
           onPressed: () async {
             await widget.auth.logout();
-            if (mounted) context.go('/home');
+            if (!context.mounted) return;
+            context.go('/home');
           },
           icon: const Icon(Icons.logout_rounded),
           label: const Text('Đăng xuất'),

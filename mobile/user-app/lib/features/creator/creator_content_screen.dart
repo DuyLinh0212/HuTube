@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
-import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../content/content_models.dart';
 import '../content/video_card.dart';
@@ -51,17 +49,19 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         _loading = false;
       });
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Không thể tải nội dung kênh.';
           _loading = false;
         });
+      }
     }
   }
 
@@ -168,7 +168,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: _items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, index) {
                       final video = _items[index];
                       return Card(
@@ -298,7 +298,7 @@ class _VideoEditorState extends State<_VideoEditor> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _visibility,
+            initialValue: _visibility,
             decoration: const InputDecoration(labelText: 'Chế độ hiển thị'),
             items: const [
               DropdownMenuItem(value: 'private', child: Text('Riêng tư')),

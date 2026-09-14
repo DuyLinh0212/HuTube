@@ -25,9 +25,9 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     appBar: AppBar(title: const Text('Bản tải xuống')),
     body: AnimatedBuilder(
       animation: _downloads,
-      builder: (_, __) {
+      builder: (_, _) {
         final items = _downloads.items;
-        if (items.isEmpty)
+        if (items.isEmpty) {
           return const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -42,10 +42,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
               ],
             ),
           );
+        }
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (_, index) {
             final item = items[index];
             return Card(

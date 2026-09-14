@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
-import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import 'notification_hub.dart';
 
@@ -50,11 +49,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _load({bool more = false}) async {
     final nextPage = more ? _page + 1 : 1;
-    if (!more)
+    if (!more) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     try {
       final json = await widget.auth.protected(
         'GET',
@@ -73,17 +73,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _loading = false;
       });
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Không thể tải thông báo.';
           _loading = false;
         });
+      }
     }
   }
 
@@ -113,30 +115,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         '/notifications/read-all',
         body: const {},
       );
-      if (mounted)
+      if (mounted) {
         setState(() {
           for (final item in _items) {
             item['isRead'] = true;
           }
         });
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primaryPink),
       );
-    if (_error != null)
+    }
+    if (_error != null) {
       return Center(
         child: FilledButton(onPressed: _load, child: Text(_error!)),
       );
+    }
     return RefreshIndicator(
       color: AppColors.primaryPink,
       onRefresh: _load,

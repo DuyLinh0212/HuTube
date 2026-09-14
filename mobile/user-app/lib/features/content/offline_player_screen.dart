@@ -36,8 +36,9 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
   Future<void> _open() async {
     final path = widget.download.filePath;
     if (path == null || !await File(path).exists()) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Không tìm thấy file trên thiết bị.');
+      }
       return;
     }
     final entitlements = await MediaEntitlements.load(widget.auth);

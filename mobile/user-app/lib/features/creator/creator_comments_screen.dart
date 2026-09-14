@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
-import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import '../content/content_models.dart';
 import 'creator_service.dart';
@@ -40,23 +39,26 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
     });
     try {
       final page = await _service.managedComments(widget.channel.id);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _comments = page.items;
           _loading = false;
         });
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Không thể tải bình luận của kênh.';
           _loading = false;
         });
+      }
     }
   }
 
@@ -66,10 +68,11 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
       await _service.setCommentHidden(comment.id, hide);
       if (!mounted) return;
       setState(() {
-        if (hide)
+        if (hide) {
           _hidden.add(comment.id);
-        else
+        } else {
           _hidden.remove(comment.id);
+        }
       });
     } on ApiFailure catch (error) {
       if (mounted) _message(error.message);
@@ -98,12 +101,13 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
     if (confirmed != true) return;
     try {
       await _service.deleteComment(comment.id);
-      if (mounted)
+      if (mounted) {
         setState(
           () => _comments = _comments
               .where((item) => item.id != comment.id)
               .toList(),
         );
+      }
     } on ApiFailure catch (error) {
       if (mounted) _message(error.message);
     }
@@ -135,7 +139,7 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                 : ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: _comments.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, index) {
                       final comment = _comments[index];
                       final hidden = _hidden.contains(comment.id);
@@ -161,8 +165,9 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                           isThreeLine: true,
                           trailing: PopupMenuButton<String>(
                             onSelected: (choice) {
-                              if (choice == 'visibility')
+                              if (choice == 'visibility') {
                                 _toggleHidden(comment);
+                              }
                               if (choice == 'delete') _delete(comment);
                             },
                             itemBuilder: (_) => [

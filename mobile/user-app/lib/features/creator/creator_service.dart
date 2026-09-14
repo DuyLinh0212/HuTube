@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import '../../auth.dart';
-import '../../core/network/api_client.dart';
 import '../content/content_models.dart';
 
 class UploadPreflight {
@@ -86,7 +85,7 @@ class CreatorService {
         'ChannelId': channelId,
         'Title': title.trim(),
         'Description': description.trim(),
-        if (categoryId != null) 'CategoryId': categoryId,
+        'CategoryId': ?categoryId,
         'LanguageCode': 'vi',
         'Visibility': visibility,
         'AgeRestricted': '$ageRestricted',
@@ -95,7 +94,7 @@ class CreatorService {
         for (var index = 0; index < tags.length; index++)
           'Tags[$index]': tags[index],
       },
-      files: [video, if (thumbnail != null) thumbnail],
+      files: [video, ?thumbnail],
       headers: {'Idempotency-Key': idempotencyKey},
     );
     return VideoDetail.fromJson(json);

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
-import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import 'content_models.dart';
 import 'content_service.dart';
@@ -39,33 +38,37 @@ class _LibraryScreenState extends State<LibraryScreen> {
     try {
       final history = await _content.history();
       final liked = await _content.liked(rating: _rating);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _history = history.items;
           _liked = liked.items;
           _loading = false;
         });
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Không thể tải thư viện. Kiểm tra kết nối rồi thử lại.';
           _loading = false;
         });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primaryPink),
       );
+    }
     if (_error != null) {
       return Center(
         child: Padding(

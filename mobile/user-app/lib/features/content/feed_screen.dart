@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
-import '../../core/errors/app_error.dart';
 import '../../core/theme/app_theme.dart';
 import 'content_models.dart';
 import 'content_service.dart';
@@ -75,19 +74,21 @@ class _FeedScreenState extends State<FeedScreen> {
         _moreLoading = false;
       });
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
           _moreLoading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Không thể tải video. Kiểm tra kết nối rồi thử lại.';
           _loading = false;
           _moreLoading = false;
         });
+      }
     }
   }
 
@@ -119,10 +120,11 @@ class _FeedScreenState extends State<FeedScreen> {
     final description = widget.explore
         ? 'Chọn chủ đề để tìm nội dung mới trong cộng đồng HuTube.'
         : 'Video mới và nổi bật từ cộng đồng HuTube.';
-    if (_loading)
+    if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primaryPink),
       );
+    }
     if (_error != null && _videos.isEmpty) {
       return _Failure(message: _error!, onRetry: () => _load(refresh: true));
     }

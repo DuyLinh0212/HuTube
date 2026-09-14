@@ -8,8 +8,7 @@ class NotificationHubClient {
   HubConnection? _connection;
 
   String get _hubUrl =>
-      auth.api.baseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '') +
-      '/hubs/notifications';
+      '${auth.api.baseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '')}/hubs/notifications';
 
   Future<void> connect({
     required void Function(Map<String, dynamic>) onNotification,
@@ -25,8 +24,9 @@ class NotificationHubClient {
         .withAutomaticReconnect()
         .build();
     connection.on('NotificationReceived', (arguments) {
-      if (arguments == null || arguments.isEmpty || arguments.first is! Map)
+      if (arguments == null || arguments.isEmpty || arguments.first is! Map) {
         return;
+      }
       onNotification(Map<String, dynamic>.from(arguments.first as Map));
     });
     _connection = connection;
