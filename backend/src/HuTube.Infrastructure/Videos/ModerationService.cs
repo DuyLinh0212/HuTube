@@ -150,6 +150,9 @@ public sealed class ModerationService(
 
         moderationCase.ReviewerId = actorId;
         moderationCase.Decision = decision;
+        moderationCase.PolicyCode = string.IsNullOrWhiteSpace(request.PolicyCode)
+            ? null
+            : request.PolicyCode.Trim();
         moderationCase.InternalNote = request.InternalNote?.Trim();
         moderationCase.UpdatedAt = now;
 
@@ -223,11 +226,13 @@ public sealed class ModerationService(
                     throw new AuthException(400, "REJECTION_DETAILS_REQUIRED", "Bắt buộc chọn mã chính sách và điền lý do từ chối.");
 
                 video.ModerationStatus = "rejected";
-                video.Status = "rejected";
+                // The videos.status constraint uses "blocked" for content
+                // that cannot be published; "rejected" belongs to the
+                // moderation status field.
+                video.Status = "blocked";
                 video.UpdatedAt = now;
 
                 moderationCase.Status = "rejected";
-                moderationCase.PolicyCode = request.PolicyCode.Trim();
                 moderationCase.Note = request.Reason.Trim();
                 moderationCase.ResolvedAt = now;
                 message = $"Đã từ chối xuất bản video do vi phạm chính sách {request.PolicyCode}.";

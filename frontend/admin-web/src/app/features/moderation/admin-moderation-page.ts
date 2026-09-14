@@ -6,6 +6,7 @@ import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminModerationService,
+  ModerationDecision,
   ModerationQueueItem,
   PolicyItem,
   ResolveModerationRequest
@@ -57,7 +58,7 @@ export class AdminModerationPage implements OnInit {
     }
     if (query) {
       items = items.filter(x =>
-        x.videoTitle.toLowerCase().includes(query) ||
+        x.title.toLowerCase().includes(query) ||
         x.channelName.toLowerCase().includes(query)
       );
     }
@@ -134,7 +135,7 @@ export class AdminModerationPage implements OnInit {
   openReviewModal(item: ModerationQueueItem): void {
     this.activeCase.set(item);
     this.selectedPolicyCode.set('');
-    this.internalNote.set(item.internalNote || '');
+    this.internalNote.set(item.note || '');
     this.actionReason.set('');
     this.isReviewModalOpen.set(true);
   }
@@ -157,11 +158,11 @@ export class AdminModerationPage implements OnInit {
     return val !== key ? val : (policy.name || policy.code);
   }
 
-  submitDecision(decision: 'Approve' | 'AgeRestricted' | 'RecommendationRestricted' | 'Reject' | 'Escalate'): void {
+  submitDecision(decision: ModerationDecision): void {
     const currentCase = this.activeCase();
     if (!currentCase) return;
 
-    if (decision !== 'Approve' && !this.selectedPolicyCode() && decision !== 'Escalate') {
+    if (decision !== 'approve' && !this.selectedPolicyCode() && decision !== 'escalate') {
       alert(this.i18n.t('moderation.policyRequired'));
       return;
     }
@@ -171,7 +172,6 @@ export class AdminModerationPage implements OnInit {
     const req: ResolveModerationRequest = {
       decision,
       policyCode: this.selectedPolicyCode() || undefined,
-      policyVersion: selectedPolicy?.version || undefined,
       reason: this.actionReason().trim() || this.getPolicyName(selectedPolicy) || undefined,
       internalNote: this.internalNote().trim() || undefined
     };

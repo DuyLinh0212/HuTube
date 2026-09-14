@@ -7,7 +7,9 @@ namespace HuTube.Infrastructure.Persistence.Migrations;
 [Migration("20260914100000_PoliciesTable")]
 public sealed class PoliciesTable : Migration
 {
-    protected override void Up(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""
+    protected override void Up(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql("""
         CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
         CREATE TABLE IF NOT EXISTS public.policies (
@@ -44,6 +46,9 @@ public sealed class PoliciesTable : Migration
           END IF;
         END $$;
         """);
+
+        migrationBuilder.Sql(PolicySeedSql.Sql);
+    }
 
     protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""
         DROP TABLE IF EXISTS public.policies;

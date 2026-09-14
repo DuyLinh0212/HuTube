@@ -348,14 +348,7 @@ VALUES
     '1.0',
     'published'
 )
-ON CONFLICT (code) DO UPDATE SET
-    name = EXCLUDED.name,
-    "group" = EXCLUDED."group",
-    content = EXCLUDED.content,
-    severity = EXCLUDED.severity,
-    version = EXCLUDED.version,
-    status = EXCLUDED.status,
-    updated_at = CURRENT_TIMESTAMP;
+ON CONFLICT (code) DO NOTHING;
 
 -- Grant Administrator role permission safely if both role and permission exist
 DO $$

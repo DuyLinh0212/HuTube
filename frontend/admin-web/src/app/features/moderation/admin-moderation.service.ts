@@ -3,46 +3,48 @@ import { Injectable, inject } from '@angular/core';
 import { RuntimeConfig } from '../../core/runtime-config';
 import { Observable } from 'rxjs';
 
+export type ModerationDecision =
+  | 'approve'
+  | 'age_restricted'
+  | 'recommendation_restricted'
+  | 'reject'
+  | 'escalate';
+
 export interface ModerationQueueItem {
   moderationCaseId: string;
   videoId: string;
-  videoTitle: string;
-  videoDescription: string | null;
-  videoUrl: string | null;
+  title: string;
+  description: string | null;
+  videoUrl: string;
   thumbnailUrl: string | null;
-  durationSeconds: number;
-  visibility: string;
+  duration: number;
   channelId: string;
   channelName: string;
+  channelHandle: string | null;
   channelAvatarUrl: string | null;
   caseType: string;
   status: 'pending' | 'reviewing' | 'resolved' | 'escalated';
   riskLevel: 'low' | 'high';
-  ruleViolationsJson: string | null;
   reviewerId: string | null;
   reviewerName: string | null;
   submittedAt: string;
   claimedAt: string | null;
-  reviewedAt: string | null;
-  decision: string | null;
-  internalNote: string | null;
+  note: string | null;
 }
 
 export interface ResolveModerationRequest {
-  decision: 'Approve' | 'AgeRestricted' | 'RecommendationRestricted' | 'Reject' | 'Escalate';
+  decision: ModerationDecision;
   policyCode?: string;
-  policyVersion?: string;
   reason?: string;
   internalNote?: string;
-  actionReason?: string;
 }
 
 export interface ModerationDecisionResponse {
-  caseId: string;
+  moderationCaseId: string;
   videoId: string;
   status: string;
   decision: string;
-  resolvedAt: string;
+  policyCode: string | null;
   message: string;
 }
 

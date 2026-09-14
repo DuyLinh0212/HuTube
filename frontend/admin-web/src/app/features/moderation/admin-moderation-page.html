@@ -113,10 +113,10 @@
                     } @else {
                       <div class="thumb thumb-placeholder">▶</div>
                     }
-                    <span class="duration-badge">{{ formatDuration(item.durationSeconds) }}</span>
+                    <span class="duration-badge">{{ formatDuration(item.duration) }}</span>
                   </div>
                   <div class="video-meta">
-                    <strong class="video-title" [title]="item.videoTitle">{{ item.videoTitle }}</strong>
+                    <strong class="video-title" [title]="item.title">{{ item.title }}</strong>
                     <span class="video-id">ID: {{ item.videoId | slice:0:8 }}</span>
                   </div>
                 </div>
@@ -205,7 +205,7 @@
         <header class="modal-header">
           <div>
             <span class="eyebrow">{{ 'moderation.modalTitle' | translate }}</span>
-            <h2>{{ currentCase.videoTitle }}</h2>
+            <h2>{{ currentCase.title }}</h2>
           </div>
           <div class="header-actions">
             <button
@@ -248,7 +248,7 @@
                 </div>
                 <div class="info-row">
                   <span class="info-label">{{ 'moderation.durationLabel' | translate }}</span>
-                  <span>{{ formatDuration(currentCase.durationSeconds) }}</span>
+                  <span>{{ formatDuration(currentCase.duration) }}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">{{ 'moderation.submittedAtLabel' | translate }}</span>
@@ -260,16 +260,16 @@
                     {{ currentCase.riskLevel === 'high' ? ('moderation.badgeHighRisk' | translate) : ('moderation.badgeLowRisk' | translate) }}
                   </span>
                 </div>
-                @if (currentCase.ruleViolationsJson) {
+                @if (currentCase.note) {
                   <div class="rule-box">
                     <span class="rule-title">{{ 'moderation.ruleViolationsTitle' | translate }}</span>
-                    <code>{{ currentCase.ruleViolationsJson }}</code>
+                    <code>{{ currentCase.note }}</code>
                   </div>
                 }
-                @if (currentCase.videoDescription) {
+                @if (currentCase.description) {
                   <div class="desc-box">
                     <span class="desc-label">{{ 'moderation.videoDescLabel' | translate }}</span>
-                    <p>{{ currentCase.videoDescription }}</p>
+                    <p>{{ currentCase.description }}</p>
                   </div>
                 }
               </div>
@@ -327,7 +327,7 @@
                     type="button"
                     class="decision-btn btn-approve"
                     [disabled]="submitting()"
-                    (click)="submitDecision('Approve')"
+                    (click)="submitDecision('approve')"
                   >
                     <span class="btn-icon">✓</span>
                     <div class="btn-text">
@@ -341,7 +341,7 @@
                     type="button"
                     class="decision-btn btn-age-restricted"
                     [disabled]="submitting()"
-                    (click)="submitDecision('AgeRestricted')"
+                    (click)="submitDecision('age_restricted')"
                   >
                     <span class="btn-icon">18+</span>
                     <div class="btn-text">
@@ -355,7 +355,7 @@
                     type="button"
                     class="decision-btn btn-recommendation-restricted"
                     [disabled]="submitting()"
-                    (click)="submitDecision('RecommendationRestricted')"
+                    (click)="submitDecision('recommendation_restricted')"
                   >
                     <span class="btn-icon">⊘</span>
                     <div class="btn-text">
@@ -369,7 +369,7 @@
                     type="button"
                     class="decision-btn btn-reject"
                     [disabled]="submitting()"
-                    (click)="submitDecision('Reject')"
+                    (click)="submitDecision('reject')"
                   >
                     <span class="btn-icon">✕</span>
                     <div class="btn-text">
@@ -383,7 +383,7 @@
                     type="button"
                     class="decision-btn btn-escalate"
                     [disabled]="submitting()"
-                    (click)="submitDecision('Escalate')"
+                    (click)="submitDecision('escalate')"
                   >
                     <span class="btn-icon">↑</span>
                     <div class="btn-text">
