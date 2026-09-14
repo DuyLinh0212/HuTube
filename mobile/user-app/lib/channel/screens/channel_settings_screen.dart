@@ -32,9 +32,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   late ChannelDetail _channel;
   final ImagePicker _picker = ImagePicker();
   List<ChannelRole> _roles = const [];
+  List<ChannelInvitation> _pendingInvitations = const [];
   String _inviteRole = 'editor';
 
   bool _busy = false;
+  String? _revokingInvitationId;
   bool _uploadingAvatar = false;
   bool _uploadingBanner = false;
   String? _error;
@@ -49,7 +51,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       text: _channel.description ?? '',
     );
     _inviteEmailController = TextEditingController();
-    _loadRoles();
+    _loadInviteData();
   }
 
   @override
@@ -60,13 +62,171 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadRoles() async {
+  Future<void> _loadInviteData() async {
     try {
       final roles = await _channelService.getRoles();
       if (mounted) setState(() => _roles = roles);
+    } on ApiFailure catch (error) {
+      if (mounted) setState(() => _error = error.message);
     } catch (_) {
       // The form keeps its safe Editor default when role metadata is unavailable.
     }
+
+    if (!_canInvite) return;
+    try {
+      final invitations = await _channelService.getPendingInvitations(
+        _channel.id,
+      );
+      if (mounted) setState(() => _pendingInvitations = invitations);
+    } on ApiFailure catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      // Role and invitation metadata are auxiliary to channel editing.
+    }
+  }
+
+  Future<void> _reloadPendingInvitations() async {
+    if (!_canInvite) return;
+    try {
+      final invitations = await _channelService.getPendingInvitations(
+        _channel.id,
+      );
+      if (mounted) setState(() => _pendingInvitations = invitations);
+    } on ApiFailure catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      // Keep the invitation that was just created visible if a refresh fails.
+    }
+  }
+
+  bool get _canInvite =>
+      _channel.isOwner || _channel.permissions.contains('member.invite');
+
+  String _roleName(String code) =>
+      _roles.where((role) => role.code == code).firstOrNull?.name ?? code;
+
+  String _formatInvitationExpiry(String value) {
+    final date = DateTime.tryParse(value)?.toLocal();
+    if (date == null) return 'Hạn mời không xác định';
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return 'Hết hạn $day/$month/${date.year} lúc $hour:$minute';
+  }
+
+  Future<void> _revokeInvitation(ChannelInvitation invitation) async {
+    final shouldRevoke = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Thu hồi lời mời?'),
+        content: Text(
+          'Lời mời đến ${invitation.invitedEmail ?? 'người dùng này'} sẽ không còn hiệu lực.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Thu hồi'),
+          ),
+        ],
+      ),
+    );
+    if (shouldRevoke != true || !mounted) return;
+
+    setState(() {
+      _revokingInvitationId = invitation.id;
+      _error = null;
+    });
+    try {
+      await _channelService.revokeInvitation(_channel.id, invitation.id);
+      if (!mounted) return;
+      setState(
+        () => _pendingInvitations = _pendingInvitations
+            .where((item) => item.id != invitation.id)
+            .toList(),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã thu hồi lời mời.'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiFailure catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _revokingInvitationId = null);
+    }
+  }
+
+  Widget _pendingInvitationsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Lời mời đang chờ',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        const SizedBox(height: 8),
+        if (_pendingInvitations.isEmpty)
+          const Text(
+            'Chưa có lời mời nào đang chờ.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+        for (final invitation in _pendingInvitations)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.mail_outline, color: AppColors.primaryPink),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        invitation.invitedEmail ?? 'Email chưa xác định',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${_roleName(invitation.roleCode)} · ${_formatInvitationExpiry(invitation.expiresAt)}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Thu hồi lời mời',
+                  onPressed: _busy || _revokingInvitationId != null
+                      ? null
+                      : () => _revokeInvitation(invitation),
+                  icon: _revokingInvitationId == invitation.id
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.remove_circle_outline),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
   Future<void> _invite() async {
@@ -83,6 +243,8 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       await _channelService.inviteMember(_channel.id, email, _inviteRole);
       if (!mounted) return;
       _inviteEmailController.clear();
+      await _reloadPendingInvitations();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Đã gửi lời mời tham gia kênh.'),
@@ -567,10 +729,14 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 ],
                 const SizedBox(height: 14),
                 OutlinedButton.icon(
-                  onPressed: _busy ? null : _invite,
+                  onPressed: _busy || _revokingInvitationId != null
+                      ? null
+                      : _invite,
                   icon: const Icon(Icons.person_add_alt_1_outlined),
                   label: const Text('Gửi lời mời'),
                 ),
+                const SizedBox(height: 18),
+                _pendingInvitationsSection(),
               ],
 
               const SizedBox(height: 36),

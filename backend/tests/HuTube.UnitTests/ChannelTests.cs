@@ -200,6 +200,50 @@ public sealed class ChannelTests
     }
 
     [Fact]
+    public async Task ExpiredInvitation_IsMarkedExpired_AndCannotBeDeclined()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("Channel", "channel", null));
+        var invitee = new User { UserId = Guid.NewGuid(), Email = "invitee@example.com", Username = "invitee", DisplayName = "Invitee" };
+        store.Users.Add(invitee);
+
+        await service.InviteMemberAsync(channel.ChannelId, ownerId, new(invitee.Email, ChannelRoles.Editor));
+        var invitation = store.Invitations.Single();
+        invitation.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        var pending = await service.GetMyInvitationsAsync(invitee.UserId);
+        Assert.Empty(pending);
+        Assert.Equal("expired", invitation.Status);
+        Assert.NotNull(invitation.RespondedAt);
+
+        var ex = await Assert.ThrowsAsync<ChannelException>(() =>
+            service.DeclineInvitationAsync(invitation.ChannelInvitationId, invitee.UserId));
+
+        Assert.Equal(410, ex.Status);
+        Assert.Equal("INVITATION_EXPIRED", ex.Code);
+    }
+
+    [Fact]
+    public async Task DuplicatePendingInvitation_ShouldBeRejected()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("Channel", "channel", null));
+        var invitee = new User { UserId = Guid.NewGuid(), Email = "invitee@example.com", Username = "invitee", DisplayName = "Invitee" };
+        store.Users.Add(invitee);
+
+        await service.InviteMemberAsync(channel.ChannelId, ownerId, new("INVITEE@example.com", ChannelRoles.Editor));
+        var ex = await Assert.ThrowsAsync<ChannelException>(() =>
+            service.InviteMemberAsync(channel.ChannelId, ownerId, new(invitee.Email, ChannelRoles.Editor)));
+
+        Assert.Equal(409, ex.Status);
+        Assert.Equal("INVITATION_ALREADY_SENT", ex.Code);
+    }
+
+    [Fact]
     public async Task ChangeRole_ManagerCannotChangeAnotherManager()
     {
         var store = new FakeChannelStore();

@@ -96,11 +96,14 @@ public sealed class Plan
     public long StorageLimit { get; set; }
     public long MaxUploadSize { get; set; }
     public int MaxVideoDuration { get; set; }
+    public int MaxMembers { get; set; } = 1;
     public string Status { get; set; } = "active";
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public string? MaxVideoQuality { get; set; }
+    public string? MaxDownloadQuality { get; set; } = "720p";
     public string Features { get; set; } = "{}";
+    public int DisplayOrder { get; set; }
 }
 
 public sealed class Category
@@ -134,6 +137,7 @@ public sealed class Video
     public bool AgeRestricted { get; set; }
     public string ModerationStatus { get; set; } = "not_submitted";
     public DateTimeOffset? ScheduledAt { get; set; }
+    public string? IdempotencyKey { get; set; }
     public string Metadata { get; set; } = "{}";
 }
 

@@ -1,14 +1,17 @@
 using HuTube.Application.Auth;
 using HuTube.Application.Rbac;
+using HuTube.Infrastructure.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 
 namespace HuTube.Api.Controllers;
 
 [ApiController, Route("api/v1/auth"), EnableRateLimiting("auth")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class AuthController(AuthService auth, AuthOptions options, IWebHostEnvironment environment, RbacService rbacService) : ControllerBase
+public sealed class AuthController(AuthService auth, AuthOptions options, IWebHostEnvironment environment, RbacService rbacService,
+    IHubContext<NotificationHub> notificationHub) : ControllerBase
 {
     private bool IsWeb => Request.Headers["X-HuTube-Client"] == "web";
     private string Platform => IsWeb ? (Request.Headers["X-HuTube-App"] == "admin" ? "admin" : "web") : "mobile";
@@ -108,7 +111,50 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     [Authorize, HttpGet("sessions")]
     public Task<SessionListResponse> GetSessionsAsync(CancellationToken ct) => auth.GetSessionsAsync(UserId, SessionId, ct);
     [Authorize, HttpPost("logout-others")]
-    public Task<MessageResponse> LogoutOthersAsync(CancellationToken ct) => auth.RevokeSessionsAsync(UserId, SessionId, null, ct);
+    public async Task<MessageResponse> LogoutOthersAsync(CancellationToken ct)
+    {
+        var userId = UserId;
+        var currentSessionId = SessionId;
+        var response = await auth.RevokeSessionsAsync(userId, currentSessionId, null, ct);
+        await notificationHub.Clients.User(userId.ToString()).SendAsync("SessionRevoked", new
+        {
+            reason = "user-revoked-others",
+            allSessions = false,
+            exceptSessionId = currentSessionId,
+            revokedAt = DateTimeOffset.UtcNow
+        }, ct);
+        return response;
+    }
+    [Authorize, HttpPost("logout-all")]
+    public async Task<MessageResponse> LogoutAllAsync(CancellationToken ct)
+    {
+        var userId = UserId;
+        var response = await auth.RevokeAllSessionsAsync(userId, ct);
+        await rbacService.LogAuditAsync(new AuditLogEntry(
+            userId,
+            "auth.sessions_revoked_all",
+            "user",
+            userId,
+            "User signed out all devices",
+            IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            UserAgent: Request.Headers.UserAgent.ToString()), ct);
+        if (IsWeb) Response.Cookies.Delete(CookieName, new CookieOptions { Path = "/api/v1/auth", Secure = !environment.IsDevelopment(), HttpOnly = true,
+            SameSite = environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None });
+        try
+        {
+            await notificationHub.Clients.User(userId.ToString()).SendAsync("SessionRevoked", new
+            {
+                reason = "user-revoked-all",
+                allSessions = true,
+                revokedAt = DateTimeOffset.UtcNow
+            }, ct);
+        }
+        catch
+        {
+            // Session revocation and the HTTP response remain authoritative if realtime delivery is unavailable.
+        }
+        return response;
+    }
     [Authorize, HttpDelete("sessions/{sessionId:guid}")]
     public Task<MessageResponse> RevokeSessionAsync(Guid sessionId, CancellationToken ct) => auth.RevokeSessionsAsync(UserId, SessionId, sessionId, ct);
 }

@@ -45,6 +45,13 @@ public sealed class RequirePermissionAttribute(string permission) : Attribute, I
         }
 
         var hasPermission = await rbacService.HasPermissionAsync(userId, Permission, httpContext.RequestAborted);
+        var roleCode = (await rbacService.GetAdminMeAsync(userId, httpContext.RequestAborted)).Role;
+        if (!hasPermission && Permission.StartsWith("plan.", StringComparison.OrdinalIgnoreCase)
+            && (string.Equals(roleCode, "admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(roleCode, "super_admin", StringComparison.OrdinalIgnoreCase)
+                || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.Admin
+                || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.SuperAdmin))
+            hasPermission = true;
         if (!hasPermission)
         {
             await rbacService.LogAuditAsync(new AuditLogEntry(

@@ -61,7 +61,12 @@ CREATE TABLE IF NOT EXISTS plans (
         storage_limit       BIGINT NOT NULL,
         max_upload_size     BIGINT NOT NULL,
         max_video_duration  INT NOT NULL,
+        max_video_quality   VARCHAR(20) NOT NULL DEFAULT '720p',
+        max_download_quality VARCHAR(20) NOT NULL DEFAULT '720p',
+        max_members         INT NOT NULL DEFAULT 1,
+        display_order       INT NOT NULL DEFAULT 0,
         status              VARCHAR(20) NOT NULL DEFAULT 'active',
+        features            JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT pk_plans PRIMARY KEY (plan_id),
@@ -72,8 +77,43 @@ CREATE TABLE IF NOT EXISTS plans (
         CONSTRAINT ck_plans_storage CHECK (storage_limit >= 0),
         CONSTRAINT ck_plans_upload CHECK (max_upload_size > 0),
         CONSTRAINT ck_plans_video_duration CHECK (max_video_duration > 0),
+        CONSTRAINT ck_plans_member_limit CHECK (max_members >= 1),
         CONSTRAINT ck_plans_status CHECK (status IN ('active', 'inactive', 'archived'))
 );
+
+INSERT INTO public.plans (
+  plan_id, code, name, description, price, duration_days, storage_limit, max_upload_size, max_video_duration,
+  max_video_quality, max_download_quality, max_members, display_order, status, features, created_at, updated_at
+)
+VALUES
+  (
+    '00000000-0000-0000-0000-000000000100', 'free', 'Free', 'Gói miễn phí cho người mới bắt đầu.', 0, 3650,
+    10737418240, 1073741824, 43200, '720p', '720p', 1, 1, 'active', '{"download":false,"background_play":false,"pip":false}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  ),
+  (
+    '00000000-0000-0000-0000-000000000101', 'creator', 'Creator', 'Gói dành cho người sáng tạo.', 99000, 30,
+    107374182400, 21474836480, 43200, '1080p', '1080p', 1, 2, 'active', '{"download":true,"background_play":true,"pip":true}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  ),
+  (
+    '00000000-0000-0000-0000-000000000102', 'pro_family', 'Pro Group', 'Gói nhóm chia sẻ cho chủ gói và 4 thành viên qua Gmail.', 299000, 30,
+    536870912000, 53687091200, 86400, '2160p', '2160p', 5, 3, 'active', '{"download":true,"background_play":true,"pip":true,"shared_seats":5}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  )
+ON CONFLICT (plan_id) DO UPDATE SET
+  code = EXCLUDED.code,
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  price = EXCLUDED.price,
+  duration_days = EXCLUDED.duration_days,
+  storage_limit = EXCLUDED.storage_limit,
+  max_upload_size = EXCLUDED.max_upload_size,
+  max_video_duration = EXCLUDED.max_video_duration,
+  max_video_quality = EXCLUDED.max_video_quality,
+  max_download_quality = EXCLUDED.max_download_quality,
+  max_members = EXCLUDED.max_members,
+  display_order = EXCLUDED.display_order,
+  status = EXCLUDED.status,
+  features = EXCLUDED.features,
+  updated_at = CURRENT_TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS users (
 
@@ -241,7 +281,7 @@ CREATE TABLE IF NOT EXISTS channel_quotas (
         CONSTRAINT fk_channel_quotas_channel FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
         CONSTRAINT uq_channel_quotas_channel UNIQUE (channel_id),
         CONSTRAINT ck_channel_quotas_limit CHECK (storage_limit >= 0),
-        CONSTRAINT ck_channel_quotas_used CHECK (storage_used >= 0 AND storage_used <= storage_limit)
+        CONSTRAINT ck_channel_quotas_used CHECK (storage_used >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS channel_actions (
@@ -691,6 +731,8 @@ CREATE TABLE IF NOT EXISTS appeals (
 
 ALTER TABLE plans
     ADD COLUMN IF NOT EXISTS max_video_quality VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS max_download_quality VARCHAR(20) NOT NULL DEFAULT '720p',
+    ADD COLUMN IF NOT EXISTS display_order INT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 ALTER TABLE users
@@ -726,7 +768,12 @@ ALTER TABLE videos
     ADD COLUMN IF NOT EXISTS age_restricted BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS moderation_status VARCHAR(20) NOT NULL DEFAULT 'not_submitted',
     ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_videos_channel_idempotency
+    ON videos(channel_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
 
 ALTER TABLE recommendations
     ADD COLUMN IF NOT EXISTS model_version VARCHAR(80),
@@ -896,3 +943,16 @@ WHERE table_schema = 'public'
       'channel_invitations','channel_comment_moderators','comment_moderation_actions',
       'video_ratings','moderation_cases','audit_logs','video_downloads'
   );
+
+INSERT INTO public.permissions (permission_id, code, name, description, status)
+VALUES
+    ('00000000-0000-0001-0000-000000000018', 'plan.view', 'Xem Gói dịch vụ', 'Xem toàn bộ gói dịch vụ và trạng thái.', 'active'),
+    ('00000000-0000-0001-0000-000000000019', 'plan.create', 'Tạo Gói dịch vụ', 'Tạo gói dịch vụ mới.', 'active'),
+    ('00000000-0000-0001-0000-000000000020', 'plan.edit', 'Sửa Gói dịch vụ', 'Cập nhật giới hạn và giá gói dịch vụ.', 'active'),
+    ('00000000-0000-0001-0000-000000000021', 'plan.archive', 'Lưu trữ Gói dịch vụ', 'Ngừng cung cấp gói dịch vụ mà không xóa lịch sử.', 'active')
+ON CONFLICT (permission_id) DO UPDATE SET code = EXCLUDED.code, name = EXCLUDED.name, description = EXCLUDED.description, status = EXCLUDED.status;
+
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id FROM public.roles r CROSS JOIN public.permissions p
+WHERE r.code IN ('admin', 'super_admin') AND p.code IN ('plan.view', 'plan.create', 'plan.edit', 'plan.archive')
+ON CONFLICT (role_id, permission_id) DO NOTHING;

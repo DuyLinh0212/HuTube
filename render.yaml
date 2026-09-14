@@ -57,7 +57,7 @@ services:
       - key: Features__ModerationEnabled
         value: "false"
       - key: Features__PlanEnforcementEnabled
-        value: "false"
+        value: "true"
       - key: Email__Mode
         value: Smtp
       - key: Email__Host

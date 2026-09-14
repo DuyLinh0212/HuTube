@@ -21,6 +21,13 @@
       <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'advanced'" (click)="setTab('advanced')">
         {{ 'account.tabAdvanced' | translate }}
       </button>
+      <div class="pane-divider" style="margin: 8px 0;"></div>
+      <a routerLink="/plans" class="settings-nav-btn" style="text-decoration: none;">
+        Gói dịch vụ
+      </a>
+      <a routerLink="/my-plan" class="settings-nav-btn" style="text-decoration: none;">
+        Gói của tôi
+      </a>
     </nav>
   </aside>
 
@@ -421,7 +428,6 @@
             </button>
           </div>
         </section>
-
         <div class="pane-divider"></div>
 
         <!-- Phiên đăng nhập & Thiết bị -->

@@ -108,6 +108,7 @@ export function errorMessage(error: unknown): string {
   if (error.status === 0) return 'Chưa kết nối được máy chủ. Kiểm tra kết nối và thử lại.';
   if (error.status === 429) return 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.';
   if (messages[error.error?.code]) return messages[error.error.code];
+  if (typeof error.error?.detail === 'string') return `${error.error.detail} (${error.status})`;
   if (error.status === 403) return 'Tài khoản không có quyền truy cập hoặc đã bị vô hiệu hóa.';
-  return typeof error.error?.detail === 'string' ? error.error.detail : 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.';
+  return `Không thể hoàn tất yêu cầu (${error.status}). Vui lòng thử lại.`;
 }

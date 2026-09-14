@@ -26,6 +26,7 @@ class ProfileScreen extends StatefulWidget {
     required this.onRefreshSessions,
     required this.onRevokeSession,
     required this.onLogoutOthers,
+    required this.onLogoutAll,
     required this.onLogout,
   });
 
@@ -35,6 +36,7 @@ class ProfileScreen extends StatefulWidget {
   final Future<void> Function() onRefreshSessions;
   final Future<void> Function(String sessionId) onRevokeSession;
   final Future<void> Function() onLogoutOthers;
+  final Future<void> Function() onLogoutAll;
   final Future<void> Function() onLogout;
 
   @override
@@ -516,6 +518,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         OutlinedButton(
           onPressed: widget.onLogoutOthers,
           child: const Text('Đăng xuất thiết bị khác'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          onPressed: widget.onLogoutAll,
+          child: const Text('Đăng xuất mọi thiết bị'),
         ),
         const SizedBox(height: 12),
         FilledButton(

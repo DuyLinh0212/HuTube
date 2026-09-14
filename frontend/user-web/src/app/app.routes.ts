@@ -19,6 +19,9 @@ export const routes: Routes = [
   { path: 'privacy', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage), title: 'Chính sách bảo mật · HuTube' },
   { path: 'guidelines', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage), title: 'Tiêu chuẩn cộng đồng · HuTube' },
   { path: 'policies', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage), title: 'Trung tâm chính sách · HuTube' },
+  { path: 'plans', loadComponent: () => import('./features/plans/plans-page').then(m => m.PlansPage), title: 'Gói dịch vụ · HuTube' },
+  { path: 'plans/accept-invite', loadComponent: () => import('./features/plans/plan-invite-accept-page').then(m => m.PlanInviteAcceptPage), title: 'Nhận lời mời gói · HuTube' },
+  { path: 'plans/:planId', loadComponent: () => import('./features/plans/plan-detail-page').then(m => m.PlanDetailPage), title: 'Chi tiết gói · HuTube' },
   { path: '', pathMatch: 'full', redirectTo: 'home' },
 
   {
@@ -28,6 +31,7 @@ export const routes: Routes = [
       { path: 'profile', loadComponent: () => import('./features/profile/profile-page').then(m => m.ProfilePage), title: 'Hồ sơ của bạn · HuTube' },
       { path: 'library', redirectTo: 'profile', pathMatch: 'full' },
       { path: 'account', loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'Cài đặt · HuTube' },
+      { path: 'my-plan', loadComponent: () => import('./features/plans/my-plan-page').then(m => m.MyPlanPage), title: 'Gói của tôi · HuTube' },
       { path: 'history', data: { library: 'history' }, loadComponent: () => import('./features/library/library-page').then(m => m.LibraryPage), title: 'Lịch sử xem · HuTube' },
       { path: 'liked', data: { library: 'liked' }, loadComponent: () => import('./features/library/library-page').then(m => m.LibraryPage), title: 'Video đã thích · HuTube' },
       { path: 'channel/create', loadComponent: () => import('./features/channel/channel-create-page').then(m => m.ChannelCreatePage), title: 'Tạo kênh · HuTube' },

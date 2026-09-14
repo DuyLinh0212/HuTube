@@ -1,4 +1,5 @@
 using HuTube.Api.Authorization;
+using HuTube.Application.Plans;
 using HuTube.Application.Policies;
 using HuTube.Application.Rbac;
 using HuTube.Application.Videos;
@@ -14,10 +15,32 @@ namespace HuTube.Api.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AdminController(
     RbacService rbac,
+    IPlanService plans,
     ModerationService moderation,
     PolicyService policyService) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
+
+    [HttpGet("plans"), RequirePermission(AdminPermissions.PlanView)]
+    public Task<IReadOnlyList<PlanResponse>> GetPlansAsync(CancellationToken ct) => plans.GetAdminPlansAsync(ct);
+
+    [HttpPost("plans"), RequirePermission(AdminPermissions.PlanCreate)]
+    public async Task<ActionResult<PlanResponse>> CreatePlanAsync(CreatePlanRequest request, CancellationToken ct)
+    {
+        var result = await plans.CreatePlanAsync(UserId, request, ct);
+        return Created($"/api/v1/admin/plans/{result.PlanId}", result);
+    }
+
+    [HttpPut("plans/{planId:guid}"), RequirePermission(AdminPermissions.PlanEdit)]
+    public Task<PlanResponse> UpdatePlanAsync(Guid planId, UpdatePlanRequest request, CancellationToken ct) =>
+        plans.UpdatePlanAsync(UserId, planId, request, ct);
+
+    [HttpPost("plans/{planId:guid}/archive"), RequirePermission(AdminPermissions.PlanArchive)]
+    public async Task<IActionResult> ArchivePlanAsync(Guid planId, CancellationToken ct)
+    {
+        await plans.ArchivePlanAsync(UserId, planId, ct);
+        return NoContent();
+    }
 
     [HttpGet("me")]
     public Task<AdminMeResponse> GetMeAsync(CancellationToken ct) =>

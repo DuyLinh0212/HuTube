@@ -1,0 +1,13 @@
+.plans-page { max-width: 1180px; margin: 0 auto; padding: 56px 24px 80px; color: var(--text-dark, #18212b); }
+.plans-heading { max-width: 680px; margin-bottom: 34px; }.eyebrow, .plan-code { color: var(--primary, #ff2b66); font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+.plans-heading h1 { margin: 8px 0 12px; font-size: clamp(30px, 5vw, 48px); line-height: 1.05; }.plans-heading p:last-child { color: var(--text-muted, #64748b); font-size: 16px; line-height: 1.6; }
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; align-items: stretch; }.plan-card { position: relative; display: flex; flex-direction: column; padding: 26px; border: 1px solid #e5e7eb; border-radius: 14px; background: #fff; box-shadow: 0 12px 35px rgba(24, 33, 43, .07); }
+.plan-card.featured { border: 2px solid var(--primary, #ff2b66); transform: translateY(-8px); }
+.plan-card.current-active { border: 2px solid #10b981; background: linear-gradient(to bottom, #f0fdf4 0%, #ffffff 100px); }
+.badge { position: absolute; top: -12px; right: 20px; padding: 5px 10px; border-radius: 99px; background: var(--primary, #ff2b66); color: white; font-size: 11px; font-weight: 700; }
+.badge.current-badge { background: #10b981; }
+.plan-card.current-active .plan-button { background: #10b981; }
+.plan-card h2 { margin: 6px 0 10px; font-size: 25px; }.description { min-height: 48px; color: #64748b; line-height: 1.5; }.price { margin: 18px 0; font-size: 28px; }.price small { color: #64748b; font-size: 12px; font-weight: 500; }
+dl { margin: 0 0 24px; border-top: 1px solid #eef0f2; } dl div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid #eef0f2; font-size: 13px; } dt { color: #64748b; } dd { margin: 0; font-weight: 700; text-align: right; }
+.plan-button { margin-top: auto; padding: 12px 14px; border-radius: 9px; background: #18212b; color: white; text-align: center; font-weight: 700; text-decoration: none; }.plan-card.featured .plan-button { background: var(--primary, #ff2b66); }
+.state { padding: 30px 0; color: #64748b; }.state.error { color: #b42318; } @media (max-width: 620px) { .plans-page { padding-top: 32px; }.plan-card.featured { transform: none; } }

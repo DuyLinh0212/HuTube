@@ -56,7 +56,7 @@
       <section class="nav-group" [attr.aria-label]="'nav.groupBusiness' | translate">
         <p class="nav-label">{{ 'nav.groupBusiness' | translate }}</p>
         @if (can('plan.view')) {
-          <span class="nav-item" [title]="'nav.plans' | translate"><img src="/assets/icons/plan.png" alt="" /><span>{{ 'nav.plans' | translate }}</span></span>
+          <a class="nav-item" routerLink="/plans" routerLinkActive="active" [title]="'nav.plans' | translate"><img src="/assets/icons/plan.png" alt="" /><span>{{ 'nav.plans' | translate }}</span></a>
         }
         @if (can('subscription.view')) {
           <span class="nav-item" [title]="'nav.subscriptions' | translate"><img src="/assets/icons/user.png" alt="" /><span>{{ 'nav.subscriptions' | translate }}</span></span>

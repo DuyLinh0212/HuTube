@@ -67,7 +67,7 @@ public sealed class ChannelStore(HuTubeDbContext db) : IChannelStore
     {
         var rows = await db.ChannelInvitations
             .Where(i => (i.InvitedEmail == email || i.InvitedUserId == userId) && i.Status == "pending")
-            .Join(db.Channels, i => i.ChannelId, c => c.ChannelId, (i, c) => new { Invitation = i, ChannelName = c.Name, ChannelHandle = c.Handle })
+            .Join(db.Channels.Where(c => c.Status == "active"), i => i.ChannelId, c => c.ChannelId, (i, c) => new { Invitation = i, ChannelName = c.Name, ChannelHandle = c.Handle })
             .OrderByDescending(x => x.Invitation.CreatedAt)
             .ToListAsync(ct);
         return rows.Select(x => new ChannelInvitationInfo(x.Invitation, x.ChannelName, x.ChannelHandle)).ToList();

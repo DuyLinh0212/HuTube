@@ -13,6 +13,27 @@
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
+.invitation-toast {
+  position: absolute;
+  top: 68px;
+  right: 28px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--primary-light, #f3a1b8);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: var(--ink, #18212b);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .16);
+  cursor: pointer;
+  font-weight: 600;
+  text-align: left;
+}
+.invitation-toast strong { margin-left: auto; color: var(--primary, #ff2b66); font-size: 1.2rem; }
+
 .menu-button {
   display: none;
   width: 36px;

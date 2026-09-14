@@ -1,0 +1,19 @@
+<main class="invite-page">
+  <section class="invite-card">
+    <p class="eyebrow">HuTube Plans</p>
+    <h1>Lời mời dùng chung gói</h1>
+    @if (!memberId || !token) {
+      <p class="error">Liên kết lời mời không đầy đủ.</p>
+    } @else if (!auth.user()) {
+      <p>Đăng nhập bằng đúng email đã nhận lời mời để tiếp tục.</p>
+      <a class="primary" [href]="loginUrl()">Đăng nhập để chấp nhận</a>
+    } @else if (message()) {
+      <p class="success">{{ message() }}</p>
+      <a class="primary" routerLink="/my-plan">Mở Gói của tôi</a>
+    } @else {
+      <p>Kiểm tra email tài khoản rồi xác nhận lời mời tham gia gói.</p>
+      @if (error()) { <p class="error">{{ error() }}</p> }
+      <button class="primary" type="button" (click)="accept()" [disabled]="busy()">{{ busy() ? 'Đang xác nhận…' : 'Chấp nhận lời mời' }}</button>
+    }
+  </section>
+</main>

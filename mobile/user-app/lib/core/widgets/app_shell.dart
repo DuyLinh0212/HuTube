@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../account/screens/profile_screen.dart';
+import '../../plans_screen.dart';
 import '../../auth.dart';
 import '../localization/app_strings.dart';
 import '../theme/app_theme.dart';
@@ -237,7 +238,12 @@ class _AppShellState extends State<AppShell> {
       setState(() => _selectedDestination = 4);
       return;
     }
-    const labels = ['Trang chủ', 'Khám phá', 'Đăng video', 'Kênh đăng ký'];
+    if (index == 3) {
+      setState(() => _selectedDestination = 3);
+      _navigate('/plans');
+      return;
+    }
+    const labels = ['Trang chủ', 'Khám phá', 'Đăng video'];
     _showNavigationNotice(labels[index]);
   }
 
@@ -378,7 +384,9 @@ class _AppShellState extends State<AppShell> {
                           ),
                           const SizedBox(height: 20),
                         ],
-                        if (_page == '/account' && auth.authenticated)
+                        if (_page == '/plans')
+                          PlansScreen(auth: auth)
+                        else if (_page == '/account' && auth.authenticated)
                           ..._account()
                         else
                           ..._authForm(),
@@ -665,6 +673,10 @@ class _AppShellState extends State<AppShell> {
         if (mounted) {
           setState(() => _message = 'Đã đăng xuất tất cả thiết bị khác.');
         }
+      }),
+      onLogoutAll: () => _run(() async {
+        await auth.protected('POST', '/auth/logout-all');
+        await auth.clearSession('Đã đăng xuất khỏi tất cả thiết bị.');
       }),
       onLogout: () => _run(auth.logout),
     ),

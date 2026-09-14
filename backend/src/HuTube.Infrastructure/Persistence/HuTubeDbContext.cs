@@ -20,6 +20,9 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<HuTube.Domain.Plans.PlanHistory> PlanHistories => Set<HuTube.Domain.Plans.PlanHistory>();
+    public DbSet<HuTube.Domain.Plans.PlanMember> PlanMembers => Set<HuTube.Domain.Plans.PlanMember>();
+    public DbSet<HuTube.Domain.Plans.PlanInvitationToken> PlanInvitationTokens => Set<HuTube.Domain.Plans.PlanInvitationToken>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Video> Videos => Set<Video>();
     public DbSet<VideoRendition> VideoRenditions => Set<VideoRendition>();
@@ -129,8 +132,11 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
                 .HasColumnType("inet");
         });
         model.Entity<Plan>(b => { b.ToTable("plans"); b.HasKey(x => x.PlanId); b.Property(x => x.Features).HasColumnType("jsonb"); });
+        model.Entity<HuTube.Domain.Plans.PlanHistory>(b => { b.ToTable("plan_histories"); b.HasKey(x => x.PlanHistoryId); });
+        model.Entity<HuTube.Domain.Plans.PlanMember>(b => { b.ToTable("plan_members"); b.HasKey(x => x.PlanMemberId); });
+        model.Entity<HuTube.Domain.Plans.PlanInvitationToken>(b => { b.ToTable("plan_invitation_tokens"); b.HasKey(x => x.PlanInvitationTokenId); });
         model.Entity<Category>(b => { b.ToTable("categories"); b.HasKey(x => x.CategoryId); b.HasIndex(x => x.Slug).IsUnique(); });
-        model.Entity<Video>(b => { b.ToTable("videos"); b.HasKey(x => x.VideoId); b.Property(x => x.Metadata).HasColumnType("jsonb"); });
+        model.Entity<Video>(b => { b.ToTable("videos"); b.HasKey(x => x.VideoId); b.Property(x => x.Metadata).HasColumnType("jsonb"); b.HasIndex(x => new { x.ChannelId, x.IdempotencyKey }).IsUnique().HasFilter("idempotency_key IS NOT NULL"); });
         model.Entity<VideoRendition>(b => { b.ToTable("video_renditions"); b.HasKey(x => x.VideoRenditionId); b.HasIndex(x => new { x.VideoId, x.QualityLabel }).IsUnique(); });
         model.Entity<Tag>(b => { b.ToTable("tags"); b.HasKey(x => x.TagId); });
         model.Entity<VideoTag>(b => { b.ToTable("video_tags"); b.HasKey(x => x.VideoTagId); b.HasIndex(x => new { x.VideoId, x.TagId }).IsUnique(); });
