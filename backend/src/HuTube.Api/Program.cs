@@ -113,7 +113,7 @@ var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url =
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
     .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
-    .WithHeaders("Accept", "Content-Type", "Authorization", "X-Requested-With", "X-HuTube-Client", "X-HuTube-App")
+    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With", "X-HuTube-Client", "X-HuTube-App")
     .AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
     options.MapInboundClaims = false;

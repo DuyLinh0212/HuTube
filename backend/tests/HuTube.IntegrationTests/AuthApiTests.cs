@@ -240,6 +240,22 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/refresh", new { }), HttpStatusCode.Forbidden, "ORIGIN_NOT_ALLOWED");
         Assert.False((await client.GetAsync("/api/v1/system/info")).Headers.Contains("Access-Control-Allow-Origin"));
     }
+
+    [Fact]
+    public async Task Web_VideoUploadPreflight_ShouldAllowIdempotencyKey()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/v1/videos");
+        request.Headers.TryAddWithoutValidation("Origin", "http://localhost:4200");
+        request.Headers.TryAddWithoutValidation("Access-Control-Request-Method", "POST");
+        request.Headers.TryAddWithoutValidation("Access-Control-Request-Headers", "authorization,content-type,idempotency-key,x-hutube-client");
+
+        using var response = await Client().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal("http://localhost:4200", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Contains("Idempotency-Key", response.Headers.GetValues("Access-Control-Allow-Headers").Single(), StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task Health_OpenApiAndAnonymousProtected_ShouldMatchContract()
     {
