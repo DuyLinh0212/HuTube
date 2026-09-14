@@ -1,6 +1,7 @@
 <div class="yt-settings-layout">
   <!-- Left Column: Settings Menu (matching Image 1) -->
   <aside class="yt-settings-sidebar" aria-label="Cài đặt">
+    <h1 class="settings-page-title">{{ 'account.title' | translate }}</h1>
     <h2 class="settings-sidebar-heading">{{ 'account.settingsTitle' | translate }}</h2>
     <nav class="settings-nav-list">
       <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'account'" (click)="setTab('account')">
