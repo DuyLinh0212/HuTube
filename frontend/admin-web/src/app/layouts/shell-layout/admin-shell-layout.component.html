@@ -1,8 +1,10 @@
 <div class="admin-shell" [class.nav-open]="navOpen()" [class.nav-collapsed]="navCollapsed()">
-  <button class="nav-scrim" type="button" [attr.aria-label]="'nav.closeMenu' | translate" (click)="closeNavigation()"></button>
-  <app-admin-sidebar [open]="navOpen()" [collapsed]="navCollapsed()" (collapsedChange)="setCollapsed($event)" (navigationClosed)="closeNavigation()" />
-  <section class="shell-stage">
-    <app-admin-topbar (menuOpened)="navOpen.set(true)" />
-    <div class="content-frame"><router-outlet /></div>
-  </section>
+  <app-admin-topbar [sidebarCollapsed]="navCollapsed()" (menuOpened)="toggleNavigation()" />
+  <div class="shell-body">
+    <button class="nav-scrim" type="button" [attr.aria-label]="'nav.closeMenu' | translate" (click)="closeNavigation()"></button>
+    <app-admin-sidebar [open]="navOpen()" [collapsed]="navCollapsed()" (collapsedChange)="setCollapsed($event)" (navigationClosed)="closeNavigation()" />
+    <section class="shell-stage">
+      <div class="content-frame"><router-outlet /></div>
+    </section>
+  </div>
 </div>

@@ -162,7 +162,7 @@ public sealed class AdminController(
         CancellationToken ct = default) =>
         taxonomy.GetTopicsAsync(status, ct);
 
-    [HttpPost("topics"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpPost("topics"), RequirePermission(AdminPermissions.TaxonomyManage)]
     public async Task<ActionResult<AdminTopicResponse>> CreateTopicAsync(
         [FromBody] CreateTopicRequest request,
         CancellationToken ct)
@@ -171,14 +171,14 @@ public sealed class AdminController(
         return Created($"/api/v1/admin/topics/{created.CategoryId}", created);
     }
 
-    [HttpPut("topics/{categoryId:guid}"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpPut("topics/{categoryId:guid}"), RequirePermission(AdminPermissions.TaxonomyManage)]
     public Task<AdminTopicResponse> UpdateTopicAsync(
         Guid categoryId,
         [FromBody] UpdateTopicRequest request,
         CancellationToken ct) =>
         taxonomy.UpdateTopicAsync(UserId, categoryId, request, ct);
 
-    [HttpPost("topics/{categoryId:guid}/archive"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpPost("topics/{categoryId:guid}/archive"), RequirePermission(AdminPermissions.TaxonomyManage)]
     public async Task<IActionResult> ArchiveTopicAsync(Guid categoryId, CancellationToken ct)
     {
         await taxonomy.ArchiveTopicAsync(UserId, categoryId, ct);
@@ -191,7 +191,7 @@ public sealed class AdminController(
         CancellationToken ct = default) =>
         taxonomy.GetTagsAsync(search, ct);
 
-    [HttpPost("tags"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpPost("tags"), RequirePermission(AdminPermissions.TaxonomyManage)]
     public async Task<ActionResult<AdminTagResponse>> CreateTagAsync(
         [FromBody] CreateTagRequest request,
         CancellationToken ct)
@@ -200,14 +200,14 @@ public sealed class AdminController(
         return Created($"/api/v1/admin/tags/{created.TagId}", created);
     }
 
-    [HttpPut("tags/{tagId:guid}"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpPut("tags/{tagId:guid}"), RequirePermission(AdminPermissions.TaxonomyManage)]
     public Task<AdminTagResponse> UpdateTagAsync(
         Guid tagId,
         [FromBody] UpdateTagRequest request,
         CancellationToken ct) =>
         taxonomy.UpdateTagAsync(UserId, tagId, request, ct);
 
-    [HttpDelete("tags/{tagId:guid}"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpDelete("tags/{tagId:guid}"), RequirePermission(AdminPermissions.TaxonomyManage)]
     public async Task<IActionResult> DeleteTagAsync(Guid tagId, CancellationToken ct)
     {
         await taxonomy.DeleteTagAsync(UserId, tagId, ct);

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
@@ -13,6 +13,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 })
 export class AdminTopbarComponent {
   @Output() readonly menuOpened = new EventEmitter<void>();
+  @Input() sidebarCollapsed = false;
   readonly auth = inject(AuthService);
   readonly themeService = inject(ThemeService);
   readonly i18n = inject(I18nService);

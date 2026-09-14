@@ -1,11 +1,15 @@
 <header class="topbar">
-  <button class="menu-button" type="button" [attr.aria-label]="'nav.openMenu' | translate" (click)="menuOpened.emit()">
-    <span></span><span></span><span></span>
-  </button>
+  <div class="topbar-brand-group">
+    <button class="menu-button" type="button" [attr.aria-label]="(sidebarCollapsed ? 'nav.expand' : 'nav.collapse') | translate" [attr.aria-pressed]="sidebarCollapsed" (click)="menuOpened.emit()">
+      <span></span><span></span><span></span>
+    </button>
 
-  <a class="mobile-mark" routerLink="/account" aria-label="HuTube Quản trị">
-    <img src="/assets/logo-mark.png" alt="" />
-  </a>
+    <a class="topbar-brand" routerLink="/account" aria-label="HuTube Quản trị">
+      <img src="/assets/logo-mark.png" alt="" />
+      <span class="brand-text"><strong>Hu</strong><em>Tube</em></span>
+      <span class="admin-label">{{ 'topbar.adminRole' | translate }}</span>
+    </a>
+  </div>
 
   <label class="search-box">
     <span class="search-glyph" aria-hidden="true"></span>

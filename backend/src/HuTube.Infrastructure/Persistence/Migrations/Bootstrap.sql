@@ -949,10 +949,11 @@ VALUES
     ('00000000-0000-0001-0000-000000000018', 'plan.view', 'Xem Gói dịch vụ', 'Xem toàn bộ gói dịch vụ và trạng thái.', 'active'),
     ('00000000-0000-0001-0000-000000000019', 'plan.create', 'Tạo Gói dịch vụ', 'Tạo gói dịch vụ mới.', 'active'),
     ('00000000-0000-0001-0000-000000000020', 'plan.edit', 'Sửa Gói dịch vụ', 'Cập nhật giới hạn và giá gói dịch vụ.', 'active'),
-    ('00000000-0000-0001-0000-000000000021', 'plan.archive', 'Lưu trữ Gói dịch vụ', 'Ngừng cung cấp gói dịch vụ mà không xóa lịch sử.', 'active')
+    ('00000000-0000-0001-0000-000000000021', 'plan.archive', 'Lưu trữ Gói dịch vụ', 'Ngừng cung cấp gói dịch vụ mà không xóa lịch sử.', 'active'),
+    ('00000000-0000-0001-0000-000000000023', 'taxonomy.manage', 'Quản lý Danh mục & Chủ đề', 'Tạo, sửa, lưu trữ danh mục, chủ đề và tag.', 'active')
 ON CONFLICT (permission_id) DO UPDATE SET code = EXCLUDED.code, name = EXCLUDED.name, description = EXCLUDED.description, status = EXCLUDED.status;
 
 INSERT INTO public.role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id FROM public.roles r CROSS JOIN public.permissions p
-WHERE r.code IN ('admin', 'super_admin') AND p.code IN ('plan.view', 'plan.create', 'plan.edit', 'plan.archive')
+WHERE r.code IN ('admin', 'super_admin') AND p.code IN ('plan.view', 'plan.create', 'plan.edit', 'plan.archive', 'taxonomy.manage')
 ON CONFLICT (role_id, permission_id) DO NOTHING;

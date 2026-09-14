@@ -28,10 +28,10 @@ export const routes: Routes = [
     path: '',
     canActivate: [authGuard],
     children: [
-      { path: 'profile', loadComponent: () => import('./features/profile/profile-page').then(m => m.ProfilePage), title: 'Hồ sơ của bạn · HuTube' },
-      { path: 'library', redirectTo: 'profile', pathMatch: 'full' },
+      { path: 'profile', redirectTo: 'account', pathMatch: 'full' },
+      { path: 'library', redirectTo: 'history', pathMatch: 'full' },
       { path: 'account', loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'Cài đặt · HuTube' },
-      { path: 'my-plan', loadComponent: () => import('./features/plans/my-plan-page').then(m => m.MyPlanPage), title: 'Gói của tôi · HuTube' },
+      { path: 'my-plan', redirectTo: 'plans', pathMatch: 'full' },
       { path: 'history', data: { library: 'history' }, loadComponent: () => import('./features/library/library-page').then(m => m.LibraryPage), title: 'Lịch sử xem · HuTube' },
       { path: 'liked', data: { library: 'liked' }, loadComponent: () => import('./features/library/library-page').then(m => m.LibraryPage), title: 'Video đã thích · HuTube' },
       { path: 'channel/create', loadComponent: () => import('./features/channel/channel-create-page').then(m => m.ChannelCreatePage), title: 'Tạo kênh · HuTube' },

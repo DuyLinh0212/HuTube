@@ -1,13 +1,5 @@
 <aside class="side-nav" [class.is-collapsed]="collapsed" [class.is-open]="open" [attr.aria-label]="'nav.expand' | translate">
   <div class="side-nav__head">
-    <a class="brand" routerLink="/account" aria-label="HuTube Quản trị">
-      <img src="/assets/logo-mark.png" alt="" />
-      <span><strong>Hu</strong><em>Tube</em></span>
-      <b>{{ 'topbar.adminRole' | translate }}</b>
-    </a>
-    <button class="sidebar-toggle" type="button" (click)="toggleCollapsed()" [attr.aria-label]="collapsed ? ('nav.expand' | translate) : ('nav.collapse' | translate)" [attr.aria-pressed]="collapsed">
-      <span aria-hidden="true">{{ collapsed ? '›' : '‹' }}</span>
-    </button>
     <button class="nav-close" type="button" [attr.aria-label]="'nav.closeMenu' | translate" (click)="closeNavigation()">×</button>
   </div>
   <nav class="nav-groups">

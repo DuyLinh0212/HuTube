@@ -11,4 +11,11 @@ export class AdminShellLayoutComponent {
   readonly navCollapsed = signal(localStorage.getItem('hutube.admin.sidebar-collapsed') === 'true');
   closeNavigation() { this.navOpen.set(false); }
   setCollapsed(value: boolean) { this.navCollapsed.set(value); localStorage.setItem('hutube.admin.sidebar-collapsed', String(value)); }
+  toggleNavigation() {
+    if (typeof window !== 'undefined' && window.innerWidth <= 1040) {
+      this.navOpen.set(true);
+      return;
+    }
+    this.setCollapsed(!this.navCollapsed());
+  }
 }

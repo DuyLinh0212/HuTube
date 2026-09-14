@@ -50,7 +50,7 @@ export class AdminTopicsPage implements OnInit {
   topicDraft: TopicRequest = emptyTopicDraft();
   tagDraft = '';
 
-  readonly canEdit = computed(() => this.auth.hasPermission('system.edit_setting'));
+  readonly canEdit = computed(() => this.auth.hasPermission('taxonomy.manage'));
   readonly filteredTopics = computed(() => {
     const query = this.topicSearch().trim().toLowerCase();
     const status = this.topicStatus();

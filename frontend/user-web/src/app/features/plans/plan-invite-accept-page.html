@@ -9,7 +9,7 @@
       <a class="primary" [href]="loginUrl()">Đăng nhập để chấp nhận</a>
     } @else if (message()) {
       <p class="success">{{ message() }}</p>
-      <a class="primary" routerLink="/my-plan">Mở Gói của tôi</a>
+      <a class="primary" routerLink="/plans">Mở Gói của tôi</a>
     } @else {
       <p>Kiểm tra email tài khoản rồi xác nhận lời mời tham gia gói.</p>
       @if (error()) { <p class="error">{{ error() }}</p> }

@@ -1,12 +1,5 @@
 <aside class="side-nav" [class.is-collapsed]="collapsed" [class.is-open]="open" aria-label="Điều hướng HuTube">
   <div class="side-nav__head">
-    <a class="brand" routerLink="/home" aria-label="HuTube">
-      <img src="/assets/logo-mark.png" alt="" />
-      <span><strong>Hu</strong><em>Tube</em></span>
-    </a>
-    <button class="sidebar-toggle" type="button" (click)="toggleCollapsed()" [attr.aria-label]="collapsed ? ('nav.expandSidebar' | translate) : ('nav.collapseSidebar' | translate)" [attr.aria-pressed]="collapsed">
-      <span aria-hidden="true">{{ collapsed ? '›' : '‹' }}</span>
-    </button>
     <button class="nav-close" type="button" [attr.aria-label]="'common.close' | translate" (click)="closeNavigation()">×</button>
   </div>
 
@@ -30,10 +23,6 @@
     @if (auth.user()) {
       <section class="nav-group" [attr.aria-label]="'nav.library' | translate">
         <p class="nav-label">{{ 'nav.library' | translate }}</p>
-        <a class="nav-item" routerLink="/profile" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.profile' | translate">
-          <img src="/assets/icons/icon-nav-profile-outline.png" alt="" />
-          <span>{{ 'nav.profile' | translate }}</span>
-        </a>
         <a class="nav-item" (click)="openMyChannel()" style="cursor: pointer;" [title]="'nav.yourChannel' | translate">
           <img src="/assets/icons/my_channel.png" alt="" />
           <span>{{ 'nav.yourChannel' | translate }}</span>

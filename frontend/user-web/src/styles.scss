@@ -205,5 +205,42 @@ select:-webkit-autofill {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+
+  /* The account drawer has an explicit product requirement for a visible slide motion. */
+  .account-drawer {
+    animation: hutubeAccountDrawerIn 500ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  }
+
+  .account-drawer--closing {
+    animation: hutubeAccountDrawerOut 500ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  }
+
+  .account-drawer__scrim {
+    animation: hutubeAccountScrimIn 500ms ease both !important;
+  }
+
+  .account-drawer__scrim--closing {
+    animation: hutubeAccountScrimOut 500ms ease both !important;
+  }
+}
+
+@keyframes hutubeAccountDrawerIn {
+  from { opacity: 0.7; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes hutubeAccountDrawerOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0.7; transform: translateX(100%); }
+}
+
+@keyframes hutubeAccountScrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hutubeAccountScrimOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 

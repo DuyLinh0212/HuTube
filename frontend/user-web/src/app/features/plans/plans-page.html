@@ -1,44 +1,204 @@
 <main class="plans-page">
-  <header class="plans-heading">
-    <p class="eyebrow">HuTube Plans</p>
-    <h1>Chọn gói phù hợp với kênh của bạn</h1>
-    <p>Thêm dung lượng, chất lượng video và thành viên dùng chung khi kênh phát triển.</p>
+  <header class="page-header">
+    <div class="header-content">
+      <p class="eyebrow">Tài khoản &amp; Gói dịch vụ</p>
+      <h1>Gói dịch vụ</h1>
+      <p class="subtitle">Một nơi để theo dõi gói đang dùng, quota và các lựa chọn nâng cấp.</p>
+    </div>
+    <span class="page-status">Cập nhật theo tài khoản của bạn</span>
   </header>
-  @if (loading()) { <p class="state">Đang tải các gói dịch vụ...</p> }
-  @if (error()) { <p class="state error">{{ error() }}</p> }
-  @if (!loading() && !error()) {
-    <section class="plan-grid" aria-label="Các gói dịch vụ">
-      @for (plan of plans(); track plan.planId) {
-        <article class="plan-card" [class.featured]="$index === 1" [class.current-active]="isCurrentPlan(plan.planId)">
-          @if (isCurrentPlan(plan.planId)) {
-            <span class="badge current-badge">Gói hiện tại của bạn</span>
-          } @else if ($index === 1) {
-            <span class="badge">Được chọn nhiều</span>
-          }
-          <p class="plan-code">{{ plan.code }}</p><h2>{{ plan.name }}</h2>
-          <p class="description">{{ plan.description || 'Gói dịch vụ cho nhà sáng tạo.' }}</p>
-          <strong class="price">{{ plan.price | currency:'VND':'symbol':'1.0-0' }}<small>/{{ plan.durationDays }} ngày</small></strong>
-          <dl>
-            <div><dt>Dung lượng</dt><dd>{{ formatBytes(plan.storageLimit) }}</dd></div>
-            <div><dt>Upload tối đa</dt><dd>{{ formatBytes(plan.maxUploadSize) }}</dd></div>
-            <div><dt>Thành viên</dt><dd>{{ plan.maxMembers }}</dd></div>
-            <div><dt>Upload / Download</dt><dd>{{ plan.maxVideoQuality || 'Tiêu chuẩn' }} / {{ plan.maxDownloadQuality || plan.maxVideoQuality || '720p' }}</dd></div>
-            <div><dt>Thời lượng</dt><dd>{{ formatDuration(plan.maxVideoDuration) }}</dd></div>
-            <div><dt>Tải xuống</dt><dd>{{ plan.features?.['download'] ? 'Có' : 'Không' }}</dd></div>
-          </dl>
-          <a class="plan-button" [routerLink]="['/plans', plan.planId]">
-            @if (isCurrentPlan(plan.planId)) {
-              Quản lý gói này
-            } @else if (canSwitch(plan.planId)) {
-              Đổi sang gói này
-            } @else if (myPlan()?.planId && myPlan()!.price > 0 && !myPlan()!.subscription?.isExpired) {
-              Chưa mua gói này
-            } @else {
-              Xem chi tiết và chia sẻ
+
+  <nav class="plans-view-switch" role="tablist" aria-label="Chế độ hiển thị gói dịch vụ">
+    <button type="button" role="tab" [attr.aria-selected]="view() === 'overview'" [class.active]="view() === 'overview'" (click)="setView('overview')">
+      Gói của tôi
+    </button>
+    <button type="button" role="tab" [attr.aria-selected]="view() === 'catalog'" [class.active]="view() === 'catalog'" (click)="setView('catalog')">
+      Khám phá gói
+    </button>
+  </nav>
+
+  @if (error()) {
+    <div class="plans-alert" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="load()">Thử lại</button>
+    </div>
+  }
+
+  @if (view() === 'overview') {
+    @if (planLoading()) {
+      <div class="state-container">
+        <div class="spinner"></div>
+        <p class="state">Đang tải thông tin gói của bạn...</p>
+      </div>
+    } @else if (myPlan(); as plan) {
+      <section class="plan-hero-card">
+        <div class="hero-main">
+          <div class="hero-meta">
+            <div class="tags-group">
+              <span class="plan-pill">{{ plan.code.toUpperCase() }}</span>
+              @if (plan.isSharedMember) {
+                <span class="pill-shared">Thành viên dùng chung</span>
+              } @else {
+                <span class="pill-owner">Chủ sở hữu</span>
+              }
+            </div>
+            <h2>{{ plan.name }}</h2>
+            <p class="plan-desc">Gói hiện đang kích hoạt trên tài khoản của bạn</p>
+          </div>
+          <div class="hero-actions">
+            <a [routerLink]="['/plans', plan.planId]" class="btn-action-outline">Chi tiết gói</a>
+            <button type="button" class="btn-action-primary" (click)="setView('catalog')">
+              {{ plan.price > 0 ? 'Đổi sang gói khác' : 'Xem gói nâng cấp' }}
+            </button>
+          </div>
+        </div>
+
+        @if (plan.subscription) {
+          <div class="subscription-timing">
+            <div class="timing-item">
+              <span class="timing-label">Ngày bắt đầu</span>
+              <strong class="timing-value">{{ plan.subscription.startedAt | date:'dd/MM/yyyy HH:mm' }}</strong>
+            </div>
+            @if (plan.subscription.endedAt) {
+              <div class="timing-item">
+                <span class="timing-label">Hạn sử dụng</span>
+                <strong class="timing-value" [class.expired]="plan.subscription.isExpired">
+                  {{ plan.subscription.endedAt | date:'dd/MM/yyyy HH:mm' }}
+                  @if (plan.subscription.isExpired) { (Đã hết hạn) }
+                </strong>
+              </div>
             }
-          </a>
-        </article>
+            <div class="timing-item">
+              <span class="timing-label">Tự động gia hạn</span>
+              <span class="timing-value">{{ plan.subscription.autoRenew ? 'Đang bật' : 'Không' }}</span>
+            </div>
+          </div>
+        }
+      </section>
+
+      <section class="card-panel quota-card">
+        <div class="card-header">
+          <div class="header-icon">📊</div>
+          <div class="header-titles">
+            <h3>Quota dung lượng kênh</h3>
+            <p>Dung lượng video đã tải lên kênh hiện tại</p>
+          </div>
+          <div class="quota-numbers">
+            <span class="used">{{ formatBytes(plan.usedStorage) }}</span>
+            <span class="separator">/</span>
+            <span class="total">{{ formatBytes(plan.storageLimit) }}</span>
+          </div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-bar" aria-label="Mức sử dụng dung lượng">
+            <div class="progress-fill" [style.width.%]="quotaPercent(plan)" [class.warning]="quotaPercent(plan) > 85" [class.danger]="quotaPercent(plan) >= 98"></div>
+          </div>
+          <div class="progress-footer">
+            <span class="percent">{{ quotaPercent(plan) | number:'1.0-1' }}% đã sử dụng</span>
+            <span class="remaining">Còn lại: <strong>{{ formatBytes(plan.remainingStorage) }}</strong></span>
+          </div>
+        </div>
+
+        <div class="specs-mini-grid">
+          <div class="mini-spec"><span class="ms-title">Video upload tối đa</span><strong class="ms-val">{{ formatBytes(plan.maxUploadSize) }}</strong></div>
+          <div class="mini-spec"><span class="ms-title">Độ phân giải</span><strong class="ms-val">Upload {{ plan.maxVideoQuality || '1080p' }} · Download {{ plan.maxDownloadQuality || plan.maxVideoQuality || '720p' }}</strong></div>
+          <div class="mini-spec"><span class="ms-title">Thành viên tối đa</span><strong class="ms-val">{{ plan.maxMembers }} người</strong></div>
+          <div class="mini-spec"><span class="ms-title">Thời lượng video tối đa</span><strong class="ms-val">{{ formatDuration(plan.maxVideoDuration) }}</strong></div>
+          <div class="mini-spec"><span class="ms-title">Tải xuống / phát nền / PiP</span><strong class="ms-val">{{ featureEnabled(plan, 'download') ? 'Có' : 'Không' }} / {{ featureEnabled(plan, 'background_play') ? 'Có' : 'Không' }} / {{ featureEnabled(plan, 'pip') ? 'Có' : 'Không' }}</strong></div>
+        </div>
+      </section>
+
+      <section class="card-panel members-card">
+        <div class="card-header">
+          <div class="header-icon">👥</div>
+          <div class="header-titles">
+            <h3>Chia sẻ gói cho gia đình / nhóm</h3>
+            <p>Hiện có <strong>{{ plan.members.length }}</strong> / <strong>{{ plan.maxMembers }}</strong> người đang dùng chung</p>
+          </div>
+        </div>
+
+        @if (plan.isSharedMember) {
+          <div class="shared-notice-box"><p>ℹ️ Bạn đang là thành viên tham gia gói được chia sẻ. Chỉ chủ gói mới có quyền mời hoặc quản lý thành viên.</p></div>
+        } @else if (plan.maxMembers <= 1) {
+          <div class="single-user-box">
+            <p>Gói hiện tại là gói cá nhân. Để chia sẻ cho người khác, bạn có thể chuyển sang gói nhóm.</p>
+            <button type="button" class="btn-upgrade-link" (click)="setView('catalog')">Xem các gói chia sẻ nhóm →</button>
+          </div>
+        } @else {
+          <form class="invite-form" (ngSubmit)="invite()">
+            <div class="input-wrap"><input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" placeholder="Nhập email người bạn muốn chia sẻ..." required [disabled]="busy() || plan.members.length >= plan.maxMembers - 1" /></div>
+            <button type="submit" class="btn-invite" [disabled]="busy() || !inviteEmail.trim() || plan.members.length >= plan.maxMembers - 1">
+              @if (busy()) { <span class="btn-spinner"></span> } @else { <span>+ Mời thành viên</span> }
+            </button>
+          </form>
+          @if (plan.members.length >= plan.maxMembers - 1) { <p class="limit-note">Đã đạt số lượng thành viên tối đa của gói này.</p> }
+          <div class="members-table-wrap">
+            @if (plan.members.length > 0) {
+              <table class="members-table">
+                <thead><tr><th>Email thành viên</th><th>Ngày mời</th><th>Trạng thái</th><th class="col-action">Thao tác</th></tr></thead>
+                <tbody>
+                  @for (member of plan.members; track member.planMemberId) {
+                    <tr>
+                      <td class="cell-email"><div class="member-avatar">{{ member.memberEmail[0].toUpperCase() }}</div><span>{{ member.memberEmail }}</span></td>
+                      <td class="cell-date">{{ member.invitedAt | date:'dd/MM/yyyy' }}</td>
+                      <td class="cell-status"><span class="status-badge" [class.accepted]="member.status === 'accepted'" [class.pending]="member.status === 'pending'">{{ member.status === 'accepted' ? 'Đã tham gia' : 'Đang chờ xác nhận' }}</span></td>
+                      <td class="col-action"><button type="button" class="btn-revoke" (click)="revoke(member.planMemberId)" [disabled]="busy()">Thu hồi</button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <div class="empty-members"><span class="empty-icon">📭</span><p>Chưa có thành viên nào được mời vào gói này.</p></div>
+            }
+          </div>
+        }
+      </section>
+
+      @if (message()) {
+        <div class="toast-message" role="status"><span>✓ {{ message() }}</span></div>
       }
-    </section>
+    } @else {
+      <div class="no-plan-card">
+        <div class="no-plan-icon">📦</div>
+        <h2>Bạn chưa đăng ký gói dịch vụ nào</h2>
+        <p>Nâng cấp gói để tăng dung lượng kênh, chất lượng upload và chia sẻ quyền lợi cho bạn bè.</p>
+        <button type="button" class="btn-explore-plans" (click)="setView('catalog')">Khám phá các gói dịch vụ ngay</button>
+      </div>
+    }
+  }
+
+  @if (view() === 'catalog') {
+    @if (loading()) {
+      <div class="state-container"><div class="spinner"></div><p class="state">Đang tải các gói dịch vụ...</p></div>
+    } @else if (!error()) {
+      <section class="catalog-intro">
+        <div><p class="eyebrow">Lựa chọn linh hoạt</p><h2>Chọn gói phù hợp với kênh của bạn</h2><p>Thêm dung lượng, chất lượng video và thành viên dùng chung khi kênh phát triển.</p></div>
+        @if (myPlan(); as current) { <span class="current-plan-note">Đang dùng: <strong>{{ current.name }}</strong></span> }
+      </section>
+      <section class="plan-grid" aria-label="Các gói dịch vụ">
+        @for (plan of plans(); track plan.planId) {
+          <article class="plan-card" [class.featured]="$index === 1" [class.current-active]="isCurrentPlan(plan.planId)">
+            @if (isCurrentPlan(plan.planId)) { <span class="badge current-badge">Gói hiện tại của bạn</span> } @else if ($index === 1) { <span class="badge">Được chọn nhiều</span> }
+            <p class="plan-code">{{ plan.code }}</p>
+            <h2>{{ plan.name }}</h2>
+            <p class="description">{{ plan.description || 'Gói dịch vụ cho nhà sáng tạo.' }}</p>
+            <strong class="price">{{ plan.price | currency:'VND':'symbol':'1.0-0' }}<small>/{{ plan.durationDays }} ngày</small></strong>
+            <dl>
+              <div><dt>Dung lượng</dt><dd>{{ formatBytes(plan.storageLimit) }}</dd></div>
+              <div><dt>Upload tối đa</dt><dd>{{ formatBytes(plan.maxUploadSize) }}</dd></div>
+              <div><dt>Thành viên</dt><dd>{{ plan.maxMembers }}</dd></div>
+              <div><dt>Upload / Download</dt><dd>{{ plan.maxVideoQuality || 'Tiêu chuẩn' }} / {{ plan.maxDownloadQuality || plan.maxVideoQuality || '720p' }}</dd></div>
+              <div><dt>Thời lượng</dt><dd>{{ formatDuration(plan.maxVideoDuration) }}</dd></div>
+              <div><dt>Tải xuống</dt><dd>{{ featureEnabled(plan, 'download') ? 'Có' : 'Không' }}</dd></div>
+              <div><dt>Phát nền / PiP</dt><dd>{{ featureEnabled(plan, 'background_play') ? 'Có' : 'Không' }} / {{ featureEnabled(plan, 'pip') ? 'Có' : 'Không' }}</dd></div>
+            </dl>
+            <a class="plan-button" [routerLink]="['/plans', plan.planId]">
+              @if (isCurrentPlan(plan.planId)) { Quản lý gói này } @else if (canSwitch(plan.planId)) { Đổi sang gói này } @else if (myPlan()?.planId && myPlan()!.price > 0 && !myPlan()!.subscription?.isExpired) { Chưa mua gói này } @else { Xem chi tiết và chia sẻ }
+            </a>
+          </article>
+        }
+      </section>
+    }
   }
 </main>
