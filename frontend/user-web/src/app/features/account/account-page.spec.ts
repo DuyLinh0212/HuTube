@@ -30,7 +30,7 @@ describe('Active device management', () => {
   }
   it('shows the current device and requires confirmation before revoking another',()=>{
     const {fixture,other}=setup();
-    fixture.componentInstance.activeTab.set('sessions'); fixture.detectChanges();
+    fixture.componentInstance.activeTab.set('advanced'); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Thiết bị này');
     fixture.componentInstance.pendingRevoke.set(other); fixture.detectChanges(); http.expectNone(base+'/auth/sessions/other');
     expect(fixture.nativeElement.textContent).toContain('đăng xuất phiên trên thiết bị'); fixture.componentInstance.revoke();
@@ -39,7 +39,7 @@ describe('Active device management', () => {
   });
   it('refreshes device data after ending all other sessions',()=>{
     const {fixture,current}=setup();
-    fixture.componentInstance.activeTab.set('sessions'); fixture.detectChanges();
+    fixture.componentInstance.activeTab.set('advanced'); fixture.detectChanges();
     fixture.componentInstance.logoutOthers(); http.expectOne(base+'/auth/logout-others').flush({message:'ok'});
     http.expectOne(base+'/auth/sessions').flush({items:[current]}); fixture.detectChanges(); expect(fixture.componentInstance.sessions().length).toBe(1); expect(fixture.nativeElement.textContent).toContain('Đã đăng xuất khỏi các thiết bị khác');
   });

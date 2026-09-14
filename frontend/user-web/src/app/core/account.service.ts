@@ -52,7 +52,9 @@ export interface UserPreferences {
 export class AccountService {
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
-  private base = this.config.apiBaseUrl + '/account';
+  private get base(): string {
+    return this.config.apiBaseUrl + '/account';
+  }
 
   getProfile(): Observable<UserProfile> {
     return this.http.get<UserProfile>(`${this.base}/profile`);

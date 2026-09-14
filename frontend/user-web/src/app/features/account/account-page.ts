@@ -95,7 +95,7 @@ export class AccountPage implements OnInit {
   readonly pendingRevoke = signal<Session | null>(null);
   readonly apiState = signal('Đang kiểm tra kết nối…');
 
-  ngOnInit() {
+  constructor() {
     this.topFanRanking.set(localStorage.getItem('hutube.privacy.topFanRanking') !== 'false');
     this.celebrateSuperChat.set(localStorage.getItem('hutube.privacy.celebrateSuperChat') !== 'false');
     const savedQuality = localStorage.getItem('hutube.downloads.quality') as 'ask' | '1080p' | '720p' | '480p' | '144p' | null;
@@ -109,6 +109,8 @@ export class AccountPage implements OnInit {
       error: () => this.apiState.set('Chưa kết nối được máy chủ')
     });
   }
+
+  ngOnInit() {}
 
   setTab(tab: AccountTab) {
     this.activeTab.set(tab);
