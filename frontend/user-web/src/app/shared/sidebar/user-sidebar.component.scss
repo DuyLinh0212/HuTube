@@ -142,7 +142,8 @@
 .is-collapsed .nav-label,
 .is-collapsed .nav-item > span:not(.nav-icon-badge),
 .is-collapsed .profile-copy,
-.is-collapsed .profile-chevron {
+.is-collapsed .profile-chevron,
+.is-collapsed .sidebar-footer {
   display: none;
 }
 
@@ -266,4 +267,38 @@
 
 @media (prefers-reduced-motion: reduce) {
   .side-nav { transition: none; }
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 14px 8px 6px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+
+  a {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted, #94a3b8);
+    text-decoration: none;
+    transition: color 0.16s ease;
+
+    &:hover {
+      color: var(--primary);
+    }
+  }
+}
+
+.copyright {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--text-light, #64748b);
+  opacity: 0.85;
 }

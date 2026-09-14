@@ -1,414 +1,615 @@
-<main id="main-content" class="account-page-container">
-  <div class="account-header">
-    <div class="header-titles">
-      <h1 class="page-title">{{ 'account.title' | translate }}</h1>
-      <p class="page-subtitle">{{ 'account.prefsDesc' | translate }}</p>
-    </div>
-    <div class="header-actions">
-      <button type="button" class="btn-secondary" [disabled]="busy()" (click)="logout()">
-        <span class="btn-icon">🚪</span> {{ 'nav.logout' | translate }}
+<div class="yt-settings-layout">
+  <!-- Left Column: Settings Menu (matching Image 1) -->
+  <aside class="yt-settings-sidebar" aria-label="Cài đặt">
+    <h2 class="settings-sidebar-heading">{{ 'account.settingsTitle' | translate }}</h2>
+    <nav class="settings-nav-list">
+      <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'account'" (click)="setTab('account')">
+        {{ 'account.tabAccount' | translate }}
       </button>
-    </div>
-  </div>
+      <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'notifications'" (click)="setTab('notifications')">
+        {{ 'account.tabNotifications' | translate }}
+      </button>
+      <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'downloads'" (click)="setTab('downloads')">
+        {{ 'account.tabDownloads' | translate }}
+      </button>
+      <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'privacy'" (click)="setTab('privacy')">
+        {{ 'account.tabPrivacy' | translate }}
+      </button>
+      <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'billing'" (click)="setTab('billing')">
+        {{ 'account.tabBilling' | translate }}
+      </button>
+      <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'advanced'" (click)="setTab('advanced')">
+        {{ 'account.tabAdvanced' | translate }}
+      </button>
+    </nav>
+  </aside>
 
-  <!-- Notification Banner -->
-  @if (error()) {
-    <div class="alert-banner alert-error" role="alert">
-      <span class="alert-icon">⚠️</span>
-      <span>{{ error() }}</span>
-    </div>
-  }
-  @if (message()) {
-    <div class="alert-banner alert-success" role="status">
-      <span class="alert-icon">✓</span>
-      <span>{{ message() }}</span>
-    </div>
-  }
+  <!-- Right Column: Settings Content Panels -->
+  <main class="yt-settings-main">
+    <!-- Notification Alerts -->
+    @if (error()) {
+      <div class="yt-alert yt-alert-error" role="alert">
+        <span>⚠️ {{ error() }}</span>
+        <button type="button" class="alert-dismiss" (click)="error.set('')">×</button>
+      </div>
+    }
+    @if (message()) {
+      <div class="yt-alert yt-alert-success" role="status">
+        <span>✓ {{ message() }}</span>
+        <button type="button" class="alert-dismiss" (click)="message.set('')">×</button>
+      </div>
+    }
 
-  <!-- Tab Navigation Bar -->
-  <nav class="account-tabs-nav" aria-label="Các mục cài đặt tài khoản">
-    <button type="button" class="tab-btn" [class.active]="activeTab() === 'profile'" (click)="setTab('profile')">
-      {{ 'account.tabProfile' | translate }}
-    </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab() === 'password'" (click)="setTab('password')">
-      {{ 'account.tabPassword' | translate }}
-    </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab() === 'notifications'" (click)="setTab('notifications')">
-      {{ 'account.tabNotifications' | translate }}
-    </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab() === 'preferences'" (click)="setTab('preferences')">
-      {{ 'account.tabPreferences' | translate }}
-    </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab() === 'sessions'" (click)="setTab('sessions')">
-      {{ 'account.tabSessions' | translate }}
-    </button>
-  </nav>
-
-  <div class="tab-content-area">
-    <!-- TAB 1: CHỈNH SỬA THÔNG TIN -->
-    @if (activeTab() === 'profile') {
-      <div class="profile-tab-pane">
-        <!-- KÊNH HUTUBE CỦA BẠN BANNER -->
-        @if (myChannel(); as ch) {
-          <div class="channel-card-banner">
-            <div class="channel-banner-avatar">
-              @if (ch.avatarUrl) {
-                <img [src]="ch.avatarUrl" alt="Avatar kênh" />
-              } @else {
-                <div class="avatar-fallback">{{ ch.name.slice(0, 1).toUpperCase() }}</div>
-              }
-            </div>
-            <div class="channel-banner-info">
-              <div class="channel-name-row">
-                <h2 class="channel-name">{{ ch.name }}</h2>
-                <span class="verified-badge">✓</span>
-              </div>
-              <p class="channel-meta">@{{ ch.handle }} · {{ ch.subscriberCount }} {{ 'account.subscribersCount' | translate }} · {{ ch.videoCount }} {{ 'account.videosCount' | translate }}</p>
-            </div>
-            <div class="channel-banner-actions">
-              <a [routerLink]="['/channel', ch.handle]" class="btn-channel-primary">{{ 'account.viewChannel' | translate }}</a>
-              <a [routerLink]="['/channel', ch.handle, 'customize']" class="btn-channel-secondary">{{ 'account.customizeChannel' | translate }}</a>
-            </div>
+    <!-- ============================================== -->
+    <!-- TAB 1: TÀI KHOẢN (IMAGE 1)                      -->
+    <!-- ============================================== -->
+    @if (activeTab() === 'account') {
+      <div class="settings-pane">
+        <!-- Hero Section -->
+        <div class="pane-hero">
+          <div class="pane-hero-text">
+            <span class="eyebrow-tag">{{ 'account.tabAccount' | translate }}</span>
+            <h1 class="hero-heading">{{ 'account.accountHeroTitle' | translate }}</h1>
+            <p class="hero-email">{{ 'account.signedInAs' | translate }} {{ profile()?.email || auth.user()?.email || 'user@hutube.vn' }}</p>
           </div>
-        } @else {
-          <div class="channel-card-banner channel-promo">
-            <div class="channel-promo-icon">📺</div>
-            <div class="channel-banner-info">
-              <h2 class="channel-name">{{ 'account.yourHuTubeChannel' | translate }}</h2>
-              <p class="channel-meta">{{ 'account.noChannelDesc' | translate }}</p>
-            </div>
-            <div class="channel-banner-actions">
-              <a routerLink="/channel/create" class="btn-channel-cta">
-                <span class="plus-icon">+</span> {{ 'account.createChannelBtn' | translate }}
-              </a>
-            </div>
+          <div class="pane-hero-art" aria-hidden="true">
+            <!-- Telescope Explorer Illustration SVG matching HuTube brand style -->
+            <svg viewBox="0 0 160 140" fill="none" class="hero-svg">
+              <ellipse cx="118" cy="70" rx="42" ry="42" fill="#FF2B66" fill-opacity="0.14"/>
+              <ellipse cx="118" cy="70" rx="36" ry="36" fill="#7C3AED" fill-opacity="0.16"/>
+              <!-- Telescope -->
+              <rect x="92" y="44" width="46" height="12" rx="6" fill="#FF2B66" transform="rotate(-32 92 44)"/>
+              <circle cx="132" cy="20" r="7" fill="#E61952"/>
+              <circle cx="132" cy="20" r="3" fill="#FFF"/>
+              <rect x="68" y="58" width="36" height="10" rx="4" fill="#7C3AED" transform="rotate(-32 68 58)"/>
+              <!-- Character head / profile -->
+              <circle cx="95" cy="72" r="28" fill="#FF4D80"/>
+              <path d="M72 70 C72 50 110 50 114 62 C114 74 95 86 80 82 Z" fill="#7C3AED"/>
+              <ellipse cx="88" cy="62" rx="4" ry="4" fill="#111827"/>
+              <path d="M102 78 C96 86 86 86 82 82" stroke="#E61952" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M76 96 C72 108 84 125 106 128 C128 131 142 120 142 110 L108 92 Z" fill="#10B981"/>
+              <circle cx="58" cy="38" r="4" fill="#FFA800"/>
+              <circle cx="148" cy="72" r="3" fill="#FF2B66"/>
+            </svg>
           </div>
-        }
+        </div>
 
-        <!-- Avatar Section -->
-        <section class="avatar-section">
-          <label class="section-label">{{ 'account.avatarTitle' | translate }}</label>
-          <div class="avatar-upload-row">
-            <div class="avatar-wrapper" (click)="triggerAvatarUpload()" [title]="'account.changeAvatar' | translate">
-              @if (profile()?.avatarUrl; as url) {
-                <img [src]="url" alt="Avatar" class="avatar-img" />
-              } @else {
-                <div class="avatar-placeholder">
-                  {{ (profile()?.displayName || 'H').slice(0, 1).toUpperCase() }}
+        <div class="pane-divider"></div>
+
+        <!-- Section: Kênh HuTube của bạn -->
+        <section class="pane-section">
+          <h2 class="section-title">{{ 'account.yourHuTubeChannel' | translate }}</h2>
+          <p class="section-subtitle">{{ 'account.channelDescImage1' | translate }}</p>
+
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.yourChannelLabel' | translate }}</div>
+            <div class="row-body">
+              <div class="channel-identity">
+                <div class="channel-avatar-box" (click)="triggerAvatarUpload()" [title]="'account.changeAvatar' | translate">
+                  @if (profile()?.avatarUrl; as url) {
+                    <img [src]="url" alt="" class="channel-avatar-img" />
+                  } @else {
+                    <div class="channel-avatar-fallback">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 1 0 5 5 5 5 0 0 0-5-5zm0 12c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"/></svg>
+                    </div>
+                  }
+                  <div class="avatar-camera-btn" aria-hidden="true">📷</div>
+                  <input #avatarInput type="file" accept="image/*" (change)="onAvatarSelected($event)" hidden />
                 </div>
-              }
-              <div class="camera-badge" aria-hidden="true">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                  <circle cx="12" cy="13" r="4"></circle>
-                </svg>
+                <div class="channel-name-details">
+                  <strong class="channel-display-name">{{ profile()?.displayName || myChannel()?.name || auth.user()?.displayName || 'Người dùng HuTube' }}</strong>
+                  @if (myChannel(); as ch) {
+                    <span class="channel-sub-info">&#64;{{ ch.handle }} · {{ ch.subscriberCount }} {{ 'account.subscribersCount' | translate }}</span>
+                  }
+                </div>
               </div>
-            </div>
-            <div class="avatar-hints">
-              <p class="hint-text">{{ 'account.avatarHint' | translate }}</p>
-              <button type="button" class="btn-change-avatar" (click)="triggerAvatarUpload()" [disabled]="busy()">
-                {{ 'account.changeAvatar' | translate }}
-              </button>
-              <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="onAvatarSelected($event)" hidden />
+
+              <div class="channel-action-links">
+                <a class="yt-action-link" routerLink="/studio">{{ 'account.channelStatusLink' | translate }}</a>
+                @if (myChannel(); as ch) {
+                  <a class="yt-action-link" [routerLink]="['/channel', ch.handle]">{{ 'account.viewChannel' | translate }}</a>
+                } @else {
+                  <a class="yt-action-link" routerLink="/channel/create">{{ 'account.createChannelLink' | translate }}</a>
+                }
+                <button type="button" class="yt-action-link-btn" (click)="setTab('advanced')">{{ 'account.viewAdvancedLink' | translate }}</button>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- Form Fields Grid -->
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="displayName" class="input-label">{{ 'account.displayName' | translate }} <span class="required">*</span></label>
-            <input id="displayName" type="text" class="text-input" [(ngModel)]="displayName" [placeholder]="'account.displayNamePlaceholder' | translate" [disabled]="busy()" />
-          </div>
+        <div class="pane-divider"></div>
 
-          <div class="form-group">
-            <label for="email" class="input-label">{{ 'account.email' | translate }}</label>
-            <div class="email-field-row">
-              <input id="email" type="email" class="text-input" [value]="profile()?.email" disabled />
-              @if (profile()?.emailVerified) {
-                <span class="badge-verified">✓ {{ 'account.verified' | translate }}</span>
-              } @else {
-                <span class="badge-unverified">{{ 'account.unverified' | translate }}</span>
+        <!-- Section: Tài khoản của bạn -->
+        <section class="pane-section">
+          <h2 class="section-title">{{ 'account.yourAccountSection' | translate }}</h2>
+          <p class="section-subtitle">{{ 'account.yourAccountDesc' | translate }}</p>
+
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.hutubeAccountLabel' | translate }}</div>
+            <div class="row-body">
+              <button type="button" class="yt-action-link-btn primary-action" (click)="editingProfile.set(!editingProfile())">
+                {{ 'account.hutubeAccountAction' | translate }}
+              </button>
+              <p class="sub-hint">{{ 'account.hutubeAccountRedirect' | translate }}</p>
+
+              <!-- Inline Profile Edit Box -->
+              @if (editingProfile()) {
+                <div class="profile-inline-form">
+                  <div class="form-field">
+                    <label for="dn" class="field-label">{{ 'account.displayName' | translate }}</label>
+                    <input id="dn" type="text" class="yt-input" [(ngModel)]="displayName" [disabled]="busy()" />
+                  </div>
+                  <div class="form-field">
+                    <label for="bio" class="field-label">{{ 'account.bio' | translate }}</label>
+                    <textarea id="bio" class="yt-textarea" [(ngModel)]="bio" rows="2" maxlength="160" [disabled]="busy()"></textarea>
+                  </div>
+                  <div class="form-buttons">
+                    <button type="button" class="btn-yt-secondary" (click)="editingProfile.set(false)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
+                    <button type="button" class="btn-yt-primary" (click)="onSaveProfile()" [disabled]="busy()">{{ 'common.save' | translate }}</button>
+                  </div>
+                </div>
               }
             </div>
           </div>
+        </section>
+      </div>
+    }
 
-          <div class="form-group">
-            <label for="username" class="input-label">{{ 'account.username' | translate }}</label>
-            <input id="username" type="text" class="text-input" [value]="profile()?.username" disabled />
-            <p class="field-help-text">{{ 'account.channelUrlPrefix' | translate }} hutube.vn/&#64;{{ profile()?.username }}</p>
+    <!-- ============================================== -->
+    <!-- TAB 2: QUYỀN RIÊNG TƯ (IMAGE 2)                  -->
+    <!-- ============================================== -->
+    @if (activeTab() === 'privacy') {
+      <div class="settings-pane">
+        <!-- Hero Section -->
+        <div class="pane-hero">
+          <div class="pane-hero-text">
+            <h1 class="hero-heading">{{ 'account.privacyHeroTitle' | translate }}</h1>
+            <p class="hero-subtitle">{{ 'account.privacyHeroSub' | translate }}</p>
+            <p class="hero-review">
+              {{ 'account.privacyHeroReview' | translate }}
+              <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'terms' }">{{ 'account.privacyHeroTos' | translate }}</a>
+              {{ 'account.privacyHeroAnd' | translate }}
+              <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'privacy' }">{{ 'account.privacyHeroPrivacyPolicy' | translate }}</a>
+            </p>
           </div>
-
-          <div class="form-group">
-            <label for="location" class="input-label">{{ 'account.country' | translate }}</label>
-            <select id="location" class="select-input" [(ngModel)]="location" [disabled]="busy()">
-              <option value="Việt Nam">{{ 'account.countryVN' | translate }}</option>
-              <option value="United States">{{ 'account.countryUS' | translate }}</option>
-              <option value="Japan">{{ 'account.countryJP' | translate }}</option>
-              <option value="South Korea">{{ 'account.countryKR' | translate }}</option>
-              <option value="Singapore">{{ 'account.countrySG' | translate }}</option>
-            </select>
+          <div class="pane-hero-art" aria-hidden="true">
+            <!-- Shield Privacy Illustration matching HuTube design system -->
+            <svg viewBox="0 0 160 140" fill="none" class="hero-svg">
+              <ellipse cx="118" cy="70" rx="38" ry="38" fill="#10B981" fill-opacity="0.15"/>
+              <path d="M102 36 C124 36 138 48 138 68 C138 98 108 116 102 120 C96 116 66 98 66 68 C66 48 80 36 102 36 Z" fill="#7C3AED"/>
+              <path d="M102 36 C124 36 138 48 138 68 C138 98 108 116 102 120 L102 36 Z" fill="#6D28D9"/>
+              <path d="M92 48 L102 40 L112 48 L112 66 L92 66 Z" fill="#FF2B66"/>
+              <path d="M84 72 L102 62 L120 72 L120 90 L84 90 Z" fill="#FFA800"/>
+              <path d="M74 94 L102 82 L130 94 L102 116 Z" fill="#10B981"/>
+              <circle cx="102" cy="70" r="10" fill="#FFF" fill-opacity="0.95"/>
+              <path d="M98 70 L101 73 L107 67" stroke="#FF2B66" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </div>
+        </div>
 
-          <div class="form-group full-width">
-            <div class="label-with-counter">
-              <label for="bio" class="input-label">{{ 'account.bio' | translate }}</label>
-              <span class="char-counter">{{ bio.length }}/160</span>
-            </div>
-            <textarea id="bio" class="textarea-input" [(ngModel)]="bio" maxlength="160" rows="3" [placeholder]="'account.bioPlaceholder' | translate" [disabled]="busy()"></textarea>
-          </div>
+        <div class="pane-divider"></div>
 
-          @if (profile()?.userId; as uid) {
-            <div class="form-group full-width">
-              <label class="input-label">{{ 'account.userId' | translate }}</label>
-              <div class="userid-row">
-                <code class="userid-code">{{ uid }}</code>
-                <button type="button" class="btn-copy" (click)="copyUserId(uid)" [title]="'account.copy' | translate">
-                  📋 {{ 'account.copy' | translate }}
-                </button>
+        <!-- Section 1: Kênh đăng ký -->
+        <section class="pane-section">
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.subscriptionsHeading' | translate }}</div>
+            <div class="row-body">
+              <div class="privacy-toggle-group">
+                <div class="toggle-row">
+                  <label class="yt-switch">
+                    <input type="checkbox" [checked]="keepSubscriptionsPrivate()" (change)="onToggleSubscriptionPrivacy($any($event.target).checked)" />
+                    <span class="yt-slider"></span>
+                  </label>
+                  <span class="toggle-headline">{{ 'account.keepSubsPrivate' | translate }}</span>
+                </div>
+                <p class="toggle-explanation">
+                  {{ 'account.keepSubsPrivateDesc' | translate }}
+                  <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'privacy' }">{{ 'account.learnMore' | translate }}</a>
+                  {{ 'account.keepSubsPrivateLinkText' | translate }}
+                  <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'guidelines' }">{{ 'account.clickHere' | translate }}</a>.
+                </p>
               </div>
             </div>
-          }
-        </div>
+          </div>
+        </section>
 
-        <div class="form-actions">
-          <button type="button" class="btn-secondary" (click)="loadAll()" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="btn-primary" (click)="onSaveProfile()" [disabled]="busy()">
-            @if (busy()) { <span class="spinner"></span> {{ 'common.saving' | translate }} } @else { {{ 'common.save' | translate }} }
-          </button>
-        </div>
+        <div class="pane-divider"></div>
+
+        <!-- Section 2: Lượt đề cập -->
+        <section class="pane-section">
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.mentionsHeading' | translate }}</div>
+            <div class="row-body">
+              <div class="privacy-toggle-group">
+                <div class="toggle-row">
+                  <label class="yt-switch">
+                    <input type="checkbox" [checked]="allowMentions()" (change)="onToggleMentions($any($event.target).checked)" />
+                    <span class="yt-slider"></span>
+                  </label>
+                  <span class="toggle-headline">{{ 'account.allowMentions' | translate }}</span>
+                </div>
+                <p class="toggle-explanation">
+                  {{ 'account.allowMentionsDesc' | translate }}
+                  <button type="button" class="yt-action-link-btn" (click)="setTab('notifications')">{{ 'account.clickHere' | translate }}</button>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="pane-divider"></div>
+
+        <!-- Section 3: Trò chuyện trực tiếp -->
+        <section class="pane-section">
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.liveChatHeading' | translate }}</div>
+            <div class="row-body">
+              <!-- Toggle item 1: Bảng xếp hạng người hâm mộ hàng đầu -->
+              <div class="privacy-toggle-group">
+                <div class="toggle-row">
+                  <label class="yt-switch">
+                    <input type="checkbox" [checked]="topFanRanking()" (change)="onToggleTopFanRanking($any($event.target).checked)" />
+                    <span class="yt-slider"></span>
+                  </label>
+                  <span class="toggle-headline">{{ 'account.topFanRanking' | translate }}</span>
+                </div>
+                <p class="toggle-explanation">
+                  {{ 'account.topFanRankingDesc' | translate }}
+                  <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'guidelines' }">{{ 'account.learnMore' | translate }}</a>.
+                </p>
+              </div>
+
+              <!-- Toggle item 2: Ăn mừng Super Chat và Super Stickers -->
+              <div class="privacy-toggle-group" style="margin-top: 24px;">
+                <div class="toggle-row">
+                  <label class="yt-switch">
+                    <input type="checkbox" [checked]="celebrateSuperChat()" (change)="onToggleCelebrateSuperChat($any($event.target).checked)" />
+                    <span class="yt-slider"></span>
+                  </label>
+                  <span class="toggle-headline">{{ 'account.celebrateSuperChat' | translate }}</span>
+                </div>
+                <p class="toggle-explanation">
+                  {{ 'account.celebrateSuperChatDesc' | translate }}
+                  <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'terms' }">{{ 'account.learnMore' | translate }}</a>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     }
 
-    <!-- TAB 2: ĐỔI MẬT KHẨU -->
-    @if (activeTab() === 'password') {
-      <div class="password-tab-pane">
-        <h2 class="sub-pane-title">{{ 'account.passwordHeading' | translate }}</h2>
-        <p class="sub-pane-desc">{{ 'account.passwordDesc' | translate }}</p>
-
-        <div class="password-form-box">
-          <div class="form-group">
-            <label for="currentPassword" class="input-label">{{ 'account.currentPassword' | translate }}</label>
-            <input id="currentPassword" type="password" class="text-input" [(ngModel)]="currentPassword" [placeholder]="'account.currentPassword' | translate" [disabled]="busy()" />
-          </div>
-
-          <div class="form-group">
-            <label for="newPassword" class="input-label">{{ 'account.newPassword' | translate }}</label>
-            <input id="newPassword" type="password" class="text-input" [(ngModel)]="newPassword" [placeholder]="'account.newPassword' | translate" [disabled]="busy()" />
-          </div>
-
-          <div class="form-group">
-            <label for="confirmPassword" class="input-label">{{ 'account.confirmNewPassword' | translate }}</label>
-            <input id="confirmPassword" type="password" class="text-input" [(ngModel)]="confirmPassword" [placeholder]="'account.confirmNewPassword' | translate" [disabled]="busy()" />
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn-primary" (click)="onChangePassword()" [disabled]="busy() || !currentPassword || !newPassword">
-              @if (busy()) { <span class="spinner"></span> {{ 'common.saving' | translate }} } @else { {{ 'account.savePassword' | translate }} }
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-
-    <!-- TAB 3: THÔNG BÁO -->
+    <!-- ============================================== -->
+    <!-- TAB 3: THÔNG BÁO                                -->
+    <!-- ============================================== -->
     @if (activeTab() === 'notifications') {
-      <div class="notifications-tab-pane">
-        <h2 class="sub-pane-title">{{ 'account.notifHeading' | translate }}</h2>
-        <p class="sub-pane-desc">{{ 'account.notifDesc' | translate }}</p>
+      <div class="settings-pane">
+        <h1 class="hero-heading">{{ 'account.notifHeading' | translate }}</h1>
+        <p class="hero-subtitle">{{ 'account.notifDesc' | translate }}</p>
 
-        <div class="switches-list">
-          <div class="switch-item">
-            <div class="switch-info">
-              <span class="switch-title">{{ 'account.notifInAppTitle' | translate }}</span>
-              <span class="switch-desc">{{ 'account.notifInAppDesc' | translate }}</span>
+        <div class="pane-divider"></div>
+
+        <div class="switches-vertical-list">
+          <div class="switch-row-item">
+            <div class="switch-row-info">
+              <strong>{{ 'account.notifInAppTitle' | translate }}</strong>
+              <p>{{ 'account.notifInAppDesc' | translate }}</p>
             </div>
-            <label class="toggle-switch">
+            <label class="yt-switch">
               <input type="checkbox" [(ngModel)]="notifications.inAppEnabled" />
-              <span class="toggle-slider"></span>
+              <span class="yt-slider"></span>
             </label>
           </div>
 
-          <div class="switch-item">
-            <div class="switch-info">
-              <span class="switch-title">{{ 'account.notifEmailTitle' | translate }}</span>
-              <span class="switch-desc">{{ 'account.notifEmailDesc' | translate }}</span>
+          <div class="switch-row-item">
+            <div class="switch-row-info">
+              <strong>{{ 'account.notifEmailTitle' | translate }}</strong>
+              <p>{{ 'account.notifEmailDesc' | translate }}</p>
             </div>
-            <label class="toggle-switch">
+            <label class="yt-switch">
               <input type="checkbox" [(ngModel)]="notifications.emailEnabled" />
-              <span class="toggle-slider"></span>
+              <span class="yt-slider"></span>
             </label>
           </div>
 
-          <div class="switch-item">
-            <div class="switch-info">
-              <span class="switch-title">{{ 'account.notifNewVideoTitle' | translate }}</span>
-              <span class="switch-desc">{{ 'account.notifNewVideoDesc' | translate }}</span>
+          <div class="switch-row-item">
+            <div class="switch-row-info">
+              <strong>{{ 'account.notifNewVideoTitle' | translate }}</strong>
+              <p>{{ 'account.notifNewVideoDesc' | translate }}</p>
             </div>
-            <label class="toggle-switch">
+            <label class="yt-switch">
               <input type="checkbox" [(ngModel)]="notifications.newVideoEnabled" />
-              <span class="toggle-slider"></span>
+              <span class="yt-slider"></span>
             </label>
           </div>
 
-          <div class="switch-item">
-            <div class="switch-info">
-              <span class="switch-title">{{ 'account.notifCommentReplyTitle' | translate }}</span>
-              <span class="switch-desc">{{ 'account.notifCommentReplyDesc' | translate }}</span>
+          <div class="switch-row-item">
+            <div class="switch-row-info">
+              <strong>{{ 'account.notifCommentReplyTitle' | translate }}</strong>
+              <p>{{ 'account.notifCommentReplyDesc' | translate }}</p>
             </div>
-            <label class="toggle-switch">
+            <label class="yt-switch">
               <input type="checkbox" [(ngModel)]="notifications.commentReplyEnabled" />
-              <span class="toggle-slider"></span>
+              <span class="yt-slider"></span>
             </label>
           </div>
 
-          <div class="switch-item">
-            <div class="switch-info">
-              <span class="switch-title">{{ 'account.notifMentionTitle' | translate }}</span>
-              <span class="switch-desc">{{ 'account.notifMentionDesc' | translate }}</span>
+          <div class="switch-row-item">
+            <div class="switch-row-info">
+              <strong>{{ 'account.notifMentionTitle' | translate }}</strong>
+              <p>{{ 'account.notifMentionDesc' | translate }}</p>
             </div>
-            <label class="toggle-switch">
+            <label class="yt-switch">
               <input type="checkbox" [(ngModel)]="notifications.mentionEnabled" />
-              <span class="toggle-slider"></span>
+              <span class="yt-slider"></span>
             </label>
           </div>
 
-          <div class="switch-item">
-            <div class="switch-info">
-              <span class="switch-title">{{ 'account.notifChannelActivityTitle' | translate }}</span>
-              <span class="switch-desc">{{ 'account.notifChannelActivityDesc' | translate }}</span>
+          <div class="switch-row-item">
+            <div class="switch-row-info">
+              <strong>{{ 'account.notifChannelActivityTitle' | translate }}</strong>
+              <p>{{ 'account.notifChannelActivityDesc' | translate }}</p>
             </div>
-            <label class="toggle-switch">
+            <label class="yt-switch">
               <input type="checkbox" [(ngModel)]="notifications.channelActivityEnabled" />
-              <span class="toggle-slider"></span>
+              <span class="yt-slider"></span>
             </label>
           </div>
         </div>
 
-        <div class="form-actions">
-          <button type="button" class="btn-primary" (click)="onSaveNotifications()" [disabled]="busy()">
+        <div class="form-buttons" style="margin-top: 24px;">
+          <button type="button" class="btn-yt-primary" (click)="onSaveNotifications()" [disabled]="busy()">
             {{ 'common.save' | translate }}
           </button>
         </div>
       </div>
     }
 
-    <!-- TAB 4: CÀI ĐẶT & GIAO DIỆN -->
-    @if (activeTab() === 'preferences') {
-      <div class="preferences-tab-pane">
-        <h2 class="sub-pane-title">{{ 'account.prefsHeading' | translate }}</h2>
-        <p class="sub-pane-desc">{{ 'account.prefsDesc' | translate }}</p>
+    <!-- ============================================== -->
+    <!-- TAB 4: CÀI ĐẶT NÂNG CAO                         -->
+    <!-- ============================================== -->
+    @if (activeTab() === 'advanced') {
+      <div class="settings-pane">
+        <h1 class="hero-heading">{{ 'account.tabAdvanced' | translate }}</h1>
+        <p class="hero-subtitle">{{ 'account.profileDesc' | translate }}</p>
 
-        <div class="preferences-box">
-          <div class="form-group">
-            <label for="languageSelect" class="input-label">{{ 'account.langLabel' | translate }}</label>
-            <select id="languageSelect" class="select-input" [(ngModel)]="preferences.language" (ngModelChange)="onLanguageChange($event)">
-              <option value="vi">{{ 'nav.langVi' | translate }}</option>
-              <option value="en">{{ 'nav.langEn' | translate }}</option>
-            </select>
-          </div>
+        <div class="pane-divider"></div>
 
-          <div class="form-group">
-            <label for="themeSelect" class="input-label">{{ 'account.themeLabel' | translate }}</label>
-            <select id="themeSelect" class="select-input" [(ngModel)]="preferences.theme" (ngModelChange)="onThemeChange($event)">
-              <option value="light">{{ 'account.themeLight' | translate }}</option>
-              <option value="dark">{{ 'account.themeDark' | translate }}</option>
-            </select>
-          </div>
-
-          <div class="privacy-section">
-            <h3 class="subsection-title">{{ 'account.privacyHeading' | translate }}</h3>
-            <div class="switch-item">
-              <div class="switch-info">
-                <span class="switch-title">{{ 'account.keepSubsPrivate' | translate }}</span>
-                <span class="switch-desc">{{ 'account.keepSubsPrivateDesc' | translate }}</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" [(ngModel)]="preferences.keepSubscriptionsPrivate" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="switch-item">
-              <div class="switch-info">
-                <span class="switch-title">{{ 'account.keepPlaylistsPrivate' | translate }}</span>
-                <span class="switch-desc">{{ 'account.keepPlaylistsPrivateDesc' | translate }}</span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" [(ngModel)]="preferences.keepPlaylistsPrivate" />
-                <span class="toggle-slider"></span>
-              </label>
+        <!-- IDs -->
+        @if (profile()?.userId; as uid) {
+          <div class="advanced-id-row">
+            <div class="id-label">{{ 'account.userId' | translate }}</div>
+            <div class="id-value-box">
+              <code>{{ uid }}</code>
+              <button type="button" class="btn-copy" (click)="copyUserId(uid)">{{ 'account.copy' | translate }}</button>
             </div>
           </div>
+        }
 
-          <div class="form-actions">
-            <button type="button" class="btn-primary" (click)="onSavePreferences()" [disabled]="busy()">
-              {{ 'account.savePrefs' | translate }}
+        @if (myChannel(); as ch) {
+          <div class="advanced-id-row">
+            <div class="id-label">Mã nhận dạng kênh (Channel ID)</div>
+            <div class="id-value-box">
+              <code>{{ ch.channelId }}</code>
+              <button type="button" class="btn-copy" (click)="copyUserId(ch.channelId)">{{ 'account.copy' | translate }}</button>
+            </div>
+          </div>
+        }
+
+        <div class="pane-divider"></div>
+
+        <!-- Đổi mật khẩu -->
+        <section class="pane-section">
+          <h2 class="section-title">{{ 'account.passwordHeading' | translate }}</h2>
+          <p class="section-subtitle">{{ 'account.passwordDesc' | translate }}</p>
+
+          <div class="password-box">
+            <div class="form-field">
+              <label for="cp" class="field-label">{{ 'account.currentPassword' | translate }}</label>
+              <input id="cp" type="password" class="yt-input" [(ngModel)]="currentPassword" [disabled]="busy()" />
+            </div>
+            <div class="form-field">
+              <label for="np" class="field-label">{{ 'account.newPassword' | translate }}</label>
+              <input id="np" type="password" class="yt-input" [(ngModel)]="newPassword" [disabled]="busy()" />
+            </div>
+            <div class="form-field">
+              <label for="cnp" class="field-label">{{ 'account.confirmNewPassword' | translate }}</label>
+              <input id="cnp" type="password" class="yt-input" [(ngModel)]="confirmPassword" [disabled]="busy()" />
+            </div>
+            <button type="button" class="btn-yt-primary" (click)="onChangePassword()" [disabled]="busy() || !currentPassword || !newPassword">
+              {{ 'account.savePassword' | translate }}
             </button>
           </div>
-        </div>
-      </div>
-    }
+        </section>
 
-    <!-- TAB 5: THIẾT BỊ ĐĂNG NHẬP -->
-    @if (activeTab() === 'sessions') {
-      <div class="sessions-tab-pane">
-        <div class="sessions-header-row">
-          <div>
-            <h2 class="sub-pane-title">{{ 'account.sessionsHeading' | translate }}</h2>
-            <p class="sub-pane-desc">{{ 'account.sessionsDesc' | translate }}</p>
-          </div>
-          <button type="button" class="btn-secondary" (click)="logoutOthers()" [disabled]="busy() || sessions().length < 2">
-            {{ 'account.logoutOthers' | translate }}
-          </button>
-        </div>
+        <div class="pane-divider"></div>
 
-        @if (pendingRevoke(); as pending) {
-          <div class="revoke-confirm-card">
-            <p>{{ 'account.confirmRevokeText' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
-            <div class="revoke-actions">
-              <button type="button" class="btn-danger" (click)="revoke()" [disabled]="busy()">{{ 'common.confirm' | translate }}</button>
-              <button type="button" class="btn-secondary" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
+        <!-- Phiên đăng nhập & Thiết bị -->
+        <section class="pane-section">
+          <div class="sessions-title-bar">
+            <div>
+              <h2 class="section-title">{{ 'account.sessionsHeading' | translate }}</h2>
+              <p class="section-subtitle">{{ 'account.sessionsDesc' | translate }}</p>
             </div>
+            <button type="button" class="btn-yt-secondary" (click)="logoutOthers()" [disabled]="busy() || sessions().length < 2">
+              {{ 'account.logoutOthers' | translate }}
+            </button>
           </div>
-        }
 
-        @if (loading()) {
-          <div class="loading-state">{{ 'common.loading' | translate }}</div>
-        } @else {
-          <div class="sessions-card-list">
-            @for (session of sessions(); track session.sessionId) {
-              <div class="session-card" [class.current-session]="session.isCurrent">
-                <div class="device-badge">
-                  {{ session.platform === 'mobile' ? '📱' : '💻' }}
-                </div>
-                <div class="session-info">
-                  <div class="session-name-row">
-                    <h3 class="device-name">{{ session.deviceName }}</h3>
-                    @if (session.isCurrent) {
-                      <span class="badge-current">{{ 'account.thisDevice' | translate }}</span>
-                    }
-                  </div>
-                  <p class="session-meta">{{ 'account.signedInAt' | translate }} {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>
-                </div>
-                <div class="session-action">
-                  @if (!session.isCurrent) {
-                    <button type="button" class="btn-revoke" (click)="pendingRevoke.set(session)" [disabled]="busy()">
-                      {{ 'account.revoke' | translate }}
-                    </button>
-                  }
-                </div>
+          @if (pendingRevoke(); as pending) {
+            <div class="revoke-warning">
+              <p>{{ 'account.confirmRevokeText' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
+              <div class="revoke-btn-group">
+                <button type="button" class="btn-danger" (click)="revoke()" [disabled]="busy()">{{ 'common.confirm' | translate }}</button>
+                <button type="button" class="btn-yt-secondary" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
               </div>
-            } @empty {
-              <p class="empty-text">{{ 'account.noSessions' | translate }}</p>
+            </div>
+          }
+
+          <div class="sessions-list">
+            @for (session of sessions(); track session.sessionId) {
+              <div class="session-item" [class.is-current]="session.isCurrent">
+                <div class="session-icon">{{ session.platform === 'mobile' ? '📱' : '💻' }}</div>
+                <div class="session-detail">
+                  <div class="session-name">
+                    <strong>{{ session.deviceName }}</strong>
+                    @if (session.isCurrent) { <span class="badge-current">{{ 'account.thisDevice' | translate }}</span> }
+                  </div>
+                  <small>{{ 'account.signedInAt' | translate }} {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</small>
+                </div>
+                @if (!session.isCurrent) {
+                  <button type="button" class="btn-revoke" (click)="pendingRevoke.set(session)" [disabled]="busy()">{{ 'account.revoke' | translate }}</button>
+                }
+              </div>
             }
           </div>
-        }
+        </section>
       </div>
     }
-  </div>
 
-  <footer class="account-footer">
-    <span class="connection-indicator"><span class="dot"></span> HuTube Cloud · {{ apiState() }}</span>
-  </footer>
-</main>
+    <!-- ============================================== -->
+    <!-- TAB: NỘI DUNG TẢI XUỐNG (MATCHING SCREENSHOT)  -->
+    <!-- ============================================== -->
+    @if (activeTab() === 'downloads') {
+      <div class="settings-pane">
+        <!-- Eyebrow & Hero Header -->
+        <div class="pane-hero-simple">
+          <span class="eyebrow-tag">{{ 'account.tabDownloads' | translate }}</span>
+          <h1 class="hero-heading">{{ 'account.downloadsHeroTitle' | translate }}</h1>
+          <p class="hero-subtitle">{{ 'account.downloadsHeroSub' | translate }}</p>
+        </div>
+
+        <div class="pane-divider"></div>
+
+        <!-- Section 1: Chất lượng tải xuống -->
+        <section class="pane-section">
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.downloadQualityHeading' | translate }}</div>
+            <div class="row-body">
+              <div class="yt-radio-group" role="radiogroup" aria-label="Chất lượng tải xuống">
+                <label class="yt-radio-item" (click)="setDownloadQuality('ask')">
+                  <input type="radio" name="downloadQuality" value="ask" [checked]="downloadQuality() === 'ask'" />
+                  <span class="yt-radio-circle"></span>
+                  <span class="yt-radio-text">{{ 'account.downloadQualityAsk' | translate }}</span>
+                </label>
+
+                <label class="yt-radio-item" (click)="setDownloadQuality('1080p')">
+                  <input type="radio" name="downloadQuality" value="1080p" [checked]="downloadQuality() === '1080p'" />
+                  <span class="yt-radio-circle"></span>
+                  <span class="yt-radio-text">{{ 'account.downloadQuality1080p' | translate }}</span>
+                </label>
+
+                <label class="yt-radio-item" (click)="setDownloadQuality('720p')">
+                  <input type="radio" name="downloadQuality" value="720p" [checked]="downloadQuality() === '720p'" />
+                  <span class="yt-radio-circle"></span>
+                  <span class="yt-radio-text">{{ 'account.downloadQuality720p' | translate }}</span>
+                </label>
+
+                <label class="yt-radio-item" (click)="setDownloadQuality('480p')">
+                  <input type="radio" name="downloadQuality" value="480p" [checked]="downloadQuality() === '480p'" />
+                  <span class="yt-radio-circle"></span>
+                  <span class="yt-radio-text">{{ 'account.downloadQuality480p' | translate }}</span>
+                </label>
+
+                <label class="yt-radio-item" (click)="setDownloadQuality('144p')">
+                  <input type="radio" name="downloadQuality" value="144p" [checked]="downloadQuality() === '144p'" />
+                  <span class="yt-radio-circle"></span>
+                  <span class="yt-radio-text">{{ 'account.downloadQuality144p' | translate }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="pane-divider"></div>
+
+        <!-- Section 2: Tải xuống thông minh -->
+        <section class="pane-section">
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.smartDownloadsHeading' | translate }}</div>
+            <div class="row-body">
+              <div class="privacy-toggle-group">
+                <div class="toggle-row">
+                  <label class="yt-switch">
+                    <input type="checkbox" [checked]="smartDownloads()" (change)="onToggleSmartDownloads($any($event.target).checked)" />
+                    <span class="yt-slider"></span>
+                  </label>
+                  <span class="toggle-headline">{{ 'account.smartDownloadsToggle' | translate }}</span>
+                </div>
+                <p class="toggle-explanation">
+                  {{ 'account.smartDownloadsDesc' | translate }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="pane-divider"></div>
+
+        <!-- Section 3: Xóa tất cả video tải xuống -->
+        <section class="pane-section">
+          <div class="download-delete-row">
+            <div class="delete-info">
+              <h3 class="delete-heading">{{ 'account.deleteAllDownloadsHeading' | translate }}</h3>
+              <p class="delete-sub">{{ 'account.deleteAllDownloadsDesc' | translate }}</p>
+            </div>
+            <div class="delete-action">
+              <button type="button" class="btn-yt-outline" (click)="clearAllDownloads()">
+                {{ 'account.deleteAllDownloadsBtn' | translate }}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    }
+
+    <!-- ============================================== -->
+    <!-- TAB: LẬP HÓA ĐƠN VÀ THANH TOÁN                  -->
+    <!-- ============================================== -->
+    @if (activeTab() === 'billing') {
+      <div class="settings-pane">
+        <div class="pane-hero-simple">
+          <span class="eyebrow-tag">{{ 'account.tabBilling' | translate }}</span>
+          <h1 class="hero-heading">{{ 'account.billingHeroTitle' | translate }}</h1>
+          <p class="hero-subtitle">{{ 'account.billingHeroSub' | translate }}</p>
+        </div>
+
+        <div class="pane-divider"></div>
+
+        <!-- Section 1: Giao dịch mua và gói thành viên -->
+        <section class="pane-section">
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.membershipsHeading' | translate }}</div>
+            <div class="row-body">
+              <div class="billing-membership-card">
+                <div class="membership-badge-icon">👑</div>
+                <div class="membership-info">
+                  <strong class="membership-title">HuTube Premium</strong>
+                  <p class="membership-desc">{{ 'account.membershipsDesc' | translate }}</p>
+                </div>
+                <button type="button" class="btn-yt-primary">
+                  {{ 'account.learnMorePremium' | translate }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="pane-divider"></div>
+
+        <!-- Section 2: Phương thức thanh toán -->
+        <section class="pane-section">
+          <div class="channel-row">
+            <div class="row-label">{{ 'account.paymentMethodsHeading' | translate }}</div>
+            <div class="row-body">
+              <p class="sub-hint">{{ 'account.noPaymentMethod' | translate }}</p>
+              <button type="button" class="yt-action-link-btn primary-action" style="margin-top: 6px;">
+                + {{ 'account.addPaymentMethod' | translate }}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    }
+  </main>
+</div>

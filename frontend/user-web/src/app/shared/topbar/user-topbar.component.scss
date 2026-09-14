@@ -14,7 +14,81 @@
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.menu-button, .mobile-mark { display: none; }
+.topbar-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.menu-button {
+  display: none;
+  width: 40px;
+  height: 40px;
+  place-content: center;
+  gap: 4px;
+  border-radius: 50%;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--card-hover);
+  }
+
+  span {
+    width: 18px;
+    height: 2px;
+    border-radius: 10px;
+    background: var(--ink);
+  }
+}
+
+.topbar-brand {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--ink);
+
+  img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 8px;
+  }
+
+  .brand-text {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.055em;
+    white-space: nowrap;
+    color: var(--ink);
+
+    strong { font: inherit; }
+    em { color: var(--primary); font: inherit; font-style: normal; }
+  }
+
+  .country-badge {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+}
+
+:host-context(.sidebar-hidden) {
+  .menu-button {
+    display: grid !important;
+  }
+
+  .topbar-brand {
+    display: inline-flex !important;
+  }
+}
 
 .search-box {
   display: flex;
@@ -151,7 +225,14 @@
   background: var(--primary);
   color:#fff;font:700 .58rem/14px var(--font-main);font-style:normal;text-align:center;padding:0 2px;
 }
-.avatar-image{width:100%;height:100%;border-radius:inherit;object-fit:cover}
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  filter: none !important;
+  display: block;
+}
 
 .avatar-container {
   position: relative;
@@ -170,6 +251,12 @@
   border: 2px solid transparent;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+  padding: 0;
+
+  img {
+    filter: none !important;
+  }
 }
 
 .top-avatar:hover {
@@ -217,6 +304,11 @@
   font-size: 0.95rem;
   font-weight: 800;
   flex: none;
+  overflow: hidden;
+
+  img {
+    filter: none !important;
+  }
 }
 
 .dropdown-user-info {
@@ -283,6 +375,20 @@
   text-align: center;
 }
 
+.dropdown-item .item-icon-img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.dropdown-item .item-icon-svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
 /* Premier Vào Studio Item */
 .dropdown-item--studio {
   background: var(--primary-soft);
@@ -292,6 +398,13 @@
   padding: 9px 12px;
   border-radius: 10px;
   transition: all 0.18s ease;
+
+  .studio-badge-img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
 
   .studio-badge-icon {
     font-size: 1.15rem;
@@ -368,25 +481,9 @@
 }
 
 @media (max-width: 960px) {
-  .menu-button {
-    display: grid;
-    width: 40px;
-    height: 40px;
-    place-content: center;
-    gap: 4px;
-    border-radius: 11px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    cursor: pointer;
-  }
-  .menu-button span {
-    width: 18px;
-    height: 2px;
-    border-radius: 10px;
-    background: var(--ink);
-  }
-  .mobile-mark { display: inline-flex; }
-  .mobile-mark img { width: 38px; height: 38px; background: #fff; border-radius: 10px; }
+  .menu-button { display: grid; }
+  .topbar-brand { display: inline-flex; }
+  .topbar-brand img { width: 34px; height: 34px; }
   .search-box { width: min(420px, 46vw); }
 }
 

@@ -6,11 +6,17 @@ import { finalize } from 'rxjs';
 import { AuthService, Session, errorMessage } from '../../core/auth.service';
 import { AccountService, NotificationSettings, UserPreferences, UserProfile } from '../../core/account.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
-import { ThemeService, AppThemeMode } from '../../core/theme.service';
-import { I18nService, AppLang } from '../../core/i18n.service';
+import { ThemeService } from '../../core/theme.service';
+import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 
-type AccountTab = 'profile' | 'password' | 'notifications' | 'preferences' | 'sessions';
+export type AccountTab =
+  | 'account'
+  | 'notifications'
+  | 'downloads'
+  | 'privacy'
+  | 'billing'
+  | 'advanced';
 
 @Component({
   selector: 'app-account-page',
@@ -18,7 +24,7 @@ type AccountTab = 'profile' | 'password' | 'notifications' | 'preferences' | 'se
   templateUrl: './account-page.html',
   styleUrl: './account-page.scss'
 })
-export class AccountPage {
+export class AccountPage implements OnInit {
   readonly auth = inject(AuthService);
   readonly account = inject(AccountService);
   readonly channelService = inject(ChannelService);
@@ -28,12 +34,26 @@ export class AccountPage {
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
 
-  readonly activeTab = signal<AccountTab>('profile');
+  readonly activeTab = signal<AccountTab>('account');
   readonly loading = signal(true);
   readonly myChannel = signal<ChannelDetail | null>(null);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly message = signal('');
+
+  // Privacy toggles matching YouTube Image 2
+  readonly keepSubscriptionsPrivate = signal(true);
+  readonly allowMentions = signal(true);
+  readonly topFanRanking = signal(true);
+  readonly celebrateSuperChat = signal(true);
+
+  // Downloads settings matching screenshot
+  readonly downloadQuality = signal<'ask' | '1080p' | '720p' | '480p' | '144p'>('480p');
+  readonly smartDownloads = signal(false);
+
+  // Modals / toggles for account edit
+  readonly editingProfile = signal(false);
+  readonly changingPassword = signal(false);
 
   // Profile Form
   readonly profile = signal<UserProfile | null>(null);
@@ -64,7 +84,7 @@ export class AccountPage {
   // Preferences
   preferences: UserPreferences = {
     language: 'vi',
-    theme: 'light',
+    theme: 'dark',
     keepSubscriptionsPrivate: true,
     keepPlaylistsPrivate: true,
     location: 'Việt Nam'
@@ -75,7 +95,14 @@ export class AccountPage {
   readonly pendingRevoke = signal<Session | null>(null);
   readonly apiState = signal('Đang kiểm tra kết nối…');
 
-  constructor() {
+  ngOnInit() {
+    this.topFanRanking.set(localStorage.getItem('hutube.privacy.topFanRanking') !== 'false');
+    this.celebrateSuperChat.set(localStorage.getItem('hutube.privacy.celebrateSuperChat') !== 'false');
+    const savedQuality = localStorage.getItem('hutube.downloads.quality') as 'ask' | '1080p' | '720p' | '480p' | '144p' | null;
+    if (savedQuality) {
+      this.downloadQuality.set(savedQuality);
+    }
+    this.smartDownloads.set(localStorage.getItem('hutube.downloads.smart') === 'true');
     this.loadAll();
     this.auth.info().subscribe({
       next: () => this.apiState.set('Đã kết nối'),
@@ -103,7 +130,10 @@ export class AccountPage {
     });
 
     this.account.getNotificationSettings().subscribe({
-      next: n => this.notifications = { ...n },
+      next: n => {
+        this.notifications = { ...n };
+        this.allowMentions.set(n.mentionEnabled ?? true);
+      },
       error: () => {}
     });
 
@@ -111,6 +141,7 @@ export class AccountPage {
       next: prefs => {
         this.preferences = { ...prefs };
         this.location = prefs.location ?? 'Việt Nam';
+        this.keepSubscriptionsPrivate.set(prefs.keepSubscriptionsPrivate ?? true);
         if (prefs.theme === 'light' || prefs.theme === 'dark') {
           this.themeService.setTheme(prefs.theme);
         }
@@ -136,6 +167,65 @@ export class AccountPage {
     });
   }
 
+  // Privacy Toggle Handlers
+  onToggleSubscriptionPrivacy(val: boolean) {
+    this.keepSubscriptionsPrivate.set(val);
+    this.preferences.keepSubscriptionsPrivate = val;
+    this.account.updatePreferences(this.preferences).subscribe({
+      next: () => {
+        this.message.set(this.i18n.t('account.privacySaved'));
+        setTimeout(() => this.message.set(''), 3000);
+      },
+      error: err => this.error.set(errorMessage(err))
+    });
+  }
+
+  onToggleMentions(val: boolean) {
+    this.allowMentions.set(val);
+    this.notifications.mentionEnabled = val;
+    this.account.updateNotificationSettings(this.notifications).subscribe({
+      next: () => {
+        this.message.set(this.i18n.t('account.privacySaved'));
+        setTimeout(() => this.message.set(''), 3000);
+      },
+      error: err => this.error.set(errorMessage(err))
+    });
+  }
+
+  onToggleTopFanRanking(val: boolean) {
+    this.topFanRanking.set(val);
+    localStorage.setItem('hutube.privacy.topFanRanking', String(val));
+    this.message.set(this.i18n.t('account.privacySaved'));
+    setTimeout(() => this.message.set(''), 3000);
+  }
+
+  onToggleCelebrateSuperChat(val: boolean) {
+    this.celebrateSuperChat.set(val);
+    localStorage.setItem('hutube.privacy.celebrateSuperChat', String(val));
+    this.message.set(this.i18n.t('account.privacySaved'));
+    setTimeout(() => this.message.set(''), 3000);
+  }
+
+  setDownloadQuality(quality: 'ask' | '1080p' | '720p' | '480p' | '144p') {
+    this.downloadQuality.set(quality);
+    localStorage.setItem('hutube.downloads.quality', quality);
+    this.message.set(this.i18n.t('account.downloadQualitySaved'));
+    setTimeout(() => this.message.set(''), 3000);
+  }
+
+  onToggleSmartDownloads(val: boolean) {
+    this.smartDownloads.set(val);
+    localStorage.setItem('hutube.downloads.smart', String(val));
+    this.message.set(this.i18n.t('account.smartDownloadsSaved'));
+    setTimeout(() => this.message.set(''), 3000);
+  }
+
+  clearAllDownloads() {
+    localStorage.removeItem('hutube.offline.videos');
+    this.message.set(this.i18n.t('account.deleteAllDownloadsSuccess'));
+    setTimeout(() => this.message.set(''), 3500);
+  }
+
   onSaveProfile() {
     if (this.busy()) return;
     this.busy.set(true);
@@ -148,7 +238,9 @@ export class AccountPage {
     }).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: updated => {
         this.profile.set(updated);
+        this.editingProfile.set(false);
         this.message.set(this.i18n.t('account.profileSaved'));
+        setTimeout(() => this.message.set(''), 3000);
       },
       error: err => this.error.set(errorMessage(err))
     });
@@ -174,6 +266,7 @@ export class AccountPage {
       next: updated => {
         this.profile.set(updated);
         this.message.set(this.i18n.t('account.avatarUpdated'));
+        setTimeout(() => this.message.set(''), 3000);
       },
       error: err => this.error.set(errorMessage(err))
     });
@@ -207,6 +300,8 @@ export class AccountPage {
         this.currentPassword = '';
         this.newPassword = '';
         this.confirmPassword = '';
+        this.changingPassword.set(false);
+        setTimeout(() => this.message.set(''), 3000);
       },
       error: err => this.error.set(errorMessage(err))
     });
@@ -221,7 +316,10 @@ export class AccountPage {
     this.account.updateNotificationSettings(this.notifications).pipe(
       finalize(() => this.busy.set(false))
     ).subscribe({
-      next: () => this.message.set(this.i18n.t('account.notifSaved')),
+      next: () => {
+        this.message.set(this.i18n.t('account.notifSaved'));
+        setTimeout(() => this.message.set(''), 3000);
+      },
       error: err => this.error.set(errorMessage(err))
     });
   }
@@ -229,43 +327,23 @@ export class AccountPage {
   onThemeChange(theme: string) {
     if (theme === 'light' || theme === 'dark') {
       this.themeService.setTheme(theme);
+      this.preferences.theme = theme;
+      this.account.updatePreferences(this.preferences).subscribe();
     }
   }
 
   onLanguageChange(lang: string) {
     if (lang === 'vi' || lang === 'en') {
       this.i18n.setLang(lang);
+      this.preferences.language = lang;
+      this.account.updatePreferences(this.preferences).subscribe();
     }
-  }
-
-  onSavePreferences() {
-    if (this.busy()) return;
-    this.busy.set(true);
-    this.error.set('');
-    this.message.set('');
-
-    this.preferences.location = this.location;
-    if (this.preferences.theme === 'light' || this.preferences.theme === 'dark') {
-      this.themeService.setTheme(this.preferences.theme);
-    }
-    if (this.preferences.language === 'vi' || this.preferences.language === 'en') {
-      this.i18n.setLang(this.preferences.language);
-    }
-
-    this.account.updatePreferences(this.preferences).pipe(
-      finalize(() => this.busy.set(false))
-    ).subscribe({
-      next: updated => {
-        this.preferences = { ...updated };
-        this.message.set(this.i18n.t('account.prefsSaved'));
-      },
-      error: err => this.error.set(errorMessage(err))
-    });
   }
 
   copyUserId(id: string) {
     navigator.clipboard.writeText(id).then(() => {
       this.message.set(this.i18n.t('account.userIdCopied'));
+      setTimeout(() => this.message.set(''), 3000);
     });
   }
 

@@ -1,7 +1,7 @@
 import { Component, ElementRef, HostListener, OnDestroy, ViewChild, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../../core/i18n.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 import { ChannelService } from '../../../core/channel.service';
@@ -22,7 +22,7 @@ interface ThumbnailOption {
 
 @Component({
   selector: 'app-video-upload-wizard',
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, TranslatePipe, RouterLink],
   templateUrl: './video-upload-wizard.component.html',
   styleUrl: './video-upload-wizard.component.scss'
 })
@@ -86,12 +86,13 @@ export class VideoUploadWizardComponent implements OnDestroy {
   autoSubtitles = true;
 
   // Visibility (Step 5)
-  visibility = 'private';
+  visibility = 'public';
   publishMode = 'now';
   scheduleDate = '2026-09-15';
   scheduleTime = '19:00';
   allowComments = true;
   selectedPlaylist = 'dalat-trips';
+  policyAgreed = false;
 
   // Step 6 State
   readonly copied = signal(false);
@@ -400,6 +401,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
     if (!this.selectedFile || !this.channelId || this.isUploading()) return;
     if (!this.videoTitle.trim()) { this.uploadError.set('Vui lòng nhập tiêu đề video.'); this.setStep(2); return; }
     if (!this.validateChapters()) { this.setStep(3); return; }
+    if (this.visibility === 'public' && !this.policyAgreed) {
+      this.uploadError.set('Vui lòng đánh dấu cam kết tuân thủ Tiêu chuẩn cộng đồng HuTube trước khi gửi duyệt.');
+      return;
+    }
     const data = new FormData();
     data.append('ChannelId', this.channelId);
     data.append('Title', this.videoTitle.trim());

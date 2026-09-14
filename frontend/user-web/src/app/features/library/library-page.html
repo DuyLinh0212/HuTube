@@ -10,11 +10,17 @@
 
   @if (isLiked) {
     <section class="rating-filter" aria-label="Lọc video theo đánh giá của bạn">
-      <span class="rating-filter__label">Lọc theo đánh giá</span>
+      <span class="rating-filter__label">
+        <img src="/assets/icons/utility/icon-utility-filter-sliders.png" alt="" class="filter-icon-img" />
+        <span>Lọc theo đánh giá</span>
+      </span>
       <div class="rating-filter__options" role="group">
         <button type="button" [class.is-active]="ratingFilter() === null" [attr.aria-pressed]="ratingFilter() === null" (click)="setRatingFilter(null)">Tất cả</button>
         @for (star of [1, 2, 3, 4, 5]; track star) {
-          <button type="button" [class.is-active]="ratingFilter() === star" [attr.aria-pressed]="ratingFilter() === star" (click)="setRatingFilter(star)"><span aria-hidden="true">★</span> {{ star }}</button>
+          <button type="button" class="rating-filter__btn" [class.is-active]="ratingFilter() === star" [attr.aria-pressed]="ratingFilter() === star" (click)="setRatingFilter(star)">
+            <img src="/assets/icons/utility/icon-utility-star.png" alt="" class="star-icon-img" />
+            <span>{{ star }}</span>
+          </button>
         }
       </div>
     </section>
@@ -77,7 +83,9 @@
       }
     } @else {
       <section class="library-empty">
-        <span class="library-empty__icon" aria-hidden="true">{{ isLiked ? '♡' : '◷' }}</span>
+        <div class="library-empty__icon-box">
+          <img [src]="isLiked ? '/assets/icons/favorite.png' : '/assets/icons/history.png'" alt="" class="empty-icon-img" />
+        </div>
         <h2>{{ isLiked && ratingFilter() !== null ? 'Không có video phù hợp' : (isLiked ? 'Chưa có video đã thích' : 'Chưa có lịch sử xem') }}</h2>
         <p>{{ isLiked && ratingFilter() !== null ? 'Thử chọn một mức đánh giá khác.' : (isLiked ? 'Những video bạn bấm Thích sẽ xuất hiện ở đây.' : 'Video bạn mở và xem sẽ được lưu lại tại đây.') }}</p>
         @if (isLiked && ratingFilter() !== null) { <button type="button" class="library-empty__action" (click)="setRatingFilter(null)">Xem tất cả video đã thích</button> }

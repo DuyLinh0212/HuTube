@@ -1,6 +1,6 @@
 <aside class="side-nav" [class.is-collapsed]="collapsed" [class.is-open]="open" [attr.aria-hidden]="!open" aria-label="Điều hướng HuTube">
   <div class="side-nav__head">
-    <a class="brand" routerLink="/account" aria-label="HuTube">
+    <a class="brand" routerLink="/home" aria-label="HuTube">
       <img src="/assets/logo-mark.png" alt="" />
       <span><strong>Hu</strong><em>Tube</em></span>
     </a>
@@ -29,6 +29,14 @@
 
     <section class="nav-group" [attr.aria-label]="'nav.library' | translate">
       <p class="nav-label">{{ 'nav.library' | translate }}</p>
+      <a class="nav-item" routerLink="/profile" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.profile' | translate">
+        <img src="/assets/icons/icon-nav-profile-outline.png" alt="" />
+        <span>{{ 'nav.profile' | translate }}</span>
+      </a>
+      <a class="nav-item" (click)="openMyChannel()" style="cursor: pointer;" [title]="'nav.yourChannel' | translate">
+        <img src="/assets/icons/my_channel.png" alt="" />
+        <span>{{ 'nav.yourChannel' | translate }}</span>
+      </a>
       <a class="nav-item" routerLink="/history" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.history' | translate">
         <img src="/assets/icons/history.png" alt="" />
         <span>{{ 'nav.history' | translate }}</span>
@@ -42,21 +50,14 @@
         <span>{{ 'nav.playlists' | translate }}</span>
       </span>
     </section>
-
-    <section class="nav-group" [attr.aria-label]="'nav.yourChannel' | translate">
-      <p class="nav-label">{{ 'nav.yourChannel' | translate }}</p>
-      <a class="nav-item" (click)="openMyChannel()" style="cursor: pointer;" [title]="'nav.yourChannel' | translate">
-        <img src="/assets/icons/my_channel.png" alt="" />
-        <span>{{ 'nav.yourChannel' | translate }}</span>
-      </a>
-    </section>
-
-    <section class="nav-group" [attr.aria-label]="'nav.settings' | translate">
-      <p class="nav-label">{{ 'nav.settings' | translate }}</p>
-      <a class="nav-item" routerLink="/account" (click)="closeNavigation()" routerLinkActive="active" [title]="'nav.profile' | translate">
-        <img src="/assets/icons/setting.png" alt="" />
-        <span>{{ 'nav.profile' | translate }}</span>
-      </a>
-    </section>
   </nav>
+
+  <div class="sidebar-footer">
+    <div class="footer-links">
+      <a routerLink="/policies" [queryParams]="{ tab: 'terms' }" (click)="closeNavigation()">{{ 'nav.terms' | translate }}</a>
+      <a routerLink="/policies" [queryParams]="{ tab: 'privacy' }" (click)="closeNavigation()">{{ 'nav.privacy' | translate }}</a>
+      <a routerLink="/policies" [queryParams]="{ tab: 'guidelines' }" (click)="closeNavigation()">{{ 'nav.guidelines' | translate }}</a>
+    </div>
+    <p class="copyright">© 2026 HuTube LLC</p>
+  </div>
 </aside>

@@ -12,7 +12,9 @@
     </div>
   } @else if (error()) {
     <div class="channel-error-state">
-      <div class="error-icon">📺</div>
+      <div class="error-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+      </div>
       <h2>Kênh này không khả dụng</h2>
       <p>{{ error() }}</p>
       <a routerLink="/account" class="btn-primary">Quay lại trang cá nhân</a>
@@ -44,7 +46,9 @@
       <div class="channel-meta-content">
         <div class="channel-title-row">
           <h1 class="channel-name">{{ ch.name }}</h1>
-          <span class="verified-badge" title="Kênh đã xác minh">✓</span>
+          <span class="verified-badge" title="Kênh đã xác minh">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
         </div>
 
         <p class="channel-sub-meta">
@@ -53,31 +57,50 @@
           <span class="stats">{{ ch.videoCount }} video</span>
         </p>
 
-        @if (ch.description) {
-          <p class="channel-desc-preview">{{ ch.description }}</p>
-        }
+        <!-- Description preview & info modal trigger -->
+        <div class="channel-info-preview-box">
+          <p class="channel-desc-preview" (click)="openInfoModal()">
+            <span class="desc-text-snippet">{{ ch.description || 'Tìm hiểu thêm về kênh này' }}</span>
+            <button type="button" class="btn-more-info">...xem thêm</button>
+          </p>
+
+          @if (channelLinks().length > 0) {
+            <button type="button" class="channel-links-preview-btn" (click)="openInfoModal()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span class="preview-link-text">
+                {{ firstLink()!.title }}
+                @if (otherLinksCount() > 0) {
+                  và {{ otherLinksCount() }} đường liên kết khác
+                }
+              </span>
+            </button>
+          }
+        </div>
 
         <div class="channel-cta-row">
           @if (ch.isOwner) {
             <a [routerLink]="['/channel', ch.handle, 'customize']" class="btn-primary">
-              ⚙️ Tùy chỉnh kênh
+              <img src="/assets/icons/setting.png" class="btn-img-icon" alt="" />
+              Tùy chỉnh kênh
             </a>
-            <button type="button" class="btn-secondary" title="Tính năng quản lý video">
+            <a routerLink="/studio/content" class="btn-secondary" title="Quản lý video trong Creator Studio">
               Quản lý video
-            </button>
+            </a>
           } @else {
             <button type="button" class="btn-subscribe" [class.is-subscribed]="isSubscribed()" (click)="toggleSubscribe()">
               {{ isSubscribed() ? 'Đã đăng ký' : 'Theo dõi' }}
             </button>
             @if (isSubscribed()) {
-              <button type="button" class="btn-bell-notice" title="Thông báo">🔔</button>
+              <button type="button" class="btn-bell-notice" title="Thông báo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </button>
             }
           }
         </div>
       </div>
     </header>
 
-    <!-- Channel Navigation Tabs -->
+    <!-- Channel Navigation Tabs (Removed About tab) -->
     <nav class="channel-tabs-bar" aria-label="Nội dung kênh">
       <button type="button" class="tab-item" [class.active]="activeTab() === 'home'" (click)="setTab('home')">
         Trang chủ
@@ -88,9 +111,6 @@
       <button type="button" class="tab-item" [class.active]="activeTab() === 'playlists'" (click)="setTab('playlists')">
         Danh sách phát
       </button>
-      <button type="button" class="tab-item" [class.active]="activeTab() === 'about'" (click)="setTab('about')">
-        Giới thiệu
-      </button>
     </nav>
 
     <!-- Tab Content -->
@@ -100,48 +120,172 @@
           <div class="channel-video-grid">
             @for (video of videos(); track video.videoId) {
               <a class="channel-video-card" [routerLink]="['/watch', video.videoId]">
-                <div class="channel-video-thumb">@if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" alt="" /> } @else { ▶ }</div>
-                <strong>{{ video.title }}</strong><small>{{ video.stats.views }} lượt xem · {{ video.visibility }}</small>
+                <div class="channel-video-thumb">
+                  @if (video.thumbnailUrl) {
+                    <img [src]="video.thumbnailUrl" alt="" />
+                  } @else {
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  }
+                </div>
+                <strong>{{ video.title }}</strong>
+                <small>{{ video.stats.views }} lượt xem · {{ video.visibility }}</small>
               </a>
             }
           </div>
-        } @else { <div class="empty-videos-box">
-          <div class="box-icon">🎬</div>
-          <h3>Chưa có video nào</h3>
-          <p>Kênh này chưa tải lên video nào. Hãy quay lại sau nhé!</p>
-        </div> }
+        } @else {
+          <div class="empty-videos-box">
+            <div class="box-icon">
+              <img src="/assets/icons/my_video.png" class="empty-state-img" alt="" />
+            </div>
+            <h3>Chưa có video nào</h3>
+            <p>Kênh này chưa tải lên video nào. Hãy quay lại sau nhé!</p>
+          </div>
+        }
       }
 
       @if (activeTab() === 'playlists') {
         <div class="empty-videos-box">
-          <div class="box-icon">📑</div>
+          <div class="box-icon">
+            <img src="/assets/icons/playlist.png" class="empty-state-img" alt="" />
+          </div>
           <h3>Chưa có danh sách phát</h3>
           <p>Chưa có playlist công khai nào được tạo trên kênh này.</p>
         </div>
       }
+    </div>
 
-      @if (activeTab() === 'about') {
-        <div class="about-tab-container">
-          <div class="about-left-col">
-            <h3>Mô tả</h3>
-            <p class="about-text">{{ ch.description || 'Chưa có mô tả chi tiết cho kênh này.' }}</p>
+    <!-- MODAL: TÌM HIỂU THÊM THÔNG TIN (CHANNEL INFO MODAL) -->
+    @if (showInfoModal()) {
+      <div class="modal-backdrop" (click)="closeInfoModal()">
+        <div class="channel-info-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="ch.name">
+          <header class="modal-header">
+            <h2 class="modal-channel-name">{{ ch.name }}</h2>
+            <button type="button" class="btn-close-modal" (click)="closeInfoModal()" aria-label="Đóng">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </header>
+
+          <div class="modal-body">
+            @if (ch.description) {
+              <div class="info-section desc-section">
+                <h3 class="info-section-title">Mô tả</h3>
+                <p class="modal-desc-text">{{ ch.description }}</p>
+              </div>
+            }
 
             @if (ch.contactEmail) {
-              <h3>Chi tiết liên hệ</h3>
-              <p class="about-email">✉️ Email công việc: <a [href]="'mailto:' + ch.contactEmail">{{ ch.contactEmail }}</a></p>
+              <div class="info-section email-section">
+                <h3 class="info-section-title">Chi tiết liên hệ</h3>
+                <p class="modal-email-row">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  Email công việc: <a [href]="'mailto:' + ch.contactEmail">{{ ch.contactEmail }}</a>
+                </p>
+              </div>
             }
+
+            <!-- Đường liên kết Section (Image 3) -->
+            <div class="info-section links-section">
+              <h3 class="info-section-title">Đường liên kết</h3>
+              @if (channelLinks().length > 0) {
+                <div class="modal-links-list">
+                  @for (link of channelLinks(); track $index) {
+                    <a [href]="formatUrl(link.url)" target="_blank" rel="noopener noreferrer" class="modal-link-item">
+                      <div class="link-brand-badge" [attr.data-brand]="getBrandType(link.url)">
+                        @switch (getBrandType(link.url)) {
+                          @case ('facebook') {
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                          }
+                          @case ('instagram') {
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                          }
+                          @case ('tiktok') {
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-1.01v8.83c0 1.94-.53 3.94-1.67 5.51-1.41 1.94-3.71 3.2-6.13 3.43-2.48.24-5.06-.55-6.93-2.18-1.99-1.74-3.08-4.28-2.97-6.9.11-2.61 1.4-5.05 3.47-6.66 1.91-1.49 4.38-2.18 6.78-1.89v4.19c-.93-.16-1.9-.11-2.81.18-1.12.35-2.07 1.13-2.58 2.16-.62 1.25-.56 2.82.16 4.02.66 1.1 1.87 1.79 3.14 1.83 1.34.05 2.68-.61 3.39-1.75.52-.83.69-1.83.68-2.81V.02z"/></svg>
+                          }
+                          @case ('twitter') {
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                          }
+                          @case ('youtube') {
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                          }
+                          @default {
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                          }
+                        }
+                      </div>
+                      <div class="link-item-texts">
+                        <span class="link-item-title">{{ link.title }}</span>
+                        <span class="link-item-url">{{ link.url }}</span>
+                      </div>
+                    </a>
+                  }
+                </div>
+              } @else {
+                <p class="empty-info-text">Chưa có đường liên kết bên ngoài.</p>
+              }
+            </div>
+
+            <!-- Thông tin khác Section (Image 3) -->
+            <div class="info-section other-info-section">
+              <h3 class="info-section-title">Thông tin khác</h3>
+              <div class="other-info-list">
+                <div class="info-row-item">
+                  <div class="info-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  </div>
+                  <span class="info-text">www.hutube.vn/&#64;{{ ch.handle }}</span>
+                </div>
+
+                <div class="info-row-item">
+                  <div class="info-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  </div>
+                  <span class="info-text">Việt Nam</span>
+                </div>
+
+                <div class="info-row-item">
+                  <div class="info-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </div>
+                  <span class="info-text">Đã tham gia {{ ch.createdAt | date:'d thg M, yyyy' }}</span>
+                </div>
+
+                <div class="info-row-item">
+                  <div class="info-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </div>
+                  <span class="info-text">{{ ch.subscriberCount }} người đăng ký</span>
+                </div>
+
+                <div class="info-row-item">
+                  <div class="info-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                  </div>
+                  <span class="info-text">{{ ch.videoCount }} video</span>
+                </div>
+
+                <div class="info-row-item">
+                  <div class="info-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                  </div>
+                  <span class="info-text">{{ totalViews() }} lượt xem</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="about-right-col">
-            <h3>Thống kê</h3>
-            <ul class="stats-list">
-              <li>Đã tham gia: {{ ch.createdAt | date:'dd/MM/yyyy' }}</li>
-              <li>Tổng lượt xem: 0 lượt xem</li>
-              <li>Trạng thái kênh: <span class="badge-status">{{ ch.status }}</span></li>
-            </ul>
-          </div>
+          <!-- Footer Actions (Image 3) -->
+          <footer class="modal-footer">
+            <button type="button" class="btn-modal-action" (click)="copyShareLink()">
+              <img src="/assets/icons/utility/icon-utility-share.png" class="btn-action-icon" alt="" />
+              <span>{{ shareCopied() ? 'Đã sao chép!' : 'Chia sẻ kênh' }}</span>
+            </button>
+            <button type="button" class="btn-modal-action" (click)="reportChannel()">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+              <span>Báo cáo người dùng</span>
+            </button>
+          </footer>
         </div>
-      }
-    </div>
+      </div>
+    }
   }
 </main>

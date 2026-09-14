@@ -12,6 +12,11 @@ import {
 } from '../../core/channel.service';
 import { errorMessage } from '../../core/auth.service';
 
+export interface ChannelLinkItem {
+  title: string;
+  url: string;
+}
+
 type SettingsTab = 'basic' | 'branding' | 'members' | 'danger';
 
 @Component({
@@ -43,6 +48,7 @@ export class ChannelSettingsPage {
   description = '';
   contactEmail = '';
   watermarkUrl = '';
+  links: ChannelLinkItem[] = [];
   inviteEmail = '';
   inviteRole: ChannelRole['code'] = 'editor';
   confirmChannelName = '';
@@ -59,6 +65,16 @@ export class ChannelSettingsPage {
   roleName(code: string): string {
     if (code === 'owner') return 'Chủ sở hữu';
     return this.roles().find(role => role.code === code)?.name ?? code;
+  }
+
+  addLink() {
+    if (this.links.length < 14) {
+      this.links.push({ title: '', url: '' });
+    }
+  }
+
+  removeLink(index: number) {
+    this.links.splice(index, 1);
   }
 
   loadChannel() {
@@ -78,11 +94,34 @@ export class ChannelSettingsPage {
         this.description = channel.description ?? '';
         this.contactEmail = channel.contactEmail ?? '';
         this.watermarkUrl = channel.watermarkUrl ?? '';
+        this.parseLinks(channel);
         this.chooseAvailableTab();
         this.loadCollaboration();
       },
       error: err => this.error.set(errorMessage(err) || 'Không thể tải thông tin kênh.')
     });
+  }
+
+  private parseLinks(channel: ChannelDetail) {
+    try {
+      const parsed = typeof channel.settings === 'string' ? JSON.parse(channel.settings || '{}') : (channel.settings || {});
+      if (Array.isArray(parsed?.links)) {
+        this.links = parsed.links.map((l: any) => ({ title: l.title || '', url: l.url || '' }));
+        return;
+      }
+    } catch {}
+
+    const local = localStorage.getItem('hutube_channel_links_' + channel.channelId);
+    if (local) {
+      try {
+        const parsedLocal = JSON.parse(local);
+        if (Array.isArray(parsedLocal)) {
+          this.links = parsedLocal.map((l: any) => ({ title: l.title || '', url: l.url || '' }));
+          return;
+        }
+      } catch {}
+    }
+    this.links = [];
   }
 
   loadCollaboration() {
@@ -118,13 +157,32 @@ export class ChannelSettingsPage {
     const cleanHandle = this.handle.trim().replace(/^@/, '');
     if (cleanHandle.length < 3) return this.error.set('Handle cần từ 3 đến 50 ký tự.');
 
+    for (const link of this.links) {
+      const hasTitle = !!link.title.trim();
+      const hasUrl = !!link.url.trim();
+      if ((hasTitle && !hasUrl) || (!hasTitle && hasUrl)) {
+        return this.error.set('Vui lòng nhập đầy đủ tiêu đề và URL cho tất cả đường liên kết.');
+      }
+    }
+
+    const validLinks = this.links.filter(l => l.title.trim() && l.url.trim());
+    let currentSettings: Record<string, any> = {};
+    try {
+      if (channel.settings) {
+        currentSettings = typeof channel.settings === 'string' ? JSON.parse(channel.settings) : channel.settings;
+      }
+    } catch {}
+    currentSettings['links'] = validLinks;
+    localStorage.setItem('hutube_channel_links_' + channel.channelId, JSON.stringify(validLinks));
+
     this.runAction(
       this.channelService.updateChannel(channel.channelId, {
         name: this.name.trim(),
         handle: cleanHandle,
         description: this.description.trim(),
         contactEmail: this.contactEmail.trim(),
-        watermarkUrl: this.watermarkUrl.trim()
+        watermarkUrl: this.watermarkUrl.trim(),
+        settings: JSON.stringify(currentSettings)
       }),
       'Đã cập nhật thông tin kênh.'
     );

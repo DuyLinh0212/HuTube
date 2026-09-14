@@ -159,6 +159,13 @@
     color: var(--primary);
   }
 
+  .notif-bell-img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    display: block;
+  }
+
   .notif-badge {
     position: absolute;
     top: 4px;
@@ -200,6 +207,7 @@
     height: 28px;
     border-radius: 50%;
     object-fit: cover;
+    filter: none !important;
   }
 
   .capsule-avatar-fallback {
@@ -311,7 +319,26 @@
     .item-icon {
       font-size: 1rem;
       width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
       text-align: center;
+    }
+
+    .item-icon-img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+      flex: none;
+    }
+
+    .item-icon-svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+      flex: none;
     }
   }
 
