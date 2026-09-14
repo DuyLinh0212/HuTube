@@ -121,6 +121,7 @@ select:-webkit-autofill {
   .banner-box,
   .avatar-overlap-box,
   .channel-empty-box,
+  .empty-videos-box,
   .member-item,
   .invitation-item,
   .stat-card {
@@ -139,25 +140,55 @@ select:-webkit-autofill {
     color: var(--ink) !important;
   }
 
+  // Never invert or alter user avatar images in any theme
+  .avatar-image,
+  .avatar-img,
+  .capsule-avatar,
+  .profile-avatar-box img,
+  .top-avatar img,
+  .dropdown-avatar img {
+    filter: none !important;
+  }
+
   // Eliminate black PNG icons on dark backgrounds
   .nav-item img,
   .side-nav img:not(.brand img),
-  .topbar img:not(.mobile-mark img),
+  .topbar img:not(.mobile-mark img):not(.avatar-image):not(.capsule-avatar):not(.top-avatar img):not(.dropdown-avatar img),
+  .studio-nav-item img,
+  .studio-dropdown img,
+  .studio-topbar img:not(.capsule-avatar):not(.brand-logo),
+  .tab-img-icon,
+  .stat-img-icon,
+  .empty-icon-img,
+  .dropzone-icon-img,
+  .file-icon-img,
+  .copy-icon-img,
+  .share-img-icon,
+  .filter-icon-img,
+  .star-icon-img,
   .create-action img,
   .icon-action img,
   .btn-upload-avatar img,
   .change-avatar-btn img,
   .stat-icon img,
   .session-device img,
+  .dropdown-item img,
   img.icon-img,
   img.nav-icon {
     filter: brightness(0) invert(0.92);
     transition: filter 0.16s ease;
   }
 
+  .stat-img-icon {
+    filter: brightness(0) invert(1) !important;
+  }
+
   .nav-item:hover img,
   .nav-item.active img,
   .nav-item.is-active img,
+  .tab-item.active .tab-img-icon,
+  .tab-item:hover .tab-img-icon,
+  .studio-nav-item.active img,
   .create-action:hover img,
   .icon-action:hover img {
     filter: brightness(0) saturate(100%) invert(32%) sepia(82%) saturate(3981%) hue-rotate(330deg) brightness(101%) contrast(103%) !important;

@@ -1,0 +1,343 @@
+<div class="profile-page-container">
+  <!-- Notifications & Alerts -->
+  @if (error()) {
+    <div class="profile-alert profile-alert--error" role="alert">
+      <div class="alert-content">
+        <svg class="alert-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>{{ error() }}</span>
+      </div>
+      <button type="button" class="alert-close" (click)="error.set('')">×</button>
+    </div>
+  }
+  @if (message()) {
+    <div class="profile-alert profile-alert--success" role="status">
+      <div class="alert-content">
+        <svg class="alert-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>{{ message() }}</span>
+      </div>
+      <button type="button" class="alert-close" (click)="message.set('')">×</button>
+    </div>
+  }
+
+  <!-- ============================================================== -->
+  <!-- 1. USER PROFILE HEADER (IMAGE 3 UPDATED MATCHING IMAGE 2)      -->
+  <!-- ============================================================== -->
+  <header class="profile-header-card">
+    <div class="header-main-layout">
+      <!-- Avatar with Camera Button -->
+      <div class="profile-avatar-box" (click)="triggerAvatarUpload()" [title]="'account.changeAvatar' | translate">
+        @if (profile()?.avatarUrl; as url) {
+          <img [src]="url" alt="" class="avatar-img" />
+        } @else {
+          <div class="avatar-fallback">
+            {{ (profile()?.displayName || auth.user()?.displayName || 'H').slice(0, 1).toUpperCase() }}
+          </div>
+        }
+        <button type="button" class="avatar-camera-btn" aria-label="Đổi ảnh đại diện">
+          <svg class="camera-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+        </button>
+        <input #avatarInput type="file" accept="image/*" (change)="onAvatarSelected($event)" hidden />
+      </div>
+
+      <!-- Info Center Column -->
+      <div class="profile-info-column">
+        <div class="name-badge-row">
+          <h1 class="user-display-name">
+            {{ profile()?.displayName || myChannel()?.name || auth.user()?.displayName || 'Danh' }}
+          </h1>
+          <span class="verified-badge" title="Tài khoản đã xác minh">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </span>
+          <span class="premium-capsule-badge">
+            <svg class="crown-svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
+            </svg>
+            <span>{{ 'profile.premiumMember' | translate }}</span>
+          </span>
+        </div>
+
+        <p class="user-handle">&#64;{{ profile()?.username || myChannel()?.handle || 'ncdanh' }}</p>
+
+        <!-- Image 2 Trigger: "Tìm hiểu thêm về hồ sơ này ...xem thêm" -->
+        <div class="profile-about-trigger" (click)="openAboutModal()" role="button" tabindex="0">
+          <span class="about-hint">{{ 'profile.learnMore' | translate }}</span>
+          <button type="button" class="btn-see-more">{{ 'profile.seeMore' | translate }}</button>
+        </div>
+      </div>
+
+      <!-- Action Buttons Column (Preserving ✏️ and ⚙️) -->
+      <div class="profile-actions-column">
+        <button type="button" class="btn-profile-pill" (click)="openEditProfile()">
+          <span class="action-icon">✏️</span> {{ 'profile.editProfile' | translate }}
+        </button>
+        <a routerLink="/account" class="btn-profile-pill">
+          <span class="action-icon">⚙️</span> {{ 'profile.accountSettings' | translate }}
+        </a>
+      </div>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- MODAL: THÔNG TIN KHÁC (MATCHING IMAGE 2 + UTILITY ICONS)   -->
+    <!-- ========================================================== -->
+    @if (aboutModalOpen()) {
+      <div class="about-modal-backdrop" (click)="closeAboutModal()">
+        <div class="about-modal-card" (click)="$event.stopPropagation()">
+          <div class="about-modal-header">
+            <h2 class="about-modal-title">{{ profile()?.displayName || myChannel()?.name || auth.user()?.displayName || 'Danh' }}</h2>
+            <button type="button" class="btn-close-about" (click)="closeAboutModal()" aria-label="Đóng">✕</button>
+          </div>
+
+          <div class="about-modal-body">
+            @if (profile()?.bio) {
+              <div class="about-bio-section">
+                <h3 class="about-section-heading">{{ 'profile.description' | translate }}</h3>
+                <p class="about-bio-text">{{ profile()?.bio }}</p>
+              </div>
+            }
+
+            <div class="about-info-section">
+              <h3 class="about-section-heading">{{ 'profile.aboutTitle' | translate }}</h3>
+
+              <div class="about-info-list">
+                <!-- Row 1: URL / Play Icon + Copy Button -->
+                <div class="about-info-row">
+                  <div class="info-icon-box">
+                    <img src="/assets/logo-mark.png" alt="" class="info-img-icon" />
+                  </div>
+                  <span class="info-row-text">{{ profileUrlDisplay() }}</span>
+                  <button type="button" class="btn-copy-url" (click)="shareProfile()" title="Sao chép liên kết">
+                    <img src="/assets/icons/utility/icon-utility-copy.png" alt="Copy" class="copy-icon-img" />
+                  </button>
+                </div>
+
+                <!-- Row 2: Info (i) / Joined Date -->
+                <div class="about-info-row">
+                  <div class="info-icon-box">
+                    <svg class="info-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="16" x2="12" y2="12"></line>
+                      <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                  </div>
+                  <span class="info-row-text">{{ fullJoinedDate() }}</span>
+                </div>
+              </div>
+
+              <!-- Share Button using icon-utility-share.png -->
+              <div class="about-action-row">
+                <button type="button" class="btn-share-pill" (click)="shareProfile()">
+                  <img src="/assets/icons/utility/icon-utility-share.png" alt="" class="share-img-icon" />
+                  <span>{{ 'profile.shareProfile' | translate }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Inline Profile Edit Drawer / Modal -->
+    @if (editingProfile()) {
+      <div class="profile-edit-modal-backdrop" (click)="closeEditProfile()">
+        <div class="profile-edit-card" (click)="$event.stopPropagation()">
+          <div class="edit-card-header">
+            <h3>{{ 'profile.editProfile' | translate }}</h3>
+            <button type="button" class="btn-close-modal" (click)="closeEditProfile()">×</button>
+          </div>
+          <div class="edit-card-body">
+            <div class="form-group">
+              <label for="prof-name">{{ 'account.displayName' | translate }}</label>
+              <input id="prof-name" type="text" class="profile-input" [(ngModel)]="editDisplayName" [disabled]="savingProfile()" />
+            </div>
+            <div class="form-group">
+              <label for="prof-bio">{{ 'account.bio' | translate }}</label>
+              <textarea id="prof-bio" class="profile-textarea" [(ngModel)]="editBio" rows="3" maxlength="200" [disabled]="savingProfile()"></textarea>
+            </div>
+          </div>
+          <div class="edit-card-footer">
+            <button type="button" class="btn-cancel" (click)="closeEditProfile()" [disabled]="savingProfile()">{{ 'common.cancel' | translate }}</button>
+            <button type="button" class="btn-save" (click)="saveProfile()" [disabled]="savingProfile()">{{ 'common.save' | translate }}</button>
+          </div>
+        </div>
+      </div>
+    }
+  </header>
+
+  <!-- ============================================================== -->
+  <!-- 2. SUB-NAVIGATION TABS (USING AUTHENTIC DESIGN ICONS)          -->
+  <!-- ============================================================== -->
+  <nav class="profile-nav-tabs" aria-label="Điều hướng hồ sơ">
+    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'overview'" (click)="setTab('overview')">
+      <img src="/assets/icons/home.png" alt="" class="tab-img-icon" />
+      <span>{{ 'profile.tabOverview' | translate }}</span>
+    </button>
+    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'history'" (click)="setTab('history')">
+      <img src="/assets/icons/history.png" alt="" class="tab-img-icon" />
+      <span>{{ 'profile.tabHistory' | translate }}</span>
+    </button>
+    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'liked'" (click)="setTab('liked')">
+      <img src="/assets/icons/favorite.png" alt="" class="tab-img-icon" />
+      <span>{{ 'profile.tabLiked' | translate }}</span>
+    </button>
+    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'playlists'" (click)="setTab('playlists')">
+      <img src="/assets/icons/playlist.png" alt="" class="tab-img-icon" />
+      <span>{{ 'profile.tabPlaylists' | translate }}</span>
+    </button>
+    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'watchlater'" (click)="setTab('watchlater')">
+      <img src="/assets/icons/utility/icon-utility-bookmark.png" alt="" class="tab-img-icon" />
+      <span>{{ 'profile.tabWatchLater' | translate }}</span>
+    </button>
+    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'packages'" (click)="setTab('packages')">
+      <img src="/assets/icons/plan.png" alt="" class="tab-img-icon" />
+      <span>{{ 'profile.tabMyPackages' | translate }}</span>
+    </button>
+  </nav>
+
+  <!-- ============================================================== -->
+  <!-- 3. STATS SUMMARY ROW (TITLES ONLY + AUTHENTIC ICONS)           -->
+  <!-- ============================================================== -->
+  <div class="profile-stats-grid">
+    <!-- Stat 1: Thời gian xem -->
+    <div class="stat-card stat-card--watchtime" (click)="setTab('history')" role="button" tabindex="0">
+      <div class="stat-icon-circle stat-icon--pink">
+        <img src="/assets/icons/history.png" alt="" class="stat-img-icon" />
+      </div>
+      <div class="stat-title-wrap">
+        <span class="stat-title">{{ 'profile.statWatchTime' | translate }}</span>
+      </div>
+    </div>
+
+    <!-- Stat 2: Video đã thích -->
+    <div class="stat-card stat-card--liked" (click)="setTab('liked')" role="button" tabindex="0">
+      <div class="stat-icon-circle stat-icon--purple">
+        <img src="/assets/icons/favorite.png" alt="" class="stat-img-icon" />
+      </div>
+      <div class="stat-title-wrap">
+        <span class="stat-title">{{ 'profile.statLiked' | translate }}</span>
+      </div>
+    </div>
+
+    <!-- Stat 3: Danh sách phát -->
+    <div class="stat-card stat-card--playlists" (click)="setTab('playlists')" role="button" tabindex="0">
+      <div class="stat-icon-circle stat-icon--blue">
+        <img src="/assets/icons/playlist.png" alt="" class="stat-img-icon" />
+      </div>
+      <div class="stat-title-wrap">
+        <span class="stat-title">{{ 'profile.statPlaylists' | translate }}</span>
+      </div>
+    </div>
+
+    <!-- Stat 4: Kênh đăng ký -->
+    <div class="stat-card stat-card--subs" role="button" tabindex="0">
+      <div class="stat-icon-circle stat-icon--orange">
+        <img src="/assets/icons/channel.png" alt="" class="stat-img-icon" />
+      </div>
+      <div class="stat-title-wrap">
+        <span class="stat-title">{{ 'profile.statSubs' | translate }}</span>
+      </div>
+    </div>
+
+    <!-- Stat 5: Huy hiệu thành viên -->
+    <div class="stat-card stat-card--badge" (click)="setTab('packages')" role="button" tabindex="0">
+      <div class="stat-icon-circle stat-icon--teal">
+        <img src="/assets/icons/utility/icon-utility-star.png" alt="" class="stat-img-icon" />
+      </div>
+      <div class="stat-title-wrap">
+        <span class="stat-title">{{ 'profile.statBadge' | translate }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 4. FAVORITE GENRES (PRESERVING EMOJIS)         -->
+  <!-- ============================================== -->
+  <section class="profile-genres-section">
+    <div class="section-heading-bar">
+      <h2 class="section-title">{{ 'profile.favoriteGenres' | translate }}</h2>
+      <span class="section-subtitle">{{ 'profile.edit' | translate }}</span>
+    </div>
+
+    <div class="genres-chips-cloud">
+      @for (genre of genres(); track genre.id) {
+        <button type="button"
+                class="genre-chip"
+                [class.is-selected]="genre.selected"
+                [style.--chip-color]="genre.color"
+                [style.--chip-bg]="genre.bg"
+                (click)="toggleGenre(genre.id)">
+          <span class="genre-icon">{{ genre.icon }}</span>
+          <span class="genre-name">{{ genre.nameKey | translate }}</span>
+        </button>
+      }
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 5. REAL VIDEO SECTION (EMPTY STATE MATCHING TRANG CHỦ / LỊCH SỬ)-->
+  <!-- ============================================================== -->
+  @if (loading()) {
+    <section class="profile-empty-state">
+      <p class="state-loading">{{ 'common.loading' | translate }}</p>
+    </section>
+  } @else if (historyVideos().length > 0) {
+    <section class="profile-videos-section">
+      <div class="section-heading-bar">
+        <h2 class="section-title">{{ 'profile.tabHistory' | translate }}</h2>
+        <a routerLink="/history" class="section-action-link">{{ 'profile.viewAll' | translate }}</a>
+      </div>
+
+      <div class="videos-grid">
+        @for (item of historyVideos(); track item.videoId) {
+          <article class="compact-video-card">
+            <a [routerLink]="['/watch', item.videoId]" class="compact-thumb-link">
+              <div class="compact-thumb-box">
+                @if (item.thumbnailUrl) {
+                  <img [src]="item.thumbnailUrl" alt="" class="compact-thumb-img" />
+                } @else {
+                  <div class="compact-thumb-fallback">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                  </div>
+                }
+                <span class="duration-badge">{{ duration(item.duration) }}</span>
+                @if (item.progress > 0) {
+                  <div class="watch-progress-track">
+                    <div class="watch-progress-fill" [style.width.%]="item.progress"></div>
+                  </div>
+                }
+              </div>
+            </a>
+            <div class="compact-info-box">
+              <h3 class="compact-video-title">
+                <a [routerLink]="['/watch', item.videoId]">{{ item.title }}</a>
+              </h3>
+              <p class="compact-channel-name">{{ item.channelName }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+  } @else {
+    <!-- Empty state matching Lịch sử xem / Trang chủ (NO fake mock videos) -->
+    <section class="profile-empty-state" aria-label="Thư viện trống">
+      <div class="empty-icon-box">
+        <img src="/assets/icons/history.png" alt="" class="empty-icon-img" />
+      </div>
+      <h2 class="empty-title">{{ 'profile.emptyHistory' | translate }}</h2>
+      <p class="empty-desc">Video bạn mở và xem sẽ được lưu lại tại đây.</p>
+      <a routerLink="/home" class="btn-empty-explore">{{ 'nav.explore' | translate }}</a>
+    </section>
+  }
+</div>

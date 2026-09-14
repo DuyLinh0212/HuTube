@@ -76,4 +76,7 @@ export class ContentService {
   }
   upload(data: FormData) { return this.http.post<VideoDetail>(`${this.base}/videos`, data, { reportProgress: true, observe: 'events' }); }
   publish(videoId: string) { return this.http.post<VideoDetail>(`${this.base}/videos/${videoId}/publish`, {}); }
+  update(videoId: string, data: { visibility?: string; title?: string; description?: string }) {
+    return this.http.patch<VideoDetail>(`${this.base}/videos/${videoId}`, data);
+  }
 }
