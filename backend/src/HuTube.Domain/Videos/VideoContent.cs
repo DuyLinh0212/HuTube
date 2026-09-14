@@ -121,6 +121,7 @@ public sealed class Video
 {
     public Guid VideoId { get; set; } = Guid.NewGuid();
     public Guid ChannelId { get; set; }
+    public Guid UploadedByUserId { get; set; }
     public Guid? CategoryId { get; set; }
     public string Title { get; set; } = "";
     public string? Description { get; set; }

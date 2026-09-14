@@ -207,7 +207,9 @@ class _ChannelScreenState extends State<ChannelScreen>
                     children: [
                       CircleAvatar(
                         radius: 36,
-                        backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
+                        backgroundColor: AppColors.primaryPink.withValues(
+                          alpha: 0.15,
+                        ),
                         backgroundImage: c.avatarUrl != null
                             ? NetworkImage(c.avatarUrl!)
                             : null,
@@ -297,7 +299,8 @@ class _ChannelScreenState extends State<ChannelScreen>
                             Expanded(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
+                                  backgroundColor: AppColors.primaryPink
+                                      .withValues(alpha: 0.15),
                                   foregroundColor: AppColors.primaryPink,
                                   elevation: 0,
                                 ),
@@ -430,7 +433,11 @@ class _ChannelScreenState extends State<ChannelScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.playlist_play_rounded, size: 64, color: AppColors.cardBorder),
+          Icon(
+            Icons.playlist_play_rounded,
+            size: 64,
+            color: AppColors.cardBorder,
+          ),
           SizedBox(height: 8),
           Text(
             'Chưa có danh sách phát nào',

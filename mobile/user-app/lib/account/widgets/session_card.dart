@@ -17,8 +17,11 @@ class SessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCurrent = session['isCurrent'] as bool? ?? false;
-    final deviceName = session['deviceName'] as String? ?? AppStrings.t('session.unknownDevice');
-    final ipAddress = session['ipAddress'] as String? ?? AppStrings.t('session.unknownIp');
+    final deviceName =
+        session['deviceName'] as String? ??
+        AppStrings.t('session.unknownDevice');
+    final ipAddress =
+        session['ipAddress'] as String? ?? AppStrings.t('session.unknownIp');
     final lastActiveAt = session['lastActiveAt'] as String? ?? '';
 
     final cardBg = Theme.of(context).cardColor;
@@ -52,7 +55,9 @@ class SessionCard extends StatelessWidget {
                       deviceName.toLowerCase().contains('android')
                   ? Icons.smartphone
                   : Icons.laptop,
-              color: isCurrent ? AppColors.primaryPink : AppColors.textSecondary,
+              color: isCurrent
+                  ? AppColors.primaryPink
+                  : AppColors.textSecondary,
               size: 22,
             ),
           ),

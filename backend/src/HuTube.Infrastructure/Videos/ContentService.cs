@@ -209,9 +209,12 @@ public sealed class ContentService(
         }
 
         var now = Now;
-        var video = new Video { ChannelId = command.ChannelId, CategoryId = command.CategoryId, Title = command.Title.Trim(), Description = Clean(command.Description),
+        var publicUploadRequiresModeration = features.ModerationEnabled
+            && command.Visibility.Equals("public", StringComparison.OrdinalIgnoreCase);
+        var video = new Video { ChannelId = command.ChannelId, UploadedByUserId = actorId, CategoryId = command.CategoryId, Title = command.Title.Trim(), Description = Clean(command.Description),
             VideoUrl = videoUrl!, ThumbnailUrl = thumbnailUrl, Duration = command.Duration, FileSize = command.FileSize, Visibility = command.Visibility.ToLowerInvariant(),
-            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted, ModerationStatus = "not_submitted",
+            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted,
+            ModerationStatus = publicUploadRequiresModeration ? "pending" : "not_submitted",
             IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
             Metadata = JsonSerializer.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
@@ -245,6 +248,9 @@ public sealed class ContentService(
             }
             db.Videos.Add(video);
             await db.SaveChangesAsync(ct);
+
+            if (publicUploadRequiresModeration)
+                db.ModerationCases.Add(CreateUploadModerationCase(video, now));
 
             var sourceHeight = VideoRules.QualityHeight(command.SourceQuality);
             db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = command.SourceQuality.ToLowerInvariant(), Width = sourceHeight * 16 / 9,
@@ -352,9 +358,7 @@ public sealed class ContentService(
                 if (video.ModerationStatus != "approved")
                 {
                     video.ModerationStatus = "pending";
-                    var combinedText = $"{video.Title} {video.Description}".ToLowerInvariant();
-                    var highRiskKeywords = new[] { "sex", "khiêu dâm", "đồi trụy", "18+", "giết người", "tự tử", "chém", "bom", "hack", "lừa đảo" };
-                    var riskLevel = highRiskKeywords.Any(k => combinedText.Contains(k)) ? "high" : "low";
+                    var riskLevel = ModerationRiskLevel(video.Title, video.Description);
 
                     var hasPendingCase = await db.ModerationCases.AnyAsync(c => c.VideoId == video.VideoId && (c.Status == "pending" || c.Status == "reviewing"), ct);
                     if (!hasPendingCase)
@@ -405,22 +409,15 @@ public sealed class ContentService(
         if (!features.ModerationEnabled) throw Error(409, "MODERATION_UNAVAILABLE", "Kiểm duyệt đang tạm khóa; video chưa thể đặt ở chế độ công khai.");
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
-        if (video.ModerationStatus is "pending" or "approved") throw Error(409, "INVALID_MODERATION_STATE", "Video đã được gửi hoặc đã duyệt.");
-        video.ModerationStatus = "pending";
-        video.UpdatedAt = Now;
-        var combinedText = $"{video.Title} {video.Description}".ToLowerInvariant();
-        var highRiskKeywords = new[] { "sex", "khiêu dâm", "đồi trụy", "18+", "giết người", "tự tử", "chém", "bom", "hack", "lừa đảo" };
-        var riskLevel = highRiskKeywords.Any(k => combinedText.Contains(k)) ? "high" : "low";
+        if (video.ModerationStatus == "approved") throw Error(409, "INVALID_MODERATION_STATE", "Video đã được duyệt.");
+        if (video.ModerationStatus == "pending"
+            && await db.ModerationCases.AnyAsync(c => c.VideoId == video.VideoId && (c.Status == "pending" || c.Status == "reviewing"), ct))
+            return await ToResponseAsync(video, actorId, ct);
 
-        db.ModerationCases.Add(new ModerationCase
-        {
-            VideoId = video.VideoId,
-            Status = "pending",
-            CaseType = "upload_review",
-            RiskLevel = riskLevel,
-            SubmittedAt = Now,
-            UpdatedAt = Now
-        });
+        video.ModerationStatus = "pending";
+        var now = Now;
+        video.UpdatedAt = now;
+        db.ModerationCases.Add(CreateUploadModerationCase(video, now));
         await db.SaveChangesAsync(ct);
         return await ToResponseAsync(video, actorId, ct);
     }
@@ -884,6 +881,21 @@ public sealed class ContentService(
     {
         if (!features.ModerationEnabled && visibility.Equals("public", StringComparison.OrdinalIgnoreCase))
             throw Error(409, "PUBLICATION_LOCKED", "Chế độ công khai đang tạm khóa cho đến khi kiểm duyệt được bật.");
+    }
+    private static ModerationCase CreateUploadModerationCase(Video video, DateTimeOffset now) => new()
+    {
+        VideoId = video.VideoId,
+        Status = "pending",
+        CaseType = "upload_review",
+        RiskLevel = ModerationRiskLevel(video.Title, video.Description),
+        SubmittedAt = now,
+        UpdatedAt = now
+    };
+    private static string ModerationRiskLevel(string title, string? description)
+    {
+        var combinedText = $"{title} {description}".ToLowerInvariant();
+        var highRiskKeywords = new[] { "sex", "khiêu dâm", "đồi trụy", "18+", "giết người", "tự tử", "chém", "bom", "hack", "lừa đảo" };
+        return highRiskKeywords.Any(k => combinedText.Contains(k)) ? "high" : "low";
     }
     private static (int Page, int PageSize) Page(int page, int size) => (Math.Max(1, page), Math.Clamp(size, 1, 50));
     private static ContentException Error(int status, string code, string message) => new(status, code, message);

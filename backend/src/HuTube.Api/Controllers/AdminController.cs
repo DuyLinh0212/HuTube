@@ -2,9 +2,13 @@ using HuTube.Api.Authorization;
 using HuTube.Application.Plans;
 using HuTube.Application.Policies;
 using HuTube.Application.Rbac;
+using HuTube.Application.Taxonomy;
+using HuTube.Application.Users;
 using HuTube.Application.Videos;
 using HuTube.Domain.Rbac;
 using HuTube.Infrastructure.Policies;
+using HuTube.Infrastructure.Taxonomy;
+using HuTube.Infrastructure.Users;
 using HuTube.Infrastructure.Videos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +21,9 @@ public sealed class AdminController(
     RbacService rbac,
     IPlanService plans,
     ModerationService moderation,
-    PolicyService policyService) : ControllerBase
+    PolicyService policyService,
+    TaxonomyService taxonomy,
+    AdminUserService users) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
 
@@ -45,6 +51,32 @@ public sealed class AdminController(
     [HttpGet("me")]
     public Task<AdminMeResponse> GetMeAsync(CancellationToken ct) =>
         rbac.GetAdminMeAsync(UserId, ct);
+
+    [HttpGet("users"), RequirePermission(AdminPermissions.UserView)]
+    public Task<AdminUserListResponse> GetUsersAsync(
+        [FromQuery] string? search = null,
+        [FromQuery] string? role = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default) =>
+        users.GetUsersAsync(search, role, status, page, pageSize, ct);
+
+    [HttpGet("users/{userId:guid}"), RequirePermission(AdminPermissions.UserView)]
+    public Task<AdminUserDetailResponse> GetUserAsync(Guid userId, CancellationToken ct) =>
+        users.GetUserAsync(userId, ct);
+
+    [HttpPost("users/{userId:guid}/lock"), RequirePermission(AdminPermissions.UserBan)]
+    public Task<AdminUserDetailResponse> LockUserAsync(Guid userId, [FromBody] AdminUserActionRequest request, CancellationToken ct) =>
+        users.LockAsync(UserId, userId, request, ct);
+
+    [HttpPost("users/{userId:guid}/unlock"), RequirePermission(AdminPermissions.UserBan)]
+    public Task<AdminUserDetailResponse> UnlockUserAsync(Guid userId, [FromBody] AdminUserActionRequest request, CancellationToken ct) =>
+        users.UnlockAsync(UserId, userId, request, ct);
+
+    [HttpPut("users/{userId:guid}/role"), RequirePermission(AdminPermissions.UserEdit)]
+    public Task<AdminUserDetailResponse> UpdateUserRoleAsync(Guid userId, [FromBody] UpdateAdminUserRoleRequest request, CancellationToken ct) =>
+        users.UpdateRoleAsync(UserId, userId, request, ct);
 
     [HttpGet("permissions"), RequirePermission(AdminPermissions.RoleView)]
     public Task<List<PermissionResponse>> GetPermissionsAsync(CancellationToken ct) =>
@@ -123,6 +155,64 @@ public sealed class AdminController(
         [FromBody] UpdatePolicyRequest request,
         CancellationToken ct) =>
         policyService.PublishPolicyVersionAsync(UserId, policyId, request, ct);
+
+    [HttpGet("topics"), RequirePermission(AdminPermissions.SystemViewSetting)]
+    public Task<List<AdminTopicResponse>> GetTopicsAsync(
+        [FromQuery] string? status = null,
+        CancellationToken ct = default) =>
+        taxonomy.GetTopicsAsync(status, ct);
+
+    [HttpPost("topics"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    public async Task<ActionResult<AdminTopicResponse>> CreateTopicAsync(
+        [FromBody] CreateTopicRequest request,
+        CancellationToken ct)
+    {
+        var created = await taxonomy.CreateTopicAsync(UserId, request, ct);
+        return Created($"/api/v1/admin/topics/{created.CategoryId}", created);
+    }
+
+    [HttpPut("topics/{categoryId:guid}"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    public Task<AdminTopicResponse> UpdateTopicAsync(
+        Guid categoryId,
+        [FromBody] UpdateTopicRequest request,
+        CancellationToken ct) =>
+        taxonomy.UpdateTopicAsync(UserId, categoryId, request, ct);
+
+    [HttpPost("topics/{categoryId:guid}/archive"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    public async Task<IActionResult> ArchiveTopicAsync(Guid categoryId, CancellationToken ct)
+    {
+        await taxonomy.ArchiveTopicAsync(UserId, categoryId, ct);
+        return NoContent();
+    }
+
+    [HttpGet("tags"), RequirePermission(AdminPermissions.SystemViewSetting)]
+    public Task<List<AdminTagResponse>> GetTagsAsync(
+        [FromQuery] string? search = null,
+        CancellationToken ct = default) =>
+        taxonomy.GetTagsAsync(search, ct);
+
+    [HttpPost("tags"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    public async Task<ActionResult<AdminTagResponse>> CreateTagAsync(
+        [FromBody] CreateTagRequest request,
+        CancellationToken ct)
+    {
+        var created = await taxonomy.CreateTagAsync(UserId, request, ct);
+        return Created($"/api/v1/admin/tags/{created.TagId}", created);
+    }
+
+    [HttpPut("tags/{tagId:guid}"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    public Task<AdminTagResponse> UpdateTagAsync(
+        Guid tagId,
+        [FromBody] UpdateTagRequest request,
+        CancellationToken ct) =>
+        taxonomy.UpdateTagAsync(UserId, tagId, request, ct);
+
+    [HttpDelete("tags/{tagId:guid}"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    public async Task<IActionResult> DeleteTagAsync(Guid tagId, CancellationToken ct)
+    {
+        await taxonomy.DeleteTagAsync(UserId, tagId, ct);
+        return NoContent();
+    }
 
     [HttpGet("audit-logs"), RequirePermission(AdminPermissions.AuditView)]
     public Task<List<AuditLogResponse>> GetAuditLogsAsync(CancellationToken ct) =>

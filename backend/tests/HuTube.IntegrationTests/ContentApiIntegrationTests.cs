@@ -62,10 +62,17 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
     public async Task UploadModeratePublish_ExposesVideoInPublicFeedsAndPlayback()
     {
         // Arrange
-        var (owner, _, channelId) = await CreateUserAndChannelAsync("publisher");
+        var (owner, ownerId, channelId) = await CreateUserAndChannelAsync("publisher");
 
         // Act
         var upload = await UploadAsync(owner, channelId, "Video công khai");
+        await using (var db = factory.CreateDb())
+        {
+            var persisted = await db.Videos.AsNoTracking().SingleAsync(x => x.VideoId == upload.VideoId);
+            Assert.Equal(ownerId, persisted.UploadedByUserId);
+            Assert.Equal("pending", persisted.ModerationStatus);
+            Assert.True(await db.ModerationCases.AnyAsync(x => x.VideoId == upload.VideoId && x.CaseType == "upload_review" && x.Status == "pending"));
+        }
         var privateResponse = await factory.CreateClient().GetAsync($"/api/v1/videos/{upload.VideoId}");
         var submit = await owner.PostAsync($"/api/v1/videos/{upload.VideoId}/submit-moderation", null);
         await ApproveAsync(upload.VideoId);

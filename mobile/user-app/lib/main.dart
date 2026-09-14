@@ -1,12 +1,10 @@
 import 'package:app_links/app_links.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'auth.dart';
-import 'core/theme/app_theme.dart';
-import 'core/theme/theme_notifier.dart';
-import 'core/localization/app_strings.dart';
-import 'core/widgets/app_shell.dart';
+import 'app/mobile_app.dart';
 
+export 'app/mobile_app.dart' show HuTubeApp;
 export 'core/widgets/app_logo.dart';
 export 'core/widgets/app_shell.dart';
 
@@ -19,32 +17,4 @@ void main() {
       links: links.uriLinkStream,
     ),
   );
-}
-
-class HuTubeApp extends StatelessWidget {
-  const HuTubeApp({super.key, required this.auth, this.links});
-  final AuthController auth;
-  final Stream<Uri>? links;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeNotifier.themeMode,
-      builder: (context, currentThemeMode, _) {
-        return ValueListenableBuilder<String>(
-          valueListenable: AppStrings.currentLang,
-          builder: (context, lang, child) {
-            return MaterialApp(
-              title: 'HuTube',
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.lightTheme,
-              darkTheme: AppTheme.darkTheme,
-              themeMode: currentThemeMode,
-              home: AppShell(auth: auth, links: links),
-            );
-          },
-        );
-      },
-    );
-  }
 }

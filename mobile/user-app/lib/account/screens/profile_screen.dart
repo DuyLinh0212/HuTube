@@ -180,15 +180,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 tooltip: 'Chỉnh sửa hồ sơ',
                 onPressed: () async {
                   if (_profile == null) return;
-                  final updated = await Navigator.of(context)
-                      .push<UserProfile>(
-                        MaterialPageRoute(
-                          builder: (_) => EditProfileScreen(
-                            auth: widget.auth,
-                            profile: _profile!,
-                          ),
-                        ),
-                      );
+                  final updated = await Navigator.of(context).push<UserProfile>(
+                    MaterialPageRoute(
+                      builder: (_) => EditProfileScreen(
+                        auth: widget.auth,
+                        profile: _profile!,
+                      ),
+                    ),
+                  );
                   if (updated != null) {
                     setState(() => _profile = updated);
                   }
@@ -204,7 +203,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             height: 90,
             alignment: Alignment.center,
-            child: const CircularProgressIndicator(color: AppColors.primaryPink),
+            child: const CircularProgressIndicator(
+              color: AppColors.primaryPink,
+            ),
           )
         else if (_channel != null) ...[
           // Has channel card
@@ -386,8 +387,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () async {
                     await Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            CreateChannelScreen(auth: widget.auth),
+                        builder: (_) => CreateChannelScreen(auth: widget.auth),
                       ),
                     );
                     _loadChannel();
@@ -414,15 +414,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: AppStrings.t('profile.editProfile'),
                 onTap: () async {
                   if (_profile == null) return;
-                  final updated = await Navigator.of(context)
-                      .push<UserProfile>(
-                        MaterialPageRoute(
-                          builder: (_) => EditProfileScreen(
-                            auth: widget.auth,
-                            profile: _profile!,
-                          ),
-                        ),
-                      );
+                  final updated = await Navigator.of(context).push<UserProfile>(
+                    MaterialPageRoute(
+                      builder: (_) => EditProfileScreen(
+                        auth: widget.auth,
+                        profile: _profile!,
+                      ),
+                    ),
+                  );
                   if (updated != null) setState(() => _profile = updated);
                 },
               ),
@@ -453,8 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: AppStrings.t('profile.channelInvitations'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) =>
-                        ChannelInvitationsScreen(auth: widget.auth),
+                    builder: (_) => ChannelInvitationsScreen(auth: widget.auth),
                   ),
                 ),
               ),

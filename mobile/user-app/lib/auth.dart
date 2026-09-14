@@ -37,6 +37,7 @@ class AuthController extends ChangeNotifier {
     'GOOGLE_IOS_CLIENT_ID',
   );
   bool get authenticated => user != null;
+  String? get accessToken => _accessToken;
   int get sessionGeneration => _generation;
 
   void _changed() {
@@ -233,11 +234,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> verifyEmail(String token) async {
-    await api.request(
-      'POST',
-      '/auth/verify-email',
-      body: {'token': token},
-    );
+    await api.request('POST', '/auth/verify-email', body: {'token': token});
   }
 
   Future<void> forgotPassword(String email) async {
@@ -388,6 +385,49 @@ class AuthController extends ChangeNotifier {
       }
       try {
         return await api.upload(path, payload, accessToken: _accessToken);
+      } on ApiFailure catch (retryError) {
+        if (retryError.status == 401) {
+          await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
+        }
+        rethrow;
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> protectedMultipart(
+    String path, {
+    required Map<String, String> fields,
+    required List<MultipartFilePayload> files,
+    Map<String, String>? headers,
+  }) async {
+    final generation = _generation;
+    final sentToken = _accessToken;
+    try {
+      return await api.uploadMultipart(
+        path,
+        fields: fields,
+        files: files,
+        accessToken: _accessToken,
+        headers: headers,
+      );
+    } on ApiFailure catch (error) {
+      if (error.status != 401 || generation != _generation) rethrow;
+      if (sentToken == _accessToken) await refresh();
+      if (generation != _generation) {
+        throw const ApiFailure(
+          401,
+          'SESSION_EXPIRED',
+          'Vui lòng đăng nhập lại.',
+        );
+      }
+      try {
+        return await api.uploadMultipart(
+          path,
+          fields: fields,
+          files: files,
+          accessToken: _accessToken,
+          headers: headers,
+        );
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
           await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');

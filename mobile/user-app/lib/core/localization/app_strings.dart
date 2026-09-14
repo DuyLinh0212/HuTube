@@ -67,14 +67,17 @@ class AppStrings {
       'prefs.langEn': 'English (EN)',
       'prefs.playbackHeading': 'Phát video',
       'prefs.autoplay': 'Tự động phát video tiếp theo',
-      'prefs.autoplaySub': 'Tiếp tục phát các video liên quan khi video hiện tại kết thúc.',
+      'prefs.autoplaySub':
+          'Tiếp tục phát các video liên quan khi video hiện tại kết thúc.',
       'prefs.quality': 'Chất lượng video mặc định',
       'prefs.qualitySub': 'Áp dụng khi xem video',
       'prefs.privacyHeading': 'Quyền riêng tư',
       'prefs.subsPrivate': 'Giữ các kênh đã đăng ký riêng tư',
-      'prefs.subsPrivateSub': 'Không hiển thị danh sách kênh bạn đăng ký trên trang cá nhân.',
+      'prefs.subsPrivateSub':
+          'Không hiển thị danh sách kênh bạn đăng ký trên trang cá nhân.',
       'prefs.playlistsPrivate': 'Giữ danh sách phát đã lưu riêng tư',
-      'prefs.playlistsPrivateSub': 'Chỉ bạn mới có thể xem các playlist đã tạo và lưu.',
+      'prefs.playlistsPrivateSub':
+          'Chỉ bạn mới có thể xem các playlist đã tạo và lưu.',
       'prefs.autoSaving': 'Đang tự động lưu...',
       'prefs.loadError': 'Không thể tải cài đặt & giao diện.',
       'prefs.saveError': 'Không thể lưu cài đặt.',
@@ -167,14 +170,17 @@ class AppStrings {
       'prefs.langEn': 'English (EN)',
       'prefs.playbackHeading': 'Video Playback',
       'prefs.autoplay': 'Autoplay next video',
-      'prefs.autoplaySub': 'Continue playing related videos when current video ends.',
+      'prefs.autoplaySub':
+          'Continue playing related videos when current video ends.',
       'prefs.quality': 'Default Video Quality',
       'prefs.qualitySub': 'Applied when streaming videos',
       'prefs.privacyHeading': 'Privacy',
       'prefs.subsPrivate': 'Keep my subscriptions private',
-      'prefs.subsPrivateSub': 'Do not display subscribed channels on public profile.',
+      'prefs.subsPrivateSub':
+          'Do not display subscribed channels on public profile.',
       'prefs.playlistsPrivate': 'Keep saved playlists private',
-      'prefs.playlistsPrivateSub': 'Only you can view your created and saved playlists.',
+      'prefs.playlistsPrivateSub':
+          'Only you can view your created and saved playlists.',
       'prefs.autoSaving': 'Auto-saving changes...',
       'prefs.loadError': 'Unable to load preferences.',
       'prefs.saveError': 'Failed to save preferences.',
@@ -208,7 +214,7 @@ class AppStrings {
       'auth.password': 'Password',
       'auth.loginBtn': 'Sign In',
       'auth.registerBtn': 'Sign Up',
-    }
+    },
   };
 
   static String t(String key) {

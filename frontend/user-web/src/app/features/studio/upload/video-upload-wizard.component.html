@@ -549,15 +549,15 @@
         <section class="step-panel step-6">
           <div class="celebration-card">
             <div class="celebration-icon">✓</div>
-            <h2 class="celebration-title">{{ 'upload.step6.congrats' | translate }}</h2>
-            <p class="celebration-desc">{{ 'upload.step6.congratsDesc' | translate }}</p>
+            <h2 class="celebration-title">{{ (isAwaitingModeration() ? 'upload.step6.moderationPending' : 'upload.step6.congrats') | translate }}</h2>
+            <p class="celebration-desc">{{ (isAwaitingModeration() ? 'upload.step6.moderationPendingDesc' : 'upload.step6.congratsDesc') | translate }}</p>
           </div>
 
           <div class="publish-summary-card">
             <div class="summary-preview">
               <img [src]="selectedThumbnailUrl()" alt="Video thumbnail" class="summary-thumb" />
               <div class="summary-meta">
-                <span class="status-pill status-ready">● {{ 'upload.sidebar.statusReady' | translate }}</span>
+                <span class="status-pill" [class.status-pending]="isAwaitingModeration()">● {{ (isAwaitingModeration() ? 'upload.step6.moderationStatus' : 'upload.sidebar.statusReady') | translate }}</span>
                 <h3 class="summary-title">{{ videoTitle }}</h3>
                 <div class="meta-row">
                   <span>{{ formatDuration(duration) }}</span> · <span>{{ resolutionLabel() }}</span> · <span>{{ category || 'Chưa phân loại' }}</span>
@@ -570,22 +570,31 @@
               </div>
             </div>
 
-            <!-- Video Link Box -->
-            <div class="video-link-box">
-              <label>{{ 'upload.step6.videoLink' | translate }}</label>
-              <div class="link-input-group">
-                <input type="text" class="link-input" [value]="publishedVideoUrl" readonly />
-                <button type="button" class="btn-copy" (click)="copyLink()">
-                  {{ (copied() ? 'common.copied' : 'upload.step6.copyLink') | translate }}
-                </button>
+            @if (!isAwaitingModeration()) {
+              <!-- Video Link Box -->
+              <div class="video-link-box">
+                <label>{{ 'upload.step6.videoLink' | translate }}</label>
+                <div class="link-input-group">
+                  <input type="text" class="link-input" [value]="publishedVideoUrl" readonly />
+                  <button type="button" class="btn-copy" (click)="copyLink()">
+                    {{ (copied() ? 'common.copied' : 'upload.step6.copyLink') | translate }}
+                  </button>
+                </div>
               </div>
-            </div>
+            } @else {
+              <div class="moderation-pending-box">
+                <strong>{{ 'upload.step6.moderationPending' | translate }}</strong>
+                <p>{{ 'upload.step6.moderationPendingDesc' | translate }}</p>
+              </div>
+            }
 
             <!-- Action Buttons -->
             <div class="publish-actions">
-              <a [href]="publishedVideoUrl" target="_blank" class="btn-primary-action">
-                {{ 'upload.step6.watchVideo' | translate }}
-              </a>
+              @if (!isAwaitingModeration()) {
+                <a [href]="publishedVideoUrl" target="_blank" class="btn-primary-action">
+                  {{ 'upload.step6.watchVideo' | translate }}
+                </a>
+              }
               <button type="button" class="btn-secondary-action" (click)="navigateToContent()">
                 {{ 'upload.step6.backToContent' | translate }}
               </button>

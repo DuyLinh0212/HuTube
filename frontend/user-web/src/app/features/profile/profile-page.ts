@@ -1,16 +1,13 @@
 import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { RouterLink } from '@angular/router';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { AccountService, UserProfile } from '../../core/account.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
-import { ContentService, LibraryVideo } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
-
-export type ProfileSubTab = 'overview' | 'history' | 'liked' | 'playlists' | 'watchlater' | 'packages';
+import { finalize } from 'rxjs';
 
 export interface ProfileGenre {
   id: string;
@@ -32,24 +29,16 @@ export class ProfilePage implements OnInit {
   readonly auth = inject(AuthService);
   readonly account = inject(AccountService);
   readonly channelService = inject(ChannelService);
-  readonly content = inject(ContentService);
   readonly i18n = inject(I18nService);
-  private readonly router = inject(Router);
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
 
   readonly profile = signal<UserProfile | null>(null);
   readonly myChannel = signal<ChannelDetail | null>(null);
-  readonly historyVideos = signal<LibraryVideo[]>([]);
-  readonly likedVideos = signal<LibraryVideo[]>([]);
-  readonly historyTotal = signal(0);
-  readonly likedTotal = signal(0);
-  readonly loading = signal(true);
   readonly savingProfile = signal(false);
   readonly message = signal('');
   readonly error = signal('');
 
-  readonly activeSubTab = signal<ProfileSubTab>('overview');
   readonly editingProfile = signal(false);
   readonly aboutModalOpen = signal(false);
 
@@ -93,9 +82,6 @@ export class ProfilePage implements OnInit {
   }
 
   loadData() {
-    this.loading.set(true);
-
-    // Load Profile
     this.account.getProfile().subscribe({
       next: p => {
         this.profile.set(p);
@@ -105,49 +91,10 @@ export class ProfilePage implements OnInit {
       error: () => {}
     });
 
-    // Load Channel
     this.channelService.getMyChannel().subscribe({
       next: ch => this.myChannel.set(ch),
       error: () => this.myChannel.set(null)
     });
-
-    // Load Watch History (Real API)
-    this.content.history(1, 12).subscribe({
-      next: res => {
-        this.historyVideos.set(res.items || []);
-        this.historyTotal.set(res.total || 0);
-      },
-      error: () => {
-        this.historyVideos.set([]);
-        this.historyTotal.set(0);
-      }
-    });
-
-    // Load Liked Videos (Real API)
-    this.content.liked(null, 1, 12).pipe(
-      finalize(() => this.loading.set(false))
-    ).subscribe({
-      next: res => {
-        this.likedVideos.set(res.items || []);
-        this.likedTotal.set(res.total || 0);
-      },
-      error: () => {
-        this.likedVideos.set([]);
-        this.likedTotal.set(0);
-      }
-    });
-  }
-
-  setTab(tab: ProfileSubTab) {
-    if (tab === 'history') {
-      void this.router.navigate(['/history']);
-      return;
-    }
-    if (tab === 'liked') {
-      void this.router.navigate(['/liked']);
-      return;
-    }
-    this.activeSubTab.set(tab);
   }
 
   toggleGenre(genreId: string) {
@@ -233,14 +180,4 @@ export class ProfilePage implements OnInit {
     });
   }
 
-  duration(value: number): string {
-    const seconds = Math.max(0, Math.floor(value || 0));
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) {
-      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
-    return `${m}:${String(s).padStart(2, '0')}`;
-  }
 }

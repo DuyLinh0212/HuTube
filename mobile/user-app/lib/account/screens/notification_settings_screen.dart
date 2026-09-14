@@ -10,10 +10,12 @@ class NotificationSettingsScreen extends StatefulWidget {
   final AuthController auth;
 
   @override
-  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+  State<NotificationSettingsScreen> createState() =>
+      _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+class _NotificationSettingsScreenState
+    extends State<NotificationSettingsScreen> {
   late final AccountService _accountService;
 
   bool _loading = true;
@@ -80,7 +82,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPink))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryPink),
+              )
             : ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
@@ -91,25 +95,31 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
                   _switchTile(
                     title: 'Video mới từ kênh đã đăng ký',
-                    subtitle: 'Nhận thông báo khi kênh bạn theo dõi xuất bản video mới.',
+                    subtitle:
+                        'Nhận thông báo khi kênh bạn theo dõi xuất bản video mới.',
                     value: _settings.notifyNewVideos,
-                    onChanged: (val) => _save(_settings.copyWith(notifyNewVideos: val)),
+                    onChanged: (val) =>
+                        _save(_settings.copyWith(notifyNewVideos: val)),
                   ),
                   const Divider(height: 24),
 
                   _switchTile(
                     title: 'Bình luận & Phản hồi',
-                    subtitle: 'Thông báo về hoạt động trên bình luận và video của bạn.',
+                    subtitle:
+                        'Thông báo về hoạt động trên bình luận và video của bạn.',
                     value: _settings.notifyComments,
-                    onChanged: (val) => _save(_settings.copyWith(notifyComments: val)),
+                    onChanged: (val) =>
+                        _save(_settings.copyWith(notifyComments: val)),
                   ),
                   const Divider(height: 24),
 
                   _switchTile(
                     title: 'Hoạt động kênh đăng ký',
-                    subtitle: 'Nhận tóm tắt về hoạt động của các kênh bạn quan tâm.',
+                    subtitle:
+                        'Nhận tóm tắt về hoạt động của các kênh bạn quan tâm.',
                     value: _settings.notifySubscriptions,
-                    onChanged: (val) => _save(_settings.copyWith(notifySubscriptions: val)),
+                    onChanged: (val) =>
+                        _save(_settings.copyWith(notifySubscriptions: val)),
                   ),
                   const Divider(height: 24),
 
@@ -117,7 +127,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     title: 'Email thông tin & Cập nhật sản phẩm',
                     subtitle: 'Nhận tin tức về các tính năng mới từ HuTube.',
                     value: _settings.notifyMarketing,
-                    onChanged: (val) => _save(_settings.copyWith(notifyMarketing: val)),
+                    onChanged: (val) =>
+                        _save(_settings.copyWith(notifyMarketing: val)),
                   ),
 
                   if (_saving) ...[
@@ -128,10 +139,19 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryPink),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryPink,
+                          ),
                         ),
                         SizedBox(width: 8),
-                        Text('Đang tự động lưu...', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        Text(
+                          'Đang tự động lưu...',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -156,12 +176,19 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             children: [
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
             ],
           ),

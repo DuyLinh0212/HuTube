@@ -13,6 +13,8 @@ using HuTube.Infrastructure.Authentication;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Plans;
 using HuTube.Infrastructure.Storage;
+using HuTube.Infrastructure.Taxonomy;
+using HuTube.Infrastructure.Users;
 using HuTube.Infrastructure.Videos;
 using HuTube.Infrastructure.Notifications;
 using HuTube.Infrastructure.Policies;
@@ -97,6 +99,8 @@ builder.Services.AddScoped<IContentService, ContentService>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<ModerationService>();
+builder.Services.AddScoped<TaxonomyService>();
+builder.Services.AddScoped<AdminUserService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<IVideoTranscoder, FfmpegVideoTranscoder>();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, NotificationUserIdProvider>();
@@ -113,7 +117,7 @@ var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url =
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
     .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
-    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With", "X-HuTube-Client", "X-HuTube-App")
+    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With", "X-SignalR-User-Agent", "X-HuTube-Client", "X-HuTube-App")
     .AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
     options.MapInboundClaims = false;

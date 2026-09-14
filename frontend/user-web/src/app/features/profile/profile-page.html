@@ -174,94 +174,7 @@
     }
   </header>
 
-  <!-- ============================================================== -->
-  <!-- 2. SUB-NAVIGATION TABS (USING AUTHENTIC DESIGN ICONS)          -->
-  <!-- ============================================================== -->
-  <nav class="profile-nav-tabs" aria-label="Điều hướng hồ sơ">
-    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'overview'" (click)="setTab('overview')">
-      <img src="/assets/icons/home.png" alt="" class="tab-img-icon" />
-      <span>{{ 'profile.tabOverview' | translate }}</span>
-    </button>
-    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'history'" (click)="setTab('history')">
-      <img src="/assets/icons/history.png" alt="" class="tab-img-icon" />
-      <span>{{ 'profile.tabHistory' | translate }}</span>
-    </button>
-    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'liked'" (click)="setTab('liked')">
-      <img src="/assets/icons/favorite.png" alt="" class="tab-img-icon" />
-      <span>{{ 'profile.tabLiked' | translate }}</span>
-    </button>
-    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'playlists'" (click)="setTab('playlists')">
-      <img src="/assets/icons/playlist.png" alt="" class="tab-img-icon" />
-      <span>{{ 'profile.tabPlaylists' | translate }}</span>
-    </button>
-    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'watchlater'" (click)="setTab('watchlater')">
-      <img src="/assets/icons/utility/icon-utility-bookmark.png" alt="" class="tab-img-icon" />
-      <span>{{ 'profile.tabWatchLater' | translate }}</span>
-    </button>
-    <button type="button" class="tab-item" [class.active]="activeSubTab() === 'packages'" (click)="setTab('packages')">
-      <img src="/assets/icons/plan.png" alt="" class="tab-img-icon" />
-      <span>{{ 'profile.tabMyPackages' | translate }}</span>
-    </button>
-  </nav>
-
-  <!-- ============================================================== -->
-  <!-- 3. STATS SUMMARY ROW (TITLES ONLY + AUTHENTIC ICONS)           -->
-  <!-- ============================================================== -->
-  <div class="profile-stats-grid">
-    <!-- Stat 1: Thời gian xem -->
-    <div class="stat-card stat-card--watchtime" (click)="setTab('history')" role="button" tabindex="0">
-      <div class="stat-icon-circle stat-icon--pink">
-        <img src="/assets/icons/history.png" alt="" class="stat-img-icon" />
-      </div>
-      <div class="stat-title-wrap">
-        <span class="stat-title">{{ 'profile.statWatchTime' | translate }}</span>
-      </div>
-    </div>
-
-    <!-- Stat 2: Video đã thích -->
-    <div class="stat-card stat-card--liked" (click)="setTab('liked')" role="button" tabindex="0">
-      <div class="stat-icon-circle stat-icon--purple">
-        <img src="/assets/icons/favorite.png" alt="" class="stat-img-icon" />
-      </div>
-      <div class="stat-title-wrap">
-        <span class="stat-title">{{ 'profile.statLiked' | translate }}</span>
-      </div>
-    </div>
-
-    <!-- Stat 3: Danh sách phát -->
-    <div class="stat-card stat-card--playlists" (click)="setTab('playlists')" role="button" tabindex="0">
-      <div class="stat-icon-circle stat-icon--blue">
-        <img src="/assets/icons/playlist.png" alt="" class="stat-img-icon" />
-      </div>
-      <div class="stat-title-wrap">
-        <span class="stat-title">{{ 'profile.statPlaylists' | translate }}</span>
-      </div>
-    </div>
-
-    <!-- Stat 4: Kênh đăng ký -->
-    <div class="stat-card stat-card--subs" role="button" tabindex="0">
-      <div class="stat-icon-circle stat-icon--orange">
-        <img src="/assets/icons/channel.png" alt="" class="stat-img-icon" />
-      </div>
-      <div class="stat-title-wrap">
-        <span class="stat-title">{{ 'profile.statSubs' | translate }}</span>
-      </div>
-    </div>
-
-    <!-- Stat 5: Huy hiệu thành viên -->
-    <div class="stat-card stat-card--badge" (click)="setTab('packages')" role="button" tabindex="0">
-      <div class="stat-icon-circle stat-icon--teal">
-        <img src="/assets/icons/utility/icon-utility-star.png" alt="" class="stat-img-icon" />
-      </div>
-      <div class="stat-title-wrap">
-        <span class="stat-title">{{ 'profile.statBadge' | translate }}</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================== -->
-  <!-- 4. FAVORITE GENRES (PRESERVING EMOJIS)         -->
-  <!-- ============================================== -->
+  <!-- Profile preferences stay here; history and liked videos live in the sidebar routes. -->
   <section class="profile-genres-section">
     <div class="section-heading-bar">
       <h2 class="section-title">{{ 'profile.favoriteGenres' | translate }}</h2>
@@ -283,61 +196,31 @@
     </div>
   </section>
 
-  <!-- ============================================================== -->
-  <!-- 5. REAL VIDEO SECTION (EMPTY STATE MATCHING TRANG CHỦ / LỊCH SỬ)-->
-  <!-- ============================================================== -->
-  @if (loading()) {
-    <section class="profile-empty-state">
-      <p class="state-loading">{{ 'common.loading' | translate }}</p>
-    </section>
-  } @else if (historyVideos().length > 0) {
-    <section class="profile-videos-section">
-      <div class="section-heading-bar">
-        <h2 class="section-title">{{ 'profile.tabHistory' | translate }}</h2>
-        <a routerLink="/history" class="section-action-link">{{ 'profile.viewAll' | translate }}</a>
-      </div>
-
-      <div class="videos-grid">
-        @for (item of historyVideos(); track item.videoId) {
-          <article class="compact-video-card">
-            <a [routerLink]="['/watch', item.videoId]" class="compact-thumb-link">
-              <div class="compact-thumb-box">
-                @if (item.thumbnailUrl) {
-                  <img [src]="item.thumbnailUrl" alt="" class="compact-thumb-img" />
-                } @else {
-                  <div class="compact-thumb-fallback">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
-                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                  </div>
-                }
-                <span class="duration-badge">{{ duration(item.duration) }}</span>
-                @if (item.progress > 0) {
-                  <div class="watch-progress-track">
-                    <div class="watch-progress-fill" [style.width.%]="item.progress"></div>
-                  </div>
-                }
-              </div>
-            </a>
-            <div class="compact-info-box">
-              <h3 class="compact-video-title">
-                <a [routerLink]="['/watch', item.videoId]">{{ item.title }}</a>
-              </h3>
-              <p class="compact-channel-name">{{ item.channelName }}</p>
-            </div>
-          </article>
-        }
-      </div>
-    </section>
-  } @else {
-    <!-- Empty state matching Lịch sử xem / Trang chủ (NO fake mock videos) -->
-    <section class="profile-empty-state" aria-label="Thư viện trống">
-      <div class="empty-icon-box">
-        <img src="/assets/icons/history.png" alt="" class="empty-icon-img" />
-      </div>
-      <h2 class="empty-title">{{ 'profile.emptyHistory' | translate }}</h2>
-      <p class="empty-desc">Video bạn mở và xem sẽ được lưu lại tại đây.</p>
-      <a routerLink="/home" class="btn-empty-explore">{{ 'nav.explore' | translate }}</a>
-    </section>
-  }
+  <section class="profile-next-steps" aria-label="Lối tắt hồ sơ">
+    <div class="next-steps-copy">
+      <span class="section-kicker">HuTube workspace</span>
+      <h2>Quản lý những phần quan trọng của bạn</h2>
+      <p>Lịch sử xem và video đã thích đã được tách riêng trong sidebar để bạn truy cập nhanh hơn.</p>
+    </div>
+    <div class="next-steps-links">
+      @if (myChannel(); as channel) {
+        <a [routerLink]="['/channel', channel.handle]" class="next-step-link">
+          <img src="/assets/icons/my_channel.png" alt="" />
+          <span><strong>Kênh của bạn</strong><small>Quản lý trang kênh</small></span>
+          <b aria-hidden="true">→</b>
+        </a>
+      } @else {
+        <a routerLink="/channel/create" class="next-step-link">
+          <img src="/assets/icons/my_channel.png" alt="" />
+          <span><strong>Tạo kênh</strong><small>Bắt đầu sáng tạo nội dung</small></span>
+          <b aria-hidden="true">→</b>
+        </a>
+      }
+      <a routerLink="/my-plan" class="next-step-link">
+        <img src="/assets/icons/plan.png" alt="" />
+        <span><strong>Gói của tôi</strong><small>Xem quyền lợi và dung lượng</small></span>
+        <b aria-hidden="true">→</b>
+      </a>
+    </div>
+  </section>
 </div>

@@ -200,7 +200,8 @@ class ChannelController extends ChangeNotifier {
     notifyListeners();
     try {
       members = await service.getMembers(channelId);
-    } catch (_) {} finally {
+    } catch (_) {
+    } finally {
       loadingMembers = false;
       notifyListeners();
     }
@@ -211,7 +212,8 @@ class ChannelController extends ChangeNotifier {
     notifyListeners();
     try {
       pendingInvitations = await service.getPendingInvitations(channelId);
-    } catch (_) {} finally {
+    } catch (_) {
+    } finally {
       loadingInvitations = false;
       notifyListeners();
     }
@@ -222,7 +224,8 @@ class ChannelController extends ChangeNotifier {
     notifyListeners();
     try {
       myInvitations = await service.getMyInvitations();
-    } catch (_) {} finally {
+    } catch (_) {
+    } finally {
       loadingInvitations = false;
       notifyListeners();
     }

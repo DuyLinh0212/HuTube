@@ -5,7 +5,7 @@
     </button>
   }
   <div class="topbar-brand-group">
-    <button class="menu-button" type="button" [attr.aria-label]="'nav.expandSidebar' | translate" (click)="menuOpened.emit()">
+    <button class="menu-button" type="button" [attr.aria-label]="(sidebarCollapsed ? 'nav.expandSidebar' : 'nav.collapseSidebar') | translate" (click)="menuOpened.emit()">
       <span></span><span></span><span></span>
     </button>
 

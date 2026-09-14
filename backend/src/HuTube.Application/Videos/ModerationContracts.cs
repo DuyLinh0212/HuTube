@@ -12,6 +12,7 @@ public sealed record ModerationQueueItemResponse(
     string ChannelName,
     string? ChannelHandle,
     string? ChannelAvatarUrl,
+    string? CategoryName,
     string CaseType,
     string Status,
     string RiskLevel,

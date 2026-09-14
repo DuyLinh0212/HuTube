@@ -136,7 +136,13 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<HuTube.Domain.Plans.PlanMember>(b => { b.ToTable("plan_members"); b.HasKey(x => x.PlanMemberId); });
         model.Entity<HuTube.Domain.Plans.PlanInvitationToken>(b => { b.ToTable("plan_invitation_tokens"); b.HasKey(x => x.PlanInvitationTokenId); });
         model.Entity<Category>(b => { b.ToTable("categories"); b.HasKey(x => x.CategoryId); b.HasIndex(x => x.Slug).IsUnique(); });
-        model.Entity<Video>(b => { b.ToTable("videos"); b.HasKey(x => x.VideoId); b.Property(x => x.Metadata).HasColumnType("jsonb"); b.HasIndex(x => new { x.ChannelId, x.IdempotencyKey }).IsUnique().HasFilter("idempotency_key IS NOT NULL"); });
+        model.Entity<Video>(b => {
+            b.ToTable("videos");
+            b.HasKey(x => x.VideoId);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.UploadedByUserId).OnDelete(DeleteBehavior.Restrict);
+            b.Property(x => x.Metadata).HasColumnType("jsonb");
+            b.HasIndex(x => new { x.ChannelId, x.IdempotencyKey }).IsUnique().HasFilter("idempotency_key IS NOT NULL");
+        });
         model.Entity<VideoRendition>(b => { b.ToTable("video_renditions"); b.HasKey(x => x.VideoRenditionId); b.HasIndex(x => new { x.VideoId, x.QualityLabel }).IsUnique(); });
         model.Entity<Tag>(b => { b.ToTable("tags"); b.HasKey(x => x.TagId); });
         model.Entity<VideoTag>(b => { b.ToTable("video_tags"); b.HasKey(x => x.VideoTagId); b.HasIndex(x => new { x.VideoId, x.TagId }).IsUnique(); });

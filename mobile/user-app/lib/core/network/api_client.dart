@@ -20,6 +20,22 @@ class UploadPayload {
   final String contentType;
 }
 
+/// A file part for APIs that accept a form with metadata and more than one
+/// attachment (for example a video and its thumbnail).
+class MultipartFilePayload {
+  const MultipartFilePayload({
+    required this.field,
+    required this.path,
+    required this.fileName,
+    required this.contentType,
+  });
+
+  final String field;
+  final String path;
+  final String fileName;
+  final String contentType;
+}
+
 class ApiClient {
   ApiClient({http.Client? client, String? baseUrl})
     : client = client ?? http.Client(),
@@ -40,10 +56,7 @@ class ApiClient {
     String? accessToken,
   }) async {
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse(_buildUrl(path)),
-      );
+      final request = http.MultipartRequest('POST', Uri.parse(_buildUrl(path)));
       request.headers.addAll({
         'Accept': 'application/json',
         'X-HuTube-Client': AppConfig.standard.clientHeader,
@@ -69,6 +82,61 @@ class ApiClient {
         0,
         'NETWORK_ERROR',
         'Tải ảnh quá thời gian. Vui lòng kiểm tra mạng và thử lại.',
+      );
+    } on SocketException {
+      throw const ApiFailure(
+        0,
+        'NETWORK_ERROR',
+        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
+      );
+    } on http.ClientException {
+      throw const ApiFailure(
+        0,
+        'NETWORK_ERROR',
+        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadMultipart(
+    String path, {
+    required Map<String, String> fields,
+    required List<MultipartFilePayload> files,
+    String method = 'POST',
+    String? accessToken,
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final request = http.MultipartRequest(method, Uri.parse(_buildUrl(path)));
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'X-HuTube-Client': AppConfig.standard.clientHeader,
+        if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+        ...?headers,
+      });
+      request.fields.addAll(fields);
+      for (final file in files) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            file.field,
+            file.path,
+            filename: file.fileName,
+            contentType: MediaType.parse(file.contentType),
+          ),
+        );
+      }
+      final response = await http.Response.fromStream(
+        await client.send(request).timeout(const Duration(minutes: 5)),
+      ).timeout(const Duration(minutes: 5));
+      final data = _decodeResponse(response);
+      return data is Map<String, dynamic> ? data : <String, dynamic>{};
+    } on AppError {
+      rethrow;
+    } on TimeoutException {
+      throw const ApiFailure(
+        0,
+        'NETWORK_ERROR',
+        'Tải video quá thời gian. Vui lòng kiểm tra mạng và thử lại.',
       );
     } on SocketException {
       throw const ApiFailure(
@@ -122,10 +190,7 @@ class ApiClient {
     String? accessToken,
   }) async {
     try {
-      final request = http.Request(
-        method,
-        Uri.parse(_buildUrl(path)),
-      );
+      final request = http.Request(method, Uri.parse(_buildUrl(path)));
       request.headers.addAll({
         'Content-Type': 'application/json',
         'Accept': 'application/json',

@@ -2,7 +2,7 @@ namespace HuTube.Domain.Channels;
 
 public static class ChannelQuotaRules
 {
-    public const long DefaultStorageLimit = 10L * 1024 * 1024 * 1024;
+    public const long DefaultStorageLimit = 1L * 1024 * 1024 * 1024;
 
     public static bool CanReserve(long storageUsed, long fileSize, long storageLimit)
     {

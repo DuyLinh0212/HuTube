@@ -1,0 +1,169 @@
+<main id="main-content" class="taxonomy-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">NỘI DUNG</p>
+      <h1>Quản lý danh mục &amp; chủ đề</h1>
+      <p class="muted">Tạo và quản lý danh mục, chủ đề phân loại video cùng các tag được dùng trong hệ thống.</p>
+    </div>
+    <div class="heading-actions">
+      <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading()">
+        <span aria-hidden="true">↻</span> Làm mới
+      </button>
+      @if (canEdit()) {
+        @if (activeTab() === 'topics') {
+          <button type="button" class="btn btn-primary" (click)="openCreateTopic()">＋ Thêm danh mục</button>
+        } @else {
+          <button type="button" class="btn btn-primary" (click)="openCreateTag()">＋ Thêm tag</button>
+        }
+      }
+    </div>
+  </header>
+
+  @if (success()) {
+    <div class="alert success" role="status"><span aria-hidden="true">✓</span>{{ success() }}</div>
+  }
+  @if (error()) {
+    <div class="alert error" role="alert"><span aria-hidden="true">!</span>{{ error() }}</div>
+  }
+
+  <section class="stats-grid" aria-label="Tổng quan taxonomy">
+    <article class="stat-card">
+      <span class="stat-icon topic-icon" aria-hidden="true">#</span>
+      <div><span class="stat-label">Danh mục đang hoạt động</span><strong>{{ activeTopicCount() }}</strong></div>
+    </article>
+    <article class="stat-card">
+      <span class="stat-icon video-icon" aria-hidden="true">▶</span>
+      <div><span class="stat-label">Video đã phân loại</span><strong>{{ categorizedVideoCount() }}</strong></div>
+    </article>
+    <article class="stat-card">
+      <span class="stat-icon tag-icon" aria-hidden="true">#</span>
+      <div><span class="stat-label">Tag đang được dùng</span><strong>{{ usedTagCount() }} / {{ tags().length }}</strong></div>
+    </article>
+  </section>
+
+  <section class="workspace-card">
+    <div class="tabs" role="tablist" aria-label="Loại taxonomy">
+      <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'topics'" [class.is-active]="activeTab() === 'topics'" (click)="activeTab.set('topics')">
+        Danh mục / chủ đề <span>{{ topics().length }}</span>
+      </button>
+      <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'tags'" [class.is-active]="activeTab() === 'tags'" (click)="activeTab.set('tags')">
+        Tag <span>{{ tags().length }}</span>
+      </button>
+    </div>
+
+    <div class="filters">
+      @if (activeTab() === 'topics') {
+        <label class="search-field">
+          <span class="search-glyph" aria-hidden="true"></span>
+          <input type="search" placeholder="Tìm danh mục, slug..." [ngModel]="topicSearch()" (ngModelChange)="topicSearch.set($event)" />
+        </label>
+        <label class="select-field">
+          <span>Trạng thái</span>
+          <select [ngModel]="topicStatus()" (ngModelChange)="topicStatus.set($event)">
+            <option value="all">Tất cả</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="inactive">Đã lưu trữ</option>
+          </select>
+        </label>
+      } @else {
+        <label class="search-field wide">
+          <span class="search-glyph" aria-hidden="true"></span>
+          <input type="search" placeholder="Tìm tag..." [ngModel]="tagSearch()" (ngModelChange)="tagSearch.set($event)" />
+        </label>
+      }
+    </div>
+  </section>
+
+  @if (loading()) {
+    <section class="table-card loading-state"><span class="spinner"></span><p>Đang tải dữ liệu...</p></section>
+  } @else if (activeTab() === 'topics') {
+    <section class="table-card">
+      <div class="table-heading">
+        <div><h2>Danh sách danh mục</h2><p>{{ filteredTopics().length }} kết quả phù hợp</p></div>
+        @if (!canEdit()) { <span class="readonly-note">Bạn chỉ có quyền xem.</span> }
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Danh mục / chủ đề</th><th>Slug</th><th>Trạng thái</th><th>Video</th><th>Cập nhật</th><th class="actions-column">Thao tác</th></tr></thead>
+          <tbody>
+            @for (topic of filteredTopics(); track topic.categoryId) {
+              <tr>
+                <td><div class="primary-cell"><strong>{{ topic.name }}</strong><span>{{ topic.description || 'Chưa có mô tả' }}</span></div></td>
+                <td><code>{{ topic.slug }}</code></td>
+                <td><span class="status-pill" [class.is-active]="topic.status === 'active'" [class.is-inactive]="topic.status === 'inactive'">{{ topic.status === 'active' ? 'Đang hoạt động' : 'Đã lưu trữ' }}</span></td>
+                <td><strong>{{ topic.videoCount }}</strong></td>
+                <td class="date-cell">{{ topic.updatedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td class="actions-column">
+                  @if (canEdit()) {
+                    <div class="row-actions">
+                      <button type="button" class="icon-action" title="Chỉnh sửa" aria-label="Chỉnh sửa danh mục" (click)="openEditTopic(topic)">✎</button>
+                      @if (topic.status === 'active') { <button type="button" class="icon-action danger" title="Lưu trữ" aria-label="Lưu trữ danh mục" (click)="archiveTopic(topic)">⌫</button> }
+                    </div>
+                  } @else { <span class="muted">—</span> }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="empty-cell"><strong>Chưa có danh mục phù hợp</strong><span>Hãy đổi bộ lọc hoặc tạo danh mục mới.</span></td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  } @else {
+    <section class="table-card">
+      <div class="table-heading">
+        <div><h2>Danh sách tag</h2><p>{{ filteredTags().length }} kết quả phù hợp</p></div>
+        @if (!canEdit()) { <span class="readonly-note">Bạn chỉ có quyền xem.</span> }
+      </div>
+      <div class="table-scroll">
+        <table class="data-table tags-table">
+          <thead><tr><th>Tag</th><th>Video sử dụng</th><th>Ngày tạo</th><th class="actions-column">Thao tác</th></tr></thead>
+          <tbody>
+            @for (tag of filteredTags(); track tag.tagId) {
+              <tr>
+                <td><span class="tag-name">#{{ tag.name }}</span></td>
+                <td><span class="usage-count" [class.has-usage]="tag.videoCount > 0">{{ tag.videoCount }}</span></td>
+                <td class="date-cell">{{ tag.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td class="actions-column">
+                  @if (canEdit()) {
+                    <div class="row-actions">
+                      <button type="button" class="icon-action" title="Chỉnh sửa" aria-label="Chỉnh sửa tag" (click)="openEditTag(tag)">✎</button>
+                      <button type="button" class="icon-action danger" [disabled]="tag.videoCount > 0" [title]="tag.videoCount > 0 ? 'Tag đang được dùng bởi video' : 'Xóa tag'" aria-label="Xóa tag" (click)="deleteTag(tag)">⌫</button>
+                    </div>
+                  } @else { <span class="muted">—</span> }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="empty-cell"><strong>Chưa có tag phù hợp</strong><span>Tag mới sẽ xuất hiện sau khi được tạo hoặc gắn vào video.</span></td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  @if (topicEditorOpen()) {
+    <div class="modal-backdrop" role="presentation" (click)="closeTopicEditor()">
+      <form class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="topic-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="saveTopic()">
+          <header class="modal-header"><div><p class="eyebrow">DANH MỤC</p><h2 id="topic-dialog-title">{{ editingTopic() ? 'Chỉnh sửa danh mục' : 'Thêm danh mục' }}</h2></div><button type="button" class="close-button" aria-label="Đóng" (click)="closeTopicEditor()">×</button></header>
+        <div class="modal-body">
+          <label class="form-field"><span>Tên danh mục <i>*</i></span><input name="topicName" required maxlength="100" [(ngModel)]="topicDraft.name" placeholder="Ví dụ: Âm nhạc" /></label>
+          <label class="form-field"><span>Slug</span><input name="topicSlug" maxlength="120" [(ngModel)]="topicDraft.slug" placeholder="Để trống để tự tạo từ tên" /><small>Chỉ dùng chữ thường, số và dấu gạch ngang. Có thể để trống.</small></label>
+          <label class="form-field"><span>Mô tả</span><textarea name="topicDescription" rows="4" maxlength="1000" [(ngModel)]="topicDraft.description" placeholder="Mô tả ngắn giúp quản trị viên nhận biết danh mục..."></textarea></label>
+          <label class="form-field"><span>Trạng thái</span><select name="topicStatus" [(ngModel)]="topicDraft.status"><option value="active">Đang hoạt động</option><option value="inactive">Đã lưu trữ</option></select></label>
+        </div>
+        <footer class="modal-footer"><button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="closeTopicEditor()">Hủy</button><button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? 'Đang lưu...' : 'Lưu danh mục' }}</button></footer>
+      </form>
+    </div>
+  }
+
+  @if (tagEditorOpen()) {
+    <div class="modal-backdrop" role="presentation" (click)="closeTagEditor()">
+      <form class="modal-dialog compact" role="dialog" aria-modal="true" aria-labelledby="tag-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="saveTag()">
+        <header class="modal-header"><div><p class="eyebrow">TAXONOMY</p><h2 id="tag-dialog-title">{{ editingTag() ? 'Chỉnh sửa tag' : 'Thêm tag' }}</h2></div><button type="button" class="close-button" aria-label="Đóng" (click)="closeTagEditor()">×</button></header>
+        <div class="modal-body"><label class="form-field"><span>Tên tag <i>*</i></span><input name="tagName" required maxlength="80" [(ngModel)]="tagDraft" placeholder="Ví dụ: du lịch" /><small>Tag sẽ được chuẩn hóa về chữ thường; có thể nhập kèm dấu #.</small></label></div>
+        <footer class="modal-footer"><button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="closeTagEditor()">Hủy</button><button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? 'Đang lưu...' : 'Lưu tag' }}</button></footer>
+      </form>
+    </div>
+  }
+</main>

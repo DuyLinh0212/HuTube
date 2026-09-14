@@ -81,7 +81,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     } on ApiFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Không thể đổi mật khẩu. Vui lòng thử lại.');
+      if (mounted)
+        setState(() => _error = 'Không thể đổi mật khẩu. Vui lòng thử lại.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -121,8 +122,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   hintText: 'Nhập mật khẩu đang sử dụng',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(_hideCurrent ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                    onPressed: () => setState(() => _hideCurrent = !_hideCurrent),
+                    icon: Icon(
+                      _hideCurrent
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _hideCurrent = !_hideCurrent),
                   ),
                 ),
               ),
@@ -141,7 +147,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   hintText: 'Tối thiểu 8 ký tự',
                   prefixIcon: const Icon(Icons.lock_reset),
                   suffixIcon: IconButton(
-                    icon: Icon(_hideNew ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    icon: Icon(
+                      _hideNew
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
                     onPressed: () => setState(() => _hideNew = !_hideNew),
                   ),
                 ),
@@ -161,8 +171,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   hintText: 'Nhập lại mật khẩu mới',
                   prefixIcon: const Icon(Icons.lock_reset),
                   suffixIcon: IconButton(
-                    icon: Icon(_hideConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                    onPressed: () => setState(() => _hideConfirm = !_hideConfirm),
+                    icon: Icon(
+                      _hideConfirm
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _hideConfirm = !_hideConfirm),
                   ),
                 ),
               ),
@@ -174,7 +189,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Cập nhật mật khẩu'),
               ),

@@ -75,7 +75,11 @@ class AppTheme {
         backgroundColor: Colors.white,
         indicatorColor: AppColors.primaryIndicator,
         labelTextStyle: WidgetStatePropertyAll(
-          TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -101,14 +105,19 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
@@ -117,7 +126,9 @@ class AppTheme {
           foregroundColor: AppColors.primary,
           side: const BorderSide(color: AppColors.primary),
           minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
@@ -162,7 +173,11 @@ class AppTheme {
         backgroundColor: AppColors.darkSurface,
         indicatorColor: Color(0x33FF2B66),
         labelTextStyle: WidgetStatePropertyAll(
-          TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
+          TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkTextPrimary,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -188,14 +203,19 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
@@ -204,7 +224,9 @@ class AppTheme {
           foregroundColor: AppColors.primary,
           side: const BorderSide(color: AppColors.primary),
           minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),

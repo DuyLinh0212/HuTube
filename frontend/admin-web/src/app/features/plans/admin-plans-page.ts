@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { AdminPlan, AdminPlansService, SavePlanRequest } from './admin-plans.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
 
+const BYTES_PER_GIB = 1024 ** 3;
+const bytesToGiB = (bytes: number) => Number((bytes / BYTES_PER_GIB).toFixed(2));
+const giBToBytes = (gib: number) => Math.round(gib * BYTES_PER_GIB);
 const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxDownloadQuality: '720p', maxMembers: 1, status: 'active', features: '{"download":false,"background_play":false,"pip":false}', displayOrder: 0 });
 
 @Component({ selector: 'app-admin-plans-page', imports: [FormsModule, DecimalPipe], templateUrl: './admin-plans-page.html', styleUrl: './admin-plans-page.scss' })
@@ -32,8 +35,8 @@ export class AdminPlansPage {
     this.creating.set(false); this.editing.set(plan);
     this.draft = {
       code: plan.code, name: plan.name, description: plan.description ?? '', price: plan.price,
-      durationDays: plan.durationDays, storageLimit: Math.round(plan.storageLimit / 1073741824),
-      maxUploadSize: Math.round(plan.maxUploadSize / 1073741824), maxVideoDuration: Math.max(1, Math.round(plan.maxVideoDuration / 60)),
+      durationDays: plan.durationDays, storageLimit: bytesToGiB(plan.storageLimit),
+      maxUploadSize: bytesToGiB(plan.maxUploadSize), maxVideoDuration: Math.max(1, Math.round(plan.maxVideoDuration / 60)),
       maxVideoQuality: plan.maxVideoQuality ?? '720p', maxDownloadQuality: plan.maxDownloadQuality ?? plan.maxVideoQuality ?? '720p', maxMembers: plan.maxMembers, status: plan.status,
       features: JSON.stringify(plan.features ?? {}), displayOrder: plan.displayOrder ?? 0
     };
@@ -44,8 +47,8 @@ export class AdminPlansPage {
     if (this.saving()) return;
     const request: SavePlanRequest = {
       ...this.draft,
-      storageLimit: Math.round(this.draft.storageLimit * 1073741824),
-      maxUploadSize: Math.round(this.draft.maxUploadSize * 1073741824),
+      storageLimit: giBToBytes(this.draft.storageLimit),
+      maxUploadSize: giBToBytes(this.draft.maxUploadSize),
       maxVideoDuration: Math.round(this.draft.maxVideoDuration * 60),
       displayOrder: Math.max(0, Math.round(this.draft.displayOrder ?? 0)),
       features: this.draft.features || '{}'

@@ -8,8 +8,8 @@
       <label>Mô tả<textarea [(ngModel)]="draft.description"></textarea></label>
       <label>Giá (VNĐ)<input type="number" [(ngModel)]="draft.price" min="0" /></label>
       <label>Thời hạn (ngày)<input type="number" [(ngModel)]="draft.durationDays" min="1" /></label>
-      <label>Dung lượng (GB)<input type="number" [(ngModel)]="draft.storageLimit" min="1" /></label>
-      <label>Upload tối đa (GB)<input type="number" [(ngModel)]="draft.maxUploadSize" min="1" /></label>
+      <label>Dung lượng (GB)<input type="number" [(ngModel)]="draft.storageLimit" min="0.01" step="0.01" /></label>
+      <label>Upload tối đa (GB)<input type="number" [(ngModel)]="draft.maxUploadSize" min="0.01" step="0.01" /></label>
       <label>Thứ tự hiển thị<input type="number" [(ngModel)]="draft.displayOrder" min="0" /></label>
       <label>Thời lượng video (phút)<input type="number" [(ngModel)]="draft.maxVideoDuration" min="1" /></label>
       <label>Chất lượng tối đa<select [(ngModel)]="draft.maxVideoQuality"><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">4K (2160p)</option></select></label>

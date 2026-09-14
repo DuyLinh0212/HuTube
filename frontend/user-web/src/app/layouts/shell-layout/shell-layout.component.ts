@@ -15,23 +15,18 @@ export class ShellLayoutComponent {
 
   readonly navOpen = signal(false);
   readonly navCollapsed = signal(localStorage.getItem('hutube.user.sidebar-collapsed') === 'true');
-  readonly isAccountRoute = signal(false);
 
   constructor() {
-    this.updateRoute(this.router.url);
-    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
-      this.updateRoute((e as NavigationEnd).urlAfterRedirects || (e as NavigationEnd).url);
-    });
-  }
-
-  private updateRoute(url: string) {
-    const isAccount = url.startsWith('/account');
-    this.isAccountRoute.set(isAccount);
-    if (isAccount) {
-      this.navOpen.set(false);
-    }
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => this.closeNavigation());
   }
 
   closeNavigation() { this.navOpen.set(false); }
   setCollapsed(value: boolean) { this.navCollapsed.set(value); localStorage.setItem('hutube.user.sidebar-collapsed', String(value)); }
+  toggleNavigation() {
+    if (typeof window !== 'undefined' && window.innerWidth <= 960) {
+      this.navOpen.set(true);
+      return;
+    }
+    this.setCollapsed(!this.navCollapsed());
+  }
 }

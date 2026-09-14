@@ -129,9 +129,11 @@ class UserPreferencesModel {
   factory UserPreferencesModel.fromJson(Map<String, dynamic> json) {
     return UserPreferencesModel(
       theme: json['theme'] as String? ?? 'system',
-      defaultPlaybackQuality: json['defaultPlaybackQuality'] as String? ?? 'auto',
+      defaultPlaybackQuality:
+          json['defaultPlaybackQuality'] as String? ?? 'auto',
       autoplayNext: json['autoplayNext'] as bool? ?? true,
-      keepSubscriptionsPrivate: json['keepSubscriptionsPrivate'] as bool? ?? false,
+      keepSubscriptionsPrivate:
+          json['keepSubscriptionsPrivate'] as bool? ?? false,
       keepPlaylistsPrivate: json['keepPlaylistsPrivate'] as bool? ?? true,
     );
   }
@@ -153,9 +155,11 @@ class UserPreferencesModel {
   }) {
     return UserPreferencesModel(
       theme: theme ?? this.theme,
-      defaultPlaybackQuality: defaultPlaybackQuality ?? this.defaultPlaybackQuality,
+      defaultPlaybackQuality:
+          defaultPlaybackQuality ?? this.defaultPlaybackQuality,
       autoplayNext: autoplayNext ?? this.autoplayNext,
-      keepSubscriptionsPrivate: keepSubscriptionsPrivate ?? this.keepSubscriptionsPrivate,
+      keepSubscriptionsPrivate:
+          keepSubscriptionsPrivate ?? this.keepSubscriptionsPrivate,
       keepPlaylistsPrivate: keepPlaylistsPrivate ?? this.keepPlaylistsPrivate,
     );
   }

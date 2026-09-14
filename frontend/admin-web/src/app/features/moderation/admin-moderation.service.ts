@@ -22,8 +22,9 @@ export interface ModerationQueueItem {
   channelName: string;
   channelHandle: string | null;
   channelAvatarUrl: string | null;
+  categoryName: string | null;
   caseType: string;
-  status: 'pending' | 'reviewing' | 'resolved' | 'escalated';
+  status: 'pending' | 'reviewing' | 'approved' | 'rejected' | 'resolved' | 'escalated';
   riskLevel: 'low' | 'high';
   reviewerId: string | null;
   reviewerName: string | null;

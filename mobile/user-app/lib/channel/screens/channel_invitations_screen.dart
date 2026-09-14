@@ -150,7 +150,9 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                         Row(
                           children: [
                             CircleAvatar(
-                              backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
+                              backgroundColor: AppColors.primaryPink.withValues(
+                                alpha: 0.15,
+                              ),
                               child: Text(
                                 invitation.channelName.isEmpty
                                     ? '?'
@@ -189,7 +191,9 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.primaryPink.withValues(alpha: 0.12),
+                                color: AppColors.primaryPink.withValues(
+                                  alpha: 0.12,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(

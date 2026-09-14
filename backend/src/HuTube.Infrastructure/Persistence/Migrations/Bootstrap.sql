@@ -88,7 +88,7 @@ INSERT INTO public.plans (
 VALUES
   (
     '00000000-0000-0000-0000-000000000100', 'free', 'Free', 'Gói miễn phí cho người mới bắt đầu.', 0, 3650,
-    10737418240, 1073741824, 43200, '720p', '720p', 1, 1, 'active', '{"download":false,"background_play":false,"pip":false}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    1073741824, 1073741824, 43200, '720p', '720p', 1, 1, 'active', '{"download":false,"background_play":false,"pip":false}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   ),
   (
     '00000000-0000-0000-0000-000000000101', 'creator', 'Creator', 'Gói dành cho người sáng tạo.', 99000, 30,

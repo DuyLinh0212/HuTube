@@ -42,7 +42,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     _accountService = AccountService(widget.auth);
-    _displayNameController = TextEditingController(text: widget.profile.displayName);
+    _displayNameController = TextEditingController(
+      text: widget.profile.displayName,
+    );
     _bioController = TextEditingController(text: widget.profile.bio ?? '');
     _bioLength = _bioController.text.length;
     _country = widget.profile.country ?? 'Việt Nam';
@@ -120,7 +122,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Center(
                 child: CircleAvatar(
                   radius: 48,
-                  backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
+                  backgroundColor: AppColors.primaryPink.withValues(
+                    alpha: 0.15,
+                  ),
                   backgroundImage: widget.profile.avatarUrl != null
                       ? NetworkImage(widget.profile.avatarUrl!)
                       : null,
@@ -175,8 +179,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 initialValue: _country,
-                onChanged: _busy ? null : (val) => setState(() => _country = val ?? 'Việt Nam'),
-                items: _countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: _busy
+                    ? null
+                    : (val) => setState(() => _country = val ?? 'Việt Nam'),
+                items: _countries
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.public_outlined),
                 ),
@@ -194,7 +202,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     '$_bioLength/160',
                     style: TextStyle(
                       fontSize: 12,
-                      color: _bioLength > 160 ? AppColors.danger : AppColors.textMuted,
+                      color: _bioLength > 160
+                          ? AppColors.danger
+                          : AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -206,7 +216,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 maxLines: 3,
                 maxLength: 160,
                 onChanged: (val) => setState(() => _bioLength = val.length),
-                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                buildCounter:
+                    (
+                      context, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
                 decoration: const InputDecoration(
                   hintText: 'Chia sẻ ngắn gọn về bạn với cộng đồng HuTube...',
                 ),
@@ -219,7 +235,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Lưu thay đổi'),
               ),

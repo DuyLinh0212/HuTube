@@ -83,7 +83,9 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPink))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryPink),
+              )
             : ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
@@ -95,16 +97,34 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   // Theme Selection
                   Text(
                     AppStrings.t('prefs.themeHeading'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _themeOption('system', AppStrings.t('prefs.themeSystem'), Icons.settings_suggest_outlined, isDark),
+                      _themeOption(
+                        'system',
+                        AppStrings.t('prefs.themeSystem'),
+                        Icons.settings_suggest_outlined,
+                        isDark,
+                      ),
                       const SizedBox(width: 8),
-                      _themeOption('light', AppStrings.t('prefs.themeLight'), Icons.light_mode_outlined, isDark),
+                      _themeOption(
+                        'light',
+                        AppStrings.t('prefs.themeLight'),
+                        Icons.light_mode_outlined,
+                        isDark,
+                      ),
                       const SizedBox(width: 8),
-                      _themeOption('dark', AppStrings.t('prefs.themeDark'), Icons.dark_mode_outlined, isDark),
+                      _themeOption(
+                        'dark',
+                        AppStrings.t('prefs.themeDark'),
+                        Icons.dark_mode_outlined,
+                        isDark,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -114,14 +134,27 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   // Language Selection
                   Text(
                     AppStrings.t('prefs.langHeading'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _langOption('vi', AppStrings.t('prefs.langVi'), '🇻🇳', isDark),
+                      _langOption(
+                        'vi',
+                        AppStrings.t('prefs.langVi'),
+                        '🇻🇳',
+                        isDark,
+                      ),
                       const SizedBox(width: 12),
-                      _langOption('en', AppStrings.t('prefs.langEn'), '🇺🇸', isDark),
+                      _langOption(
+                        'en',
+                        AppStrings.t('prefs.langEn'),
+                        '🇺🇸',
+                        isDark,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -131,14 +164,18 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   // Playback
                   Text(
                     AppStrings.t('prefs.playbackHeading'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _switchTile(
                     title: AppStrings.t('prefs.autoplay'),
                     subtitle: AppStrings.t('prefs.autoplaySub'),
                     value: _preferences.autoplayNext,
-                    onChanged: (val) => _save(_preferences.copyWith(autoplayNext: val)),
+                    onChanged: (val) =>
+                        _save(_preferences.copyWith(autoplayNext: val)),
                   ),
                   const SizedBox(height: 16),
 
@@ -150,30 +187,54 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                         children: [
                           Text(
                             AppStrings.t('prefs.quality'),
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
                           ),
                           Text(
                             AppStrings.t('prefs.qualitySub'),
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                       DropdownButton<String>(
                         value: _preferences.defaultPlaybackQuality,
                         underline: const SizedBox(),
-                        dropdownColor: isDark ? AppColors.darkBackgroundCard : Colors.white,
+                        dropdownColor: isDark
+                            ? AppColors.darkBackgroundCard
+                            : Colors.white,
                         onChanged: _saving
                             ? null
                             : (val) {
                                 if (val != null) {
-                                  _save(_preferences.copyWith(defaultPlaybackQuality: val));
+                                  _save(
+                                    _preferences.copyWith(
+                                      defaultPlaybackQuality: val,
+                                    ),
+                                  );
                                 }
                               },
                         items: const [
-                          DropdownMenuItem(value: 'auto', child: Text('Tự động / Auto')),
-                          DropdownMenuItem(value: '1080p', child: Text('1080p (FHD)')),
-                          DropdownMenuItem(value: '720p', child: Text('720p (HD)')),
-                          DropdownMenuItem(value: '480p', child: Text('480p (SD)')),
+                          DropdownMenuItem(
+                            value: 'auto',
+                            child: Text('Tự động / Auto'),
+                          ),
+                          DropdownMenuItem(
+                            value: '1080p',
+                            child: Text('1080p (FHD)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '720p',
+                            child: Text('720p (HD)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '480p',
+                            child: Text('480p (SD)'),
+                          ),
                         ],
                       ),
                     ],
@@ -186,21 +247,27 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   // Privacy
                   Text(
                     AppStrings.t('prefs.privacyHeading'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _switchTile(
                     title: AppStrings.t('prefs.subsPrivate'),
                     subtitle: AppStrings.t('prefs.subsPrivateSub'),
                     value: _preferences.keepSubscriptionsPrivate,
-                    onChanged: (val) => _save(_preferences.copyWith(keepSubscriptionsPrivate: val)),
+                    onChanged: (val) => _save(
+                      _preferences.copyWith(keepSubscriptionsPrivate: val),
+                    ),
                   ),
                   const Divider(height: 24),
                   _switchTile(
                     title: AppStrings.t('prefs.playlistsPrivate'),
                     subtitle: AppStrings.t('prefs.playlistsPrivateSub'),
                     value: _preferences.keepPlaylistsPrivate,
-                    onChanged: (val) => _save(_preferences.copyWith(keepPlaylistsPrivate: val)),
+                    onChanged: (val) =>
+                        _save(_preferences.copyWith(keepPlaylistsPrivate: val)),
                   ),
 
                   if (_saving) ...[
@@ -211,10 +278,19 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                         const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryPink),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryPink,
+                          ),
                         ),
                         const SizedBox(width: 8),
-                        Text(AppStrings.t('prefs.autoSaving'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        Text(
+                          AppStrings.t('prefs.autoSaving'),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -226,9 +302,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   Widget _themeOption(String key, String label, IconData icon, bool isDark) {
     final selected = _preferences.theme == key;
-    final cardBg = isDark ? AppColors.darkBackgroundCard : AppColors.backgroundCard;
+    final cardBg = isDark
+        ? AppColors.darkBackgroundCard
+        : AppColors.backgroundCard;
     final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.cardBorder;
-    final defaultText = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final defaultText = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.textPrimary;
 
     return Expanded(
       child: GestureDetector(
@@ -249,7 +329,9 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             children: [
               Icon(
                 icon,
-                color: selected ? AppColors.primaryPink : AppColors.textSecondary,
+                color: selected
+                    ? AppColors.primaryPink
+                    : AppColors.textSecondary,
                 size: 22,
               ),
               const SizedBox(height: 6),
@@ -270,9 +352,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   Widget _langOption(String key, String label, String flag, bool isDark) {
     final selected = AppStrings.currentLang.value == key;
-    final cardBg = isDark ? AppColors.darkBackgroundCard : AppColors.backgroundCard;
+    final cardBg = isDark
+        ? AppColors.darkBackgroundCard
+        : AppColors.backgroundCard;
     final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.cardBorder;
-    final defaultText = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final defaultText = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.textPrimary;
 
     return Expanded(
       child: GestureDetector(
@@ -328,12 +414,19 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
             ],
           ),

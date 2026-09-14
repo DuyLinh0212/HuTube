@@ -11,9 +11,17 @@ import '../theme/app_theme.dart';
 import 'app_logo.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.auth, this.links});
+  const AppShell({
+    super.key,
+    required this.auth,
+    this.links,
+    this.initialPage,
+    this.initialToken,
+  });
   final AuthController auth;
   final Stream<Uri>? links;
+  final String? initialPage;
+  final String? initialToken;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -47,6 +55,8 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    _page = widget.initialPage ?? _page;
+    _token = widget.initialToken;
     auth.addListener(_authChanged);
     _subscription = widget.links?.listen(
       _link,
@@ -59,7 +69,18 @@ class _AppShellState extends State<AppShell> {
         }
       },
     );
-    unawaited(auth.restore());
+    // Session restoration is owned by HuTubeApp before the router selects the
+    // authentication route. Calling it here a second time can notify GoRouter
+    // while this widget is mounting.
+  }
+
+  @override
+  void didUpdateWidget(covariant AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialPage != oldWidget.initialPage ||
+        widget.initialToken != oldWidget.initialToken) {
+      _navigate(widget.initialPage ?? '/login', token: widget.initialToken);
+    }
   }
 
   void _authChanged() {
@@ -362,12 +383,16 @@ class _AppShellState extends State<AppShell> {
                               decoration: BoxDecoration(
                                 color: _error
                                     ? AppColors.dangerBg
-                                    : AppColors.primaryPink.withValues(alpha: 0.1),
+                                    : AppColors.primaryPink.withValues(
+                                        alpha: 0.1,
+                                      ),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: _error
                                       ? AppColors.dangerBorder
-                                      : AppColors.primaryPink.withValues(alpha: 0.3),
+                                      : AppColors.primaryPink.withValues(
+                                          alpha: 0.3,
+                                        ),
                                 ),
                               ),
                               child: Text(
@@ -424,21 +449,29 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
       const SizedBox(height: 10),
-      Text(switch (_page) {
-        '/register' =>
-          'Bắt đầu với HuTube. Xác minh email để bảo vệ tài khoản của bạn.',
-        '/forgot-password' ||
-        '/resend-verification' => 'Nhập email bạn đã dùng để đăng ký HuTube.',
-        '/verify-email' =>
-          missingToken
-              ? 'Liên kết thiếu mã xác minh. Hãy yêu cầu một email mới.'
-              : 'Xác nhận địa chỉ email để hoàn tất đăng ký.',
-        '/reset-password' =>
-          missingToken
-              ? 'Liên kết thiếu mã đặt lại. Hãy yêu cầu một email mới.'
-              : 'Chọn mật khẩu mới, khác mật khẩu bạn dùng ở nơi khác.',
-        _ => 'Đăng nhập để tiếp tục với tài khoản của bạn.',
-      }, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color ?? const Color(0xff526179), height: 1.6)),
+      Text(
+        switch (_page) {
+          '/register' =>
+            'Bắt đầu với HuTube. Xác minh email để bảo vệ tài khoản của bạn.',
+          '/forgot-password' ||
+          '/resend-verification' => 'Nhập email bạn đã dùng để đăng ký HuTube.',
+          '/verify-email' =>
+            missingToken
+                ? 'Liên kết thiếu mã xác minh. Hãy yêu cầu một email mới.'
+                : 'Xác nhận địa chỉ email để hoàn tất đăng ký.',
+          '/reset-password' =>
+            missingToken
+                ? 'Liên kết thiếu mã đặt lại. Hãy yêu cầu một email mới.'
+                : 'Chọn mật khẩu mới, khác mật khẩu bạn dùng ở nơi khác.',
+          _ => 'Đăng nhập để tiếp tục với tài khoản của bạn.',
+        },
+        style: TextStyle(
+          color:
+              Theme.of(context).textTheme.bodyMedium?.color ??
+              const Color(0xff526179),
+          height: 1.6,
+        ),
+      ),
       const SizedBox(height: 28),
       Form(
         key: _form,

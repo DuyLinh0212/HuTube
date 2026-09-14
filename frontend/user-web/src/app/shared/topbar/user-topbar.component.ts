@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, HostListener, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
@@ -17,6 +17,7 @@ import { NotificationPanelComponent } from '../notifications/notification-panel.
 })
 export class UserTopbarComponent implements OnInit {
   @Output() readonly menuOpened = new EventEmitter<void>();
+  @Input() sidebarCollapsed = false;
 
   readonly auth = inject(AuthService);
   readonly themeService = inject(ThemeService);

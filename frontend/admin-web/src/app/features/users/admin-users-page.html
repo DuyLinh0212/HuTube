@@ -1,101 +1,109 @@
 <main id="main-content" class="users-page">
   <header class="page-heading">
     <div>
-      <p class="eyebrow">{{ 'nav.groupUser' | translate }}</p>
-      <h1>{{ 'users.title' | translate }}</h1>
-      <p class="muted">{{ 'users.subtitle' | translate }}</p>
+      <p class="eyebrow">NGƯỜI DÙNG</p>
+      <h1>Quản lý người dùng</h1>
+      <p class="muted">Tài khoản, vai trò, quyền và trạng thái truy cập.</p>
     </div>
+    <button type="button" class="outline-button" routerLink="/roles" aria-label="Mở quản lý vai trò">
+      <span aria-hidden="true">♙</span> Vai trò &amp; quyền
+    </button>
   </header>
 
-  <!-- Filter & Search Bar -->
-  <section class="filter-card">
-    <div class="filter-controls">
-      <div class="search-field">
-        <span class="search-glyph"></span>
-        <input type="search" [placeholder]="'users.search' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
-      </div>
+  @if (success()) {
+    <div class="alert success" role="status"><span aria-hidden="true">✓</span>{{ success() }}</div>
+  }
+  @if (error()) {
+    <div class="alert error" role="alert"><span aria-hidden="true">!</span>{{ error() }}</div>
+  }
 
-      <div class="filter-dropdowns">
-        <select class="filter-select" [ngModel]="selectedRole()" (ngModelChange)="selectedRole.set($event)">
-          <option value="ALL">{{ 'users.filterRole' | translate }}: {{ 'common.all' | translate }}</option>
-          <option value="SUPER_ADMIN">Super Admin</option>
-          <option value="MODERATOR">Moderator</option>
-          <option value="CREATOR">Creator</option>
-          <option value="USER">Standard User</option>
-        </select>
+  <section class="users-workspace">
+    <div class="users-main">
+      <section class="stats-card" aria-label="Tổng quan người dùng">
+        <article class="stat-item"><span class="stat-icon">♙</span><div><strong>{{ stats().total | number }}</strong><span>Tài khoản</span></div></article>
+        <article class="stat-item"><span class="stat-dot green"></span><div><strong>{{ stats().active | number }}</strong><span>Đang hoạt động</span></div></article>
+        <article class="stat-item"><span class="stat-dot red"></span><div><strong>{{ stats().blocked | number }}</strong><span>Đã khóa</span></div></article>
+        <article class="stat-item"><span class="stat-icon">✧</span><div><strong>{{ stats().creatorPro | number }}</strong><span>Creator Pro</span></div></article>
+      </section>
 
-        <select class="filter-select" [ngModel]="selectedStatus()" (ngModelChange)="selectedStatus.set($event)">
-          <option value="ALL">{{ 'users.filterStatus' | translate }}: {{ 'common.all' | translate }}</option>
-          <option value="ACTIVE">{{ 'common.active' | translate }}</option>
-          <option value="BANNED">{{ 'common.banned' | translate }}</option>
-        </select>
-      </div>
+      <section class="filter-panel" aria-label="Bộ lọc người dùng">
+        <label class="search-field">
+          <span class="search-glyph" aria-hidden="true"></span>
+          <input type="search" placeholder="Email, tên người dùng hoặc USR-ID" [ngModel]="searchQuery()" (ngModelChange)="onSearchChanged($event)" />
+        </label>
+        <label class="filter-field"><span>Trạng thái</span><select [ngModel]="selectedStatus()" (ngModelChange)="onStatusChanged($event)">
+          <option value="ALL">Tất cả</option><option value="active">Hoạt động</option><option value="banned">Đã khóa</option><option value="suspended">Tạm khóa</option><option value="pending">Chờ xác minh</option>
+        </select></label>
+        <label class="filter-field"><span>Vai trò</span><select [ngModel]="selectedRole()" (ngModelChange)="onRoleChanged($event)">
+          <option value="ALL">Tất cả</option>
+          @for (role of roles(); track role.roleId) { <option [value]="role.code">{{ role.name }}</option> }
+        </select></label>
+        <button type="button" class="refresh-button" (click)="load()" [disabled]="loading()" aria-label="Làm mới danh sách">↻</button>
+      </section>
+
+      <section class="table-card">
+        <div class="table-toolbar"><div><h2>Danh sách tài khoản</h2><span>{{ rangeStart() }}–{{ rangeEnd() }} trong {{ resultTotal() | number }} kết quả</span></div><span class="selection-hint">Chọn một dòng để xem chi tiết</span></div>
+        @if (loading()) {
+          <div class="loading-state"><span class="spinner"></span><p>Đang tải danh sách người dùng...</p></div>
+        } @else {
+          <div class="table-scroll">
+            <table class="users-table">
+              <thead><tr><th class="check-column"><span class="checkbox-placeholder" aria-hidden="true"></span></th><th>Người dùng</th><th>Vai trò</th><th>Kênh</th><th>Cảnh báo</th><th>Gói</th><th>Hoạt động cuối</th><th>Trạng thái</th><th class="actions-column">Thao tác</th></tr></thead>
+              <tbody>
+                @for (user of filteredUsers(); track user.userId) {
+                  <tr class="user-row" [class.is-selected]="selectedUserId() === user.userId" [attr.aria-selected]="selectedUserId() === user.userId" tabindex="0" (click)="selectUser(user)" (keydown.enter)="selectUser(user)" (keydown.space)="selectUser(user); $event.preventDefault()">
+                    <td class="check-column"><span class="row-radio" [class.is-selected]="selectedUserId() === user.userId" aria-hidden="true"></span></td>
+                    <td><div class="user-cell"><div class="avatar" [class.has-image]="!!user.avatarUrl">@if (user.avatarUrl) { <img [src]="user.avatarUrl" alt="" /> } @else { {{ getInitials(user.displayName) }} }</div><div class="user-copy"><strong>{{ user.displayName }}</strong><span>{{ user.email }}</span><small>{{ user.userId }}</small></div></div></td>
+                    <td><span class="role-text" [class.is-admin]="user.roleCode === 'admin' || user.roleCode === 'super_admin'">{{ roleLabel(user) }}</span></td>
+                    <td>{{ user.channelCount }}</td>
+                    <td><span class="warning-count" [class.has-warning]="user.warningCount > 0">{{ user.warningCount }}</span></td>
+                    <td><span class="plan-text" [class.is-pro]="user.planCode?.toLowerCase()?.includes('pro')">{{ user.planName || user.planCode || '—' }}</span></td>
+                    <td><span class="date-text">{{ formatDate(user.lastLoginAt) }}</span></td>
+                    <td><span class="status-pill" [class.is-active]="user.status === 'active'" [class.is-blocked]="isBlocked(user)" [class.is-pending]="user.status === 'pending'"><i></i>{{ statusLabel(user.status) }}</span></td>
+                    <td class="actions-column"><button type="button" class="row-action" (click)="openAction(isBlocked(user) ? 'unlock' : 'lock', user); $event.stopPropagation()" [disabled]="!canBan()" [attr.aria-label]="isBlocked(user) ? 'Mở khóa tài khoản' : 'Khóa tài khoản'">⋮</button></td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="9" class="empty-cell"><strong>Không tìm thấy tài khoản</strong><span>Thử đổi từ khóa hoặc bộ lọc.</span></td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <footer class="table-footer"><span>Hiển thị {{ rangeStart() }}–{{ rangeEnd() }} của {{ resultTotal() | number }} kết quả</span><div class="pagination"><button type="button" aria-label="Trang trước" [disabled]="loading() || page() === 1" (click)="load(page() - 1)">‹</button><strong>{{ page() }}</strong><button type="button" aria-label="Trang sau" [disabled]="loading() || !hasMore()" (click)="load(page() + 1)">›</button></div><span class="footer-note">Dữ liệu lấy từ hệ thống local</span></footer>
+        }
+      </section>
     </div>
+
+    <aside class="detail-panel" aria-label="Chi tiết người dùng">
+      @if (detailLoading()) {
+        <div class="detail-loading"><span class="spinner"></span><p>Đang tải chi tiết...</p></div>
+      } @else if (selectedUser(); as user) {
+        <div class="detail-header"><div><p class="eyebrow">HỒ SƠ TÀI KHOẢN</p><h2>Chi tiết người dùng</h2></div><span class="detail-status" [class.is-blocked]="isBlocked(user)">{{ statusLabel(user.status) }}</span></div>
+        <div class="detail-identity"><div class="detail-avatar" [class.has-image]="!!user.avatarUrl">@if (user.avatarUrl) { <img [src]="user.avatarUrl" alt="" /> } @else { {{ getInitials(user.displayName) }} }</div><div><h3>{{ user.displayName }}</h3><strong>&#64;{{ user.username }}</strong><span>{{ user.email }}</span><small>ID tài khoản: <b>{{ user.userId }}</b></small></div></div>
+
+        <section class="detail-section"><h3>Vai trò</h3><p class="role-value">{{ roleLabel(user) }}</p></section>
+        <section class="detail-section"><h3>Quyền hiện tại</h3><div class="permission-grid">@for (permission of user.permissions; track permission) { <span><i>✓</i>{{ permission }}</span> } @empty { <span class="muted">Chưa có permission</span> }</div></section>
+        <section class="detail-section"><div class="section-heading"><h3>Lịch sử cảnh báo / quản trị</h3><span>{{ user.auditHistory.length }}</span></div>@if (user.auditHistory.length) { <ul class="audit-list">@for (item of user.auditHistory; track item.createdAt + item.action) { <li><i></i><div><strong>{{ auditLabel(item.action) }}</strong><span>{{ item.reason || 'Không có lý do' }}</span></div><time>{{ formatDate(item.createdAt) }}</time></li> }</ul> } @else { <p class="empty-detail">Chưa có lịch sử quản trị.</p> }</section>
+        <section class="detail-section compact-info"><div><h3>Đăng nhập cuối</h3><p>{{ formatDate(user.lastLoginAt) }}</p></div><div><h3>Ngày tạo</h3><p>{{ formatDate(user.createdAt) }}</p></div></section>
+        <section class="detail-section"><h3>Kênh gắn với tài khoản</h3>@if (user.channels.length) { <ul class="channel-list">@for (channel of user.channels; track channel.channelId) { <li><span class="channel-mark">▶</span><div><strong>{{ channel.name }}</strong><span>&#64;{{ channel.handle }}</span></div></li> }</ul> } @else { <p class="empty-detail">Chưa có kênh.</p> }</section>
+        <section class="detail-actions"><h3>Thao tác</h3>@if (canEdit()) { <button type="button" class="link-action" (click)="openAction('role')">Cập nhật vai trò <span>→</span></button> } @if (canBan()) { <button type="button" class="link-action" [class.danger]="!isBlocked(user)" [class.success]="isBlocked(user)" (click)="openAction(isBlocked(user) ? 'unlock' : 'lock')">{{ isBlocked(user) ? 'Mở khóa tài khoản' : 'Khóa tài khoản' }} <span>→</span></button> }</section>
+      } @else {
+        <div class="detail-empty"><span class="empty-detail-icon">♙</span><h2>Chọn một tài khoản</h2><p>Thông tin chi tiết và các thao tác quản trị sẽ xuất hiện ở đây.</p></div>
+      }
+    </aside>
   </section>
 
-  <!-- Users Data Table -->
-  <section class="table-card">
-    <div class="table-responsive">
-      <table class="users-table">
-        <thead>
-          <tr>
-            <th>{{ 'users.colUser' | translate }}</th>
-            <th>{{ 'users.colRole' | translate }}</th>
-            <th>{{ 'users.colStatus' | translate }}</th>
-            <th>{{ 'users.colEmailVerified' | translate }}</th>
-            <th>{{ 'users.colCreatedAt' | translate }}</th>
-            <th style="text-align: right;">{{ 'users.colActions' | translate }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (u of filteredUsers(); track u.id) {
-            <tr>
-              <td>
-                <div class="user-info-cell">
-                  <div class="avatar-circle">{{ u.displayName.slice(0, 1).toUpperCase() }}</div>
-                  <div class="user-text">
-                    <strong class="user-name">{{ u.displayName }}</strong>
-                    <span class="user-email">{{ u.email }} · &#64;{{ u.username }}</span>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <span class="role-badge" [class.is-admin]="u.role === 'SUPER_ADMIN'" [class.is-mod]="u.role === 'MODERATOR'" [class.is-creator]="u.role === 'CREATOR'">
-                  {{ u.role }}
-                </span>
-              </td>
-              <td>
-                @if (u.status === 'ACTIVE') {
-                  <span class="status-pill is-active">🟢 {{ 'common.active' | translate }}</span>
-                } @else {
-                  <span class="status-pill is-banned">🔴 {{ 'common.banned' | translate }}</span>
-                }
-              </td>
-              <td>
-                @if (u.emailVerified) {
-                  <span class="verify-tag verified">✓ {{ 'users.verified' | translate }}</span>
-                } @else {
-                  <span class="verify-tag unverified">✕ {{ 'users.unverified' | translate }}</span>
-                }
-              </td>
-              <td class="date-cell">{{ u.createdAt }}</td>
-              <td style="text-align: right;">
-                <div class="action-buttons">
-                  <button type="button" class="btn-action" [class.btn-danger]="u.status === 'ACTIVE'" [class.btn-success]="u.status === 'BANNED'" (click)="toggleBan(u)">
-                    {{ (u.status === 'ACTIVE' ? 'users.actionBan' : 'users.actionUnban') | translate }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="6" class="empty-cell">
-                <p>{{ 'users.empty' | translate }}</p>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
+  @if (actionModal(); as action) {
+    <div class="modal-backdrop" role="presentation" (click)="closeAction()">
+      <form class="action-modal" role="dialog" aria-modal="true" aria-labelledby="user-action-title" (click)="$event.stopPropagation()" (ngSubmit)="submitAction()">
+        <header><div><span class="modal-kicker">XÁC NHẬN THAO TÁC</span><h2 id="user-action-title">{{ action === 'lock' ? 'Khóa tài khoản?' : action === 'unlock' ? 'Mở khóa tài khoản?' : 'Cập nhật vai trò?' }}</h2></div><button type="button" class="close-button" aria-label="Đóng" (click)="closeAction()">×</button></header>
+        <div class="modal-body">
+          @if (actionTarget(); as user) { <p class="modal-target">{{ action === 'lock' ? 'Tài khoản sẽ bị chặn đăng nhập và các phiên hiện tại sẽ bị thu hồi.' : action === 'unlock' ? 'Tài khoản sẽ được phép truy cập lại hệ thống.' : 'Chọn vai trò mới cho ' + user.displayName + '.' }}</p> }
+          @if (action === 'role') { <label class="modal-field"><span>Vai trò mới</span><select name="actionRole" [ngModel]="actionRole()" (ngModelChange)="actionRole.set($event)">@for (role of roles(); track role.roleId) { <option [value]="role.code">{{ role.name }}</option> }</select></label> }
+          <label class="modal-field"><span>Lý do <b>*</b></span><textarea name="actionReason" rows="4" maxlength="300" required placeholder="Nhập lý do để lưu vào nhật ký quản trị..." [ngModel]="actionReason()" (ngModelChange)="actionReason.set($event)"></textarea><small>{{ actionReason().length }}/300</small></label>
+          @if (action !== 'role') { <label class="check-field"><input type="checkbox" [checked]="notifyUser()" (change)="notifyUser.set($any($event.target).checked)" /> Gửi thông báo cho người dùng</label> }
+        </div>
+        <footer><button type="button" class="secondary-button" [disabled]="savingAction()" (click)="closeAction()">Hủy</button><button type="submit" class="confirm-button" [class.danger]="action === 'lock'" [disabled]="savingAction() || actionReason().trim().length < 3">{{ savingAction() ? 'Đang lưu...' : action === 'lock' ? 'Xác nhận khóa' : action === 'unlock' ? 'Xác nhận mở khóa' : 'Lưu vai trò' }}</button></footer>
+      </form>
     </div>
-  </section>
+  }
 </main>

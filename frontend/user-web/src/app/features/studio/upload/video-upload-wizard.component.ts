@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../../core/i18n.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 import { ChannelService } from '../../../core/channel.service';
-import { Category, ContentService, UploadPreflight } from '../../../core/content.service';
+import { Category, ContentService, UploadPreflight, VideoDetail } from '../../../core/content.service';
 import { UploadStateService } from '../../../core/upload-state.service';
 
 export interface Chapter {
@@ -115,7 +115,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       if (state.phase === 'failed' && state.error) this.uploadError.set(state.error);
       if (state.phase === 'completed' && state.video && this.handledUploadVideoId !== state.video.videoId) {
         this.handledUploadVideoId = state.video.videoId;
-        this.publishedVideoUrl = `${location.origin}/watch/${state.video.videoId}`;
+        this.publishedVideoUrl = this.isAwaitingModeration(state.video) ? '' : `${location.origin}/watch/${state.video.videoId}`;
         this.currentStep.set(6);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -604,6 +604,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
   }
 
   navigateToContent() { this.router.navigate(['/studio/content']); }
+
+  isAwaitingModeration(video: VideoDetail | null = this.uploadState.state().video) {
+    return video?.visibility === 'public' && video.moderationStatus !== 'approved';
+  }
 
   selectedThumbnailUrl() { return this.thumbnails.find(item => item.id === this.selectedThumbnail)?.url ?? ''; }
   selectedFileName() { return this.selectedFile?.name ?? ''; }

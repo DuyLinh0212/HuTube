@@ -2,6 +2,7 @@ using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
 using HuTube.Application.Rbac;
+using HuTube.Application.Storage;
 using HuTube.Application.Videos;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
@@ -12,7 +13,8 @@ namespace HuTube.Infrastructure.Videos;
 public sealed class ModerationService(
     HuTubeDbContext db,
     RbacService rbac,
-    INotificationService notifications)
+    INotificationService notifications,
+    IObjectStorage storage)
 {
     public async Task<List<ModerationQueueItemResponse>> GetQueueAsync(string? status = null, string? riskLevel = null, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
@@ -24,7 +26,9 @@ public sealed class ModerationService(
         if (!string.IsNullOrWhiteSpace(status))
         {
             var normalizedStatus = status.Trim().ToLowerInvariant();
-            query = query.Where(c => c.Status == normalizedStatus);
+            query = normalizedStatus == "processed"
+                ? query.Where(c => c.Status == "approved" || c.Status == "rejected")
+                : query.Where(c => c.Status == normalizedStatus);
         }
         else
         {
@@ -48,6 +52,8 @@ public sealed class ModerationService(
 
         var channelIds = videos.Values.Select(v => v.ChannelId).Distinct().ToList();
         var channels = await db.Channels.AsNoTracking().Where(c => channelIds.Contains(c.ChannelId)).ToDictionaryAsync(c => c.ChannelId, ct);
+        var categoryIds = videos.Values.Where(v => v.CategoryId.HasValue).Select(v => v.CategoryId!.Value).Distinct().ToList();
+        var categories = await db.Categories.AsNoTracking().Where(c => categoryIds.Contains(c.CategoryId)).ToDictionaryAsync(c => c.CategoryId, ct);
 
         var reviewerIds = cases.Where(c => c.ReviewerId.HasValue).Select(c => c.ReviewerId!.Value).Distinct().ToList();
         var reviewers = await db.Users.AsNoTracking().Where(u => reviewerIds.Contains(u.UserId)).ToDictionaryAsync(u => u.UserId, ct);
@@ -57,20 +63,26 @@ public sealed class ModerationService(
         {
             if (!c.VideoId.HasValue || !videos.TryGetValue(c.VideoId.Value, out var video)) continue;
             channels.TryGetValue(video.ChannelId, out var channel);
+            categories.TryGetValue(video.CategoryId ?? Guid.Empty, out var category);
             reviewers.TryGetValue(c.ReviewerId ?? Guid.Empty, out var reviewer);
+            var videoUrl = await ReadUrlAsync(video.VideoUrl, ct);
+            var thumbnailUrl = string.IsNullOrWhiteSpace(video.ThumbnailUrl)
+                ? null
+                : await ReadUrlAsync(video.ThumbnailUrl, ct);
 
             result.Add(new ModerationQueueItemResponse(
                 c.ModerationCaseId,
                 video.VideoId,
                 video.Title,
                 video.Description,
-                video.VideoUrl,
-                video.ThumbnailUrl,
+                videoUrl,
+                thumbnailUrl,
                 video.Duration,
                 video.ChannelId,
                 channel?.Name ?? "Kênh không xác định",
                 channel?.Handle,
                 channel?.AvatarUrl,
+                category?.Name,
                 c.CaseType,
                 c.Status,
                 c.RiskLevel == "high" ? "high" : "low",
@@ -268,4 +280,7 @@ public sealed class ModerationService(
             message
         );
     }
+
+    private Task<string> ReadUrlAsync(string path, CancellationToken ct) =>
+        storage.GetReadUrlAsync(path, TimeSpan.FromMinutes(60), ct);
 }

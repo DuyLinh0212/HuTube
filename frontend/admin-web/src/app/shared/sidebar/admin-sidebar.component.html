@@ -29,7 +29,7 @@
         }
       </section>
     }
-    @if (can('channel.view') || can('video.view')) {
+    @if (can('channel.view') || can('video.view') || can('system.view_setting')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupContent' | translate">
         <p class="nav-label">{{ 'nav.groupContent' | translate }}</p>
         @if (can('channel.view')) {
@@ -38,7 +38,11 @@
         @if (can('video.view')) {
           <span class="nav-item" [title]="'nav.videos' | translate"><img src="/assets/icons/my_video.png" alt="" /><span>{{ 'nav.videos' | translate }}</span></span>
         }
-        <span class="nav-item" [title]="'nav.topics' | translate"><img src="/assets/icons/topics.png" alt="" /><span>{{ 'nav.topics' | translate }}</span></span>
+        @if (can('system.view_setting')) {
+          <a class="nav-item" routerLink="/topics" routerLinkActive="is-active" [title]="'nav.topics' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/topics.png" alt="" /><span>Danh mục &amp; chủ đề</span>
+          </a>
+        }
       </section>
     }
     @if (can('moderation.view_queue')) {

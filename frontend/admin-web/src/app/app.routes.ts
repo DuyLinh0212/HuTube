@@ -14,6 +14,7 @@ export const routes: Routes = [
   { path: 'roles', canActivate: [authGuard, permissionGuard], data: { permission: 'role.view' }, loadComponent: () => import('./features/rbac/admin-rbac-page').then(m => m.AdminRbacPage), title: 'Nhóm quyền & vai trò · HuTube' },
   { path: 'plans', canActivate: [authGuard, permissionGuard], data: { permission: 'plan.view' }, loadComponent: () => import('./features/plans/admin-plans-page').then(m => m.AdminPlansPage), title: 'Gói dịch vụ · HuTube' },
   { path: 'moderation/videos', canActivate: [authGuard, permissionGuard], data: { permission: 'moderation.view_queue' }, loadComponent: () => import('./features/moderation/admin-moderation-page').then(m => m.AdminModerationPage), title: 'Kiểm duyệt video · HuTube' },
+  { path: 'topics', canActivate: [authGuard, permissionGuard], data: { permission: 'system.view_setting' }, loadComponent: () => import('./features/topics/admin-topics-page').then(m => m.AdminTopicsPage), title: 'Danh mục & chủ đề · HuTube' },
   { path: 'policies', canActivate: [authGuard, permissionGuard], data: { permission: 'system.view_setting' }, loadComponent: () => import('./features/policies/admin-policies-page').then(m => m.AdminPoliciesPage), title: 'Chính sách hệ thống · HuTube' },
   { path: 'account', canActivate: [authGuard], loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'Tài khoản · HuTube' },
   { path: '', pathMatch: 'full', redirectTo: 'account' },

@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Policies;
+using HuTube.Application.Taxonomy;
+using HuTube.Application.Users;
 using HuTube.Application.Videos;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Rbac;
@@ -83,6 +85,115 @@ public sealed class PolicyModerationIntegrationTests(AuthApiFactory factory) : I
     }
 
     [Fact]
+    public async Task SuperAdmin_CanManageTopicsAndTags()
+    {
+        var (admin, _) = await CreateUserAsync("taxonomy_admin", SystemRoles.SuperAdmin);
+        var suffix = Guid.NewGuid().ToString("N")[..10];
+        var topicSlug = "topic-" + suffix;
+
+        var createTopic = await admin.PostAsJsonAsync("/api/v1/admin/topics", new
+        {
+            name = "Chủ đề kiểm thử " + suffix,
+            slug = topicSlug,
+            description = "Mô tả chủ đề kiểm thử",
+            status = "active"
+        });
+        Assert.Equal(HttpStatusCode.Created, createTopic.StatusCode);
+        var topic = await createTopic.Content.ReadFromJsonAsync<AdminTopicResponse>(JsonOptions);
+        Assert.NotNull(topic);
+        Assert.Equal(topicSlug, topic.Slug);
+        Assert.Equal(0, topic.VideoCount);
+
+        var allTopics = await admin.GetAsync("/api/v1/admin/topics?status=all");
+        Assert.Equal(HttpStatusCode.OK, allTopics.StatusCode);
+        var topicRows = await allTopics.Content.ReadFromJsonAsync<List<AdminTopicResponse>>(JsonOptions);
+        Assert.Contains(topicRows!, row => row.CategoryId == topic.CategoryId);
+
+        var updateTopic = await admin.PutAsJsonAsync($"/api/v1/admin/topics/{topic.CategoryId}", new
+        {
+            name = "Chủ đề kiểm thử đã sửa " + suffix,
+            slug = topicSlug + "-updated",
+            description = "Mô tả mới",
+            status = "active"
+        });
+        Assert.Equal(HttpStatusCode.OK, updateTopic.StatusCode);
+        var updatedTopic = await updateTopic.Content.ReadFromJsonAsync<AdminTopicResponse>(JsonOptions);
+        Assert.NotNull(updatedTopic);
+        Assert.Equal(topicSlug + "-updated", updatedTopic.Slug);
+
+        var archiveTopic = await admin.PostAsync($"/api/v1/admin/topics/{topic.CategoryId}/archive", null);
+        Assert.Equal(HttpStatusCode.NoContent, archiveTopic.StatusCode);
+
+        var createTag = await admin.PostAsJsonAsync("/api/v1/admin/tags", new { name = "#Tag-" + suffix });
+        Assert.Equal(HttpStatusCode.Created, createTag.StatusCode);
+        var tag = await createTag.Content.ReadFromJsonAsync<AdminTagResponse>(JsonOptions);
+        Assert.NotNull(tag);
+        Assert.Equal("tag-" + suffix.ToLowerInvariant(), tag.Name);
+
+        var findTag = await admin.GetAsync($"/api/v1/admin/tags?search={Uri.EscapeDataString(suffix)}");
+        Assert.Equal(HttpStatusCode.OK, findTag.StatusCode);
+        var tagRows = await findTag.Content.ReadFromJsonAsync<List<AdminTagResponse>>(JsonOptions);
+        Assert.Contains(tagRows!, row => row.TagId == tag.TagId);
+
+        var updateTag = await admin.PutAsJsonAsync($"/api/v1/admin/tags/{tag.TagId}", new { name = "updated-" + suffix });
+        Assert.Equal(HttpStatusCode.OK, updateTag.StatusCode);
+        var updatedTag = await updateTag.Content.ReadFromJsonAsync<AdminTagResponse>(JsonOptions);
+        Assert.NotNull(updatedTag);
+        Assert.Equal("updated-" + suffix, updatedTag.Name);
+
+        var deleteTag = await admin.DeleteAsync($"/api/v1/admin/tags/{tag.TagId}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteTag.StatusCode);
+    }
+
+    [Fact]
+    public async Task SuperAdmin_CanInspectAndLockUnlockUser()
+    {
+        var (admin, _) = await CreateUserAsync("user_admin", SystemRoles.SuperAdmin);
+        var (_, targetId) = await CreateUserAsync("managed_user", SystemRoles.Moderator);
+        await using (var db = factory.CreateDb())
+        {
+            await db.Users.Where(user => user.UserId == targetId)
+                .ExecuteUpdateAsync(update => update.SetProperty(user => user.RoleId, SystemRoles.User));
+        }
+
+        var listResponse = await admin.GetAsync("/api/v1/admin/users?search=managed_user&page=1&pageSize=10");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<AdminUserListResponse>(JsonOptions);
+        Assert.NotNull(list);
+        var row = Assert.Single(list.Items, item => item.UserId == targetId);
+        Assert.Equal("active", row.Status);
+
+        var detailResponse = await admin.GetAsync($"/api/v1/admin/users/{targetId}");
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<AdminUserDetailResponse>(JsonOptions);
+        Assert.NotNull(detail);
+        Assert.Equal(targetId, detail.UserId);
+        Assert.Equal("user", detail.RoleCode);
+
+        var lockResponse = await admin.PostAsJsonAsync($"/api/v1/admin/users/{targetId}/lock", new
+        {
+            reason = "Khóa tài khoản để kiểm thử quản trị",
+            notify = false
+        });
+        Assert.Equal(HttpStatusCode.OK, lockResponse.StatusCode);
+        var locked = await lockResponse.Content.ReadFromJsonAsync<AdminUserDetailResponse>(JsonOptions);
+        Assert.NotNull(locked);
+        Assert.Equal("banned", locked.Status);
+        Assert.Contains(locked.AuditHistory, item => item.Action == "admin.user_locked");
+
+        var unlockResponse = await admin.PostAsJsonAsync($"/api/v1/admin/users/{targetId}/unlock", new
+        {
+            reason = "Mở khóa sau khi kiểm thử quản trị",
+            notify = false
+        });
+        Assert.Equal(HttpStatusCode.OK, unlockResponse.StatusCode);
+        var unlocked = await unlockResponse.Content.ReadFromJsonAsync<AdminUserDetailResponse>(JsonOptions);
+        Assert.NotNull(unlocked);
+        Assert.Equal("active", unlocked.Status);
+        Assert.Contains(unlocked.AuditHistory, item => item.Action == "admin.user_unlocked");
+    }
+
+    [Fact]
     public async Task Moderator_CanViewQueue()
     {
         var (moderator, _) = await CreateUserAsync("moderation_moderator", SystemRoles.Moderator);
@@ -108,6 +219,8 @@ public sealed class PolicyModerationIntegrationTests(AuthApiFactory factory) : I
         var item = Assert.Single(queue!, x => x.ModerationCaseId == caseId);
         Assert.Equal("Video moderation "+decision, item.Title);
         Assert.Equal("Mô tả moderation", item.Description);
+        Assert.Equal("https://storage.test/videos/video.mp4", item.VideoUrl);
+        Assert.Equal("https://storage.test/video-thumbnails/thumb.jpg", item.ThumbnailUrl);
         Assert.Equal(125, item.Duration);
         Assert.Equal("high", item.RiskLevel);
 
@@ -216,9 +329,11 @@ public sealed class PolicyModerationIntegrationTests(AuthApiFactory factory) : I
         var video = new Video
         {
             ChannelId = channel.ChannelId,
+            UploadedByUserId = ownerId,
             Title = "Video moderation " + suffix,
             Description = "Mô tả moderation",
-            VideoUrl = "https://storage.test/video.mp4",
+            VideoUrl = "test://videos/video.mp4",
+            ThumbnailUrl = "test://video-thumbnails/thumb.jpg",
             Duration = 125,
             FileSize = 100,
             Visibility = "public",
