@@ -44,7 +44,9 @@
     @if (can('moderation.view_queue')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupModeration' | translate">
         <p class="nav-label">{{ 'nav.groupModeration' | translate }}</p>
-        <span class="nav-item" [title]="'nav.videoQueue' | translate"><img src="/assets/icons/queue.png" alt="" /><span>{{ 'nav.videoQueue' | translate }}</span></span>
+        <a class="nav-item" routerLink="/moderation/videos" routerLinkActive="is-active" [title]="'nav.videoQueue' | translate" (click)="closeNavigation()">
+          <img src="/assets/icons/queue.png" alt="" /><span>{{ 'nav.videoQueue' | translate }}</span>
+        </a>
         <span class="nav-item" [title]="'nav.reports' | translate"><img src="/assets/icons/report.png" alt="" /><span>{{ 'nav.reports' | translate }}</span></span>
         <span class="nav-item" [title]="'nav.appeals' | translate"><img src="/assets/icons/appeals.png" alt="" /><span>{{ 'nav.appeals' | translate }}</span></span>
         <span class="nav-item" [title]="'nav.warnings' | translate"><img src="/assets/icons/warning_strike.png" alt="" /><span>{{ 'nav.warnings' | translate }}</span></span>
@@ -67,6 +69,11 @@
     @if (can('audit.view') || can('system.view_setting')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupSystem' | translate">
         <p class="nav-label">{{ 'nav.groupSystem' | translate }}</p>
+        @if (can('system.view_setting')) {
+          <a class="nav-item" routerLink="/policies" routerLinkActive="is-active" [title]="'nav.policies' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/topics.png" alt="" /><span>{{ 'nav.policies' | translate }}</span>
+          </a>
+        }
         <span class="nav-item" [title]="'nav.notificationsNav' | translate"><img src="/assets/icons/notification.png" alt="" /><span>{{ 'nav.notificationsNav' | translate }}</span></span>
         <span class="nav-item" [title]="'nav.statistics' | translate"><img src="/assets/icons/statistics.png" alt="" /><span>{{ 'nav.statistics' | translate }}</span></span>
         <span class="nav-item" [title]="'nav.systemLogs' | translate"><img src="/assets/icons/system-administrator.png" alt="" /><span>{{ 'nav.systemLogs' | translate }}</span></span>

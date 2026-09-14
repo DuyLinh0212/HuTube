@@ -1,0 +1,296 @@
+<div class="policies-page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="title-wrap">
+        <span class="eyebrow">{{ 'policies.eyebrow' | translate }}</span>
+        <h1>{{ 'policies.title' | translate }}</h1>
+        <p class="subtitle">{{ 'policies.subtitle' | translate }}</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" (click)="loadPolicies()" [disabled]="loading()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right: 6px;">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+          {{ 'policies.refresh' | translate }}
+        </button>
+        @if (canEdit()) {
+          <button class="btn btn-primary" (click)="openCreateModal()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right: 6px;">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            {{ 'policies.addPolicy' | translate }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Alert Messages -->
+    @if (successMessage()) {
+      <div class="alert alert-success">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right: 6px;">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        <span>{{ successMessage() }}</span>
+      </div>
+    }
+    @if (error()) {
+      <div class="alert alert-danger">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right: 6px;">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+        </svg>
+        <span>{{ error() }}</span>
+      </div>
+    }
+  </header>
+
+  <!-- Filters Toolbar -->
+  <div class="toolbar">
+    <div class="filter-group">
+      <label>{{ 'policies.filterGroup' | translate }}</label>
+      <div class="segmented-control">
+        @for (tab of groupTabs; track tab.key) {
+          <button
+            type="button"
+            [class.active]="selectedGroup() === tab.key"
+            (click)="selectedGroup.set(tab.key)"
+          >
+            {{ tab.labelKey | translate }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <input
+        type="text"
+        [placeholder]="'policies.searchPlaceholder' | translate"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+      />
+    </div>
+  </div>
+
+  <!-- Policies Grid / Table -->
+  <div class="table-container">
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>{{ 'policies.loading' | translate }}</p>
+      </div>
+    } @else if (filteredPolicies().length === 0) {
+      <div class="empty-state">
+        <h3>{{ 'policies.empty' | translate }}</h3>
+        <p>{{ 'policies.emptyDesc' | translate }}</p>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 220px;">{{ 'policies.colCode' | translate }}</th>
+            <th>{{ 'policies.colName' | translate }}</th>
+            <th>{{ 'policies.colGroup' | translate }}</th>
+            <th>{{ 'policies.colSeverity' | translate }}</th>
+            <th>{{ 'policies.colVersion' | translate }}</th>
+            <th>{{ 'policies.colEffectiveDate' | translate }}</th>
+            <th>{{ 'policies.colStatus' | translate }}</th>
+            <th style="text-align: right;">{{ 'policies.colActions' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (policy of filteredPolicies(); track policy.policyId) {
+            <tr>
+              <td>
+                <span class="code-badge">{{ policy.code }}</span>
+              </td>
+              <td>
+                <div class="name-cell">
+                  <strong>{{ getPolicyName(policy) }}</strong>
+                  <span class="content-preview">{{ getPolicyContent(policy) | slice:0:80 }}...</span>
+                </div>
+              </td>
+              <td>
+                <span class="group-tag" [class]="'group-' + policy.group">
+                  {{ getGroupLabel(policy.group) }}
+                </span>
+              </td>
+              <td>
+                <span
+                  class="badge"
+                  [class.badge-critical]="policy.severity === 'critical'"
+                  [class.badge-high]="policy.severity === 'high'"
+                  [class.badge-medium]="policy.severity === 'medium'"
+                  [class.badge-info]="policy.severity === 'info' || policy.severity === 'low'"
+                >
+                  {{ getSeverityLabel(policy.severity) }}
+                </span>
+              </td>
+              <td>
+                <span class="version-badge">v{{ policy.version }}</span>
+              </td>
+              <td>
+                <span class="date-text">{{ policy.effectiveAt | date:'dd/MM/yyyy' }}</span>
+              </td>
+              <td>
+                <span class="status-published">{{ 'policies.status.published' | translate }}</span>
+              </td>
+              <td style="text-align: right;">
+                <button class="btn btn-sm btn-secondary" (click)="openDetailModal(policy)">
+                  {{ 'policies.detailUpdate' | translate }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <!-- Create Policy Modal -->
+  @if (isCreateModalOpen()) {
+    <div class="modal-backdrop" (click)="closeCreateModal()">
+      <div class="modal-dialog modal-md" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow">{{ 'policies.createEyebrow' | translate }}</span>
+            <h2>{{ 'policies.createTitle' | translate }}</h2>
+          </div>
+          <button type="button" class="close-btn" (click)="closeCreateModal()" [attr.aria-label]="'common.close' | translate">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>{{ 'policies.codeLabel' | translate }}</label>
+              <input type="text" placeholder="VD: CHILD_SAFETY, HATE_SPEECH" [ngModel]="newCode()" (ngModelChange)="newCode.set($event)" />
+              <small>{{ 'policies.codeHint' | translate }}</small>
+            </div>
+
+            <div class="form-group">
+              <label>{{ 'policies.nameLabel' | translate }}</label>
+              <input type="text" [ngModel]="newName()" (ngModelChange)="newName.set($event)" />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>{{ 'policies.groupLabel' | translate }}</label>
+                <select [ngModel]="newGroup()" (ngModelChange)="newGroup.set($event)">
+                  <option value="guidelines">{{ 'policies.guidelines' | translate }}</option>
+                  <option value="privacy">{{ 'policies.privacy' | translate }}</option>
+                  <option value="terms">{{ 'policies.terms' | translate }}</option>
+                  <option value="monetization">{{ 'policies.monetization' | translate }}</option>
+                  <option value="enforcement">{{ 'policies.enforcement' | translate }}</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>{{ 'policies.severityLabel' | translate }}</label>
+                <select [ngModel]="newSeverity()" (ngModelChange)="newSeverity.set($event)">
+                  <option value="critical">{{ 'policies.severity.critical' | translate }}</option>
+                  <option value="high">{{ 'policies.severity.high' | translate }}</option>
+                  <option value="medium">{{ 'policies.severity.medium' | translate }}</option>
+                  <option value="info">{{ 'policies.severity.info' | translate }}</option>
+                  <option value="low">{{ 'policies.severity.low' | translate }}</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>{{ 'policies.versionLabel' | translate }}</label>
+                <input type="text" placeholder="1.0" [ngModel]="newVersion()" (ngModelChange)="newVersion.set($event)" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>{{ 'policies.contentLabel' | translate }}</label>
+              <textarea rows="6" [placeholder]="'policies.contentPlaceholder' | translate" [ngModel]="newContent()" (ngModelChange)="newContent.set($event)"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-secondary" [disabled]="creating()" (click)="closeCreateModal()">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button type="button" class="btn btn-primary" [disabled]="creating()" (click)="createPolicy()">
+            {{ creating() ? ('policies.creating' | translate) : ('policies.createSubmit' | translate) }}
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+
+  <!-- View / Edit & Publish New Version Modal -->
+  @if (isDetailModalOpen() && selectedPolicy(); as policy) {
+    <div class="modal-backdrop" (click)="closeDetailModal()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow">{{ 'policies.detailEyebrow' | translate }}</span>
+            <h2>[{{ policy.code }}] {{ getPolicyName(policy) }}</h2>
+          </div>
+          <button type="button" class="close-btn" (click)="closeDetailModal()" [attr.aria-label]="'common.close' | translate">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <div class="detail-header-info">
+            <div class="meta-item">
+              <span class="label">{{ 'policies.currentGroup' | translate }}</span>
+              <strong>{{ getGroupLabel(policy.group) }}</strong>
+            </div>
+            <div class="meta-item">
+              <span class="label">{{ 'policies.currentSeverity' | translate }}</span>
+              <strong>{{ getSeverityLabel(policy.severity) }}</strong>
+            </div>
+            <div class="meta-item">
+              <span class="label">{{ 'policies.currentVersion' | translate }}</span>
+              <strong class="text-brand">v{{ policy.version }}</strong>
+            </div>
+            <div class="meta-item">
+              <span class="label">{{ 'policies.effectiveAt' | translate }}</span>
+              <span>{{ policy.effectiveAt | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+
+          <div class="version-update-card">
+            <h3>{{ 'policies.versionCardTitle' | translate }}</h3>
+            <p>{{ 'policies.versionCardDesc' | translate }}</p>
+
+            <div class="form-row" style="margin-bottom: 12px;">
+              <div class="form-group">
+                <label>{{ 'policies.newVersionLabel' | translate }}</label>
+                <input type="text" [ngModel]="editVersion()" (ngModelChange)="editVersion.set($event)" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>{{ 'policies.policyContentLabel' | translate }}</label>
+              <textarea rows="9" [ngModel]="editContent()" (ngModelChange)="editContent.set($event)"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-secondary" [disabled]="updating()" (click)="closeDetailModal()">
+            {{ 'common.close' | translate }}
+          </button>
+          @if (canEdit()) {
+            <button type="button" class="btn btn-primary" [disabled]="updating()" (click)="publishNewVersion()">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right: 6px;">
+                <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm2 16H5V5h11.17L19 7.83V19zm-7-7c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+              </svg>
+              {{ updating() ? ('policies.publishing' | translate) : ('policies.saveUpdate' | translate) }} (v{{ editVersion() }})
+            </button>
+          }
+        </footer>
+      </div>
+    </div>
+  }
+</div>

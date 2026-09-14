@@ -1,0 +1,408 @@
+<div class="moderation-page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="title-wrap">
+        <span class="eyebrow">{{ 'moderation.eyebrow' | translate }}</span>
+        <h1>{{ 'moderation.title' | translate }}</h1>
+        <p class="subtitle">{{ 'moderation.subtitle' | translate }}</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">
+          <span class="icon">↻</span> {{ 'moderation.refresh' | translate }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Alert Messages -->
+    @if (successMessage()) {
+      <div class="alert alert-success">
+        <span class="alert-icon">✓</span>
+        <span>{{ successMessage() }}</span>
+      </div>
+    }
+    @if (error()) {
+      <div class="alert alert-danger">
+        <span class="alert-icon">✕</span>
+        <span>{{ error() }}</span>
+      </div>
+    }
+
+    <!-- Stat Summary Cards -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">{{ 'moderation.statsTotal' | translate }}</span>
+        <strong class="stat-value">{{ stats().total }}</strong>
+      </div>
+      <div class="stat-card stat-pending">
+        <span class="stat-label">{{ 'moderation.statsPending' | translate }}</span>
+        <strong class="stat-value">{{ stats().pending }}</strong>
+      </div>
+      <div class="stat-card stat-reviewing">
+        <span class="stat-label">{{ 'moderation.statsReviewing' | translate }}</span>
+        <strong class="stat-value">{{ stats().reviewing }}</strong>
+      </div>
+      <div class="stat-card stat-high-risk">
+        <span class="stat-label">{{ 'moderation.statsHighRisk' | translate }}</span>
+        <strong class="stat-value">{{ stats().highRisk }}</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter & Search Toolbar -->
+  <div class="toolbar">
+    <div class="filter-group">
+      <label>{{ 'moderation.filterStatus' | translate }}</label>
+      <div class="segmented-control">
+        <button [class.active]="selectedStatus() === 'ALL'" (click)="selectedStatus.set('ALL')">{{ 'moderation.statusAll' | translate }}</button>
+        <button [class.active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">{{ 'moderation.statusPending' | translate }}</button>
+        <button [class.active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">{{ 'moderation.statusReviewing' | translate }}</button>
+        <button [class.active]="selectedStatus() === 'escalated'" (click)="selectedStatus.set('escalated')">{{ 'moderation.statusEscalated' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <label>{{ 'moderation.filterRisk' | translate }}</label>
+      <div class="segmented-control">
+        <button [class.active]="selectedRisk() === 'ALL'" (click)="selectedRisk.set('ALL')">{{ 'moderation.riskAll' | translate }}</button>
+        <button [class.active]="selectedRisk() === 'high'" (click)="selectedRisk.set('high')">{{ 'moderation.riskHigh' | translate }}</button>
+        <button [class.active]="selectedRisk() === 'low'" (click)="selectedRisk.set('low')">{{ 'moderation.riskLow' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <input type="text" [placeholder]="'moderation.searchPlaceholder' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+    </div>
+  </div>
+
+  <!-- Queue Table -->
+  <div class="table-container">
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>{{ 'moderation.loading' | translate }}</p>
+      </div>
+    } @else if (filteredQueue().length === 0) {
+      <div class="empty-state">
+        <img src="/assets/icons/queue.png" alt="" class="empty-icon" />
+        <h3>{{ 'moderation.emptyTitle' | translate }}</h3>
+        <p>{{ 'moderation.emptyDesc' | translate }}</p>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 320px;">{{ 'moderation.colVideo' | translate }}</th>
+            <th>{{ 'moderation.colChannel' | translate }}</th>
+            <th>{{ 'moderation.colRisk' | translate }}</th>
+            <th>{{ 'moderation.colStatus' | translate }}</th>
+            <th>{{ 'moderation.colSubmitted' | translate }}</th>
+            <th>{{ 'moderation.colReviewer' | translate }}</th>
+            <th style="text-align: right;">{{ 'moderation.colActions' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of filteredQueue(); track item.moderationCaseId) {
+            <tr [class.is-high-risk]="item.riskLevel === 'high'">
+              <!-- Video Info -->
+              <td>
+                <div class="video-cell">
+                  <div class="thumb-wrap">
+                    @if (item.thumbnailUrl) {
+                      <img [src]="item.thumbnailUrl" alt="" class="thumb" />
+                    } @else {
+                      <div class="thumb thumb-placeholder">▶</div>
+                    }
+                    <span class="duration-badge">{{ formatDuration(item.durationSeconds) }}</span>
+                  </div>
+                  <div class="video-meta">
+                    <strong class="video-title" [title]="item.videoTitle">{{ item.videoTitle }}</strong>
+                    <span class="video-id">ID: {{ item.videoId | slice:0:8 }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Channel Info -->
+              <td>
+                <div class="channel-cell">
+                  @if (item.channelAvatarUrl) {
+                    <img [src]="item.channelAvatarUrl" alt="" class="avatar" />
+                  } @else {
+                    <div class="avatar avatar-fallback">{{ item.channelName.charAt(0) }}</div>
+                  }
+                  <span>{{ item.channelName }}</span>
+                </div>
+              </td>
+
+              <!-- Risk Level -->
+              <td>
+                @if (item.riskLevel === 'high') {
+                  <span class="badge badge-risk-high" title="Phát hiện từ khóa nghi vấn hoặc vi phạm tiền kiểm">
+                    ⚠ {{ 'moderation.badgeHighRisk' | translate }}
+                  </span>
+                } @else {
+                  <span class="badge badge-risk-low">{{ 'moderation.badgeLowRisk' | translate }}</span>
+                }
+              </td>
+
+              <!-- Status -->
+              <td>
+                <span class="badge" [class.badge-pending]="item.status === 'pending'" [class.badge-reviewing]="item.status === 'reviewing'" [class.badge-escalated]="item.status === 'escalated'">
+                  {{ getStatusLabel(item.status) }}
+                </span>
+              </td>
+
+              <!-- Submitted At -->
+              <td>
+                <span class="date-text">{{ item.submittedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+              </td>
+
+              <!-- Reviewer -->
+              <td>
+                @if (item.reviewerName) {
+                  <span class="reviewer-name">{{ item.reviewerName }}</span>
+                } @else {
+                  <span class="unassigned">{{ 'moderation.unassigned' | translate }}</span>
+                }
+              </td>
+
+              <!-- Actions -->
+              <td style="text-align: right;">
+                <div class="actions-cell">
+                  @if (item.status === 'pending') {
+                    @if (canClaim()) {
+                      <button class="btn btn-sm btn-primary" (click)="claimCase(item)">
+                        {{ 'moderation.btnClaim' | translate }}
+                      </button>
+                    }
+                  } @else if (item.status === 'reviewing' || item.status === 'escalated') {
+                    @if (isClaimedByMe(item) || canReview()) {
+                      <button class="btn btn-sm btn-accent" (click)="openReviewModal(item)">
+                        {{ 'moderation.btnReview' | translate }}
+                      </button>
+                      @if (isClaimedByMe(item)) {
+                        <button class="btn btn-sm btn-outline-danger" (click)="releaseCase(item)">
+                          {{ 'moderation.btnRelease' | translate }}
+                        </button>
+                      }
+                    } @else {
+                      <span class="lock-tag">{{ 'moderation.statusReviewing' | translate }}</span>
+                    }
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <!-- Review Workspace Modal -->
+  @if (isReviewModalOpen() && activeCase(); as currentCase) {
+    <div class="modal-backdrop" (click)="closeReviewModal()">
+      <div class="modal-dialog" [class.is-theater]="isTheaterMode()" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow">{{ 'moderation.modalTitle' | translate }}</span>
+            <h2>{{ currentCase.videoTitle }}</h2>
+          </div>
+          <div class="header-actions">
+            <button
+              type="button"
+              class="theater-btn"
+              (click)="toggleTheaterMode()"
+              [title]="isTheaterMode() ? 'Chế độ tiêu chuẩn' : 'Chế độ rạp phim (Mở rộng)'"
+            >
+              @if (isTheaterMode()) {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+                <span>Thu gọn</span>
+              } @else {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                <span>Mở rộng</span>
+              }
+            </button>
+            <button class="close-btn" (click)="closeReviewModal()" [attr.aria-label]="'common.close' | translate">✕</button>
+          </div>
+        </header>
+
+        <div class="modal-body">
+          <div class="workspace-grid">
+            <!-- Left: Video & Metadata -->
+            <div class="preview-column">
+              <div class="player-container">
+                @if (currentCase.videoUrl) {
+                  <video [src]="currentCase.videoUrl" controls class="main-player"></video>
+                } @else if (currentCase.thumbnailUrl) {
+                  <img [src]="currentCase.thumbnailUrl" alt="Thumbnail" class="main-player-poster" />
+                } @else {
+                  <div class="player-placeholder">{{ 'moderation.previewUnavailable' | translate }}</div>
+                }
+              </div>
+
+              <div class="info-card">
+                <h3>{{ 'moderation.contentInfo' | translate }}</h3>
+                <div class="info-row">
+                  <span class="info-label">{{ 'moderation.channelLabel' | translate }}</span>
+                  <strong>{{ currentCase.channelName }}</strong>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">{{ 'moderation.durationLabel' | translate }}</span>
+                  <span>{{ formatDuration(currentCase.durationSeconds) }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">{{ 'moderation.submittedAtLabel' | translate }}</span>
+                  <span>{{ currentCase.submittedAt | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">{{ 'moderation.riskLevelLabel' | translate }}</span>
+                  <span [class.text-danger]="currentCase.riskLevel === 'high'">
+                    {{ currentCase.riskLevel === 'high' ? ('moderation.badgeHighRisk' | translate) : ('moderation.badgeLowRisk' | translate) }}
+                  </span>
+                </div>
+                @if (currentCase.ruleViolationsJson) {
+                  <div class="rule-box">
+                    <span class="rule-title">{{ 'moderation.ruleViolationsTitle' | translate }}</span>
+                    <code>{{ currentCase.ruleViolationsJson }}</code>
+                  </div>
+                }
+                @if (currentCase.videoDescription) {
+                  <div class="desc-box">
+                    <span class="desc-label">{{ 'moderation.videoDescLabel' | translate }}</span>
+                    <p>{{ currentCase.videoDescription }}</p>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Right: Decision Form -->
+            <div class="decision-column">
+              <div class="form-section">
+                <label class="form-label">
+                  <strong>{{ 'moderation.violationPolicyLabel' | translate }}</strong>
+                </label>
+                <select class="form-select" [ngModel]="selectedPolicyCode()" (ngModelChange)="selectedPolicyCode.set($event)">
+                  <option value="">{{ 'moderation.noViolation' | translate }}</option>
+                  @for (policy of policies(); track policy.policyId) {
+                    <option [value]="policy.code">
+                      {{ getPolicyName(policy) }} ({{ policy.code }})
+                    </option>
+                  }
+                </select>
+                <span class="help-text">{{ 'moderation.policyRequiredHint' | translate }}</span>
+              </div>
+
+              <div class="form-section">
+                <label class="form-label">
+                  <strong>{{ 'moderation.reasonLabel' | translate }}</strong>
+                </label>
+                <input
+                  type="text"
+                  class="form-input"
+                  [placeholder]="'moderation.reasonPlaceholder' | translate"
+                  [ngModel]="actionReason()"
+                  (ngModelChange)="actionReason.set($event)"
+                />
+              </div>
+
+              <div class="form-section">
+                <label class="form-label">
+                  <strong>{{ 'moderation.internalNoteLabel' | translate }}</strong>
+                </label>
+                <textarea
+                  class="form-textarea"
+                  rows="3"
+                  [placeholder]="'moderation.internalNotePlaceholder' | translate"
+                  [ngModel]="internalNote()"
+                  (ngModelChange)="internalNote.set($event)"
+                ></textarea>
+              </div>
+
+              <!-- Tiered Action Buttons -->
+              <div class="decision-actions">
+                <span class="actions-label">{{ 'moderation.decisionHeading' | translate }}</span>
+                <div class="action-buttons-grid">
+                  <!-- Approve -->
+                  <button
+                    type="button"
+                    class="decision-btn btn-approve"
+                    [disabled]="submitting()"
+                    (click)="submitDecision('Approve')"
+                  >
+                    <span class="btn-icon">✓</span>
+                    <div class="btn-text">
+                      <strong>{{ 'moderation.actionApprove' | translate }}</strong>
+                      <small>{{ 'moderation.actionApproveDesc' | translate }}</small>
+                    </div>
+                  </button>
+
+                  <!-- AgeRestricted -->
+                  <button
+                    type="button"
+                    class="decision-btn btn-age-restricted"
+                    [disabled]="submitting()"
+                    (click)="submitDecision('AgeRestricted')"
+                  >
+                    <span class="btn-icon">18+</span>
+                    <div class="btn-text">
+                      <strong>{{ 'moderation.actionAgeRestricted' | translate }}</strong>
+                      <small>{{ 'moderation.actionAgeRestrictedDesc' | translate }}</small>
+                    </div>
+                  </button>
+
+                  <!-- RecommendationRestricted -->
+                  <button
+                    type="button"
+                    class="decision-btn btn-recommendation-restricted"
+                    [disabled]="submitting()"
+                    (click)="submitDecision('RecommendationRestricted')"
+                  >
+                    <span class="btn-icon">⊘</span>
+                    <div class="btn-text">
+                      <strong>{{ 'moderation.actionRecommendationRestricted' | translate }}</strong>
+                      <small>{{ 'moderation.actionRecommendationRestrictedDesc' | translate }}</small>
+                    </div>
+                  </button>
+
+                  <!-- Reject -->
+                  <button
+                    type="button"
+                    class="decision-btn btn-reject"
+                    [disabled]="submitting()"
+                    (click)="submitDecision('Reject')"
+                  >
+                    <span class="btn-icon">✕</span>
+                    <div class="btn-text">
+                      <strong>{{ 'moderation.actionReject' | translate }}</strong>
+                      <small>{{ 'moderation.actionRejectDesc' | translate }}</small>
+                    </div>
+                  </button>
+
+                  <!-- Escalate -->
+                  <button
+                    type="button"
+                    class="decision-btn btn-escalate"
+                    [disabled]="submitting()"
+                    (click)="submitDecision('Escalate')"
+                  >
+                    <span class="btn-icon">↑</span>
+                    <div class="btn-text">
+                      <strong>{{ 'moderation.actionEscalate' | translate }}</strong>
+                      <small>{{ 'moderation.actionEscalateDesc' | translate }}</small>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <button class="btn btn-secondary" [disabled]="submitting()" (click)="closeReviewModal()">
+            {{ 'common.close' | translate }}
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+</div>
