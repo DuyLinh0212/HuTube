@@ -209,10 +209,9 @@ public sealed class ContentService(
         }
 
         var now = Now;
-        var isPublicWithModeration = features.ModerationEnabled && command.Visibility.Equals("public", StringComparison.OrdinalIgnoreCase);
         var video = new Video { ChannelId = command.ChannelId, CategoryId = command.CategoryId, Title = command.Title.Trim(), Description = Clean(command.Description),
             VideoUrl = videoUrl!, ThumbnailUrl = thumbnailUrl, Duration = command.Duration, FileSize = command.FileSize, Visibility = command.Visibility.ToLowerInvariant(),
-            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted, ModerationStatus = isPublicWithModeration ? "pending" : "not_submitted",
+            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted, ModerationStatus = "not_submitted",
             IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
             Metadata = JsonSerializer.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
@@ -245,23 +244,8 @@ public sealed class ContentService(
                 quota.UpdatedAt = now;
             }
             db.Videos.Add(video);
-            if (isPublicWithModeration)
-            {
-                var combinedText = $"{video.Title} {video.Description}".ToLowerInvariant();
-                var highRiskKeywords = new[] { "sex", "khiêu dâm", "đồi trụy", "18+", "giết người", "tự tử", "chém", "bom", "hack", "lừa đảo" };
-                var riskLevel = highRiskKeywords.Any(k => combinedText.Contains(k)) ? "high" : "low";
-
-                db.ModerationCases.Add(new ModerationCase
-                {
-                    VideoId = video.VideoId,
-                    Status = "pending",
-                    CaseType = "upload_review",
-                    RiskLevel = riskLevel,
-                    SubmittedAt = now,
-                    UpdatedAt = now
-                });
-            }
             await db.SaveChangesAsync(ct);
+
             var sourceHeight = VideoRules.QualityHeight(command.SourceQuality);
             db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = command.SourceQuality.ToLowerInvariant(), Width = sourceHeight * 16 / 9,
                 Height = sourceHeight, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "source", Status = "ready", CreatedAt = now, UpdatedAt = now });

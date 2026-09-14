@@ -95,6 +95,12 @@ public sealed class AdminController(
         CancellationToken ct) =>
         moderation.ResolveCaseAsync(UserId, caseId, request, ct);
 
+    // Keep the legacy endpoint routable so callers without moderation.approve
+    // receive 403 instead of a misleading 404. Case-specific resolution above
+    // remains the canonical moderation API.
+    [HttpPost("moderation/approve"), RequirePermission(AdminPermissions.ModerationApprove)]
+    public IActionResult LegacyApproveAsync() => BadRequest(new { code = "CASE_ID_REQUIRED" });
+
     [HttpGet("policies"), RequirePermission(AdminPermissions.SystemViewSetting)]
     public Task<List<PolicyDto>> GetAdminPoliciesAsync(
         [FromQuery] string? group = null,
