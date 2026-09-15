@@ -287,7 +287,7 @@ async function mobileLogin(page, email) {
   await invitation.getByRole('button', { name: 'Chấp nhận', exact: true }).click();
   await editorPage.getByRole('status').filter({ hasText: 'Đã tham gia kênh' }).waitFor();
   await editorPage.goto(`${userOrigin}/channel/${handle}/customize`);
-  await editorPage.getByText('vai trò').filter({ hasText: 'Biên tập viên' }).waitFor();
+  await editorPage.locator('.member-row').filter({ hasText: editor.email }).getByText('Biên tập viên', { exact: true }).waitFor();
   await editorPage.getByRole('button', { name: 'Thành viên & quyền', exact: true }).waitFor();
   assert(await editorPage.getByRole('button', { name: 'Xóa kênh', exact: true }).count() === 0, 'Editor saw the delete-channel control.');
   const editorToken = await mobileLogin(editorPage, editor.email);
