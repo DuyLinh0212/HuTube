@@ -1,0 +1,14 @@
+.forbidden-card {
+  max-width: 520px;
+  margin: 60px auto;
+  padding: 32px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.forbidden-card h1 { margin: 0 0 16px; color: var(--danger); font-size: 48px; }
+.forbidden-card h2 { margin: 0 0 12px; color: var(--ink); font-size: 20px; }
+.forbidden-card p { margin: 0 0 24px; color: var(--text-muted); line-height: 1.5; }
+.forbidden-card a { display: inline-block; padding: 10px 20px; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 500; text-decoration: none; }

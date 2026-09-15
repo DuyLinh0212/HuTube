@@ -6,7 +6,7 @@
   flex-direction: column;
   height: 100dvh;
   padding: 18px 14px 14px;
-  border-right: 1px solid var(--line);
+  border-right: 0;
   background: var(--surface);
   overflow: hidden;
   transition: width 200ms ease, background-color 0.2s ease, border-color 0.2s ease;

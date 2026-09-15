@@ -10,6 +10,7 @@ import '../../channel/screens/channel_invitations_screen.dart';
 import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/services/channel_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/localization/app_strings.dart';
 import '../../account/models/account_models.dart';
 import '../../account/services/account_service.dart';
 
@@ -60,7 +61,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể tải hồ sơ để chỉnh sửa.')),
+        SnackBar(content: Text(AppStrings.t('account.profileLoadError'))),
       );
     }
   }
@@ -68,13 +69,14 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
   @override
   Widget build(BuildContext context) {
     final name =
-        (widget.auth.user?['displayName'] as String?) ?? 'Người dùng HuTube';
+        (widget.auth.user?['displayName'] as String?) ??
+        AppStrings.t('common.userHuTube');
     final email = (widget.auth.user?['email'] as String?) ?? '';
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
       children: [
         Text(
-          'Bạn',
+          AppStrings.t('account.hubTitle'),
           style: Theme.of(
             context,
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -115,7 +117,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Chỉnh sửa hồ sơ',
+                  tooltip: AppStrings.t('account.editTooltip'),
                   onPressed: _openProfileEditor,
                   icon: const Icon(Icons.edit_outlined),
                 ),
@@ -124,62 +126,62 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        const _Heading('Tài khoản'),
+        _Heading(AppStrings.t('account.heading')),
         _Tile(
           icon: Icons.person_outline,
-          title: 'Chỉnh sửa hồ sơ',
+          title: AppStrings.t('account.editProfile'),
           onTap: _openProfileEditor,
         ),
         _Tile(
           icon: Icons.lock_outline,
-          title: 'Mật khẩu và bảo mật',
+          title: AppStrings.t('account.passwordSecurity'),
           onTap: () => _open(ChangePasswordScreen(auth: widget.auth)),
         ),
         _Tile(
           icon: Icons.tune_rounded,
-          title: 'Tùy chọn giao diện',
+          title: AppStrings.t('account.appearance'),
           onTap: () => _open(PreferencesScreen(auth: widget.auth)),
         ),
         _Tile(
           icon: Icons.notifications_outlined,
-          title: 'Cài đặt thông báo',
+          title: AppStrings.t('account.notificationSettings'),
           onTap: () => _open(NotificationSettingsScreen(auth: widget.auth)),
         ),
         const SizedBox(height: 18),
-        const _Heading('Kênh của bạn'),
+        _Heading(AppStrings.t('account.channelHeading')),
         if (_loadingChannel)
-          const ListTile(
-            leading: SizedBox(
+          ListTile(
+            leading: const SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            title: Text('Đang kiểm tra kênh…'),
+            title: Text(AppStrings.t('account.checkingChannel')),
           )
         else if (_channelHandle == null)
           _Tile(
             icon: Icons.add_to_queue_rounded,
-            title: 'Tạo kênh',
-            subtitle: 'Bắt đầu đăng video với một kênh HuTube.',
+            title: AppStrings.t('account.createChannel'),
+            subtitle: AppStrings.t('account.createChannelDesc'),
             onTap: () => _open(CreateChannelScreen(auth: widget.auth)),
           )
         else ...[
           _Tile(
             icon: Icons.mail_outline,
-            title: 'Lời mời cộng tác',
+            title: AppStrings.t('account.invitations'),
             onTap: () => _open(ChannelInvitationsScreen(auth: widget.auth)),
           ),
           _Tile(
             icon: Icons.dashboard_outlined,
-            title: 'Creator Studio',
+            title: AppStrings.t('account.creatorStudio'),
             onTap: () => context.go('/creator'),
           ),
         ],
         const SizedBox(height: 18),
-        const _Heading('Gói dịch vụ'),
+        _Heading(AppStrings.t('account.serviceHeading')),
         _Tile(
           icon: Icons.workspace_premium_outlined,
-          title: 'Gói và dung lượng',
+          title: AppStrings.t('account.plans'),
           onTap: () => context.go('/plans'),
         ),
         const SizedBox(height: 18),
@@ -190,7 +192,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
             context.go('/home');
           },
           icon: const Icon(Icons.logout_rounded),
-          label: const Text('Đăng xuất'),
+          label: Text(AppStrings.t('account.logout')),
         ),
       ],
     );

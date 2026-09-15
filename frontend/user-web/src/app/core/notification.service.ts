@@ -4,6 +4,7 @@ import * as signalR from '@microsoft/signalr';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { RuntimeConfig } from './runtime-config';
+import { I18nService } from './i18n.service';
 
 export interface AppNotification { notificationId: string; type: string; title: string; content: string; actionUrl: string | null; isRead: boolean; createdAt: string; }
 interface NotificationPage { items: AppNotification[]; page: number; pageSize: number; total: number; unreadCount: number; hasMore: boolean; }
@@ -14,6 +15,7 @@ export class NotificationService {
   private readonly auth = inject(AuthService);
   private readonly config = inject(RuntimeConfig);
   private readonly router = inject(Router);
+  private readonly i18n = inject(I18nService);
   private connection?: signalR.HubConnection;
   private revocationPoll?: ReturnType<typeof setInterval>;
   private notificationPoll?: ReturnType<typeof setInterval>;
@@ -43,7 +45,7 @@ export class NotificationService {
     this.connection.on('UnreadCountChanged', (count: number) => this.unread.set(count));
     this.connection.on('InvitationReceived', (event: { channelName?: string }) => {
       this.invitationVersion.update(version => version + 1);
-      this.showInvitationToast(`Bạn có lời mời tham gia kênh${event?.channelName ? ` ${event.channelName}` : ''}.`);
+      this.showInvitationToast(this.i18n.t('notification.channelInviteToast', { channel: event?.channelName ? ` ${event.channelName}` : '' }));
     });
     this.connection.on('SessionRevoked', (event: { allSessions?: boolean; exceptSessionId?: string }) => {
       if (!event?.allSessions && event?.exceptSessionId === this.auth.currentSessionId()) return;

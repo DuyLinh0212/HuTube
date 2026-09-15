@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/account_models.dart';
@@ -63,7 +64,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _save() async {
     final name = _displayNameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Tên hiển thị không được để trống.');
+      setState(() => _error = AppStrings.t('editProfile.displayNameRequired'));
       return;
     }
 
@@ -80,18 +81,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã cập nhật thông tin hồ sơ thành công!'),
-            backgroundColor: AppColors.success,
+          SnackBar(
+            content: Text(AppStrings.t('profile.updated')),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
           ),
         );
         Navigator.of(context).pop(updated);
       }
     } on ApiFailure catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(e, fallback: 'common.error'),
+        );
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Có lỗi xảy ra khi lưu thông tin.');
+      if (mounted) {
+        setState(() => _error = AppStrings.t('editProfile.saveError'));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -101,7 +108,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chỉnh sửa hồ sơ'),
+        title: Text(AppStrings.t('editProfile.title')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -147,8 +154,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Center(
                 child: Text(
                   '@${widget.profile.username}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: AppColors.textSecondaryFor(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -157,23 +164,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const SizedBox(height: 24),
 
               // Form fields
-              const Text(
-                'Tên hiển thị *',
+              Text(
+                '${AppStrings.t('editProfile.displayName')} *',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _displayNameController,
                 enabled: !_busy,
-                decoration: const InputDecoration(
-                  hintText: 'Nhập tên hiển thị của bạn',
+                decoration: InputDecoration(
+                  hintText: AppStrings.t('editProfile.displayNameHint'),
                   prefixIcon: Icon(Icons.person_outline),
                 ),
               ),
               const SizedBox(height: 16),
 
-              const Text(
-                'Quốc gia / Khu vực',
+              Text(
+                '${AppStrings.t('editProfile.country')} / ${AppStrings.t('editProfile.region')}',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
@@ -183,7 +190,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ? null
                     : (val) => setState(() => _country = val ?? 'Việt Nam'),
                 items: _countries
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(_countryLabel(c)),
+                      ),
+                    )
                     .toList(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.public_outlined),
@@ -194,8 +206,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Giới thiệu bản thân (Bio)',
+                  Text(
+                    '${AppStrings.t('editProfile.bio')} (Bio)',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                   Text(
@@ -203,8 +215,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       color: _bioLength > 160
-                          ? AppColors.danger
-                          : AppColors.textMuted,
+                          ? AppColors.dangerFor(context)
+                          : AppColors.textMutedFor(context),
                     ),
                   ),
                 ],
@@ -223,8 +235,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       required isFocused,
                       maxLength,
                     }) => null,
-                decoration: const InputDecoration(
-                  hintText: 'Chia sẻ ngắn gọn về bạn với cộng đồng HuTube...',
+                decoration: InputDecoration(
+                  hintText: AppStrings.t('editProfile.bioHint'),
                 ),
               ),
               const SizedBox(height: 32),
@@ -240,12 +252,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Lưu thay đổi'),
+                    : Text(AppStrings.t('editProfile.saveBtn')),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _countryLabel(String value) {
+    return switch (value) {
+      'Việt Nam' => AppStrings.t('editProfile.countryVietnam'),
+      'Hoa Kỳ' => AppStrings.t('editProfile.countryUs'),
+      'Nhật Bản' => AppStrings.t('editProfile.countryJapan'),
+      'Hàn Quốc' => AppStrings.t('editProfile.countryKorea'),
+      'Singapore' => AppStrings.t('editProfile.countrySingapore'),
+      'Khác' => AppStrings.t('editProfile.countryOther'),
+      _ => value,
+    };
   }
 }

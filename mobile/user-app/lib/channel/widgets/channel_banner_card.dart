@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../models/channel_models.dart';
 
@@ -21,7 +22,7 @@ class ChannelBannerCard extends StatelessWidget {
         Container(
           height: 120,
           decoration: BoxDecoration(
-            color: AppColors.cardBorder,
+            color: Theme.of(context).dividerColor,
             image: channel.bannerUrl != null
                 ? DecorationImage(
                     image: NetworkImage(channel.bannerUrl!),
@@ -48,7 +49,7 @@ class ChannelBannerCard extends StatelessWidget {
                     child: IconButton.filledTonal(
                       icon: const Icon(Icons.camera_alt, size: 18),
                       onPressed: onEditBranding,
-                      tooltip: 'Đổi ảnh bìa',
+                      tooltip: AppStrings.t('channel.changeBanner'),
                     ),
                   ),
                 )
@@ -90,10 +91,10 @@ class ChannelBannerCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             channel.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: AppColors.textPrimaryFor(context),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -109,18 +110,23 @@ class ChannelBannerCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '@${channel.handle}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textSecondaryFor(context),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${channel.subscriberCount} người đăng ký · ${channel.videoCount} video',
-                      style: const TextStyle(
+                      AppStrings.format('channel.stats', {
+                        'subscribers': AppStrings.number(
+                          channel.subscriberCount,
+                        ),
+                        'videos': AppStrings.number(channel.videoCount),
+                      }),
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.textMuted,
+                        color: AppColors.textMutedFor(context),
                       ),
                     ),
                   ],

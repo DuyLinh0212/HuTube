@@ -1,8 +1,18 @@
 <div class="studio-shell" [class.nav-open]="navOpen()" [class.nav-collapsed]="navCollapsed()">
-  <button class="nav-scrim" type="button" aria-label="Đóng menu" (click)="closeNavigation()"></button>
+  <button class="nav-scrim" type="button" [attr.aria-label]="'ui.closeMenu' | translate" (click)="closeNavigation()"></button>
   <app-studio-sidebar [open]="navOpen()" [collapsed]="navCollapsed()" (collapsedChange)="setCollapsed($event)" (navigationClosed)="closeNavigation()" />
   <section class="studio-stage">
     <app-studio-topbar (menuOpened)="navOpen.set(true)" />
+    @if (data.accessibleChannels().length > 0) {
+      <div class="studio-channel-switcher">
+        <label for="studio-channel-select">{{ 'studio.manageChannel' | translate }}</label>
+        <select id="studio-channel-select" [value]="data.selectedChannelId() || ''" (change)="data.selectChannel($any($event.target).value)">
+          @for (channel of data.accessibleChannels(); track channel.channelId) {
+            <option [value]="channel.channelId">{{ channel.name }} · {{ roleLabel(channel.myRole) }}</option>
+          }
+        </select>
+      </div>
+    }
     <main id="studio-content" class="studio-content-frame">
       <router-outlet />
     </main>

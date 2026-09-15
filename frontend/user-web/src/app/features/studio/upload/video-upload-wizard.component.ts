@@ -3,10 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../../core/i18n.service';
+import { LocaleNumberPipe } from '../../../core/locale-number.pipe';
 import { TranslatePipe } from '../../../core/translate.pipe';
-import { ChannelService } from '../../../core/channel.service';
 import { Category, ContentService, UploadPreflight, VideoDetail } from '../../../core/content.service';
 import { UploadStateService } from '../../../core/upload-state.service';
+import { StudioDataService } from '../../../core/studio-data.service';
 
 export interface Chapter {
   id: number;
@@ -22,15 +23,15 @@ interface ThumbnailOption {
 
 @Component({
   selector: 'app-video-upload-wizard',
-  imports: [CommonModule, FormsModule, TranslatePipe, RouterLink],
+  imports: [CommonModule, FormsModule, LocaleNumberPipe, TranslatePipe, RouterLink],
   templateUrl: './video-upload-wizard.component.html',
   styleUrl: './video-upload-wizard.component.scss'
 })
 export class VideoUploadWizardComponent implements OnDestroy {
   readonly i18n = inject(I18nService);
   private readonly router = inject(Router);
-  private readonly channels = inject(ChannelService);
   private readonly content = inject(ContentService);
+  private readonly studio = inject(StudioDataService);
   readonly uploadState = inject(UploadStateService);
 
   @ViewChild('previewPlayer') private previewPlayer?: ElementRef<HTMLVideoElement>;
@@ -100,11 +101,12 @@ export class VideoUploadWizardComponent implements OnDestroy {
   publishedVideoUrl = '';
 
   constructor() {
-    this.channels.getMyChannel().subscribe({
-      next: channel => {
-        this.channelId = channel.channelId;
-        this.runPreflight();
-      }
+    this.studio.load();
+    effect(() => {
+      const channel = this.studio.channel();
+      if (!channel) return;
+      this.channelId = channel.channelId;
+      this.runPreflight();
     });
     this.content.categories().subscribe({ next: items => this.categoryOptions.set(items) });
 
@@ -149,7 +151,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
     const supported = file.type.startsWith('video/') || ['mp4', 'webm', 'mov', 'mkv'].includes(extension);
     if (!supported) {
-      this.uploadError.set('File không phải định dạng video được hỗ trợ. Chọn MP4, WebM, MOV hoặc MKV.');
+      this.uploadError.set(this.i18n.t('upload.fileTypeError'));
       return;
     }
     this.releaseVideoResources();
@@ -190,7 +192,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       await this.generateThumbnails(video, file);
       if (this.selectedFile === file) this.runPreflight();
     } catch {
-      if (this.selectedFile === file) this.uploadError.set('Không đọc được thông tin video. File có thể bị hỏng hoặc trình duyệt không hỗ trợ định dạng này.');
+      if (this.selectedFile === file) this.uploadError.set(this.i18n.t('upload.metadataError'));
     } finally {
       if (this.selectedFile === file) this.isPreparing.set(false);
       video.removeAttribute('src');
@@ -231,7 +233,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       const url = URL.createObjectURL(thumbnail);
       this.thumbnailObjectUrls.push(url);
       this.thumbnailFiles.set(id, thumbnail);
-      return { id, url, label: `Khung hình ${index + 1}` };
+      return { id, url, label: this.i18n.t('upload.frameLabel', { index: String(index + 1) }) };
     });
     this.selectedThumbnail = this.thumbnails[0]?.id ?? 0;
     this.thumbnailFile = files[0];
@@ -319,7 +321,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     const id = this.customThumbnailId++;
     const url = URL.createObjectURL(file);
     this.thumbnailObjectUrls.push(url);
-    this.thumbnails = [...this.thumbnails, { id, url, label: 'Tùy chỉnh' }];
+    this.thumbnails = [...this.thumbnails, { id, url, label: this.i18n.t('upload.customThumbnail') }];
     this.thumbnailFiles.set(id, file);
     this.chooseThumbnail(id);
   }
@@ -379,7 +381,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   setStep(step: number) {
     if (step < 1 || step > 6) return;
     if (step > 1 && step < 6 && !this.selectedFile) {
-      this.uploadError.set('Vui lòng chọn file video trước.');
+      this.uploadError.set(this.i18n.t('upload.selectFileError'));
       return;
     }
     this.currentStep.set(step);
@@ -388,12 +390,12 @@ export class VideoUploadWizardComponent implements OnDestroy {
 
   nextStep() {
     if (this.currentStep() === 1) {
-      if (!this.selectedFile) { this.uploadError.set('Vui lòng chọn file video.'); return; }
-      if (this.isPreparing()) { this.uploadError.set('Đang đọc video và tạo hình thu nhỏ, vui lòng chờ một chút.'); return; }
-      if (this.preflightLoading()) { this.uploadError.set('Đang kiểm tra dung lượng lưu trữ, vui lòng chờ một chút.'); return; }
-      if (this.preflightError() || !this.preflight()) { this.uploadError.set(this.preflightError() || 'Chưa kiểm tra được file với máy chủ.'); return; }
+      if (!this.selectedFile) { this.uploadError.set(this.i18n.t('upload.selectVideoError')); return; }
+      if (this.isPreparing()) { this.uploadError.set(this.i18n.t('upload.preparingWait')); return; }
+      if (this.preflightLoading()) { this.uploadError.set(this.i18n.t('upload.storageWait')); return; }
+      if (this.preflightError() || !this.preflight()) { this.uploadError.set(this.preflightError() || this.i18n.t('upload.preflightUnavailable')); return; }
     }
-    if (this.currentStep() === 2 && !this.videoTitle.trim()) { this.uploadError.set('Vui lòng nhập tiêu đề video.'); return; }
+    if (this.currentStep() === 2 && !this.videoTitle.trim()) { this.uploadError.set(this.i18n.t('upload.titleRequired')); return; }
     if (this.currentStep() === 3 && !this.validateChapters()) return;
     if (this.currentStep() === 5) { this.submitUpload(); return; }
     if (this.currentStep() < 6) {
@@ -404,10 +406,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
 
   private submitUpload() {
     if (!this.selectedFile || !this.channelId || this.isUploading()) return;
-    if (!this.videoTitle.trim()) { this.uploadError.set('Vui lòng nhập tiêu đề video.'); this.setStep(2); return; }
+    if (!this.videoTitle.trim()) { this.uploadError.set(this.i18n.t('upload.titleRequired')); this.setStep(2); return; }
     if (!this.validateChapters()) { this.setStep(3); return; }
     if (this.visibility === 'public' && !this.policyAgreed) {
-      this.uploadError.set('Vui lòng đánh dấu cam kết tuân thủ Tiêu chuẩn cộng đồng HuTube trước khi gửi duyệt.');
+      this.uploadError.set(this.i18n.t('upload.policyRequired'));
       return;
     }
     const data = new FormData();
@@ -426,7 +428,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     data.append('ChaptersJson', JSON.stringify(this.chapters().map(chapter => ({ startSeconds: this.toSeconds(chapter.time), title: chapter.title.trim() }))));
     this.uploadError.set('');
     if (!this.uploadState.start(data, this.selectedFile.name, this.visibility === 'unlisted'))
-      this.uploadError.set('Đang có một video khác được tải lên.');
+      this.uploadError.set(this.i18n.t('upload.uploadInProgress'));
   }
 
   private validateChapters(): boolean {
@@ -434,7 +436,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     for (const chapter of this.chapters()) {
       const seconds = this.toSeconds(chapter.time);
       if (!chapter.title.trim() || seconds < 0 || seconds >= this.duration || seconds <= previous) {
-        this.uploadError.set('Các chương phải có tiêu đề, mốc thời gian tăng dần và nằm trong video.');
+        this.uploadError.set(this.i18n.t('upload.chaptersInvalid'));
         return false;
       }
       previous = seconds;
@@ -446,7 +448,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     event?.stopPropagation();
     const player = this.previewPlayer?.nativeElement;
     if (!player) return;
-    if (player.paused) void player.play().catch(() => this.uploadError.set('Trình duyệt không thể phát bản xem trước của file này.'));
+    if (player.paused) void player.play().catch(() => this.uploadError.set(this.i18n.t('upload.previewError')));
     else player.pause();
   }
 
@@ -556,11 +558,11 @@ export class VideoUploadWizardComponent implements OnDestroy {
     const time = this.newChapterTime.trim();
     const seconds = this.toSeconds(time);
     if (!title || seconds < 0 || seconds >= this.duration) {
-      this.uploadError.set('Nhập tiêu đề và mốc thời gian hợp lệ trong video.');
+      this.uploadError.set(this.i18n.t('upload.chapterFieldsInvalid'));
       return;
     }
     if (this.chapters().some(item => this.toSeconds(item.time) === seconds)) {
-      this.uploadError.set('Mỗi mốc thời gian chỉ được dùng cho một chương.');
+      this.uploadError.set(this.i18n.t('upload.duplicateChapterTime'));
       return;
     }
     this.chapters.update(items => [...items, { id: Math.max(0, ...items.map(item => item.id)) + 1, title, time }]
@@ -625,23 +627,23 @@ export class VideoUploadWizardComponent implements OnDestroy {
     const units = ['KB', 'MB', 'GB', 'TB'];
     let size = value; let index = -1;
     do { size /= 1024; index++; } while (size >= 1024 && index < units.length - 1);
-    return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[index]}`;
+    return `${this.i18n.formatNumber(size, { maximumFractionDigits: size >= 10 ? 0 : 1 })} ${units[index]}`;
   }
   formatType() {
     const type = this.fileType || 'video/unknown';
     const extension = this.selectedFile?.name.split('.').pop()?.toUpperCase() || type.split('/').pop()?.toUpperCase() || 'VIDEO';
     return `${extension} (${type})`;
   }
-  resolutionLabel() { return this.videoWidth > 0 && this.videoHeight > 0 ? `${this.videoWidth}×${this.videoHeight} · ${this.sourceQuality}` : 'Đang đọc…'; }
+  resolutionLabel() { return this.videoWidth > 0 && this.videoHeight > 0 ? `${this.videoWidth}×${this.videoHeight} · ${this.sourceQuality}` : this.i18n.t('upload.readingVideo'); }
   storagePercent() {
     const value = this.preflight();
     return value && value.storageLimit > 0 ? Math.min(100, value.storageUsed * 100 / value.storageLimit) : 0;
   }
   storageUsageLabel() {
     const value = this.preflight();
-    return value ? `${this.formatBytes(value.storageUsed)} / ${this.formatBytes(value.storageLimit)}` : (this.preflightLoading() ? 'Đang kiểm tra…' : 'Chưa có dữ liệu');
+    return value ? `${this.formatBytes(value.storageUsed)} / ${this.formatBytes(value.storageLimit)}` : (this.preflightLoading() ? this.i18n.t('upload.checkingStorage') : this.i18n.t('upload.noData'));
   }
-  storageRemainingLabel() { const value = this.preflight(); return value ? `Còn lại ${this.formatBytes(value.storageRemaining)}` : ''; }
+  storageRemainingLabel() { const value = this.preflight(); return value ? this.i18n.t('upload.storageRemaining', { value: this.formatBytes(value.storageRemaining) }) : ''; }
 
   private toSeconds(value: string) {
     const parts = value.trim().split(':');
@@ -667,9 +669,9 @@ export class VideoUploadWizardComponent implements OnDestroy {
   }
 
   private readError(error: any) {
-    if (error?.status === 404) return 'API hiện tại chưa có endpoint này. Hãy khởi động lại backend local hoặc redeploy API trước khi tải lên.';
-    if (error?.status === 0) return 'Không thể kết nối API. Kiểm tra backend, CORS và thử lại.';
-    return error?.error?.detail || error?.error?.title || error?.message || 'Không thể kiểm tra file với máy chủ.';
+    if (error?.status === 404) return this.i18n.t('upload.checkApi404');
+    if (error?.status === 0) return this.i18n.t('upload.checkApiOffline');
+    return this.i18n.t('upload.checkApiError');
   }
 
   ngOnDestroy() { this.releaseVideoResources(); }

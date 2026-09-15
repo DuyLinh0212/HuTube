@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'auth.dart';
+import 'core/localization/app_strings.dart';
 
 class PlansScreen extends StatefulWidget {
   const PlansScreen({super.key, required this.auth});
@@ -55,14 +56,14 @@ class _PlansScreenState extends State<PlansScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.message;
+          _error = AppStrings.apiError(error, fallback: 'plans.loadError');
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải gói dịch vụ.';
+          _error = AppStrings.t('plans.loadError');
           _loading = false;
         });
       }
@@ -78,15 +79,19 @@ class _PlansScreenState extends State<PlansScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đăng ký gói thành công.')),
+          SnackBar(content: Text(AppStrings.t('plans.subscribeSuccess'))),
         );
         await _load();
       }
     } on ApiFailure catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.apiError(error, fallback: 'plans.subscribeError'),
+            ),
+          ),
+        );
       }
     }
   }
@@ -103,26 +108,91 @@ class _PlansScreenState extends State<PlansScreen> {
       }
       try {
         await Share.share(
-          '${plan['name'] ?? 'Gói HuTube'}\n$url',
-          subject: 'Gói ${plan['name'] ?? 'HuTube'}',
+          '${plan['name'] ?? AppStrings.t('common.appName')}\n$url',
+          subject: AppStrings.format('plans.shareSubject', {
+            'name': plan['name'] ?? AppStrings.t('common.appName'),
+          }),
         );
       } catch (_) {
         await Clipboard.setData(ClipboardData(text: url));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Thiết bị chưa hỗ trợ chia sẻ. Đã sao chép liên kết gói.',
-              ),
-            ),
+            SnackBar(content: Text(AppStrings.t('plans.shareCopied'))),
           );
         }
       }
     } on ApiFailure catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.apiError(error, fallback: 'plans.shareError'),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _inviteMember() async {
+    final controller = TextEditingController();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppStrings.t('plans.inviteDialogTitle')),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: AppStrings.t('plans.inviteEmail'),
+            hintText: AppStrings.t('plans.inviteEmailHint'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: Text(AppStrings.t('common.send')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    final trimmed = email?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+    if (!trimmed.contains('@')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('auth.emailInvalid'))),
+        );
+      }
+      return;
+    }
+    try {
+      await widget.auth.protected(
+        'POST',
+        '/plans/members/invite',
+        body: {'email': trimmed},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('plans.inviteSent'))),
+        );
+        await _load();
+      }
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.apiError(error, fallback: 'plans.inviteError'),
+            ),
+          ),
+        );
       }
     }
   }
@@ -143,9 +213,7 @@ class _PlansScreenState extends State<PlansScreen> {
     if (date == null) {
       return '';
     }
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day/$month/${date.year}';
+    return AppStrings.date(date);
   }
 
   Map<String, dynamic> _features(dynamic raw) => raw is Map
@@ -155,16 +223,25 @@ class _PlansScreenState extends State<PlansScreen> {
   String _featureText(Map<String, dynamic> plan) {
     final features = _features(plan['features']);
     final labels = <String>[];
-    if (features['download'] == true) labels.add('Tải xuống');
-    if (features['background_play'] == true) labels.add('Phát nền');
-    if (features['pip'] == true) labels.add('PiP');
-    return labels.isEmpty ? 'Không có quyền lợi nâng cao' : labels.join(' · ');
+    if (features['download'] == true) {
+      labels.add(AppStrings.t('common.download'));
+    }
+    if (features['background_play'] == true) {
+      labels.add(AppStrings.t('watch.background'));
+    }
+    if (features['pip'] == true) labels.add(AppStrings.t('watch.pipAction'));
+    return labels.isEmpty
+        ? AppStrings.t('plans.featuresNone')
+        : labels.join(' · ');
   }
 
   String _qualityText(Map<String, dynamic> plan) {
     final upload = plan['maxVideoQuality'] as String? ?? '720p';
     final download = plan['maxDownloadQuality'] as String? ?? upload;
-    return 'Upload $upload · tải xuống $download';
+    return AppStrings.format('plans.quality', {
+      'upload': upload,
+      'download': download,
+    });
   }
 
   Widget _currentPlanCard(BuildContext context) {
@@ -192,14 +269,17 @@ class _PlansScreenState extends State<PlansScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Gói hiện tại: ${plan['name'] as String? ?? 'HuTube'}',
+              AppStrings.format('plans.currentTitle', {
+                'name':
+                    plan['name'] as String? ?? AppStrings.t('common.appName'),
+              }),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Dung lượng đã dùng'),
+                Text(AppStrings.t('plans.storageUsed')),
                 Text(
                   '${_formatBytes(used)} / ${_formatBytes(total)}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
@@ -210,13 +290,15 @@ class _PlansScreenState extends State<PlansScreen> {
             LinearProgressIndicator(value: progress),
             const SizedBox(height: 7),
             Text(
-              'Còn lại ${_formatBytes(remaining)}',
+              AppStrings.format('plans.remaining', {
+                'size': _formatBytes(remaining),
+              }),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if (endedAt.isNotEmpty) ...[
               const SizedBox(height: 5),
               Text(
-                'Hết hạn: $endedAt',
+                AppStrings.format('plans.expires', {'date': endedAt}),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -230,6 +312,14 @@ class _PlansScreenState extends State<PlansScreen> {
               _featureText(plan),
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (plan['isSharedMember'] != true) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _inviteMember,
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: Text(AppStrings.t('plans.invite')),
+              ),
+            ],
           ],
         ),
       ),
@@ -242,7 +332,19 @@ class _PlansScreenState extends State<PlansScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text(_error!));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _load,
+              child: Text(AppStrings.t('common.retry')),
+            ),
+          ],
+        ),
+      );
     }
     return RefreshIndicator(
       onRefresh: _load,
@@ -250,13 +352,11 @@ class _PlansScreenState extends State<PlansScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            'Gói dịch vụ',
+            AppStrings.t('plans.title'),
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Chọn gói phù hợp với kênh và chia sẻ thông tin gói bằng liên kết công khai.',
-          ),
+          Text(AppStrings.t('plans.description')),
           const SizedBox(height: 20),
           _currentPlanCard(context),
           ..._plans.map(
@@ -268,17 +368,17 @@ class _PlansScreenState extends State<PlansScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      plan['name'] as String? ?? 'Gói HuTube',
+                      plan['name'] as String? ?? AppStrings.t('common.appName'),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 6),
                     Text(
                       plan['description'] as String? ??
-                          'Gói dành cho nhà sáng tạo.',
+                          AppStrings.t('plans.defaultDescription'),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      '${_formatBytes(plan['storageLimit'])} · tối đa ${plan['maxMembers'] ?? 1} thành viên',
+                      '${_formatBytes(plan['storageLimit'])} · ${AppStrings.format('plans.maxMembers', {'count': AppStrings.number(_number(plan['maxMembers'] ?? 1))})}',
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -297,13 +397,13 @@ class _PlansScreenState extends State<PlansScreen> {
                         OutlinedButton.icon(
                           onPressed: () => _sharePlan(plan),
                           icon: const Icon(Icons.share_outlined),
-                          label: const Text('Chia sẻ'),
+                          label: Text(AppStrings.t('plans.share')),
                         ),
                         if (widget.auth.authenticated)
                           FilledButton(
                             onPressed: () =>
                                 _subscribe(plan['planId'] as String),
-                            child: const Text('Đăng ký'),
+                            child: Text(AppStrings.t('plans.subscribe')),
                           ),
                       ],
                     ),

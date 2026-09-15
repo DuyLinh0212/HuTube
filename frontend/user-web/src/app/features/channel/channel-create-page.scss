@@ -4,6 +4,47 @@
   padding: 36px 20px 64px;
 }
 
+.collaboration-callout {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--primary-light, #f3a1b8);
+  border-radius: 16px;
+  background: var(--primary-soft, #fff0f4);
+}
+
+.callout-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--primary, #ff2b66);
+  background: var(--surface, #fff);
+  font-size: 1.1rem;
+}
+
+.callout-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.callout-copy h2 {
+  margin: 0 0 3px;
+  color: var(--text-dark, #111827);
+  font-size: .95rem;
+}
+
+.callout-copy p {
+  margin: 0;
+  color: var(--text-muted, #6b7280);
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
 .create-form-card,
 .existing-channel-card {
   background: var(--card-bg, #FFFFFF);
@@ -28,6 +69,18 @@
     font-size: 14.5px;
     color: var(--text-muted, #6B7280);
     margin: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .collaboration-callout {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .collaboration-callout .btn-primary {
+    width: 100%;
+    justify-content: center;
   }
 }
 

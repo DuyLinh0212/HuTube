@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../auth.dart';
-import '../../core/theme/app_theme.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/widgets/error_banner.dart';
 import '../services/account_service.dart';
 
@@ -45,15 +45,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final confirm = _confirmPasswordController.text;
 
     if (current.isEmpty) {
-      setState(() => _error = 'Vui lòng nhập mật khẩu hiện tại.');
+      setState(() => _error = AppStrings.t('password.currentRequired'));
       return;
     }
     if (newPass.length < 8) {
-      setState(() => _error = 'Mật khẩu mới phải có tối thiểu 8 ký tự.');
+      setState(() => _error = AppStrings.t('password.newRequirement'));
       return;
     }
     if (newPass != confirm) {
-      setState(() => _error = 'Mật khẩu xác nhận không khớp.');
+      setState(() => _error = AppStrings.t('password.mismatch'));
       return;
     }
 
@@ -70,19 +70,23 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đổi mật khẩu thành công!'),
-            backgroundColor: AppColors.success,
+          SnackBar(
+            content: Text(AppStrings.t('password.updated')),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
           ),
         );
         Navigator.of(context).pop();
       }
     } on ApiFailure catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(e, fallback: 'common.error'),
+        );
+      }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Không thể đổi mật khẩu. Vui lòng thử lại.');
+        setState(() => _error = AppStrings.t('password.error'));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -93,7 +97,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Đổi mật khẩu'),
+        title: Text(AppStrings.t('password.title')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -110,8 +114,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 const SizedBox(height: 16),
               ],
 
-              const Text(
-                'Mật khẩu hiện tại *',
+              Text(
+                '${AppStrings.t('password.current')} *',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
@@ -120,13 +124,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 obscureText: _hideCurrent,
                 enabled: !_busy,
                 decoration: InputDecoration(
-                  hintText: 'Nhập mật khẩu đang sử dụng',
+                  hintText: AppStrings.t('password.currentHint'),
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _hideCurrent
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
+                    ),
+                    tooltip: AppStrings.t(
+                      _hideCurrent ? 'auth.showPassword' : 'auth.hidePassword',
                     ),
                     onPressed: () =>
                         setState(() => _hideCurrent = !_hideCurrent),
@@ -135,8 +142,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               ),
               const SizedBox(height: 16),
 
-              const Text(
-                'Mật khẩu mới *',
+              Text(
+                '${AppStrings.t('password.new')} *',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
@@ -145,7 +152,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 obscureText: _hideNew,
                 enabled: !_busy,
                 decoration: InputDecoration(
-                  hintText: 'Tối thiểu 8 ký tự',
+                  hintText: AppStrings.t('password.newHint'),
                   prefixIcon: const Icon(Icons.lock_reset),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -153,14 +160,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
                     ),
+                    tooltip: AppStrings.t(
+                      _hideNew ? 'auth.showPassword' : 'auth.hidePassword',
+                    ),
                     onPressed: () => setState(() => _hideNew = !_hideNew),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              const Text(
-                'Xác nhận mật khẩu mới *',
+              Text(
+                '${AppStrings.t('password.confirm')} *',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
@@ -169,13 +179,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 obscureText: _hideConfirm,
                 enabled: !_busy,
                 decoration: InputDecoration(
-                  hintText: 'Nhập lại mật khẩu mới',
+                  hintText: AppStrings.t('password.confirmHint'),
                   prefixIcon: const Icon(Icons.lock_reset),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _hideConfirm
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
+                    ),
+                    tooltip: AppStrings.t(
+                      _hideConfirm ? 'auth.showPassword' : 'auth.hidePassword',
                     ),
                     onPressed: () =>
                         setState(() => _hideConfirm = !_hideConfirm),
@@ -195,7 +208,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Cập nhật mật khẩu'),
+                    : Text(AppStrings.t('password.updateBtn')),
               ),
             ],
           ),

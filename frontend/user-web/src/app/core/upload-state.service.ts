@@ -2,6 +2,7 @@ import { HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ContentService, VideoDetail } from './content.service';
+import { I18nService } from './i18n.service';
 
 export type UploadPhase = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
 
@@ -22,6 +23,7 @@ const initialState = (): UploadState => ({
 @Injectable({ providedIn: 'root' })
 export class UploadStateService {
   private readonly content = inject(ContentService);
+  private readonly i18n = inject(I18nService);
   private request?: Subscription;
   private idempotencyKey?: string;
   readonly state = signal<UploadState>(initialState());
@@ -46,7 +48,7 @@ export class UploadStateService {
         if (event.type !== HttpEventType.Response) return;
         const response = event as HttpResponse<VideoDetail>;
         if (!response.body) {
-          this.fail('Máy chủ không trả về thông tin video sau khi tải lên.');
+          this.fail(this.i18n.t('upload.serverNoVideo'));
           return;
         }
         this.state.update(value => ({ ...value, phase: 'processing', progress: 95, video: response.body, error: '' }));
@@ -94,7 +96,7 @@ export class UploadStateService {
     return value instanceof File ? value.size : 0;
   }
 
-  private readError(error: any): string {
-    return error?.error?.detail || error?.error?.title || error?.message || 'Không thể tải video lên. Kiểm tra API local và thử lại.';
+  private readError(_error: any): string {
+    return this.i18n.t('upload.uploadError');
   }
 }

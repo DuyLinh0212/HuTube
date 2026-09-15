@@ -1,0 +1,33 @@
+<main class="page">
+  <div class="filters">
+    <button [class.active]="filter() === 'visible'" (click)="filter.set('visible')">{{ 'studio.visible' | translate }}</button>
+    <button [class.active]="filter() === 'hidden'" (click)="filter.set('hidden')">{{ 'studio.hidden' | translate }}</button>
+  </div>
+
+  <section>
+    @for (row of filtered(); track row.comment.commentId) {
+      <article>
+        <div class="avatar">{{ row.comment.displayName.slice(0, 1) }}</div>
+        <div class="body">
+          <p><strong>{{ row.comment.displayName }}</strong> {{ 'studio.onVideo' | translate }} <b>{{ row.video.title }}</b></p>
+          <span>{{ row.comment.content }}</span>
+          <div>
+            @if (data.hasPermission('comment.manage')) {
+              <button (click)="replying.set(row.comment.commentId)">{{ 'studio.reply' | translate }}</button>
+              <button (click)="toggleHidden(row)">{{ row.comment.status === 'hidden' ? ('studio.showAgain' | translate) : ('studio.hide' | translate) }}</button>
+              <button class="danger" (click)="remove(row)">{{ 'ui.delete' | translate }}</button>
+            }
+          </div>
+          @if (replying() === row.comment.commentId) {
+            <form (ngSubmit)="reply(row)">
+              <input name="reply" [(ngModel)]="replyText" [placeholder]="'studio.replyPlaceholder' | translate" />
+              <button>{{ 'studio.send' | translate }}</button>
+            </form>
+          }
+        </div>
+      </article>
+    } @empty {
+      <p class="empty">{{ 'studio.noComments' | translate }}</p>
+    }
+  </section>
+</main>

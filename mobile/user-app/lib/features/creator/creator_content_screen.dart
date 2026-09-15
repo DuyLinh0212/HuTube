@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../content/content_models.dart';
 import '../content/video_card.dart';
@@ -51,14 +52,14 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.message;
+          _error = AppStrings.apiError(error, fallback: 'creator.loadError');
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải nội dung kênh.';
+          _error = AppStrings.t('creator.loadError');
           _loading = false;
         });
       }
@@ -81,7 +82,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       );
       await _load();
     } on ApiFailure catch (error) {
-      if (mounted) _show(error.message);
+      if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
     }
   }
 
@@ -89,9 +90,9 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     try {
       await _service.submitModeration(item.id);
       await _load();
-      if (mounted) _show('Video đã được gửi vào hàng đợi kiểm duyệt.');
+      if (mounted) _show(AppStrings.t('creator.submitted'));
     } on ApiFailure catch (error) {
-      if (mounted) _show(error.message);
+      if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
     }
   }
 
@@ -99,17 +100,23 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xóa video?'),
-        content: Text('“${item.title}” sẽ bị xóa khỏi HuTube.'),
+        title: Text(AppStrings.t('creator.deleteVideoTitle')),
+        content: Text(
+          AppStrings.format('creator.deleteVideoDescription', {
+            'title': item.title,
+          }),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Hủy'),
+            child: Text(AppStrings.t('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(AppStrings.t('common.delete')),
           ),
         ],
       ),
@@ -119,8 +126,22 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       await _service.deleteVideo(item.id);
       await _load();
     } on ApiFailure catch (error) {
-      if (mounted) _show(error.message);
+      if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
     }
+  }
+
+  String _statusLabel(String status) {
+    return switch (status.toLowerCase()) {
+      'approved' => AppStrings.t('creator.approved'),
+      'pending' || 'pending_review' => AppStrings.t('creator.pendingReview'),
+      'reviewing' || 'in_review' => AppStrings.t('creator.reviewing'),
+      'rejected' => AppStrings.t('creator.rejected'),
+      'not_submitted' || '' => AppStrings.t('creator.notSubmitted'),
+      'public' => AppStrings.t('creator.public'),
+      'unlisted' => AppStrings.t('creator.unlisted'),
+      'private' => AppStrings.t('creator.private'),
+      _ => status,
+    };
   }
 
   void _show(String message) => ScaffoldMessenger.of(
@@ -130,20 +151,32 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Nội dung kênh'),
+      title: Text(AppStrings.t('creator.content')),
       actions: [
         PopupMenuButton<String?>(
-          tooltip: 'Lọc quyền riêng tư',
+          tooltip: AppStrings.t('creator.filterPrivacy'),
           initialValue: _visibility,
           onSelected: (value) {
             setState(() => _visibility = value);
             _load();
           },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: null, child: Text('Tất cả video')),
-            PopupMenuItem(value: 'public', child: Text('Công khai')),
-            PopupMenuItem(value: 'unlisted', child: Text('Không công khai')),
-            PopupMenuItem(value: 'private', child: Text('Riêng tư')),
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: null,
+              child: Text(AppStrings.t('creator.allVideos')),
+            ),
+            PopupMenuItem(
+              value: 'public',
+              child: Text(AppStrings.t('creator.public')),
+            ),
+            PopupMenuItem(
+              value: 'unlisted',
+              child: Text(AppStrings.t('creator.unlisted')),
+            ),
+            PopupMenuItem(
+              value: 'private',
+              child: Text(AppStrings.t('creator.private')),
+            ),
           ],
         ),
       ],
@@ -154,15 +187,27 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
           )
         : _error != null
         ? Center(
-            child: FilledButton(onPressed: _load, child: Text(_error!)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error!, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _load,
+                  child: Text(AppStrings.t('common.retry')),
+                ),
+              ],
+            ),
           )
         : RefreshIndicator(
             onRefresh: _load,
             child: _items.isEmpty
                 ? ListView(
-                    children: const [
-                      SizedBox(height: 190),
-                      Center(child: Text('Kênh chưa có video.')),
+                    children: [
+                      const SizedBox(height: 190),
+                      Center(
+                        child: Text(AppStrings.t('creator.noManagedVideos')),
+                      ),
                     ],
                   )
                 : ListView.separated(
@@ -182,8 +227,8 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                 children: [
                                   _StatusPill(
                                     label: video.moderationStatus.isEmpty
-                                        ? video.visibility
-                                        : video.moderationStatus,
+                                        ? _statusLabel(video.visibility)
+                                        : _statusLabel(video.moderationStatus),
                                   ),
                                   const Spacer(),
                                   if (video.visibility == 'public' &&
@@ -191,15 +236,19 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                           'approved')
                                     TextButton(
                                       onPressed: () => _submit(video),
-                                      child: const Text('Gửi duyệt'),
+                                      child: Text(
+                                        AppStrings.t('creator.submitReview'),
+                                      ),
                                     ),
                                   IconButton(
-                                    tooltip: 'Sửa video',
+                                    tooltip: AppStrings.t('creator.editVideo'),
                                     onPressed: () => _edit(video),
                                     icon: const Icon(Icons.edit_outlined),
                                   ),
                                   IconButton(
-                                    tooltip: 'Xóa video',
+                                    tooltip: AppStrings.t(
+                                      'creator.deleteVideo',
+                                    ),
                                     onPressed: () => _delete(video),
                                     icon: const Icon(Icons.delete_outline),
                                   ),
@@ -279,7 +328,7 @@ class _VideoEditorState extends State<_VideoEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Chỉnh sửa video',
+            AppStrings.t('creator.editTitle'),
             style: Theme.of(
               context,
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -287,28 +336,37 @@ class _VideoEditorState extends State<_VideoEditor> {
           const SizedBox(height: 16),
           TextField(
             controller: _title,
-            decoration: const InputDecoration(labelText: 'Tiêu đề'),
+            decoration: InputDecoration(
+              labelText: AppStrings.t('creator.titleField'),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _description,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Mô tả'),
+            decoration: InputDecoration(
+              labelText: AppStrings.t('creator.descriptionField'),
+            ),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _visibility,
-            decoration: const InputDecoration(labelText: 'Chế độ hiển thị'),
-            items: const [
-              DropdownMenuItem(value: 'private', child: Text('Riêng tư')),
+            decoration: InputDecoration(
+              labelText: AppStrings.t('creator.visibilityField'),
+            ),
+            items: [
+              DropdownMenuItem(
+                value: 'private',
+                child: Text(AppStrings.t('creator.private')),
+              ),
               DropdownMenuItem(
                 value: 'unlisted',
-                child: Text('Không công khai'),
+                child: Text(AppStrings.t('creator.unlisted')),
               ),
               DropdownMenuItem(
                 value: 'public',
-                child: Text('Công khai (cần kiểm duyệt)'),
+                child: Text(AppStrings.t('creator.publicModeration')),
               ),
             ],
             onChanged: (value) => setState(() => _visibility = value!),
@@ -323,7 +381,7 @@ class _VideoEditorState extends State<_VideoEditor> {
                 visibility: _visibility,
               ),
             ),
-            child: const Text('Lưu thay đổi'),
+            child: Text(AppStrings.t('creator.save')),
           ),
         ],
       ),

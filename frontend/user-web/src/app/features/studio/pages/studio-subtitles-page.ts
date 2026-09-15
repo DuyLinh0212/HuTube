@@ -1,3 +1,28 @@
-import { Component, OnInit, inject } from '@angular/core';import { StudioDataService } from '../../../core/studio-data.service';
-@Component({selector:'app-studio-subtitles-page',template:`<main class="page"><h1>Phụ đề</h1><p>Video và ngôn ngữ nguồn đã lưu trong hệ thống.</p><section>@for(v of data.videos();track v.videoId){<article><div class="thumb">@if(v.thumbnailUrl){<img [src]="v.thumbnailUrl" alt=""/>}@else{▶}</div><div><strong>{{v.title}}</strong><p>Ngôn ngữ: {{v.languageCode||'Chưa đặt'}} · {{v.duration}} giây</p></div><span>Chưa có phụ đề</span></article>}@empty{<p>Chưa có video.</p>}</section></main>`,styles:[`.page{max-width:1100px;margin:auto;padding:32px 24px}.page>p,article p{color:var(--text-muted)}section{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}article{display:flex;align-items:center;gap:14px;padding:14px;border-bottom:1px solid var(--line)}article>span{margin-left:auto;color:#b45309;font-size:.75rem}.thumb{display:grid;width:110px;aspect-ratio:16/9;place-items:center;overflow:hidden;border-radius:8px;background:var(--canvas)}.thumb img{width:100%;height:100%;object-fit:cover}`]})
-export class StudioSubtitlesPage implements OnInit{readonly data=inject(StudioDataService);ngOnInit(){this.data.load()}}
+import { Component, OnInit, inject } from '@angular/core';
+import { I18nService } from '../../../core/i18n.service';
+import { LocaleNumberPipe } from '../../../core/locale-number.pipe';
+import { StudioDataService } from '../../../core/studio-data.service';
+import { TranslatePipe } from '../../../core/translate.pipe';
+
+@Component({
+  selector: 'app-studio-subtitles-page',
+  imports: [LocaleNumberPipe, TranslatePipe],
+  templateUrl: './studio-subtitles-page.html',
+  styleUrl: './studio-subtitles-page.scss',
+})
+export class StudioSubtitlesPage implements OnInit {
+  readonly data = inject(StudioDataService);
+  readonly i18n = inject(I18nService);
+
+  languageLabel(value: string | null | undefined): string {
+    const code = String(value || '').toLowerCase();
+    if (code.startsWith('en')) return this.i18n.t('upload.languageEnglish');
+    if (code.startsWith('ja')) return this.i18n.t('upload.languageJapanese');
+    if (code.startsWith('vi')) return this.i18n.t('upload.languageVietnamese');
+    return value || this.i18n.t('studio.notSet');
+  }
+
+  ngOnInit() {
+    this.data.load();
+  }
+}

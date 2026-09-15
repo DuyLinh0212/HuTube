@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -11,8 +10,14 @@ import {
   ChannelService
 } from '../../core/channel.service';
 import { errorMessage } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { LocaleDatePipe } from '../../core/locale-date.pipe';
+import { TranslatePipe } from '../../core/translate.pipe';
+
+export type ChannelLinkPlatform = 'facebook' | 'instagram' | 'tiktok' | 'x' | 'other';
 
 export interface ChannelLinkItem {
+  platform: ChannelLinkPlatform;
   title: string;
   url: string;
 }
@@ -21,7 +26,7 @@ type SettingsTab = 'basic' | 'branding' | 'members' | 'danger';
 
 @Component({
   selector: 'app-channel-settings-page',
-  imports: [DatePipe, FormsModule, RouterLink],
+  imports: [LocaleDatePipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './channel-settings-page.html',
   styleUrl: './channel-settings-page.scss'
 })
@@ -29,6 +34,7 @@ export class ChannelSettingsPage {
   private route = inject(ActivatedRoute);
   private channelService = inject(ChannelService);
   private router = inject(Router);
+  readonly i18n = inject(I18nService);
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
   @ViewChild('bannerInput') bannerInput?: ElementRef<HTMLInputElement>;
@@ -42,6 +48,7 @@ export class ChannelSettingsPage {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly message = signal('');
+  readonly linkOptions: ChannelLinkPlatform[] = ['facebook', 'instagram', 'tiktok', 'x', 'other'];
 
   name = '';
   handle = '';
@@ -63,13 +70,35 @@ export class ChannelSettingsPage {
   }
 
   roleName(code: string): string {
-    if (code === 'owner') return 'Chủ sở hữu';
-    return this.roles().find(role => role.code === code)?.name ?? code;
+    if (code === 'owner') return this.i18n.t('channel.roleOwner');
+    const key = this.roleKey(code);
+    return key ? this.i18n.t(key) : (this.roles().find(role => role.code === code)?.name ?? code);
+  }
+
+  roleDescription(code: string): string {
+    const key = this.roleDescriptionKey(code);
+    return key ? this.i18n.t(key) : (this.roles().find(role => role.code === code)?.description ?? '');
+  }
+
+  private roleKey(code: string): string | null {
+    if (code === 'manager') return 'channel.roleManager';
+    if (code === 'editor') return 'channel.roleEditor';
+    if (code === 'moderator') return 'channel.roleModerator';
+    if (code === 'viewer') return 'channel.roleViewer';
+    return null;
+  }
+
+  private roleDescriptionKey(code: string): string | null {
+    if (code === 'manager') return 'channel.roleManagerDesc';
+    if (code === 'editor') return 'channel.roleEditorDesc';
+    if (code === 'moderator') return 'channel.roleModeratorDesc';
+    if (code === 'viewer') return 'channel.roleViewerDesc';
+    return null;
   }
 
   addLink() {
     if (this.links.length < 14) {
-      this.links.push({ title: '', url: '' });
+      this.links.push({ platform: 'facebook', title: this.i18n.t('channel.platform.facebook'), url: '' });
     }
   }
 
@@ -80,7 +109,7 @@ export class ChannelSettingsPage {
   loadChannel() {
     const handle = this.route.snapshot.paramMap.get('handle');
     if (!handle) {
-      this.error.set('Không tìm thấy handle kênh.');
+      this.error.set(this.i18n.t('channel.handleNotFound'));
       this.loading.set(false);
       return;
     }
@@ -98,7 +127,7 @@ export class ChannelSettingsPage {
         this.chooseAvailableTab();
         this.loadCollaboration();
       },
-      error: err => this.error.set(errorMessage(err) || 'Không thể tải thông tin kênh.')
+      error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.loadError'))
     });
   }
 
@@ -106,7 +135,7 @@ export class ChannelSettingsPage {
     try {
       const parsed = typeof channel.settings === 'string' ? JSON.parse(channel.settings || '{}') : (channel.settings || {});
       if (Array.isArray(parsed?.links)) {
-        this.links = parsed.links.map((l: any) => ({ title: l.title || '', url: l.url || '' }));
+        this.links = parsed.links.map((l: any) => this.normalizeLink(l));
         return;
       }
     } catch {}
@@ -116,7 +145,7 @@ export class ChannelSettingsPage {
       try {
         const parsedLocal = JSON.parse(local);
         if (Array.isArray(parsedLocal)) {
-          this.links = parsedLocal.map((l: any) => ({ title: l.title || '', url: l.url || '' }));
+          this.links = parsedLocal.map((l: any) => this.normalizeLink(l));
           return;
         }
       } catch {}
@@ -132,13 +161,13 @@ export class ChannelSettingsPage {
     if (this.can('member.view')) {
       this.channelService.getMembers(channel.channelId).subscribe({
         next: members => this.members.set(members),
-        error: err => this.error.set(errorMessage(err))
+        error: err => this.error.set(errorMessage(err, this.i18n))
       });
     }
     if (this.can('member.invite')) {
       this.channelService.getPendingInvitations(channel.channelId).subscribe({
         next: invitations => this.invitations.set(invitations),
-        error: err => this.error.set(errorMessage(err))
+        error: err => this.error.set(errorMessage(err, this.i18n))
       });
     }
   }
@@ -153,19 +182,21 @@ export class ChannelSettingsPage {
   onSaveBasicInfo() {
     const channel = this.channel();
     if (!channel || this.busy() || !this.can('channel.edit_profile')) return;
-    if (!this.name.trim()) return this.error.set('Tên kênh không được để trống.');
+    if (!this.name.trim()) return this.error.set(this.i18n.t('channel.nameEmpty'));
     const cleanHandle = this.handle.trim().replace(/^@/, '');
-    if (cleanHandle.length < 3) return this.error.set('Handle cần từ 3 đến 50 ký tự.');
+    if (cleanHandle.length < 3) return this.error.set(this.i18n.t('channel.handleLength'));
 
     for (const link of this.links) {
-      const hasTitle = !!link.title.trim();
-      const hasUrl = !!link.url.trim();
-      if ((hasTitle && !hasUrl) || (!hasTitle && hasUrl)) {
-        return this.error.set('Vui lòng nhập đầy đủ tiêu đề và URL cho tất cả đường liên kết.');
+      if (link.url.trim() && !this.isValidLinkUrl(link.url)) {
+        return this.error.set(this.i18n.t('channel.linkUrlError'));
       }
     }
 
-    const validLinks = this.links.filter(l => l.title.trim() && l.url.trim());
+    const validLinks = this.links.filter(l => l.url.trim()).map(l => ({
+      platform: l.platform,
+      title: this.linkTitle(l.platform, l.title),
+      url: l.url.trim()
+    }));
     let currentSettings: Record<string, any> = {};
     try {
       if (channel.settings) {
@@ -184,16 +215,46 @@ export class ChannelSettingsPage {
         watermarkUrl: this.watermarkUrl.trim(),
         settings: JSON.stringify(currentSettings)
       }),
-      'Đã cập nhật thông tin kênh.'
+      this.i18n.t('channel.basicSaved')
     );
   }
+
+  linkTitle(platform: ChannelLinkPlatform, current = ''): string {
+    if (platform === 'other') return current.trim() || this.i18n.t('channel.otherLink');
+    return this.i18n.t('channel.platform.' + platform);
+  }
+
+  onPlatformChange(link: ChannelLinkItem) {
+    link.title = this.linkTitle(link.platform, link.title);
+  }
+
+  private normalizeLink(link: any): ChannelLinkItem {
+    const platform = this.detectPlatform(link?.url, link?.platform);
+    return { platform, title: this.linkTitle(platform, link?.title || ''), url: link?.url || '' };
+  }
+
+  private detectPlatform(url: string, value?: string): ChannelLinkPlatform {
+    if (value === 'facebook' || value === 'instagram' || value === 'tiktok' || value === 'x' || value === 'other') return value;
+    const lower = String(url || '').toLowerCase();
+    if (lower.includes('facebook.com') || lower.includes('fb.me')) return 'facebook';
+    if (lower.includes('instagram.com')) return 'instagram';
+    if (lower.includes('tiktok.com')) return 'tiktok';
+    if (lower.includes('twitter.com') || lower.includes('x.com')) return 'x';
+    return 'other';
+  }
+
+  private isValidLinkUrl(value: string): boolean {
+    try { return ['http:', 'https:'].includes(new URL(value.trim()).protocol); } catch { return false; }
+  }
+
+  linkUrlValid(value: string): boolean { return !value.trim() || this.isValidLinkUrl(value); }
 
   onAvatarSelected(event: Event) {
     const channel = this.channel();
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!channel || !file || !this.can('channel.edit_branding')) return;
-    this.runAction(this.channelService.uploadAvatar(channel.channelId, file), 'Đã cập nhật ảnh đại diện kênh.');
+    this.runAction(this.channelService.uploadAvatar(channel.channelId, file), this.i18n.t('channel.avatarSaved'));
     input.value = '';
   }
 
@@ -202,7 +263,7 @@ export class ChannelSettingsPage {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!channel || !file || !this.can('channel.edit_branding')) return;
-    this.runAction(this.channelService.uploadBanner(channel.channelId, file), 'Đã cập nhật ảnh bìa kênh.');
+    this.runAction(this.channelService.uploadBanner(channel.channelId, file), this.i18n.t('channel.bannerSaved'));
     input.value = '';
   }
 
@@ -216,10 +277,10 @@ export class ChannelSettingsPage {
       .subscribe({
         next: () => {
           this.inviteEmail = '';
-          this.message.set('Đã gửi lời mời và email thông báo cho thành viên.');
+          this.message.set(this.i18n.t('channel.inviteSent'));
           this.loadCollaboration();
         },
-        error: err => this.error.set(errorMessage(err))
+        error: err => this.error.set(errorMessage(err, this.i18n))
       });
   }
 
@@ -232,27 +293,27 @@ export class ChannelSettingsPage {
       .pipe(finalize(() => this.busy.set(false)))
       .subscribe({
         next: () => {
-          this.message.set(`Đã cập nhật vai trò của ${member.displayName}.`);
+          this.message.set(this.i18n.t('channel.roleUpdated', { member: member.displayName }));
           this.loadCollaboration();
         },
-        error: err => this.error.set(errorMessage(err))
+        error: err => this.error.set(errorMessage(err, this.i18n))
       });
   }
 
   removeMember(member: ChannelMember) {
     const channel = this.channel();
     if (!channel || member.roleCode === 'owner' || !this.can('member.remove')) return;
-    if (!window.confirm(`Gỡ ${member.displayName} khỏi kênh?`)) return;
+    if (!window.confirm(this.i18n.t('channel.removeConfirm', { member: member.displayName }))) return;
     this.busy.set(true);
     this.clearFeedback();
     this.channelService.removeMember(channel.channelId, member.userId)
       .pipe(finalize(() => this.busy.set(false)))
       .subscribe({
         next: () => {
-          this.message.set('Đã gỡ thành viên khỏi kênh.');
+          this.message.set(this.i18n.t('channel.memberRemoved'));
           this.loadCollaboration();
         },
-        error: err => this.error.set(errorMessage(err))
+        error: err => this.error.set(errorMessage(err, this.i18n))
       });
   }
 
@@ -265,10 +326,10 @@ export class ChannelSettingsPage {
       .pipe(finalize(() => this.busy.set(false)))
       .subscribe({
         next: () => {
-          this.message.set('Đã thu hồi lời mời.');
+          this.message.set(this.i18n.t('channel.inviteWithdrawn'));
           this.loadCollaboration();
         },
-        error: err => this.error.set(errorMessage(err))
+        error: err => this.error.set(errorMessage(err, this.i18n))
       });
   }
 
@@ -276,7 +337,7 @@ export class ChannelSettingsPage {
     const channel = this.channel();
     if (!channel || this.busy() || !this.can('channel.delete')) return;
     if (this.confirmChannelName.trim() !== channel.name.trim()) {
-      this.error.set('Tên kênh xác nhận chưa khớp chính xác.');
+      this.error.set(this.i18n.t('channel.confirmNameMismatch'));
       return;
     }
 
@@ -287,7 +348,7 @@ export class ChannelSettingsPage {
         this.showDeleteModal.set(false);
         void this.router.navigate(['/account']);
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -310,7 +371,7 @@ export class ChannelSettingsPage {
         this.message.set(successMessage);
         this.loadChannel();
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 }

@@ -185,7 +185,7 @@ class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
+  Widget build(BuildContext context) => Scaffold(
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -196,9 +196,9 @@ class _SplashScreen extends StatelessWidget {
             color: AppColors.primaryPink,
           ),
           SizedBox(height: 16),
-          Text('Đang mở HuTube…'),
-          SizedBox(height: 16),
-          CircularProgressIndicator(color: AppColors.primaryPink),
+          Text(AppStrings.t('app.opening')),
+          const SizedBox(height: 16),
+          const CircularProgressIndicator(color: AppColors.primaryPink),
         ],
       ),
     ),

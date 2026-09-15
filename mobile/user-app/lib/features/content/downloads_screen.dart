@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'local_download_manager.dart';
 import 'offline_player_screen.dart';
@@ -22,23 +23,23 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Bản tải xuống')),
+    appBar: AppBar(title: Text(AppStrings.t('downloads.title'))),
     body: AnimatedBuilder(
       animation: _downloads,
       builder: (_, _) {
         final items = _downloads.items;
         if (items.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.download_done_outlined,
                   size: 56,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryFor(context),
                 ),
                 SizedBox(height: 12),
-                Text('Chưa có video tải xuống.'),
+                Text(AppStrings.t('downloads.empty')),
               ],
             ),
           );
@@ -61,9 +62,9 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                         ),
                       )
                     : null,
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0x1AFF3B70),
-                  child: Icon(
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.primaryPink.withValues(alpha: .12),
+                  child: const Icon(
                     Icons.download_outlined,
                     color: AppColors.primaryPink,
                   ),
@@ -89,8 +90,10 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          item.error!,
-                          style: const TextStyle(color: Colors.red),
+                          AppStrings.t('downloads.error'),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
                       ),
                   ],
@@ -103,13 +106,13 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                   },
                   itemBuilder: (_) => [
                     if (!item.active && !item.completed)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'retry',
-                        child: Text('Thử lại'),
+                        child: Text(AppStrings.t('common.retry')),
                       ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
-                      child: Text('Xóa khỏi thiết bị'),
+                      child: Text(AppStrings.t('downloads.remove')),
                     ),
                   ],
                 ),
@@ -120,11 +123,13 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       },
     ),
   );
-  static String _label(LocalDownload item) => switch (item.status) {
-    'queued' => 'Đang chờ',
-    'downloading' => 'Đang tải ${(item.progress * 100).round()}%',
-    'completed' => 'Đã lưu trên thiết bị',
-    'paused' => 'Đã tạm dừng',
-    _ => 'Tải thất bại',
+  String _label(LocalDownload item) => switch (item.status) {
+    'queued' => AppStrings.t('downloads.queued'),
+    'downloading' => AppStrings.format('downloads.downloading', {
+      'percent': AppStrings.number((item.progress * 100).round()),
+    }),
+    'completed' => AppStrings.t('downloads.completed'),
+    'paused' => AppStrings.t('downloads.paused'),
+    _ => AppStrings.t('downloads.failed'),
   };
 }

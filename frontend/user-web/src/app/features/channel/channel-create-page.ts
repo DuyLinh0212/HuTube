@@ -2,12 +2,14 @@ import { Component, ElementRef, Input, ViewChild, inject, signal } from '@angula
 import { COMPOSITION_BUFFER_MODE, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { ChannelDetail, ChannelService } from '../../core/channel.service';
+import { ChannelDetail, ChannelInvitation, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-channel-create-page',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   providers: [
     { provide: COMPOSITION_BUFFER_MODE, useValue: false }
   ],
@@ -19,11 +21,13 @@ export class ChannelCreatePage {
   private channelService = inject(ChannelService);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private readonly i18n = inject(I18nService);
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
   @ViewChild('bannerInput') bannerInput?: ElementRef<HTMLInputElement>;
 
   readonly existingChannel = signal<ChannelDetail | null>(null);
+  readonly pendingInvitations = signal<ChannelInvitation[]>([]);
   readonly loading = signal(true);
   readonly busy = signal(false);
   readonly error = signal('');
@@ -51,6 +55,10 @@ export class ChannelCreatePage {
       next: ch => this.existingChannel.set(ch),
       error: () => this.existingChannel.set(null)
     });
+    this.channelService.getMyInvitations().subscribe({
+      next: invitations => this.pendingInvitations.set(invitations),
+      error: () => this.pendingInvitations.set([])
+    });
   }
 
   onHandleInput(eventOrVal?: Event | string) {
@@ -74,31 +82,31 @@ export class ChannelCreatePage {
     }
 
     if (clean.length < 3) {
-      this.handleFeedback.set('Handle cần tối thiểu 3 ký tự.');
+      this.handleFeedback.set(this.i18n.t('channel.handleMinCreate'));
       this.handleValid.set(false);
       return;
     }
 
     if (clean.length > 50) {
-      this.handleFeedback.set('Handle tối đa 50 ký tự.');
+      this.handleFeedback.set(this.i18n.t('channel.handleMaxCreate'));
       this.handleValid.set(false);
       return;
     }
 
     if (/\s/.test(clean)) {
-      this.handleFeedback.set('Handle không được chứa khoảng trắng.');
+      this.handleFeedback.set(this.i18n.t('channel.handleNoSpaces'));
       this.handleValid.set(false);
       return;
     }
 
     if (!/^[A-Za-z0-9_.-]+$/.test(clean)) {
-      this.handleFeedback.set('Handle chỉ gồm chữ cái không dấu, số, _, -, .');
+      this.handleFeedback.set(this.i18n.t('channel.handleChars'));
       this.handleValid.set(false);
       return;
     }
 
     // Format is valid -> clear error immediately so user is not blocked
-    this.handleFeedback.set('Đang kiểm tra tính khả dụng...');
+    this.handleFeedback.set(this.i18n.t('channel.handleChecking'));
     this.handleValid.set(null);
 
     this.debounceTimer = setTimeout(() => {
@@ -106,14 +114,14 @@ export class ChannelCreatePage {
         next: res => {
           const currentClean = (this.handle || '').trim().replace(/^@+/, '').trim();
           if (currentClean === clean) {
-            this.handleFeedback.set(res.message);
+            this.handleFeedback.set(this.i18n.t(res.isAvailable ? 'channel.handleAvailable' : 'channel.handleTaken'));
             this.handleValid.set(res.isAvailable);
           }
         },
         error: () => {
           const currentClean = (this.handle || '').trim().replace(/^@+/, '').trim();
           if (currentClean === clean) {
-            this.handleFeedback.set('Không thể kiểm tra handle lúc này.');
+            this.handleFeedback.set(this.i18n.t('channel.handleCheckError'));
             this.handleValid.set(false);
           }
         }
@@ -153,22 +161,22 @@ export class ChannelCreatePage {
     if (this.busy()) return;
 
     if (!this.name.trim()) {
-      this.error.set('Vui lòng nhập tên kênh.');
+      this.error.set(this.i18n.t('channel.nameError'));
       return;
     }
     const cleanHandle = this.handle.trim().replace(/^@+/, '').trim();
     if (!cleanHandle || cleanHandle.length < 3) {
-      this.error.set('Handle cần tối thiểu 3 ký tự (chữ cái, số, _, -, .).');
+      this.error.set(this.i18n.t('channel.handleMinError'));
       return;
     }
 
     if (!/^[A-Za-z0-9_.-]+$/.test(cleanHandle)) {
-      this.error.set('Handle chỉ gồm chữ cái không dấu, số, _, -, .');
+      this.error.set(this.i18n.t('channel.handleCharsError'));
       return;
     }
 
     if (this.handleValid() === false) {
-      this.error.set(this.handleFeedback() || 'Handle không hợp lệ hoặc đã có người sử dụng.');
+      this.error.set(this.handleFeedback() || this.i18n.t('channel.handleInvalidError'));
       return;
     }
 
@@ -207,7 +215,7 @@ export class ChannelCreatePage {
       },
       error: err => {
         this.busy.set(false);
-        this.error.set(errorMessage(err) || 'Không thể tạo kênh. Vui lòng thử lại.');
+        this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.createError'));
       }
     });
   }

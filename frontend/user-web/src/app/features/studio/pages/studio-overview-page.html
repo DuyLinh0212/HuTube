@@ -1,0 +1,38 @@
+<main class="page">
+  @if (data.loading()) {
+    <p>{{ 'studio.loading' | translate }}</p>
+  } @else {
+    <section class="stats" [attr.aria-label]="'studio.channelOverview' | translate">
+      <article><span>{{ 'studio.subscribersCount' | translate }}</span><strong>{{ data.channel()?.subscriberCount | localeNumber }}</strong></article>
+      <article><span>{{ 'studio.viewsCount' | translate }}</span><strong>{{ data.views() | localeNumber }}</strong></article>
+      <article><span>{{ 'studio.watchTime' | translate }}</span><strong>{{ data.watchSeconds() / 3600 | localeNumber:'1.0-1' }} {{ 'ui.watchHours' | translate }}</strong></article>
+      <article><span>{{ 'studio.commentsCount' | translate }}</span><strong>{{ data.comments() | localeNumber }}</strong></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>{{ 'studio.recentVideo' | translate }}</h2>
+        <div class="panel-actions">
+          @if (data.hasPermission('video.upload')) {
+            <a routerLink="/studio/upload">+ {{ 'studio.uploadVideo' | translate }}</a>
+          }
+          <a routerLink="/studio/content">{{ 'studio.seeAll' | translate }}</a>
+        </div>
+      </div>
+      @if (data.videos()[0]; as video) {
+        <a class="video" [routerLink]="['/watch', video.videoId]">
+          <div class="thumb">
+            @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" alt="" /> } @else { ▶ }
+          </div>
+          <div>
+            <h3>{{ video.title }}</h3>
+            <p>{{ video.createdAt | localeDate:'dd/MM/yyyy' }} · {{ visibilityLabel(video.visibility) }} · {{ statusLabel(video.status) }}</p>
+            <span>{{ video.stats.views | localeNumber }} {{ 'ui.views' | translate }} · {{ video.stats.likes | localeNumber }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}</span>
+          </div>
+        </a>
+      } @else {
+        <p>{{ 'studio.emptyVideo' | translate }}</p>
+      }
+    </section>
+  }
+</main>

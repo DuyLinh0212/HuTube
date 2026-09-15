@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/errors/app_error.dart';
+import '../../core/localization/app_strings.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
 
@@ -36,9 +37,9 @@ class ChannelController extends ChangeNotifier {
     try {
       myChannel = await service.getMyChannel();
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'channel.notFound');
     } catch (_) {
-      errorMessage = 'Không thể tải thông tin kênh.';
+      errorMessage = AppStrings.t('channel.notFound');
     } finally {
       loadingChannel = false;
       notifyListeners();
@@ -52,9 +53,9 @@ class ChannelController extends ChangeNotifier {
     try {
       viewingChannel = await service.getChannel(handleOrId);
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'channel.notFound');
     } catch (_) {
-      errorMessage = 'Không thể tải thông tin kênh.';
+      errorMessage = AppStrings.t('channel.notFound');
     } finally {
       loadingChannel = false;
       notifyListeners();
@@ -77,13 +78,13 @@ class ChannelController extends ChangeNotifier {
         description: description,
       );
       myChannel = channel;
-      successMessage = 'Tạo kênh thành công!';
+      successMessage = AppStrings.t('channel.created');
       return channel;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'channel.createError');
       return null;
     } catch (_) {
-      errorMessage = 'Tạo kênh thất bại. Vui lòng thử lại.';
+      errorMessage = AppStrings.t('channel.createError');
       return null;
     } finally {
       submitting = false;
@@ -108,13 +109,13 @@ class ChannelController extends ChangeNotifier {
       );
       if (myChannel?.id == id) myChannel = updated;
       if (viewingChannel?.id == id) viewingChannel = updated;
-      successMessage = 'Cập nhật thông tin kênh thành công!';
+      successMessage = AppStrings.t('channel.updateSuccess');
       return updated;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'channel.updateError');
       return null;
     } catch (_) {
-      errorMessage = 'Cập nhật kênh thất bại.';
+      errorMessage = AppStrings.t('channel.updateError');
       return null;
     } finally {
       submitting = false;
@@ -130,13 +131,13 @@ class ChannelController extends ChangeNotifier {
       final updated = await service.uploadAvatar(channelId, file);
       if (myChannel?.id == channelId) myChannel = updated;
       if (viewingChannel?.id == channelId) viewingChannel = updated;
-      successMessage = 'Đã cập nhật ảnh đại diện kênh.';
+      successMessage = AppStrings.t('channel.avatarUpdated');
       return updated;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'channel.imageError');
       return null;
     } catch (_) {
-      errorMessage = 'Tải ảnh đại diện thất bại.';
+      errorMessage = AppStrings.t('channel.imageError');
       return null;
     } finally {
       submitting = false;
@@ -152,13 +153,13 @@ class ChannelController extends ChangeNotifier {
       final updated = await service.uploadBanner(channelId, file);
       if (myChannel?.id == channelId) myChannel = updated;
       if (viewingChannel?.id == channelId) viewingChannel = updated;
-      successMessage = 'Đã cập nhật ảnh bìa kênh.';
+      successMessage = AppStrings.t('channel.bannerUpdated');
       return updated;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'channel.imageError');
       return null;
     } catch (_) {
-      errorMessage = 'Tải ảnh bìa thất bại.';
+      errorMessage = AppStrings.t('channel.imageError');
       return null;
     } finally {
       submitting = false;
@@ -174,13 +175,13 @@ class ChannelController extends ChangeNotifier {
       await service.deleteChannel(id);
       if (myChannel?.id == id) myChannel = null;
       if (viewingChannel?.id == id) viewingChannel = null;
-      successMessage = 'Đã xóa kênh thành công.';
+      successMessage = AppStrings.t('channel.deleteSuccess');
       return true;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'channel.deleteError');
       return false;
     } catch (_) {
-      errorMessage = 'Xóa kênh thất bại.';
+      errorMessage = AppStrings.t('channel.deleteError');
       return false;
     } finally {
       submitting = false;
@@ -229,5 +230,9 @@ class ChannelController extends ChangeNotifier {
       loadingInvitations = false;
       notifyListeners();
     }
+  }
+
+  String _error(AppError error, String fallback) {
+    return AppStrings.apiError(error, fallback: fallback);
   }
 }

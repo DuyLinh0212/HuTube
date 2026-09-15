@@ -686,13 +686,14 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
   providedIn: 'root'
 })
 export class I18nService {
-  private readonly STORAGE_KEY = 'hutube_admin_lang';
+  // Keep the admin shell on the same language contract as user-web.
+  private readonly STORAGE_KEY = 'hutube_lang';
   readonly currentLang = signal<AppLang>('vi');
 
   constructor() {
     const saved = localStorage.getItem(this.STORAGE_KEY) as AppLang | null;
-    const globalSaved = localStorage.getItem('hutube_lang') as AppLang | null;
-    const initial = saved || globalSaved;
+    const legacySaved = localStorage.getItem('hutube_admin_lang') as AppLang | null;
+    const initial = saved || legacySaved;
 
     if (initial === 'vi' || initial === 'en') {
       this.currentLang.set(initial);
@@ -703,7 +704,9 @@ export class I18nService {
     if (lang === 'vi' || lang === 'en') {
       this.currentLang.set(lang);
       localStorage.setItem(this.STORAGE_KEY, lang);
-      localStorage.setItem('hutube_lang', lang);
+      // Preserve the legacy key so an older admin bundle does not unexpectedly
+      // switch back after this shell has been updated.
+      localStorage.setItem('hutube_admin_lang', lang);
     }
   }
 

@@ -1,15 +1,19 @@
 import { Component, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { MyPlan, Plan, PlanService, PlanShare } from '../../core/plan.service';
+import { I18nService } from '../../core/i18n.service';
+import { LocaleCurrencyPipe } from '../../core/locale-currency.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { TranslatePipe } from '../../core/translate.pipe';
 
-@Component({ selector: 'app-plan-detail-page', imports: [CurrencyPipe, RouterLink], templateUrl: './plan-detail-page.html', styleUrl: './plan-detail-page.scss' })
+@Component({ selector: 'app-plan-detail-page', imports: [LocaleCurrencyPipe, LocaleNumberPipe, RouterLink, TranslatePipe], templateUrl: './plan-detail-page.html', styleUrl: './plan-detail-page.scss' })
 export class PlanDetailPage {
   private route = inject(ActivatedRoute);
   private plansService = inject(PlanService);
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
   readonly plan = signal<Plan | null>(null);
   readonly myPlan = signal<MyPlan | null>(null);
   readonly share = signal<PlanShare | null>(null);
@@ -20,10 +24,10 @@ export class PlanDetailPage {
 
   constructor() {
     const planId = this.route.snapshot.paramMap.get('planId');
-    if (!planId) { this.error.set('Gói dịch vụ không hợp lệ.'); this.loading.set(false); return; }
+    if (!planId) { this.error.set(this.i18n.t('plans.invalid')); this.loading.set(false); return; }
     this.plansService.getPlan(planId).subscribe({
       next: plan => { this.plan.set(plan); this.loading.set(false); },
-      error: () => { this.error.set('Không tìm thấy gói dịch vụ.'); this.loading.set(false); }
+      error: () => { this.error.set(this.i18n.t('plans.notFound')); this.loading.set(false); }
     });
     this.plansService.getShare(planId).subscribe({ next: share => this.share.set(share), error: () => {} });
     if (this.auth.user()) {
@@ -55,9 +59,9 @@ export class PlanDetailPage {
     try {
       if (!navigator.clipboard) throw new Error('clipboard-unavailable');
       await navigator.clipboard.writeText(url);
-      this.message.set('Đã sao chép liên kết chia sẻ.');
+      this.message.set(this.i18n.t('plans.copiedShare'));
     } catch {
-      this.error.set('Không thể sao chép tự động. Hãy chọn và sao chép liên kết trong ô bên trên.');
+      this.error.set(this.i18n.t('plans.copyError'));
     }
   }
 
@@ -65,27 +69,33 @@ export class PlanDetailPage {
     const share = this.share();
     if (!share || !navigator.share) return this.copyShareUrl();
     try {
-      await navigator.share({ title: share.name, text: share.description || `Gói ${share.name} của HuTube`, url: share.shareUrl });
+      await navigator.share({ title: share.name, text: share.description || this.i18n.t('plans.shareText', { name: share.name }), url: share.shareUrl });
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      this.error.set('Không thể mở bảng chia sẻ trên thiết bị này.');
+      this.error.set(this.i18n.t('plans.shareError'));
     }
   }
 
   formatBytes(bytes: number): string {
-    if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} GB`;
-    return `${(bytes / 1024 ** 2).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} MB`;
+    if (bytes >= 1024 ** 3) return `${this.i18n.formatNumber(bytes / 1024 ** 3, { maximumFractionDigits: 2 })} GB`;
+    return `${this.i18n.formatNumber(bytes / 1024 ** 2, { maximumFractionDigits: 2 })} MB`;
   }
 
   formatDuration(seconds: number): string {
     const minutes = Math.max(1, Math.round((seconds || 0) / 60));
     const hours = Math.floor(minutes / 60);
     const remainder = minutes % 60;
-    if (!hours) return `${minutes} phút`;
-    return remainder ? `${hours} giờ ${remainder} phút` : `${hours} giờ`;
+    if (!hours) return this.i18n.t('plans.minutes', { count: this.i18n.formatNumber(minutes, { useGrouping: false }) });
+    return remainder
+      ? this.i18n.t('plans.hoursMinutes', { hours: this.i18n.formatNumber(hours, { useGrouping: false }), minutes: this.i18n.formatNumber(remainder, { useGrouping: false }) })
+      : this.i18n.t('plans.hours', { count: this.i18n.formatNumber(hours, { useGrouping: false }) });
   }
 
   hasFeature(plan: Plan, key: string): boolean { return plan.features?.[key] === true; }
+
+  membersLabel(count: number) {
+    return this.i18n.t('plans.members', { count: this.i18n.formatNumber(count) });
+  }
 
   subscribe() {
     const plan = this.plan();
@@ -93,10 +103,10 @@ export class PlanDetailPage {
     this.busy.set(true); this.error.set('');
     this.plansService.subscribe(plan.planId).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
-        this.message.set('Đăng ký gói thành công. Bạn có thể quản lý quota và thành viên trong Gói của tôi.');
+        this.message.set(this.i18n.t('plans.subscribeSuccess'));
         this.plansService.getMyPlan().subscribe({ next: myPlan => this.myPlan.set(myPlan), error: () => {} });
       },
-      error: err => this.error.set(err?.error?.detail || err?.error?.message || `${err?.error?.code || 'Lỗi'} (${err?.status || 500})`)
+      error: err => this.error.set(this.i18n.t('plans.subscribeErrorFallback', { status: String(err?.status || 500) }))
     });
   }
 }

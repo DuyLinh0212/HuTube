@@ -1,20 +1,24 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ContentService, LibraryVideo } from '../../core/content.service';
+import { I18nService } from '../../core/i18n.service';
+import { LocaleDatePipe } from '../../core/locale-date.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 type LibraryMode = 'history' | 'liked';
 
 @Component({
   selector: 'app-library-page',
-  imports: [DatePipe, DecimalPipe, RouterLink],
+  imports: [LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
   templateUrl: './library-page.html',
   styleUrl: './library-page.scss'
 })
 export class LibraryPage {
   private readonly route = inject(ActivatedRoute);
   private readonly content = inject(ContentService);
+  readonly i18n = inject(I18nService);
 
   readonly mode: LibraryMode = this.route.snapshot.data['library'] === 'liked' ? 'liked' : 'history';
   readonly items = signal<LibraryVideo[]>([]);
@@ -35,13 +39,7 @@ export class LibraryPage {
   }
 
   get title() {
-    return this.isLiked ? 'Video đã thích' : 'Lịch sử xem';
-  }
-
-  get description() {
-    return this.isLiked
-      ? 'Những video bạn đã yêu thích, cùng điểm đánh giá riêng của bạn.'
-      : 'Xem lại những video bạn đã mở gần đây.';
+    return this.i18n.t(this.isLiked ? 'nav.likedVideos' : 'nav.history');
   }
 
   load() {
@@ -55,10 +53,10 @@ export class LibraryPage {
         this.items.set(result.items ?? []);
         this.total.set(result.total ?? 0);
       },
-      error: error => {
+      error: () => {
         this.items.set([]);
         this.total.set(0);
-        this.error.set(error?.error?.detail || 'Không thể tải thư viện video.');
+        this.error.set(this.i18n.t('library.loadError'));
       }
     });
   }
@@ -87,6 +85,6 @@ export class LibraryPage {
   }
 
   ratingLabel(item: LibraryVideo) {
-    return item.myRating ? `${item.myRating}/5 sao` : 'Chưa đánh giá';
+    return item.myRating ? `${item.myRating}/5 sao` : this.i18n.t('library.notRated');
   }
 }

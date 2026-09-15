@@ -1,4 +1,4 @@
-<aside class="side-nav" [class.is-collapsed]="collapsed" [class.is-open]="open" aria-label="Điều hướng HuTube">
+<aside class="side-nav" [class.is-collapsed]="collapsed" [class.is-open]="open" [attr.aria-label]="'nav.navigation' | translate">
   <div class="side-nav__head">
     <button class="nav-close" type="button" [attr.aria-label]="'common.close' | translate" (click)="closeNavigation()">×</button>
   </div>
@@ -52,10 +52,10 @@
       <!-- Guest sign-in prompt in sidebar -->
       <section class="nav-group guest-prompt-group">
         <div class="guest-prompt-box">
-          <p class="guest-prompt-text">Đăng nhập để thích video, bình luận và tạo kênh của riêng bạn.</p>
+          <p class="guest-prompt-text">{{ 'nav.guestPrompt' | translate }}</p>
           <a class="guest-login-cta" routerLink="/login" (click)="closeNavigation()">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            <span>Đăng nhập</span>
+            <span>{{ 'ui.signIn' | translate }}</span>
           </a>
         </div>
       </section>

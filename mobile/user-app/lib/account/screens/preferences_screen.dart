@@ -194,8 +194,8 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                           ),
                           Text(
                             AppStrings.t('prefs.qualitySub'),
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: AppColors.textSecondaryFor(context),
                               fontSize: 13,
                             ),
                           ),
@@ -204,9 +204,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                       DropdownButton<String>(
                         value: _preferences.defaultPlaybackQuality,
                         underline: const SizedBox(),
-                        dropdownColor: isDark
-                            ? AppColors.darkBackgroundCard
-                            : Colors.white,
+                        dropdownColor: Theme.of(context).colorScheme.surface,
                         onChanged: _saving
                             ? null
                             : (val) {
@@ -218,20 +216,20 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                                   );
                                 }
                               },
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: 'auto',
-                            child: Text('Tự động / Auto'),
+                            child: Text(AppStrings.t('prefs.qualityAuto')),
                           ),
-                          DropdownMenuItem(
+                          const DropdownMenuItem(
                             value: '1080p',
                             child: Text('1080p (FHD)'),
                           ),
-                          DropdownMenuItem(
+                          const DropdownMenuItem(
                             value: '720p',
                             child: Text('720p (HD)'),
                           ),
-                          DropdownMenuItem(
+                          const DropdownMenuItem(
                             value: '480p',
                             child: Text('480p (SD)'),
                           ),
@@ -286,8 +284,8 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                         const SizedBox(width: 8),
                         Text(
                           AppStrings.t('prefs.autoSaving'),
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: AppColors.textSecondaryFor(context),
                             fontSize: 12,
                           ),
                         ),
@@ -302,13 +300,9 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   Widget _themeOption(String key, String label, IconData icon, bool isDark) {
     final selected = _preferences.theme == key;
-    final cardBg = isDark
-        ? AppColors.darkBackgroundCard
-        : AppColors.backgroundCard;
-    final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.cardBorder;
-    final defaultText = isDark
-        ? AppColors.darkTextPrimary
-        : AppColors.textPrimary;
+    final cardBg = AppColors.surfaceFor(context);
+    final cardBorder = AppColors.borderFor(context);
+    final defaultText = AppColors.textPrimaryFor(context);
 
     return Expanded(
       child: GestureDetector(
@@ -331,7 +325,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                 icon,
                 color: selected
                     ? AppColors.primaryPink
-                    : AppColors.textSecondary,
+                    : AppColors.textSecondaryFor(context),
                 size: 22,
               ),
               const SizedBox(height: 6),
@@ -352,13 +346,9 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   Widget _langOption(String key, String label, String flag, bool isDark) {
     final selected = AppStrings.currentLang.value == key;
-    final cardBg = isDark
-        ? AppColors.darkBackgroundCard
-        : AppColors.backgroundCard;
-    final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.cardBorder;
-    final defaultText = isDark
-        ? AppColors.darkTextPrimary
-        : AppColors.textPrimary;
+    final cardBg = AppColors.surfaceFor(context);
+    final cardBorder = AppColors.borderFor(context);
+    final defaultText = AppColors.textPrimaryFor(context);
 
     return Expanded(
       child: GestureDetector(
@@ -414,16 +404,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: AppColors.textSecondaryFor(context),
                   fontSize: 13,
                   height: 1.4,
                 ),

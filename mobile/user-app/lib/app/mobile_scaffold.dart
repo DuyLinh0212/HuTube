@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth.dart';
+import '../core/localization/app_strings.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_logo.dart';
 
@@ -57,29 +58,33 @@ class MobileScaffold extends StatelessWidget {
                 )
               : Builder(
                   builder: (drawerContext) => IconButton(
-                    tooltip: 'Mở menu',
+                    tooltip: AppStrings.t('common.menu'),
                     icon: const Icon(Icons.menu_rounded),
                     onPressed: () => Scaffold.of(drawerContext).openDrawer(),
                   ),
                 ),
         ),
-        title: isDetail ? const Text('Xem video') : const SizedBox.shrink(),
+        title: isDetail
+            ? Text(AppStrings.t('app.viewVideo'))
+            : const SizedBox.shrink(),
         actions: [
           IconButton(
-            tooltip: 'Chính sách',
+            tooltip: AppStrings.t('common.policy'),
             onPressed: () => context.push('/policies'),
             icon: const Icon(Icons.shield_outlined),
           ),
           if (auth.authenticated)
             IconButton(
-              tooltip: 'Thông báo',
+              tooltip: AppStrings.t('common.notifications'),
               onPressed: () => context.push('/notifications'),
               icon: const Icon(Icons.notifications_none_rounded),
             ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: IconButton(
-              tooltip: auth.authenticated ? 'Tài khoản' : 'Đăng nhập',
+              tooltip: auth.authenticated
+                  ? AppStrings.t('common.account')
+                  : AppStrings.t('common.signIn'),
               onPressed: () =>
                   context.go(auth.authenticated ? '/account' : '/auth'),
               icon: CircleAvatar(
@@ -103,7 +108,7 @@ class MobileScaffold extends StatelessWidget {
           ? FloatingActionButton.extended(
               onPressed: () => context.go('/creator'),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Tạo'),
+              label: Text(AppStrings.t('common.create')),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -112,26 +117,26 @@ class MobileScaffold extends StatelessWidget {
           : NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: (value) => _select(context, value),
-              destinations: const [
+              destinations: [
                 NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home_rounded),
-                  label: 'Trang chủ',
+                  label: AppStrings.t('nav.home'),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.explore_outlined),
                   selectedIcon: Icon(Icons.explore_rounded),
-                  label: 'Khám phá',
+                  label: AppStrings.t('nav.explore'),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.video_library_outlined),
                   selectedIcon: Icon(Icons.video_library_rounded),
-                  label: 'Thư viện',
+                  label: AppStrings.t('nav.library'),
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.person_outline_rounded),
                   selectedIcon: Icon(Icons.person_rounded),
-                  label: 'Bạn',
+                  label: AppStrings.t('app.navYou'),
                 ),
               ],
             ),
@@ -154,48 +159,58 @@ class _Drawer extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(24, 22, 16, 14),
             child: HuTubeLogo(size: 30),
           ),
-          _item(context, Icons.home_outlined, 'Trang chủ', '/home'),
-          _item(context, Icons.explore_outlined, 'Khám phá', '/explore'),
-          const _SectionLabel('THƯ VIỆN'),
+          _item(
+            context,
+            Icons.home_outlined,
+            AppStrings.t('nav.home'),
+            '/home',
+          ),
+          _item(
+            context,
+            Icons.explore_outlined,
+            AppStrings.t('nav.explore'),
+            '/explore',
+          ),
+          _SectionLabel(AppStrings.t('app.librarySection')),
           _item(
             context,
             Icons.history_rounded,
-            'Lịch sử và đã thích',
+            '${AppStrings.t('library.history')} & ${AppStrings.t('library.liked')}',
             '/library',
             protected: true,
           ),
           _item(
             context,
             Icons.download_outlined,
-            'Bản tải xuống',
+            AppStrings.t('downloads.title'),
             '/downloads',
             protected: true,
           ),
-          const _SectionLabel('KHÁC'),
+          _SectionLabel(AppStrings.t('app.otherSection')),
           _item(
             context,
             Icons.workspace_premium_outlined,
-            'Gói dịch vụ',
+            AppStrings.t('plans.title'),
             '/plans',
           ),
           _item(
             context,
             Icons.gavel_outlined,
-            'Trung tâm chính sách',
+            AppStrings.t('policies.title'),
             '/policies',
           ),
           if (auth.authenticated) ...[
             _item(
               context,
               Icons.dashboard_outlined,
-              'Creator Studio',
+              AppStrings.t('creator.title'),
               '/creator',
               protected: true,
             ),
             _item(
               context,
               Icons.notifications_outlined,
-              'Thông báo',
+              AppStrings.t('common.notifications'),
               '/notifications',
               protected: true,
             ),

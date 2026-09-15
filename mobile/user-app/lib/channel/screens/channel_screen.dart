@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
@@ -64,14 +65,14 @@ class _ChannelScreenState extends State<ChannelScreen>
     } on ApiFailure catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.message;
+          _error = AppStrings.apiError(e, fallback: 'common.error');
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải thông tin kênh.';
+          _error = AppStrings.t('common.serverError');
           _loading = false;
         });
       }
@@ -86,7 +87,9 @@ class _ChannelScreenState extends State<ChannelScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          _isSubscribed ? 'Đã đăng ký kênh' : 'Đã hủy đăng ký kênh',
+          _isSubscribed
+              ? AppStrings.t('channel.subscribedToast')
+              : AppStrings.t('channel.unsubscribedToast'),
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -98,7 +101,7 @@ class _ChannelScreenState extends State<ChannelScreen>
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Kênh')),
+        appBar: AppBar(title: Text(AppStrings.t('channel.title'))),
         body: const Center(
           child: CircularProgressIndicator(color: AppColors.primaryPink),
         ),
@@ -107,25 +110,28 @@ class _ChannelScreenState extends State<ChannelScreen>
 
     if (_error != null || _channel == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Kênh')),
+        appBar: AppBar(title: Text(AppStrings.t('channel.title'))),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.error_outline,
                   size: 48,
-                  color: AppColors.danger,
+                  color: AppColors.dangerFor(context),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _error ?? 'Kênh không tồn tại hoặc đã bị xóa.',
+                  _error ?? AppStrings.t('channel.notFound'),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _load, child: const Text('Thử lại')),
+                FilledButton(
+                  onPressed: _load,
+                  child: Text(AppStrings.t('channel.retry')),
+                ),
               ],
             ),
           ),
@@ -144,8 +150,8 @@ class _ChannelScreenState extends State<ChannelScreen>
             icon: const Icon(Icons.share_outlined),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã sao chép liên kết kênh vào bộ nhớ tạm'),
+                SnackBar(
+                  content: Text(AppStrings.t('channel.copied')),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -236,10 +242,10 @@ class _ChannelScreenState extends State<ChannelScreen>
                                 Flexible(
                                   child: Text(
                                     c.name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.textPrimaryFor(context),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -255,10 +261,10 @@ class _ChannelScreenState extends State<ChannelScreen>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '@${c.handle} · $_subscriberCount người đăng ký · ${c.videoCount} video',
-                              style: const TextStyle(
+                              '@${c.handle} · ${AppStrings.format('channel.stats', {'subscribers': AppStrings.number(_subscriberCount), 'videos': AppStrings.number(c.videoCount)})}',
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.textSecondary,
+                                color: AppColors.textSecondaryFor(context),
                               ),
                             ),
                             if (c.description != null &&
@@ -272,9 +278,9 @@ class _ChannelScreenState extends State<ChannelScreen>
                                   c.description!,
                                   maxLines: _showFullDesc ? 10 : 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.textPrimaryFor(context),
                                     height: 1.3,
                                   ),
                                 ),
@@ -305,7 +311,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                                   elevation: 0,
                                 ),
                                 icon: const Icon(Icons.tune_rounded, size: 18),
-                                label: const Text('Quản lý kênh & Cài đặt'),
+                                label: Text(AppStrings.t('channel.manage')),
                                 onPressed: () async {
                                   final result = await Navigator.of(context)
                                       .push<bool>(
@@ -328,16 +334,20 @@ class _ChannelScreenState extends State<ChannelScreen>
                               child: FilledButton(
                                 style: FilledButton.styleFrom(
                                   backgroundColor: _isSubscribed
-                                      ? AppColors.cardBorder
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest
                                       : AppColors.primaryPink,
                                   foregroundColor: _isSubscribed
-                                      ? AppColors.textPrimary
+                                      ? AppColors.textPrimaryFor(context)
                                       : Colors.white,
                                   elevation: 0,
                                 ),
                                 onPressed: _toggleSubscribe,
                                 child: Text(
-                                  _isSubscribed ? 'Đã đăng ký ✓' : 'Đăng ký',
+                                  _isSubscribed
+                                      ? '${AppStrings.t('channel.subscribed')} ✓'
+                                      : AppStrings.t('channel.subscribe'),
                                 ),
                               ),
                             ),
@@ -348,8 +358,12 @@ class _ChannelScreenState extends State<ChannelScreen>
                                 Icons.notifications_none_rounded,
                               ),
                               style: IconButton.styleFrom(
-                                backgroundColor: AppColors.cardBorder,
-                                foregroundColor: AppColors.textPrimary,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                foregroundColor: AppColors.textPrimaryFor(
+                                  context,
+                                ),
                               ),
                             ),
                           ],
@@ -365,16 +379,16 @@ class _ChannelScreenState extends State<ChannelScreen>
                 controller: _tabController,
                 indicatorColor: AppColors.primaryPink,
                 labelColor: AppColors.primaryPink,
-                unselectedLabelColor: AppColors.textSecondary,
+                unselectedLabelColor: AppColors.textSecondaryFor(context),
                 labelStyle: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
-                tabs: const [
-                  Tab(text: 'TRANG CHỦ'),
-                  Tab(text: 'VIDEO'),
-                  Tab(text: 'PLAYLIST'),
-                  Tab(text: 'GIỚI THIỆU'),
+                tabs: [
+                  Tab(text: AppStrings.t('channel.home')),
+                  Tab(text: AppStrings.t('channel.videos')),
+                  Tab(text: AppStrings.t('channel.playlists')),
+                  Tab(text: AppStrings.t('channel.about')),
                 ],
               ),
             ),
@@ -392,16 +406,18 @@ class _ChannelScreenState extends State<ChannelScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'Video mới nhất',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Text(
+          AppStrings.t('channel.latestVideo'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
         _videoCard(
-          title: 'Chào mừng bạn đến với kênh ${c.name} trên HuTube!',
-          views: '${c.viewCount} lượt xem',
+          title: AppStrings.format('channel.welcomeVideo', {'name': c.name}),
+          views: AppStrings.format('channel.viewCount', {
+            'count': AppStrings.number(c.viewCount),
+          }),
           duration: '04:15',
-          date: 'Gần đây',
+          date: AppStrings.t('channel.recent'),
         ),
       ],
     );
@@ -412,36 +428,36 @@ class _ChannelScreenState extends State<ChannelScreen>
       padding: const EdgeInsets.all(16),
       children: [
         _videoCard(
-          title: 'Giới thiệu nội dung và định hướng kênh ${c.name}',
-          views: '1.2K lượt xem',
+          title: AppStrings.format('channel.introVideo', {'name': c.name}),
+          views: AppStrings.format('channel.viewCount', {'count': '1.2K'}),
           duration: '10:45',
-          date: '3 ngày trước',
+          date: AppStrings.format('channel.daysAgo', {'count': '3'}),
         ),
         const SizedBox(height: 16),
         _videoCard(
-          title: 'Hướng dẫn sử dụng nền tảng video HuTube toàn tập',
-          views: '5.8K lượt xem',
+          title: AppStrings.t('channel.tutorialVideo'),
+          views: AppStrings.format('channel.viewCount', {'count': '5.8K'}),
           duration: '15:20',
-          date: '1 tuần trước',
+          date: AppStrings.t('channel.weekAgo'),
         ),
       ],
     );
   }
 
   Widget _playlistsTab() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.playlist_play_rounded,
             size: 64,
-            color: AppColors.cardBorder,
+            color: AppColors.textMutedFor(context),
           ),
           SizedBox(height: 8),
           Text(
-            'Chưa có danh sách phát nào',
-            style: TextStyle(color: AppColors.textSecondary),
+            AppStrings.t('channel.noPlaylists'),
+            style: TextStyle(color: AppColors.textSecondaryFor(context)),
           ),
         ],
       ),
@@ -452,35 +468,55 @@ class _ChannelScreenState extends State<ChannelScreen>
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text(
-          'Mô tả',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Text(
+          AppStrings.t('channel.description'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 8),
         Text(
           c.description != null && c.description!.isNotEmpty
               ? c.description!
-              : 'Kênh này chưa thêm mô tả chi tiết.',
-          style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+              : AppStrings.t('channel.descriptionEmptyLong'),
+          style: TextStyle(
+            color: AppColors.textSecondaryFor(context),
+            height: 1.5,
+          ),
         ),
         const SizedBox(height: 24),
         const Divider(),
         const SizedBox(height: 16),
-        const Text(
-          'Thông tin chi tiết',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Text(
+          AppStrings.t('channel.detailedInfo'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
-        _aboutRow(Icons.link, 'hutube.app/@${c.handle}'),
-        _aboutRow(Icons.people_outline, '$_subscriberCount người đăng ký'),
+        _aboutRow(
+          Icons.link,
+          AppStrings.format('channel.channelUrl', {'handle': c.handle}),
+        ),
+        _aboutRow(
+          Icons.people_outline,
+          AppStrings.format('channel.subscriberCount', {
+            'count': AppStrings.number(_subscriberCount),
+          }),
+        ),
         _aboutRow(
           Icons.video_library_outlined,
-          '${c.videoCount} video đã đăng tải',
+          AppStrings.format('channel.uploadedVideos', {
+            'count': AppStrings.number(c.videoCount),
+          }),
         ),
-        _aboutRow(Icons.visibility_outlined, '${c.viewCount} tổng lượt xem'),
+        _aboutRow(
+          Icons.visibility_outlined,
+          AppStrings.format('channel.totalViews', {
+            'count': AppStrings.number(c.viewCount),
+          }),
+        ),
         _aboutRow(
           Icons.calendar_today_outlined,
-          'Đã tham gia: ${_formatDate(c.createdAt)}',
+          AppStrings.format('channel.joined', {
+            'date': _formatDate(c.createdAt),
+          }),
         ),
       ],
     );
@@ -491,7 +527,7 @@ class _ChannelScreenState extends State<ChannelScreen>
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: AppColors.textSecondary),
+          Icon(icon, size: 20, color: AppColors.textSecondaryFor(context)),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
         ],
@@ -507,9 +543,9 @@ class _ChannelScreenState extends State<ChannelScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
+        color: AppColors.surfaceFor(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: AppColors.borderFor(context)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -520,7 +556,7 @@ class _ChannelScreenState extends State<ChannelScreen>
               Container(
                 height: 160,
                 width: double.infinity,
-                color: AppColors.cardBorder.withValues(alpha: 0.5),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: const Center(
                   child: Icon(
                     Icons.play_circle_fill,
@@ -560,10 +596,10 @@ class _ChannelScreenState extends State<ChannelScreen>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryFor(context),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -571,9 +607,9 @@ class _ChannelScreenState extends State<ChannelScreen>
                 const SizedBox(height: 4),
                 Text(
                   '$views · $date',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryFor(context),
                   ),
                 ),
               ],
@@ -587,7 +623,7 @@ class _ChannelScreenState extends State<ChannelScreen>
   String _formatDate(String raw) {
     final d = DateTime.tryParse(raw);
     if (d == null) return raw;
-    return '${d.day}/${d.month}/${d.year}';
+    return AppStrings.date(d);
   }
 }
 
@@ -606,7 +642,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(color: AppColors.backgroundCard, child: _tabBar);
+    return Container(color: AppColors.surfaceFor(context), child: _tabBar);
   }
 
   @override

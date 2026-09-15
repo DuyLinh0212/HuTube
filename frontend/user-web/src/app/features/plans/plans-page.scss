@@ -10,34 +10,6 @@
   color: var(--text-main, #0f172a);
 }
 
-/* HEADER */
-.page-header {
-  margin-bottom: 28px;
-
-  .eyebrow {
-    color: var(--primary, #ff2b66);
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 1.2px;
-    margin: 0 0 6px;
-  }
-
-  h1 {
-    font-size: 2rem;
-    font-weight: 850;
-    letter-spacing: -0.5px;
-    margin: 0 0 8px;
-    color: var(--text-dark, #0f172a);
-  }
-
-  .subtitle {
-    margin: 0;
-    color: var(--text-muted, #64748b);
-    font-size: 0.95rem;
-  }
-}
-
 /* STATE CONTAINERS */
 .state-container {
   display: flex;
@@ -671,10 +643,6 @@
 }
 
 @media (max-width: 720px) {
-  .page-header h1 {
-    font-size: 1.6rem;
-  }
-
   .plan-hero-card {
     padding: 22px;
 
@@ -715,27 +683,6 @@
 /* Unified plans workspace */
 .plans-page {
   max-width: 1180px;
-}
-
-.plans-page .page-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.page-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid #dbe4ee;
-  border-radius: 999px;
-  color: #64748b;
-  background: #fff;
-  font-size: 0.72rem;
-  font-weight: 650;
-  white-space: nowrap;
 }
 
 .plans-view-switch {
@@ -942,13 +889,11 @@
 }
 
 @media (max-width: 720px) {
-  .plans-page .page-header,
   .catalog-intro {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .page-status,
   .current-plan-note { white-space: normal; }
   .plans-view-switch { width: 100%; }
   .plans-view-switch button { flex: 1; padding-inline: 10px; }

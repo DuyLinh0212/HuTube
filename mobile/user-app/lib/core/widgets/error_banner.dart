@@ -8,24 +8,27 @@ class ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final background = isError
+        ? scheme.errorContainer
+        : scheme.primaryContainer;
+    final foreground = isError
+        ? scheme.onErrorContainer
+        : scheme.onPrimaryContainer;
     return Semantics(
       liveRegion: true,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isError ? const Color(0xffffeae8) : const Color(0xfffff0f4),
+          color: background,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isError ? const Color(0xffffc8c4) : const Color(0xffffccd8),
-          ),
+          border: Border.all(color: foreground.withValues(alpha: 0.35)),
         ),
         child: Row(
           children: [
             Icon(
               isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: isError
-                  ? const Color(0xff962c26)
-                  : const Color(0xffc2185b),
+              color: foreground,
               size: 20,
             ),
             const SizedBox(width: 10),
@@ -33,9 +36,7 @@ class ErrorBanner extends StatelessWidget {
               child: Text(
                 message,
                 style: TextStyle(
-                  color: isError
-                      ? const Color(0xff962c26)
-                      : const Color(0xffc2185b),
+                  color: foreground,
                   height: 1.4,
                   fontWeight: FontWeight.w500,
                   fontSize: 13,

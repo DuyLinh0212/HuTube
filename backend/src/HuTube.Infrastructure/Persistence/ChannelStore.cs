@@ -16,6 +16,14 @@ public sealed class ChannelStore(HuTubeDbContext db) : IChannelStore
     public Task<Channel?> FindOwnedChannelAsync(Guid ownerUserId, CancellationToken ct) =>
         db.Channels.SingleOrDefaultAsync(x => x.OwnerUserId == ownerUserId && x.Status != "deleted", ct);
 
+    public Task<List<Channel>> GetAccessibleChannelsAsync(Guid userId, CancellationToken ct) =>
+        db.Channels
+            .Where(channel => channel.Status == "active" && (channel.OwnerUserId == userId ||
+                db.ChannelMembers.Any(member => member.ChannelId == channel.ChannelId && member.UserId == userId && member.Status == "active")))
+            .OrderBy(channel => channel.OwnerUserId == userId ? 0 : 1)
+            .ThenBy(channel => channel.Name)
+            .ToListAsync(ct);
+
     public Task<int> CountChannelsByOwnerAsync(Guid ownerUserId, CancellationToken ct) =>
         db.Channels.CountAsync(x => x.OwnerUserId == ownerUserId && x.Status != "deleted", ct);
 

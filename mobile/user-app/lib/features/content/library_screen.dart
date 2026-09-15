@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'content_models.dart';
 import 'content_service.dart';
@@ -48,14 +49,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.message;
+          _error = AppStrings.apiError(error, fallback: 'library.loadError');
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải thư viện. Kiểm tra kết nối rồi thử lại.';
+          _error = AppStrings.t('library.loadError');
           _loading = false;
         });
       }
@@ -78,7 +79,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
             children: [
               Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
-              FilledButton(onPressed: _load, child: const Text('Thử lại')),
+              FilledButton(
+                onPressed: _load,
+                child: Text(AppStrings.t('common.retry')),
+              ),
             ],
           ),
         ),
@@ -94,7 +98,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Thư viện',
+                AppStrings.t('library.title'),
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -103,9 +107,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           TabBar(
             onTap: (value) => setState(() => _tab = value),
-            tabs: const [
-              Tab(text: 'Lịch sử'),
-              Tab(text: 'Đã thích'),
+            tabs: [
+              Tab(text: AppStrings.t('library.history')),
+              Tab(text: AppStrings.t('library.liked')),
             ],
           ),
           if (_tab == 1)
@@ -118,7 +122,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilterChip(
-                        label: Text(score == null ? 'Tất cả' : '$score sao'),
+                        label: Text(
+                          score == null
+                              ? AppStrings.t('library.allRatings')
+                              : AppStrings.format('library.ratingStars', {
+                                  'count': AppStrings.number(score),
+                                }),
+                        ),
                         selected: _rating == score,
                         onSelected: (_) {
                           setState(() => _rating = score);
@@ -135,17 +145,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
               onRefresh: _load,
               child: items.isEmpty
                   ? ListView(
-                      children: const [
-                        SizedBox(height: 140),
+                      children: [
+                        const SizedBox(height: 140),
                         Center(
                           child: Icon(
                             Icons.video_library_outlined,
                             size: 52,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textSecondaryFor(context),
                           ),
                         ),
-                        SizedBox(height: 12),
-                        Center(child: Text('Chưa có video trong mục này.')),
+                        const SizedBox(height: 12),
+                        Center(child: Text(AppStrings.t('library.empty'))),
                       ],
                     )
                   : ListView.builder(

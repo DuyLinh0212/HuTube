@@ -12,11 +12,13 @@ public sealed record LoginRequest(
     [Required, EmailAddress, StringLength(254)] string Email,
     [Required, StringLength(128)] string Password,
     [RegularExpression("^(web|mobile|admin)$")] string Platform = "web",
-    [StringLength(200)] string DeviceName = "Unknown device");
+    [StringLength(200)] string DeviceName = "Unknown device",
+    [StringLength(128)] string? DeviceId = null);
 public sealed record GoogleLoginRequest(
     [Required, StringLength(8192, MinimumLength = 20)] string Credential,
     [RegularExpression("^(web|mobile)$")] string Platform = "web",
-    [StringLength(200)] string DeviceName = "Google sign-in");
+    [StringLength(200)] string DeviceName = "Google sign-in",
+    [StringLength(128)] string? DeviceId = null);
 public sealed record EmailRequest([Required, EmailAddress, StringLength(254)] string Email);
 public sealed record TokenRequest([Required, StringLength(256)] string Token);
 public sealed record ResetPasswordRequest([Required, StringLength(256)] string Token,
@@ -79,6 +81,8 @@ public interface IAuthStore
     Task<bool> UsernameExistsAsync(string username, CancellationToken ct);
     Task<string?> FindPasswordHashAsync(Guid userId, CancellationToken ct);
     Task<UserSession?> FindSessionByHashAsync(string hash, CancellationToken ct);
+    Task<UserSession?> FindActiveSessionByDeviceAsync(Guid userId, string platform, string deviceId, DateTimeOffset now, CancellationToken ct)
+        => Task.FromResult<UserSession?>(null);
     Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct);
     Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct);
     Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct);

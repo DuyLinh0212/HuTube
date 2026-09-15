@@ -1,0 +1,29 @@
+<main id="main-content" class="feed">
+  @if (loading()) {
+    <p class="state">{{ 'home.loading' | translate }}</p>
+  } @else if (error()) {
+    <p class="state error">{{ error() }}</p>
+  } @else {
+    <section class="grid" [attr.aria-label]="'home.videoList' | translate">
+      @for (video of videos(); track video.videoId) {
+        <a class="card" [routerLink]="['/watch', video.videoId]">
+          <div class="thumb">
+            @if (video.thumbnailUrl) {
+              <img [src]="video.thumbnailUrl" alt="" />
+            } @else {
+              <span>▶</span>
+            }
+            <time>{{ duration(video.duration) }}</time>
+          </div>
+          <div class="copy">
+            <h2>{{ video.title }}</h2>
+            <p>{{ video.channelName }}</p>
+            <small>{{ video.views | localeNumber }} {{ 'home.views' | translate }} · {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</small>
+          </div>
+        </a>
+      } @empty {
+        <p class="state">{{ 'home.empty' | translate }}</p>
+      }
+    </section>
+  }
+</main>

@@ -1,18 +1,18 @@
 <main id="main-content" class="auth-layout">
 
   <!-- Left Showcase Section (898px x 542px) -->
-  <section class="left-section" aria-label="Giới thiệu HuTube">
+  <section class="left-section" [attr.aria-label]="'auth.about' | translate">
 
     <!-- Info Column (~370px) -->
     <div class="info-col">
-      <div class="category-tracker">CREATORS · VIEWERS · COMMUNITY</div>
+      <div class="category-tracker">{{ 'auth.introLabel' | translate }}</div>
 
       <h1 class="hero-heading">
-        Create.<br>Share.<br><span class="highlight">Belong.</span>
+        {{ 'auth.heroCreate' | translate }}<br>{{ 'auth.heroShare' | translate }}<br><span class="highlight">{{ 'auth.heroBelong' | translate }}</span>
       </h1>
 
       <p class="hero-desc">
-        HuTube trao quyền để bạn sáng tạo, kết nối và khám phá thế giới video cùng cộng đồng tôn vinh câu chuyện và góc nhìn của bạn.
+        {{ 'auth.heroDescription' | translate }}
       </p>
 
       <div class="features-list">
@@ -21,8 +21,8 @@
             <img src="/assets/icons/upload_video.png" alt="" />
           </div>
           <div class="feature-text">
-            <span class="feature-title">Sáng tạo không giới hạn</span>
-            <span class="feature-sub">Biến ý tưởng thành những video tuyệt vời</span>
+            <span class="feature-title">{{ 'auth.featureCreate' | translate }}</span>
+            <span class="feature-sub">{{ 'auth.featureCreateDesc' | translate }}</span>
           </div>
         </div>
 
@@ -31,8 +31,8 @@
             <img src="/assets/icons/user.png" alt="" />
           </div>
           <div class="feature-text">
-            <span class="feature-title">Chia sẻ thế giới của bạn</span>
-            <span class="feature-sub">Kết nối hàng triệu người xem đồng điệu</span>
+            <span class="feature-title">{{ 'auth.featureShare' | translate }}</span>
+            <span class="feature-sub">{{ 'auth.featureShareDesc' | translate }}</span>
           </div>
         </div>
 
@@ -41,13 +41,13 @@
             <img src="/assets/icons/favorite.png" alt="" />
           </div>
           <div class="feature-text">
-            <span class="feature-title">Khám phá & Thuộc về</span>
-            <span class="feature-sub">Nơi bạn luôn tìm thấy nguồn cảm hứng</span>
+            <span class="feature-title">{{ 'auth.featureBelong' | translate }}</span>
+            <span class="feature-sub">{{ 'auth.featureBelongDesc' | translate }}</span>
           </div>
         </div>
       </div>
 
-      <div class="handwritten-tag">Good Videos Better People</div>
+      <div class="handwritten-tag">{{ 'auth.tagline' | translate }}</div>
     </div>
 
     <!-- 3D Showcase with 3s Auto-Carousel (~480px) -->
@@ -57,44 +57,44 @@
         <div class="main-tilted-card">
           <!-- Slide 0 -->
           <div class="carousel-slide" [class.active]="currentSlide() === 0">
-            <div class="main-card-annotation">Your Story<br>Belongs Here</div>
-            <img src="/assets/auth/hero_register.jpg" alt="Your Story Belongs Here">
+            <div class="main-card-annotation" [innerHTML]="'auth.slideStory' | translate"></div>
+            <img src="/assets/auth/hero_register.jpg" [alt]="'auth.slideStoryAlt' | translate">
           </div>
 
           <!-- Slide 1 -->
           <div class="carousel-slide" [class.active]="currentSlide() === 1">
-            <div class="main-card-annotation">A Bigger World<br>in Every Video</div>
-            <img src="/assets/auth/hero_login.jpg" alt="A Bigger World in Every Video">
+            <div class="main-card-annotation" [innerHTML]="'auth.slideWorld' | translate"></div>
+            <img src="/assets/auth/hero_login.jpg" [alt]="'auth.slideWorldAlt' | translate">
           </div>
 
           <!-- Slide 2 -->
           <div class="carousel-slide" [class.active]="currentSlide() === 2">
-            <div class="main-card-annotation">Inspire The<br>World Around You</div>
-            <img src="/assets/auth/hero_community.jpg" alt="Inspire The World">
+            <div class="main-card-annotation" [innerHTML]="'auth.slideInspire' | translate"></div>
+            <img src="/assets/auth/hero_community.jpg" [alt]="'auth.slideInspireAlt' | translate">
           </div>
         </div>
 
         <!-- 5 Mini Cards Stack (122px x 68px each) -->
         <div class="mini-cards-stack">
           <div class="mini-card" (click)="goToSlide(0)" role="button" tabindex="0">
-            <img src="/assets/auth/card_explore.jpg" alt="Explore">
-            <div class="mini-card-label">EXPLORE</div>
+            <img src="/assets/auth/card_explore.jpg" [alt]="'auth.cardExplore' | translate">
+            <div class="mini-card-label">{{ 'auth.cardExplore' | translate }}</div>
           </div>
           <div class="mini-card" (click)="goToSlide(1)" role="button" tabindex="0">
-            <img src="/assets/auth/card_create.jpg" alt="Create">
-            <div class="mini-card-label">CREATE</div>
+            <img src="/assets/auth/card_create.jpg" [alt]="'auth.cardCreate' | translate">
+            <div class="mini-card-label">{{ 'auth.cardCreate' | translate }}</div>
           </div>
           <div class="mini-card" (click)="goToSlide(2)" role="button" tabindex="0">
-            <img src="/assets/auth/card_learn.jpg" alt="Learn">
-            <div class="mini-card-label">LEARN</div>
+            <img src="/assets/auth/card_learn.jpg" [alt]="'auth.cardLearn' | translate">
+            <div class="mini-card-label">{{ 'auth.cardLearn' | translate }}</div>
           </div>
           <div class="mini-card" (click)="goToSlide(0)" role="button" tabindex="0">
-            <img src="/assets/auth/card_share.jpg" alt="Share">
-            <div class="mini-card-label">SHARE</div>
+            <img src="/assets/auth/card_share.jpg" [alt]="'auth.cardShare' | translate">
+            <div class="mini-card-label">{{ 'auth.cardShare' | translate }}</div>
           </div>
           <div class="mini-card" (click)="goToSlide(1)" role="button" tabindex="0">
-            <img src="/assets/auth/card_belong.jpg" alt="Belong">
-            <div class="mini-card-label">BELONG</div>
+            <img src="/assets/auth/card_belong.jpg" [alt]="'auth.cardBelong' | translate">
+            <div class="mini-card-label">{{ 'auth.cardBelong' | translate }}</div>
           </div>
         </div>
 
@@ -107,7 +107,7 @@
           <div class="dot-pill" [class.active]="currentSlide() === 1" (click)="goToSlide(1)"></div>
           <div class="dot-pill" [class.active]="currentSlide() === 2" (click)="goToSlide(2)"></div>
         </div>
-        <div class="sub-tagline">A MORE OPEN, CREATIVE, KINDER INTERNET</div>
+        <div class="sub-tagline">{{ 'auth.subTagline' | translate }}</div>
       </div>
     </div>
   </section>
@@ -116,17 +116,17 @@
   <section class="auth-panel" [attr.aria-busy]="busy()" aria-labelledby="auth-heading">
     <h2 id="auth-heading">
       @switch (mode()) {
-        @case ('register') { Tạo tài khoản Hu<span class="brand-tube">Tube</span> }
-        @case ('login') { Đăng nhập Hu<span class="brand-tube">Tube</span> }
+        @case ('register') { {{ 'auth.registerTitle' | translate }} }
+        @case ('login') { {{ 'auth.loginTitle' | translate }} }
         @default { {{ title }} }
       }
     </h2>
-    <p class="muted">@switch (mode()) { @case ('login') { {{ admin ? 'Dành cho đội ngũ quản trị.' : 'Chào mừng bạn trở lại HuTube.' }} } @case ('register') { Bắt đầu với email của bạn. } @case ('verify-email') { Hoàn tất xác minh để bảo vệ tài khoản. } @case ('forgot-password') { Nhập email để nhận liên kết đặt lại mật khẩu. } @case ('reset-password') { Chọn mật khẩu mới cho tài khoản của bạn. } }</p>
+    <p class="muted">@switch (mode()) { @case ('login') { {{ (admin ? 'auth.adminSubtitle' : 'auth.loginSubtitle') | translate }} } @case ('register') { {{ 'auth.registerSubtitle' | translate }} } @case ('verify-email') { {{ 'auth.verifySubtitle' | translate }} } @case ('forgot-password') { {{ 'auth.forgotSubtitle' | translate }} } @case ('reset-password') { {{ 'auth.resetSubtitle' | translate }} } }</p>
     @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
     @if (error()) {
       <p class="notice error" role="alert">{{ error() }}</p>
       @if (mode() === 'login' && verificationSuggested()) {
-        <p class="verification-help">Chưa nhận được email xác minh? <a routerLink="/verify-email" [queryParams]="{ email: email }">Gửi lại email</a></p>
+        <p class="verification-help">{{ 'auth.verificationHelp' | translate }} <a routerLink="/verify-email" [queryParams]="{ email: email }">{{ 'auth.resendEmail' | translate }}</a></p>
       }
     }
     @if (mode() !== 'verify-email' && !completed()) {
@@ -135,36 +135,36 @@
           <label for="displayName">{{ 'auth.displayName' | translate }}</label><input id="displayName" name="displayName" [(ngModel)]="displayName" #display="ngModel" required maxlength="100" autocomplete="nickname" [attr.aria-invalid]="display.invalid && display.touched" />
           @if (display.invalid && display.touched) { <p class="field-error">{{ 'auth.displayName' | translate }}</p> }
           <label for="username">{{ 'auth.username' | translate }}</label><input id="username" name="username" [(ngModel)]="username" #handle="ngModel" required minlength="3" maxlength="50" pattern="[a-zA-Z0-9_.\-]+" autocomplete="username" aria-describedby="username-hint" [attr.aria-invalid]="handle.invalid && handle.touched" />
-          <p id="username-hint" class="field-hint">3–50 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.</p>
-          @if (handle.invalid && handle.touched) { <p class="field-error">Tên người dùng chưa đúng định dạng.</p> }
+          <p id="username-hint" class="field-hint">{{ 'auth.usernameHint' | translate }}</p>
+          @if (handle.invalid && handle.touched) { <p class="field-error">{{ 'auth.usernameInvalid' | translate }}</p> }
         }
         @if (mode() !== 'reset-password') {
           <label for="email">{{ 'auth.email' | translate }}</label><input id="email" name="email" type="email" [(ngModel)]="email" #emailInput="ngModel" (input)="syncAutofilledEmailControl(emailInput)" (change)="syncAutofilledEmailControl(emailInput)" (blur)="syncAutofilledEmailControl(emailInput)" required email maxlength="254" autocomplete="email" [attr.aria-invalid]="emailInput.invalid && emailInput.touched" />
-          @if (emailInput.invalid && emailInput.touched) { <p class="field-error">Nhập địa chỉ email hợp lệ.</p> }
+          @if (emailInput.invalid && emailInput.touched) { <p class="field-error">{{ 'auth.emailInvalid' | translate }}</p> }
         }
         @if (mode() !== 'forgot-password') {
           <div class="label-row"><label for="password">{{ mode() === 'reset-password' ? ('auth.password' | translate) : ('auth.password' | translate) }}</label>@if (mode() === 'login') { <a routerLink="/forgot-password">{{ 'auth.forgotPasswordLink' | translate }}</a> }</div>
-          <div class="password-field"><input id="password" name="password" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" #passwordInput="ngModel" required [minlength]="mode() === 'login' ? 1 : 10" maxlength="128" [pattern]="mode() === 'login' ? '.*' : '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}'" [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'" [attr.aria-describedby]="mode() === 'login' ? null : 'password-hint'" [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched" /><button type="button" class="reveal" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Ẩn' : 'Hiện'" [attr.aria-pressed]="showPassword">{{ showPassword ? 'Ẩn' : 'Hiện' }}</button></div>
+          <div class="password-field"><input id="password" name="password" [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" #passwordInput="ngModel" required [minlength]="mode() === 'login' ? 1 : 10" maxlength="128" [pattern]="mode() === 'login' ? '.*' : '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}'" [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'" [attr.aria-describedby]="mode() === 'login' ? null : 'password-hint'" [attr.aria-invalid]="passwordInput.invalid && passwordInput.touched" /><button type="button" class="reveal" (click)="showPassword = !showPassword" [attr.aria-label]="(showPassword ? 'auth.hidePassword' : 'auth.showPassword') | translate" [attr.aria-pressed]="showPassword">{{ (showPassword ? 'auth.hidePassword' : 'auth.showPassword') | translate }}</button></div>
           @if (mode() !== 'login') {
-            <p id="password-hint" class="field-hint">10–128 ký tự, gồm chữ hoa, chữ thường và số.</p>
-            <label for="confirmPassword">{{ 'auth.confirmPassword' | translate }}</label><div class="password-field"><input id="confirmPassword" name="confirmPassword" [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="confirmPassword" required maxlength="128" autocomplete="new-password" /><button type="button" class="reveal" (click)="showConfirmPassword = !showConfirmPassword" [attr.aria-label]="showConfirmPassword ? 'Ẩn' : 'Hiện'" [attr.aria-pressed]="showConfirmPassword">{{ showConfirmPassword ? 'Ẩn' : 'Hiện' }}</button></div>
+            <p id="password-hint" class="field-hint">{{ 'auth.passwordHint' | translate }}</p>
+            <label for="confirmPassword">{{ 'auth.confirmPassword' | translate }}</label><div class="password-field"><input id="confirmPassword" name="confirmPassword" [type]="showConfirmPassword ? 'text' : 'password'" [(ngModel)]="confirmPassword" required maxlength="128" autocomplete="new-password" /><button type="button" class="reveal" (click)="showConfirmPassword = !showConfirmPassword" [attr.aria-label]="(showConfirmPassword ? 'auth.hidePassword' : 'auth.showPassword') | translate" [attr.aria-pressed]="showConfirmPassword">{{ (showConfirmPassword ? 'auth.hidePassword' : 'auth.showPassword') | translate }}</button></div>
           }
-          @if (passwordInput.invalid && passwordInput.touched) { <p class="field-error">{{ mode() === 'login' ? 'Nhập mật khẩu của bạn.' : 'Mật khẩu chưa đáp ứng yêu cầu.' }}</p> }
+          @if (passwordInput.invalid && passwordInput.touched) { <p class="field-error">{{ (mode() === 'login' ? 'auth.passwordLoginRequired' : 'auth.passwordInvalid') | translate }}</p> }
         }
         <button class="primary full" type="submit" [disabled]="busy() || (mode() === 'reset-password' && !hasResetToken)">{{ busy() ? ('common.loading' | translate) : mode() === 'forgot-password' ? ('auth.forgotPasswordTitle' | translate) : title }}</button>
       </form>
-      @if (mode() === 'login' && !admin && authGoogleClientId()) { <div class="oauth-divider" aria-hidden="true">{{ 'common.or' | translate }}</div><div #googleButton class="google-login" aria-label="Đăng nhập bằng Google"></div> }
+      @if (mode() === 'login' && !admin && authGoogleClientId()) { <div class="oauth-divider" aria-hidden="true">{{ 'common.or' | translate }}</div><div #googleButton class="google-login" [attr.aria-label]="'auth.googleLogin' | translate"></div> }
     }
     @if (mode() === 'verify-email' && !completed()) {
       @if (busy()) { <p role="status">{{ 'common.loading' | translate }}</p> }
-      <form #resendForm="ngForm" (ngSubmit)="resend(resendForm)"><label for="resendEmail">Email nhận liên kết mới</label><input id="resendEmail" name="resendEmail" type="email" [(ngModel)]="email" required email autocomplete="email" /><button class="primary full" type="submit" [disabled]="busy()">{{ 'auth.resendOtp' | translate }}</button></form>
+      <form #resendForm="ngForm" (ngSubmit)="resend(resendForm)"><label for="resendEmail">{{ 'auth.resendEmailLabel' | translate }}</label><input id="resendEmail" name="resendEmail" type="email" [(ngModel)]="email" required email autocomplete="email" /><button class="primary full" type="submit" [disabled]="busy()">{{ 'auth.resendOtp' | translate }}</button></form>
     }
     <div class="auth-links">
       @if (mode() === 'login') { @if (!admin) { <p>{{ 'auth.dontHaveAccount' | translate }} <a routerLink="/register">{{ 'auth.registerBtn' | translate }}</a></p> } }
       @else { <a routerLink="/login">{{ 'auth.backToLogin' | translate }}</a> }
       @if (mode() === 'reset-password' && !completed()) { <a routerLink="/forgot-password">{{ 'auth.forgotPasswordLink' | translate }}</a> }
-      @if (!admin && mode() === 'reset-password' && hasResetToken && !completed()) { <a [href]="mobileResetLink">Mở trong ứng dụng HuTube</a> }
-      @if (!admin && mode() === 'verify-email' && completed()) { <a href="hutube://auth/login">Đăng nhập trên ứng dụng HuTube</a> }
+      @if (!admin && mode() === 'reset-password' && hasResetToken && !completed()) { <a [href]="mobileResetLink">{{ 'auth.mobileAppLink' | translate }}</a> }
+      @if (!admin && mode() === 'verify-email' && completed()) { <a href="hutube://auth/login">{{ 'auth.appLoginLink' | translate }}</a> }
     </div>
   </section>
 </main>

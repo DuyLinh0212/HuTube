@@ -1,12 +1,16 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { ContentService, VideoDetail } from '../../core/content.service';
+import { I18nService } from '../../core/i18n.service';
+import { LocaleDatePipe } from '../../core/locale-date.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 export interface ChannelLink {
+  platform?: 'facebook' | 'instagram' | 'tiktok' | 'x' | 'other';
   title: string;
   url: string;
 }
@@ -15,7 +19,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [DatePipe, RouterLink],
+  imports: [LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -24,6 +28,7 @@ export class ChannelPage {
   private channelService = inject(ChannelService);
   private contentService = inject(ContentService);
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
 
   readonly channel = signal<ChannelDetail | null>(null);
   readonly activeTab = signal<ChannelTab>('home');
@@ -40,9 +45,7 @@ export class ChannelPage {
 
   readonly totalViews = computed(() => {
     const vids = this.videos();
-    if (!vids.length) return '0';
-    const sum = vids.reduce((acc, v) => acc + (v.stats?.views || 0), 0);
-    return sum.toLocaleString('vi-VN');
+    return vids.reduce((acc, v) => acc + (v.stats?.views || 0), 0);
   });
 
   constructor() {
@@ -66,7 +69,7 @@ export class ChannelPage {
           this.contentService.managed(ch.channelId, 1, 50).subscribe(page => this.videos.set(page.items));
         }
       },
-      error: err => this.error.set(errorMessage(err) || 'Không tìm thấy thông tin kênh.')
+      error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.notFound'))
     });
   }
 
@@ -74,7 +77,7 @@ export class ChannelPage {
     try {
       const settingsData = typeof ch.settings === 'string' ? JSON.parse(ch.settings || '{}') : (ch.settings || {});
       if (Array.isArray(settingsData?.links)) {
-        this.channelLinks.set(settingsData.links.filter((l: any) => l.title && l.url));
+        this.channelLinks.set(settingsData.links.filter((l: any) => l.title && l.url).map((l: any) => ({ ...l, platform: this.platformFrom(l.url, l.platform) })));
         return;
       }
     } catch {}
@@ -84,7 +87,7 @@ export class ChannelPage {
       try {
         const parsedLocal = JSON.parse(local);
         if (Array.isArray(parsedLocal)) {
-          this.channelLinks.set(parsedLocal.filter((l: any) => l.title && l.url));
+          this.channelLinks.set(parsedLocal.filter((l: any) => l.title && l.url).map((l: any) => ({ ...l, platform: this.platformFrom(l.url, l.platform) })));
           return;
         }
       } catch {}
@@ -119,10 +122,12 @@ export class ChannelPage {
   }
 
   reportChannel() {
-    alert('Cảm ơn bạn đã gửi báo cáo. Chúng tôi sẽ xem xét nội dung này theo Nguyên tắc cộng đồng HuTube.');
+    alert(this.i18n.t('channel.reportSuccess'));
   }
 
-  getBrandType(url: string): 'facebook' | 'instagram' | 'tiktok' | 'twitter' | 'youtube' | 'generic' {
+  getBrandType(url: string, platform?: ChannelLink['platform']): 'facebook' | 'instagram' | 'tiktok' | 'twitter' | 'youtube' | 'generic' {
+    if (platform === 'facebook' || platform === 'instagram' || platform === 'tiktok') return platform;
+    if (platform === 'x') return 'twitter';
     const lower = url.toLowerCase();
     if (lower.includes('facebook.com') || lower.includes('fb.com')) return 'facebook';
     if (lower.includes('instagram.com')) return 'instagram';
@@ -130,6 +135,22 @@ export class ChannelPage {
     if (lower.includes('twitter.com') || lower.includes('x.com')) return 'twitter';
     if (lower.includes('youtube.com') || lower.includes('hutube.vn')) return 'youtube';
     return 'generic';
+  }
+
+  visibilityLabel(value: string): string {
+    if (value === 'public') return this.i18n.t('ui.public');
+    if (value === 'unlisted') return this.i18n.t('ui.unlisted');
+    return this.i18n.t('ui.private');
+  }
+
+  private platformFrom(url: string, value?: string): ChannelLink['platform'] {
+    if (value === 'facebook' || value === 'instagram' || value === 'tiktok' || value === 'x' || value === 'other') return value;
+    const lower = String(url || '').toLowerCase();
+    if (lower.includes('facebook.com') || lower.includes('fb.me')) return 'facebook';
+    if (lower.includes('instagram.com')) return 'instagram';
+    if (lower.includes('tiktok.com')) return 'tiktok';
+    if (lower.includes('twitter.com') || lower.includes('x.com')) return 'x';
+    return 'other';
   }
 
   formatUrl(url: string): string {

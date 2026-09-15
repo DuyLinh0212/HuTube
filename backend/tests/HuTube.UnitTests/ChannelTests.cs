@@ -35,6 +35,14 @@ public sealed class ChannelTests
         public Task<int> CountChannelsByOwnerAsync(Guid ownerUserId, CancellationToken ct) =>
             Task.FromResult(Channels.Count(c => c.OwnerUserId == ownerUserId && c.Status != "deleted"));
 
+        public Task<List<Channel>> GetAccessibleChannelsAsync(Guid userId, CancellationToken ct) =>
+            Task.FromResult(Channels
+                .Where(channel => channel.Status == "active" &&
+                    (channel.OwnerUserId == userId || Members.Any(member => member.ChannelId == channel.ChannelId && member.UserId == userId && member.Status == "active")))
+                .OrderBy(channel => channel.OwnerUserId == userId ? 0 : 1)
+                .ThenBy(channel => channel.Name)
+                .ToList());
+
         public void AddChannel(Channel channel) => Channels.Add(channel);
 
         public Task<ChannelMember?> FindMemberAsync(Guid channelId, Guid userId, CancellationToken ct) =>
@@ -144,6 +152,32 @@ public sealed class ChannelTests
         var memberResponse = await service.AcceptInvitationAsync(invite.ChannelInvitationId, invitee.UserId);
         Assert.Equal(ChannelRoles.Editor, memberResponse.RoleCode);
         Assert.Equal("active", memberResponse.Status);
+    }
+
+    [Fact]
+    public async Task AccessibleChannels_ShouldIncludeAcceptedMemberWithoutOwnedChannel()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var collaboratorId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("Shared Channel", "sharedchannel", null));
+        store.Members.Add(new ChannelMember
+        {
+            ChannelMemberId = Guid.NewGuid(),
+            ChannelId = channel.ChannelId,
+            UserId = collaboratorId,
+            RoleCode = ChannelRoles.Editor,
+            Status = "active"
+        });
+
+        var accessible = await service.GetAccessibleChannelsAsync(collaboratorId);
+
+        var result = Assert.Single(accessible);
+        Assert.Equal(channel.ChannelId, result.ChannelId);
+        Assert.False(result.IsOwner);
+        Assert.Equal(ChannelRoles.Editor, result.MyRole);
+        Assert.Contains(ChannelPermissions.VideoView, result.Permissions);
     }
 
     [Fact]

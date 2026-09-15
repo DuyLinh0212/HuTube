@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../content/content_models.dart';
 import '../content/content_service.dart';
@@ -102,16 +103,16 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
     if (_video == null) {
-      setState(() => _error = 'Hãy chọn file video.');
+      setState(() => _error = AppStrings.t('upload.chooseVideo'));
       return;
     }
     if (!_policyAccepted) {
-      setState(() => _error = 'Bạn cần xác nhận tuân thủ chính sách nội dung.');
+      setState(() => _error = AppStrings.t('upload.policyRequired'));
       return;
     }
     final duration = int.tryParse(_duration.text.trim());
     if (duration == null || duration <= 0) {
-      setState(() => _error = 'Thời lượng phải là số giây lớn hơn 0.');
+      setState(() => _error = AppStrings.t('upload.durationInvalid'));
       return;
     }
     final video = _video!;
@@ -127,11 +128,15 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
         quality: '720p',
       );
       if (!allowed.allowed) {
-        throw ApiFailure(
-          400,
-          'UPLOAD_NOT_ALLOWED',
-          'Gói hiện tại không đủ quota: tối đa ${_bytes(allowed.maxUploadSize)}, ${allowed.maxDuration ~/ 60} phút.',
-        );
+        if (mounted) {
+          setState(
+            () => _error = AppStrings.format('upload.quotaExceeded', {
+              'size': _bytes(allowed.maxUploadSize),
+              'minutes': AppStrings.number(allowed.maxDuration ~/ 60),
+            }),
+          );
+        }
+        return;
       }
       final tags = _tags.text
           .split(',')
@@ -171,22 +176,24 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
         SnackBar(
           content: Text(
             _visibility == 'public'
-                ? 'Video đã được gửi để xử lý và kiểm duyệt.'
-                : 'Đã tải video lên.',
+                ? AppStrings.t('upload.publicSuccess')
+                : AppStrings.t('upload.success'),
           ),
         ),
       );
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } on FileSystemException {
       if (mounted) {
         setState(
-          () => _error = 'Không thể đọc file đã chọn. Hãy chọn lại file.',
+          () => _error = AppStrings.apiError(error, fallback: 'upload.error'),
         );
+      }
+    } on FileSystemException {
+      if (mounted) {
+        setState(() => _error = AppStrings.t('upload.fileReadError'));
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Tải video thất bại. Vui lòng thử lại.');
+        setState(() => _error = AppStrings.t('upload.error'));
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -200,7 +207,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Tải video lên')),
+    appBar: AppBar(title: Text(AppStrings.t('upload.title'))),
     body: SafeArea(
       child: Form(
         key: _formKey,
@@ -209,19 +216,19 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
           children: [
             _FilePicker(
               icon: Icons.video_file_outlined,
-              title: _video?.name ?? 'Chọn file video',
+              title: _video?.name ?? AppStrings.t('upload.chooseVideo'),
               subtitle: _video == null
-                  ? 'Video sẽ được kiểm tra quota trước khi tải.'
-                  : 'Đã chọn video',
+                  ? AppStrings.t('upload.videoQuotaHint')
+                  : AppStrings.t('upload.selectedVideo'),
               onTap: _uploading ? null : _pickVideo,
             ),
             const SizedBox(height: 12),
             _FilePicker(
               icon: Icons.image_outlined,
-              title: _thumbnail?.name ?? 'Ảnh bìa (không bắt buộc)',
+              title: _thumbnail?.name ?? AppStrings.t('upload.chooseThumbnail'),
               subtitle: _thumbnail == null
-                  ? 'Chọn ảnh trong thư viện.'
-                  : 'Đã chọn ảnh bìa',
+                  ? AppStrings.t('upload.thumbnailHint')
+                  : AppStrings.t('upload.selectedThumbnail'),
               onTap: _uploading ? null : _pickThumbnail,
             ),
             const SizedBox(height: 20),
@@ -229,9 +236,12 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               controller: _title,
               enabled: !_uploading,
               maxLength: 150,
-              decoration: const InputDecoration(labelText: 'Tiêu đề'),
-              validator: (value) =>
-                  (value ?? '').trim().isEmpty ? 'Nhập tiêu đề video.' : null,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('upload.titleField'),
+              ),
+              validator: (value) => (value ?? '').trim().isEmpty
+                  ? AppStrings.t('upload.titleRequired')
+                  : null,
             ),
             const SizedBox(height: 8),
             TextFormField(
@@ -240,30 +250,34 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               minLines: 3,
               maxLines: 6,
               maxLength: 5000,
-              decoration: const InputDecoration(labelText: 'Mô tả'),
+              decoration: InputDecoration(
+                labelText: AppStrings.t('creator.descriptionField'),
+              ),
             ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _duration,
               enabled: !_uploading,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Thời lượng (giây)',
-                helperText: 'Nhập thời lượng của file, ví dụ 195.',
+              decoration: InputDecoration(
+                labelText: AppStrings.t('upload.durationField'),
+                helperText: AppStrings.t('upload.durationHint'),
               ),
               validator: (value) => int.tryParse(value ?? '') == null
-                  ? 'Nhập số giây hợp lệ.'
+                  ? AppStrings.t('upload.durationInvalid')
                   : null,
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String?>(
               initialValue: _categoryId,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Chủ đề'),
+              decoration: InputDecoration(
+                labelText: AppStrings.t('upload.topic'),
+              ),
               items: [
-                const DropdownMenuItem<String?>(
+                DropdownMenuItem<String?>(
                   value: null,
-                  child: Text('Không chọn'),
+                  child: Text(AppStrings.t('upload.none')),
                 ),
                 ..._categories.map(
                   (category) => DropdownMenuItem<String?>(
@@ -280,24 +294,29 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
             TextFormField(
               controller: _tags,
               enabled: !_uploading,
-              decoration: const InputDecoration(
-                labelText: 'Tags',
-                helperText: 'Phân cách bằng dấu phẩy, tối đa 10 tag.',
+              decoration: InputDecoration(
+                labelText: AppStrings.t('upload.tags'),
+                helperText: AppStrings.t('upload.tagsHint'),
               ),
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               initialValue: _visibility,
-              decoration: const InputDecoration(labelText: 'Chế độ hiển thị'),
-              items: const [
-                DropdownMenuItem(value: 'private', child: Text('Riêng tư')),
+              decoration: InputDecoration(
+                labelText: AppStrings.t('upload.visibility'),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: 'private',
+                  child: Text(AppStrings.t('upload.private')),
+                ),
                 DropdownMenuItem(
                   value: 'unlisted',
-                  child: Text('Không công khai'),
+                  child: Text(AppStrings.t('upload.unlisted')),
                 ),
                 DropdownMenuItem(
                   value: 'public',
-                  child: Text('Công khai — đưa vào kiểm duyệt'),
+                  child: Text(AppStrings.t('upload.public')),
                 ),
               ],
               onChanged: _uploading
@@ -310,10 +329,8 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               onChanged: _uploading
                   ? null
                   : (value) => setState(() => _ageRestricted = value),
-              title: const Text('Giới hạn độ tuổi'),
-              subtitle: const Text(
-                'Đánh dấu nếu nội dung chỉ phù hợp người trưởng thành.',
-              ),
+              title: Text(AppStrings.t('upload.ageLimit')),
+              subtitle: Text(AppStrings.t('upload.ageRestrictionDescription')),
             ),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
@@ -321,15 +338,16 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               onChanged: _uploading
                   ? null
                   : (value) => setState(() => _policyAccepted = value ?? false),
-              title: const Text(
-                'Tôi cam kết video tuân thủ Tiêu chuẩn cộng đồng và Điều khoản dịch vụ.',
-              ),
+              title: Text(AppStrings.t('upload.policyAgreement')),
               controlAffinity: ListTileControlAffinity.leading,
             ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
             FilledButton.icon(
               onPressed: _uploading ? null : _upload,
@@ -342,7 +360,11 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                       ),
                     )
                   : const Icon(Icons.cloud_upload_outlined),
-              label: Text(_uploading ? 'Đang tải lên…' : 'Tải video lên'),
+              label: Text(
+                _uploading
+                    ? AppStrings.t('upload.uploading')
+                    : AppStrings.t('upload.uploadAction'),
+              ),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
                 backgroundColor: AppColors.primaryPink,

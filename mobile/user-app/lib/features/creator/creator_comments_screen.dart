@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../content/content_models.dart';
 import 'creator_service.dart';
@@ -48,14 +49,14 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.message;
+          _error = AppStrings.apiError(error, fallback: 'common.error');
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải bình luận của kênh.';
+          _error = AppStrings.t('creator.noComments');
           _loading = false;
         });
       }
@@ -75,7 +76,9 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
         }
       });
     } on ApiFailure catch (error) {
-      if (mounted) _message(error.message);
+      if (mounted) {
+        _message(AppStrings.apiError(error, fallback: 'common.error'));
+      }
     }
   }
 
@@ -83,17 +86,19 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xóa bình luận?'),
-        content: const Text('Thao tác này không thể hoàn tác.'),
+        title: Text(AppStrings.t('creator.commentDeleteTitle')),
+        content: Text(AppStrings.t('creator.commentDeleteDescription')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Hủy'),
+            child: Text(AppStrings.t('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(AppStrings.t('common.delete')),
           ),
         ],
       ),
@@ -109,7 +114,9 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
         );
       }
     } on ApiFailure catch (error) {
-      if (mounted) _message(error.message);
+      if (mounted) {
+        _message(AppStrings.apiError(error, fallback: 'common.error'));
+      }
     }
   }
 
@@ -118,22 +125,32 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
   ).showSnackBar(SnackBar(content: Text(value)));
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Bình luận kênh')),
+    appBar: AppBar(title: Text(AppStrings.t('creator.commentsTitle'))),
     body: _loading
         ? const Center(
             child: CircularProgressIndicator(color: AppColors.primaryPink),
           )
         : _error != null
         ? Center(
-            child: FilledButton(onPressed: _load, child: Text(_error!)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error!, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _load,
+                  child: Text(AppStrings.t('common.retry')),
+                ),
+              ],
+            ),
           )
         : RefreshIndicator(
             onRefresh: _load,
             child: _comments.isEmpty
                 ? ListView(
-                    children: const [
-                      SizedBox(height: 190),
-                      Center(child: Text('Chưa có bình luận để quản lý.')),
+                    children: [
+                      const SizedBox(height: 190),
+                      Center(child: Text(AppStrings.t('creator.noComments'))),
                     ],
                   )
                 : ListView.separated(
@@ -174,12 +191,16 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                               PopupMenuItem(
                                 value: 'visibility',
                                 child: Text(
-                                  hidden ? 'Hiện bình luận' : 'Ẩn bình luận',
+                                  hidden
+                                      ? AppStrings.t('creator.showComment')
+                                      : AppStrings.t('creator.hideComment'),
                                 ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'delete',
-                                child: Text('Xóa bình luận'),
+                                child: Text(
+                                  AppStrings.t('creator.deleteComment'),
+                                ),
                               ),
                             ],
                           ),

@@ -80,7 +80,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
             b.Property(x => x.SessionId).HasColumnName("refresh_token_id"); b.Property(x => x.UserId).HasColumnName("user_id");
             b.Property(x => x.RefreshTokenHash).HasColumnName("token_hash"); b.Property(x => x.Jti).HasColumnName("jti");
-            b.Property(x => x.DeviceName).HasColumnName("device_name"); b.Property(x => x.Platform).HasColumnName("platform");
+            b.Property(x => x.DeviceName).HasColumnName("device_name"); b.Property(x => x.DeviceId).HasColumnName("device_id"); b.Property(x => x.Platform).HasColumnName("platform");
             b.Property(x => x.IssuedAt).HasColumnName("issued_at"); b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
             b.Property(x => x.LastActiveAt).HasColumnName("last_active_at"); b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
             b.Property(x => x.RevokeReason).HasColumnName("revoke_reason"); b.Property(x => x.ReplacedBySessionId).HasColumnName("replaced_by_token_id");

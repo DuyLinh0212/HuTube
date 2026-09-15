@@ -57,7 +57,7 @@ class SessionCard extends StatelessWidget {
                   : Icons.laptop,
               color: isCurrent
                   ? AppColors.primaryPink
-                  : AppColors.textSecondary,
+                  : AppColors.textSecondaryFor(context),
               size: 22,
             ),
           ),
@@ -105,8 +105,8 @@ class SessionCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '$ipAddress ${lastActiveAt.isNotEmpty ? '• ${_formatDate(lastActiveAt)}' : ''}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
+                  style: TextStyle(
+                    color: AppColors.textMutedFor(context),
                     fontSize: 12,
                   ),
                 ),
@@ -121,9 +121,9 @@ class SessionCard extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.delete_outline,
-                      color: AppColors.textMuted,
+                      color: AppColors.textMutedFor(context),
                       size: 20,
                     ),
               tooltip: AppStrings.t('session.revoke'),
@@ -137,7 +137,7 @@ class SessionCard extends StatelessWidget {
   String _formatDate(String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      return AppStrings.dateTime(dt);
     } catch (_) {
       return iso;
     }

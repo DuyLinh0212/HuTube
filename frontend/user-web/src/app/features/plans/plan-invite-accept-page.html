@@ -1,19 +1,19 @@
 <main class="invite-page">
   <section class="invite-card">
-    <p class="eyebrow">HuTube Plans</p>
-    <h1>Lời mời dùng chung gói</h1>
+    <p class="eyebrow">{{ 'plans.eyebrow' | translate }}</p>
+    <h1>{{ 'plans.inviteAcceptTitle' | translate }}</h1>
     @if (!memberId || !token) {
-      <p class="error">Liên kết lời mời không đầy đủ.</p>
+      <p class="error">{{ 'plans.inviteIncomplete' | translate }}</p>
     } @else if (!auth.user()) {
-      <p>Đăng nhập bằng đúng email đã nhận lời mời để tiếp tục.</p>
-      <a class="primary" [href]="loginUrl()">Đăng nhập để chấp nhận</a>
+      <p>{{ 'plans.inviteLogin' | translate }}</p>
+      <a class="primary" [href]="loginUrl()">{{ 'plans.inviteLoginButton' | translate }}</a>
     } @else if (message()) {
       <p class="success">{{ message() }}</p>
-      <a class="primary" routerLink="/plans">Mở Gói của tôi</a>
+      <a class="primary" routerLink="/plans">{{ 'plans.openMine' | translate }}</a>
     } @else {
-      <p>Kiểm tra email tài khoản rồi xác nhận lời mời tham gia gói.</p>
+      <p>{{ 'plans.inviteCheckEmail' | translate }}</p>
       @if (error()) { <p class="error">{{ error() }}</p> }
-      <button class="primary" type="button" (click)="accept()" [disabled]="busy()">{{ busy() ? 'Đang xác nhận…' : 'Chấp nhận lời mời' }}</button>
+      <button class="primary" type="button" (click)="accept()" [disabled]="busy()">{{ busy() ? ('plans.processingInvite' | translate) : ('plans.acceptInvite' | translate) }}</button>
     }
   </section>
 </main>

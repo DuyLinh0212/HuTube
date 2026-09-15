@@ -1,4 +1,3 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -6,10 +5,14 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { CommentItem, ContentService, Playback, Rendition, VideoCard, VideoDetail, ViolationType } from '../../core/content.service';
+import { I18nService } from '../../core/i18n.service';
+import { LocaleDatePipe } from '../../core/locale-date.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-watch-page',
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink],
+  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })
@@ -17,6 +20,7 @@ export class WatchPage {
   private readonly route = inject(ActivatedRoute);
   private readonly content = inject(ContentService);
   private readonly channels = inject(ChannelService);
+  readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
 
   readonly video = signal<VideoDetail | null>(null);
@@ -90,13 +94,13 @@ export class WatchPage {
       next: video => {
         this.video.set(video);
         if (video.videoUrl) {
-          this.activeRendition.set({ quality: 'Nguồn', width: 0, height: 0, fileSize: video.fileSize, url: video.videoUrl });
+          this.activeRendition.set({ quality: this.i18n.t('watch.sourceQuality'), width: 0, height: 0, fileSize: video.fileSize, url: video.videoUrl });
         }
         this.channels.getChannel(video.channelHandle).subscribe({ next: channel => this.channel.set(channel), error: () => {} });
         this.loading.set(false);
       },
       error: () => {
-        this.error.set('Video không khả dụng hoặc bạn không có quyền xem video này.');
+        this.error.set(this.i18n.t('watch.unavailableError'));
         this.loading.set(false);
       }
     });
@@ -112,7 +116,7 @@ export class WatchPage {
           this.activeRendition.set(best);
         }
       },
-      error: () => this.actionMessage.set('Không tải được các bản chất lượng cao hơn. Video nguồn vẫn có thể phát.')
+      error: () => this.actionMessage.set(this.i18n.t('watch.playbackQualityError'))
     });
 
     this.content.comments(this.videoId).subscribe({
@@ -162,7 +166,7 @@ export class WatchPage {
   }
 
   onPlayerError() {
-    this.actionMessage.set('Không thể phát bản chất lượng này. Hãy thử chọn chất lượng khác.');
+    this.actionMessage.set(this.i18n.t('watch.renditionError'));
   }
 
   changeSpeed(value: number | string) {
@@ -175,7 +179,7 @@ export class WatchPage {
     const player = this.playerRef?.nativeElement;
     if (!player) return;
     if (player.paused) {
-      void player.play().catch(() => this.actionMessage.set('Không thể phát video ở thời điểm này.'));
+      void player.play().catch(() => this.actionMessage.set(this.i18n.t('watch.playError')));
     } else {
       player.pause();
     }
@@ -257,7 +261,7 @@ export class WatchPage {
   }
 
   react(type: 'like' | 'dislike') {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để thích hoặc không thích video.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginReaction'))) return;
     const item = this.video();
     if (!item) return;
     const next = item.viewerState?.reaction === type ? null : type;
@@ -267,12 +271,12 @@ export class WatchPage {
         stats: { ...item.stats, likes: result.likes, dislikes: result.dislikes },
         viewerState: { ...this.viewerState(item), reaction: result.myReaction as 'like' | 'dislike' | null }
       }),
-      error: error => this.actionMessage.set(this.readError(error) || 'Vui lòng đăng nhập để tương tác với video.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.interactionError'))
     });
   }
 
   rate(score: number | null) {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để đánh giá video.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginRating'))) return;
     const item = this.video();
     if (!item) return;
     this.content.rate(item.videoId, score).subscribe({
@@ -286,9 +290,9 @@ export class WatchPage {
           },
           viewerState: { ...this.viewerState(item), rating: result.myRating }
         });
-        this.actionMessage.set('Đã cập nhật đánh giá của bạn.');
+        this.actionMessage.set(this.i18n.t('watch.ratingSaved'));
       },
-      error: error => this.actionMessage.set(this.readError(error) || 'Vui lòng đăng nhập để đánh giá video.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.loginRating'))
     });
   }
 
@@ -300,13 +304,13 @@ export class WatchPage {
     // A guest may share the public URL. Only authenticated viewers can persist
     // the share event because the API endpoint is protected.
     if (!this.auth.user()) {
-      this.actionMessage.set('Liên kết video công khai đã sẵn sàng để chia sẻ.');
+      this.actionMessage.set(this.i18n.t('watch.shareReadyPublic'));
       return;
     }
     this.content.share(item.videoId).subscribe({
       next: result => {
         if (result?.url) this.shareUrl.set(this.absoluteUrl(result.url));
-        this.actionMessage.set('Liên kết video đã sẵn sàng để chia sẻ.');
+        this.actionMessage.set(this.i18n.t('watch.shareReady'));
       },
       error: () => {}
     });
@@ -315,13 +319,13 @@ export class WatchPage {
   copyShareLink() {
     const url = this.shareUrl() || window.location.href;
     if (!navigator.clipboard) {
-      this.actionMessage.set('Hãy sao chép liên kết trong ô bên trên.');
+      this.actionMessage.set(this.i18n.t('watch.copyHint'));
       return;
     }
     navigator.clipboard.writeText(url).then(() => {
-      this.actionMessage.set('Đã sao chép liên kết video.');
+      this.actionMessage.set(this.i18n.t('watch.shareCopied'));
       this.shareOpen.set(false);
-    }).catch(() => this.actionMessage.set('Không thể sao chép tự động. Hãy sao chép liên kết thủ công.'));
+    }).catch(() => this.actionMessage.set(this.i18n.t('watch.copyError')));
   }
 
   closeShare() {
@@ -334,7 +338,7 @@ export class WatchPage {
   }
 
   comment() {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để bình luận.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginCommentAction'))) return;
     const item = this.video();
     const text = this.commentText.trim();
     if (!item || !text) return;
@@ -344,7 +348,7 @@ export class WatchPage {
         this.commentText = '';
         this.video.update(video => video ? { ...video, stats: { ...video.stats, comments: video.stats.comments + 1 } } : video);
       },
-      error: error => this.actionMessage.set(this.readError(error) || 'Không thể gửi bình luận.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.commentError'))
     });
   }
 
@@ -383,13 +387,13 @@ export class WatchPage {
       },
       error: error => {
         this.repliesLoading.update(state => ({ ...state, [comment.commentId]: false }));
-        this.actionMessage.set(this.readError(error) || 'Không thể tải câu trả lời.');
+        this.actionMessage.set(this.readError(error) || this.i18n.t('watch.noReplies'));
       }
     });
   }
 
   reply(comment: CommentItem) {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để trả lời bình luận.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginReply'))) return;
     const text = this.replyText.trim();
     if (!text) return;
     this.content.createComment(comment.videoId, text, comment.commentId).subscribe({
@@ -405,14 +409,14 @@ export class WatchPage {
         this.video.update(video => video ? { ...video, stats: { ...video.stats, comments: video.stats.comments + 1 } } : video);
         this.replyText = '';
         this.replyTo.set(null);
-        this.actionMessage.set('Đã gửi câu trả lời.');
+        this.actionMessage.set(this.i18n.t('watch.replySaved'));
       },
-      error: error => this.actionMessage.set(this.readError(error) || 'Không thể gửi câu trả lời.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.replyError'))
     });
   }
 
   reactComment(comment: CommentItem, type: 'like' | 'dislike') {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để tương tác với bình luận.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginCommentInteraction'))) return;
     const next = comment.myReaction === type ? null : type;
     this.content.reactComment(comment.commentId, next).subscribe({
       next: result => {
@@ -424,7 +428,7 @@ export class WatchPage {
         };
         this.replaceCommentInState(updated);
       },
-      error: error => this.actionMessage.set(this.readError(error) || 'Vui lòng đăng nhập để tương tác.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.loginCommentInteraction'))
     });
   }
 
@@ -440,16 +444,16 @@ export class WatchPage {
   }
 
   hide(comment: CommentItem) {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để quản lý bình luận.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginCommentManage'))) return;
     this.content.hideComment(comment.commentId, comment.status !== 'hidden').subscribe({
       next: value => this.replaceCommentInState(value),
-      error: error => this.actionMessage.set(this.readError(error) || 'Không thể cập nhật bình luận.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.commentUpdateError'))
     });
   }
 
   remove(comment: CommentItem) {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để xóa bình luận.')) return;
-    if (!confirm('Xóa bình luận này?')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginCommentDelete'))) return;
+    if (!confirm(this.i18n.t('watch.deleteCommentConfirm'))) return;
     this.content.deleteComment(comment.commentId).subscribe({
       next: () => {
         const wasRoot = this.comments().some(item => item.commentId === comment.commentId);
@@ -470,37 +474,37 @@ export class WatchPage {
         }
         this.video.update(video => video ? { ...video, stats: { ...video.stats, comments: Math.max(0, video.stats.comments - 1) } } : video);
       },
-      error: error => this.actionMessage.set(this.readError(error) || 'Không thể xóa bình luận.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.commentUpdateError'))
     });
   }
 
   report(comment: CommentItem) {
     const types = this.violationTypes();
     if (!this.auth.user()) {
-      this.actionMessage.set('Vui lòng đăng nhập để báo cáo bình luận.');
+      this.actionMessage.set(this.i18n.t('watch.loginReport'));
       return;
     }
     if (!types.length) {
-      this.actionMessage.set('Hiện chưa có loại vi phạm để gửi báo cáo.');
+      this.actionMessage.set(this.i18n.t('watch.noViolationTypes'));
       return;
     }
     const choices = types.map(type => `${type.code}: ${type.name}`).join('\n');
-    const code = prompt(`Chọn mã vi phạm:\n${choices}`, types[0].code)?.trim().toLowerCase();
+    const code = prompt(this.i18n.t('watch.violationChoice', { choices }), types[0].code)?.trim().toLowerCase();
     if (!code) return;
     const type = types.find(item => item.code.toLowerCase() === code);
     if (!type) {
-      this.actionMessage.set('Mã vi phạm không hợp lệ.');
+      this.actionMessage.set(this.i18n.t('watch.invalidViolationCode'));
       return;
     }
-    const description = prompt('Mô tả thêm (không bắt buộc):', '') ?? '';
+    const description = prompt(this.i18n.t('watch.reportDescriptionPrompt'), '') ?? '';
     this.content.reportComment(comment.commentId, type.violationTypeId, description).subscribe({
-      next: () => this.actionMessage.set('Đã gửi báo cáo bình luận.'),
-      error: () => this.actionMessage.set('Không thể gửi báo cáo. Vui lòng thử lại.')
+      next: () => this.actionMessage.set(this.i18n.t('watch.reportSent')),
+      error: () => this.actionMessage.set(this.i18n.t('watch.reportError'))
     });
   }
 
   openDownloads() {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để tải video xuống.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginDownload'))) return;
     if (this.downloadOptions().length) {
       this.downloadOpen.update(value => !value);
       return;
@@ -511,22 +515,22 @@ export class WatchPage {
       next: options => {
         this.downloadOptions.set(options ?? []);
         this.downloadOpen.set(true);
-        if (!options?.length) this.actionMessage.set('Gói hiện tại chưa có chất lượng tải xuống khả dụng.');
+        if (!options?.length) this.actionMessage.set(this.i18n.t('watch.noDownloadQuality'));
       },
-      error: error => this.actionMessage.set(this.readError(error) || 'Gói hiện tại không hỗ trợ tải xuống video.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.downloadUnsupported'))
     });
   }
 
   download(quality: string) {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để tải video xuống.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watch.loginDownload'))) return;
     this.downloadBusy.set(true);
     this.content.createDownload(this.videoId, quality).pipe(finalize(() => this.downloadBusy.set(false))).subscribe({
       next: result => {
         this.downloadOpen.set(false);
-        this.actionMessage.set(result.fileUrl ? 'Đã tạo bản tải xuống. Bạn có thể mở liên kết từ thông báo tải xuống.' : 'Đã tạo bản tải xuống.');
+        this.actionMessage.set(result.fileUrl ? this.i18n.t('watch.downloadCreatedWithLink') : this.i18n.t('watch.downloadCreated'));
         if (result.fileUrl) window.open(result.fileUrl, '_blank', 'noopener,noreferrer');
       },
-      error: error => this.actionMessage.set(this.readError(error) || 'Không thể tạo bản tải xuống.')
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.downloadError'))
     });
   }
 
@@ -546,22 +550,52 @@ export class WatchPage {
     return text ? text.charAt(0).toUpperCase() : 'H';
   }
 
+  visibilityLabel(value: string | null | undefined) {
+    if (value === 'public') return this.i18n.t('ui.public');
+    if (value === 'unlisted') return this.i18n.t('ui.unlisted');
+    return this.i18n.t('ui.private');
+  }
+
+  languageLabel(value: string | null | undefined) {
+    const code = (value ?? '').toLowerCase();
+    if (code.startsWith('en')) return this.i18n.t('upload.languageEnglish');
+    if (code.startsWith('ja')) return this.i18n.t('upload.languageJapanese');
+    if (code.startsWith('vi')) return this.i18n.t('upload.languageVietnamese');
+    return value || this.i18n.t('watch.defaultLanguage');
+  }
+
+  countLabel(key: 'watch.views' | 'watch.subscribers' | 'watch.chapterCountLabel' | 'watch.commentCount' | 'watch.recommendationViews' | 'watch.repliesCount', count: number) {
+    return this.i18n.t(key, { count: this.i18n.formatNumber(count) });
+  }
+
+  ratingLabel(star: number) {
+    return this.i18n.t('watch.ratingStar', { star: String(star) });
+  }
+
+  repliesLabel(count: number) {
+    return this.countLabel('watch.repliesCount', count);
+  }
+
+  commentStatusLabel(hidden: boolean) {
+    return this.i18n.t(hidden ? 'watch.show' : 'watch.hide');
+  }
+
   duration(value: number) {
     const seconds = Math.max(0, Math.floor(value || 0));
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   }
 
   formatBytes(bytes: number) {
-    if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} GB`;
-    return `${(bytes / 1024 ** 2).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} MB`;
+    if (bytes >= 1024 ** 3) return `${this.i18n.formatNumber(bytes / 1024 ** 3, { maximumFractionDigits: 2 })} GB`;
+    return `${this.i18n.formatNumber(bytes / 1024 ** 2, { maximumFractionDigits: 2 })} MB`;
   }
 
   private viewerState(item: VideoDetail) {
     return item.viewerState ?? { reaction: null, rating: null, resumeAtSeconds: 0, progress: 0 };
   }
 
-  private readError(error: any) {
-    return error?.error?.detail || error?.error?.title || error?.message || '';
+  private readError(_error: any) {
+    return '';
   }
 
   private requireAuthentication(message: string): boolean {

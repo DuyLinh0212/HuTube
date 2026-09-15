@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/localization/app_strings.dart';
 import 'content_models.dart';
 
 class VideoCardTile extends StatelessWidget {
@@ -13,7 +14,7 @@ class VideoCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Mở video ${video.title}',
+    label: AppStrings.format('feed.openVideo', {'title': video.title}),
     child: InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => context.push('/watch/${video.id}'),
@@ -32,8 +33,7 @@ class VideoCardTile extends StatelessWidget {
                         ? Image.network(
                             video.thumbnailUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                const _VideoFallback(),
+                            errorBuilder: (_, _, _) => const _VideoFallback(),
                           )
                         : const _VideoFallback(),
                   ),
@@ -111,7 +111,7 @@ class VideoCardTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${video.channelName} · ${video.views} lượt xem${_dateSuffix(video.publishedAt)}',
+                          '${video.channelName} · ${AppStrings.format('feed.views', {'count': AppStrings.number(video.views)})}${_dateSuffix(video.publishedAt)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall,
@@ -134,10 +134,7 @@ class VideoCardTile extends StatelessWidget {
 
   static String _dateSuffix(DateTime? date) {
     if (date == null) return '';
-    final days = DateTime.now().difference(date.toLocal()).inDays;
-    if (days <= 0) return ' · Hôm nay';
-    if (days < 30) return ' · $days ngày trước';
-    return ' · ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    return ' · ${AppStrings.relativeDate(date)}';
   }
 }
 

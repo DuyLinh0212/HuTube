@@ -2,17 +2,21 @@
   display: block;
   min-width: 0;
   min-height: 0;
+  position: sticky;
+  top: 76px;
+  align-self: start;
+  height: calc(100dvh - 76px);
+  z-index: 30;
 }
 
 .side-nav {
-  position: sticky;
-  top: 76px;
-  z-index: 30;
+  position: relative;
+  top: auto;
   display: flex;
   flex-direction: column;
   height: calc(100dvh - 76px);
   padding: 14px 16px 16px;
-  border-right: 1px solid var(--line);
+  border-right: 0;
   background: var(--surface);
   backdrop-filter: blur(18px);
   overflow: hidden;
@@ -116,6 +120,7 @@
     z-index: 100;
     width: min(304px, 88vw);
     height: 100dvh;
+    top: 0;
     pointer-events: none;
   }
 

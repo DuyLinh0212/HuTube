@@ -11,7 +11,8 @@ import { TranslatePipe } from '../../core/translate.pipe';
 @Component({
   selector: 'app-account-page',
   imports: [DatePipe, TranslatePipe],
-  templateUrl: './account-page.html'
+  templateUrl: './account-page.html',
+  styleUrl: './account-page.scss'
 })
 export class AccountPage {
   readonly auth = inject(AuthService);

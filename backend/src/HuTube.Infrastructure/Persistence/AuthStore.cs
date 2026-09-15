@@ -26,6 +26,9 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
     public Task<bool> UsernameExistsAsync(string username, CancellationToken ct) => db.Users.AnyAsync(x => x.Username == username, ct);
     public Task<string?> FindPasswordHashAsync(Guid userId, CancellationToken ct) => db.Users.Where(x => x.UserId == userId).Select(x => x.PasswordHash).SingleOrDefaultAsync(ct);
     public Task<UserSession?> FindSessionByHashAsync(string hash, CancellationToken ct) => db.Sessions.SingleOrDefaultAsync(x => x.RefreshTokenHash == hash, ct);
+    public Task<UserSession?> FindActiveSessionByDeviceAsync(Guid userId, string platform, string deviceId, DateTimeOffset now, CancellationToken ct) =>
+        db.Sessions.SingleOrDefaultAsync(x => x.UserId == userId && x.Platform == platform && x.DeviceId == deviceId
+            && x.RevokedAt == null && x.ExpiresAt > now, ct);
     public Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct) => db.Sessions.SingleOrDefaultAsync(x => x.SessionId == id, ct);
     public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => db.Sessions.Where(x => x.UserId == userId).ToListAsync(ct);
     public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) =>

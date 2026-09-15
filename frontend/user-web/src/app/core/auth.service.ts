@@ -2,17 +2,38 @@ import { HttpBackend, HttpClient, HttpErrorResponse, HttpHeaders } from '@angula
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, defer, finalize, firstValueFrom, map, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
+import { I18nService } from './i18n.service';
 
 export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; }
 export interface LoginResponse { accessToken: string; expiresAt: string; user: User; }
 export interface Session { sessionId: string; deviceName: string; platform: string; issuedAt: string; lastActiveAt: string; expiresAt: string; isCurrent: boolean; }
 export interface Message { message: string; }
 
+function stableDeviceId(): string {
+  if (typeof document === 'undefined') return '';
+  const key = `hutube_device_id_${ADMIN_APP ? 'admin' : 'user'}`;
+  const existing = document.cookie.split('; ').find(item => item.startsWith(`${key}=`))?.slice(key.length + 1);
+  if (existing) return decodeURIComponent(existing);
+  const generated = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  try { document.cookie = `${key}=${encodeURIComponent(generated)}; Max-Age=31536000; Path=/; SameSite=Lax`; } catch { /* non-browser host */ }
+  return generated;
+}
+
+function browserDeviceName(google = false, mobileLabel = 'Điện thoại', desktopLabel = 'Máy tính'): string {
+  const mobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+  const kind = mobile ? mobileLabel : desktopLabel;
+  if (ADMIN_APP) return `HuTube Admin · ${kind}`;
+  return `HuTube Web${google ? ' / Google' : ''} · ${kind}`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private raw = new HttpClient(inject(HttpBackend));
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
+  readonly i18n = inject(I18nService);
   readonly user = signal<User | null>(null);
   readonly accessToken = signal<string | null>(null);
   private refreshFlight?: Observable<LoginResponse>;
@@ -32,7 +53,7 @@ export class AuthService {
   private accept(response: LoginResponse): void { this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true; }
   login(email: string, password: string): Observable<User> {
     const generation = ++this.generation;
-    return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: ADMIN_APP ? 'HuTube Admin Web' : 'HuTube Web' }).pipe(
+    return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: browserDeviceName(false, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')), deviceId: stableDeviceId() }).pipe(
       tap(response => { if (generation !== this.generation) throw new Error('Yêu cầu đăng nhập đã bị hủy.'); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
@@ -40,7 +61,7 @@ export class AuthService {
   }
   google(credential: string): Observable<User> {
     const generation = ++this.generation;
-    return this.post<LoginResponse>('/auth/google', { credential, platform: 'web', deviceName: 'HuTube Web / Google' }).pipe(
+    return this.post<LoginResponse>('/auth/google', { credential, platform: 'web', deviceName: browserDeviceName(true, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')), deviceId: stableDeviceId() }).pipe(
       tap(response => { if (generation !== this.generation) throw new Error('Yêu cầu đăng nhập đã bị hủy.'); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
@@ -116,25 +137,33 @@ export function safeReturnUrl(value: string | null): string {
   return value;
 }
 
-export function errorMessage(error: unknown): string {
-  if (!(error instanceof HttpErrorResponse)) return 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.';
-  const messages: Record<string, string> = {
-    INVALID_CREDENTIALS: 'Email hoặc mật khẩu chưa đúng.',
-    EMAIL_NOT_VERIFIED: 'Vui lòng xác minh email trước khi đăng nhập.',
-    EMAIL_UNVERIFIED: 'Vui lòng xác minh email trước khi đăng nhập.',
-    ACCOUNT_SUSPENDED: 'Tài khoản đang bị tạm khóa.', ACCOUNT_BANNED: 'Tài khoản đã bị khóa.',
-    ADMIN_ACCESS_DENIED: 'Tài khoản không có quyền quản trị hoặc quyền đã bị vô hiệu hóa.',
-    ADMIN_DISABLED: 'Quyền quản trị của tài khoản đã bị vô hiệu hóa.',
-    EMAIL_EXISTS: 'Email này đã được sử dụng.', USERNAME_EXISTS: 'Tên người dùng này đã được sử dụng.',
-    INVALID_TOKEN: 'Liên kết không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.',
-    TOKEN_EXPIRED: 'Liên kết đã hết hạn. Hãy yêu cầu liên kết mới.',
-    GOOGLE_LOGIN_NOT_CONFIGURED: 'Đăng nhập Google chưa được cấu hình.',
-    INVALID_GOOGLE_TOKEN: 'Không thể xác thực tài khoản Google. Vui lòng thử lại.',
-    GOOGLE_ACCOUNT_CONFLICT: 'Email này đã được liên kết với một tài khoản Google khác.'
+export function errorMessage(error: unknown, i18n?: I18nService): string {
+  const fallback = (key: string) => i18n?.t(key) ?? ({
+    'auth.requestError': 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.',
+    'auth.serverUnavailable': 'Chưa kết nối được máy chủ. Kiểm tra kết nối và thử lại.',
+    'auth.tooManyRequests': 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.',
+    'auth.accessDenied': 'Tài khoản không có quyền truy cập hoặc đã bị vô hiệu hóa.'
+  }[key] || key);
+  if (!(error instanceof HttpErrorResponse)) return fallback('auth.requestError');
+  const keys: Record<string, string> = {
+    INVALID_CREDENTIALS: 'auth.invalidCredentials',
+    EMAIL_NOT_VERIFIED: 'auth.emailNotVerified',
+    EMAIL_UNVERIFIED: 'auth.emailNotVerified',
+    ACCOUNT_SUSPENDED: 'auth.accountSuspended',
+    ACCOUNT_BANNED: 'auth.accountBanned',
+    ADMIN_ACCESS_DENIED: 'auth.adminAccessDenied',
+    ADMIN_DISABLED: 'auth.adminDisabled',
+    EMAIL_EXISTS: 'auth.emailExists',
+    USERNAME_EXISTS: 'auth.usernameExists',
+    INVALID_TOKEN: 'auth.invalidToken',
+    TOKEN_EXPIRED: 'auth.tokenExpired',
+    GOOGLE_LOGIN_NOT_CONFIGURED: 'auth.googleNotConfigured',
+    INVALID_GOOGLE_TOKEN: 'auth.invalidGoogleToken',
+    GOOGLE_ACCOUNT_CONFLICT: 'auth.googleConflict'
   };
-  if (error.status === 0) return 'Chưa kết nối được máy chủ. Kiểm tra kết nối và thử lại.';
-  if (error.status === 429) return 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.';
-  if (messages[error.error?.code]) return messages[error.error.code];
-  if (error.status === 403) return 'Tài khoản không có quyền truy cập hoặc đã bị vô hiệu hóa.';
-  return typeof error.error?.detail === 'string' ? error.error.detail : 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.';
+  if (error.status === 0) return fallback('auth.serverUnavailable');
+  if (error.status === 429) return fallback('auth.tooManyRequests');
+  if (keys[error.error?.code]) return fallback(keys[error.error.code]);
+  if (error.status === 403) return fallback('auth.accessDenied');
+  return fallback('auth.requestError');
 }

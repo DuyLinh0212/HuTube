@@ -1,5 +1,4 @@
 import { Component, ElementRef, OnInit, ViewChild, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -8,6 +7,8 @@ import { AccountService, NotificationSettings, UserPreferences, UserProfile } fr
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { ThemeService } from '../../core/theme.service';
 import { I18nService } from '../../core/i18n.service';
+import { LocaleDatePipe } from '../../core/locale-date.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 
 export type AccountTab =
@@ -20,7 +21,7 @@ export type AccountTab =
 
 @Component({
   selector: 'app-account-page',
-  imports: [DatePipe, FormsModule, RouterLink, TranslatePipe],
+  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './account-page.html',
   styleUrl: './account-page.scss'
 })
@@ -59,7 +60,7 @@ export class AccountPage implements OnInit {
   readonly profile = signal<UserProfile | null>(null);
   displayName = '';
   bio = '';
-  location = 'Việt Nam';
+  location = this.i18n.t('account.locationVietnam');
 
   // Password Form
   currentPassword = '';
@@ -87,13 +88,13 @@ export class AccountPage implements OnInit {
     theme: 'dark',
     keepSubscriptionsPrivate: true,
     keepPlaylistsPrivate: true,
-    location: 'Việt Nam'
+    location: this.i18n.t('account.locationVietnam')
   };
 
   // Sessions
   readonly sessions = signal<Session[]>([]);
   readonly pendingRevoke = signal<Session | null>(null);
-  readonly apiState = signal('Đang kiểm tra kết nối…');
+  readonly apiState = signal(this.i18n.t('account.apiChecking'));
 
   constructor() {
     this.topFanRanking.set(localStorage.getItem('hutube.privacy.topFanRanking') !== 'false');
@@ -105,8 +106,8 @@ export class AccountPage implements OnInit {
     this.smartDownloads.set(localStorage.getItem('hutube.downloads.smart') === 'true');
     this.loadAll();
     this.auth.info().subscribe({
-      next: () => this.apiState.set('Đã kết nối'),
-      error: () => this.apiState.set('Chưa kết nối được máy chủ')
+      next: () => this.apiState.set(this.i18n.t('account.apiConnected')),
+      error: () => this.apiState.set(this.i18n.t('account.apiUnavailable'))
     });
   }
 
@@ -128,7 +129,7 @@ export class AccountPage implements OnInit {
         this.displayName = p.displayName;
         this.bio = p.bio ?? '';
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
 
     this.account.getNotificationSettings().subscribe({
@@ -142,7 +143,7 @@ export class AccountPage implements OnInit {
     this.account.getPreferences().subscribe({
       next: prefs => {
         this.preferences = { ...prefs };
-        this.location = prefs.location ?? 'Việt Nam';
+        this.location = prefs.location ?? this.i18n.t('account.locationVietnam');
         this.keepSubscriptionsPrivate.set(prefs.keepSubscriptionsPrivate ?? true);
         if (prefs.theme === 'light' || prefs.theme === 'dark') {
           this.themeService.setTheme(prefs.theme);
@@ -165,7 +166,7 @@ export class AccountPage implements OnInit {
   loadSessions() {
     this.auth.sessions().pipe(finalize(() => this.loading.set(false))).subscribe({
       next: result => this.sessions.set(result.items),
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -178,7 +179,7 @@ export class AccountPage implements OnInit {
         this.message.set(this.i18n.t('account.privacySaved'));
         setTimeout(() => this.message.set(''), 3000);
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -190,7 +191,7 @@ export class AccountPage implements OnInit {
         this.message.set(this.i18n.t('account.privacySaved'));
         setTimeout(() => this.message.set(''), 3000);
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -244,7 +245,7 @@ export class AccountPage implements OnInit {
         this.message.set(this.i18n.t('account.profileSaved'));
         setTimeout(() => this.message.set(''), 3000);
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -270,7 +271,7 @@ export class AccountPage implements OnInit {
         this.message.set(this.i18n.t('account.avatarUpdated'));
         setTimeout(() => this.message.set(''), 3000);
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -298,14 +299,14 @@ export class AccountPage implements OnInit {
       newPassword: this.newPassword
     }).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: res => {
-        this.message.set(res.message);
+        this.message.set(this.i18n.t('account.passwordChanged'));
         this.currentPassword = '';
         this.newPassword = '';
         this.confirmPassword = '';
         this.changingPassword.set(false);
         setTimeout(() => this.message.set(''), 3000);
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -322,7 +323,7 @@ export class AccountPage implements OnInit {
         this.message.set(this.i18n.t('account.notifSaved'));
         setTimeout(() => this.message.set(''), 3000);
       },
-      error: err => this.error.set(errorMessage(err))
+      error: err => this.error.set(errorMessage(err, this.i18n))
     });
   }
 
@@ -355,7 +356,7 @@ export class AccountPage implements OnInit {
     this.error.set('');
     this.auth.logout().pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => void this.router.navigate(['/login']),
-      error: error => this.error.set(errorMessage(error) + ' ' + this.i18n.t('account.retryLogout'))
+      error: error => this.error.set(errorMessage(error, this.i18n) + ' ' + this.i18n.t('account.retryLogout'))
     });
   }
 
@@ -368,7 +369,7 @@ export class AccountPage implements OnInit {
         this.message.set(this.i18n.t('account.loggedOutOthers'));
         this.loadSessions();
       },
-      error: error => this.error.set(errorMessage(error))
+      error: error => this.error.set(errorMessage(error, this.i18n))
     });
   }
 
@@ -378,7 +379,7 @@ export class AccountPage implements OnInit {
     this.error.set('');
     this.auth.logoutAll().pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => void this.router.navigate(['/login'], { queryParams: { reason: 'session-revoked' } }),
-      error: error => this.error.set(errorMessage(error))
+      error: error => this.error.set(errorMessage(error, this.i18n))
     });
   }
 
@@ -393,7 +394,7 @@ export class AccountPage implements OnInit {
         this.message.set(this.i18n.t('account.sessionEnded'));
         this.loadSessions();
       },
-      error: error => this.error.set(errorMessage(error))
+      error: error => this.error.set(errorMessage(error, this.i18n))
     });
   }
 }

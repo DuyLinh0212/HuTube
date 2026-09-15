@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/channel_models.dart';
@@ -45,16 +46,41 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
         _roles = values[1] as List<ChannelRole>;
       });
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(error, fallback: 'common.error'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  String _roleName(String code) =>
-      _roles.where((role) => role.code == code).firstOrNull?.name ?? code;
-  String _roleDescription(String code) =>
-      _roles.where((role) => role.code == code).firstOrNull?.description ?? '';
+  String _roleName(String code) {
+    final localized = switch (code) {
+      'manager' => AppStrings.t('channel.roleManager'),
+      'editor' => AppStrings.t('channel.roleEditor'),
+      'moderator' => AppStrings.t('channel.roleModerator'),
+      'viewer' => AppStrings.t('channel.roleViewer'),
+      _ => null,
+    };
+    return localized ??
+        _roles.where((role) => role.code == code).firstOrNull?.name ??
+        code;
+  }
+
+  String _roleDescription(String code) {
+    final localized = switch (code) {
+      'manager' => AppStrings.t('channel.roleManagerDescription'),
+      'editor' => AppStrings.t('channel.roleEditorDescription'),
+      'moderator' => AppStrings.t('channel.roleModeratorDescription'),
+      'viewer' => AppStrings.t('channel.roleViewerDescription'),
+      _ => null,
+    };
+    return localized ??
+        _roles.where((role) => role.code == code).firstOrNull?.description ??
+        '';
+  }
 
   Future<void> _respond(ChannelInvitation invitation, bool accept) async {
     setState(() {
@@ -77,15 +103,21 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
         SnackBar(
           content: Text(
             accept
-                ? 'Đã tham gia kênh ${invitation.channelName}.'
-                : 'Đã từ chối lời mời.',
+                ? AppStrings.format('channel.joinedChannel', {
+                    'name': invitation.channelName,
+                  })
+                : AppStrings.t('channel.declined'),
           ),
-          backgroundColor: AppColors.success,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(error, fallback: 'common.error'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -93,7 +125,7 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Lời mời tham gia kênh')),
+    appBar: AppBar(title: Text(AppStrings.t('channel.invitationsTitle'))),
     body: RefreshIndicator(
       color: AppColors.primaryPink,
       onRefresh: _load,
@@ -109,28 +141,30 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                   const SizedBox(height: 14),
                 ],
                 if (_invitations.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 100),
                     child: Column(
                       children: [
                         Icon(
                           Icons.mark_email_read_outlined,
                           size: 52,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textMutedFor(context),
                         ),
                         SizedBox(height: 14),
                         Text(
-                          'Không có lời mời đang chờ',
+                          AppStrings.t('channel.noInvitations'),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 17,
-                            color: AppColors.textPrimary,
+                            color: AppColors.textPrimaryFor(context),
                           ),
                         ),
                         SizedBox(height: 6),
                         Text(
-                          'Kéo xuống để kiểm tra lại.',
-                          style: TextStyle(color: AppColors.textSecondary),
+                          AppStrings.t('channel.pullToRefresh'),
+                          style: TextStyle(
+                            color: AppColors.textSecondaryFor(context),
+                          ),
                         ),
                       ],
                     ),
@@ -140,9 +174,9 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.backgroundCard,
+                      color: AppColors.surfaceFor(context),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.cardBorder),
+                      border: Border.all(color: AppColors.borderFor(context)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,16 +204,18 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                                 children: [
                                   Text(
                                     invitation.channelName,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.textPrimaryFor(context),
                                     ),
                                   ),
                                   Text(
                                     '@${invitation.channelHandle}',
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondaryFor(
+                                        context,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -210,10 +246,10 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                         const SizedBox(height: 12),
                         Text(
                           _roleDescription(invitation.roleCode),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             height: 1.4,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textSecondaryFor(context),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -229,8 +265,8 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                                     : null,
                                 child: Text(
                                   _busyId == invitation.id
-                                      ? 'Đang xử lý…'
-                                      : 'Chấp nhận',
+                                      ? AppStrings.t('channel.processing')
+                                      : AppStrings.t('channel.accept'),
                                 ),
                               ),
                             ),
@@ -240,7 +276,7 @@ class _ChannelInvitationsScreenState extends State<ChannelInvitationsScreen> {
                                 onPressed: _busyId == null
                                     ? () => _respond(invitation, false)
                                     : null,
-                                child: const Text('Từ chối'),
+                                child: Text(AppStrings.t('channel.decline')),
                               ),
                             ),
                           ],

@@ -1,3 +1,68 @@
-import { Component, inject, signal } from '@angular/core';import { FormsModule } from '@angular/forms';import { AccountService } from '../../../core/account.service';import { ChannelService } from '../../../core/channel.service';import { ThemeService } from '../../../core/theme.service';import { I18nService } from '../../../core/i18n.service';
-@Component({selector:'app-studio-settings-page',imports:[FormsModule],template:`<main class="page"><h1>Cài đặt kênh</h1><p>Thông tin này được đồng bộ với trang kênh và giao diện chính.</p>@if(message()){<p class="message">{{message()}}</p>}<form (ngSubmit)="saveChannel()"><h2>Thông tin kênh</h2><label>Tên kênh<input name="name" [(ngModel)]="name" required/></label><label>Mô tả<textarea name="description" [(ngModel)]="description"></textarea></label><label>Email liên hệ<input name="email" type="email" [(ngModel)]="contactEmail"/></label><button>Lưu thông tin kênh</button></form><section><h2>Hiển thị</h2><label>Ngôn ngữ<select [ngModel]="i18n.currentLang()" (ngModelChange)="setLanguage($event)"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></label><label>Giao diện<select [ngModel]="theme.currentTheme()" (ngModelChange)="setTheme($event)"><option value="light">Sáng</option><option value="dark">Tối</option></select></label></section></main>`,styles:[`.page{max-width:820px;margin:auto;padding:32px 24px}.page>p{color:var(--text-muted)}form,section{display:grid;gap:16px;margin-top:20px;padding:22px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}h2{margin:0;font-size:1rem}label{display:grid;gap:7px;font-size:.82rem;font-weight:700}input,textarea,select{padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--canvas);color:var(--ink);font:inherit}textarea{min-height:100px}button{justify-self:start;padding:10px 16px;border:0;border-radius:9px;background:var(--primary);color:#fff;font-weight:700}.message{padding:10px;border-radius:8px;background:var(--primary-soft);color:var(--primary)!important}`]})
-export class StudioSettingsPage{private readonly channels=inject(ChannelService);private readonly account=inject(AccountService);readonly theme=inject(ThemeService);readonly i18n=inject(I18nService);readonly message=signal('');private id='';name='';description='';contactEmail='';constructor(){this.channels.getMyChannel().subscribe(c=>{this.id=c.channelId;this.name=c.name;this.description=c.description||'';this.contactEmail=c.contactEmail||''})}saveChannel(){this.channels.updateChannel(this.id,{name:this.name,description:this.description,contactEmail:this.contactEmail}).subscribe(()=>this.message.set('Đã lưu cài đặt kênh.'))}setLanguage(language:'vi'|'en'){this.i18n.setLang(language);this.account.updatePreferences({language}).subscribe()}setTheme(theme:'light'|'dark'){if(this.theme.currentTheme()!==theme)this.theme.toggleTheme();this.account.updatePreferences({theme}).subscribe()}}
+import { Component, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { AccountService } from '../../../core/account.service';
+import { ChannelService } from '../../../core/channel.service';
+import { I18nService } from '../../../core/i18n.service';
+import { StudioDataService } from '../../../core/studio-data.service';
+import { ThemeService } from '../../../core/theme.service';
+import { TranslatePipe } from '../../../core/translate.pipe';
+
+@Component({
+  selector: 'app-studio-settings-page',
+  imports: [FormsModule, TranslatePipe],
+  templateUrl: './studio-settings-page.html',
+  styleUrl: './studio-settings-page.scss',
+})
+export class StudioSettingsPage {
+  private readonly channels = inject(ChannelService);
+  private readonly account = inject(AccountService);
+  readonly data = inject(StudioDataService);
+  readonly theme = inject(ThemeService);
+  readonly i18n = inject(I18nService);
+  readonly message = signal('');
+  readonly error = signal('');
+  private id = '';
+  name = '';
+  description = '';
+  contactEmail = '';
+
+  constructor() {
+    this.data.load();
+    effect(() => {
+      const channel = this.data.channel();
+      if (channel && channel.channelId !== this.id) {
+        this.id = channel.channelId;
+        this.name = channel.name;
+        this.description = channel.description || '';
+        this.contactEmail = channel.contactEmail || '';
+      }
+    });
+  }
+
+  saveChannel() {
+    if (!this.id) return;
+    if (!this.data.hasPermission('channel.edit_profile')) {
+      this.error.set(this.i18n.t('studio.permissionError'));
+      return;
+    }
+    this.error.set('');
+    this.channels.updateChannel(this.id, {
+      name: this.name,
+      description: this.description,
+      contactEmail: this.contactEmail,
+    }).subscribe({
+      next: () => this.message.set(this.i18n.t('studio.saved')),
+      error: () => this.error.set(this.i18n.t('studio.saveError')),
+    });
+  }
+
+  setLanguage(language: 'vi' | 'en') {
+    this.i18n.setLang(language);
+    this.account.updatePreferences({ language }).subscribe();
+  }
+
+  setTheme(theme: 'light' | 'dark') {
+    if (this.theme.currentTheme() !== theme) this.theme.toggleTheme();
+    this.account.updatePreferences({ theme }).subscribe();
+  }
+}

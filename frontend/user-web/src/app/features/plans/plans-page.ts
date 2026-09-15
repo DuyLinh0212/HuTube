@@ -1,22 +1,27 @@
-import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { MyPlan, Plan, PlanMember, PlanService } from '../../core/plan.service';
+import { I18nService } from '../../core/i18n.service';
+import { LocaleCurrencyPipe } from '../../core/locale-currency.pipe';
+import { LocaleDatePipe } from '../../core/locale-date.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 export type PlansView = 'overview' | 'catalog';
 
 @Component({
   selector: 'app-plans-page',
-  imports: [CurrencyPipe, DatePipe, DecimalPipe, FormsModule, RouterLink],
+  imports: [LocaleCurrencyPipe, LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './plans-page.html',
   styleUrl: './plans-page.scss'
 })
 export class PlansPage {
   private readonly plansService = inject(PlanService);
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
 
   readonly view = signal<PlansView>('overview');
   readonly plans = signal<Plan[]>([]);
@@ -45,7 +50,7 @@ export class PlansPage {
 
     this.plansService.getPlans().pipe(finalize(() => this.loading.set(false))).subscribe({
       next: plans => this.plans.set(plans),
-      error: () => this.error.set('Không tải được danh sách gói dịch vụ.')
+      error: () => this.error.set(this.i18n.t('plans.loadError'))
     });
 
     const loadCurrentPlan = () => {
@@ -87,17 +92,25 @@ export class PlansPage {
     return plan.features?.[key] === true;
   }
 
+  qualitySummary(plan: Plan): string {
+    const upload = plan.maxVideoQuality || this.i18n.t('plans.defaultUploadQuality');
+    const download = plan.maxDownloadQuality || plan.maxVideoQuality || this.i18n.t('plans.defaultDownloadQuality');
+    return `${this.i18n.t('plans.qualityUpload', { quality: upload })} · ${this.i18n.t('plans.qualityDownload', { quality: download })}`;
+  }
+
   formatBytes(bytes: number): string {
-    if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' GB';
-    return (bytes / 1024 ** 2).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' MB';
+    if (bytes >= 1024 ** 3) return this.i18n.formatNumber(bytes / 1024 ** 3, { maximumFractionDigits: 2 }) + ' GB';
+    return this.i18n.formatNumber(bytes / 1024 ** 2, { maximumFractionDigits: 2 }) + ' MB';
   }
 
   formatDuration(seconds: number): string {
     const minutes = Math.max(1, Math.round((seconds || 0) / 60));
     const hours = Math.floor(minutes / 60);
     const remainder = minutes % 60;
-    if (!hours) return minutes + ' phút';
-    return remainder ? hours + ' giờ ' + remainder + ' phút' : hours + ' giờ';
+    if (!hours) return this.i18n.t('plans.minutes', { count: this.i18n.formatNumber(minutes, { useGrouping: false }) });
+    return remainder
+      ? this.i18n.t('plans.hoursMinutes', { hours: this.i18n.formatNumber(hours, { useGrouping: false }), minutes: this.i18n.formatNumber(remainder, { useGrouping: false }) })
+      : this.i18n.t('plans.hours', { count: this.i18n.formatNumber(hours, { useGrouping: false }) });
   }
 
   invite() {
@@ -110,9 +123,9 @@ export class PlansPage {
       next: (member: PlanMember) => {
         this.myPlan.update(current => current ? { ...current, members: [...current.members, member] } : current);
         this.inviteEmail = '';
-        this.message.set('Đã gửi lời mời qua email.');
+        this.message.set(this.i18n.t('plans.inviteSent'));
       },
-      error: (err: any) => this.error.set(err?.error?.detail || err?.error?.message || 'Không thể gửi lời mời.')
+      error: () => this.error.set(this.i18n.t('plans.inviteError'))
     });
   }
 
@@ -124,9 +137,9 @@ export class PlansPage {
     this.plansService.revoke(memberId).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
         this.myPlan.update(plan => plan ? { ...plan, members: plan.members.filter(member => member.planMemberId !== memberId) } : plan);
-        this.message.set('Đã thu hồi lời mời.');
+        this.message.set(this.i18n.t('plans.revokeSent'));
       },
-      error: () => this.error.set('Không thể thu hồi thành viên.')
+      error: () => this.error.set(this.i18n.t('plans.revokeError'))
     });
   }
 }

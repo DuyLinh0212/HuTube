@@ -1,0 +1,38 @@
+<main class="page">
+  @if (message()) { <p class="message">{{ message() }}</p> }
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+
+  @if (data.hasPermission('channel.edit_profile')) {
+    <form (ngSubmit)="saveChannel()">
+      <h2>{{ 'studio.channelInfo' | translate }}</h2>
+      <label>{{ 'channel.name' | translate }}<input name="name" [(ngModel)]="name" required /></label>
+      <label>{{ 'channel.descriptionLabel' | translate }}<textarea name="description" [(ngModel)]="description"></textarea></label>
+      <label>{{ 'channel.contactEmail' | translate }}<input name="email" type="email" [(ngModel)]="contactEmail" /></label>
+      <button type="submit">{{ 'studio.saveChannelInfo' | translate }}</button>
+    </form>
+  } @else {
+    <section class="permission-card">
+      <strong>{{ 'studio.viewOnly' | translate }}</strong>
+      <span>{{ 'studio.viewOnlyDesc' | translate }}</span>
+    </section>
+  }
+
+  <section>
+    <h2>{{ 'studio.display' | translate }}</h2>
+    <label>
+      {{ 'studio.language' | translate }}
+      <select [ngModel]="i18n.currentLang()" (ngModelChange)="setLanguage($event)">
+        <option value="vi">{{ 'nav.langVi' | translate }}</option>
+        <option value="en">{{ 'nav.langEn' | translate }}</option>
+      </select>
+    </label>
+    <label>
+      {{ 'nav.theme' | translate }}
+      <select [ngModel]="theme.currentTheme()" (ngModelChange)="setTheme($event)">
+        <option value="light">{{ 'studio.light' | translate }}</option>
+        <option value="dark">{{ 'studio.dark' | translate }}</option>
+      </select>
+    </label>
+    <button type="button" class="settings-save" (click)="saveChannel()">{{ 'studio.saveSettings' | translate }}</button>
+  </section>
+</main>

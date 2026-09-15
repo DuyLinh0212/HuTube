@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/channel_models.dart';
@@ -67,7 +68,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       final roles = await _channelService.getRoles();
       if (mounted) setState(() => _roles = roles);
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(error, fallback: 'common.error'),
+        );
+      }
     } catch (_) {
       // The form keeps its safe Editor default when role metadata is unavailable.
     }
@@ -79,7 +84,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       );
       if (mounted) setState(() => _pendingInvitations = invitations);
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(error, fallback: 'common.error'),
+        );
+      }
     } catch (_) {
       // Role and invitation metadata are auxiliary to channel editing.
     }
@@ -93,7 +102,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       );
       if (mounted) setState(() => _pendingInvitations = invitations);
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(error, fallback: 'common.error'),
+        );
+      }
     } catch (_) {
       // Keep the invitation that was just created visible if a refresh fails.
     }
@@ -102,35 +115,62 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   bool get _canInvite =>
       _channel.isOwner || _channel.permissions.contains('member.invite');
 
-  String _roleName(String code) =>
-      _roles.where((role) => role.code == code).firstOrNull?.name ?? code;
+  String _roleName(String code) {
+    final localized = switch (code) {
+      'manager' => AppStrings.t('channel.roleManager'),
+      'editor' => AppStrings.t('channel.roleEditor'),
+      'moderator' => AppStrings.t('channel.roleModerator'),
+      'viewer' => AppStrings.t('channel.roleViewer'),
+      _ => null,
+    };
+    return localized ??
+        _roles.where((role) => role.code == code).firstOrNull?.name ??
+        code;
+  }
+
+  String _roleDescription(String code) {
+    final localized = switch (code) {
+      'manager' => AppStrings.t('channel.roleManagerDescription'),
+      'editor' => AppStrings.t('channel.roleEditorDescription'),
+      'moderator' => AppStrings.t('channel.roleModeratorDescription'),
+      'viewer' => AppStrings.t('channel.roleViewerDescription'),
+      _ => null,
+    };
+    return localized ??
+        _roles.where((role) => role.code == code).firstOrNull?.description ??
+        '';
+  }
 
   String _formatInvitationExpiry(String value) {
     final date = DateTime.tryParse(value)?.toLocal();
-    if (date == null) return 'Hạn mời không xác định';
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
+    if (date == null) return AppStrings.t('channel.invitationExpiryUnknown');
+    final formattedDate = AppStrings.date(date);
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
-    return 'Hết hạn $day/$month/${date.year} lúc $hour:$minute';
+    return AppStrings.format('channel.invitationExpiry', {
+      'date': formattedDate,
+      'time': '$hour:$minute',
+    });
   }
 
   Future<void> _revokeInvitation(ChannelInvitation invitation) async {
     final shouldRevoke = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Thu hồi lời mời?'),
+        title: Text(AppStrings.t('channel.confirmRevoke')),
         content: Text(
-          'Lời mời đến ${invitation.invitedEmail ?? 'người dùng này'} sẽ không còn hiệu lực.',
+          AppStrings.format('channel.invitationRevokeDescription', {
+            'email': invitation.invitedEmail ?? AppStrings.t('common.user'),
+          }),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Hủy'),
+            child: Text(AppStrings.t('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Thu hồi'),
+            child: Text(AppStrings.t('channel.revoke')),
           ),
         ],
       ),
@@ -150,14 +190,18 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
             .toList(),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã thu hồi lời mời.'),
-          backgroundColor: AppColors.success,
+        SnackBar(
+          content: Text(AppStrings.t('channel.inviteRevoked')),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(error, fallback: 'common.error'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _revokingInvitationId = null);
     }
@@ -167,24 +211,27 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Lời mời đang chờ',
+        Text(
+          AppStrings.t('channel.pendingInvites'),
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 8),
         if (_pendingInvitations.isEmpty)
-          const Text(
-            'Chưa có lời mời nào đang chờ.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          Text(
+            AppStrings.t('channel.noPendingInvitations'),
+            style: TextStyle(
+              color: AppColors.textSecondaryFor(context),
+              fontSize: 13,
+            ),
           ),
         for (final invitation in _pendingInvitations)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.backgroundCard,
+              color: AppColors.surfaceFor(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorder),
+              border: Border.all(color: AppColors.borderFor(context)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,14 +243,15 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        invitation.invitedEmail ?? 'Email chưa xác định',
+                        invitation.invitedEmail ??
+                            AppStrings.t('channel.unknownEmail'),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '${_roleName(invitation.roleCode)} · ${_formatInvitationExpiry(invitation.expiresAt)}',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: AppColors.textSecondaryFor(context),
                           fontSize: 12,
                         ),
                       ),
@@ -211,7 +259,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Thu hồi lời mời',
+                  tooltip: AppStrings.t('channel.revokeInvitationTooltip'),
                   onPressed: _busy || _revokingInvitationId != null
                       ? null
                       : () => _revokeInvitation(invitation),
@@ -232,7 +280,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   Future<void> _invite() async {
     final email = _inviteEmailController.text.trim();
     if (!email.contains('@')) {
-      setState(() => _error = 'Vui lòng nhập email hợp lệ.');
+      setState(() => _error = AppStrings.t('channel.emailInvalid'));
       return;
     }
     setState(() {
@@ -246,14 +294,18 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       await _reloadPendingInvitations();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã gửi lời mời tham gia kênh.'),
-          backgroundColor: AppColors.success,
+        SnackBar(
+          content: Text(AppStrings.t('channel.inviteSent')),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(error, fallback: 'common.error'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -262,7 +314,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Tên kênh không được để trống.');
+      setState(() => _error = AppStrings.t('channel.nameEmpty'));
       return;
     }
 
@@ -279,18 +331,23 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã cập nhật thông tin kênh thành công!'),
-            backgroundColor: AppColors.success,
+          SnackBar(
+            content: Text(AppStrings.t('channel.updateSuccess')),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
           ),
         );
         Navigator.of(context).pop(true);
       }
     } on ApiFailure catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) {
+        setState(
+          () =>
+              _error = AppStrings.apiError(e, fallback: 'channel.updateError'),
+        );
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Không thể cập nhật kênh.');
+      if (mounted) setState(() => _error = AppStrings.t('channel.updateError'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -336,21 +393,25 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         SnackBar(
           content: Text(
             avatar
-                ? 'Đã cập nhật ảnh đại diện kênh.'
-                : 'Đã cập nhật ảnh bìa kênh.',
+                ? AppStrings.t('channel.avatarUpdated')
+                : AppStrings.t('channel.bannerUpdated'),
           ),
-          backgroundColor: AppColors.success,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } catch (_) {
       if (mounted) {
         setState(
-          () => _error =
-              'Không thể đọc hoặc tải ảnh lên. Vui lòng chọn ảnh khác.',
+          () => _error = AppStrings.apiError(
+            error,
+            fallback: 'channel.imageError',
+          ),
         );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = AppStrings.t('channel.imageReadError'));
       }
     } finally {
       if (mounted) {
@@ -373,22 +434,24 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         builder: (context, setDialogState) {
           final matches = confirmController.text.trim() == _channel.name.trim();
           return AlertDialog(
-            title: const Text('Xác nhận xóa kênh?'),
+            title: Text(AppStrings.t('channel.confirmDeleteTitle')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Hành động này sẽ ẩn kênh, danh sách video và handle của bạn khỏi HuTube.',
+                Text(
+                  AppStrings.t('channel.confirmDeleteDescription'),
                   style: TextStyle(
-                    color: AppColors.danger,
+                    color: AppColors.dangerFor(context),
                     fontSize: 13,
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Nhập chính xác tên kênh "${_channel.name}" để xác nhận:',
+                  AppStrings.format('channel.confirmDeletePrompt', {
+                    'name': _channel.name,
+                  }),
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -398,22 +461,24 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 TextField(
                   controller: confirmController,
                   onChanged: (_) => setDialogState(() {}),
-                  decoration: const InputDecoration(hintText: 'Nhập tên kênh'),
+                  decoration: InputDecoration(
+                    hintText: AppStrings.t('channel.confirmDeleteHint'),
+                  ),
                 ),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Hủy'),
+                child: Text(AppStrings.t('common.cancel')),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.danger,
+                  backgroundColor: AppColors.dangerFor(context),
                   minimumSize: const Size(120, 44),
                 ),
                 onPressed: matches ? () => Navigator.of(ctx).pop(true) : null,
-                child: const Text('Xác nhận xóa'),
+                child: Text(AppStrings.t('channel.confirmDeleteAction')),
               ),
             ],
           );
@@ -427,9 +492,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         await _channelService.deleteChannel(_channel.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Kênh đã được xóa.'),
-              backgroundColor: AppColors.danger,
+            SnackBar(
+              content: Text(AppStrings.t('channel.deleteSuccess')),
+              backgroundColor: AppColors.dangerFor(context),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -437,11 +502,18 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           Navigator.of(context).pop();
           Navigator.of(context).pop(true);
         }
-      } catch (e) {
+      } on ApiFailure catch (e) {
         if (mounted) {
           setState(() {
             _busy = false;
-            _error = 'Không thể xóa kênh. Vui lòng thử lại sau.';
+            _error = AppStrings.apiError(e, fallback: 'channel.deleteError');
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _error = AppStrings.t('channel.deleteError');
           });
         }
       }
@@ -470,7 +542,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 : Image.network(
                     url,
                     fit: BoxFit.cover,
-                    semanticLabel: 'Ảnh bìa kênh hiện tại',
+                    semanticLabel: AppStrings.t(
+                      'channel.currentBannerSemantic',
+                    ),
                     errorBuilder: (_, _, _) => const Center(
                       child: Icon(Icons.broken_image_outlined, size: 40),
                     ),
@@ -489,7 +563,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.add_photo_alternate_outlined),
-          label: Text(_uploadingBanner ? 'Đang tải ảnh bìa…' : 'Đổi ảnh bìa'),
+          label: Text(
+            _uploadingBanner
+                ? AppStrings.t('channel.uploadingBanner')
+                : AppStrings.t('channel.changeBanner'),
+          ),
         ),
       ],
     );
@@ -530,7 +608,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 )
               : const Icon(Icons.account_circle_outlined),
           label: Text(
-            _uploadingAvatar ? 'Đang tải ảnh đại diện…' : 'Đổi ảnh đại diện',
+            _uploadingAvatar
+                ? AppStrings.t('channel.uploadingAvatar')
+                : AppStrings.t('channel.changeAvatar'),
           ),
         ),
       ],
@@ -541,22 +621,22 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
+        color: AppColors.surfaceFor(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: AppColors.borderFor(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Hình ảnh kênh',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Text(
+            AppStrings.t('channel.brandingTitle'),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 5),
-          const Text(
-            'Ảnh JPG, PNG hoặc WEBP. Ảnh đại diện tối đa 5MB, ảnh bìa tối đa 10MB.',
+          Text(
+            AppStrings.t('channel.brandingDescription'),
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryFor(context),
               fontSize: 12,
               height: 1.4,
             ),
@@ -574,7 +654,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cài đặt kênh'),
+        title: Text(AppStrings.t('channel.settingsTitle')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -596,29 +676,32 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 const SizedBox(height: 28),
               ],
 
-              const Text(
-                'Thông tin cơ bản',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                AppStrings.t('channel.basicInfo'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 16),
 
-              const Text(
-                'Tên kênh *',
+              Text(
+                '${AppStrings.t('channel.createName')} *',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _nameController,
                 enabled: !_busy,
-                decoration: const InputDecoration(
-                  hintText: 'Nhập tên kênh',
+                decoration: InputDecoration(
+                  hintText: AppStrings.t('channel.nameHint'),
                   prefixIcon: Icon(Icons.tv_outlined),
                 ),
               ),
               const SizedBox(height: 16),
 
-              const Text(
-                'Định danh kênh (Handle)',
+              Text(
+                '${AppStrings.t('channel.createHandle')} (Handle)',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
@@ -626,15 +709,15 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 initialValue: '@${_channel.handle}',
                 readOnly: true,
                 enabled: false,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   prefixIcon: Icon(Icons.alternate_email),
-                  helperText: 'Handle không thể thay đổi sau khi tạo',
+                  helperText: AppStrings.t('channel.handleImmutable'),
                 ),
               ),
               const SizedBox(height: 16),
 
-              const Text(
-                'Mô tả kênh',
+              Text(
+                AppStrings.t('channel.createDescription'),
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(height: 6),
@@ -642,8 +725,8 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 controller: _descriptionController,
                 enabled: !_busy,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: 'Giới thiệu về kênh của bạn...',
+                decoration: InputDecoration(
+                  hintText: AppStrings.t('channel.descriptionHintEdit'),
                 ),
               ),
               const SizedBox(height: 24),
@@ -659,7 +742,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Lưu thay đổi'),
+                    : Text(AppStrings.t('common.save')),
               ),
 
               if (_channel.permissions.contains('member.invite') ||
@@ -667,15 +750,18 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 22),
-                const Text(
-                  'Mời cộng tác viên',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(
+                  AppStrings.t('channel.inviteHeading'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Người được mời có thể xem rõ phạm vi quyền trước khi chấp nhận.',
+                Text(
+                  AppStrings.t('channel.inviteDescription'),
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryFor(context),
                     fontSize: 13,
                   ),
                 ),
@@ -684,21 +770,23 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   controller: _inviteEmailController,
                   enabled: !_busy,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email người dùng',
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('channel.inviteEmail'),
                     prefixIcon: Icon(Icons.alternate_email),
                   ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _inviteRole,
-                  decoration: const InputDecoration(labelText: 'Vai trò'),
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('channel.inviteRole'),
+                  ),
                   items:
                       (_roles.isEmpty
-                              ? const [
+                              ? [
                                   ChannelRole(
                                     code: 'editor',
-                                    name: 'Biên tập viên',
+                                    name: AppStrings.t('channel.roleEditor'),
                                     description: '',
                                   ),
                                 ]
@@ -706,7 +794,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                           .map(
                             (role) => DropdownMenuItem(
                               value: role.code,
-                              child: Text(role.name),
+                              child: Text(_roleName(role.code)),
                             ),
                           )
                           .toList(),
@@ -718,11 +806,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 if (_roles.any((role) => role.code == _inviteRole)) ...[
                   const SizedBox(height: 7),
                   Text(
-                    _roles
-                        .firstWhere((role) => role.code == _inviteRole)
-                        .description,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
+                    _roleDescription(_inviteRole),
+                    style: TextStyle(
+                      color: AppColors.textSecondaryFor(context),
                       fontSize: 12,
                     ),
                   ),
@@ -733,7 +819,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                       ? null
                       : _invite,
                   icon: const Icon(Icons.person_add_alt_1_outlined),
-                  label: const Text('Gửi lời mời'),
+                  label: Text(AppStrings.t('channel.inviteAction')),
                 ),
                 const SizedBox(height: 18),
                 _pendingInvitationsSection(),
@@ -749,35 +835,35 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.dangerBg,
+                    color: AppColors.dangerContainerFor(context),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.dangerBorder),
+                    border: Border.all(color: AppColors.dangerFor(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.warning_amber_rounded,
-                            color: AppColors.danger,
+                            color: AppColors.dangerFor(context),
                           ),
                           SizedBox(width: 8),
                           Text(
-                            'Vùng nguy hiểm',
+                            AppStrings.t('channel.dangerTitle'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: AppColors.danger,
+                              color: AppColors.dangerFor(context),
                               fontSize: 15,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Xóa kênh sẽ chuyển kênh sang trạng thái đã xóa (soft-delete), ẩn các video và giải phóng handle của bạn. Sau khi xóa, bạn có thể tạo một kênh mới.',
+                      Text(
+                        AppStrings.t('channel.dangerDescription'),
                         style: TextStyle(
-                          color: Color(0xFF991B1B),
+                          color: AppColors.onDangerContainerFor(context),
                           fontSize: 13,
                           height: 1.4,
                         ),
@@ -785,12 +871,12 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                       const SizedBox(height: 16),
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.danger,
-                          side: const BorderSide(color: AppColors.danger),
+                          foregroundColor: AppColors.dangerFor(context),
+                          side: BorderSide(color: AppColors.dangerFor(context)),
                           minimumSize: const Size.fromHeight(44),
                         ),
                         onPressed: _busy ? null : _confirmDelete,
-                        child: const Text('Xóa kênh này'),
+                        child: Text(AppStrings.t('channel.deleteThis')),
                       ),
                     ],
                   ),

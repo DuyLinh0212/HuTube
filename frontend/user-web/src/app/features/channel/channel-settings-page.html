@@ -1,18 +1,5 @@
 <main id="main-content" class="settings-page-container">
   @if (channel(); as ch) {
-    <header class="settings-header">
-      <div>
-        <h1 class="page-title">Tùy chỉnh kênh</h1>
-        <p class="page-subtitle">Quản lý kênh &#64;{{ ch.handle }} với vai trò <strong>{{ roleName(ch.myRole ?? '') }}</strong></p>
-      </div>
-      <div class="header-actions">
-        <a [routerLink]="['/channel', ch.handle]" class="btn-secondary">
-          <svg class="btn-svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          Xem trang kênh
-        </a>
-      </div>
-    </header>
-
     @if (error()) {
       <div class="alert-banner alert-error" role="alert">
         <span class="alert-content">
@@ -32,17 +19,18 @@
 
     <nav class="settings-tabs-nav">
       @if (can('channel.edit_profile')) {
-        <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'" (click)="setTab('basic')">Thông tin cơ bản</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'" (click)="setTab('basic')">{{ 'channel.basic' | translate }}</button>
       }
       @if (can('channel.edit_branding')) {
-        <button type="button" class="tab-btn" [class.active]="activeTab() === 'branding'" (click)="setTab('branding')">Xây dựng thương hiệu</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'branding'" (click)="setTab('branding')">{{ 'channel.branding' | translate }}</button>
       }
       @if (can('member.view')) {
-        <button type="button" class="tab-btn" [class.active]="activeTab() === 'members'" (click)="setTab('members')">Thành viên &amp; quyền</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'members'" (click)="setTab('members')">{{ 'channel.members' | translate }}</button>
       }
       @if (can('channel.delete')) {
-        <button type="button" class="tab-btn danger-tab" [class.active]="activeTab() === 'danger'" (click)="setTab('danger')">Xóa kênh</button>
+        <button type="button" class="tab-btn danger-tab" [class.active]="activeTab() === 'danger'" (click)="setTab('danger')">{{ 'channel.danger' | translate }}</button>
       }
+      <a [routerLink]="['/channel', ch.handle]" class="settings-view-channel">{{ 'channel.viewChannel' | translate }}</a>
     </nav>
 
     <div class="settings-tab-content">
@@ -50,51 +38,53 @@
       @if (activeTab() === 'basic') {
         <div class="basic-tab-pane">
           <div class="form-group">
-            <label for="chName" class="input-label">Tên kênh <span class="required">*</span></label>
+            <label for="chName" class="input-label">{{ 'channel.nameRequired' | translate }}</label>
             <input id="chName" type="text" class="text-input" [(ngModel)]="name" [disabled]="busy()" />
           </div>
 
           <div class="form-group">
-            <label for="chHandle" class="input-label">Handle kênh <span class="required">*</span></label>
+            <label for="chHandle" class="input-label">{{ 'channel.handleChannel' | translate }}</label>
             <div class="handle-input-wrap">
               <span class="handle-prefix">&#64;</span>
               <input id="chHandle" type="text" class="text-input handle-field" [(ngModel)]="handle" [disabled]="busy()" />
             </div>
-            <p class="field-help">Địa chỉ kênh của bạn: hutube.vn/&#64;{{ handle }}</p>
+            <p class="field-help">{{ 'channel.address' | translate:{ handle: handle } }}</p>
           </div>
 
           <div class="form-group">
-            <label for="chDesc" class="input-label">Mô tả kênh</label>
+            <label for="chDesc" class="input-label">{{ 'channel.descriptionLabel' | translate }}</label>
             <textarea id="chDesc" class="textarea-input" [(ngModel)]="description" rows="4" [disabled]="busy()"></textarea>
           </div>
 
           <div class="form-group">
-            <label for="chEmail" class="input-label">Email liên hệ kinh doanh</label>
+            <label for="chEmail" class="input-label">{{ 'channel.businessEmail' | translate }}</label>
             <input id="chEmail" type="email" class="text-input" [(ngModel)]="contactEmail" [disabled]="busy()" />
           </div>
 
           <!-- Section: Đường liên kết -->
           <div class="channel-links-section">
-            <h3 class="section-title">Đường liên kết</h3>
-            <p class="section-desc">Chia sẻ đường liên kết bên ngoài với người xem. Các đường liên kết này sẽ hiển thị trên hồ sơ kênh và trang giới thiệu của bạn.</p>
+            <h3 class="section-title">{{ 'channel.links' | translate }}</h3>
+            <p class="section-desc">{{ 'channel.linksDesc' | translate }}</p>
 
             <div class="link-rows-list">
               @for (link of links; track $index) {
                 <div class="link-row-card">
-                  <div class="link-drag-handle" title="Kéo để sắp xếp">
+                  <div class="link-drag-handle" [title]="'channel.reorderLink' | translate">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/></svg>
                   </div>
                   <div class="link-inputs-wrapper">
-                    <div class="link-field-box" [class.has-error]="!link.title.trim() && link.url.trim()">
-                      <span class="field-label">Tiêu đề của đường liên kết (bắt buộc)</span>
-                      <input type="text" class="field-input" [(ngModel)]="link.title" placeholder="Nhập tiêu đề" [disabled]="busy()" />
+                    <div class="link-field-box">
+                      <label class="field-label" [for]="'link-platform-' + $index">{{ 'channel.platform' | translate }}</label>
+                      <select class="field-input" [id]="'link-platform-' + $index" [(ngModel)]="link.platform" (ngModelChange)="onPlatformChange(link)" [disabled]="busy()">
+                        @for (option of linkOptions; track option) { <option [value]="option">{{ 'channel.platform.' + option | translate }}</option> }
+                      </select>
                     </div>
-                    <div class="link-field-box" [class.has-error]="link.title.trim() && !link.url.trim()">
-                      <span class="field-label">URL (bắt buộc)</span>
-                      <input type="url" class="field-input" [(ngModel)]="link.url" placeholder="Nhập URL" [disabled]="busy()" />
+                    <div class="link-field-box" [class.has-error]="link.url.trim() && !linkUrlValid(link.url)">
+                      <label class="field-label" [for]="'link-url-' + $index">{{ 'channel.linkUrl' | translate }}</label>
+                      <input [id]="'link-url-' + $index" type="url" class="field-input" [(ngModel)]="link.url" placeholder="https://..." [disabled]="busy()" />
                     </div>
                   </div>
-                  <button type="button" class="btn-remove-link" (click)="removeLink($index)" [disabled]="busy()" title="Xóa đường liên kết">
+                  <button type="button" class="btn-remove-link" (click)="removeLink($index)" [disabled]="busy()" [title]="'channel.removeLink' | translate">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                   </button>
                 </div>
@@ -103,13 +93,13 @@
 
             <button type="button" class="btn-add-link" (click)="addLink()" [disabled]="busy() || links.length >= 14">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Thêm đường liên kết
+              {{ 'channel.addLink' | translate }}
             </button>
           </div>
 
           <div class="form-actions">
             <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">
-              Lưu thay đổi
+              {{ 'channel.save' | translate }}
             </button>
           </div>
         </div>
@@ -121,10 +111,10 @@
           <!-- Avatar section -->
           <div class="branding-card">
             <div class="branding-text">
-              <h3>Ảnh đại diện kênh</h3>
-              <p>Ảnh đại diện sẽ xuất hiện bên cạnh video và bình luận của bạn trên HuTube.</p>
+              <h3>{{ 'channel.avatarTitle' | translate }}</h3>
+              <p>{{ 'channel.avatarDesc' | translate }}</p>
               <button type="button" class="btn-secondary" (click)="avatarInput.click()" [disabled]="busy()">
-                Thay đổi ảnh đại diện
+                {{ 'channel.changeAvatar' | translate }}
               </button>
               <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onAvatarSelected($event)" hidden />
             </div>
@@ -140,10 +130,10 @@
           <!-- Banner section -->
           <div class="branding-card">
             <div class="branding-text">
-              <h3>Hình ảnh biểu ngữ (Banner)</h3>
-              <p>Hình ảnh này sẽ xuất hiện ở đầu trang kênh của bạn.</p>
+              <h3>{{ 'channel.bannerTitle' | translate }}</h3>
+              <p>{{ 'channel.bannerDesc' | translate }}</p>
               <button type="button" class="btn-secondary" (click)="bannerInput.click()" [disabled]="busy()">
-                Thay đổi biểu ngữ
+                {{ 'channel.changeBanner' | translate }}
               </button>
               <input #bannerInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onBannerSelected($event)" hidden />
             </div>
@@ -151,7 +141,7 @@
               @if (ch.bannerUrl) {
                 <img [src]="ch.bannerUrl" alt="" />
               } @else {
-                <div class="banner-placeholder">Chưa có banner</div>
+                <div class="banner-placeholder">{{ 'channel.noBanner' | translate }}</div>
               }
             </div>
           </div>
@@ -159,11 +149,11 @@
           <!-- Watermark section -->
           <div class="branding-card">
             <div class="branding-text">
-              <h3>Hình mờ video (Watermark)</h3>
-              <p>Hình mờ sẽ xuất hiện ở góc dưới bên phải trình phát video của bạn.</p>
+              <h3>{{ 'channel.watermarkTitle' | translate }}</h3>
+              <p>{{ 'channel.watermarkDesc' | translate }}</p>
               <input type="text" class="text-input" [(ngModel)]="watermarkUrl" placeholder="https://example.com/watermark.png" [disabled]="busy()" />
               <div class="watermark-action">
-                <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">Lưu watermark</button>
+                <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">{{ 'channel.saveWatermark' | translate }}</button>
               </div>
             </div>
           </div>
@@ -174,41 +164,41 @@
         <section class="members-pane" aria-labelledby="members-title">
           <div class="section-heading">
             <div>
-              <h2 id="members-title">Thành viên &amp; quyền</h2>
-              <p>Mỗi vai trò có một tập quyền cố định và luôn được kiểm tra lại tại API.</p>
+              <h2 id="members-title">{{ 'channel.members' | translate }}</h2>
+              <p>{{ 'channel.rolesDesc' | translate }}</p>
             </div>
           </div>
 
           @if (can('member.invite')) {
             <form class="invite-form" (ngSubmit)="inviteMember()">
               <div class="form-group invite-email">
-                <label for="inviteEmail" class="input-label">Email người dùng</label>
-                <input id="inviteEmail" name="inviteEmail" type="email" class="text-input" [(ngModel)]="inviteEmail" required [disabled]="busy()" placeholder="member@example.com" />
+                <label for="inviteEmail" class="input-label">{{ 'channel.inviteUser' | translate }}</label>
+                <input id="inviteEmail" name="inviteEmail" type="email" class="text-input" [(ngModel)]="inviteEmail" required [disabled]="busy()" [placeholder]="'channel.memberEmailPlaceholder' | translate" />
               </div>
               <div class="form-group invite-role">
-                <label for="inviteRole" class="input-label">Vai trò</label>
+                <label for="inviteRole" class="input-label">{{ 'channel.role' | translate }}</label>
                 <select id="inviteRole" name="inviteRole" class="text-input" [(ngModel)]="inviteRole" [disabled]="busy()">
                   @for (role of roles(); track role.code) {
-                    <option [value]="role.code">{{ role.name }}</option>
+                    <option [value]="role.code">{{ roleName(role.code) }}</option>
                   }
                 </select>
               </div>
-              <button type="submit" class="btn-primary" [disabled]="busy() || !inviteEmail.trim()">Gửi lời mời</button>
+              <button type="submit" class="btn-primary" [disabled]="busy() || !inviteEmail.trim()">{{ 'channel.sendInvite' | translate }}</button>
             </form>
 
             @if (roles().length) {
-              <div class="role-explainer" aria-label="Mô tả vai trò đã chọn">
+              <div class="role-explainer" [attr.aria-label]="'channel.roleDescription' | translate">
                 @for (role of roles(); track role.code) {
                   @if (role.code === inviteRole) {
-                    <strong>{{ role.name }}</strong>
-                    <span>{{ role.description }}</span>
+                    <strong>{{ roleName(role.code) }}</strong>
+                    <span>{{ roleDescription(role.code) }}</span>
                   }
                 }
               </div>
             }
           }
 
-          <div class="member-list" role="list" aria-label="Danh sách thành viên kênh">
+          <div class="member-list" role="list" [attr.aria-label]="'channel.membersList' | translate">
             @for (member of members(); track member.userId) {
               <article class="member-row" role="listitem">
                 <div class="member-identity">
@@ -226,36 +216,36 @@
                   @if (member.roleCode === 'owner' || !can('member.change_role')) {
                     <span class="role-badge">{{ roleName(member.roleCode) }}</span>
                   } @else {
-                    <label class="sr-only" [for]="'role-' + member.userId">Vai trò của {{ member.displayName }}</label>
+                    <label class="sr-only" [for]="'role-' + member.userId">{{ 'channel.memberRole' | translate:{ member: member.displayName } }}</label>
                     <select class="role-select" [id]="'role-' + member.userId" [value]="member.roleCode" [disabled]="busy()" (change)="changeRole(member, $any($event.target).value)">
                       @for (role of roles(); track role.code) {
-                        <option [value]="role.code">{{ role.name }}</option>
+                        <option [value]="role.code">{{ roleName(role.code) }}</option>
                       }
                     </select>
                   }
                   @if (member.roleCode !== 'owner' && can('member.remove')) {
-                    <button type="button" class="btn-link-danger" (click)="removeMember(member)" [disabled]="busy()">Gỡ</button>
+                    <button type="button" class="btn-link-danger" (click)="removeMember(member)" [disabled]="busy()">{{ 'channel.remove' | translate }}</button>
                   }
                 </div>
               </article>
             } @empty {
-              <p class="empty-state">Chưa có thành viên nào ngoài chủ sở hữu.</p>
+              <p class="empty-state">{{ 'channel.noOtherMembers' | translate }}</p>
             }
           </div>
 
           @if (can('member.invite')) {
             <section class="pending-section" aria-labelledby="pending-title">
-              <h3 id="pending-title">Lời mời đang chờ</h3>
+              <h3 id="pending-title">{{ 'channel.pending' | translate }}</h3>
               @for (invitation of invitations(); track invitation.channelInvitationId) {
                 <div class="invitation-row">
                   <div>
                     <strong>{{ invitation.invitedEmail }}</strong>
-                    <span>{{ roleName(invitation.roleCode) }} · hết hạn {{ invitation.expiresAt | date:'dd/MM/yyyy' }}</span>
+                    <span>{{ roleName(invitation.roleCode) }} · {{ 'channel.expires' | translate:{ date: ((invitation.expiresAt | localeDate:'dd/MM/yyyy') ?? '') } }}</span>
                   </div>
-                  <button type="button" class="btn-link-danger" (click)="revokeInvitation(invitation)" [disabled]="busy()">Thu hồi</button>
+                  <button type="button" class="btn-link-danger" (click)="revokeInvitation(invitation)" [disabled]="busy()">{{ 'channel.withdraw' | translate }}</button>
                 </div>
               } @empty {
-                <p class="empty-state">Không có lời mời nào đang chờ.</p>
+                <p class="empty-state">{{ 'channel.noPending' | translate }}.</p>
               }
             </section>
           }
@@ -269,12 +259,12 @@
             <div class="danger-header">
               <span class="danger-icon">⚠️</span>
               <div>
-                <h3>Xóa kênh này</h3>
-                <p>Thao tác này sẽ gỡ bỏ kênh của bạn khỏi kết quả tìm kiếm và trang công khai. Chỉ chủ sở hữu mới có quyền xóa.</p>
+                <h3>{{ 'channel.delete' | translate }}</h3>
+                <p>{{ 'channel.deleteDesc' | translate }}</p>
               </div>
             </div>
             <button type="button" class="btn-danger" (click)="showDeleteModal.set(true)" [disabled]="busy()">
-              Xóa kênh của tôi
+              {{ 'channel.deleteMine' | translate }}
             </button>
           </div>
         </div>
@@ -285,16 +275,16 @@
     @if (showDeleteModal()) {
       <div class="modal-backdrop">
         <div class="modal-dialog">
-          <h2>Xác nhận xóa kênh</h2>
+          <h2>{{ 'channel.deleteConfirm' | translate }}</h2>
           <p class="modal-warning">
-            Bạn đang chuẩn bị xóa kênh <strong>{{ ch.name }}</strong>. Vui lòng nhập chính xác tên kênh để xác nhận:
+            {{ 'channel.deleteWarning' | translate }} <strong>{{ ch.name }}</strong>. {{ 'channel.deleteNamePrompt' | translate }}
           </p>
-          <input type="text" class="text-input" [(ngModel)]="confirmChannelName" placeholder="Nhập tên kênh: {{ ch.name }}" />
+          <input type="text" class="text-input" [(ngModel)]="confirmChannelName" [placeholder]="'channel.deleteNamePlaceholder' | translate:{ name: ch.name }" />
 
           <div class="modal-actions">
-            <button type="button" class="btn-secondary" (click)="showDeleteModal.set(false)" [disabled]="busy()">Hủy</button>
+            <button type="button" class="btn-secondary" (click)="showDeleteModal.set(false)" [disabled]="busy()">{{ 'channel.cancel' | translate }}</button>
             <button type="button" class="btn-danger" (click)="onConfirmDeleteChannel()" [disabled]="busy() || confirmChannelName.trim() !== ch.name.trim()">
-              Xác nhận xóa
+              {{ 'channel.confirmDelete' | translate }}
             </button>
           </div>
         </div>

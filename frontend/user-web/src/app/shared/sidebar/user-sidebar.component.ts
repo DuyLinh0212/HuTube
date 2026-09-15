@@ -1,7 +1,8 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { catchError, forkJoin, of } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
-import { ChannelService } from '../../core/channel.service';
+import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 
@@ -27,9 +28,20 @@ export class UserSidebarComponent {
 
   openMyChannel() {
     this.closeNavigation();
-    this.channelService.getMyChannel().subscribe({
-      next: ch => void this.router.navigate(['/channel', ch.handle]),
-      error: () => void this.router.navigate(['/channel/create'])
+    forkJoin({
+      channels: this.channelService.getAccessibleChannels().pipe(catchError(() => of([] as ChannelDetail[]))),
+      invitations: this.channelService.getMyInvitations().pipe(catchError(() => of([])))
+    }).subscribe(({ channels, invitations }) => {
+      const ownedChannel = channels.find(channel => channel.isOwner);
+      if (ownedChannel) {
+        void this.router.navigate(['/channel', ownedChannel.handle]);
+      } else if (channels[0]) {
+        void this.router.navigate(['/studio/overview'], { queryParams: { channelId: channels[0].channelId } });
+      } else if (invitations.length > 0) {
+        void this.router.navigate(['/studio/invitations']);
+      } else {
+        void this.router.navigate(['/channel/create']);
+      }
     });
   }
 }

@@ -1,0 +1,83 @@
+.feed {
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  padding: 32px 28px 52px;
+}
+
+.card p,
+.card small,
+.state {
+  color: var(--text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px 18px;
+  margin-top: 28px;
+}
+
+.card {
+  color: inherit;
+  text-decoration: none;
+}
+
+.thumb {
+  position: relative;
+  display: grid;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary-soft), var(--card-hover));
+  font-size: 2rem;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.card:hover img {
+  transform: scale(1.03);
+}
+
+.thumb time {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  font-size: 0.68rem;
+}
+
+.copy h2 {
+  margin: 11px 0 5px;
+  color: var(--ink);
+  font-size: 0.94rem;
+  line-height: 1.35;
+}
+
+.copy p,
+.copy small {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.error {
+  color: var(--danger);
+}
+
+@media (max-width: 600px) {
+  .feed {
+    padding: 22px 14px 40px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

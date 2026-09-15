@@ -2,20 +2,20 @@
   @if (loading()) {
     <div class="state-container">
       <div class="spinner"></div>
-      <p class="state">Đang tải gói dịch vụ...</p>
+      <p class="state">{{ 'plans.detailLoading' | translate }}</p>
     </div>
   }
   @if (error()) {
     <div class="state-container">
       <p class="state error">{{ error() }}</p>
-      <a routerLink="/plans" class="back-btn">← Quay lại danh sách gói</a>
+      <a routerLink="/plans" class="back-btn">{{ 'plans.back' | translate }}</a>
     </div>
   }
   @if (plan(); as plan) {
     <nav class="breadcrumb-nav">
       <a routerLink="/plans" class="back-link">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        <span>Tất cả gói dịch vụ</span>
+        <span>{{ 'plans.allPlans' | translate }}</span>
       </a>
     </nav>
 
@@ -24,38 +24,38 @@
       <div class="hero-left">
         <span class="plan-pill">{{ plan.code.toUpperCase() }}</span>
         <h1>{{ plan.name }}</h1>
-        <p class="hero-desc">{{ plan.description || 'Gói dịch vụ dành riêng cho nhà sáng tạo và người xem nâng cao trên HuTube.' }}</p>
+        <p class="hero-desc">{{ plan.description || ('plans.detailDesc' | translate) }}</p>
       </div>
 
       <div class="hero-pricing">
         <div class="price-tag">
-          <span class="amount">{{ plan.price | currency:'VND':'symbol':'1.0-0' }}</span>
-          <span class="period">/ {{ plan.durationDays }} ngày</span>
+          <span class="amount">{{ plan.price | localeCurrency:'VND':'symbol':'1.0-0' }}</span>
+          <span class="period">/ {{ plan.durationDays | localeNumber }} {{ 'plans.days' | translate }}</span>
         </div>
 
         @if (auth.user()) {
           @if (isCurrentActivePlan()) {
             <div class="active-plan-badge-wrap">
               <button type="button" class="cta-subscribe is-active-plan" disabled>
-                <span>✓ Bạn đang sử dụng gói này</span>
+                <span>{{ 'plans.currentUse' | translate }}</span>
               </button>
-              <p class="active-plan-note">Gói đang còn hạn. Bạn có thể đăng ký lại sau khi gói hết hạn.</p>
+              <p class="active-plan-note">{{ 'plans.activeNote' | translate }}</p>
             </div>
           } @else {
             <button type="button" class="cta-subscribe" (click)="subscribe()" [disabled]="busy() || !canSwitchToThisPlan()">
               @if (busy()) {
                 <span class="btn-spinner"></span>
-                <span>Đang kích hoạt...</span>
+                <span>{{ 'plans.activating' | translate }}</span>
               } @else if (myPlan()?.planId && myPlan()!.price > 0 && !canSwitchToThisPlan()) {
-                <span>Chưa mua gói này</span>
+                <span>{{ 'plans.notPurchased' | translate }}</span>
               } @else {
-                <span>⚡ @if (myPlan()?.planId && myPlan()!.price > 0 && plan.price > 0) { Đổi sang gói này } @else { Mua gói này }</span>
+                <span>⚡ {{ (myPlan()?.planId && myPlan()!.price > 0 && plan.price > 0 ? 'plans.switch' : 'plans.buy') | translate }}</span>
               }
             </button>
           }
         } @else {
           <a routerLink="/login" [queryParams]="{returnUrl: '/plans/' + plan.planId}" class="cta-subscribe">
-            <span>Đăng nhập để đăng ký</span>
+            <span>{{ 'plans.loginSubscribe' | translate }}</span>
           </a>
         }
       </div>
@@ -75,8 +75,8 @@
         <div class="panel-header">
           <div class="panel-icon">🎁</div>
           <div>
-            <h2>Quyền lợi & Thông số</h2>
-            <p>Chi tiết giới hạn và tài nguyên của gói này</p>
+            <h2>{{ 'plans.benefits' | translate }}</h2>
+            <p>{{ 'plans.benefitsDesc' | translate }}</p>
           </div>
         </div>
 
@@ -84,70 +84,70 @@
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Dung lượng lưu trữ kênh
+              {{ 'plans.maxStorage' | translate }}
             </span>
             <strong class="spec-val highlight">{{ formatBytes(plan.storageLimit) }}</strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Dung lượng tối đa mỗi video
+              {{ 'plans.maxPerVideo' | translate }}
             </span>
             <strong class="spec-val">{{ formatBytes(plan.maxUploadSize) }}</strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Thời lượng tối đa mỗi video
+              {{ 'plans.maxDuration' | translate }}
             </span>
             <strong class="spec-val">{{ formatDuration(plan.maxVideoDuration) }}</strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Chất lượng tối đa upload
+              {{ 'plans.maxQualityUpload' | translate }}
             </span>
-            <strong class="spec-val badge-quality">{{ plan.maxVideoQuality || '1080p Full HD' }}</strong>
+            <strong class="spec-val badge-quality">{{ plan.maxVideoQuality || ('plans.defaultUploadQuality' | translate) }}</strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Chất lượng tối đa tải xuống
+              {{ 'plans.maxQualityDownload' | translate }}
             </span>
-            <strong class="spec-val badge-quality">{{ plan.maxDownloadQuality || plan.maxVideoQuality || '720p' }}</strong>
+            <strong class="spec-val badge-quality">{{ plan.maxDownloadQuality || plan.maxVideoQuality || ('plans.defaultDownloadQuality' | translate) }}</strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Số thành viên chia sẻ gói
+              {{ 'plans.sharedSeats' | translate }}
             </span>
-            <strong class="spec-val">{{ plan.maxMembers }} người</strong>
+            <strong class="spec-val">{{ membersLabel(plan.maxMembers) }}</strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Tải video xuống
+              {{ 'plans.download' | translate }}
             </span>
             <strong class="spec-val" [class.checkmark]="hasFeature(plan, 'download')">
-              {{ hasFeature(plan, 'download') ? '✓ Hỗ trợ' : '✕ Không hỗ trợ' }}
+              {{ (hasFeature(plan, 'download') ? 'ui.supported' : 'ui.notSupported') | translate }}
             </strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Phát nền
+              {{ 'plans.backgroundPlay' | translate }}
             </span>
             <strong class="spec-val" [class.checkmark]="hasFeature(plan, 'background_play')">
-              {{ hasFeature(plan, 'background_play') ? '✓ Hỗ trợ' : '✕ Không hỗ trợ' }}
+              {{ (hasFeature(plan, 'background_play') ? 'ui.supported' : 'ui.notSupported') | translate }}
             </strong>
           </li>
           <li class="spec-item">
             <span class="spec-label">
               <span class="spec-dot"></span>
-              Chế độ phát thu nhỏ (PiP)
+              {{ 'plans.pip' | translate }}
             </span>
             <strong class="spec-val" [class.checkmark]="hasFeature(plan, 'pip')">
-              {{ hasFeature(plan, 'pip') ? '✓ Hỗ trợ' : '✕ Không hỗ trợ' }}
+              {{ (hasFeature(plan, 'pip') ? 'ui.supported' : 'ui.notSupported') | translate }}
             </strong>
           </li>
         </ul>
@@ -158,33 +158,33 @@
         <div class="panel-header">
           <div class="panel-icon">🔗</div>
           <div>
-            <h2>Chia sẻ thông tin gói</h2>
-            <p>Gửi liên kết công khai cho bạn bè hoặc người thân cùng xem</p>
+            <h2>{{ 'plans.shareInfo' | translate }}</h2>
+            <p>{{ 'plans.shareDesc' | translate }}</p>
           </div>
         </div>
 
         <div class="share-box">
-          <label class="share-label" for="share-url-input">Đường dẫn trang gói:</label>
+          <label class="share-label" for="share-url-input">{{ 'plans.planUrl' | translate }}</label>
           @if (share(); as s) {
             <div class="copy-input-group">
-              <input id="share-url-input" readonly [value]="s.shareUrl" aria-label="Liên kết chia sẻ gói" (focus)="$any($event.target).select()" />
+            <input id="share-url-input" readonly [value]="s.shareUrl" [attr.aria-label]="'plans.shareUrlLabel' | translate" (focus)="$any($event.target).select()" />
             </div>
           }
 
           <div class="share-actions">
             <button type="button" class="btn-copy" (click)="copyShareUrl()">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              <span>Sao chép liên kết</span>
+              <span>{{ 'ui.copyLink' | translate }}</span>
             </button>
 
             <button type="button" class="btn-share-native" (click)="nativeShare()">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-              <span>Chia sẻ</span>
+              <span>{{ 'ui.share' | translate }}</span>
             </button>
           </div>
 
           <div class="share-tip">
-            <span>💡 <strong>Lưu ý:</strong> Liên kết này hoàn toàn công khai, không chứa dữ liệu nhạy cảm hay thông tin tài khoản của bạn.</span>
+            <span>💡 {{ 'plans.shareTip' | translate }}</span>
           </div>
         </div>
       </section>

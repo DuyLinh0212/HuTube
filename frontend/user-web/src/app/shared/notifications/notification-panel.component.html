@@ -1,0 +1,21 @@
+<section class="notification-panel" [attr.aria-label]="'ui.notificationsList' | translate">
+  <header>
+    <strong>{{ 'nav.notifications' | translate }}</strong>
+    <button type="button" (click)="notifications.readAll()">{{ 'ui.markAllRead' | translate }}</button>
+  </header>
+  <div class="notification-list" (scroll)="onScroll()">
+    @for (item of notifications.items(); track item.notificationId) {
+      <button type="button" class="notification-item" [class.unread]="!item.isRead" (click)="open(item)">
+        <span class="notification-dot" aria-hidden="true"></span>
+        <span>
+          <strong>{{ item.title }}</strong>
+          <small>{{ item.content }}</small>
+          <time>{{ item.createdAt | localeDate:'short' }}</time>
+        </span>
+      </button>
+    } @empty {
+      <p class="empty">{{ 'ui.noNotifications' | translate }}</p>
+    }
+    @if (notifications.loading()) { <p class="empty">{{ 'ui.loadingNotifications' | translate }}</p> }
+  </div>
+</section>

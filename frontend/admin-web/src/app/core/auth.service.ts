@@ -8,6 +8,23 @@ export interface LoginResponse { accessToken: string; expiresAt: string; user: U
 export interface Session { sessionId: string; deviceName: string; platform: string; issuedAt: string; lastActiveAt: string; expiresAt: string; isCurrent: boolean; }
 export interface Message { message: string; }
 
+function stableDeviceId(): string {
+  if (typeof document === 'undefined') return '';
+  const key = `hutube_device_id_${ADMIN_APP ? 'admin' : 'user'}`;
+  const existing = document.cookie.split('; ').find(item => item.startsWith(`${key}=`))?.slice(key.length + 1);
+  if (existing) return decodeURIComponent(existing);
+  const generated = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  try { document.cookie = `${key}=${encodeURIComponent(generated)}; Max-Age=31536000; Path=/; SameSite=Lax`; } catch { /* non-browser host */ }
+  return generated;
+}
+
+function browserDeviceName(): string {
+  const mobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+  return `HuTube Admin · ${mobile ? 'Điện thoại' : 'Máy tính'}`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private raw = new HttpClient(inject(HttpBackend));
@@ -31,7 +48,7 @@ export class AuthService {
   private accept(response: LoginResponse): void { this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true; }
   login(email: string, password: string): Observable<User> {
     const generation = ++this.generation;
-    return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: ADMIN_APP ? 'HuTube Admin Web' : 'HuTube Web' }).pipe(
+    return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: browserDeviceName(), deviceId: stableDeviceId() }).pipe(
       tap(response => { if (generation !== this.generation) throw new Error('Yêu cầu đăng nhập đã bị hủy.'); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })

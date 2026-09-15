@@ -5,6 +5,7 @@ import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'local_download_manager.dart';
 import 'media_entitlements.dart';
@@ -37,7 +38,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
     final path = widget.download.filePath;
     if (path == null || !await File(path).exists()) {
       if (mounted) {
-        setState(() => _error = 'Không tìm thấy file trên thiết bị.');
+        setState(() => _error = AppStrings.t('offline.missingFile'));
       }
       return;
     }
@@ -82,7 +83,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
       _backgroundPlaybackGuard = null;
       _player = null;
       unawaited(player.dispose());
-      setState(() => _error = 'Không thể mở file video này.');
+      setState(() => _error = AppStrings.t('offline.openError'));
     }
   }
 
@@ -95,9 +96,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
     final started = await player.enterPictureInPicture();
     if (!started && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Thiết bị không hỗ trợ PiP cho video này.'),
-        ),
+        SnackBar(content: Text(AppStrings.t('offline.pipUnsupported'))),
       );
     }
   }
@@ -118,7 +117,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
         actions: [
           if (_entitlements.pictureInPicture)
             IconButton(
-              tooltip: 'Picture-in-Picture',
+              tooltip: AppStrings.t('offline.pipTooltip'),
               icon: const Icon(Icons.picture_in_picture_alt_outlined),
               onPressed: _ready ? _enterPictureInPicture : null,
             ),
@@ -150,11 +149,11 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
                   ),
                 ),
                 if (_entitlements.backgroundPlayback)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(16),
                     child: Chip(
                       avatar: Icon(Icons.headphones_outlined),
-                      label: Text('Phát nền đang khả dụng cho gói của bạn'),
+                      label: Text(AppStrings.t('offline.backgroundAvailable')),
                     ),
                   ),
               ],

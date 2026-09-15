@@ -63,7 +63,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             throw new AuthException(403, "ADMIN_ACCESS_DENIED", "Tài khoản không có quyền truy cập quản trị.");
         if (request.Platform is not ("web" or "mobile" or "admin"))
             throw new AuthException(400, "VALIDATION_ERROR", "Nền tảng không hợp lệ.");
-        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, ct);
+        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ct);
         await transaction.CommitAsync(ct);
         return response;
     }
@@ -91,7 +91,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
                 else
                 {
                     store.AddUser(user, passwords.Hash(tokens.CreateOpaqueToken()));
-                    var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, ct);
+                    var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ct);
                     await transaction.CommitAsync(ct);
                     return response;
                 }
@@ -112,7 +112,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         user.GoogleSubject = identity.Subject;
         user.EmailVerifiedAt ??= Now;
         if (user.Status == "pending") user.Status = "active";
-        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, ct);
+        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ct);
         await transaction.CommitAsync(ct);
         return response;
     }
@@ -144,7 +144,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         EnsureActive(user);
         if (old.Platform == "admin" && !await store.IsAdminAsync(user.UserId, ct))
             throw new AuthException(403, "ADMIN_ACCESS_DENIED", "Quyền quản trị đã bị vô hiệu hóa.");
-        var (session, nextRefresh) = CreateSession(user.UserId, old.Platform, old.DeviceName);
+        var (session, nextRefresh) = CreateSession(user.UserId, old.Platform, old.DeviceName, old.DeviceId);
         // Absolute session lifetime cannot be extended indefinitely by refresh.
         session.ExpiresAt = old.ExpiresAt;
         old.Revoke(Now, "rotated"); old.ReplacedBySessionId = session.SessionId;
@@ -296,18 +296,42 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         await emailSender.SendAsync(user.Email, "Xác minh email HuTube", $"Mở liên kết trong 24 giờ: {options.WebBaseUrl.TrimEnd('/')}/verify-email?token={Uri.EscapeDataString(raw)}", ct);
     }
 
-    private (UserSession Session, string Refresh) CreateSession(Guid userId, string platform, string deviceName)
+    private (UserSession Session, string Refresh) CreateSession(Guid userId, string platform, string deviceName, string? deviceId = null)
     {
         var raw = tokens.CreateOpaqueToken();
         return (new() { UserId = userId, RefreshTokenHash = tokens.HashToken(raw), Platform = platform,
-            DeviceName = deviceName, IssuedAt = Now, LastActiveAt = Now, ExpiresAt = Now.AddDays(options.RefreshTokenDays) }, raw);
+            DeviceName = deviceName, DeviceId = deviceId?.Trim() ?? "", IssuedAt = Now, LastActiveAt = Now, ExpiresAt = Now.AddDays(options.RefreshTokenDays) }, raw);
     }
-    private async Task<LoginResponse> CompleteLoginAsync(User user, string platform, string deviceName, CancellationToken ct)
+    private async Task<LoginResponse> CompleteLoginAsync(User user, string platform, string deviceName, string? deviceId, CancellationToken ct)
     {
         EnsureActive(user);
         user.FailedLoginAttempts = 0; user.LockedUntil = null; user.LastLoginAt = Now; user.UpdatedAt = Now;
-        var (session, refresh) = CreateSession(user.UserId, platform, deviceName);
-        store.AddSession(session);
+        var normalizedDeviceId = deviceId?.Trim();
+        var session = !string.IsNullOrWhiteSpace(normalizedDeviceId)
+            ? await store.FindActiveSessionByDeviceAsync(user.UserId, platform, normalizedDeviceId!, Now, ct)
+            : null;
+        string refresh;
+        if (session is null)
+        {
+            (session, refresh) = CreateSession(user.UserId, platform, deviceName, normalizedDeviceId);
+            store.AddSession(session);
+        }
+        else
+        {
+            // Re-authentication on the same installation rotates credentials in place
+            // so the account shows one session per device instead of one row per login.
+            refresh = tokens.CreateOpaqueToken();
+            session.RefreshTokenHash = tokens.HashToken(refresh);
+            session.Jti = Guid.NewGuid();
+            session.DeviceName = deviceName;
+            session.DeviceId = normalizedDeviceId!;
+            session.IssuedAt = Now;
+            session.LastActiveAt = Now;
+            session.ExpiresAt = Now.AddDays(options.RefreshTokenDays);
+            session.RevokedAt = null;
+            session.RevokeReason = null;
+            session.ReplacedBySessionId = null;
+        }
         await store.SaveAsync(ct);
         return await CreateLoginResponseAsync(user, session, refresh, ct);
     }

@@ -638,7 +638,7 @@ export class PublicPolicyPage implements OnInit {
     }
   }
 
-  readonly itemCountText = computed(() => this.i18n.t('policies.itemCount', { count: '' + this.activeList().length }));
+  readonly itemCountText = computed(() => this.i18n.t('policies.itemCount', { count: this.i18n.formatNumber(this.activeList().length) }));
 
   readonly activeList = computed(() => {
     const tab = this.activeTab();

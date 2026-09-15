@@ -4,7 +4,7 @@
   min-height: 100dvh;
   width: 100%;
   overflow-x: clip;
-  background: var(--canvas);
+  background: var(--surface);
   transition: background-color 0.2s ease;
 }
 
@@ -13,6 +13,11 @@
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
+  height: 76px;
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  align-self: start;
 }
 
 .shell-body {
@@ -32,6 +37,7 @@
 .shell-stage, .content-frame {
   min-width: 0;
   width: 100%;
+  background: var(--surface);
 }
 
 .nav-scrim {
@@ -41,6 +47,8 @@
 }
 
 @media (max-width: 960px) {
+  .app-shell > app-user-topbar { height: 64px; }
+
   .shell-body,
   .app-shell.nav-collapsed .shell-body {
     grid-template-columns: 1fr;

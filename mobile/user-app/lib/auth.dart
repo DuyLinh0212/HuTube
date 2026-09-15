@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'core/errors/app_error.dart';
+import 'core/localization/app_strings.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/token_store.dart';
 
@@ -61,10 +64,10 @@ class AuthController extends ChangeNotifier {
       if (token != null) await refresh();
     } on ApiFailure catch (error) {
       notice = error.status == 401
-          ? 'Phiên đã hết hạn. Vui lòng đăng nhập lại.'
-          : error.message;
+          ? AppStrings.t('auth.sessionExpired')
+          : AppStrings.apiError(error);
     } catch (_) {
-      notice = 'Không thể mở bộ nhớ bảo mật. Vui lòng thử lại.';
+      notice = AppStrings.t('auth.storageError');
     } finally {
       restoring = false;
       _changed();
@@ -106,8 +109,28 @@ class AuthController extends ChangeNotifier {
     _changed();
   }
 
+  Future<String> _deviceId() async {
+    final DeviceIdStore? deviceStore = store is DeviceIdStore
+        ? store as DeviceIdStore
+        : null;
+    final existing = await deviceStore?.readDeviceId();
+    if (existing != null && existing.trim().isNotEmpty) return existing;
+    final random = math.Random.secure();
+    final bytes = List<int>.generate(18, (_) => random.nextInt(256));
+    final generated = 'mobile-${base64UrlEncode(bytes).replaceAll('=', '')}';
+    if (deviceStore != null) {
+      try {
+        await _storage(() => deviceStore.writeDeviceId(generated));
+      } catch (_) {
+        // A transient secure-storage failure must not prevent a valid login.
+      }
+    }
+    return generated;
+  }
+
   Future<void> login(String email, String password) async {
     final generation = ++_generation;
+    final deviceId = await _deviceId();
     final result = await api.request(
       'POST',
       '/auth/login',
@@ -118,6 +141,7 @@ class AuthController extends ChangeNotifier {
         'deviceName': Platform.isIOS
             ? 'HuTube · iPhone / iPad'
             : 'HuTube · Android',
+        'deviceId': deviceId,
       },
     );
     await _accept(result, generation);
@@ -132,6 +156,7 @@ class AuthController extends ChangeNotifier {
       );
     }
     final generation = ++_generation;
+    final deviceId = await _deviceId();
     final result = await api.request(
       'POST',
       '/auth/google',
@@ -141,6 +166,7 @@ class AuthController extends ChangeNotifier {
         'deviceName': Platform.isIOS
             ? 'HuTube · iPhone / iPad'
             : 'HuTube · Android',
+        'deviceId': deviceId,
       },
     );
     await _accept(result, generation);
@@ -284,8 +310,8 @@ class AuthController extends ChangeNotifier {
           (error.status == 401 || error.status == 403)) {
         await clearSession(
           error.status == 403
-              ? error.message
-              : 'Phiên đã hết hạn. Vui lòng đăng nhập lại.',
+              ? AppStrings.apiError(error)
+              : AppStrings.t('auth.sessionExpired'),
         );
       }
       rethrow;
@@ -311,7 +337,7 @@ class AuthController extends ChangeNotifier {
           (error.code.contains('SUSPENDED') ||
               error.code.contains('BANNED') ||
               error.code == 'ACCOUNT_BLOCKED')) {
-        await clearSession(error.message);
+        await clearSession(AppStrings.apiError(error));
         rethrow;
       }
       if (error.status != 401 || generation != _generation) rethrow;
@@ -332,7 +358,7 @@ class AuthController extends ChangeNotifier {
         );
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
-          await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
+          await clearSession(AppStrings.t('auth.sessionExpired'));
         }
         rethrow;
       }
@@ -358,7 +384,7 @@ class AuthController extends ChangeNotifier {
         return await api.requestList('GET', path, accessToken: _accessToken);
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
-          await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
+          await clearSession(AppStrings.t('auth.sessionExpired'));
         }
         rethrow;
       }
@@ -387,7 +413,7 @@ class AuthController extends ChangeNotifier {
         return await api.upload(path, payload, accessToken: _accessToken);
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
-          await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
+          await clearSession(AppStrings.t('auth.sessionExpired'));
         }
         rethrow;
       }
@@ -430,7 +456,7 @@ class AuthController extends ChangeNotifier {
         );
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
-          await clearSession('Phiên đã hết hạn. Vui lòng đăng nhập lại.');
+          await clearSession(AppStrings.t('auth.sessionExpired'));
         }
         rethrow;
       }
@@ -459,8 +485,7 @@ class AuthController extends ChangeNotifier {
           body: {'refreshToken': token},
         );
       } on ApiFailure {
-        notice =
-            'Đã thoát trên thiết bị. Chưa xác nhận thu hồi phiên trên máy chủ; hãy thu hồi từ thiết bị khác khi có mạng.';
+        notice = AppStrings.t('auth.logoutOffline');
         _changed();
       }
     }
@@ -481,7 +506,7 @@ String? validatePassword(String? value) {
       !RegExp(r'[A-Z]').hasMatch(text) ||
       !RegExp(r'[a-z]').hasMatch(text) ||
       !RegExp(r'[0-9]').hasMatch(text)) {
-    return '10–128 ký tự, gồm chữ hoa, chữ thường và số.';
+    return AppStrings.t('auth.passwordRequirement');
   }
   return null;
 }

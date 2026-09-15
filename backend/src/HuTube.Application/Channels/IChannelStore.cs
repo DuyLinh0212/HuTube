@@ -8,6 +8,7 @@ public interface IChannelStore
     Task<Channel?> FindChannelAsync(Guid channelId, CancellationToken ct);
     Task<Channel?> FindChannelByHandleAsync(string handle, CancellationToken ct);
     Task<Channel?> FindOwnedChannelAsync(Guid ownerUserId, CancellationToken ct) => Task.FromResult<Channel?>(null);
+    Task<List<Channel>> GetAccessibleChannelsAsync(Guid userId, CancellationToken ct) => Task.FromResult(new List<Channel>());
     Task<int> CountChannelsByOwnerAsync(Guid ownerUserId, CancellationToken ct);
     void AddChannel(Channel channel);
     void AddChannelQuota(ChannelQuota quota) { }

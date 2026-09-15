@@ -6,6 +6,7 @@ import '../../channel/screens/channel_invitations_screen.dart';
 import '../../channel/screens/channel_settings_screen.dart';
 import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/services/channel_service.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'creator_comments_screen.dart';
 import 'creator_content_screen.dart';
@@ -20,6 +21,7 @@ class CreatorHubScreen extends StatefulWidget {
 
 class _CreatorHubScreenState extends State<CreatorHubScreen> {
   ChannelDetail? _channel;
+  List<ChannelDetail> _accessibleChannels = const [];
   bool _loading = true;
   String? _error;
 
@@ -35,17 +37,33 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
       _error = null;
     });
     try {
-      final channel = await ChannelService(widget.auth).getMyChannel();
+      final service = ChannelService(widget.auth);
+      final results = await Future.wait([
+        service.getMyChannel(),
+        service.getAccessibleChannels(),
+      ]);
+      final ownedChannel = results[0] as ChannelDetail?;
+      final accessibleChannels = results[1] as List<ChannelDetail>;
       if (mounted) {
         setState(() {
-          _channel = channel;
+          _accessibleChannels = accessibleChannels;
+          _channel =
+              ownedChannel ??
+              (accessibleChannels.isEmpty ? null : accessibleChannels.first);
+          _loading = false;
+        });
+      }
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = AppStrings.apiError(error, fallback: 'common.error');
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải Creator Studio.';
+          _error = AppStrings.t('common.serverError');
           _loading = false;
         });
       }
@@ -60,13 +78,23 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppColors.primaryPink),
       );
     }
     if (_error != null) {
       return Center(
-        child: FilledButton(onPressed: _load, child: Text(_error!)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _load,
+              child: Text(AppStrings.t('common.retry')),
+            ),
+          ],
+        ),
       );
     }
     if (_channel == null) {
@@ -82,14 +110,20 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
                 color: AppColors.primaryPink,
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Tạo kênh để mở Creator Studio',
+              Text(
+                AppStrings.t('creator.noChannel'),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
+              OutlinedButton(
+                onPressed: () =>
+                    _open(ChannelInvitationsScreen(auth: widget.auth)),
+                child: Text(AppStrings.t('creator.openInvitations')),
+              ),
+              const SizedBox(height: 10),
               FilledButton(
                 onPressed: () => _open(CreateChannelScreen(auth: widget.auth)),
-                child: const Text('Tạo kênh'),
+                child: Text(AppStrings.t('creator.createChannel')),
               ),
             ],
           ),
@@ -101,14 +135,45 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
       children: [
         Text(
-          'Creator Studio',
+          AppStrings.t('creator.title'),
           style: Theme.of(
             context,
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 5),
-        Text('Quản lý kênh ${channel.name} bằng dữ liệu thật từ HuTube.'),
+        Text(
+          AppStrings.format('creator.manageDescription', {
+            'name': channel.name,
+          }),
+        ),
         const SizedBox(height: 16),
+        if (_accessibleChannels.length > 1)
+          DropdownButtonFormField<String>(
+            initialValue: channel.id,
+            decoration: InputDecoration(
+              labelText: AppStrings.t('creator.channelSelector'),
+            ),
+            items: _accessibleChannels
+                .map(
+                  (item) => DropdownMenuItem(
+                    value: item.id,
+                    child: Text(
+                      AppStrings.format('creator.managedAs', {
+                        'name': item.name,
+                        'role': _roleLabel(item),
+                      }),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              final selected = _accessibleChannels
+                  .where((item) => item.id == value)
+                  .firstOrNull;
+              if (selected != null) setState(() => _channel = selected);
+            },
+          ),
+        if (_accessibleChannels.length > 1) const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -136,7 +201,7 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
                         ),
                       ),
                       Text(
-                        '@${channel.handle} · ${channel.videoCount} video · ${channel.subscriberCount} người đăng ký',
+                        '@${channel.handle} · ${AppStrings.format('channel.stats', {'subscribers': AppStrings.number(channel.subscriberCount), 'videos': AppStrings.number(channel.videoCount)})}',
                       ),
                     ],
                   ),
@@ -148,47 +213,56 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
         const SizedBox(height: 12),
         _CreatorAction(
           icon: Icons.upload_file_outlined,
-          title: 'Tải video lên',
-          detail:
-              'Tải video có preflight quota và gửi kiểm duyệt khi công khai.',
+          title: AppStrings.t('creator.upload'),
+          detail: AppStrings.t('creator.uploadDescription'),
           onTap: () =>
               _open(VideoUploadScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
           icon: Icons.video_library_outlined,
-          title: 'Nội dung kênh',
-          detail: 'Xem và điều chỉnh video của kênh.',
+          title: AppStrings.t('creator.content'),
+          detail: AppStrings.t('creator.contentDescription'),
           onTap: () =>
               _open(CreatorContentScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
           icon: Icons.forum_outlined,
-          title: 'Bình luận',
-          detail: 'Quản lý phản hồi trên video của bạn.',
+          title: AppStrings.t('creator.comments'),
+          detail: AppStrings.t('creator.commentsDescription'),
           onTap: () =>
               _open(CreatorCommentsScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
           icon: Icons.settings_outlined,
-          title: 'Cài đặt kênh',
-          detail: 'Tên, mô tả, ảnh đại diện và banner.',
+          title: AppStrings.t('creator.settings'),
+          detail: AppStrings.t('creator.settingsDescription'),
           onTap: () =>
               _open(ChannelSettingsScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
           icon: Icons.group_outlined,
-          title: 'Lời mời cộng tác',
-          detail: 'Mời và phản hồi lời mời thành viên.',
+          title: AppStrings.t('creator.invitations'),
+          detail: AppStrings.t('creator.invitationsDescription'),
           onTap: () => _open(ChannelInvitationsScreen(auth: widget.auth)),
         ),
-        const _CreatorAction(
+        _CreatorAction(
           icon: Icons.subtitles_outlined,
-          title: 'Phụ đề',
-          detail:
-              'Trạng thái phụ đề theo video sẽ khớp web; backend chưa có authoring phụ đề.',
+          title: AppStrings.t('creator.subtitles'),
+          detail: AppStrings.t('creator.subtitlesDescription'),
         ),
       ],
     );
+  }
+
+  String _roleLabel(ChannelDetail channel) {
+    if (channel.isOwner) return AppStrings.t('channel.owner');
+    return switch (channel.myRole) {
+      'manager' => AppStrings.t('channel.roleManager'),
+      'editor' => AppStrings.t('channel.roleEditor'),
+      'moderator' => AppStrings.t('channel.roleModerator'),
+      'viewer' => AppStrings.t('channel.roleViewer'),
+      _ => channel.myRole ?? AppStrings.t('channel.roleViewer'),
+    };
   }
 }
 

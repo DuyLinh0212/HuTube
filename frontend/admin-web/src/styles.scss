@@ -5,7 +5,7 @@
   --primary-soft: rgba(255,43,102,.08);
   --primary-glow: rgba(255,43,102,.32);
   --primary-gradient: linear-gradient(135deg,#ff3b69 0%,#ff2b66 50%,#e61952 100%);
-  --page-bg: #faf8f7;
+  --page-bg: #ffffff;
   --card-bg: #fff;
   --card-border: #e5e7eb;
   --card-hover: #f9fafb;
@@ -114,7 +114,16 @@ input:-webkit-autofill:focus {
 }
 
 * { box-sizing: border-box; }
-body { min-width: 320px; margin: 0; background: var(--page-bg); color: var(--ink); }
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+body.dark-theme {
+  background: var(--canvas);
+}
 button, input { font: inherit; }
 a { color: var(--brand); text-underline-offset: 3px; }
 a:hover { color: var(--brand-hover); }
@@ -129,7 +138,7 @@ h1 { font-size: 1.75rem; line-height: 1.25; letter-spacing: -0.025em; }
 h2 { font-size: 1.35rem; line-height: 1.35; letter-spacing: -0.015em; margin-bottom: 9px; }
 h3 { font-size: 1rem; margin-bottom: 6px; }
 p { line-height: 1.6; text-wrap: pretty; }
-.topbar { height: 76px; display: flex; align-items: center; gap: 22px; padding: 0 5%; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar { height: 76px; display: flex; align-items: center; gap: 22px; padding: 0 5%; background: var(--surface); border-bottom: 0; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-size: 1.65rem; letter-spacing: -0.04em; font-weight: 750; }
 .brand-mark { display: inline-flex; align-items: center; justify-content: center; background: var(--brand); color: white; width: 31px; height: 25px; border-radius: 7px; font-size: 13px; padding-left: 2px; }
 .brand-mark.large { width: 48px; height: 38px; border-radius: 10px; font-size: 20px; margin-bottom: 28px; }

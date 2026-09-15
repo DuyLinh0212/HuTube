@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'content_models.dart';
 import 'content_service.dart';
@@ -92,14 +93,14 @@ class _WatchScreenState extends State<WatchScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.message;
+          _error = AppStrings.apiError(error, fallback: 'watch.loadError');
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải video này. Vui lòng thử lại.';
+          _error = AppStrings.t('watch.loadError');
           _loading = false;
         });
       }
@@ -110,10 +111,7 @@ class _WatchScreenState extends State<WatchScreen> {
     final uri = Uri.tryParse(url);
     if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) {
       if (mounted) {
-        setState(
-          () => _actionMessage =
-              'Nguồn video không hợp lệ. Máy chủ cần trả về URL HTTP(S).',
-        );
+        setState(() => _actionMessage = AppStrings.t('watch.invalidSource'));
       }
       return;
     }
@@ -181,7 +179,7 @@ class _WatchScreenState extends State<WatchScreen> {
       unawaited(player.dispose());
       setState(() {
         _playerReady = false;
-        _actionMessage = 'Không thể phát nguồn video này.';
+        _actionMessage = AppStrings.t('watch.playerError');
       });
     }
   }
@@ -207,16 +205,13 @@ class _WatchScreenState extends State<WatchScreen> {
     final started = await player.enterPictureInPicture();
     if (!mounted) return;
     if (!started) {
-      setState(
-        () => _actionMessage =
-            'Thiết bị hiện không hỗ trợ PiP cho nguồn video này.',
-      );
+      setState(() => _actionMessage = AppStrings.t('watch.pipUnsupported'));
     }
   }
 
   Future<void> _react(String type) async {
     if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = 'Đăng nhập để tương tác với video.');
+      setState(() => _actionMessage = AppStrings.t('watch.loginInteract'));
       return;
     }
     final video = _video;
@@ -260,13 +255,15 @@ class _WatchScreenState extends State<WatchScreen> {
         );
       });
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _actionMessage = error.message);
+      if (mounted) {
+        setState(() => _actionMessage = AppStrings.apiError(error));
+      }
     }
   }
 
   Future<void> _rate() async {
     if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = 'Đăng nhập để đánh giá video.');
+      setState(() => _actionMessage = AppStrings.t('watch.loginRate'));
       return;
     }
     final score = await showModalBottomSheet<int>(
@@ -274,11 +271,15 @@ class _WatchScreenState extends State<WatchScreen> {
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
-            const ListTile(title: Text('Đánh giá video')),
+            ListTile(title: Text(AppStrings.t('watch.ratingTitle'))),
             for (var value = 1; value <= 5; value++)
               ListTile(
                 leading: Icon(Icons.star_rounded, color: Colors.amber.shade700),
-                title: Text('$value sao'),
+                title: Text(
+                  AppStrings.format('watch.ratingStars', {
+                    'count': AppStrings.number(value),
+                  }),
+                ),
                 onTap: () => Navigator.pop(context, value),
               ),
           ],
@@ -321,10 +322,12 @@ class _WatchScreenState extends State<WatchScreen> {
           ),
           moderationStatus: old.moderationStatus,
         );
-        _actionMessage = 'Đã cập nhật đánh giá của bạn.';
+        _actionMessage = AppStrings.t('watch.ratingSaved');
       });
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _actionMessage = error.message);
+      if (mounted) {
+        setState(() => _actionMessage = AppStrings.apiError(error));
+      }
     }
   }
 
@@ -333,13 +336,16 @@ class _WatchScreenState extends State<WatchScreen> {
     if (video == null) return;
     if (widget.auth.authenticated) unawaited(_content.share(video.id));
     await Share.share(
-      'Xem ${video.title} trên HuTube\nhutube://watch/${video.id}',
+      AppStrings.format('watch.shareText', {
+        'title': video.title,
+        'id': video.id,
+      }),
     );
   }
 
   Future<void> _download() async {
     if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = 'Đăng nhập để tải video xuống.');
+      setState(() => _actionMessage = AppStrings.t('watch.loginDownload'));
       return;
     }
     try {
@@ -351,7 +357,7 @@ class _WatchScreenState extends State<WatchScreen> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              const ListTile(title: Text('Chọn chất lượng tải xuống')),
+              ListTile(title: Text(AppStrings.t('watch.downloadQuality'))),
               for (final item in options)
                 ListTile(
                   title: Text(item.quality),
@@ -370,19 +376,19 @@ class _WatchScreenState extends State<WatchScreen> {
       await LocalDownloadManager.instance.enqueue(
         id: '${record['videoDownloadId'] ?? ''}',
         videoId: widget.videoId,
-        title: '${record['title'] ?? _video?.title ?? 'video'}',
+        title:
+            '${record['title'] ?? _video?.title ?? AppStrings.t('common.download')}',
         quality: '${record['quality'] ?? chosen.quality}',
         url: '${record['fileUrl'] ?? chosen.url}',
         fileSize: asInt(record['fileSize']),
       );
       if (mounted) {
-        setState(
-          () =>
-              _actionMessage = 'Đã thêm vào danh sách tải xuống trên thiết bị.',
-        );
+        setState(() => _actionMessage = AppStrings.t('watch.downloadAdded'));
       }
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _actionMessage = error.message);
+      if (mounted) {
+        setState(() => _actionMessage = AppStrings.apiError(error));
+      }
     }
   }
 
@@ -390,7 +396,7 @@ class _WatchScreenState extends State<WatchScreen> {
     final text = _comment.text.trim();
     if (text.isEmpty || _sendingComment) return;
     if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = 'Đăng nhập để bình luận.');
+      setState(() => _actionMessage = AppStrings.t('watch.loginCommentHint'));
       return;
     }
     setState(() => _sendingComment = true);
@@ -406,7 +412,7 @@ class _WatchScreenState extends State<WatchScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _actionMessage = error.message;
+          _actionMessage = AppStrings.apiError(error);
           _sendingComment = false;
         });
       }
@@ -428,11 +434,14 @@ class _WatchScreenState extends State<WatchScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _error ?? 'Video không khả dụng.',
+                _error ?? AppStrings.t('watch.videoUnavailable'),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              FilledButton(onPressed: _load, child: const Text('Thử lại')),
+              FilledButton(
+                onPressed: _load,
+                child: Text(AppStrings.t('common.retry')),
+              ),
             ],
           ),
         ),
@@ -483,7 +492,10 @@ class _WatchScreenState extends State<WatchScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          '${video.stats.views} lượt xem · ${video.channelName}',
+          AppStrings.format('watch.viewsAndChannel', {
+            'views': AppStrings.number(video.stats.views),
+            'channel': video.channelName,
+          }),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
@@ -493,43 +505,43 @@ class _WatchScreenState extends State<WatchScreen> {
             children: [
               _ActionChip(
                 icon: Icons.thumb_up_outlined,
-                label: '${video.stats.likes}',
+                label: AppStrings.number(video.stats.likes),
                 active: video.viewerState.reaction == 'like',
                 onTap: () => _react('like'),
               ),
               _ActionChip(
                 icon: Icons.thumb_down_outlined,
-                label: '${video.stats.dislikes}',
+                label: AppStrings.number(video.stats.dislikes),
                 active: video.viewerState.reaction == 'dislike',
                 onTap: () => _react('dislike'),
               ),
               _ActionChip(
                 icon: Icons.star_outline_rounded,
-                label: 'Đánh giá',
+                label: AppStrings.t('watch.rateAction'),
                 onTap: _rate,
               ),
               _ActionChip(
                 icon: Icons.share_outlined,
-                label: 'Chia sẻ',
+                label: AppStrings.t('watch.shareAction'),
                 onTap: _share,
               ),
               _ActionChip(
                 icon: Icons.download_outlined,
-                label: 'Tải xuống',
+                label: AppStrings.t('watch.downloadAction'),
                 onTap: _download,
               ),
               if (_entitlements.pictureInPicture)
                 _ActionChip(
                   icon: Icons.picture_in_picture_alt_outlined,
-                  label: 'PiP',
+                  label: AppStrings.t('watch.pipAction'),
                   onTap: _enterPictureInPicture,
                 ),
               if (_entitlements.backgroundPlayback)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(right: 8),
                   child: Chip(
                     avatar: Icon(Icons.headphones_outlined, size: 18),
-                    label: Text('Phát nền'),
+                    label: Text(AppStrings.t('watch.background')),
                   ),
                 ),
             ],
@@ -573,7 +585,7 @@ class _WatchScreenState extends State<WatchScreen> {
         if (video.chapters.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(
-            'Chương',
+            AppStrings.t('watch.chapters'),
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -593,7 +605,9 @@ class _WatchScreenState extends State<WatchScreen> {
         ],
         const SizedBox(height: 18),
         Text(
-          'Bình luận (${video.stats.comments})',
+          AppStrings.format('watch.comments', {
+            'count': AppStrings.number(video.stats.comments),
+          }),
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -604,8 +618,8 @@ class _WatchScreenState extends State<WatchScreen> {
           maxLines: 3,
           decoration: InputDecoration(
             hintText: widget.auth.authenticated
-                ? 'Viết bình luận...'
-                : 'Đăng nhập để bình luận',
+                ? AppStrings.t('watch.commentHint')
+                : AppStrings.t('watch.loginCommentHint'),
           ),
           enabled: widget.auth.authenticated,
         ),
@@ -614,7 +628,11 @@ class _WatchScreenState extends State<WatchScreen> {
           alignment: Alignment.centerRight,
           child: FilledButton(
             onPressed: _sendingComment ? null : _sendComment,
-            child: Text(_sendingComment ? 'Đang gửi...' : 'Bình luận'),
+            child: Text(
+              _sendingComment
+                  ? AppStrings.t('watch.sending')
+                  : AppStrings.t('watch.commentAction'),
+            ),
           ),
         ),
         ..._comments.map(
@@ -626,7 +644,7 @@ class _WatchScreenState extends State<WatchScreen> {
         ),
         const SizedBox(height: 18),
         Text(
-          'Video liên quan',
+          AppStrings.t('watch.related'),
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -739,22 +757,26 @@ class _CommentTileState extends State<_CommentTile> {
     final text = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Trả lời ${_item.displayName}'),
+        title: Text(
+          AppStrings.format('watch.replyTitle', {'name': _item.displayName}),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
           minLines: 2,
           maxLines: 5,
-          decoration: const InputDecoration(hintText: 'Viết phản hồi của bạn'),
+          decoration: InputDecoration(
+            hintText: AppStrings.t('watch.replyHint'),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Hủy'),
+            child: Text(AppStrings.t('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: const Text('Gửi'),
+            child: Text(AppStrings.t('common.send')),
           ),
         ],
       ),
@@ -822,11 +844,11 @@ class _CommentTileState extends State<_CommentTile> {
                       TextButton.icon(
                         onPressed: _react,
                         icon: const Icon(Icons.thumb_up_outlined, size: 16),
-                        label: Text('${_item.likes}'),
+                        label: Text(AppStrings.number(_item.likes)),
                       ),
                       TextButton(
                         onPressed: _reply,
-                        child: const Text('Trả lời'),
+                        child: Text(AppStrings.t('common.reply')),
                       ),
                     ],
                   ),
@@ -839,7 +861,11 @@ class _CommentTileState extends State<_CommentTile> {
           TextButton(
             onPressed: _loadReplies,
             child: Text(
-              _loading ? 'Đang tải...' : '${_item.replyCount} câu trả lời',
+              _loading
+                  ? AppStrings.t('watch.repliesLoading')
+                  : AppStrings.format('watch.replies', {
+                      'count': AppStrings.number(_item.replyCount),
+                    }),
             ),
           ),
         if (_replies != null)

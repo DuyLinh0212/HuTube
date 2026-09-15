@@ -1,13 +1,13 @@
 import { Component, ElementRef, EventEmitter, HostListener, OnInit, Output, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
-import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { ThemeService } from '../../core/theme.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { AccountService, UserProfile } from '../../core/account.service';
 import { NotificationService } from '../../core/notification.service';
 import { NotificationPanelComponent } from '../../shared/notifications/notification-panel.component';
+import { StudioDataService } from '../../core/studio-data.service';
 
 @Component({
   selector: 'app-studio-topbar',
@@ -21,23 +21,19 @@ export class StudioTopbarComponent implements OnInit {
   readonly auth = inject(AuthService);
   readonly themeService = inject(ThemeService);
   readonly i18n = inject(I18nService);
-  private channelService = inject(ChannelService);
   private router = inject(Router);
   private elRef = inject(ElementRef);
   private account = inject(AccountService);
   readonly notifications = inject(NotificationService);
+  readonly studio = inject(StudioDataService);
 
-  readonly myChannel = signal<ChannelDetail | null>(null);
+  readonly myChannel = this.studio.channel;
   readonly dropdownOpen = signal(false);
   readonly notificationsOpen = signal(false);
   readonly profile = signal<UserProfile | null>(null);
 
   ngOnInit() {
     const loadAuthenticatedContext = () => {
-      this.channelService.getMyChannel().subscribe({
-        next: ch => this.myChannel.set(ch),
-        error: () => this.myChannel.set(null)
-      });
       this.account.getProfile().subscribe({
         next: profile => this.profile.set(profile),
         error: () => this.profile.set(null)
@@ -82,6 +78,11 @@ export class StudioTopbarComponent implements OnInit {
     const next = this.i18n.currentLang() === 'vi' ? 'en' : 'vi';
     this.i18n.setLang(next);
     this.account.updatePreferences({ language: next }).subscribe();
+  }
+
+  channelRole(role: string | null | undefined): string {
+    const key = ({ owner: 'studio.roleOwner', manager: 'studio.roleManager', editor: 'studio.roleEditor', moderator: 'studio.roleModerator', viewer: 'studio.roleViewer' } as Record<string, string>)[role ?? ''] ?? 'studio.roleContributor';
+    return this.i18n.t(key);
   }
 
   logout() {

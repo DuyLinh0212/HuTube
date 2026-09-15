@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/account_models.dart';
@@ -39,11 +40,18 @@ class _NotificationSettingsScreenState
           _loading = false;
         });
       }
+    } on ApiFailure catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = AppStrings.apiError(e, fallback: 'notif.loadError');
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Không thể tải cài đặt thông báo.';
+          _error = AppStrings.t('notif.loadError');
         });
       }
     }
@@ -61,9 +69,15 @@ class _NotificationSettingsScreenState
       if (mounted) {
         setState(() => _settings = res);
       }
+    } on ApiFailure catch (e) {
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(e, fallback: 'notif.saveError'),
+        );
+      }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Không thể lưu cài đặt.');
+        setState(() => _error = AppStrings.t('notif.saveError'));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -74,7 +88,7 @@ class _NotificationSettingsScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cài đặt thông báo'),
+        title: Text(AppStrings.t('notif.title')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -94,9 +108,8 @@ class _NotificationSettingsScreenState
                   ],
 
                   _switchTile(
-                    title: 'Video mới từ kênh đã đăng ký',
-                    subtitle:
-                        'Nhận thông báo khi kênh bạn theo dõi xuất bản video mới.',
+                    title: AppStrings.t('notifications.videoUpdates'),
+                    subtitle: AppStrings.t('notifications.videoUpdatesDesc'),
                     value: _settings.notifyNewVideos,
                     onChanged: (val) =>
                         _save(_settings.copyWith(notifyNewVideos: val)),
@@ -104,9 +117,8 @@ class _NotificationSettingsScreenState
                   const Divider(height: 24),
 
                   _switchTile(
-                    title: 'Bình luận & Phản hồi',
-                    subtitle:
-                        'Thông báo về hoạt động trên bình luận và video của bạn.',
+                    title: AppStrings.t('notifications.comments'),
+                    subtitle: AppStrings.t('notifications.commentsDesc'),
                     value: _settings.notifyComments,
                     onChanged: (val) =>
                         _save(_settings.copyWith(notifyComments: val)),
@@ -114,9 +126,8 @@ class _NotificationSettingsScreenState
                   const Divider(height: 24),
 
                   _switchTile(
-                    title: 'Hoạt động kênh đăng ký',
-                    subtitle:
-                        'Nhận tóm tắt về hoạt động của các kênh bạn quan tâm.',
+                    title: AppStrings.t('notifications.channelActivity'),
+                    subtitle: AppStrings.t('notifications.channelActivityDesc'),
                     value: _settings.notifySubscriptions,
                     onChanged: (val) =>
                         _save(_settings.copyWith(notifySubscriptions: val)),
@@ -124,8 +135,8 @@ class _NotificationSettingsScreenState
                   const Divider(height: 24),
 
                   _switchTile(
-                    title: 'Email thông tin & Cập nhật sản phẩm',
-                    subtitle: 'Nhận tin tức về các tính năng mới từ HuTube.',
+                    title: AppStrings.t('notifications.marketing'),
+                    subtitle: AppStrings.t('notifications.marketingDesc'),
                     value: _settings.notifyMarketing,
                     onChanged: (val) =>
                         _save(_settings.copyWith(notifyMarketing: val)),
@@ -133,7 +144,7 @@ class _NotificationSettingsScreenState
 
                   if (_saving) ...[
                     const SizedBox(height: 20),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(
@@ -146,9 +157,9 @@ class _NotificationSettingsScreenState
                         ),
                         SizedBox(width: 8),
                         Text(
-                          'Đang tự động lưu...',
+                          AppStrings.t('notif.autoSaving'),
                           style: TextStyle(
-                            color: AppColors.textSecondary,
+                            color: AppColors.textSecondaryFor(context),
                             fontSize: 12,
                           ),
                         ),
@@ -184,8 +195,8 @@ class _NotificationSettingsScreenState
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: AppColors.textSecondaryFor(context),
                   fontSize: 13,
                   height: 1.4,
                 ),

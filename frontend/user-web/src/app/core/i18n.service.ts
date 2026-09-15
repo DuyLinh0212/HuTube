@@ -23,6 +23,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.copied': 'Đã sao chép vào clipboard',
     'common.retry': 'Thử lại',
     'common.confirm': 'Xác nhận',
+    'common.all': 'Tất cả',
+    'common.open': 'Mở liên kết',
+    'common.skipToContent': 'Bỏ qua để đến nội dung chính',
 
     // Navigation & Topbar / Sidebar
     'nav.home': 'Trang chủ',
@@ -109,6 +112,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.privacy': 'Quyền riêng tư',
     'nav.guidelines': 'Quy tắc cộng đồng',
     'nav.policyHub': 'Chính sách & An toàn',
+    'nav.navigation': 'Điều hướng chính',
+    'nav.guestPrompt': 'Đăng nhập để bắt đầu xem, lưu và tương tác với video.',
 
     // Policy Hub Page
     'policies.hubTitle': 'Chính sách & An toàn',
@@ -121,6 +126,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.downloadPdf': 'Tải PDF',
     'policies.printToast': 'Đã gửi lệnh in tài liệu chính sách thành công.',
     'policies.pdfToast': 'Đã tải bản sao lưu PDF chính sách thành công.',
+    'policies.closeToast': 'Đóng thông báo',
+    'policies.categoryNav': 'Danh mục chính sách',
+    'policies.breadcrumb': 'Đường dẫn điều hướng',
 
     'policies.breadcrumbHome': 'Trang chủ',
     'policies.breadcrumbLegal': 'Chính sách & Pháp lý',
@@ -694,7 +702,780 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.sidebar.nextSubtitles': 'Chỉnh sửa phụ đề',
     'upload.sidebar.nextShare': 'Chia sẻ video với cộng đồng',
     'upload.sidebar.nextAnalytics': 'Xem thống kê video',
-    'upload.sidebar.nextManage': 'Quản lý video trong Creator Studio'
+    'upload.sidebar.nextManage': 'Quản lý video trong Creator Studio',
+
+    // UI completion: public pages and collaboration flows
+    'ui.loadingVideos': 'Đang tải video…',
+    'ui.videoLoadError': 'Không thể tải danh sách video.',
+    'ui.noVideos': 'Chưa có video nào.',
+    'ui.videoList': 'Danh sách video',
+    'ui.views': 'lượt xem',
+    'ui.seconds': 'giây',
+    'ui.people': 'người',
+    'ui.videos': 'video',
+    'ui.closePopup': 'Đóng popup',
+    'ui.verifiedChannel': 'Kênh đã xác minh',
+    'ui.openCreatorStudio': 'Mở Creator Studio',
+    'ui.more': '...xem thêm',
+    'ui.otherLinks': 'và {count} đường liên kết khác',
+    'ui.workEmail': 'Email công việc',
+    'ui.description': 'Mô tả',
+    'ui.links': 'Đường liên kết',
+    'ui.otherInfo': 'Thông tin khác',
+    'ui.vietnam': 'Việt Nam',
+    'ui.joined': 'Đã tham gia {date}',
+    'ui.subscribers': 'người đăng ký',
+    'ui.comments': 'bình luận',
+    'ui.watchHours': 'giờ',
+    'ui.upload': 'Tải video lên',
+    'ui.likes': 'lượt thích',
+    'ui.public': '🌐 Công khai',
+    'ui.unlisted': '🔗 Không công khai',
+    'ui.private': '🔒 Riêng tư',
+    'ui.moderationApproved': '✓ Đã duyệt',
+    'ui.moderationPending': '⏳ Chờ duyệt',
+    'ui.moderationReviewing': '🔍 Đang thẩm định',
+    'ui.moderationRejected': '✕ Bị từ chối',
+    'ui.moderationNotSubmitted': 'Chưa gửi duyệt',
+    'ui.saving': 'Đang lưu…',
+    'ui.noData': 'Chưa có dữ liệu.',
+    'ui.all': 'Tất cả',
+    'ui.yes': 'Có',
+    'ui.no': 'Không',
+    'ui.supported': '✓ Hỗ trợ',
+    'ui.notSupported': '✕ Không hỗ trợ',
+    'ui.copyLink': 'Sao chép liên kết',
+    'ui.share': 'Chia sẻ',
+    'ui.openLink': 'Mở liên kết',
+    'ui.invite': 'Mời thành viên',
+    'ui.revoke': 'Thu hồi',
+    'ui.status': 'Trạng thái',
+    'ui.date': 'Ngày',
+    'ui.actions': 'Thao tác',
+
+    'home.loading': 'Đang tải video…',
+    'home.error': 'Không thể tải danh sách video.',
+    'home.empty': 'Chưa có video nào.',
+    'home.videoList': 'Danh sách video',
+    'home.views': 'lượt xem',
+    'explore.filters': 'Bộ lọc khám phá',
+    'explore.sort': 'Sắp xếp',
+    'explore.newest': 'Mới nhất',
+    'explore.popular': 'Phổ biến',
+    'explore.trending': 'Thịnh hành',
+    'explore.category': 'Danh mục',
+    'explore.allCategories': 'Tất cả danh mục',
+    'explore.videoList': 'Danh sách video',
+
+    'library.ratingFilter': 'Lọc video theo đánh giá của bạn',
+    'library.ratingLabel': 'Lọc theo đánh giá',
+    'library.loading': 'Đang tải thư viện video',
+    'library.watch': 'Xem {title}',
+    'library.yourRating': 'Bạn: {rating}',
+    'library.overallRating': 'Điểm chung {rating}/5 ({count})',
+    'library.watched': 'Đã xem {progress}',
+    'library.resume': 'Bạn đang xem dở video này',
+    'library.pagination': 'Phân trang thư viện',
+    'library.previous': '← Trước',
+    'library.next': 'Sau →',
+    'library.page': 'Trang {page} / {total}',
+    'library.noMatching': 'Không có video phù hợp',
+    'library.noLiked': 'Chưa có video đã thích',
+    'library.noHistory': 'Chưa có lịch sử xem',
+    'library.matchingHint': 'Thử chọn một mức đánh giá khác.',
+    'library.likedHint': 'Những video bạn bấm Thích sẽ xuất hiện ở đây.',
+    'library.historyHint': 'Video bạn mở và xem sẽ được lưu lại tại đây.',
+    'library.seeAllLiked': 'Xem tất cả video đã thích',
+    'library.loadError': 'Không thể tải thư viện video.',
+
+    'channel.collaborationTitle': 'Bạn đang được mời cộng tác',
+    'channel.collaborationDesc': 'Bạn không cần tạo kênh riêng để làm việc trên kênh đã được mời.',
+    'channel.viewInvitations': 'Xem lời mời',
+    'channel.ownedTitle': 'Bạn đã sở hữu một kênh trên HuTube',
+    'channel.ownedDesc': 'Mỗi tài khoản được liên kết tối đa với một kênh phát sóng.',
+    'channel.viewYourChannel': 'Xem kênh của bạn',
+    'channel.formTitle': 'Tạo kênh HuTube của bạn',
+    'channel.formDesc': 'Bắt đầu chia sẻ nội dung video sáng tạo và kết nối với cộng đồng người xem.',
+    'channel.uploadBanner': 'Tải lên ảnh bìa kênh (khuyên dùng tỉ lệ 16:9 hoặc ảnh ngang)',
+    'channel.bannerAlt': 'Xem trước ảnh bìa',
+    'channel.uploadAvatar': 'Nhấp để tải lên ảnh đại diện kênh',
+    'channel.avatarAlt': 'Xem trước ảnh đại diện',
+    'channel.nameRequired': 'Tên kênh *',
+    'channel.namePlaceholder': 'Ví dụ: Khoa Học TV, Đi Để Trưởng Thành...',
+    'channel.handleLabel': 'Handle (Tên định danh) *',
+    'channel.handlePlaceholder': 'mychannel',
+    'channel.handleHelp': 'Handle sẽ là địa chỉ duy nhất của bạn: hutube.vn/@{handle}',
+    'channel.descriptionLabel': 'Mô tả kênh',
+    'channel.descriptionPlaceholder': 'Giới thiệu về nội dung kênh của bạn để người xem hiểu thêm...',
+    'channel.contactEmail': 'Email liên hệ công việc',
+    'channel.contactEmailPlaceholder': 'contact@example.com',
+    'channel.creating': 'Đang tạo kênh...',
+    'channel.createNow': 'Tạo kênh ngay',
+    'channel.cancel': 'Hủy',
+    'channel.bannerClick': 'Nhấp để tải lên ảnh bìa',
+    'channel.content': 'Nội dung kênh',
+    'channel.unavailable': 'Kênh này không khả dụng',
+    'channel.backProfile': 'Quay lại trang cá nhân',
+    'channel.descriptionFallback': 'Tìm hiểu thêm về kênh này',
+    'channel.studio': 'Vào Studio',
+    'channel.subscribe': 'Đã đăng ký',
+    'channel.follow': 'Theo dõi',
+    'channel.tabs': 'Nội dung kênh',
+    'channel.noVideos': 'Chưa có video nào',
+    'channel.noVideosDesc': 'Kênh này chưa tải lên video nào. Hãy quay lại sau nhé!',
+    'channel.noPlaylists': 'Chưa có danh sách phát',
+    'channel.noPlaylistsDesc': 'Chưa có playlist công khai nào được tạo trên kênh này.',
+    'channel.contactDetails': 'Chi tiết liên hệ',
+    'channel.noLinks': 'Chưa có đường liên kết bên ngoài.',
+    'channel.channelUrl': 'www.hutube.vn/@{handle}',
+    'channel.joined': 'Đã tham gia {date}',
+    'channel.totalViews': 'lượt xem',
+    'channel.shareCopied': 'Đã sao chép!',
+    'channel.share': 'Chia sẻ kênh',
+    'channel.report': 'Báo cáo người dùng',
+    'channel.reload': 'Tải lại',
+    'channel.loadingInvitations': 'Đang tải lời mời và kênh cộng tác…',
+    'channel.pendingInvitations': 'Lời mời đang chờ',
+    'channel.pendingDesc': 'Kiểm tra vai trò và phạm vi quyền trước khi tham gia.',
+    'channel.expires': 'Hết hạn {date}',
+    'channel.processing': 'Đang xử lý…',
+    'channel.inviteAccept': 'Chấp nhận',
+    'channel.inviteDecline': 'Từ chối',
+    'channel.noPending': 'Không có lời mời đang chờ',
+    'channel.noPendingDesc': 'Lời mời mới gửi tới email tài khoản sẽ xuất hiện tại đây.',
+    'channel.collaborating': 'Kênh đang cộng tác',
+    'channel.collaboratingDesc': 'Mở Studio trên từng kênh theo đúng vai trò và quyền được cấp.',
+    'channel.noAccessible': 'Bạn chưa có kênh nào được cấp quyền.',
+    'channel.openStudio': 'Mở Studio',
+    'channel.basic': 'Thông tin cơ bản',
+    'channel.branding': 'Xây dựng thương hiệu',
+    'channel.members': 'Thành viên & quyền',
+    'channel.danger': 'Xóa kênh',
+    'channel.viewChannel': 'Xem trang kênh',
+    'channel.save': 'Lưu thay đổi',
+    'channel.addLink': 'Thêm đường liên kết',
+    'channel.remove': 'Gỡ',
+    'channel.role': 'Vai trò',
+    'channel.inviteUser': 'Email người dùng',
+    'channel.sendInvite': 'Gửi lời mời',
+    'channel.pending': 'Lời mời đang chờ',
+    'channel.withdraw': 'Thu hồi',
+    'channel.deleteConfirm': 'Xác nhận xóa kênh',
+    'channel.delete': 'Xóa kênh này',
+    'channel.otherLink': 'Liên kết khác',
+    'channel.platform': 'Nền tảng',
+    'channel.linkUrl': 'URL liên kết',
+    'channel.roleOwner': 'Chủ sở hữu',
+    'channel.roleManager': 'Quản lý',
+    'channel.roleEditor': 'Biên tập viên',
+    'channel.roleModerator': 'Kiểm duyệt viên',
+    'channel.roleViewer': 'Người xem',
+    'channel.roleManagerDesc': 'Quản lý hồ sơ, nội dung, thành viên và cài đặt kênh; không thể xóa kênh hoặc thay chủ sở hữu.',
+    'channel.roleEditorDesc': 'Tải lên, chỉnh sửa nội dung, playlist và xem dữ liệu nội dung.',
+    'channel.roleModeratorDesc': 'Quản lý cộng đồng và bình luận, không được chỉnh sửa video hay cài đặt kênh.',
+    'channel.roleViewerDesc': 'Chỉ xem dashboard và dữ liệu nội bộ được cấp.',
+    'channel.nameError': 'Vui lòng nhập tên kênh.',
+    'channel.handleMinError': 'Handle cần tối thiểu 3 ký tự (chữ cái, số, _, -, .).',
+    'channel.handleCharsError': 'Handle chỉ gồm chữ cái không dấu, số, _, -, .',
+    'channel.handleInvalidError': 'Handle không hợp lệ hoặc đã có người sử dụng.',
+    'channel.createError': 'Không thể tạo kênh. Vui lòng thử lại.',
+    'channel.loadInvitationsError': 'Không thể tải lời mời. Vui lòng thử lại.',
+    'channel.acceptSuccess': 'Bạn đã tham gia kênh {channel}.',
+    'channel.declineSuccess': 'Đã từ chối lời mời từ {channel}.',
+    'channel.fullManagement': 'Toàn quyền quản lý kênh',
+    'channel.videoManagement': 'Có thể quản lý nội dung video',
+    'channel.commentManagement': 'Có thể quản lý bình luận',
+    'channel.viewGrantedData': 'Chỉ xem dữ liệu được cấp',
+    'channel.processInvitationError': 'Không thể xử lý lời mời. Vui lòng thử lại.',
+    'channel.notFound': 'Không tìm thấy thông tin kênh.',
+    'channel.handleNotFound': 'Không tìm thấy handle kênh.',
+    'channel.loadError': 'Không thể tải thông tin kênh.',
+    'channel.nameEmpty': 'Tên kênh không được để trống.',
+    'channel.handleLength': 'Handle cần từ 3 đến 50 ký tự.',
+    'channel.linkUrlError': 'URL liên kết phải bắt đầu bằng http:// hoặc https://.',
+    'channel.basicSaved': 'Đã cập nhật thông tin kênh.',
+    'channel.avatarSaved': 'Đã cập nhật ảnh đại diện kênh.',
+    'channel.bannerSaved': 'Đã cập nhật ảnh bìa kênh.',
+    'channel.inviteSent': 'Đã gửi lời mời và email thông báo cho thành viên.',
+    'channel.roleUpdated': 'Đã cập nhật vai trò của {member}.',
+    'channel.removeConfirm': 'Gỡ {member} khỏi kênh?',
+    'channel.memberRemoved': 'Đã gỡ thành viên khỏi kênh.',
+    'channel.inviteWithdrawn': 'Đã thu hồi lời mời.',
+    'channel.confirmNameMismatch': 'Tên kênh xác nhận chưa khớp chính xác.',
+    'channel.handleChannel': 'Handle kênh *',
+    'channel.address': 'Địa chỉ kênh của bạn: hutube.vn/@{handle}',
+    'channel.businessEmail': 'Email liên hệ kinh doanh',
+    'channel.links': 'Đường liên kết',
+    'channel.linksDesc': 'Chia sẻ đường liên kết bên ngoài với người xem. Các đường liên kết này sẽ hiển thị trên hồ sơ kênh và trang giới thiệu của bạn.',
+    'channel.reorderLink': 'Kéo để sắp xếp',
+    'channel.removeLink': 'Xóa đường liên kết',
+    'channel.avatarTitle': 'Ảnh đại diện kênh',
+    'channel.avatarDesc': 'Ảnh đại diện sẽ xuất hiện bên cạnh video và bình luận của bạn trên HuTube.',
+    'channel.changeAvatar': 'Thay đổi ảnh đại diện',
+    'channel.bannerTitle': 'Hình ảnh biểu ngữ (Banner)',
+    'channel.bannerDesc': 'Hình ảnh này sẽ xuất hiện ở đầu trang kênh của bạn.',
+    'channel.changeBanner': 'Thay đổi biểu ngữ',
+    'channel.noBanner': 'Chưa có banner',
+    'channel.watermarkTitle': 'Hình mờ video (Watermark)',
+    'channel.watermarkDesc': 'Hình mờ sẽ xuất hiện ở góc dưới bên phải trình phát video của bạn.',
+    'channel.saveWatermark': 'Lưu watermark',
+    'channel.rolesDesc': 'Mỗi vai trò có một tập quyền cố định và luôn được kiểm tra lại tại API.',
+    'channel.memberEmailPlaceholder': 'member@example.com',
+    'channel.roleDescription': 'Mô tả vai trò đã chọn',
+    'channel.memberRole': 'Vai trò của {member}',
+    'channel.noOtherMembers': 'Chưa có thành viên nào ngoài chủ sở hữu.',
+    'channel.deleteDesc': 'Thao tác này sẽ gỡ bỏ kênh của bạn khỏi kết quả tìm kiếm và trang công khai. Chỉ chủ sở hữu mới có quyền xóa.',
+    'channel.deleteMine': 'Xóa kênh của tôi',
+    'channel.deleteWarning': 'Bạn đang chuẩn bị xóa kênh',
+    'channel.deleteNamePrompt': 'Vui lòng nhập chính xác tên kênh để xác nhận:',
+    'channel.deleteNamePlaceholder': 'Nhập tên kênh: {name}',
+    'channel.confirmDelete': 'Xác nhận xóa',
+    'channel.platform.facebook': 'Facebook',
+    'channel.platform.instagram': 'Instagram',
+    'channel.platform.tiktok': 'TikTok',
+    'channel.platform.x': 'X',
+    'channel.platform.other': 'Liên kết khác',
+
+    'plans.myPlans': 'Gói của tôi',
+    'plans.explore': 'Khám phá gói',
+    'plans.retry': 'Thử lại',
+    'plans.loadingMine': 'Đang tải thông tin gói của bạn...',
+    'plans.activeDesc': 'Gói hiện đang kích hoạt trên tài khoản của bạn',
+    'plans.detailShare': 'Chi tiết & chia sẻ gói',
+    'plans.switchOther': 'Đổi sang gói khác',
+    'plans.upgrade': 'Xem gói nâng cấp',
+    'plans.owner': 'Chủ sở hữu',
+    'plans.sharedMember': 'Thành viên dùng chung',
+    'plans.startDate': 'Ngày bắt đầu',
+    'plans.endDate': 'Hạn sử dụng',
+    'plans.expired': 'Đã hết hạn',
+    'plans.autoRenew': 'Tự động gia hạn',
+    'plans.enabled': 'Đang bật',
+    'plans.quotaTitle': 'Quota dung lượng kênh',
+    'plans.quotaDesc': 'Dung lượng video đã tải lên kênh hiện tại',
+    'plans.usage': 'Mức sử dụng dung lượng',
+    'plans.used': 'đã sử dụng',
+    'plans.remaining': 'Còn lại:',
+    'plans.maxUpload': 'Video upload tối đa',
+    'plans.quality': 'Độ phân giải',
+    'plans.maxMembers': 'Thành viên tối đa',
+    'plans.maxDuration': 'Thời lượng video tối đa',
+    'plans.capabilities': 'Tải xuống / phát nền / PiP',
+    'plans.sharedTitle': 'Chia sẻ gói cho gia đình / nhóm',
+    'plans.sharedCount': 'Hiện có {current} / {max} người đang dùng chung',
+    'plans.sharedNotice': 'Bạn đang là thành viên tham gia gói được chia sẻ. Chỉ chủ gói mới có quyền mời hoặc quản lý thành viên.',
+    'plans.personalNotice': 'Gói hiện tại là gói cá nhân. Để chia sẻ cho người khác, bạn có thể chuyển sang gói nhóm.',
+    'plans.groupPlans': 'Xem các gói chia sẻ nhóm →',
+    'plans.invitePlaceholder': 'Nhập email người bạn muốn chia sẻ...',
+    'plans.inviteMember': 'Mời thành viên',
+    'plans.maxReached': 'Đã đạt số lượng thành viên tối đa của gói này.',
+    'plans.memberEmail': 'Email thành viên',
+    'plans.invitedDate': 'Ngày mời',
+    'plans.memberStatus': 'Trạng thái',
+    'plans.accepted': 'Đã tham gia',
+    'plans.waiting': 'Đang chờ xác nhận',
+    'plans.noMembers': 'Chưa có thành viên nào được mời vào gói này.',
+    'plans.noPlan': 'Bạn chưa đăng ký gói dịch vụ nào',
+    'plans.noPlanDesc': 'Nâng cấp gói để tăng dung lượng kênh, chất lượng upload và chia sẻ quyền lợi cho bạn bè.',
+    'plans.exploreNow': 'Khám phá các gói dịch vụ ngay',
+    'plans.flexible': 'Lựa chọn linh hoạt',
+    'plans.choose': 'Chọn gói phù hợp với kênh của bạn',
+    'plans.chooseDesc': 'Thêm dung lượng, chất lượng video và thành viên dùng chung khi kênh phát triển.',
+    'plans.current': 'Đang dùng:',
+    'plans.currentBadge': 'Gói hiện tại của bạn',
+    'plans.popular': 'Được chọn nhiều',
+    'plans.serviceDesc': 'Gói dịch vụ cho nhà sáng tạo.',
+    'plans.days': 'ngày',
+    'plans.storage': 'Dung lượng',
+    'plans.uploadDownload': 'Upload / Download',
+    'plans.standard': 'Tiêu chuẩn',
+    'plans.duration': 'Thời lượng',
+    'plans.download': 'Tải xuống',
+    'plans.backgroundPip': 'Phát nền / PiP',
+    'plans.manage': 'Quản lý gói này',
+    'plans.switch': 'Đổi sang gói này',
+    'plans.buy': 'Mua gói này',
+    'plans.detailAndShare': 'Xem chi tiết và chia sẻ',
+    'plans.detailLoading': 'Đang tải gói dịch vụ...',
+    'plans.back': '← Quay lại danh sách gói',
+    'plans.currentUse': '✓ Bạn đang sử dụng gói này',
+    'plans.activeNote': 'Gói đang còn hạn. Bạn có thể đăng ký lại sau khi gói hết hạn.',
+    'plans.activating': 'Đang kích hoạt...',
+    'plans.loginSubscribe': 'Đăng nhập để đăng ký',
+    'plans.benefits': 'Quyền lợi & Thông số',
+    'plans.benefitsDesc': 'Chi tiết giới hạn và tài nguyên của gói này',
+    'plans.maxStorage': 'Dung lượng lưu trữ kênh',
+    'plans.maxPerVideo': 'Dung lượng tối đa mỗi video',
+    'plans.maxQualityUpload': 'Chất lượng tối đa upload',
+    'plans.maxQualityDownload': 'Chất lượng tối đa tải xuống',
+    'plans.sharedSeats': 'Số thành viên chia sẻ gói',
+    'plans.shareInfo': 'Chia sẻ thông tin gói',
+    'plans.shareDesc': 'Gửi liên kết công khai cho bạn bè hoặc người thân cùng xem',
+    'plans.planUrl': 'Đường dẫn trang gói:',
+    'plans.shareUrlLabel': 'Liên kết chia sẻ gói',
+    'plans.shareTip': 'Lưu ý: Liên kết này hoàn toàn công khai, không chứa dữ liệu nhạy cảm hay thông tin tài khoản của bạn.',
+    'plans.inviteAcceptTitle': 'Lời mời dùng chung gói',
+    'plans.inviteIncomplete': 'Liên kết lời mời không đầy đủ.',
+    'plans.inviteLogin': 'Đăng nhập bằng đúng email đã nhận lời mời để tiếp tục.',
+    'plans.inviteLoginButton': 'Đăng nhập để chấp nhận',
+    'plans.inviteCheckEmail': 'Kiểm tra email tài khoản rồi xác nhận lời mời tham gia gói.',
+    'plans.acceptInvite': 'Chấp nhận lời mời',
+    'plans.openMine': 'Mở Gói của tôi',
+    'plans.loadError': 'Không tải được danh sách gói dịch vụ.',
+    'plans.inviteError': 'Không thể gửi lời mời.',
+    'plans.revokeError': 'Không thể thu hồi thành viên.',
+    'plans.minutes': '{count} phút',
+    'plans.hours': '{count} giờ',
+    'plans.hoursMinutes': '{hours} giờ {minutes} phút',
+    'plans.invalid': 'Gói dịch vụ không hợp lệ.',
+    'plans.notFound': 'Không tìm thấy gói dịch vụ.',
+    'plans.copiedShare': 'Đã sao chép liên kết chia sẻ.',
+    'plans.copyError': 'Không thể sao chép tự động. Hãy chọn và sao chép liên kết trong ô bên trên.',
+    'plans.shareError': 'Không thể mở bảng chia sẻ trên thiết bị này.',
+    'plans.subscribeSuccess': 'Đăng ký gói thành công. Bạn có thể quản lý quota và thành viên trong Gói của tôi.',
+    'plans.joined': 'Đã tham gia gói dịch vụ.',
+    'plans.inviteInvalid': 'Lời mời không hợp lệ hoặc đã hết hạn.',
+    'plans.viewMode': 'Chế độ hiển thị gói dịch vụ',
+    'plans.catalogLabel': 'Các gói dịch vụ',
+    'plans.allPlans': 'Tất cả gói dịch vụ',
+    'plans.detailDesc': 'Gói dịch vụ dành riêng cho nhà sáng tạo và người xem nâng cao trên HuTube.',
+    'plans.notPurchased': 'Chưa mua gói này',
+    'plans.backgroundPlay': 'Phát nền',
+    'plans.pip': 'Chế độ phát thu nhỏ (PiP)',
+    'plans.processingInvite': 'Đang xác nhận…',
+
+    'watch.loading': 'Đang tải video',
+    'watch.unavailableTitle': 'Không thể mở video',
+    'watch.home': 'Về trang chủ',
+    'watch.notReady': 'Video chưa sẵn sàng để phát.',
+    'watch.videoInfo': 'Thông tin video',
+    'watch.play': 'Phát video',
+    'watch.pause': 'Tạm dừng',
+    'watch.back10': 'Lùi 10 giây',
+    'watch.forward10': 'Tiến 10 giây',
+    'watch.unmute': 'Bật âm thanh',
+    'watch.mute': 'Tắt âm thanh',
+    'watch.volume': 'Âm lượng',
+    'watch.quality': 'Chất lượng',
+    'watch.videoQuality': 'Chất lượng video',
+    'watch.speed': 'Tốc độ',
+    'watch.restoreSize': 'Khôi phục kích thước video',
+    'watch.minimize': 'Thu nhỏ video',
+    'watch.fullscreen': 'Toàn màn hình',
+    'watch.progress': 'Tiến trình video',
+    'watch.actions': 'Tác vụ video',
+    'watch.like': 'Thích video',
+    'watch.dislike': 'Không thích video',
+    'watch.loginInteract': 'Đăng nhập để tương tác',
+    'watch.download': 'Tải xuống',
+    'watch.loginDownload': 'Đăng nhập để tải xuống',
+    'watch.ratingGroup': 'Đánh giá video từ 1 đến 5 sao',
+    'watch.rating': 'Đánh giá',
+    'watch.ratingStar': 'Đánh giá {star} sao',
+    'watch.clearRating': 'Bỏ đánh giá',
+    'watch.shortcut': 'K / Space phát · J/L ±10s · F toàn màn hình · M tắt tiếng · I thu nhỏ',
+    'watch.shareVideo': 'Chia sẻ video',
+    'watch.shareDesc': 'Sao chép liên kết để gửi cho người khác.',
+    'watch.videoLink': 'Liên kết video',
+    'watch.downloadTitle': 'Tải video xuống',
+    'watch.downloadDesc': 'Chất lượng khả dụng theo gói hiện tại.',
+    'watch.preparing': 'Đang chuẩn bị…',
+    'watch.noDownloadQuality': 'Gói hiện tại chưa có chất lượng tải xuống khả dụng.',
+    'watch.chapters': 'Nội dung video',
+    'watch.chaptersDesc': 'Các chương giúp bạn đi thẳng đến phần muốn xem.',
+    'watch.chapterCount': 'chương',
+    'watch.comments': 'Bình luận',
+    'watch.commentCount': '{count} bình luận trong video này',
+    'watch.newest': 'Mới nhất',
+    'watch.commentPlaceholder': 'Viết bình luận của bạn…',
+    'watch.keepCivil': 'Hãy giữ cuộc trò chuyện văn minh.',
+    'watch.sendComment': 'Gửi bình luận',
+    'watch.loginComment': 'Đăng nhập để tham gia bình luận về video này.',
+    'watch.reply': 'Trả lời',
+    'watch.replyPlaceholder': 'Viết câu trả lời…',
+    'watch.send': 'Gửi',
+    'watch.likeComment': 'Thích',
+    'watch.dislikeComment': 'Không thích',
+    'watch.hideReplies': 'Ẩn câu trả lời',
+    'watch.viewReplies': 'Xem {count} câu trả lời',
+    'watch.show': 'Hiện',
+    'watch.hide': 'Ẩn',
+    'watch.remove': 'Xóa',
+    'watch.report': 'Báo cáo',
+    'watch.replies': 'Các câu trả lời',
+    'watch.replyLoading': 'Đang tải câu trả lời…',
+    'watch.descriptionEmpty': 'Video này chưa có phần mô tả.',
+
+    // Studio pages
+    'studio.loading': 'Đang tải…',
+    'studio.channelOverview': 'Tổng quan kênh',
+    'studio.recentVideo': 'Video gần nhất',
+    'studio.seeAll': 'Xem tất cả',
+    'studio.emptyVideo': 'Chưa có video. Hãy tải video đầu tiên của bạn.',
+    'studio.searchVideo': 'Tìm kiếm theo tiêu đề video...',
+    'studio.colModeration': 'Trạng thái kiểm duyệt',
+    'studio.interaction': 'Tương tác',
+    'studio.noVideosList': 'Chưa có video nào trong danh sách.',
+    'studio.visible': 'Đang hiển thị',
+    'studio.hidden': 'Đã ẩn',
+    'studio.showAgain': 'Hiện lại',
+    'studio.hide': 'Ẩn',
+    'studio.send': 'Gửi',
+    'studio.replyPlaceholder': 'Nhập câu trả lời',
+    'studio.noComments': 'Không có bình luận ở trạng thái này.',
+    'studio.noSubtitles': 'Chưa có phụ đề',
+    'studio.noVideo': 'Chưa có video.',
+    'studio.notSet': 'Chưa đặt',
+    'studio.channelInfo': 'Thông tin kênh',
+    'studio.saveChannelInfo': 'Lưu thông tin kênh',
+    'studio.viewOnly': 'Quyền chỉ xem',
+    'studio.viewOnlyDesc': 'Bạn có thể xem dữ liệu kênh nhưng không được chỉnh sửa thông tin cơ bản.',
+    'studio.display': 'Hiển thị',
+    'studio.language': 'Ngôn ngữ',
+    'studio.light': 'Sáng',
+    'studio.dark': 'Tối',
+    'studio.saveSettings': 'Lưu cài đặt',
+    'studio.permissionError': 'Bạn không có quyền chỉnh sửa thông tin kênh.',
+    'studio.saved': 'Đã lưu cài đặt kênh.',
+    'studio.saveError': 'Không thể lưu cài đặt kênh.'
+    ,'studio.performanceByVideo': 'Hiệu suất theo video'
+    ,'studio.channelMetrics': 'Số liệu kênh'
+    ,'studio.publicModerationToast': 'Đã chuyển video "{title}" sang Công khai và gửi vào Hàng đợi kiểm duyệt.'
+    ,'studio.publicToast': 'Đã chuyển video "{title}" sang chế độ Công khai.'
+    ,'studio.unlistedToast': 'Đã chuyển video "{title}" sang chế độ Không công khai.'
+    ,'studio.privateToast': 'Đã chuyển video "{title}" sang chế độ Riêng tư.'
+    ,'studio.visibilityError': 'Không thể cập nhật chế độ hiển thị video.'
+     ,'ui.delete': 'Xóa'
+     ,'ui.confirmLogoutTitle': 'Xác nhận đăng xuất'
+     ,'ui.confirmLogoutDesc': 'Bạn có chắc muốn đăng xuất khỏi tài khoản này không?'
+     ,'ui.userHuTube': 'Người dùng HuTube'
+     ,'ui.user': 'Người dùng'
+     ,'ui.liked': 'Đã thích'
+     ,'ui.playlist': 'Danh sách phát'
+     ,'ui.subscriptions': 'Kênh đăng ký'
+    ,'ui.quickActions': 'Tác vụ nhanh'
+    ,'ui.closeAccountMenu': 'Đóng menu tài khoản'
+    ,'ui.account': 'Tài khoản'
+    ,'ui.accountStats': 'Thống kê tài khoản'
+    ,'ui.accountActions': 'Tác vụ tài khoản'
+    ,'ui.signIn': 'Đăng nhập'
+    ,'ui.collaborationChannel': 'Kênh cộng tác'
+    ,'ui.openCollaborationChannel': 'Mở kênh đang cộng tác'
+    ,'ui.collaborationInvites': 'Lời mời cộng tác'
+    ,'ui.waitingConfirmation': 'Chờ bạn xác nhận'
+    ,'ui.createFirstChannel': 'Tạo kênh đầu tiên'
+    ,'ui.startCreatingContent': 'Bắt đầu sáng tạo nội dung'
+    ,'ui.createOwnChannel': 'Tạo kênh riêng'
+    ,'ui.startOwnChannel': 'Bắt đầu kênh của bạn'
+    ,'ui.channelSettings': 'Cài đặt kênh'
+    ,'ui.channelSettingsDesc': 'Tùy chỉnh kênh của bạn'
+    ,'ui.packageDesc': 'Quản lý và đăng ký gói'
+    ,'ui.accountSettings': 'Cài đặt tài khoản'
+    ,'ui.accountSettingsDesc': 'Bảo mật, thông báo và tùy chọn'
+    ,'ui.myLinks': 'Liên kết của tôi'
+    ,'ui.addLinks': 'Thêm Instagram, Facebook, TikTok…'
+    ,'ui.notificationsList': 'Danh sách thông báo'
+    ,'ui.markAllRead': 'Đánh dấu đã đọc'
+    ,'ui.noNotifications': 'Chưa có thông báo.'
+    ,'ui.loadingNotifications': 'Đang tải…'
+    ,'ui.cancelUpload': 'Hủy tải lên'
+    ,'ui.closeUpload': 'Đóng tiến trình tải lên'
+    ,'ui.uploading': 'Đang tải video lên…'
+    ,'ui.processingVideo': 'Đang tạo chất lượng video…'
+    ,'ui.uploadSuccess': 'Tải video thành công'
+    ,'ui.uploadFailed': 'Tải video thất bại'
+    ,'ui.creatorStudio': 'Creator Studio'
+    ,'ui.newBadge': 'Mới'
+    ,'ui.collaborateOnChannel': 'Cộng tác trên kênh'
+    ,'ui.closeMenu': 'Đóng menu'
+    ,'ui.searchShortcut': 'Ctrl K'
+    ,'ui.reportPrompt': 'Chọn mã vi phạm:'
+    ,'ui.reportDescriptionPrompt': 'Mô tả thêm (không bắt buộc):'
+
+    ,'auth.introLabel': 'NHÀ SÁNG TẠO · NGƯỜI XEM · CỘNG ĐỒNG'
+    ,'auth.heroCreate': 'Sáng tạo.'
+    ,'auth.heroShare': 'Chia sẻ.'
+    ,'auth.heroBelong': 'Thuộc về.'
+    ,'auth.heroDescription': 'HuTube trao quyền để bạn sáng tạo, kết nối và khám phá thế giới video cùng cộng đồng tôn vinh câu chuyện và góc nhìn của bạn.'
+    ,'auth.featureCreate': 'Sáng tạo không giới hạn'
+    ,'auth.featureCreateDesc': 'Biến ý tưởng thành những video tuyệt vời'
+    ,'auth.featureShare': 'Chia sẻ thế giới của bạn'
+    ,'auth.featureShareDesc': 'Kết nối với những người xem đồng điệu'
+    ,'auth.featureBelong': 'Khám phá & Thuộc về'
+    ,'auth.featureBelongDesc': 'Nơi bạn luôn tìm thấy nguồn cảm hứng'
+    ,'auth.tagline': 'Video hay hơn, con người tốt đẹp hơn'
+    ,'auth.slideStory': 'Câu chuyện của bạn<br>thuộc về nơi đây'
+    ,'auth.slideWorld': 'Một thế giới lớn hơn<br>trong mỗi video'
+    ,'auth.slideInspire': 'Truyền cảm hứng cho<br>thế giới quanh bạn'
+    ,'auth.cardExplore': 'KHÁM PHÁ'
+    ,'auth.cardCreate': 'SÁNG TẠO'
+    ,'auth.cardLearn': 'HỌC HỎI'
+    ,'auth.cardShare': 'CHIA SẺ'
+    ,'auth.cardBelong': 'THUỘC VỀ'
+    ,'auth.subTagline': 'MỘT INTERNET CỞI MỞ, SÁNG TẠO VÀ TỬ TẾ HƠN'
+    ,'auth.loginSubtitle': 'Chào mừng bạn trở lại HuTube.'
+    ,'auth.adminSubtitle': 'Dành cho đội ngũ quản trị.'
+    ,'auth.registerSubtitle': 'Bắt đầu với email của bạn.'
+    ,'auth.verifySubtitle': 'Hoàn tất xác minh để bảo vệ tài khoản.'
+    ,'auth.forgotSubtitle': 'Nhập email để nhận liên kết đặt lại mật khẩu.'
+    ,'auth.resetSubtitle': 'Chọn mật khẩu mới cho tài khoản của bạn.'
+    ,'auth.verificationHelp': 'Chưa nhận được email xác minh?'
+    ,'auth.resendEmail': 'Gửi lại email'
+    ,'auth.usernameHint': '3–50 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.'
+    ,'auth.usernameInvalid': 'Tên người dùng chưa đúng định dạng.'
+    ,'auth.emailInvalid': 'Nhập địa chỉ email hợp lệ.'
+    ,'auth.passwordHint': '10–128 ký tự, gồm chữ hoa, chữ thường và số.'
+    ,'auth.passwordInvalid': 'Mật khẩu chưa đáp ứng yêu cầu.'
+    ,'auth.passwordLoginRequired': 'Nhập mật khẩu của bạn.'
+    ,'auth.showPassword': 'Hiện mật khẩu'
+    ,'auth.hidePassword': 'Ẩn mật khẩu'
+    ,'auth.googleLogin': 'Đăng nhập bằng Google'
+    ,'auth.resendEmailLabel': 'Email nhận liên kết mới'
+    ,'auth.mobileAppLink': 'Mở trong ứng dụng HuTube'
+    ,'auth.appLoginLink': 'Đăng nhập trên ứng dụng HuTube'
+    ,'auth.sessionExpired': 'Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.'
+    ,'auth.resetMissingToken': 'Liên kết thiếu mã xác nhận. Vui lòng yêu cầu đặt lại mật khẩu.'
+    ,'auth.googleCredentialMissing': 'Không nhận được thông tin xác thực từ Google.'
+    ,'auth.googleLoadError': 'Không tải được đăng nhập Google. Vui lòng thử lại.'
+    ,'auth.formInvalid': 'Vui lòng kiểm tra các trường được đánh dấu.'
+    ,'auth.passwordMismatch': 'Mật khẩu xác nhận chưa khớp.'
+    ,'auth.registerSuccess': 'Tài khoản đã được tạo. Kiểm tra hộp thư để xác minh email trước khi đăng nhập.'
+    ,'auth.forgotSuccess': 'Nếu email có trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến bạn. Hãy kiểm tra cả thư rác.'
+    ,'auth.resetSuccess': 'Đã đổi mật khẩu và kết thúc các phiên cũ. Bạn có thể đăng nhập bằng mật khẩu mới.'
+    ,'auth.verifySuccess': 'Email đã được xác minh. Bạn có thể đăng nhập ngay.'
+    ,'auth.resendSuccess': 'Nếu tài khoản cần xác minh, một liên kết mới sẽ được gửi đến email của bạn.'
+
+    ,'account.channelId': 'Mã nhận dạng kênh (Channel ID)'
+    ,'account.settingsAria': 'Cài đặt tài khoản'
+     ,'account.dismissMessage': 'Đóng thông báo'
+
+    ,'watch.unavailableError': 'Video không khả dụng hoặc bạn không có quyền xem video này.'
+    ,'watch.playbackQualityError': 'Không tải được các bản chất lượng cao hơn. Video nguồn vẫn có thể phát.'
+    ,'watch.renditionError': 'Không thể phát bản chất lượng này. Hãy thử chọn chất lượng khác.'
+    ,'watch.playError': 'Không thể phát video ở thời điểm này.'
+    ,'watch.loginReaction': 'Vui lòng đăng nhập để thích hoặc không thích video.'
+    ,'watch.interactionError': 'Vui lòng đăng nhập để tương tác với video.'
+    ,'watch.loginRating': 'Vui lòng đăng nhập để đánh giá video.'
+    ,'watch.ratingSaved': 'Đã cập nhật đánh giá của bạn.'
+    ,'watch.shareReadyPublic': 'Liên kết video công khai đã sẵn sàng để chia sẻ.'
+    ,'watch.shareReady': 'Liên kết video đã sẵn sàng để chia sẻ.'
+    ,'watch.copyHint': 'Hãy sao chép liên kết trong ô bên trên.'
+    ,'watch.shareCopied': 'Đã sao chép liên kết video.'
+    ,'watch.copyError': 'Không thể sao chép tự động. Hãy sao chép liên kết thủ công.'
+    ,'watch.loginCommentAction': 'Vui lòng đăng nhập để bình luận.'
+    ,'watch.commentError': 'Không thể gửi bình luận.'
+    ,'watch.loginReply': 'Vui lòng đăng nhập để trả lời bình luận.'
+    ,'watch.replyError': 'Không thể gửi câu trả lời.'
+    ,'watch.replySaved': 'Đã gửi câu trả lời.'
+    ,'watch.loginCommentInteraction': 'Vui lòng đăng nhập để tương tác với bình luận.'
+    ,'watch.commentUpdateError': 'Không thể cập nhật bình luận.'
+    ,'watch.loginCommentManage': 'Vui lòng đăng nhập để quản lý bình luận.'
+    ,'watch.loginCommentDelete': 'Vui lòng đăng nhập để xóa bình luận.'
+    ,'watch.deleteCommentConfirm': 'Xóa bình luận này?'
+    ,'watch.loginReport': 'Vui lòng đăng nhập để báo cáo bình luận.'
+    ,'watch.noViolationTypes': 'Hiện chưa có loại vi phạm để gửi báo cáo.'
+    ,'watch.violationChoice': 'Chọn mã vi phạm:\n{choices}'
+    ,'watch.invalidViolationCode': 'Mã vi phạm không hợp lệ.'
+    ,'watch.reportSent': 'Đã gửi báo cáo bình luận.'
+    ,'watch.reportError': 'Không thể gửi báo cáo. Vui lòng thử lại.'
+    ,'watch.downloadUnsupported': 'Gói hiện tại không hỗ trợ tải xuống video.'
+    ,'watch.downloadCreatedWithLink': 'Đã tạo bản tải xuống. Bạn có thể mở liên kết từ thông báo tải xuống.'
+    ,'watch.downloadCreated': 'Đã tạo bản tải xuống.'
+    ,'watch.downloadError': 'Không thể tạo bản tải xuống.'
+    ,'watch.noReplies': 'Chưa có câu trả lời.'
+    ,'watch.emptyCommentsTitle': 'Chưa có bình luận nào'
+    ,'watch.emptyCommentsDesc': 'Hãy là người đầu tiên chia sẻ cảm nhận về video này.'
+    ,'watch.recommendations': 'Video đề xuất'
+    ,'watch.recommendationFilters': 'Bộ lọc video đề xuất'
+    ,'watch.relatedVideos': 'Video liên quan'
+    ,'watch.sameChannel': 'Cùng của kênh'
+    ,'watch.categoryVietnam': 'Du lịch Việt Nam'
+    ,'watch.recommendedTitle': 'Đề xuất cho bạn'
+    ,'watch.recommendedDesc': 'Tiếp tục khám phá trên HuTube'
+    ,'watch.autoplay': 'Tự động phát'
+    ,'watch.newlyPosted': 'Mới đăng'
+     ,'watch.noRecommended': 'Chưa có video đề xuất.'
+     ,'watch.sourceQuality': 'Nguồn'
+     ,'watch.views': '{count} lượt xem'
+     ,'watch.subscribers': '{count} người đăng ký'
+     ,'watch.defaultLanguage': 'Tiếng Việt'
+     ,'watch.videoDescriptionEmpty': 'Video này chưa có phần mô tả.'
+     ,'watch.chapterCountLabel': '{count} chương'
+     ,'watch.guestCommentPrompt': 'Đăng nhập để tham gia bình luận về video này.'
+     ,'watch.repliesCount': 'Xem {count} câu trả lời'
+     ,'watch.showComment': 'Hiện'
+     ,'watch.hideComment': 'Ẩn'
+     ,'watch.repliesEmpty': 'Chưa có câu trả lời.'
+     ,'watch.reportDescriptionPrompt': 'Mô tả thêm (không bắt buộc):'
+     ,'watch.repliesError': 'Không thể tải câu trả lời.'
+     ,'watch.recommendationViews': '{count} lượt xem'
+     ,'watch.originalBadge': 'HUTUBE ORIGINAL'
+
+    ,'plans.defaultUploadQuality': '1080p Full HD'
+     ,'plans.defaultDownloadQuality': '720p'
+     ,'plans.eyebrow': 'Tài khoản & gói dịch vụ'
+
+    ,'upload.stepperAria': 'Các bước tải lên video'
+    ,'upload.readingVideo': 'Đang đọc video và tách khung hình…'
+    ,'upload.checkingStorage': 'Đang kiểm tra dung lượng thật…'
+    ,'upload.creatingQualities': 'Đang tạo các chất lượng video…'
+    ,'upload.uploadingNow': 'Đang tải lên…'
+    ,'upload.ready': 'Sẵn sàng tải lên'
+    ,'upload.noCategory': 'Không chọn'
+    ,'upload.languageVietnamese': 'Tiếng Việt (Vietnamese)'
+    ,'upload.languageEnglish': 'English (US)'
+    ,'upload.languageJapanese': '日本語 (Japanese)'
+    ,'upload.quality4K': '2160p (4K)'
+    ,'upload.watching': 'Đang xem:'
+    ,'upload.addChapterAt': 'Thêm chương tại mốc'
+    ,'upload.pausePreview': 'Tạm dừng'
+    ,'upload.playPreview': 'Phát xem trước'
+    ,'upload.timelineAria': 'Dòng thời gian video'
+    ,'upload.timelineHelp': 'Kéo trên thanh để tua video. Kéo chấm chương để đổi thời điểm, hoặc sửa trực tiếp bên dưới.'
+    ,'upload.chapterNameAria': 'Tên chương'
+    ,'upload.chapterStartAria': 'Thời điểm bắt đầu'
+    ,'upload.preModeration': 'Tiền kiểm duyệt'
+    ,'upload.preModerationDesc': 'Video sẽ được gửi đến hàng đợi thẩm định trước khi hiển thị công khai trên HuTube.'
+    ,'upload.commitment': 'Tôi cam kết video này tuân thủ'
+    ,'upload.and': 'và'
+    ,'upload.noPlaylist': '-- Chọn danh sách phát (tùy chọn) --'
+    ,'upload.untitledCategory': 'Chưa phân loại'
+    ,'upload.previewVideo': 'Chọn video để xem bản preview'
+    ,'upload.checkApi404': 'API hiện tại chưa có endpoint này. Hãy khởi động lại backend local hoặc redeploy API trước khi tải lên.'
+    ,'upload.checkApiOffline': 'Không thể kết nối API. Kiểm tra backend, CORS và thử lại.'
+     ,'upload.checkApiError': 'Không thể kiểm tra file với máy chủ.'
+     ,'upload.noData': 'Chưa có dữ liệu'
+     ,'upload.storageRemaining': 'Còn lại {value}'
+     ,'upload.frameLabel': 'Khung hình {index}'
+     ,'upload.playlistDalat': 'Du lịch Đà Lạt'
+     ,'upload.playlistVietnam': 'Vẻ đẹp Việt Nam'
+     ,'upload.policyCommitmentDesc': 'Tôi xác nhận video này tuân thủ {community} và {terms} của HuTube.'
+     ,'upload.commitmentSuffix': 'của HuTube. Video không chứa nội dung kích động thù địch, bạo lực, khiêu dâm hoặc vi phạm bản quyền.'
+     ,'upload.fileTypeError': 'File không phải định dạng video được hỗ trợ. Chọn MP4, WebM, MOV hoặc MKV.'
+     ,'upload.metadataError': 'Không đọc được thông tin video. File có thể bị hỏng hoặc trình duyệt không hỗ trợ định dạng này.'
+     ,'upload.selectFileError': 'Vui lòng chọn file video trước.'
+     ,'upload.selectVideoError': 'Vui lòng chọn file video.'
+     ,'upload.preparingWait': 'Đang đọc video và tạo hình thu nhỏ, vui lòng chờ một chút.'
+     ,'upload.storageWait': 'Đang kiểm tra dung lượng lưu trữ, vui lòng chờ một chút.'
+     ,'upload.preflightUnavailable': 'Chưa kiểm tra được file với máy chủ.'
+     ,'upload.titleRequired': 'Vui lòng nhập tiêu đề video.'
+     ,'upload.policyRequired': 'Vui lòng xác nhận cam kết tuân thủ Tiêu chuẩn cộng đồng HuTube trước khi gửi duyệt.'
+     ,'upload.uploadInProgress': 'Đang có một video khác được tải lên.'
+     ,'upload.chaptersInvalid': 'Các chương phải có tiêu đề, mốc thời gian tăng dần và nằm trong video.'
+     ,'upload.previewError': 'Trình duyệt không thể phát bản xem trước của file này.'
+     ,'upload.chapterFieldsInvalid': 'Nhập tiêu đề và mốc thời gian hợp lệ trong video.'
+     ,'upload.duplicateChapterTime': 'Mỗi mốc thời gian chỉ được dùng cho một chương.'
+     ,'upload.customThumbnail': 'Tùy chỉnh'
+     ,'upload.videoThumbnailAlt': 'Ảnh thu nhỏ video'
+     ,'upload.categoryFallback': 'Chưa phân loại'
+     ,'upload.publicCommitmentAlert': '* Cần xác nhận cam kết đối với video công khai trước khi gửi duyệt.'
+     ,'upload.publishPublic': 'Gửi duyệt & Xuất bản'
+     ,'upload.saveVideo': 'Lưu video'
+
+    ,'studio.roleOwner': 'Chủ sở hữu'
+    ,'studio.roleManager': 'Quản lý'
+    ,'studio.roleEditor': 'Biên tập viên'
+    ,'studio.roleModerator': 'Kiểm duyệt viên'
+    ,'studio.roleViewer': 'Người xem'
+    ,'studio.roleContributor': 'Cộng tác viên'
+    ,'studio.manageChannel': 'Kênh đang quản lý'
+    ,'studio.collaboration': 'Cộng tác'
+    ,'studio.collaborationTitle': 'Cộng tác trên kênh'
+    ,'studio.defaultCreator': 'Nắng Lang Thang'
+    ,'studio.commentManagedReason': 'Chủ kênh quản lý'
+     ,'studio.defaultUsername': '@creator'
+     ,'ui.studioNavigation': 'Điều hướng HuTube Creator Studio'
+     ,'channel.membersList': 'Danh sách thành viên kênh'
+     ,'channel.handleMinCreate': 'Handle cần tối thiểu 3 ký tự.'
+     ,'channel.handleMaxCreate': 'Handle tối đa 50 ký tự.'
+     ,'channel.handleNoSpaces': 'Handle không được chứa khoảng trắng.'
+     ,'channel.handleChars': 'Handle chỉ gồm chữ cái không dấu, số, _, -, .'
+     ,'channel.handleChecking': 'Đang kiểm tra tính khả dụng…'
+     ,'channel.handleCheckError': 'Không thể kiểm tra handle lúc này.'
+     ,'channel.handleAvailable': 'Handle này có thể sử dụng.'
+     ,'channel.handleTaken': 'Handle này đã được sử dụng.'
+     ,'explore.error': 'Không thể tải danh sách video khám phá.'
+     ,'library.notRated': 'Chưa đánh giá'
+     ,'plans.inviteSent': 'Đã gửi lời mời gói dịch vụ.'
+     ,'plans.revokeSent': 'Đã thu hồi lời mời.'
+     ,'plans.members': '{count} người'
+     ,'plans.shareText': 'Gói {name} của HuTube'
+     ,'plans.qualityUpload': 'Tải lên {quality}'
+     ,'plans.qualityDownload': 'Tải xuống {quality}'
+     ,'plans.subscribeErrorFallback': 'Không thể đăng ký gói dịch vụ ({status}).'
+     ,'auth.about': 'Giới thiệu về HuTube'
+     ,'auth.accountLink': 'HuTube — trang tài khoản'
+     ,'auth.slideStoryAlt': 'Người sáng tạo kể câu chuyện của mình'
+     ,'auth.slideWorldAlt': 'Khám phá thế giới qua video'
+     ,'auth.slideInspireAlt': 'Cộng đồng truyền cảm hứng'
+     ,'auth.layoutTagline': 'Nền tảng video mở, sáng tạo và tử tế hơn.'
+     ,'auth.layoutFooter': '© 2026 HuTube LLC. Bảo lưu mọi quyền.'
+     ,'auth.deviceMobile': 'Điện thoại'
+     ,'auth.deviceDesktop': 'Máy tính'
+     ,'auth.requestError': 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.'
+     ,'auth.invalidCredentials': 'Email hoặc mật khẩu chưa đúng.'
+     ,'auth.emailNotVerified': 'Vui lòng xác minh email trước khi đăng nhập.'
+     ,'auth.accountSuspended': 'Tài khoản đang bị tạm khóa.'
+     ,'auth.accountBanned': 'Tài khoản đã bị khóa.'
+     ,'auth.adminAccessDenied': 'Tài khoản không có quyền quản trị hoặc quyền đã bị vô hiệu hóa.'
+     ,'auth.adminDisabled': 'Quyền quản trị của tài khoản đã bị vô hiệu hóa.'
+     ,'auth.emailExists': 'Email này đã được sử dụng.'
+     ,'auth.usernameExists': 'Tên người dùng này đã được sử dụng.'
+     ,'auth.invalidToken': 'Liên kết không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.'
+     ,'auth.tokenExpired': 'Liên kết đã hết hạn. Hãy yêu cầu liên kết mới.'
+     ,'auth.googleNotConfigured': 'Đăng nhập Google chưa được cấu hình.'
+     ,'auth.invalidGoogleToken': 'Không thể xác thực tài khoản Google. Vui lòng thử lại.'
+     ,'auth.googleConflict': 'Email này đã được liên kết với một tài khoản Google khác.'
+     ,'auth.serverUnavailable': 'Chưa kết nối được máy chủ. Kiểm tra kết nối và thử lại.'
+     ,'auth.tooManyRequests': 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.'
+     ,'auth.accessDenied': 'Tài khoản không có quyền truy cập hoặc đã bị vô hiệu hóa.'
+     ,'account.apiChecking': 'Đang kiểm tra kết nối…'
+     ,'account.apiConnected': 'Đã kết nối'
+     ,'account.apiUnavailable': 'Chưa kết nối được máy chủ'
+     ,'account.locationVietnam': 'Việt Nam'
+     ,'account.passwordChanged': 'Mật khẩu đã được thay đổi.'
+     ,'channel.reportSuccess': 'Cảm ơn bạn đã gửi báo cáo. Chúng tôi sẽ xem xét nội dung này theo Nguyên tắc cộng đồng HuTube.'
+     ,'notification.channelInviteToast': 'Bạn có lời mời tham gia kênh{channel}.'
+     ,'studio.accessibleChannelsError': 'Không thể tải danh sách kênh bạn có quyền truy cập.'
+     ,'studio.channelDataError': 'Không thể tải dữ liệu Studio cho kênh này.'
+     ,'upload.serverNoVideo': 'Máy chủ không trả về thông tin video sau khi tải lên.'
+     ,'upload.uploadError': 'Không thể tải video lên. Kiểm tra API local và thử lại.'
+     ,'ui.statusPublished': 'Đã xuất bản'
+     ,'ui.statusDraft': 'Bản nháp'
+     ,'ui.statusProcessing': 'Đang xử lý'
+     ,'ui.statusScheduled': 'Đã lên lịch'
+     ,'ui.statusPending': 'Đang chờ'
+     ,'ui.statusRejected': 'Bị từ chối'
+     ,'title.login': 'Đăng nhập · HuTube'
+     ,'title.register': 'Đăng ký · HuTube'
+     ,'title.verifyEmail': 'Xác minh email · HuTube'
+     ,'title.forgotPassword': 'Quên mật khẩu · HuTube'
+     ,'title.resetPassword': 'Đặt lại mật khẩu · HuTube'
+     ,'title.home': 'Trang chủ · HuTube'
+     ,'title.explore': 'Khám phá · HuTube'
+     ,'title.watch': 'Xem video · HuTube'
+     ,'title.terms': 'Điều khoản dịch vụ · HuTube'
+     ,'title.privacy': 'Chính sách bảo mật · HuTube'
+     ,'title.guidelines': 'Tiêu chuẩn cộng đồng · HuTube'
+     ,'title.policies': 'Trung tâm chính sách · HuTube'
+     ,'title.plans': 'Gói dịch vụ · HuTube'
+     ,'title.planInvite': 'Nhận lời mời gói · HuTube'
+     ,'title.planDetail': 'Chi tiết gói · HuTube'
+     ,'title.account': 'Cài đặt · HuTube'
+     ,'title.history': 'Lịch sử xem · HuTube'
+     ,'title.liked': 'Video đã thích · HuTube'
+     ,'title.channelCreate': 'Tạo kênh · HuTube'
+     ,'title.channel': 'Kênh · HuTube'
+     ,'title.channelCustomize': 'Tùy chỉnh kênh · HuTube'
+     ,'title.studioSetup': 'Thiết lập kênh · Studio'
+     ,'title.studioOverview': 'Creator Studio · HuTube'
+     ,'title.studioContent': 'Nội dung kênh · Studio'
+     ,'title.studioUpload': 'Tải lên video · Studio'
+     ,'title.studioAnalytics': 'Số liệu phân tích · Studio'
+     ,'title.studioComments': 'Bình luận · Studio'
+     ,'title.studioSubtitles': 'Phụ đề · Studio'
+     ,'title.studioSettings': 'Cài đặt · Studio'
+     ,'title.studioInvitations': 'Cộng tác · Studio'
   },
 
   en: {
@@ -717,6 +1498,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.copied': 'Copied to clipboard',
     'common.retry': 'Retry',
     'common.confirm': 'Confirm',
+    'common.all': 'All',
+    'common.open': 'Open link',
+    'common.skipToContent': 'Skip to main content',
 
     // Navigation & Topbar / Sidebar
     'nav.home': 'Home',
@@ -797,12 +1581,14 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.themeLight': 'Light Mode',
     'nav.themeDark': 'Dark Mode',
     'nav.language': 'Language',
-    'nav.langVi': 'Tiếng Việt (VI)',
+    'nav.langVi': 'Vietnamese (VI)',
     'nav.langEn': 'English (EN)',
     'nav.terms': 'Terms',
     'nav.privacy': 'Privacy',
     'nav.guidelines': 'Community Guidelines',
     'nav.policyHub': 'Policy & Safety',
+    'nav.navigation': 'Primary navigation',
+    'nav.guestPrompt': 'Sign in to start watching, saving, and interacting with videos.',
 
     // Policy Hub Page
     'policies.hubTitle': 'Policy & Safety',
@@ -815,6 +1601,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.downloadPdf': 'Download PDF',
     'policies.printToast': 'Successfully sent print command for policy document.',
     'policies.pdfToast': 'Successfully exported PDF copy of policy document.',
+    'policies.closeToast': 'Dismiss notification',
+    'policies.categoryNav': 'Policy categories',
+    'policies.breadcrumb': 'Breadcrumb',
 
     'policies.breadcrumbHome': 'Home',
     'policies.breadcrumbLegal': 'Policy & Legal',
@@ -1388,7 +2177,780 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.sidebar.nextSubtitles': 'Edit subtitles & CC',
     'upload.sidebar.nextShare': 'Share with community',
     'upload.sidebar.nextAnalytics': 'View analytics',
-    'upload.sidebar.nextManage': 'Manage in Creator Studio'
+    'upload.sidebar.nextManage': 'Manage in Creator Studio',
+
+    // UI completion: public pages and collaboration flows
+    'ui.loadingVideos': 'Loading videos…',
+    'ui.videoLoadError': 'Unable to load the video list.',
+    'ui.noVideos': 'No videos yet.',
+    'ui.videoList': 'Video list',
+    'ui.views': 'views',
+    'ui.seconds': 'seconds',
+    'ui.people': 'people',
+    'ui.videos': 'videos',
+    'ui.closePopup': 'Close popup',
+    'ui.verifiedChannel': 'Verified channel',
+    'ui.openCreatorStudio': 'Open Creator Studio',
+    'ui.more': '...see more',
+    'ui.otherLinks': 'and {count} other links',
+    'ui.workEmail': 'Business email',
+    'ui.description': 'Description',
+    'ui.links': 'Links',
+    'ui.otherInfo': 'More information',
+    'ui.vietnam': 'Vietnam',
+    'ui.joined': 'Joined {date}',
+    'ui.subscribers': 'subscribers',
+    'ui.comments': 'comments',
+    'ui.watchHours': 'hours',
+    'ui.upload': 'Upload video',
+    'ui.likes': 'likes',
+    'ui.public': '🌐 Public',
+    'ui.unlisted': '🔗 Unlisted',
+    'ui.private': '🔒 Private',
+    'ui.moderationApproved': '✓ Approved',
+    'ui.moderationPending': '⏳ Pending review',
+    'ui.moderationReviewing': '🔍 Under review',
+    'ui.moderationRejected': '✕ Rejected',
+    'ui.moderationNotSubmitted': 'Not submitted',
+    'ui.saving': 'Saving…',
+    'ui.noData': 'No data yet.',
+    'ui.all': 'All',
+    'ui.yes': 'Yes',
+    'ui.no': 'No',
+    'ui.supported': '✓ Supported',
+    'ui.notSupported': '✕ Not supported',
+    'ui.copyLink': 'Copy link',
+    'ui.share': 'Share',
+    'ui.openLink': 'Open link',
+    'ui.invite': 'Invite member',
+    'ui.revoke': 'Revoke',
+    'ui.status': 'Status',
+    'ui.date': 'Date',
+    'ui.actions': 'Actions',
+
+    'home.loading': 'Loading videos…',
+    'home.error': 'Unable to load the video list.',
+    'home.empty': 'No videos yet.',
+    'home.videoList': 'Video list',
+    'home.views': 'views',
+    'explore.filters': 'Explore filters',
+    'explore.sort': 'Sort by',
+    'explore.newest': 'Newest',
+    'explore.popular': 'Popular',
+    'explore.trending': 'Trending',
+    'explore.category': 'Category',
+    'explore.allCategories': 'All categories',
+    'explore.videoList': 'Video list',
+
+    'library.ratingFilter': 'Filter videos by your rating',
+    'library.ratingLabel': 'Filter by rating',
+    'library.loading': 'Loading video library',
+    'library.watch': 'Watch {title}',
+    'library.yourRating': 'You: {rating}',
+    'library.overallRating': 'Overall {rating}/5 ({count})',
+    'library.watched': 'Watched {progress}',
+    'library.resume': 'You are still watching this video',
+    'library.pagination': 'Video library pagination',
+    'library.previous': '← Previous',
+    'library.next': 'Next →',
+    'library.page': 'Page {page} / {total}',
+    'library.noMatching': 'No matching videos',
+    'library.noLiked': 'No liked videos yet',
+    'library.noHistory': 'No watch history yet',
+    'library.matchingHint': 'Try choosing a different rating.',
+    'library.likedHint': 'Videos you like will appear here.',
+    'library.historyHint': 'Videos you open and watch will be saved here.',
+    'library.seeAllLiked': 'View all liked videos',
+    'library.loadError': 'Unable to load the video library.',
+
+    'channel.collaborationTitle': 'You have been invited to collaborate',
+    'channel.collaborationDesc': 'You do not need to create your own channel to work on an invited channel.',
+    'channel.viewInvitations': 'View invitations',
+    'channel.ownedTitle': 'You already own a HuTube channel',
+    'channel.ownedDesc': 'Each account can be linked to one broadcasting channel.',
+    'channel.viewYourChannel': 'View your channel',
+    'channel.formTitle': 'Create your HuTube channel',
+    'channel.formDesc': 'Start sharing creative videos and connect with your viewers.',
+    'channel.uploadBanner': 'Upload a channel banner (16:9 or landscape recommended)',
+    'channel.bannerAlt': 'Banner preview',
+    'channel.uploadAvatar': 'Click to upload a channel avatar',
+    'channel.avatarAlt': 'Avatar preview',
+    'channel.nameRequired': 'Channel name *',
+    'channel.namePlaceholder': 'Example: Science TV, Travel Stories...',
+    'channel.handleLabel': 'Handle *',
+    'channel.handlePlaceholder': 'mychannel',
+    'channel.handleHelp': 'Your handle is your unique address: hutube.vn/@{handle}',
+    'channel.descriptionLabel': 'Channel description',
+    'channel.descriptionPlaceholder': 'Introduce your channel so viewers know what to expect...',
+    'channel.contactEmail': 'Business contact email',
+    'channel.contactEmailPlaceholder': 'contact@example.com',
+    'channel.creating': 'Creating channel...',
+    'channel.createNow': 'Create channel now',
+    'channel.cancel': 'Cancel',
+    'channel.bannerClick': 'Click to upload a banner',
+    'channel.content': 'Channel content',
+    'channel.unavailable': 'This channel is unavailable',
+    'channel.backProfile': 'Back to profile',
+    'channel.descriptionFallback': 'Learn more about this channel',
+    'channel.studio': 'Open Studio',
+    'channel.subscribe': 'Subscribed',
+    'channel.follow': 'Subscribe',
+    'channel.tabs': 'Channel content',
+    'channel.noVideos': 'No videos yet',
+    'channel.noVideosDesc': 'This channel has not uploaded any videos yet. Check back later!',
+    'channel.noPlaylists': 'No playlists yet',
+    'channel.noPlaylistsDesc': 'No public playlists have been created on this channel.',
+    'channel.contactDetails': 'Contact details',
+    'channel.noLinks': 'No external links yet.',
+    'channel.channelUrl': 'www.hutube.vn/@{handle}',
+    'channel.joined': 'Joined {date}',
+    'channel.totalViews': 'views',
+    'channel.shareCopied': 'Copied!',
+    'channel.share': 'Share channel',
+    'channel.report': 'Report user',
+    'channel.reload': 'Reload',
+    'channel.loadingInvitations': 'Loading invitations and collaboration channels…',
+    'channel.pendingInvitations': 'Pending invitations',
+    'channel.pendingDesc': 'Review the role and permission scope before joining.',
+    'channel.expires': 'Expires {date}',
+    'channel.processing': 'Processing…',
+    'channel.inviteAccept': 'Accept',
+    'channel.inviteDecline': 'Decline',
+    'channel.noPending': 'No pending invitations',
+    'channel.noPendingDesc': 'New invitations sent to your account email will appear here.',
+    'channel.collaborating': 'Collaboration channels',
+    'channel.collaboratingDesc': 'Open Studio on each channel with its assigned role and permissions.',
+    'channel.noAccessible': 'You do not have access to any channel yet.',
+    'channel.openStudio': 'Open Studio',
+    'channel.basic': 'Basic information',
+    'channel.branding': 'Branding',
+    'channel.members': 'Members & permissions',
+    'channel.danger': 'Delete channel',
+    'channel.viewChannel': 'View channel',
+    'channel.save': 'Save changes',
+    'channel.addLink': 'Add link',
+    'channel.remove': 'Remove',
+    'channel.role': 'Role',
+    'channel.inviteUser': 'User email',
+    'channel.sendInvite': 'Send invitation',
+    'channel.pending': 'Pending invitation',
+    'channel.withdraw': 'Withdraw',
+    'channel.deleteConfirm': 'Confirm channel deletion',
+    'channel.delete': 'Delete this channel',
+    'channel.otherLink': 'Other link',
+    'channel.platform': 'Platform',
+    'channel.linkUrl': 'Link URL',
+    'channel.roleOwner': 'Owner',
+    'channel.roleManager': 'Manager',
+    'channel.roleEditor': 'Editor',
+    'channel.roleModerator': 'Moderator',
+    'channel.roleViewer': 'Viewer',
+    'channel.roleManagerDesc': 'Manages the channel profile, content, members, and settings; cannot delete the channel or transfer ownership.',
+    'channel.roleEditorDesc': 'Uploads and edits content, manages playlists, and views content data.',
+    'channel.roleModeratorDesc': 'Manages the community and comments, but cannot edit videos or channel settings.',
+    'channel.roleViewerDesc': 'Can only view the dashboard and the internal data granted to them.',
+    'channel.nameError': 'Please enter a channel name.',
+    'channel.handleMinError': 'The handle must be at least 3 characters (letters, numbers, _, -, .).',
+    'channel.handleCharsError': 'The handle may contain only unaccented letters, numbers, _, -, and .',
+    'channel.handleInvalidError': 'This handle is invalid or already in use.',
+    'channel.createError': 'Unable to create the channel. Please try again.',
+    'channel.loadInvitationsError': 'Unable to load invitations. Please try again.',
+    'channel.acceptSuccess': 'You joined {channel}.',
+    'channel.declineSuccess': 'Invitation from {channel} declined.',
+    'channel.fullManagement': 'Full channel management',
+    'channel.videoManagement': 'Can manage video content',
+    'channel.commentManagement': 'Can manage comments',
+    'channel.viewGrantedData': 'View granted data only',
+    'channel.processInvitationError': 'Unable to process the invitation. Please try again.',
+    'channel.notFound': 'Channel information was not found.',
+    'channel.handleNotFound': 'Channel handle was not found.',
+    'channel.loadError': 'Unable to load channel information.',
+    'channel.nameEmpty': 'Channel name cannot be empty.',
+    'channel.handleLength': 'The handle must be between 3 and 50 characters.',
+    'channel.linkUrlError': 'Link URLs must start with http:// or https://.',
+    'channel.basicSaved': 'Channel information updated.',
+    'channel.avatarSaved': 'Channel avatar updated.',
+    'channel.bannerSaved': 'Channel banner updated.',
+    'channel.inviteSent': 'Invitation and notification email sent to the member.',
+    'channel.roleUpdated': 'The role for {member} was updated.',
+    'channel.removeConfirm': 'Remove {member} from the channel?',
+    'channel.memberRemoved': 'Member removed from the channel.',
+    'channel.inviteWithdrawn': 'Invitation withdrawn.',
+    'channel.confirmNameMismatch': 'The confirmation channel name does not match.',
+    'channel.handleChannel': 'Channel handle *',
+    'channel.address': 'Your channel address: hutube.vn/@{handle}',
+    'channel.businessEmail': 'Business contact email',
+    'channel.links': 'Links',
+    'channel.linksDesc': 'Share external links with viewers. These links appear on your channel profile and introduction page.',
+    'channel.reorderLink': 'Drag to reorder',
+    'channel.removeLink': 'Remove link',
+    'channel.avatarTitle': 'Channel avatar',
+    'channel.avatarDesc': 'Your avatar appears beside your videos and comments on HuTube.',
+    'channel.changeAvatar': 'Change avatar',
+    'channel.bannerTitle': 'Channel banner',
+    'channel.bannerDesc': 'This image appears at the top of your channel.',
+    'channel.changeBanner': 'Change banner',
+    'channel.noBanner': 'No banner yet',
+    'channel.watermarkTitle': 'Video watermark',
+    'channel.watermarkDesc': 'The watermark appears in the bottom-right corner of your video player.',
+    'channel.saveWatermark': 'Save watermark',
+    'channel.rolesDesc': 'Each role has a fixed permission set that is always checked by the API.',
+    'channel.memberEmailPlaceholder': 'member@example.com',
+    'channel.roleDescription': 'Selected role description',
+    'channel.memberRole': 'Role for {member}',
+    'channel.noOtherMembers': 'No members besides the owner yet.',
+    'channel.deleteDesc': 'This removes your channel from search results and public pages. Only the owner can delete it.',
+    'channel.deleteMine': 'Delete my channel',
+    'channel.deleteWarning': 'You are about to delete the channel',
+    'channel.deleteNamePrompt': 'Enter the exact channel name to confirm:',
+    'channel.deleteNamePlaceholder': 'Enter channel name: {name}',
+    'channel.confirmDelete': 'Confirm deletion',
+    'channel.platform.facebook': 'Facebook',
+    'channel.platform.instagram': 'Instagram',
+    'channel.platform.tiktok': 'TikTok',
+    'channel.platform.x': 'X',
+    'channel.platform.other': 'Other link',
+
+    'plans.myPlans': 'My plans',
+    'plans.explore': 'Explore plans',
+    'plans.retry': 'Retry',
+    'plans.loadingMine': 'Loading your plan information...',
+    'plans.activeDesc': 'This plan is active on your account',
+    'plans.detailShare': 'Plan details & sharing',
+    'plans.switchOther': 'Switch plan',
+    'plans.upgrade': 'View upgrades',
+    'plans.owner': 'Owner',
+    'plans.sharedMember': 'Shared member',
+    'plans.startDate': 'Start date',
+    'plans.endDate': 'End date',
+    'plans.expired': 'Expired',
+    'plans.autoRenew': 'Auto-renew',
+    'plans.enabled': 'On',
+    'plans.quotaTitle': 'Channel storage quota',
+    'plans.quotaDesc': 'Video storage currently used by this channel',
+    'plans.usage': 'Storage usage',
+    'plans.used': 'used',
+    'plans.remaining': 'Remaining:',
+    'plans.maxUpload': 'Maximum video upload',
+    'plans.quality': 'Resolution',
+    'plans.maxMembers': 'Maximum members',
+    'plans.maxDuration': 'Maximum video duration',
+    'plans.capabilities': 'Download / background play / PiP',
+    'plans.sharedTitle': 'Share plan with family / group',
+    'plans.sharedCount': '{current} / {max} people currently sharing',
+    'plans.sharedNotice': 'You are a member of a shared plan. Only the plan owner can invite or manage members.',
+    'plans.personalNotice': 'This is an individual plan. Switch to a group plan to share it with others.',
+    'plans.groupPlans': 'View group sharing plans →',
+    'plans.invitePlaceholder': 'Enter the email to share with...',
+    'plans.inviteMember': 'Invite member',
+    'plans.maxReached': 'This plan has reached its maximum number of members.',
+    'plans.memberEmail': 'Member email',
+    'plans.invitedDate': 'Invited date',
+    'plans.memberStatus': 'Status',
+    'plans.accepted': 'Joined',
+    'plans.waiting': 'Awaiting confirmation',
+    'plans.noMembers': 'No members have been invited to this plan yet.',
+    'plans.noPlan': 'You are not subscribed to a service plan',
+    'plans.noPlanDesc': 'Upgrade to increase channel storage, upload quality, and share benefits with friends.',
+    'plans.exploreNow': 'Explore service plans',
+    'plans.flexible': 'Flexible options',
+    'plans.choose': 'Choose a plan for your channel',
+    'plans.chooseDesc': 'Add storage, video quality, and shared members as your channel grows.',
+    'plans.current': 'Using:',
+    'plans.currentBadge': 'Your current plan',
+    'plans.popular': 'Most popular',
+    'plans.serviceDesc': 'A service plan for creators.',
+    'plans.days': 'days',
+    'plans.storage': 'Storage',
+    'plans.uploadDownload': 'Upload / Download',
+    'plans.standard': 'Standard',
+    'plans.duration': 'Duration',
+    'plans.download': 'Downloads',
+    'plans.backgroundPip': 'Background play / PiP',
+    'plans.manage': 'Manage this plan',
+    'plans.switch': 'Switch to this plan',
+    'plans.buy': 'Buy this plan',
+    'plans.detailAndShare': 'View details and share',
+    'plans.detailLoading': 'Loading service plan...',
+    'plans.back': '← Back to plans',
+    'plans.currentUse': '✓ You are using this plan',
+    'plans.activeNote': 'This plan is active. You can subscribe again after it expires.',
+    'plans.activating': 'Activating...',
+    'plans.loginSubscribe': 'Sign in to subscribe',
+    'plans.benefits': 'Benefits & specifications',
+    'plans.benefitsDesc': 'Detailed plan limits and resources',
+    'plans.maxStorage': 'Channel storage',
+    'plans.maxPerVideo': 'Maximum video size',
+    'plans.maxQualityUpload': 'Maximum upload quality',
+    'plans.maxQualityDownload': 'Maximum download quality',
+    'plans.sharedSeats': 'Shared plan seats',
+    'plans.shareInfo': 'Share plan information',
+    'plans.shareDesc': 'Send a public link for friends or family to view',
+    'plans.planUrl': 'Plan page URL:',
+    'plans.shareUrlLabel': 'Plan share link',
+    'plans.shareTip': 'Note: This link is public and contains no sensitive data or account information.',
+    'plans.inviteAcceptTitle': 'Shared plan invitation',
+    'plans.inviteIncomplete': 'The invitation link is incomplete.',
+    'plans.inviteLogin': 'Sign in with the email address that received the invitation to continue.',
+    'plans.inviteLoginButton': 'Sign in to accept',
+    'plans.inviteCheckEmail': 'Check your account email and confirm the plan invitation.',
+    'plans.acceptInvite': 'Accept invitation',
+    'plans.openMine': 'Open My plans',
+    'plans.loadError': 'Unable to load service plans.',
+    'plans.inviteError': 'Unable to send the invitation.',
+    'plans.revokeError': 'Unable to revoke the member.',
+    'plans.minutes': '{count} minutes',
+    'plans.hours': '{count} hours',
+    'plans.hoursMinutes': '{hours} hours {minutes} minutes',
+    'plans.invalid': 'This service plan is invalid.',
+    'plans.notFound': 'Service plan not found.',
+    'plans.copiedShare': 'Plan share link copied.',
+    'plans.copyError': 'Automatic copying failed. Select and copy the link from the field above.',
+    'plans.shareError': 'Sharing is not available on this device.',
+    'plans.subscribeSuccess': 'Plan subscription successful. You can manage quota and members in My plans.',
+    'plans.joined': 'You joined the service plan.',
+    'plans.inviteInvalid': 'This invitation is invalid or has expired.',
+    'plans.viewMode': 'Plan display mode',
+    'plans.catalogLabel': 'Service plans',
+    'plans.allPlans': 'All service plans',
+    'plans.detailDesc': 'A plan for creators and advanced viewers on HuTube.',
+    'plans.notPurchased': 'Plan not purchased',
+    'plans.backgroundPlay': 'Background play',
+    'plans.pip': 'Picture-in-picture (PiP)',
+    'plans.processingInvite': 'Confirming…',
+
+    'watch.loading': 'Loading video',
+    'watch.unavailableTitle': 'Unable to open video',
+    'watch.home': 'Go to home',
+    'watch.notReady': 'This video is not ready to play.',
+    'watch.videoInfo': 'Video information',
+    'watch.play': 'Play video',
+    'watch.pause': 'Pause',
+    'watch.back10': 'Rewind 10 seconds',
+    'watch.forward10': 'Forward 10 seconds',
+    'watch.unmute': 'Turn on sound',
+    'watch.mute': 'Mute',
+    'watch.volume': 'Volume',
+    'watch.quality': 'Quality',
+    'watch.videoQuality': 'Video quality',
+    'watch.speed': 'Speed',
+    'watch.restoreSize': 'Restore video size',
+    'watch.minimize': 'Minimize video',
+    'watch.fullscreen': 'Fullscreen',
+    'watch.progress': 'Video progress',
+    'watch.actions': 'Video actions',
+    'watch.like': 'Like video',
+    'watch.dislike': 'Dislike video',
+    'watch.loginInteract': 'Sign in to interact',
+    'watch.download': 'Download',
+    'watch.loginDownload': 'Sign in to download',
+    'watch.ratingGroup': 'Rate this video from 1 to 5 stars',
+    'watch.rating': 'Rating',
+    'watch.ratingStar': 'Rate {star} stars',
+    'watch.clearRating': 'Clear rating',
+    'watch.shortcut': 'K / Space play · J/L ±10s · F fullscreen · M mute · I minimize',
+    'watch.shareVideo': 'Share video',
+    'watch.shareDesc': 'Copy the link to send it to someone else.',
+    'watch.videoLink': 'Video link',
+    'watch.downloadTitle': 'Download video',
+    'watch.downloadDesc': 'Quality available on your current plan.',
+    'watch.preparing': 'Preparing…',
+    'watch.noDownloadQuality': 'No downloadable quality is available on the current plan.',
+    'watch.chapters': 'Video contents',
+    'watch.chaptersDesc': 'Chapters take you directly to the part you want to watch.',
+    'watch.chapterCount': 'chapters',
+    'watch.comments': 'Comments',
+    'watch.commentCount': '{count} comments on this video',
+    'watch.newest': 'Newest',
+    'watch.commentPlaceholder': 'Write a comment…',
+    'watch.keepCivil': 'Keep the conversation respectful.',
+    'watch.sendComment': 'Post comment',
+    'watch.loginComment': 'Sign in to join the conversation about this video.',
+    'watch.reply': 'Reply',
+    'watch.replyPlaceholder': 'Write a reply…',
+    'watch.send': 'Send',
+    'watch.likeComment': 'Like',
+    'watch.dislikeComment': 'Dislike',
+    'watch.hideReplies': 'Hide replies',
+    'watch.viewReplies': 'View {count} replies',
+    'watch.show': 'Show',
+    'watch.hide': 'Hide',
+    'watch.remove': 'Delete',
+    'watch.report': 'Report',
+    'watch.replies': 'Replies',
+    'watch.replyLoading': 'Loading replies…',
+    'watch.descriptionEmpty': 'This video has no description yet.',
+
+    // Studio pages
+    'studio.loading': 'Loading…',
+    'studio.channelOverview': 'Channel overview',
+    'studio.recentVideo': 'Latest video',
+    'studio.seeAll': 'View all',
+    'studio.emptyVideo': 'No videos yet. Upload your first video.',
+    'studio.searchVideo': 'Search by video title...',
+    'studio.colModeration': 'Moderation status',
+    'studio.interaction': 'Engagement',
+    'studio.noVideosList': 'No videos in this list.',
+    'studio.visible': 'Visible',
+    'studio.hidden': 'Hidden',
+    'studio.showAgain': 'Show again',
+    'studio.hide': 'Hide',
+    'studio.send': 'Send',
+    'studio.replyPlaceholder': 'Write a reply',
+    'studio.noComments': 'No comments in this state.',
+    'studio.noSubtitles': 'No subtitles yet',
+    'studio.noVideo': 'No videos yet.',
+    'studio.notSet': 'Not set',
+    'studio.channelInfo': 'Channel information',
+    'studio.saveChannelInfo': 'Save channel information',
+    'studio.viewOnly': 'View-only access',
+    'studio.viewOnlyDesc': 'You can view channel data but cannot edit basic information.',
+    'studio.display': 'Display',
+    'studio.language': 'Language',
+    'studio.light': 'Light',
+    'studio.dark': 'Dark',
+    'studio.saveSettings': 'Save settings',
+    'studio.permissionError': 'You do not have permission to edit channel information.',
+    'studio.saved': 'Channel settings saved.',
+    'studio.saveError': 'Unable to save channel settings.'
+    ,'studio.performanceByVideo': 'Performance by video'
+    ,'studio.channelMetrics': 'Channel metrics'
+    ,'studio.publicModerationToast': '"{title}" was made public and sent to the moderation queue.'
+    ,'studio.publicToast': '"{title}" is now public.'
+    ,'studio.unlistedToast': '"{title}" is now unlisted.'
+    ,'studio.privateToast': '"{title}" is now private.'
+    ,'studio.visibilityError': 'Unable to update video visibility.'
+     ,'ui.delete': 'Delete'
+     ,'ui.confirmLogoutTitle': 'Confirm sign out'
+     ,'ui.confirmLogoutDesc': 'Are you sure you want to sign out of this account?'
+     ,'ui.userHuTube': 'HuTube user'
+     ,'ui.user': 'User'
+     ,'ui.liked': 'Liked'
+     ,'ui.playlist': 'Playlist'
+     ,'ui.subscriptions': 'Subscriptions'
+    ,'ui.quickActions': 'Quick actions'
+    ,'ui.closeAccountMenu': 'Close account menu'
+    ,'ui.account': 'Account'
+    ,'ui.accountStats': 'Account statistics'
+    ,'ui.accountActions': 'Account actions'
+    ,'ui.signIn': 'Sign in'
+    ,'ui.collaborationChannel': 'Collaborating channel'
+    ,'ui.openCollaborationChannel': 'Open collaborating channel'
+    ,'ui.collaborationInvites': 'Collaboration invites'
+    ,'ui.waitingConfirmation': 'Awaiting your confirmation'
+    ,'ui.createFirstChannel': 'Create your first channel'
+    ,'ui.startCreatingContent': 'Start creating content'
+    ,'ui.createOwnChannel': 'Create your own channel'
+    ,'ui.startOwnChannel': 'Start your channel'
+    ,'ui.channelSettings': 'Channel settings'
+    ,'ui.channelSettingsDesc': 'Customize your channel'
+    ,'ui.packageDesc': 'Manage and subscribe to plans'
+    ,'ui.accountSettings': 'Account settings'
+    ,'ui.accountSettingsDesc': 'Security, notifications and preferences'
+    ,'ui.myLinks': 'My links'
+    ,'ui.addLinks': 'Add Instagram, Facebook, TikTok…'
+    ,'ui.notificationsList': 'Notification list'
+    ,'ui.markAllRead': 'Mark all as read'
+    ,'ui.noNotifications': 'No notifications yet.'
+    ,'ui.loadingNotifications': 'Loading…'
+    ,'ui.cancelUpload': 'Cancel upload'
+    ,'ui.closeUpload': 'Close upload progress'
+    ,'ui.uploading': 'Uploading video…'
+    ,'ui.processingVideo': 'Creating video qualities…'
+    ,'ui.uploadSuccess': 'Video uploaded successfully'
+    ,'ui.uploadFailed': 'Video upload failed'
+    ,'ui.creatorStudio': 'Creator Studio'
+    ,'ui.newBadge': 'New'
+    ,'ui.collaborateOnChannel': 'Collaborate on a channel'
+    ,'ui.closeMenu': 'Close menu'
+    ,'ui.searchShortcut': 'Ctrl K'
+    ,'ui.reportPrompt': 'Choose a violation code:'
+    ,'ui.reportDescriptionPrompt': 'Additional description (optional):'
+
+    ,'auth.introLabel': 'CREATORS · VIEWERS · COMMUNITY'
+    ,'auth.heroCreate': 'Create.'
+    ,'auth.heroShare': 'Share.'
+    ,'auth.heroBelong': 'Belong.'
+    ,'auth.heroDescription': 'HuTube gives you the tools to create, connect and explore a world of video with a community that celebrates your stories and perspective.'
+    ,'auth.featureCreate': 'Create without limits'
+    ,'auth.featureCreateDesc': 'Turn your ideas into amazing videos'
+    ,'auth.featureShare': 'Share your world'
+    ,'auth.featureShareDesc': 'Connect with viewers who share your interests'
+    ,'auth.featureBelong': 'Discover & belong'
+    ,'auth.featureBelongDesc': 'A place where you can always find inspiration'
+    ,'auth.tagline': 'Better videos, better people'
+    ,'auth.slideStory': 'Your story<br>belongs here'
+    ,'auth.slideWorld': 'A bigger world<br>in every video'
+    ,'auth.slideInspire': 'Inspire the<br>world around you'
+    ,'auth.cardExplore': 'EXPLORE'
+    ,'auth.cardCreate': 'CREATE'
+    ,'auth.cardLearn': 'LEARN'
+    ,'auth.cardShare': 'SHARE'
+    ,'auth.cardBelong': 'BELONG'
+    ,'auth.subTagline': 'A MORE OPEN, CREATIVE, KINDER INTERNET'
+    ,'auth.loginSubtitle': 'Welcome back to HuTube.'
+    ,'auth.adminSubtitle': 'For the administration team.'
+    ,'auth.registerSubtitle': 'Get started with your email.'
+    ,'auth.verifySubtitle': 'Finish verification to protect your account.'
+    ,'auth.forgotSubtitle': 'Enter your email to receive a password reset link.'
+    ,'auth.resetSubtitle': 'Choose a new password for your account.'
+    ,'auth.verificationHelp': "Didn't receive the verification email?"
+    ,'auth.resendEmail': 'Send email again'
+    ,'auth.usernameHint': '3–50 characters: letters, numbers, periods, underscores or hyphens.'
+    ,'auth.usernameInvalid': 'Username format is not valid.'
+    ,'auth.emailInvalid': 'Enter a valid email address.'
+    ,'auth.passwordHint': '10–128 characters, including uppercase, lowercase and numbers.'
+    ,'auth.passwordInvalid': 'Password does not meet the requirements.'
+    ,'auth.passwordLoginRequired': 'Enter your password.'
+    ,'auth.showPassword': 'Show password'
+    ,'auth.hidePassword': 'Hide password'
+    ,'auth.googleLogin': 'Sign in with Google'
+    ,'auth.resendEmailLabel': 'Email to receive a new link'
+    ,'auth.mobileAppLink': 'Open in the HuTube app'
+    ,'auth.appLoginLink': 'Sign in in the HuTube app'
+    ,'auth.sessionExpired': 'Your session expired. Sign in again to continue.'
+    ,'auth.resetMissingToken': 'This link is missing a verification token. Request a new password reset link.'
+    ,'auth.googleCredentialMissing': 'Google did not return authentication details.'
+    ,'auth.googleLoadError': 'Unable to load Google Sign-In. Please try again.'
+    ,'auth.formInvalid': 'Check the fields marked in the form.'
+    ,'auth.passwordMismatch': 'Passwords do not match.'
+    ,'auth.registerSuccess': 'Your account was created. Check your inbox to verify your email before signing in.'
+    ,'auth.forgotSuccess': 'If the email exists in our system, password reset instructions will be sent to you. Check your spam folder too.'
+    ,'auth.resetSuccess': 'Your password was changed and old sessions were ended. You can now sign in with the new password.'
+    ,'auth.verifySuccess': 'Your email has been verified. You can sign in now.'
+    ,'auth.resendSuccess': 'If your account needs verification, a new link will be sent to your email.'
+
+    ,'account.channelId': 'Channel identifier (Channel ID)'
+    ,'account.settingsAria': 'Account settings'
+     ,'account.dismissMessage': 'Dismiss notification'
+
+    ,'watch.unavailableError': 'This video is unavailable or you do not have permission to view it.'
+    ,'watch.playbackQualityError': 'Higher-quality versions could not be loaded. The source video may still play.'
+    ,'watch.renditionError': 'This quality could not be played. Try another quality.'
+    ,'watch.playError': 'The video cannot play at this time.'
+    ,'watch.loginReaction': 'Sign in to like or dislike this video.'
+    ,'watch.interactionError': 'Sign in to interact with this video.'
+    ,'watch.loginRating': 'Sign in to rate this video.'
+    ,'watch.ratingSaved': 'Your rating was updated.'
+    ,'watch.shareReadyPublic': 'The public video link is ready to share.'
+    ,'watch.shareReady': 'The video link is ready to share.'
+    ,'watch.copyHint': 'Copy the link from the field above.'
+    ,'watch.shareCopied': 'Video link copied.'
+    ,'watch.copyError': 'Automatic copying failed. Copy the link manually.'
+    ,'watch.loginCommentAction': 'Sign in to comment.'
+    ,'watch.commentError': 'Unable to post the comment.'
+    ,'watch.loginReply': 'Sign in to reply to comments.'
+    ,'watch.replyError': 'Unable to post the reply.'
+    ,'watch.replySaved': 'Reply posted.'
+    ,'watch.loginCommentInteraction': 'Sign in to interact with comments.'
+    ,'watch.commentUpdateError': 'Unable to update the comment.'
+    ,'watch.loginCommentManage': 'Sign in to manage comments.'
+    ,'watch.loginCommentDelete': 'Sign in to delete comments.'
+    ,'watch.deleteCommentConfirm': 'Delete this comment?'
+    ,'watch.loginReport': 'Sign in to report a comment.'
+    ,'watch.noViolationTypes': 'There are no violation types available for reporting.'
+    ,'watch.violationChoice': 'Choose a violation code:\n{choices}'
+    ,'watch.invalidViolationCode': 'Invalid violation code.'
+    ,'watch.reportSent': 'Comment report sent.'
+    ,'watch.reportError': 'Unable to send the report. Please try again.'
+    ,'watch.downloadUnsupported': 'The current plan does not support video downloads.'
+    ,'watch.downloadCreatedWithLink': 'Download created. You can open the link from the download notification.'
+    ,'watch.downloadCreated': 'Download created.'
+    ,'watch.downloadError': 'Unable to create the download.'
+    ,'watch.noReplies': 'No replies yet.'
+    ,'watch.emptyCommentsTitle': 'No comments yet'
+    ,'watch.emptyCommentsDesc': 'Be the first to share your thoughts about this video.'
+    ,'watch.recommendations': 'Recommended videos'
+    ,'watch.recommendationFilters': 'Recommended video filters'
+    ,'watch.relatedVideos': 'Related videos'
+    ,'watch.sameChannel': 'From this channel'
+    ,'watch.categoryVietnam': 'Vietnam travel'
+    ,'watch.recommendedTitle': 'Recommended for you'
+    ,'watch.recommendedDesc': 'Keep exploring on HuTube'
+    ,'watch.autoplay': 'Autoplay'
+    ,'watch.newlyPosted': 'Newly posted'
+     ,'watch.noRecommended': 'No recommended videos yet.'
+     ,'watch.sourceQuality': 'Source'
+     ,'watch.views': '{count} views'
+     ,'watch.subscribers': '{count} subscribers'
+     ,'watch.defaultLanguage': 'Vietnamese'
+     ,'watch.videoDescriptionEmpty': 'This video has no description yet.'
+     ,'watch.chapterCountLabel': '{count} chapters'
+     ,'watch.guestCommentPrompt': 'Sign in to join the conversation about this video.'
+     ,'watch.repliesCount': 'View {count} replies'
+     ,'watch.showComment': 'Show'
+     ,'watch.hideComment': 'Hide'
+     ,'watch.repliesEmpty': 'No replies yet.'
+     ,'watch.reportDescriptionPrompt': 'Additional details (optional):'
+     ,'watch.repliesError': 'Unable to load replies.'
+     ,'watch.recommendationViews': '{count} views'
+     ,'watch.originalBadge': 'HUTUBE ORIGINAL'
+
+    ,'plans.defaultUploadQuality': '1080p Full HD'
+     ,'plans.defaultDownloadQuality': '720p'
+     ,'plans.eyebrow': 'Account & plans'
+
+    ,'upload.stepperAria': 'Video upload steps'
+    ,'upload.readingVideo': 'Reading video and extracting frames…'
+    ,'upload.checkingStorage': 'Checking actual storage…'
+    ,'upload.creatingQualities': 'Creating video qualities…'
+    ,'upload.uploadingNow': 'Uploading…'
+    ,'upload.ready': 'Ready to upload'
+    ,'upload.noCategory': 'No category'
+    ,'upload.languageVietnamese': 'Vietnamese'
+    ,'upload.languageEnglish': 'English (US)'
+    ,'upload.languageJapanese': 'Japanese'
+    ,'upload.quality4K': '2160p (4K)'
+    ,'upload.watching': 'Viewing:'
+    ,'upload.addChapterAt': 'Add chapter at position'
+    ,'upload.pausePreview': 'Pause'
+    ,'upload.playPreview': 'Play preview'
+    ,'upload.timelineAria': 'Video timeline'
+    ,'upload.timelineHelp': 'Drag the bar to seek. Drag a chapter marker to change its time, or edit it below.'
+    ,'upload.chapterNameAria': 'Chapter name'
+    ,'upload.chapterStartAria': 'Start time'
+    ,'upload.preModeration': 'Pre-moderation'
+    ,'upload.preModerationDesc': 'The video will be sent to review before it becomes public on HuTube.'
+    ,'upload.commitment': 'I confirm that this video follows the'
+    ,'upload.and': 'and'
+    ,'upload.noPlaylist': '-- Select a playlist (optional) --'
+    ,'upload.untitledCategory': 'Uncategorized'
+    ,'upload.previewVideo': 'Select a video to preview it'
+    ,'upload.checkApi404': 'The current API does not have this endpoint. Restart the local backend or redeploy the API before uploading.'
+    ,'upload.checkApiOffline': 'Unable to connect to the API. Check the backend and CORS, then try again.'
+     ,'upload.checkApiError': 'Unable to check the file with the server.'
+     ,'upload.noData': 'No data yet'
+     ,'upload.storageRemaining': '{value} remaining'
+     ,'upload.frameLabel': 'Frame {index}'
+     ,'upload.playlistDalat': 'Da Lat travel'
+     ,'upload.playlistVietnam': 'Vietnam beauty'
+     ,'upload.policyCommitmentDesc': 'I confirm this video follows HuTube\'s {community} and {terms}.'
+     ,'upload.commitmentSuffix': 'on HuTube. It contains no hate, violence, sexual content, or copyright infringement.'
+     ,'upload.fileTypeError': 'This file format is not supported. Choose MP4, WebM, MOV, or MKV.'
+     ,'upload.metadataError': 'Unable to read video metadata. The file may be damaged or unsupported by this browser.'
+     ,'upload.selectFileError': 'Select a video file first.'
+     ,'upload.selectVideoError': 'Select a video file.'
+     ,'upload.preparingWait': 'Reading the video and creating thumbnails. Please wait.'
+     ,'upload.storageWait': 'Checking storage. Please wait.'
+     ,'upload.preflightUnavailable': 'The file could not be checked with the server.'
+     ,'upload.titleRequired': 'Enter a video title.'
+     ,'upload.policyRequired': 'Confirm that the video follows the HuTube Community Guidelines before submitting it.'
+     ,'upload.uploadInProgress': 'Another video is already uploading.'
+     ,'upload.chaptersInvalid': 'Chapters need titles, increasing timestamps, and must stay within the video.'
+     ,'upload.previewError': 'This browser cannot play the file preview.'
+     ,'upload.chapterFieldsInvalid': 'Enter a valid title and timestamp within the video.'
+     ,'upload.duplicateChapterTime': 'Each timestamp can be used by only one chapter.'
+     ,'upload.customThumbnail': 'Custom'
+     ,'upload.videoThumbnailAlt': 'Video thumbnail'
+     ,'upload.categoryFallback': 'Uncategorized'
+     ,'upload.publicCommitmentAlert': '* Confirm the commitment for a public video before submitting it.'
+     ,'upload.publishPublic': 'Submit & publish'
+     ,'upload.saveVideo': 'Save video'
+
+    ,'studio.roleOwner': 'Owner'
+    ,'studio.roleManager': 'Manager'
+    ,'studio.roleEditor': 'Editor'
+    ,'studio.roleModerator': 'Moderator'
+    ,'studio.roleViewer': 'Viewer'
+    ,'studio.roleContributor': 'Contributor'
+    ,'studio.manageChannel': 'Channel you manage'
+     ,'studio.collaboration': 'Collaborate'
+     ,'studio.collaborationTitle': 'Collaborate on a channel'
+     ,'studio.defaultCreator': 'Wandering Sunshine'
+     ,'studio.commentManagedReason': 'Channel owner managed this comment'
+     ,'studio.defaultUsername': '@creator'
+     ,'ui.studioNavigation': 'HuTube Creator Studio navigation'
+     ,'channel.membersList': 'Channel member list'
+     ,'channel.handleMinCreate': 'The handle must be at least 3 characters.'
+     ,'channel.handleMaxCreate': 'The handle can be at most 50 characters.'
+     ,'channel.handleNoSpaces': 'The handle cannot contain spaces.'
+     ,'channel.handleChars': 'Use unaccented letters, numbers, _, -, and . only.'
+     ,'channel.handleChecking': 'Checking availability…'
+     ,'channel.handleCheckError': 'Unable to check the handle right now.'
+     ,'channel.handleAvailable': 'This handle is available.'
+     ,'channel.handleTaken': 'This handle is already in use.'
+     ,'explore.error': 'Unable to load explore videos.'
+     ,'library.notRated': 'Not rated'
+     ,'plans.inviteSent': 'Plan invitation sent.'
+     ,'plans.revokeSent': 'Invitation revoked.'
+     ,'plans.members': '{count} members'
+     ,'plans.shareText': 'HuTube {name} plan'
+     ,'plans.qualityUpload': 'Upload {quality}'
+     ,'plans.qualityDownload': 'Download {quality}'
+     ,'plans.subscribeErrorFallback': 'Unable to subscribe to this plan ({status}).'
+     ,'auth.about': 'About HuTube'
+     ,'auth.accountLink': 'HuTube — account page'
+     ,'auth.slideStoryAlt': 'A creator telling their story'
+     ,'auth.slideWorldAlt': 'Explore the world through video'
+     ,'auth.slideInspireAlt': 'An inspiring community'
+     ,'auth.layoutTagline': 'A more open, creative, kinder video platform.'
+     ,'auth.layoutFooter': '© 2026 HuTube LLC. All rights reserved.'
+     ,'auth.deviceMobile': 'Mobile'
+     ,'auth.deviceDesktop': 'Desktop'
+     ,'auth.requestError': 'Unable to complete the request. Please try again.'
+     ,'auth.invalidCredentials': 'The email or password is incorrect.'
+     ,'auth.emailNotVerified': 'Verify your email before signing in.'
+     ,'auth.accountSuspended': 'This account is temporarily suspended.'
+     ,'auth.accountBanned': 'This account has been banned.'
+     ,'auth.adminAccessDenied': 'This account does not have admin access or it has been disabled.'
+     ,'auth.adminDisabled': 'Admin access for this account has been disabled.'
+     ,'auth.emailExists': 'This email is already in use.'
+     ,'auth.usernameExists': 'This username is already in use.'
+     ,'auth.invalidToken': 'This link is invalid or expired. Request a new link.'
+     ,'auth.tokenExpired': 'This link has expired. Request a new link.'
+     ,'auth.googleNotConfigured': 'Google Sign-In is not configured.'
+     ,'auth.invalidGoogleToken': 'Unable to verify the Google account. Please try again.'
+     ,'auth.googleConflict': 'This email is already linked to another Google account.'
+     ,'auth.serverUnavailable': 'The server is unavailable. Check your connection and try again.'
+     ,'auth.tooManyRequests': 'Too many attempts. Wait a moment and try again.'
+     ,'auth.accessDenied': 'This account cannot access the resource or has been disabled.'
+     ,'account.apiChecking': 'Checking connection…'
+     ,'account.apiConnected': 'Connected'
+     ,'account.apiUnavailable': 'The server is unavailable'
+     ,'account.locationVietnam': 'Vietnam'
+     ,'account.passwordChanged': 'Your password was changed.'
+     ,'channel.reportSuccess': 'Thanks for your report. We will review it under HuTube Community Guidelines.'
+     ,'notification.channelInviteToast': 'You have an invitation to join channel{channel}.'
+     ,'studio.accessibleChannelsError': 'Unable to load channels you can access.'
+     ,'studio.channelDataError': 'Unable to load Studio data for this channel.'
+     ,'upload.serverNoVideo': 'The server did not return video information after upload.'
+     ,'upload.uploadError': 'Unable to upload the video. Check the local API and try again.'
+     ,'ui.statusPublished': 'Published'
+     ,'ui.statusDraft': 'Draft'
+     ,'ui.statusProcessing': 'Processing'
+     ,'ui.statusScheduled': 'Scheduled'
+     ,'ui.statusPending': 'Pending'
+     ,'ui.statusRejected': 'Rejected'
+     ,'title.login': 'Sign in · HuTube'
+     ,'title.register': 'Create account · HuTube'
+     ,'title.verifyEmail': 'Verify email · HuTube'
+     ,'title.forgotPassword': 'Forgot password · HuTube'
+     ,'title.resetPassword': 'Reset password · HuTube'
+     ,'title.home': 'Home · HuTube'
+     ,'title.explore': 'Explore · HuTube'
+     ,'title.watch': 'Watch video · HuTube'
+     ,'title.terms': 'Terms of Service · HuTube'
+     ,'title.privacy': 'Privacy Policy · HuTube'
+     ,'title.guidelines': 'Community Guidelines · HuTube'
+     ,'title.policies': 'Policy Center · HuTube'
+     ,'title.plans': 'Plans · HuTube'
+     ,'title.planInvite': 'Accept plan invitation · HuTube'
+     ,'title.planDetail': 'Plan details · HuTube'
+     ,'title.account': 'Settings · HuTube'
+     ,'title.history': 'Watch history · HuTube'
+     ,'title.liked': 'Liked videos · HuTube'
+     ,'title.channelCreate': 'Create channel · HuTube'
+     ,'title.channel': 'Channel · HuTube'
+     ,'title.channelCustomize': 'Customize channel · HuTube'
+     ,'title.studioSetup': 'Channel setup · Studio'
+     ,'title.studioOverview': 'Creator Studio · HuTube'
+     ,'title.studioContent': 'Channel content · Studio'
+     ,'title.studioUpload': 'Upload video · Studio'
+     ,'title.studioAnalytics': 'Analytics · Studio'
+     ,'title.studioComments': 'Comments · Studio'
+     ,'title.studioSubtitles': 'Subtitles · Studio'
+     ,'title.studioSettings': 'Settings · Studio'
+     ,'title.studioInvitations': 'Collaborations · Studio'
   }
 };
 
@@ -1412,6 +2974,12 @@ export class I18nService {
       this.currentLang.set(lang);
       localStorage.setItem(this.STORAGE_KEY, lang);
     }
+  }
+
+  formatNumber(value: number | string | null | undefined, options: Intl.NumberFormatOptions = {}): string {
+    const numericValue = Number(value ?? 0);
+    return new Intl.NumberFormat(this.currentLang() === 'vi' ? 'vi-VN' : 'en-US', options)
+      .format(Number.isFinite(numericValue) ? numericValue : 0);
   }
 
   t(key: string, params?: Record<string, string>): string {

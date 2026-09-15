@@ -41,6 +41,26 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  // Resolve semantic colors from the active theme instead of reading the
+  // light palette directly from widgets. This keeps shared screens legible
+  // when the user switches to the dark theme.
+  static Color surfaceFor(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
+  static Color textPrimaryFor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
+  static Color textSecondaryFor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+  static Color textMutedFor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: .78);
+  static Color borderFor(BuildContext context) =>
+      Theme.of(context).dividerColor;
+  static Color dangerFor(BuildContext context) =>
+      Theme.of(context).colorScheme.error;
+  static Color dangerContainerFor(BuildContext context) =>
+      Theme.of(context).colorScheme.errorContainer;
+  static Color onDangerContainerFor(BuildContext context) =>
+      Theme.of(context).colorScheme.onErrorContainer;
 }
 
 class AppTheme {

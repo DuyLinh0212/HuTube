@@ -22,9 +22,9 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         if (verify) Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/auth/verify-email", new { token = factory.Emails.Token(email) })).StatusCode);
         return (client, email, user.UserId);
     }
-    private static async Task<LoginResponse> LoginAsync(HttpClient client, string email, string password = Password, string platform = "mobile")
+    private static async Task<LoginResponse> LoginAsync(HttpClient client, string email, string password = Password, string platform = "mobile", string? deviceId = null)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password, platform, deviceName = "Integration test" });
+        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password, platform, deviceName = "Integration test", deviceId });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<LoginResponse>())!;
     }
@@ -56,6 +56,22 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         var user = await db.Users.SingleAsync(x => x.Email == "google.user@example.com");
         Assert.Equal("google-subject-123", user.GoogleSubject);
         Assert.NotEmpty(login.AccessToken);
+    }
+    [Fact]
+    public async Task Login_SameDevice_ShouldReuseOneActiveSession()
+    {
+        var (client, email, userId) = await RegisterAsync();
+        var first = await LoginAsync(client, email, platform: "mobile", deviceId: "mobile-installation-1");
+        var second = await LoginAsync(client, email, platform: "mobile", deviceId: "mobile-installation-1");
+
+        Assert.NotEqual(first.AccessToken, second.AccessToken);
+        await using var db = factory.CreateDb();
+        var sessions = await db.Sessions.Where(x => x.UserId == userId && x.RevokedAt == null).ToListAsync();
+        Assert.Single(sessions);
+        Assert.Equal("mobile-installation-1", sessions[0].DeviceId);
+
+        await LoginAsync(client, email, platform: "mobile", deviceId: "mobile-installation-2");
+        Assert.Equal(2, await db.Sessions.CountAsync(x => x.UserId == userId && x.RevokedAt == null));
     }
     [Fact]
     public async Task Register_DuplicateEmailIgnoringCase_ShouldReturnConflict()

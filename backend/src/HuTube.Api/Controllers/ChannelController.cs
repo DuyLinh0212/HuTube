@@ -39,6 +39,10 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
             : Ok(channel);
     }
 
+    [Authorize, HttpGet("accessible")]
+    public async Task<ActionResult<IReadOnlyList<ChannelResponse>>> GetAccessibleChannelsAsync(CancellationToken ct) =>
+        Ok(await channelService.GetAccessibleChannelsAsync(UserId, ct));
+
     [Authorize, HttpGet("roles")]
     public ActionResult<IReadOnlyList<ChannelRoleResponse>> GetRoles() => Ok(ChannelService.Roles);
 

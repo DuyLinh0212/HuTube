@@ -1,9 +1,20 @@
 <main id="main-content" class="create-channel-container">
+  @if (!existingChannel() && pendingInvitations().length > 0) {
+    <section class="collaboration-callout" aria-labelledby="collaboration-callout-title">
+      <div class="callout-icon" aria-hidden="true">✉</div>
+      <div class="callout-copy">
+      <h2 id="collaboration-callout-title">{{ 'channel.collaborationTitle' | translate }}</h2>
+        <p>{{ 'channel.collaborationDesc' | translate }}</p>
+      </div>
+      <a routerLink="/studio/invitations" class="btn-primary">{{ 'channel.viewInvitations' | translate }}</a>
+    </section>
+  }
+
   @if (existingChannel(); as channel) {
     <div class="existing-channel-card">
       <div class="card-icon">📺</div>
-      <h2>Bạn đã sở hữu một kênh trên HuTube</h2>
-      <p>Mỗi tài khoản được liên kết tối đa với một kênh phát sóng.</p>
+      <h2>{{ 'channel.ownedTitle' | translate }}</h2>
+      <p>{{ 'channel.ownedDesc' | translate }}</p>
 
       <div class="channel-preview-row">
         <div class="preview-avatar">
@@ -20,15 +31,15 @@
       </div>
 
       <div class="card-actions">
-        <a [routerLink]="['/channel', channel.handle]" class="btn-primary">Xem kênh của bạn</a>
-        <a [routerLink]="['/channel', channel.handle, 'customize']" class="btn-secondary">Tùy chỉnh kênh</a>
+        <a [routerLink]="['/channel', channel.handle]" class="btn-primary">{{ 'channel.viewYourChannel' | translate }}</a>
+        <a [routerLink]="['/channel', channel.handle, 'customize']" class="btn-secondary">{{ 'channel.customize' | translate }}</a>
       </div>
     </div>
   } @else {
     <div class="create-form-card">
       <header class="card-header">
-        <h1 class="card-title">Tạo kênh HuTube của bạn</h1>
-        <p class="card-subtitle">Bắt đầu chia sẻ nội dung video sáng tạo và kết nối với cộng đồng người xem.</p>
+        <h1 class="card-title">{{ 'channel.formTitle' | translate }}</h1>
+        <p class="card-subtitle">{{ 'channel.formDesc' | translate }}</p>
       </header>
 
       @if (error()) {
@@ -40,21 +51,21 @@
       <form (ngSubmit)="onSubmit()" class="create-form">
         <!-- Visual Previews (Banner & Avatar) -->
         <div class="visuals-group">
-          <div class="banner-box" (click)="bannerInput.click()" title="Nhấp để tải lên ảnh bìa">
+          <div class="banner-box" (click)="bannerInput.click()" [title]="'channel.bannerClick' | translate">
             @if (bannerPreview) {
-              <img [src]="bannerPreview" alt="Xem trước ảnh bìa" class="banner-img" />
+              <img [src]="bannerPreview" [alt]="'channel.bannerAlt' | translate" class="banner-img" />
             } @else {
               <div class="banner-empty">
                 <span class="icon">🖼️</span>
-                <span>Tải lên ảnh bìa kênh (khuyên dùng tỉ lệ 16:9 hoặc ảnh ngang)</span>
+                <span>{{ 'channel.uploadBanner' | translate }}</span>
               </div>
             }
             <input #bannerInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onBannerSelected($event)" hidden />
           </div>
 
-          <div class="avatar-overlap-box" (click)="avatarInput.click()" title="Nhấp để tải lên ảnh đại diện kênh">
+          <div class="avatar-overlap-box" (click)="avatarInput.click()" [title]="'channel.uploadAvatar' | translate">
             @if (avatarPreview) {
-              <img [src]="avatarPreview" alt="Xem trước ảnh đại diện" class="avatar-img" />
+              <img [src]="avatarPreview" [alt]="'channel.avatarAlt' | translate" class="avatar-img" />
             } @else {
               <div class="avatar-empty">
                 <span>📷</span>
@@ -66,12 +77,12 @@
 
         <!-- Inputs -->
         <div class="form-group">
-          <label for="channelName" class="input-label">Tên kênh <span class="required">*</span></label>
-          <input id="channelName" type="text" class="text-input" [(ngModel)]="name" name="name" placeholder="Ví dụ: Khoa Học TV, Đi Để Trưởng Thành..." [disabled]="busy()" required />
+          <label for="channelName" class="input-label">{{ 'channel.nameRequired' | translate }}</label>
+          <input id="channelName" type="text" class="text-input" [(ngModel)]="name" name="name" [placeholder]="'channel.namePlaceholder' | translate" [disabled]="busy()" required />
         </div>
 
         <div class="form-group">
-          <label for="channelHandle" class="input-label">Handle (Tên định danh) <span class="required">*</span></label>
+          <label for="channelHandle" class="input-label">{{ 'channel.handleLabel' | translate }}</label>
           <div class="handle-input-wrap">
             <span class="handle-prefix">&#64;</span>
             <input
@@ -84,7 +95,7 @@
               (ngModelChange)="onHandleInput($event)"
               (compositionend)="onHandleInput($event)"
               (blur)="onHandleBlur($event)"
-              placeholder="mychannel"
+              [placeholder]="'channel.handlePlaceholder' | translate"
               [disabled]="busy()"
               autocomplete="off"
               spellcheck="false"
@@ -96,24 +107,24 @@
               {{ handleFeedback() }}
             </p>
           } @else {
-            <p class="field-help">Handle sẽ là địa chỉ duy nhất của bạn: hutube.vn/&#64;{{ handle || 'handle' }}</p>
+            <p class="field-help">{{ 'channel.handleHelp' | translate:{ handle: handle || 'handle' } }}</p>
           }
         </div>
 
         <div class="form-group">
-          <label for="channelDescription" class="input-label">Mô tả kênh</label>
-          <textarea id="channelDescription" class="textarea-input" [(ngModel)]="description" name="description" rows="3" placeholder="Giới thiệu về nội dung kênh của bạn để người xem hiểu thêm..." [disabled]="busy()"></textarea>
+          <label for="channelDescription" class="input-label">{{ 'channel.descriptionLabel' | translate }}</label>
+          <textarea id="channelDescription" class="textarea-input" [(ngModel)]="description" name="description" rows="3" [placeholder]="'channel.descriptionPlaceholder' | translate" [disabled]="busy()"></textarea>
         </div>
 
         <div class="form-group">
-          <label for="channelEmail" class="input-label">Email liên hệ công việc</label>
-          <input id="channelEmail" type="email" class="text-input" [(ngModel)]="contactEmail" name="contactEmail" placeholder="contact@example.com" [disabled]="busy()" />
+          <label for="channelEmail" class="input-label">{{ 'channel.contactEmail' | translate }}</label>
+          <input id="channelEmail" type="email" class="text-input" [(ngModel)]="contactEmail" name="contactEmail" [placeholder]="'channel.contactEmailPlaceholder' | translate" [disabled]="busy()" />
         </div>
 
         <div class="form-actions">
-          <button type="button" [routerLink]="studioMode ? '/account' : '/account'" class="btn-secondary" [disabled]="busy()">Hủy</button>
+          <button type="button" [routerLink]="studioMode ? '/account' : '/account'" class="btn-secondary" [disabled]="busy()">{{ 'channel.cancel' | translate }}</button>
           <button type="submit" class="btn-primary" [disabled]="busy() || !name.trim() || !handle.trim() || handleValid() === false">
-            @if (busy()) { <span class="spinner"></span> Đang tạo kênh... } @else { Tạo kênh ngay }
+            @if (busy()) { <span class="spinner"></span> {{ 'channel.creating' | translate }} } @else { {{ 'channel.createNow' | translate }} }
           </button>
         </div>
       </form>

@@ -111,6 +111,10 @@ export class ChannelService {
     return this.http.get<ChannelDetail>(`${this.base}/me`);
   }
 
+  getAccessibleChannels(): Observable<ChannelDetail[]> {
+    return this.http.get<ChannelDetail[]>(`${this.base}/accessible`);
+  }
+
   getChannel(handle: string): Observable<ChannelDetail> {
     const clean = handle.startsWith('@') ? handle.slice(1) : handle;
     return this.http.get<ChannelDetail>(`${this.base}/handle/${encodeURIComponent(clean)}`);

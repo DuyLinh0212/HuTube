@@ -1,0 +1,49 @@
+<main id="main-content" class="feed">
+  <div class="feed-filters" [attr.aria-label]="'explore.filters' | translate">
+    <label>
+      {{ 'explore.sort' | translate }}
+      <select [value]="selectedSort()" (change)="changeSort($any($event.target).value)">
+        <option value="newest">{{ 'explore.newest' | translate }}</option>
+        <option value="popular">{{ 'explore.popular' | translate }}</option>
+        <option value="trending">{{ 'explore.trending' | translate }}</option>
+      </select>
+    </label>
+    <label>
+      {{ 'explore.category' | translate }}
+      <select [value]="selectedCategoryId()" (change)="changeCategory($any($event.target).value)">
+        <option value="">{{ 'explore.allCategories' | translate }}</option>
+        @for (category of categories(); track category.categoryId) {
+          <option [value]="category.categoryId">{{ category.name }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  @if (loading()) {
+    <p class="state">{{ 'home.loading' | translate }}</p>
+  } @else if (error()) {
+    <p class="state error">{{ error() }}</p>
+  } @else {
+    <section class="grid" [attr.aria-label]="'explore.videoList' | translate">
+      @for (video of videos(); track video.videoId) {
+        <a class="card" [routerLink]="['/watch', video.videoId]">
+          <div class="thumb">
+            @if (video.thumbnailUrl) {
+              <img [src]="video.thumbnailUrl" alt="" />
+            } @else {
+              <span>▶</span>
+            }
+            <time>{{ duration(video.duration) }}</time>
+          </div>
+          <div class="copy">
+            <h2>{{ video.title }}</h2>
+            <p>{{ video.channelName }}</p>
+            <small>{{ video.views | localeNumber }} {{ 'home.views' | translate }} · {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</small>
+          </div>
+        </a>
+      } @empty {
+        <p class="state">{{ 'home.empty' | translate }}</p>
+      }
+    </section>
+  }
+</main>

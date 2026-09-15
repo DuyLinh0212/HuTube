@@ -14,15 +14,6 @@
   width: 240px;
   flex-shrink: 0;
 
-  .settings-page-title {
-    font-size: 1.5rem;
-    line-height: 1.2;
-    font-weight: 800;
-    margin: 0 0 24px 14px;
-    color: var(--ink);
-    letter-spacing: -0.03em;
-  }
-
   .settings-sidebar-heading {
     font-size: 1.15rem;
     font-weight: 800;
@@ -111,61 +102,6 @@
 /* Settings Pane */
 .settings-pane {
   animation: fadeIn 0.18s ease;
-}
-
-/* Hero Section */
-.pane-hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-  padding-bottom: 20px;
-
-  .eyebrow-tag {
-    display: inline-block;
-    font-size: 0.78rem;
-    font-weight: 800;
-    color: var(--primary);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-
-  .hero-heading {
-    font-size: 1.38rem;
-    font-weight: 800;
-    color: var(--ink);
-    margin: 0 0 8px;
-    line-height: 1.35;
-    letter-spacing: -0.02em;
-  }
-
-  .hero-email, .hero-subtitle {
-    font-size: 0.86rem;
-    color: var(--text-muted);
-    margin: 0;
-  }
-
-  .hero-review {
-    font-size: 0.84rem;
-    color: var(--text-muted);
-    margin: 8px 0 0;
-    line-height: 1.6;
-  }
-
-  .pane-hero-art {
-    flex: 0 0 130px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    .hero-svg {
-      width: 130px;
-      height: 110px;
-      object-fit: contain;
-      filter: drop-shadow(0 6px 16px var(--primary-glow));
-    }
-  }
 }
 
 /* Horizontal Divider */
@@ -699,36 +635,6 @@
   }
 }
 
-/* Simple Hero for tabs like Downloads & Billing */
-.pane-hero-simple {
-  padding-bottom: 20px;
-
-  .eyebrow-tag {
-    display: inline-block;
-    font-size: 0.78rem;
-    font-weight: 800;
-    color: var(--primary);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-
-  .hero-heading {
-    font-size: 1.38rem;
-    font-weight: 800;
-    color: var(--ink);
-    margin: 0 0 8px;
-    line-height: 1.35;
-    letter-spacing: -0.02em;
-  }
-
-  .hero-subtitle {
-    font-size: 0.86rem;
-    color: var(--text-muted);
-    margin: 0;
-  }
-}
-
 /* YouTube-style Radio Group (Downloads Quality) */
 .yt-radio-group {
   display: flex;
@@ -953,12 +859,4 @@
     margin-top: 10px;
   }
 
-  .pane-hero {
-    flex-direction: column-reverse;
-    gap: 14px;
-
-    .pane-hero-art {
-      align-self: flex-start;
-    }
-  }
 }

@@ -1,0 +1,89 @@
+<main class="page">
+  @if (toastMessage()) {
+    <div class="toast-banner">
+      <span>{{ toastMessage() }}</span>
+      <button type="button" class="toast-close" (click)="toastMessage.set('')">✕</button>
+    </div>
+  }
+
+  <div class="filter-bar">
+    <label class="search">
+      <input
+        type="search"
+        [placeholder]="'studio.searchVideo' | translate"
+        (input)="search.set($any($event.target).value)"
+      />
+    </label>
+    @if (data.hasPermission('video.upload')) {
+      <a routerLink="/studio/upload" class="upload-btn">+ {{ 'studio.uploadVideo' | translate }}</a>
+    }
+  </div>
+
+  <div class="table">
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'studio.colVideo' | translate }}</th>
+          <th>{{ 'studio.colVisibility' | translate }}</th>
+          <th>{{ 'studio.colModeration' | translate }}</th>
+          <th>{{ 'studio.colDate' | translate }}</th>
+          <th>{{ 'studio.colViews' | translate }}</th>
+          <th>{{ 'studio.interaction' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (video of filtered(); track video.videoId) {
+          <tr>
+            <td>
+              <a [routerLink]="['/watch', video.videoId]">{{ video.title }}</a>
+              <small>{{ video.duration | localeNumber }} {{ 'ui.seconds' | translate }} · {{ video.tags.join(', ') }}</small>
+            </td>
+            <td>
+              <div class="visibility-cell">
+                @if (data.hasPermission('video.edit')) {
+                  <select
+                    class="visibility-select"
+                    [value]="video.visibility"
+                    [disabled]="updatingId() === video.videoId"
+                    (change)="changeVisibility(video, $any($event.target).value)"
+                  >
+                    <option value="public">{{ 'ui.public' | translate }}</option>
+                    <option value="unlisted">{{ 'ui.unlisted' | translate }}</option>
+                    <option value="private">{{ 'ui.private' | translate }}</option>
+                  </select>
+                  @if (updatingId() === video.videoId) {
+                    <span class="updating-spinner">{{ 'ui.saving' | translate }}</span>
+                  }
+                } @else {
+                  <span class="readonly-visibility">
+                    {{ visibilityLabel(video.visibility) }}
+                  </span>
+                }
+              </div>
+            </td>
+            <td>
+              @if (video.moderationStatus === 'approved' || (video.status === 'published' && video.visibility === 'public')) {
+                <span class="badge badge-success">{{ 'ui.moderationApproved' | translate }}</span>
+              } @else if (video.moderationStatus === 'pending') {
+                <span class="badge badge-pending">{{ 'ui.moderationPending' | translate }}</span>
+              } @else if (video.moderationStatus === 'reviewing') {
+                <span class="badge badge-reviewing">{{ 'ui.moderationReviewing' | translate }}</span>
+              } @else if (video.moderationStatus === 'rejected') {
+                <span class="badge badge-danger">{{ 'ui.moderationRejected' | translate }}</span>
+              } @else if (video.visibility === 'public') {
+                <span class="badge badge-pending">{{ 'ui.moderationPending' | translate }}</span>
+              } @else {
+                <span class="badge badge-muted">{{ 'ui.moderationNotSubmitted' | translate }}</span>
+              }
+            </td>
+            <td>{{ video.createdAt | localeDate:'dd/MM/yyyy' }}</td>
+            <td>{{ video.stats.views | localeNumber }}</td>
+            <td>{{ video.stats.likes | localeNumber }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}</td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="empty-cell">{{ 'studio.noVideosList' | translate }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</main>

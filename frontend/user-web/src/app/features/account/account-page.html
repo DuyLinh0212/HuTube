@@ -1,7 +1,6 @@
 <div class="yt-settings-layout">
   <!-- Left Column: Settings Menu (matching Image 1) -->
-  <aside class="yt-settings-sidebar" aria-label="Cài đặt">
-    <h1 class="settings-page-title">{{ 'account.title' | translate }}</h1>
+  <aside class="yt-settings-sidebar" [attr.aria-label]="'account.settingsAria' | translate">
     <h2 class="settings-sidebar-heading">{{ 'account.settingsTitle' | translate }}</h2>
     <nav class="settings-nav-list">
       <button type="button" class="settings-nav-btn" [class.active]="activeTab() === 'account'" (click)="setTab('account')">
@@ -24,7 +23,7 @@
       </button>
       <div class="pane-divider" style="margin: 8px 0;"></div>
       <a routerLink="/plans" class="settings-nav-btn" style="text-decoration: none;">
-        Gói dịch vụ &amp; gói của tôi
+        {{ 'plans.myPlans' | translate }}
       </a>
     </nav>
   </aside>
@@ -35,13 +34,13 @@
     @if (error()) {
       <div class="yt-alert yt-alert-error" role="alert">
         <span>⚠️ {{ error() }}</span>
-        <button type="button" class="alert-dismiss" (click)="error.set('')">×</button>
+          <button type="button" class="alert-dismiss" (click)="error.set('')" [attr.aria-label]="'account.dismissMessage' | translate">×</button>
       </div>
     }
     @if (message()) {
       <div class="yt-alert yt-alert-success" role="status">
         <span>✓ {{ message() }}</span>
-        <button type="button" class="alert-dismiss" (click)="message.set('')">×</button>
+          <button type="button" class="alert-dismiss" (click)="message.set('')" [attr.aria-label]="'account.dismissMessage' | translate">×</button>
       </div>
     }
 
@@ -50,37 +49,6 @@
     <!-- ============================================== -->
     @if (activeTab() === 'account') {
       <div class="settings-pane">
-        <!-- Hero Section -->
-        <div class="pane-hero">
-          <div class="pane-hero-text">
-            <span class="eyebrow-tag">{{ 'account.tabAccount' | translate }}</span>
-            <h1 class="hero-heading">{{ 'account.accountHeroTitle' | translate }}</h1>
-            <p class="hero-email">{{ 'account.signedInAs' | translate }} {{ profile()?.email || auth.user()?.email || 'user@hutube.vn' }}</p>
-          </div>
-          <div class="pane-hero-art" aria-hidden="true">
-            <!-- Telescope Explorer Illustration SVG matching HuTube brand style -->
-            <svg viewBox="0 0 160 140" fill="none" class="hero-svg">
-              <ellipse cx="118" cy="70" rx="42" ry="42" fill="#FF2B66" fill-opacity="0.14"/>
-              <ellipse cx="118" cy="70" rx="36" ry="36" fill="#7C3AED" fill-opacity="0.16"/>
-              <!-- Telescope -->
-              <rect x="92" y="44" width="46" height="12" rx="6" fill="#FF2B66" transform="rotate(-32 92 44)"/>
-              <circle cx="132" cy="20" r="7" fill="#E61952"/>
-              <circle cx="132" cy="20" r="3" fill="#FFF"/>
-              <rect x="68" y="58" width="36" height="10" rx="4" fill="#7C3AED" transform="rotate(-32 68 58)"/>
-              <!-- Character head / profile -->
-              <circle cx="95" cy="72" r="28" fill="#FF4D80"/>
-              <path d="M72 70 C72 50 110 50 114 62 C114 74 95 86 80 82 Z" fill="#7C3AED"/>
-              <ellipse cx="88" cy="62" rx="4" ry="4" fill="#111827"/>
-              <path d="M102 78 C96 86 86 86 82 82" stroke="#E61952" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M76 96 C72 108 84 125 106 128 C128 131 142 120 142 110 L108 92 Z" fill="#10B981"/>
-              <circle cx="58" cy="38" r="4" fill="#FFA800"/>
-              <circle cx="148" cy="72" r="3" fill="#FF2B66"/>
-            </svg>
-          </div>
-        </div>
-
-        <div class="pane-divider"></div>
-
         <!-- Section: Kênh HuTube của bạn -->
         <section class="pane-section">
           <h2 class="section-title">{{ 'account.yourHuTubeChannel' | translate }}</h2>
@@ -102,9 +70,9 @@
                   <input #avatarInput type="file" accept="image/*" (change)="onAvatarSelected($event)" hidden />
                 </div>
                 <div class="channel-name-details">
-                  <strong class="channel-display-name">{{ profile()?.displayName || myChannel()?.name || auth.user()?.displayName || 'Người dùng HuTube' }}</strong>
+                  <strong class="channel-display-name">{{ profile()?.displayName || myChannel()?.name || auth.user()?.displayName || ('ui.userHuTube' | translate) }}</strong>
                   @if (myChannel(); as ch) {
-                    <span class="channel-sub-info">&#64;{{ ch.handle }} · {{ ch.subscriberCount }} {{ 'account.subscribersCount' | translate }}</span>
+                    <span class="channel-sub-info">&#64;{{ ch.handle }} · {{ ch.subscriberCount | localeNumber }} {{ 'account.subscribersCount' | translate }}</span>
                   }
                 </div>
               </div>
@@ -165,35 +133,6 @@
     <!-- ============================================== -->
     @if (activeTab() === 'privacy') {
       <div class="settings-pane">
-        <!-- Hero Section -->
-        <div class="pane-hero">
-          <div class="pane-hero-text">
-            <h1 class="hero-heading">{{ 'account.privacyHeroTitle' | translate }}</h1>
-            <p class="hero-subtitle">{{ 'account.privacyHeroSub' | translate }}</p>
-            <p class="hero-review">
-              {{ 'account.privacyHeroReview' | translate }}
-              <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'terms' }">{{ 'account.privacyHeroTos' | translate }}</a>
-              {{ 'account.privacyHeroAnd' | translate }}
-              <a class="yt-action-link" routerLink="/policies" [queryParams]="{ tab: 'privacy' }">{{ 'account.privacyHeroPrivacyPolicy' | translate }}</a>
-            </p>
-          </div>
-          <div class="pane-hero-art" aria-hidden="true">
-            <!-- Shield Privacy Illustration matching HuTube design system -->
-            <svg viewBox="0 0 160 140" fill="none" class="hero-svg">
-              <ellipse cx="118" cy="70" rx="38" ry="38" fill="#10B981" fill-opacity="0.15"/>
-              <path d="M102 36 C124 36 138 48 138 68 C138 98 108 116 102 120 C96 116 66 98 66 68 C66 48 80 36 102 36 Z" fill="#7C3AED"/>
-              <path d="M102 36 C124 36 138 48 138 68 C138 98 108 116 102 120 L102 36 Z" fill="#6D28D9"/>
-              <path d="M92 48 L102 40 L112 48 L112 66 L92 66 Z" fill="#FF2B66"/>
-              <path d="M84 72 L102 62 L120 72 L120 90 L84 90 Z" fill="#FFA800"/>
-              <path d="M74 94 L102 82 L130 94 L102 116 Z" fill="#10B981"/>
-              <circle cx="102" cy="70" r="10" fill="#FFF" fill-opacity="0.95"/>
-              <path d="M98 70 L101 73 L107 67" stroke="#FF2B66" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-        </div>
-
-        <div class="pane-divider"></div>
-
         <!-- Section 1: Kênh đăng ký -->
         <section class="pane-section">
           <div class="channel-row">
@@ -289,11 +228,6 @@
     <!-- ============================================== -->
     @if (activeTab() === 'notifications') {
       <div class="settings-pane">
-        <h1 class="hero-heading">{{ 'account.notifHeading' | translate }}</h1>
-        <p class="hero-subtitle">{{ 'account.notifDesc' | translate }}</p>
-
-        <div class="pane-divider"></div>
-
         <div class="switches-vertical-list">
           <div class="switch-row-item">
             <div class="switch-row-info">
@@ -375,11 +309,6 @@
     <!-- ============================================== -->
     @if (activeTab() === 'advanced') {
       <div class="settings-pane">
-        <h1 class="hero-heading">{{ 'account.tabAdvanced' | translate }}</h1>
-        <p class="hero-subtitle">{{ 'account.profileDesc' | translate }}</p>
-
-        <div class="pane-divider"></div>
-
         <!-- IDs -->
         @if (profile()?.userId; as uid) {
           <div class="advanced-id-row">
@@ -393,7 +322,7 @@
 
         @if (myChannel(); as ch) {
           <div class="advanced-id-row">
-            <div class="id-label">Mã nhận dạng kênh (Channel ID)</div>
+            <div class="id-label">{{ 'account.channelId' | translate }}</div>
             <div class="id-value-box">
               <code>{{ ch.channelId }}</code>
               <button type="button" class="btn-copy" (click)="copyUserId(ch.channelId)">{{ 'account.copy' | translate }}</button>
@@ -459,7 +388,7 @@
                     <strong>{{ session.deviceName }}</strong>
                     @if (session.isCurrent) { <span class="badge-current">{{ 'account.thisDevice' | translate }}</span> }
                   </div>
-                  <small>{{ 'account.signedInAt' | translate }} {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</small>
+                  <small>{{ 'account.signedInAt' | translate }} {{ session.issuedAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | localeDate:'dd/MM/yyyy HH:mm' }}</small>
                 </div>
                 @if (!session.isCurrent) {
                   <button type="button" class="btn-revoke" (click)="pendingRevoke.set(session)" [disabled]="busy()">{{ 'account.revoke' | translate }}</button>
@@ -476,21 +405,12 @@
     <!-- ============================================== -->
     @if (activeTab() === 'downloads') {
       <div class="settings-pane">
-        <!-- Eyebrow & Hero Header -->
-        <div class="pane-hero-simple">
-          <span class="eyebrow-tag">{{ 'account.tabDownloads' | translate }}</span>
-          <h1 class="hero-heading">{{ 'account.downloadsHeroTitle' | translate }}</h1>
-          <p class="hero-subtitle">{{ 'account.downloadsHeroSub' | translate }}</p>
-        </div>
-
-        <div class="pane-divider"></div>
-
         <!-- Section 1: Chất lượng tải xuống -->
         <section class="pane-section">
           <div class="channel-row">
             <div class="row-label">{{ 'account.downloadQualityHeading' | translate }}</div>
             <div class="row-body">
-              <div class="yt-radio-group" role="radiogroup" aria-label="Chất lượng tải xuống">
+              <div class="yt-radio-group" role="radiogroup" [attr.aria-label]="'account.downloadQualityHeading' | translate">
                 <label class="yt-radio-item" (click)="setDownloadQuality('ask')">
                   <input type="radio" name="downloadQuality" value="ask" [checked]="downloadQuality() === 'ask'" />
                   <span class="yt-radio-circle"></span>
@@ -572,14 +492,6 @@
     <!-- ============================================== -->
     @if (activeTab() === 'billing') {
       <div class="settings-pane">
-        <div class="pane-hero-simple">
-          <span class="eyebrow-tag">{{ 'account.tabBilling' | translate }}</span>
-          <h1 class="hero-heading">{{ 'account.billingHeroTitle' | translate }}</h1>
-          <p class="hero-subtitle">{{ 'account.billingHeroSub' | translate }}</p>
-        </div>
-
-        <div class="pane-divider"></div>
-
         <!-- Section 1: Giao dịch mua và gói thành viên -->
         <section class="pane-section">
           <div class="channel-row">
@@ -588,7 +500,7 @@
               <div class="billing-membership-card">
                 <div class="membership-badge-icon">👑</div>
                 <div class="membership-info">
-                  <strong class="membership-title">HuTube Premium</strong>
+                  <strong class="membership-title">{{ 'profile.premiumMember' | translate }}</strong>
                   <p class="membership-desc">{{ 'account.membershipsDesc' | translate }}</p>
                 </div>
                 <button type="button" class="btn-yt-primary">

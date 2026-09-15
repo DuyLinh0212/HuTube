@@ -39,7 +39,9 @@ describe('Authentication boundary', () => {
   it('exchanges a Google ID credential for the normal web session', async () => {
     const promise = firstValueFrom(auth.google('google-id-token'));
     const request = controller.expectOne(base + '/auth/google');
-    expect(request.request.body).toEqual({ credential: 'google-id-token', platform: 'web', deviceName: 'HuTube Web / Google' });
+    expect(request.request.body).toEqual(jasmine.objectContaining({ credential: 'google-id-token', platform: 'web' }));
+    expect(request.request.body.deviceName).toMatch(/^HuTube Web \/ Google · (Điện thoại|Máy tính)$/);
+    expect(request.request.body.deviceId).toEqual(jasmine.any(String));
     expect(request.request.withCredentials).toBeTrue();
     request.flush(response);
     controller.expectOne(base + '/auth/me').flush(user);

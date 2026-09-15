@@ -23,7 +23,7 @@
     }
 
     <!-- Appearance & Language Preferences -->
-    <section class="preferences-section" aria-labelledby="prefs-title" style="margin-bottom: 36px; padding-bottom: 28px; border-bottom: 1px solid var(--line);">
+    <section class="preferences-section" aria-labelledby="prefs-title">
       <div class="section-heading">
         <div>
           <h2 id="prefs-title">{{ 'account.tabPreferences' | translate }}</h2>
@@ -31,10 +31,10 @@
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 16px;">
+      <div class="preferences-grid">
         <div>
-          <label for="adminThemeSelect" style="margin-top: 0; font-size: 0.88rem;">{{ 'account.themeLabel' | translate }}</label>
-          <select id="adminThemeSelect" style="width: 100%; height: 42px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); margin-top: 6px;"
+          <label for="adminThemeSelect" class="preference-label">{{ 'account.themeLabel' | translate }}</label>
+          <select id="adminThemeSelect" class="preference-select"
                   [value]="themeService.currentTheme()" (change)="onThemeChange($event)">
             <option value="light">{{ 'account.themeLight' | translate }}</option>
             <option value="dark">{{ 'account.themeDark' | translate }}</option>
@@ -42,8 +42,8 @@
         </div>
 
         <div>
-          <label for="adminLangSelect" style="margin-top: 0; font-size: 0.88rem;">{{ 'account.langLabel' | translate }}</label>
-          <select id="adminLangSelect" style="width: 100%; height: 42px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); margin-top: 6px;"
+          <label for="adminLangSelect" class="preference-label">{{ 'account.langLabel' | translate }}</label>
+          <select id="adminLangSelect" class="preference-select"
                   [value]="i18n.currentLang()" (change)="onLanguageChange($event)">
             <option value="vi">Tiếng Việt (VI)</option>
             <option value="en">English (EN)</option>
@@ -78,7 +78,7 @@
         <ul class="session-list">
           @for (session of sessions(); track session.sessionId) {
             <li>
-              <div class="device-icon" aria-hidden="true"><img src="/assets/icons/device.png" alt="" /></div>
+              <div class="device-icon" aria-hidden="true">{{ session.platform === 'mobile' ? '📱' : '💻' }}</div>
               <div class="session-details">
                 <h3>{{ session.deviceName }} @if (session.isCurrent) { <span class="current">Thiết bị này</span> }</h3>
                 <p>Hoạt động gần nhất: {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>

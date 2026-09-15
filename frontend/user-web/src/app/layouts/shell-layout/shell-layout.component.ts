@@ -3,10 +3,11 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { UserSidebarComponent } from '../../shared/sidebar/user-sidebar.component';
 import { UserTopbarComponent } from '../../shared/topbar/user-topbar.component';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-shell-layout',
-  imports: [RouterOutlet, UserSidebarComponent, UserTopbarComponent],
+  imports: [RouterOutlet, UserSidebarComponent, UserTopbarComponent, TranslatePipe],
   templateUrl: './shell-layout.component.html',
   styleUrl: './shell-layout.component.scss'
 })

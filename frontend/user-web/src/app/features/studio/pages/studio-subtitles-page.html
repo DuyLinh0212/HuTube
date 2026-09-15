@@ -1,0 +1,18 @@
+<main class="page">
+  <section>
+    @for (video of data.videos(); track video.videoId) {
+      <article>
+        <div class="thumb">
+          @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" alt="" /> } @else { ▶ }
+        </div>
+        <div>
+          <strong>{{ video.title }}</strong>
+          <p>{{ 'studio.language' | translate }}: {{ languageLabel(video.languageCode) }} · {{ video.duration | localeNumber }} {{ 'ui.seconds' | translate }}</p>
+        </div>
+        <span>{{ 'studio.noSubtitles' | translate }}</span>
+      </article>
+    } @empty {
+      <p class="empty">{{ 'studio.noVideo' | translate }}</p>
+    }
+  </section>
+</main>

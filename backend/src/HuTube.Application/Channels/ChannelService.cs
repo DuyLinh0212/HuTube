@@ -80,6 +80,18 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         return channel == null ? null : ToResponse(channel, ChannelRoles.Owner);
     }
 
+    public async Task<IReadOnlyList<ChannelResponse>> GetAccessibleChannelsAsync(Guid userId, CancellationToken ct = default)
+    {
+        var channels = await store.GetAccessibleChannelsAsync(userId, ct);
+        var result = new List<ChannelResponse>(channels.Count);
+        foreach (var channel in channels)
+        {
+            var role = await ResolveRoleAsync(channel, userId, ct);
+            if (role != null) result.Add(ToResponse(channel, role));
+        }
+        return result;
+    }
+
     public async Task<ChannelResponse> GetChannelAsync(Guid channelId, Guid? actorUserId = null, CancellationToken ct = default)
     {
         var channel = await RequireChannelAsync(channelId, ct);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 
 class PoliciesScreen extends StatefulWidget {
@@ -49,24 +50,22 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
       children: [
         Text(
-          'Trung tâm chính sách',
+          AppStrings.t('policies.title'),
           style: Theme.of(
             context,
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 5),
-        const Text(
-          'Tiêu chuẩn giúp HuTube an toàn, rõ ràng và tôn trọng cộng đồng.',
-        ),
+        Text(AppStrings.t('policies.description')),
         const SizedBox(height: 16),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              for (final item in const [
-                ('guidelines', 'Cộng đồng'),
-                ('privacy', 'Quyền riêng tư'),
-                ('terms', 'Điều khoản'),
+              for (final item in [
+                ('guidelines', AppStrings.t('policies.guidelines')),
+                ('privacy', AppStrings.t('policies.privacy')),
+                ('terms', AppStrings.t('policies.terms')),
               ])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -98,7 +97,7 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${policy['title'] ?? 'Chính sách'}',
+                      '${policy['title'] ?? AppStrings.t('policies.title')}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 17,
@@ -110,7 +109,9 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
                       Padding(
                         padding: const EdgeInsets.only(top: 10),
                         child: Text(
-                          'Phiên bản ${policy['version']}',
+                          AppStrings.format('policies.version', {
+                            'version': policy['version'],
+                          }),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
@@ -127,20 +128,18 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
 class _PolicyFallback extends StatelessWidget {
   const _PolicyFallback();
   @override
-  Widget build(BuildContext context) => const Card(
+  Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Nội dung chính sách đang được cập nhật',
+            AppStrings.t('policies.fallbackTitle'),
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
           SizedBox(height: 8),
-          Text(
-            'Không đăng nội dung gây hại, vi phạm bản quyền, lừa đảo hoặc xâm phạm quyền riêng tư. HuTube có thể kiểm tra nội dung trước khi xuất bản.',
-          ),
+          Text(AppStrings.t('policies.fallbackText')),
         ],
       ),
     ),

@@ -94,7 +94,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = widget.auth.user ?? {};
     final displayName =
-        _profile?.displayName ?? user['displayName'] as String? ?? 'Người dùng';
+        _profile?.displayName ??
+        user['displayName'] as String? ??
+        AppStrings.t('common.user');
     final email = _profile?.email ?? user['email'] as String? ?? '';
     final username = _profile?.username ?? user['username'] as String? ?? '';
 
@@ -102,12 +104,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Header title for test compatibility & UI hierarchy
-        const Text(
-          'Tài khoản của bạn',
+        Text(
+          AppStrings.t('profile.headerTitle'),
           style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
+            color: AppColors.textPrimaryFor(context),
           ),
         ),
         const SizedBox(height: 16),
@@ -147,25 +149,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(
                       displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryFor(context),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '@$username',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        color: AppColors.textSecondaryFor(context),
                         fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       email,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        color: AppColors.textSecondaryFor(context),
                         fontSize: 13,
                       ),
                     ),
@@ -177,7 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Icons.edit_outlined,
                   color: AppColors.primaryPink,
                 ),
-                tooltip: 'Chỉnh sửa hồ sơ',
+                tooltip: AppStrings.t('account.editTooltip'),
                 onPressed: () async {
                   if (_profile == null) return;
                   final updated = await Navigator.of(context).push<UserProfile>(
@@ -215,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               gradient: LinearGradient(
                 colors: [
                   AppColors.primaryPink.withValues(alpha: 0.12),
-                  AppColors.backgroundCard,
+                  AppColors.surfaceFor(context),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -257,10 +259,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               Text(
                                 _channel!.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: AppColors.textPrimary,
+                                  color: AppColors.textPrimaryFor(context),
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -272,10 +274,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                           ),
                           Text(
-                            '@${_channel!.handle} · ${_channel!.subscriberCount} người đăng ký',
-                            style: const TextStyle(
+                            '@${_channel!.handle} · ${AppStrings.format('channel.subscriberCount', {'count': AppStrings.number(_channel!.subscriberCount)})}',
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary,
+                              color: AppColors.textSecondaryFor(context),
                             ),
                           ),
                         ],
@@ -303,8 +305,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                           _loadChannel();
                         },
-                        child: const Text(
-                          'Xem kênh',
+                        child: Text(
+                          AppStrings.t('profile.channelView'),
                           style: TextStyle(fontSize: 13),
                         ),
                       ),
@@ -326,8 +328,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                           if (res == true) _loadChannel();
                         },
-                        child: const Text(
-                          'Quản lý',
+                        child: Text(
+                          AppStrings.t('profile.channelManage'),
                           style: TextStyle(fontSize: 13),
                         ),
                       ),
@@ -342,14 +344,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppColors.backgroundCard,
+              color: AppColors.surfaceFor(context),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.cardBorder),
+              border: Border.all(color: AppColors.borderFor(context)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(
                       Icons.video_call_rounded,
@@ -358,21 +360,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     SizedBox(width: 10),
                     Text(
-                      'Bạn chưa có kênh HuTube',
+                      AppStrings.t('profile.noChannelTitle'),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryFor(context),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Tạo kênh để xuất bản video, xây dựng cộng đồng và tiếp cận hàng triệu khán giả.',
+                Text(
+                  AppStrings.t('profile.noChannelDescription'),
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryFor(context),
                     height: 1.4,
                   ),
                 ),
@@ -383,7 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     minimumSize: const Size.fromHeight(44),
                   ),
                   icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Tạo kênh ngay'),
+                  label: Text(AppStrings.t('profile.createNow')),
                   onPressed: () async {
                     await Navigator.of(context).push(
                       MaterialPageRoute(
@@ -475,33 +477,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Thiết bị đăng nhập',
+            Text(
+              AppStrings.t('profile.sessionsHeading'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryFor(context),
               ),
             ),
             IconButton(
               icon: const Icon(Icons.refresh),
-              tooltip: 'Tải lại thiết bị',
+              tooltip: AppStrings.t('profile.refreshDevices'),
               onPressed: widget.onRefreshSessions,
             ),
           ],
         ),
-        const Text(
-          'Thu hồi phiên trên thiết bị bạn không còn sử dụng.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        Text(
+          AppStrings.t('profile.sessionsDescription'),
+          style: TextStyle(
+            color: AppColors.textSecondaryFor(context),
+            fontSize: 13,
+          ),
         ),
         const SizedBox(height: 12),
 
         if (widget.sessionsLoading)
           const LinearProgressIndicator(color: AppColors.primaryPink)
         else if (widget.sessions.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('Chưa tải được danh sách thiết bị.'),
+            child: Text(AppStrings.t('profile.sessionsEmpty')),
           )
         else
           ...widget.sessions.map((session) {
@@ -515,17 +520,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
         OutlinedButton(
           onPressed: widget.onLogoutOthers,
-          child: const Text('Đăng xuất thiết bị khác'),
+          child: Text(AppStrings.t('profile.logoutOthers')),
         ),
         const SizedBox(height: 12),
         OutlinedButton(
           onPressed: widget.onLogoutAll,
-          child: const Text('Đăng xuất mọi thiết bị'),
+          child: Text(AppStrings.t('profile.logoutAll')),
         ),
         const SizedBox(height: 12),
         FilledButton(
           onPressed: widget.onLogout,
-          child: const Text('Đăng xuất'),
+          child: Text(AppStrings.t('profile.logout')),
         ),
       ],
     );
@@ -544,9 +549,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title,
           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right,
-          color: AppColors.textSecondary,
+          color: AppColors.textSecondaryFor(context),
           size: 20,
         ),
         onTap: onTap,

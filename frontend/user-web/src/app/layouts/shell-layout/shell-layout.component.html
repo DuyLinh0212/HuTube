@@ -1,7 +1,7 @@
 <div class="app-shell" [class.nav-open]="navOpen()" [class.nav-collapsed]="navCollapsed()">
   <app-user-topbar [sidebarCollapsed]="navCollapsed()" (menuOpened)="toggleNavigation()" />
   <div class="shell-body">
-    <button class="nav-scrim" type="button" aria-label="Đóng menu" (click)="closeNavigation()"></button>
+    <button class="nav-scrim" type="button" [attr.aria-label]="'ui.closeMenu' | translate" (click)="closeNavigation()"></button>
     <app-user-sidebar [open]="navOpen()" [collapsed]="navCollapsed()" (collapsedChange)="setCollapsed($event)" (navigationClosed)="closeNavigation()" />
     <section class="shell-stage">
       <div class="content-frame"><router-outlet /></div>

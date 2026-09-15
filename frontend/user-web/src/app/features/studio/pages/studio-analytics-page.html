@@ -1,0 +1,21 @@
+<main class="page">
+  <section class="cards" [attr.aria-label]="'studio.channelMetrics' | translate">
+    <article><span>{{ 'studio.viewsCount' | translate }}</span><strong>{{ data.views() | localeNumber }}</strong></article>
+    <article><span>{{ 'studio.likes' | translate }}</span><strong>{{ data.likes() | localeNumber }}</strong></article>
+    <article><span>{{ 'studio.commentsCount' | translate }}</span><strong>{{ data.comments() | localeNumber }}</strong></article>
+    <article><span>{{ 'studio.watchTime' | translate }}</span><strong>{{ data.watchSeconds() / 3600 | localeNumber:'1.0-1' }} {{ 'ui.watchHours' | translate }}</strong></article>
+  </section>
+
+  <section class="chart">
+    <h2>{{ 'studio.performanceByVideo' | translate }}</h2>
+    @for (video of data.videos(); track video.videoId) {
+      <div class="row">
+        <span>{{ video.title }}</span>
+        <div><i [style.width.%]="data.views() ? video.stats.views / data.views() * 100 : 0"></i></div>
+        <b>{{ video.stats.views | localeNumber }}</b>
+      </div>
+    } @empty {
+      <p>{{ 'ui.noData' | translate }}</p>
+    }
+  </section>
+</main>

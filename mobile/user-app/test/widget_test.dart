@@ -110,7 +110,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Tài khoản đang bị tạm khóa. Vui lòng liên hệ hỗ trợ.'),
+      find.text('Tài khoản đang bị tạm khóa.'),
       findsOneWidget,
     );
     expect(auth.authenticated, isFalse);

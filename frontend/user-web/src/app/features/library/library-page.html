@@ -1,21 +1,12 @@
 <main id="main-content" class="library-page">
-  <header class="library-header">
-    <div>
-      <span class="library-eyebrow">Thư viện</span>
-      <h1>{{ title }}</h1>
-      <p>{{ description }}</p>
-    </div>
-    <span class="library-count">{{ total() | number }} video</span>
-  </header>
-
   @if (isLiked) {
-    <section class="rating-filter" aria-label="Lọc video theo đánh giá của bạn">
+    <section class="rating-filter" [attr.aria-label]="'library.ratingFilter' | translate">
       <span class="rating-filter__label">
         <img src="/assets/icons/utility/icon-utility-filter-sliders.png" alt="" class="filter-icon-img" />
-        <span>Lọc theo đánh giá</span>
+        <span>{{ 'library.ratingLabel' | translate }}</span>
       </span>
       <div class="rating-filter__options" role="group">
-        <button type="button" [class.is-active]="ratingFilter() === null" [attr.aria-pressed]="ratingFilter() === null" (click)="setRatingFilter(null)">Tất cả</button>
+        <button type="button" [class.is-active]="ratingFilter() === null" [attr.aria-pressed]="ratingFilter() === null" (click)="setRatingFilter(null)">{{ 'ui.all' | translate }}</button>
         @for (star of [1, 2, 3, 4, 5]; track star) {
           <button type="button" class="rating-filter__btn" [class.is-active]="ratingFilter() === star" [attr.aria-pressed]="ratingFilter() === star" (click)="setRatingFilter(star)">
             <img src="/assets/icons/utility/icon-utility-star.png" alt="" class="star-icon-img" />
@@ -31,7 +22,7 @@
   }
 
   @if (loading()) {
-    <section class="library-list" aria-label="Đang tải thư viện video" aria-busy="true">
+    <section class="library-list" [attr.aria-label]="'library.loading' | translate" aria-busy="true">
       @for (placeholder of [1, 2, 3]; track placeholder) {
         <div class="library-card library-card--skeleton"><div class="skeleton skeleton-thumb"></div><div class="skeleton-copy"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line--short"></div><div class="skeleton skeleton-line skeleton-line--tiny"></div></div></div>
       }
@@ -41,7 +32,7 @@
       <section class="library-list" [attr.aria-label]="title">
         @for (item of items(); track item.videoId) {
           <article class="library-card">
-            <a class="library-thumb" [routerLink]="['/watch', item.videoId]" [attr.aria-label]="'Xem ' + item.title">
+            <a class="library-thumb" [routerLink]="['/watch', item.videoId]" [attr.aria-label]="('library.watch' | translate:{ title: item.title })">
               @if (item.thumbnailUrl) {
                 <img [src]="item.thumbnailUrl" alt="" />
               } @else {
@@ -58,16 +49,16 @@
               <a class="library-channel" [routerLink]="['/channel', item.channelHandle]">{{ item.channelName }} <span>&#64;{{ item.channelHandle }}</span></a>
               <div class="library-meta">
                 @if (isLiked) {
-                  <span class="your-rating"><span aria-hidden="true">★</span> Bạn: {{ ratingLabel(item) }}</span>
-                  @if (item.averageRating !== null) { <span>Điểm chung {{ item.averageRating | number:'1.1-2' }}/5 ({{ item.ratingCount }})</span> }
+                  <span class="your-rating"><span aria-hidden="true">★</span> {{ 'library.yourRating' | translate:{ rating: ratingLabel(item) } }}</span>
+                  @if (item.averageRating !== null) { <span>{{ 'library.overallRating' | translate:{ rating: ((item.averageRating | localeNumber:'1.1-2') ?? ''), count: i18n.formatNumber(item.ratingCount) } }}</span> }
                 } @else {
-                  <span>Đã xem {{ progressLabel(item) }}</span>
-                  <span>{{ item.watchedSeconds | number }} giây</span>
+                  <span>{{ 'library.watched' | translate:{ progress: progressLabel(item) } }}</span>
+                  <span>{{ item.watchedSeconds | localeNumber }} {{ 'ui.seconds' | translate }}</span>
                 }
-                <span>{{ item.activityAt | date:'d MMM y, HH:mm' }}</span>
+                  <span>{{ item.activityAt | localeDate:'d MMM y, HH:mm' }}</span>
               </div>
               @if (!isLiked && item.progress > 0 && item.progress < 100) {
-                <p class="resume-hint">Bạn đang xem dở video này</p>
+                <p class="resume-hint">{{ 'library.resume' | translate }}</p>
               }
             </div>
           </article>
@@ -75,10 +66,10 @@
       </section>
 
       @if (pageCount() > 1) {
-        <nav class="library-pagination" aria-label="Phân trang thư viện">
-          <button type="button" (click)="goToPage(page() - 1)" [disabled]="page() === 1">← Trước</button>
-          <span>Trang {{ page() }} / {{ pageCount() }}</span>
-          <button type="button" (click)="goToPage(page() + 1)" [disabled]="page() === pageCount()">Sau →</button>
+        <nav class="library-pagination" [attr.aria-label]="'library.pagination' | translate">
+          <button type="button" (click)="goToPage(page() - 1)" [disabled]="page() === 1">{{ 'library.previous' | translate }}</button>
+          <span>{{ 'library.page' | translate:{ page: i18n.formatNumber(page(), { useGrouping: false }), total: i18n.formatNumber(pageCount(), { useGrouping: false }) } }}</span>
+          <button type="button" (click)="goToPage(page() + 1)" [disabled]="page() === pageCount()">{{ 'library.next' | translate }}</button>
         </nav>
       }
     } @else {
@@ -86,9 +77,9 @@
         <div class="library-empty__icon-box">
           <img [src]="isLiked ? '/assets/icons/favorite.png' : '/assets/icons/history.png'" alt="" class="empty-icon-img" />
         </div>
-        <h2>{{ isLiked && ratingFilter() !== null ? 'Không có video phù hợp' : (isLiked ? 'Chưa có video đã thích' : 'Chưa có lịch sử xem') }}</h2>
-        <p>{{ isLiked && ratingFilter() !== null ? 'Thử chọn một mức đánh giá khác.' : (isLiked ? 'Những video bạn bấm Thích sẽ xuất hiện ở đây.' : 'Video bạn mở và xem sẽ được lưu lại tại đây.') }}</p>
-        @if (isLiked && ratingFilter() !== null) { <button type="button" class="library-empty__action" (click)="setRatingFilter(null)">Xem tất cả video đã thích</button> }
+        <h2>{{ (isLiked && ratingFilter() !== null ? 'library.noMatching' : (isLiked ? 'library.noLiked' : 'library.noHistory')) | translate }}</h2>
+        <p>{{ (isLiked && ratingFilter() !== null ? 'library.matchingHint' : (isLiked ? 'library.likedHint' : 'library.historyHint')) | translate }}</p>
+        @if (isLiked && ratingFilter() !== null) { <button type="button" class="library-empty__action" (click)="setRatingFilter(null)">{{ 'library.seeAllLiked' | translate }}</button> }
       </section>
     }
   }

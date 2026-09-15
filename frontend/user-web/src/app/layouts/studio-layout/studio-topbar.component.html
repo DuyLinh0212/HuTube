@@ -11,15 +11,17 @@
   <label class="search-box">
     <span class="search-glyph" aria-hidden="true"></span>
     <input type="search" [placeholder]="'studio.searchPlaceholder' | translate" [attr.aria-label]="'studio.searchPlaceholder' | translate" />
-    <kbd>⌘ K</kbd>
+    <kbd>{{ 'ui.searchShortcut' | translate }}</kbd>
   </label>
 
   <div class="topbar-actions">
-    <!-- Nút + Tạo (Blue primary CTA as in design template) -->
-    <a routerLink="/studio/upload" class="btn-create-studio">
-      <span class="plus-icon">+</span>
-      <span>{{ 'studio.create' | translate }}</span>
-    </a>
+    <!-- Only roles that can upload receive the create CTA. -->
+    @if (studio.hasPermission('video.upload')) {
+      <a routerLink="/studio/upload" class="btn-create-studio">
+        <span class="plus-icon">+</span>
+        <span>{{ 'studio.create' | translate }}</span>
+      </a>
+    }
 
     <!-- Notification Bell -->
     <button class="icon-btn notif-btn" type="button" (click)="toggleNotifications()" [attr.aria-label]="'nav.notifications' | translate">
@@ -33,18 +35,18 @@
       <button class="creator-capsule" type="button" (click)="toggleDropdown()" [attr.aria-expanded]="dropdownOpen()" aria-haspopup="true">
         @if (myChannel(); as ch) {
           @if (ch.avatarUrl) {
-            <img [src]="profile()?.avatarUrl || ch.avatarUrl" alt="" class="capsule-avatar" />
+            <img [src]="ch.avatarUrl" alt="" class="capsule-avatar" />
           } @else {
             <div class="capsule-avatar-fallback">{{ ch.name.slice(0, 1).toUpperCase() }}</div>
           }
           <div class="capsule-text">
             <span class="capsule-name">{{ ch.name }}</span>
-            <span class="capsule-role">{{ 'studio.creator' | translate }}</span>
+            <span class="capsule-role">{{ channelRole(ch.myRole) }}</span>
           </div>
         } @else {
           @if (profile()?.avatarUrl) { <img [src]="profile()!.avatarUrl!" alt="" class="capsule-avatar" /> } @else { <div class="capsule-avatar-fallback">{{ (auth.user()?.displayName || 'H').slice(0, 1).toUpperCase() }}</div> }
           <div class="capsule-text">
-            <span class="capsule-name">{{ auth.user()?.displayName || 'Nắng Lang Thang' }}</span>
+            <span class="capsule-name">{{ auth.user()?.displayName || ('studio.defaultCreator' | translate) }}</span>
             <span class="capsule-role">{{ 'studio.creator' | translate }}</span>
           </div>
         }
@@ -54,8 +56,8 @@
       @if (dropdownOpen()) {
         <div class="studio-dropdown">
           <div class="dropdown-header">
-            <strong>{{ myChannel()?.name || auth.user()?.displayName || 'Nắng Lang Thang' }}</strong>
-            <small>{{ auth.user()?.email || '@creator' }}</small>
+            <strong>{{ myChannel()?.name || auth.user()?.displayName || ('studio.defaultCreator' | translate) }}</strong>
+            <small>{{ auth.user()?.email || ('studio.defaultUsername' | translate) }}</small>
           </div>
 
           <div class="dropdown-body">
@@ -67,14 +69,16 @@
             @if (myChannel(); as ch) {
               <a class="dropdown-item" [routerLink]="['/channel', ch.handle]" (click)="closeDropdown()">
                 <img src="/assets/icons/my_channel.png" alt="" class="item-icon-img" />
-                <span>{{ 'nav.yourChannel' | translate }}</span>
+                <span>{{ ch.isOwner ? ('nav.yourChannel' | translate) : ('ui.collaborationChannel' | translate) }}</span>
               </a>
             }
 
-            <a class="dropdown-item" routerLink="/studio/settings" (click)="closeDropdown()">
-              <img src="/assets/icons/setting.png" alt="" class="item-icon-img" />
-              <span>{{ 'studio.settings' | translate }}</span>
-            </a>
+            @if (studio.hasPermission('channel.setting.view') || studio.hasPermission('channel.setting.edit')) {
+              <a class="dropdown-item" routerLink="/studio/settings" (click)="closeDropdown()">
+                <img src="/assets/icons/setting.png" alt="" class="item-icon-img" />
+                <span>{{ 'studio.settings' | translate }}</span>
+              </a>
+            }
 
             <button class="dropdown-item" type="button" (click)="toggleTheme()">
               <span class="item-icon">
@@ -91,7 +95,7 @@
               <span class="item-icon">
                 <svg class="item-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>
               </span>
-              <span>{{ 'nav.language' | translate }}: <strong>{{ i18n.currentLang() === 'vi' ? 'Tiếng Việt' : 'English' }}</strong></span>
+              <span>{{ 'nav.language' | translate }}: <strong>{{ (i18n.currentLang() === 'vi' ? 'nav.langVi' : 'nav.langEn') | translate }}</strong></span>
             </button>
 
             <div class="dropdown-divider"></div>

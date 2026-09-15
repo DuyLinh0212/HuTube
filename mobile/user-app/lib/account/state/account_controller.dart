@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../core/errors/app_error.dart';
+import '../../core/localization/app_strings.dart';
 import '../models/account_models.dart';
 import '../services/account_service.dart';
 
@@ -34,9 +35,9 @@ class AccountController extends ChangeNotifier {
     try {
       profile = await service.getProfile();
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'account.profileLoadError');
     } catch (_) {
-      errorMessage = 'Không thể tải thông tin hồ sơ.';
+      errorMessage = AppStrings.t('account.profileLoadError');
     } finally {
       loadingProfile = false;
       notifyListeners();
@@ -58,13 +59,13 @@ class AccountController extends ChangeNotifier {
         bio: bio,
         country: country,
       );
-      successMessage = 'Cập nhật hồ sơ thành công.';
+      successMessage = AppStrings.t('profile.updated');
       return true;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'editProfile.saveError');
       return false;
     } catch (_) {
-      errorMessage = 'Cập nhật hồ sơ thất bại.';
+      errorMessage = AppStrings.t('editProfile.saveError');
       return false;
     } finally {
       submitting = false;
@@ -87,13 +88,13 @@ class AccountController extends ChangeNotifier {
         newPassword: newPassword,
         confirmPassword: confirmPassword,
       );
-      successMessage = 'Đổi mật khẩu thành công.';
+      successMessage = AppStrings.t('password.updated');
       return true;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'password.error');
       return false;
     } catch (_) {
-      errorMessage = 'Đổi mật khẩu thất bại.';
+      errorMessage = AppStrings.t('password.error');
       return false;
     } finally {
       submitting = false;
@@ -108,9 +109,9 @@ class AccountController extends ChangeNotifier {
     try {
       notificationSettings = await service.getNotificationSettings();
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'notif.loadError');
     } catch (_) {
-      errorMessage = 'Không thể tải cài đặt thông báo.';
+      errorMessage = AppStrings.t('notif.loadError');
     } finally {
       loadingNotifications = false;
       notifyListeners();
@@ -126,13 +127,13 @@ class AccountController extends ChangeNotifier {
     notifyListeners();
     try {
       notificationSettings = await service.updateNotificationSettings(settings);
-      successMessage = 'Đã lưu cài đặt thông báo.';
+      successMessage = AppStrings.t('notifications.settingsSaved');
       return true;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'notif.saveError');
       return false;
     } catch (_) {
-      errorMessage = 'Lưu cài đặt thông báo thất bại.';
+      errorMessage = AppStrings.t('notif.saveError');
       return false;
     } finally {
       submitting = false;
@@ -147,9 +148,9 @@ class AccountController extends ChangeNotifier {
     try {
       preferences = await service.getPreferences();
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'prefs.loadError');
     } catch (_) {
-      errorMessage = 'Không thể tải tùy chọn phát và hiển thị.';
+      errorMessage = AppStrings.t('prefs.loadError');
     } finally {
       loadingPreferences = false;
       notifyListeners();
@@ -163,13 +164,13 @@ class AccountController extends ChangeNotifier {
     notifyListeners();
     try {
       preferences = await service.updatePreferences(prefs);
-      successMessage = 'Đã lưu tùy chọn người dùng.';
+      successMessage = AppStrings.t('prefs.saved');
       return true;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'prefs.saveError');
       return false;
     } catch (_) {
-      errorMessage = 'Lưu tùy chọn thất bại.';
+      errorMessage = AppStrings.t('prefs.saveError');
       return false;
     } finally {
       submitting = false;
@@ -184,9 +185,9 @@ class AccountController extends ChangeNotifier {
     try {
       sessions = await service.getSessions();
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'profile.sessionsEmpty');
     } catch (_) {
-      errorMessage = 'Không thể tải danh sách phiên đăng nhập.';
+      errorMessage = AppStrings.t('profile.sessionsEmpty');
     } finally {
       loadingSessions = false;
       notifyListeners();
@@ -200,13 +201,13 @@ class AccountController extends ChangeNotifier {
     try {
       await service.revokeSession(sessionId);
       sessions.removeWhere((s) => s['sessionId'] == sessionId);
-      successMessage = 'Đã thu hồi phiên đăng nhập.';
+      successMessage = AppStrings.t('profile.sessionRevoked');
       return true;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'profile.sessionRevokeError');
       return false;
     } catch (_) {
-      errorMessage = 'Thu hồi phiên đăng nhập thất bại.';
+      errorMessage = AppStrings.t('profile.sessionRevokeError');
       return false;
     } finally {
       submitting = false;
@@ -221,17 +222,21 @@ class AccountController extends ChangeNotifier {
     try {
       await service.revokeOtherSessions();
       sessions.removeWhere((s) => s['isCurrent'] != true);
-      successMessage = 'Đã đăng xuất khỏi các thiết bị khác.';
+      successMessage = AppStrings.t('auth.otherDevicesLoggedOut');
       return true;
     } on AppError catch (e) {
-      errorMessage = e.message;
+      errorMessage = _error(e, 'profile.otherDevicesLogoutError');
       return false;
     } catch (_) {
-      errorMessage = 'Đăng xuất thiết bị khác thất bại.';
+      errorMessage = AppStrings.t('profile.otherDevicesLogoutError');
       return false;
     } finally {
       submitting = false;
       notifyListeners();
     }
+  }
+
+  String _error(AppError error, String fallback) {
+    return AppStrings.apiError(error, fallback: fallback);
   }
 }

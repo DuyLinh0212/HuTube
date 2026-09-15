@@ -1,0 +1,25 @@
+@if (isVisible()) {
+  <aside class="upload-tray" role="status" aria-live="polite">
+    <div class="tray-heading">
+      <div>
+        <strong>{{ label() }}</strong>
+        <span class="tray-file" [title]="upload.state().fileName">{{ upload.state().fileName }}</span>
+      </div>
+      @if (isActive()) {
+        <button type="button" class="tray-cancel" (click)="upload.cancel()">{{ 'common.cancel' | translate }}</button>
+      } @else {
+        <button type="button" class="tray-close" [attr.aria-label]="'ui.closeUpload' | translate" (click)="upload.reset()">×</button>
+      }
+    </div>
+    <div class="tray-progress" aria-hidden="true">
+      <span [style.width.%]="upload.state().progress"></span>
+    </div>
+    <div class="tray-meta">
+      <span>{{ upload.state().progress | localeNumber:'1.0-0' }}%</span>
+      @if (isActive() && upload.state().total > 0) {
+        <span>{{ bytes(upload.state().loaded) }} / {{ bytes(upload.state().total) }}</span>
+      }
+    </div>
+    @if (upload.state().error) { <p class="tray-error">{{ upload.state().error }}</p> }
+  </aside>
+}

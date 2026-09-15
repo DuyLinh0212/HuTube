@@ -7,7 +7,7 @@ import { finalize, Observable } from 'rxjs';
 import { AuthService, errorMessage, safeReturnUrl } from '../../core/auth.service';
 import { ADMIN_APP } from '../../core/runtime-config';
 
-@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink], templateUrl: './auth-page.html' })
+@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
 export class AuthPage {
   readonly admin = ADMIN_APP;
   readonly auth = inject(AuthService);

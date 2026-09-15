@@ -1,13 +1,13 @@
 .topbar {
-  position: sticky;
+  position: relative;
   top: 0;
-  z-index: 20;
+  z-index: auto;
   display: flex;
   align-items: center;
   gap: 22px;
   height: 76px;
   padding: 0 26px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 0;
   background: var(--surface);
   color: var(--ink);
   transition: background-color 0.2s, border-color 0.2s;

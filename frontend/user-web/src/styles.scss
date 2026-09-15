@@ -5,7 +5,7 @@
   --primary-soft: rgba(255, 43, 102, 0.08);
   --primary-glow: rgba(255, 43, 102, 0.32);
   --primary-gradient: linear-gradient(135deg, #ff3b69 0%, #ff2b66 50%, #e61952 100%);
-  --page-bg: #faf8f7;
+  --page-bg: #ffffff;
   --card-bg: #ffffff;
   --card-border: #e5e7eb;
   --card-hover: #f9fafb;
@@ -21,6 +21,21 @@
   --line: #e5e7eb;
   --canvas: var(--page-bg);
   --surface: var(--card-bg);
+  --bg-main: var(--page-bg);
+  --text-main: var(--ink);
+  --surface-raised: #ffffff;
+  --surface-soft: #f8fafc;
+  --input-bg: #ffffff;
+  --input-border: #e5e7eb;
+  --status-danger-bg: #fff1f2;
+  --status-danger-text: #b42318;
+  --status-success-bg: #ecfdf3;
+  --status-success-text: #047857;
+  --status-warning-bg: #fffbeb;
+  --status-warning-text: #92400e;
+  --status-info-bg: #eff6ff;
+  --status-info-text: #1d4ed8;
+  --text-on-primary: #ffffff;
   --tint: rgba(255, 43, 102, 0.08);
   --danger: #dc3d4f;
   --success: #0e9f6e;
@@ -46,6 +61,21 @@
   --line: #262e3d;
   --canvas: var(--page-bg);
   --surface: var(--card-bg);
+  --bg-main: var(--page-bg);
+  --text-main: var(--ink);
+  --surface-raised: #1e2531;
+  --surface-soft: #151b25;
+  --input-bg: #151b25;
+  --input-border: #344052;
+  --status-danger-bg: rgba(239, 68, 68, 0.16);
+  --status-danger-text: #fca5a5;
+  --status-success-bg: rgba(16, 185, 129, 0.16);
+  --status-success-text: #6ee7b7;
+  --status-warning-bg: rgba(245, 158, 11, 0.16);
+  --status-warning-text: #fcd34d;
+  --status-info-bg: rgba(59, 130, 246, 0.16);
+  --status-info-text: #93c5fd;
+  --text-on-primary: #ffffff;
   --tint: rgba(255, 43, 102, 0.14);
   --primary-soft: rgba(255, 43, 102, 0.16);
   --primary-glow: rgba(255, 43, 102, 0.45);
@@ -57,19 +87,13 @@ html { min-width: 320px; background: var(--canvas); color: var(--ink); }
 body {
   min-width: 320px;
   margin: 0;
-  background:
-    radial-gradient(circle at 7% 8%, rgba(255, 182, 193, 0.32), transparent 34rem),
-    radial-gradient(circle at 96% 88%, rgba(255, 203, 216, 0.28), transparent 32rem),
-    var(--canvas);
+  background: var(--canvas);
   color: var(--ink);
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 body.dark-theme {
-  background:
-    radial-gradient(circle at 7% 8%, rgba(255, 43, 102, 0.08), transparent 34rem),
-    radial-gradient(circle at 96% 88%, rgba(124, 58, 237, 0.08), transparent 32rem),
-    var(--canvas);
+  background: var(--canvas);
 }
 
 button, input, select, textarea { font: inherit; }
@@ -86,8 +110,8 @@ p { line-height: 1.6; text-wrap: pretty; }
 
 input, select, textarea {
   color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
 }
 
 input:-webkit-autofill,
@@ -140,13 +164,16 @@ select:-webkit-autofill {
     color: var(--ink) !important;
   }
 
-  // Never invert or alter user avatar images in any theme
+  // Never invert or alter user avatar images or the HuTube brand mark in any theme
   .avatar-image,
   .avatar-img,
   .capsule-avatar,
   .profile-avatar-box img,
   .top-avatar img,
-  .dropdown-avatar img {
+  .dropdown-avatar img,
+  .topbar-brand img,
+  .studio-brand .brand-logo,
+  .hub-brand img {
     filter: none !important;
   }
 
@@ -201,6 +228,327 @@ select:-webkit-autofill {
     -webkit-box-shadow: 0 0 0px 1000px #181d27 inset !important;
     box-shadow: 0 0 0px 1000px #181d27 inset !important;
   }
+}
+
+/* Shared dark-mode surfaces. Page styles can keep their own layout while all
+   cards, controls and status states use the same readable contrast system. */
+[data-theme="dark"], body.dark-theme {
+  color-scheme: dark;
+
+  .plans-page,
+  .plan-detail-page,
+  .library-page,
+  .channel-view-container,
+  .settings-page-container,
+  .invitations-page,
+  .policy-hub,
+  .page,
+  .feed,
+  .watch-page {
+    color: var(--ink);
+  }
+
+  .card-panel,
+  .plan-card,
+  .no-plan-card,
+  .invite-card,
+  .invitation-card,
+  .state-card,
+  .section-block,
+  .collaboration-card,
+  .library-card,
+  .library-empty,
+  .settings-tab-content,
+  .branding-card,
+  .profile-inline-form,
+  .billing-membership-card,
+  .channel-info-modal,
+  .description-panel,
+  .chapters-panel,
+  .comments-section,
+  .share-popover,
+  .table,
+  .feed-filters,
+  .hub-header,
+  .hub-hero {
+    background: var(--surface) !important;
+    border-color: var(--line) !important;
+    color: var(--ink);
+  }
+
+  .plan-card h2,
+  .plan-card .price,
+  .plan-card dd,
+  .catalog-intro h2,
+  .channel-info-modal h2,
+  .channel-info-modal h3,
+  .settings-tab-content h1,
+  .settings-tab-content h2,
+  .settings-tab-content h3,
+  .invite-card h1,
+  .no-plan-card h2 {
+    color: var(--ink) !important;
+  }
+
+  .plan-card .description,
+  .plan-card .price small,
+  .plan-card dt,
+  .catalog-intro p:last-child,
+  .invite-card p,
+  .current-plan-note,
+  .shared-notice-box,
+  .single-user-box,
+  .channel-info-modal .modal-desc-text,
+  .channel-info-modal .modal-email-row,
+  .channel-info-modal .empty-info-text,
+  .channel-info-modal .info-row-item,
+  .channel-info-modal .info-text,
+  .library-meta,
+  .library-card__body,
+  .state-container .state {
+    color: var(--text-body) !important;
+  }
+
+  .plans-view-switch {
+    background: var(--surface-soft) !important;
+    border-color: var(--line) !important;
+  }
+
+  .plans-view-switch button { color: var(--text-muted) !important; }
+  .plans-view-switch button:hover,
+  .plans-view-switch button.active {
+    color: var(--ink) !important;
+    background: var(--surface-raised) !important;
+  }
+
+  .plans-alert,
+  .notice--error,
+  .alert-banner.alert-error,
+  .yt-alert.yt-alert-error,
+  .revoke-warning {
+    background: var(--status-danger-bg) !important;
+    border-color: color-mix(in srgb, var(--status-danger-text) 50%, transparent) !important;
+    color: var(--status-danger-text) !important;
+  }
+
+  .plans-alert button,
+  .btn-revoke,
+  .channel-settings-page .btn-link-danger,
+  .btn-link-danger {
+    background: var(--surface-raised) !important;
+    border-color: color-mix(in srgb, var(--status-danger-text) 55%, transparent) !important;
+    color: var(--status-danger-text) !important;
+  }
+
+  .notice--success,
+  .alert-banner.alert-success,
+  .yt-alert.yt-alert-success,
+  .page .toast-banner,
+  .toast-message {
+    background: var(--status-success-bg) !important;
+    border-color: color-mix(in srgb, var(--status-success-text) 50%, transparent) !important;
+    color: var(--status-success-text) !important;
+  }
+
+  .current-plan-note,
+  .shared-notice-box,
+  .single-user-box,
+  .role-explainer {
+    background: var(--surface-soft) !important;
+    border-color: var(--line) !important;
+  }
+
+  .plan-card.current-active {
+    background: linear-gradient(to bottom, var(--status-success-bg) 0%, var(--surface) 100px) !important;
+    border-color: var(--status-success-text) !important;
+  }
+
+  .plan-card .ms-title,
+  .plan-card .cell-date,
+  .members-table th,
+  .empty-members,
+  .limit-note,
+  .plans-page .remaining,
+  .plans-page .separator,
+  .plan-detail-page .share-tip {
+    color: var(--text-muted) !important;
+  }
+
+  .plan-card .header-icon,
+  .plan-card .mini-spec,
+  .share-tip,
+  .members-table thead,
+  .members-table tbody tr:hover {
+    background: var(--surface-soft) !important;
+    border-color: var(--line) !important;
+  }
+
+  .members-table,
+  .members-table-wrap,
+  .members-table td,
+  .members-table tr,
+  .plan-card dl,
+  .plan-card dl div,
+  .specs-mini-grid {
+    border-color: var(--line) !important;
+  }
+
+  .role-select,
+  .role-badge,
+  .copy-input-group input,
+  .invite-form input,
+  .settings-page-container input,
+  .settings-page-container textarea,
+  .settings-page-container select {
+    background: var(--input-bg) !important;
+    border-color: var(--input-border) !important;
+    color: var(--ink) !important;
+  }
+
+  .channel-settings-page .branding-card,
+  .channel-settings-page .branding-preview,
+  .channel-settings-page .link-row-card,
+  .channel-settings-page .link-field-box,
+  .channel-settings-page .danger-box {
+    background: var(--surface-soft) !important;
+    border-color: var(--line) !important;
+  }
+
+  .settings-page-container .branding-card,
+  .settings-page-container .branding-preview,
+  .settings-page-container .link-row-card,
+  .settings-page-container .link-field-box {
+    background: var(--surface-soft) !important;
+    border-color: var(--line) !important;
+  }
+
+  .danger-box,
+  .settings-page-container .danger-box {
+    background: var(--status-danger-bg) !important;
+    border-color: color-mix(in srgb, var(--status-danger-text) 50%, transparent) !important;
+  }
+
+  .danger-box h3,
+  .danger-box p,
+  .settings-page-container .modal-dialog h2,
+  .settings-page-container .modal-warning {
+    color: var(--status-danger-text) !important;
+  }
+
+  .plan-detail-page .alert-success {
+    background: var(--status-success-bg) !important;
+    border-color: color-mix(in srgb, var(--status-success-text) 50%, transparent) !important;
+    color: var(--status-success-text) !important;
+  }
+
+  .plan-detail-page .alert-icon {
+    background: var(--status-success-text) !important;
+    color: var(--surface) !important;
+  }
+
+  .plan-detail-page .spec-val.badge-quality {
+    background: var(--status-info-bg) !important;
+    color: var(--status-info-text) !important;
+  }
+
+  .invite-page { background: var(--canvas) !important; }
+  .invite-card { background: var(--surface) !important; border-color: var(--line) !important; }
+  .invite-card p { color: var(--text-muted) !important; }
+  .invite-page .error { color: var(--status-danger-text) !important; }
+  .invite-page .success { color: var(--status-success-text) !important; }
+
+  .status-badge.accepted,
+  .badge-success {
+    background: var(--status-success-bg) !important;
+    color: var(--status-success-text) !important;
+  }
+
+  .status-badge.pending,
+  .badge-pending,
+  .studio-content-frame .page article > span {
+    background: var(--status-warning-bg) !important;
+    color: var(--status-warning-text) !important;
+  }
+
+  .badge-reviewing {
+    background: var(--status-info-bg) !important;
+    color: var(--status-info-text) !important;
+  }
+
+  .badge-danger {
+    background: var(--status-danger-bg) !important;
+    color: var(--status-danger-text) !important;
+  }
+
+  .badge-muted { background: var(--surface-soft) !important; color: var(--text-muted) !important; }
+  .channel-invitations-page .btn-secondary,
+  .invitations-page .btn-secondary,
+  .channel-view-container .btn-secondary,
+  .btn-yt-secondary,
+  .btn-yt-outline {
+    background: var(--surface-raised) !important;
+    border-color: var(--line) !important;
+    color: var(--ink) !important;
+  }
+
+  .channel-invitations-page .invitation-card,
+  .invitations-page .invitation-card,
+  .invitations-page .collaboration-card { background: var(--surface) !important; }
+
+  .channel-invitations-page .state-icon,
+  .invitations-page .state-icon { background: var(--status-success-bg) !important; color: var(--status-success-text) !important; }
+
+  .studio-content-frame,
+  .studio-channel-switcher,
+  .studio-nav,
+  .studio-topbar,
+  .side-nav,
+  .topbar,
+  .app-shell,
+  .shell-stage,
+  .content-frame,
+  .studio-shell { background: var(--surface) !important; color: var(--ink); }
+
+  .player-option select { background: rgba(13, 17, 26, .96) !important; color: #fff !important; }
+  .video-player,
+  .player-stage,
+  .player-shell { background: #07090d !important; }
+  .tray-error { color: var(--status-danger-text) !important; }
+
+  .policy-card,
+  .policy-card__body,
+  .hub-content,
+  .tab-intro-banner,
+  .hub-breadcrumb { color: var(--ink); }
+
+  .policy-card { background: var(--surface) !important; border-color: var(--line) !important; }
+  .policy-card p,
+  .policy-card li,
+  .policy-card__summary { color: var(--text-body) !important; }
+
+  .auth-layout,
+  .auth-panel { color: var(--ink); }
+  .auth-panel input,
+  .auth-panel input:hover,
+  .auth-panel input:focus {
+    background: var(--input-bg) !important;
+    border-color: var(--input-border);
+    color: var(--ink) !important;
+  }
+  .category-tracker,
+  .sub-tagline,
+  .oauth-divider,
+  .reveal { color: var(--text-muted) !important; }
+  .auth-page .notice.success,
+  .notice.success { background: var(--status-success-bg) !important; color: var(--status-success-text) !important; }
+  .auth-page .notice.error,
+  .notice.error { background: var(--status-danger-bg) !important; color: var(--status-danger-text) !important; }
+
+  .policy-commitment-card.is-agreed {
+    background: var(--status-success-bg) !important;
+    border-color: color-mix(in srgb, var(--status-success-text) 50%, transparent) !important;
+  }
+  .policy-commitment-card .commitment-alert { color: var(--status-danger-text) !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'notification_hub.dart';
 
@@ -75,14 +76,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.message;
+          _error = AppStrings.apiError(
+            error,
+            fallback: 'notifications.loadError',
+          );
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải thông báo.';
+          _error = AppStrings.t('notifications.loadError');
           _loading = false;
         });
       }
@@ -126,7 +130,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
       }
     }
   }
@@ -153,7 +157,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  'Thông báo',
+                  AppStrings.t('notifications.title'),
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -163,12 +167,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 onPressed: _items.any((item) => item['isRead'] != true)
                     ? _readAll
                     : null,
-                child: const Text('Đọc tất cả'),
+                child: Text(AppStrings.t('notifications.readAll')),
               ),
             ],
           ),
           if (_items.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 120),
               child: Center(
                 child: Column(
@@ -176,10 +180,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Icon(
                       Icons.notifications_off_outlined,
                       size: 52,
-                      color: AppColors.textSecondary,
+                      color: AppColors.textMutedFor(context),
                     ),
                     SizedBox(height: 12),
-                    Text('Bạn chưa có thông báo nào.'),
+                    Text(AppStrings.t('notifications.empty')),
                   ],
                 ),
               ),
@@ -197,7 +201,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   color: AppColors.primaryPink,
                 ),
                 title: Text(
-                  '${item['title'] ?? 'Thông báo'}',
+                  '${item['title'] ?? AppStrings.t('notifications.defaultTitle')}',
                   style: TextStyle(
                     fontWeight: item['isRead'] == true
                         ? FontWeight.w600
@@ -212,7 +216,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           if (_hasMore)
             TextButton(
               onPressed: () => _load(more: true),
-              child: const Text('Tải thêm'),
+              child: Text(AppStrings.t('notifications.loadMore')),
             ),
         ],
       ),

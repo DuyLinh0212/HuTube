@@ -16,6 +16,14 @@ class ChannelService {
     }
   }
 
+  Future<List<ChannelDetail>> getAccessibleChannels() async {
+    final items = await auth.protectedList('/channels/accessible');
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(ChannelDetail.fromJson)
+        .toList();
+  }
+
   Future<ChannelDetail> getChannel(String handleOrId) async {
     final clean = handleOrId.startsWith('@')
         ? handleOrId.substring(1)

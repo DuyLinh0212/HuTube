@@ -1,12 +1,7 @@
 <main id="main-content" class="invitations-page">
-  <header class="page-header">
-    <div>
-      <p class="eyebrow">Cộng tác trên HuTube</p>
-      <h1>Lời mời tham gia kênh</h1>
-      <p>Kiểm tra vai trò và phạm vi quyền trước khi bạn tham gia một kênh.</p>
-    </div>
-    <button type="button" class="btn-secondary" (click)="load()" [disabled]="loading()">Tải lại</button>
-  </header>
+  <div class="invitations-toolbar">
+    <button type="button" class="btn-secondary" (click)="load()" [disabled]="loading()">{{ 'channel.reload' | translate }}</button>
+  </div>
 
   @if (error()) { <div class="notice notice--error" role="alert">{{ error() }}</div> }
   @if (success()) { <div class="notice notice--success" role="status">{{ success() }}</div> }
@@ -14,38 +9,50 @@
   @if (loading()) {
     <section class="state-card" aria-live="polite">
       <span class="spinner" aria-hidden="true"></span>
-      <p>Đang tải lời mời…</p>
-    </section>
-  } @else if (invitations().length === 0) {
-    <section class="state-card">
-      <span class="state-icon" aria-hidden="true">✓</span>
-      <h2>Không có lời mời đang chờ</h2>
-      <p>Lời mời mới gửi tới email tài khoản của bạn sẽ xuất hiện tại đây.</p>
-      <a routerLink="/account" class="btn-primary">Về hồ sơ</a>
+      <p>{{ 'channel.loadingInvitations' | translate }}</p>
     </section>
   } @else {
-    <section class="invitation-list" aria-label="Danh sách lời mời">
-      @for (invitation of invitations(); track invitation.channelInvitationId) {
-        <article class="invitation-card">
-          <div class="channel-avatar" aria-hidden="true">{{ invitation.channelName.slice(0, 1).toUpperCase() }}</div>
-          <div class="invitation-copy">
-            <div class="title-row">
-              <div>
-                <h2>{{ invitation.channelName }}</h2>
-                <span>&#64;{{ invitation.channelHandle }}</span>
+    @if (invitations().length > 0) {
+      <section class="section-block" aria-labelledby="pending-title">
+        <div class="section-heading"><div><h2 id="pending-title">{{ 'channel.pendingInvitations' | translate }}</h2><p>{{ 'channel.pendingDesc' | translate }}</p></div></div>
+        <div class="invitation-list">
+          @for (invitation of invitations(); track invitation.channelInvitationId) {
+            <article class="invitation-card">
+              <div class="channel-avatar" aria-hidden="true">{{ invitation.channelName.slice(0, 1).toUpperCase() }}</div>
+              <div class="invitation-copy">
+                <div class="title-row">
+                  <div><h2>{{ invitation.channelName }}</h2><span>&#64;{{ invitation.channelHandle }}</span></div>
+                  <span class="role-badge">{{ roleName(invitation.roleCode) }}</span>
+                </div>
+                <p>{{ roleDescription(invitation.roleCode) }}</p>
+                <small>{{ 'channel.expires' | translate:{ date: ((invitation.expiresAt | localeDate:'dd/MM/yyyy, HH:mm') ?? '') } }}</small>
               </div>
-              <span class="role-badge">{{ roleName(invitation.roleCode) }}</span>
-            </div>
-            <p>{{ roleDescription(invitation.roleCode) }}</p>
-            <small>Hết hạn {{ invitation.expiresAt | date:'dd/MM/yyyy, HH:mm' }}</small>
-          </div>
-          <div class="actions">
-            <button type="button" class="btn-primary" (click)="accept(invitation)" [disabled]="busyId() !== null">
-              {{ busyId() === invitation.channelInvitationId ? 'Đang xử lý…' : 'Chấp nhận' }}
-            </button>
-            <button type="button" class="btn-secondary" (click)="decline(invitation)" [disabled]="busyId() !== null">Từ chối</button>
-          </div>
-        </article>
+              <div class="actions">
+                <button type="button" class="btn-primary" (click)="accept(invitation)" [disabled]="busyId() !== null">{{ (busyId() === invitation.channelInvitationId ? 'channel.processing' : 'channel.inviteAccept') | translate }}</button>
+                <button type="button" class="btn-secondary" (click)="decline(invitation)" [disabled]="busyId() !== null">{{ 'channel.inviteDecline' | translate }}</button>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    } @else {
+      <section class="empty-inline"><span class="state-icon" aria-hidden="true">✓</span><div><strong>{{ 'channel.noPending' | translate }}</strong><p>{{ 'channel.noPendingDesc' | translate }}</p></div></section>
+    }
+
+    <section class="section-block" aria-labelledby="collaboration-title">
+      <div class="section-heading"><div><h2 id="collaboration-title">{{ 'channel.collaborating' | translate }}</h2><p>{{ 'channel.collaboratingDesc' | translate }}</p></div></div>
+      @if (accessibleChannels().length > 0) {
+        <div class="collaboration-list">
+          @for (channel of accessibleChannels(); track channel.channelId) {
+            <article class="collaboration-card">
+              @if (channel.avatarUrl) { <img [src]="channel.avatarUrl" alt="" class="channel-avatar-image" /> } @else { <div class="channel-avatar" aria-hidden="true">{{ channel.name.slice(0, 1).toUpperCase() }}</div> }
+              <div class="collaboration-copy"><h3>{{ channel.name }}</h3><p>&#64;{{ channel.handle }} · <strong>{{ channelRole(channel) }}</strong></p><small>{{ permissionSummary(channel) }}</small></div>
+              <a class="btn-primary" routerLink="/studio/overview" [queryParams]="{ channelId: channel.channelId }">{{ 'channel.openStudio' | translate }}</a>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="state-card state-card--compact"><p>{{ 'channel.noAccessible' | translate }}</p></div>
       }
     </section>
   }

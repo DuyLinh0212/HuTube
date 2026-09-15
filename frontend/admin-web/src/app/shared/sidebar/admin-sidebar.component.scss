@@ -1,12 +1,26 @@
 .side-nav {
+  position: relative;
+  top: auto;
+}
+
+:host {
+  display: block;
+  min-width: 0;
+  min-height: 0;
   position: sticky;
   top: 76px;
+  align-self: start;
+  height: calc(100dvh - 76px);
+  z-index: 30;
+}
+
+.side-nav {
   z-index: 30;
   display: flex;
   flex-direction: column;
   height: calc(100dvh - 76px);
   padding: 14px 15px 16px;
-  border-right: 1px solid var(--line);
+  border-right: 0;
   background: var(--surface);
   color: var(--ink);
   overflow: hidden;
@@ -104,11 +118,22 @@
 }
 
 @media (max-width: 1040px) {
-  .side-nav {
+  :host {
     position: fixed;
+    inset: 0 auto 0 0;
+    top: 0;
+    width: min(304px, 88vw);
+    height: 100dvh;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  .side-nav {
+    position: absolute;
     top: 0;
     left: 0;
     height: 100dvh;
+    pointer-events: none;
     transform: translateX(-102%);
     width: min(304px, 88vw);
     box-shadow: 24px 0 60px -32px rgba(17, 24, 39, .45);
@@ -121,6 +146,7 @@
 
   .nav-open .side-nav {
     transform: translateX(0);
+    pointer-events: auto;
   }
 
   .side-nav__head {

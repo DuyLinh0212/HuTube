@@ -1,14 +1,14 @@
 .topbar {
-  position: sticky;
+  position: relative;
   top: 0;
-  z-index: 120;
+  z-index: auto;
   display: flex;
   align-items: center;
   min-width: 0;
   gap: 18px;
   height: 76px;
   padding: 0 28px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 0;
   background: var(--surface);
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
@@ -597,6 +597,11 @@
   }
 }
 
+.drawer-channel-list {
+  display: grid;
+  gap: 8px;
+}
+
 .drawer-channel-avatar {
   display: grid;
   width: 42px;
@@ -762,6 +767,20 @@
   stroke: currentColor;
 }
 
+.drawer-action-icon--plus {
+  width: 23px !important;
+  height: 23px !important;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.drawer-action--create-channel {
+  color: var(--primary);
+}
+
 .drawer-socials {
   padding-top: 20px;
 }
@@ -814,6 +833,8 @@
   background: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 850;
+
+  svg { width: 13px; height: 13px; display: block; }
 }
 
 .social-link-icon--instagram { background: linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7); }

@@ -9,7 +9,7 @@
       <span></span><span></span><span></span>
     </button>
 
-    <a class="topbar-brand" routerLink="/home" aria-label="HuTube">
+    <a class="topbar-brand" routerLink="/home" [attr.aria-label]="'HuTube'">
       <img src="/assets/logo-mark.png" alt="HuTube" />
       <span class="brand-text"><strong>Hu</strong><em>Tube</em></span>
       <span class="country-badge">VN</span>
@@ -19,15 +19,25 @@
   <label class="search-box">
     <span class="search-glyph" aria-hidden="true"></span>
     <input type="search" [placeholder]="'nav.searchPlaceholder' | translate" [attr.aria-label]="'nav.searchPlaceholder' | translate" />
-    <kbd>Ctrl K</kbd>
+      <kbd>{{ 'ui.searchShortcut' | translate }}</kbd>
   </label>
 
-  <div class="top-actions" aria-label="Tác vụ nhanh">
+  <div class="top-actions" [attr.aria-label]="'ui.quickActions' | translate">
     @if (auth.user()) {
       @if (myChannel(); as ch) {
         <a class="create-action" [routerLink]="['/channel', ch.handle]" [title]="'nav.yourChannel' | translate">
           <img src="/assets/icons/my_channel.png" alt="" />
           <span>{{ 'nav.yourChannel' | translate }}</span>
+        </a>
+      } @else if (collaborationChannel(); as ch) {
+        <a class="create-action" routerLink="/studio/overview" [queryParams]="{ channelId: ch.channelId }" [title]="'ui.openCollaborationChannel' | translate">
+          <img src="/assets/icons/my_channel.png" alt="" />
+          <span>{{ 'ui.collaborationChannel' | translate }}</span>
+        </a>
+      } @else if (pendingInvitations().length > 0) {
+        <a class="create-action create-channel-btn" routerLink="/studio/invitations" [title]="'ui.collaborationInvites' | translate">
+          <span class="action-plus">✉</span>
+          <span>{{ 'ui.collaborationInvites' | translate }}</span>
         </a>
       } @else {
         <a class="create-action create-channel-btn" routerLink="/channel/create" [title]="'nav.createChannel' | translate">
@@ -49,20 +59,20 @@
         </button>
 
         @if (accountDrawerMounted()) {
-          <button class="account-drawer__scrim" [class.account-drawer__scrim--closing]="!accountDrawerOpen()" type="button" aria-label="Đóng menu tài khoản" (click)="closeAccountDrawer()"></button>
-          <aside id="account-drawer" class="account-drawer" [class.account-drawer--closing]="!accountDrawerOpen()" role="dialog" aria-modal="true" aria-label="Tài khoản">
+          <button class="account-drawer__scrim" [class.account-drawer__scrim--closing]="!accountDrawerOpen()" type="button" [attr.aria-label]="'ui.closeAccountMenu' | translate" (click)="closeAccountDrawer()"></button>
+          <aside id="account-drawer" class="account-drawer" [class.account-drawer--closing]="!accountDrawerOpen()" role="dialog" aria-modal="true" [attr.aria-label]="'ui.account' | translate">
             <header class="account-drawer__header">
               <div class="account-drawer__identity">
                 <div class="drawer-avatar">
                   @if (profile()?.avatarUrl) { <img class="avatar-image" [src]="profile()!.avatarUrl!" alt="" /> } @else { {{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'H' }} }
                 </div>
                 <div class="drawer-user-info">
-                  <strong>{{ profile()?.displayName || auth.user()?.displayName || 'Người dùng HuTube' }}</strong>
+                  <strong>{{ profile()?.displayName || auth.user()?.displayName || ('ui.userHuTube' | translate) }}</strong>
                   <small>&#64;{{ profile()?.username || auth.user()?.username || 'user' }}</small>
                   <span>{{ profile()?.email || auth.user()?.email || '@user' }}</span>
                 </div>
               </div>
-              <button class="account-drawer__logout" type="button" aria-label="Đăng xuất" title="Đăng xuất" (click)="openLogoutConfirm()">
+              <button class="account-drawer__logout" type="button" [attr.aria-label]="'nav.logout' | translate" [title]="'nav.logout' | translate" (click)="openLogoutConfirm()">
                 <span class="logout-lottie" #logoutAnimation aria-hidden="true"></span>
               </button>
             </header>
@@ -70,11 +80,11 @@
             @if (logoutConfirmOpen()) {
               <div class="logout-confirm-backdrop" role="presentation" (click)="cancelLogout()"></div>
               <section class="logout-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="logout-confirm-title" aria-describedby="logout-confirm-description">
-                <h2 id="logout-confirm-title">Đăng xuất khỏi HuTube?</h2>
-                <p id="logout-confirm-description">Bạn có chắc muốn kết thúc phiên đăng nhập hiện tại không?</p>
+                <h2 id="logout-confirm-title">{{ 'ui.confirmLogoutTitle' | translate }}</h2>
+                <p id="logout-confirm-description">{{ 'ui.confirmLogoutDesc' | translate }}</p>
                 <div class="logout-confirm-actions">
-                  <button type="button" class="logout-confirm-cancel" (click)="cancelLogout()">Hủy</button>
-                  <button type="button" class="logout-confirm-submit" (click)="logout()">Đăng xuất</button>
+                  <button type="button" class="logout-confirm-cancel" (click)="cancelLogout()">{{ 'common.cancel' | translate }}</button>
+                  <button type="button" class="logout-confirm-submit" (click)="logout()">{{ 'nav.logout' | translate }}</button>
                 </div>
               </section>
             }
@@ -82,7 +92,7 @@
             <div class="account-drawer__body">
               @if (myChannel(); as ch) {
                 <section class="account-drawer__channel-block" aria-labelledby="drawer-channel-title">
-                  <h2 id="drawer-channel-title" class="drawer-section-label">Kênh của bạn</h2>
+                  <h2 id="drawer-channel-title" class="drawer-section-label">{{ 'nav.yourChannel' | translate }}</h2>
                   <a class="drawer-channel-link" [routerLink]="['/channel', ch.handle]" (click)="closeAccountDrawer()">
                     <span class="drawer-channel-avatar">
                       @if (ch.avatarUrl) { <img [src]="ch.avatarUrl" alt="" /> } @else { {{ ch.name.slice(0, 1).toUpperCase() }} }
@@ -91,48 +101,83 @@
                     <span class="drawer-arrow" aria-hidden="true">›</span>
                   </a>
                 </section>
-              } @else {
+              }
+
+              @if (collaborationChannels().length > 0) {
+                <section class="account-drawer__channel-block" aria-labelledby="drawer-collaboration-title">
+                  <h2 id="drawer-collaboration-title" class="drawer-section-label">{{ 'ui.collaborationChannel' | translate }}</h2>
+                  <div class="drawer-channel-list">
+                    @for (channel of collaborationChannels(); track channel.channelId) {
+                      <a class="drawer-channel-link" routerLink="/studio/overview" [queryParams]="{ channelId: channel.channelId }" (click)="closeAccountDrawer()">
+                        <span class="drawer-channel-avatar">
+                          @if (channel.avatarUrl) { <img [src]="channel.avatarUrl" alt="" /> } @else { {{ channel.name.slice(0, 1).toUpperCase() }} }
+                        </span>
+                      <span class="drawer-channel-copy"><strong>{{ channel.name }}</strong><small>&#64;{{ channel.handle }} · {{ channelRole(channel.myRole) }}</small></span>
+                        <span class="drawer-arrow" aria-hidden="true">›</span>
+                      </a>
+                    }
+                  </div>
+                </section>
+              } @else if (!myChannel() && pendingInvitations().length > 0) {
                 <section class="account-drawer__channel-block" aria-labelledby="drawer-channel-title">
-                  <h2 id="drawer-channel-title" class="drawer-section-label">Kênh của bạn</h2>
+                  <h2 id="drawer-channel-title" class="drawer-section-label">{{ 'ui.collaborationInvites' | translate }}</h2>
+                  @if (pendingInvitations()[0]; as invitation) {
+                    <a class="drawer-channel-link" routerLink="/studio/invitations" (click)="closeAccountDrawer()">
+                      <span class="drawer-channel-avatar drawer-channel-avatar--empty">✉</span>
+                      <span class="drawer-channel-copy"><strong>{{ invitation.channelName }}</strong><small>{{ channelRole(invitation.roleCode) }} · {{ 'ui.waitingConfirmation' | translate }}</small></span>
+                      <span class="drawer-arrow" aria-hidden="true">›</span>
+                    </a>
+                  }
+                </section>
+              } @else if (!myChannel()) {
+                <section class="account-drawer__channel-block" aria-labelledby="drawer-channel-title">
+                  <h2 id="drawer-channel-title" class="drawer-section-label">{{ 'nav.yourChannel' | translate }}</h2>
                   <a class="drawer-channel-link drawer-channel-link--empty" routerLink="/channel/create" (click)="closeAccountDrawer()">
                     <span class="drawer-channel-avatar drawer-channel-avatar--empty">+</span>
-                    <span class="drawer-channel-copy"><strong>Tạo kênh đầu tiên</strong><small>Bắt đầu sáng tạo nội dung</small></span>
+                    <span class="drawer-channel-copy"><strong>{{ 'ui.createFirstChannel' | translate }}</strong><small>{{ 'ui.startCreatingContent' | translate }}</small></span>
                     <span class="drawer-arrow" aria-hidden="true">›</span>
                   </a>
                 </section>
               }
 
-              <div class="drawer-stats" aria-label="Thống kê tài khoản">
+              <div class="drawer-stats" [attr.aria-label]="'ui.accountStats' | translate">
                 <div class="drawer-stat">
-                  @if (playlistCount() !== null) { <strong>{{ playlistCount() | number }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
-                  <span>Playlist</span>
+                  @if (playlistCount() !== null) { <strong>{{ playlistCount() | localeNumber }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
+                  <span>{{ 'ui.playlist' | translate }}</span>
                 </div>
                 <div class="drawer-stat">
-                  @if (myChannel()) { <strong>{{ myChannel()!.subscriberCount | number }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
-                  <span>Đăng ký</span>
+                  @if (myChannel()) { <strong>{{ myChannel()!.subscriberCount | localeNumber }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
+                  <span>{{ 'ui.subscriptions' | translate }}</span>
                 </div>
                 <a class="drawer-stat" routerLink="/liked" (click)="closeAccountDrawer()">
-                  @if (likedVideoCount() !== null) { <strong>{{ likedVideoCount() | number }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
-                  <span>Đã thích</span>
+                  @if (likedVideoCount() !== null) { <strong>{{ likedVideoCount() | localeNumber }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
+                  <span>{{ 'ui.liked' | translate }}</span>
                 </a>
               </div>
 
-              <nav class="drawer-action-list" aria-label="Tác vụ tài khoản">
+              <nav class="drawer-action-list" [attr.aria-label]="'ui.accountActions' | translate">
+                @if (!myChannel() && (collaborationChannels().length > 0 || pendingInvitations().length > 0)) {
+                  <a class="drawer-action drawer-action--create-channel" routerLink="/channel/create" (click)="closeAccountDrawer()">
+                    <span class="drawer-action-icon drawer-action-icon--plus" aria-hidden="true">+</span>
+                    <span><strong>{{ 'ui.createOwnChannel' | translate }}</strong><small>{{ 'ui.startOwnChannel' | translate }}</small></span>
+                    <b aria-hidden="true">›</b>
+                  </a>
+                }
                 @if (myChannel(); as ch) {
                   <a class="drawer-action" [routerLink]="['/channel', ch.handle, 'customize']" (click)="closeAccountDrawer()">
                     <img src="/assets/icons/setting.png" alt="" />
-                    <span><strong>Cài đặt kênh</strong><small>Tùy chỉnh kênh của bạn</small></span>
+                    <span><strong>{{ 'ui.channelSettings' | translate }}</strong><small>{{ 'ui.channelSettingsDesc' | translate }}</small></span>
                     <b aria-hidden="true">›</b>
                   </a>
                 }
                 <a class="drawer-action" routerLink="/plans" (click)="closeAccountDrawer()">
                   <img src="/assets/icons/plan.png" alt="" />
-                  <span><strong>Gói dịch vụ</strong><small>Quản lý và đăng ký gói</small></span>
+                  <span><strong>{{ 'plans.catalogLabel' | translate }}</strong><small>{{ 'ui.packageDesc' | translate }}</small></span>
                   <b aria-hidden="true">›</b>
                 </a>
                 <a class="drawer-action" routerLink="/account" (click)="closeAccountDrawer()">
                   <img src="/assets/icons/setting.png" alt="" />
-                  <span><strong>Cài đặt tài khoản</strong><small>Bảo mật, thông báo và tùy chọn</small></span>
+                  <span><strong>{{ 'ui.accountSettings' | translate }}</strong><small>{{ 'ui.accountSettingsDesc' | translate }}</small></span>
                   <b aria-hidden="true">›</b>
                 </a>
                 <button class="drawer-action" type="button" (click)="toggleTheme()">
@@ -143,31 +188,40 @@
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                     }
                   </span>
-                  <span><strong>Giao diện</strong><small>{{ themeService.currentTheme() === 'dark' ? ('nav.themeDark' | translate) : ('nav.themeLight' | translate) }}</small></span>
+                  <span><strong>{{ 'nav.theme' | translate }}</strong><small>{{ themeService.currentTheme() === 'dark' ? ('nav.themeDark' | translate) : ('nav.themeLight' | translate) }}</small></span>
                   <b aria-hidden="true">›</b>
                 </button>
                 <button class="drawer-action" type="button" (click)="toggleLanguage()">
                   <span class="drawer-action-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1 4-10z"/></svg>
                   </span>
-                  <span><strong>Ngôn ngữ</strong><small>{{ i18n.currentLang() === 'vi' ? 'Tiếng Việt' : 'English' }}</small></span>
+                  <span><strong>{{ 'nav.language' | translate }}</strong><small>{{ i18n.currentLang() === 'vi' ? ('nav.langVi' | translate) : ('nav.langEn' | translate) }}</small></span>
                   <b aria-hidden="true">›</b>
                 </button>
               </nav>
 
-              <section class="drawer-socials" aria-label="Liên kết mạng xã hội">
-                <div class="drawer-section-heading"><strong>Liên kết của tôi</strong><a routerLink="/account" (click)="closeAccountDrawer()">Chỉnh sửa</a></div>
+              <section class="drawer-socials" [attr.aria-label]="'ui.myLinks' | translate">
+                <div class="drawer-section-heading"><strong>{{ 'ui.myLinks' | translate }}</strong><a [routerLink]="myChannel() ? ['/channel', myChannel()!.handle, 'customize'] : ['/channel/create']" (click)="closeAccountDrawer()">{{ 'common.edit' | translate }}</a></div>
                 @if (socialLinks().length) {
                   <div class="social-link-list">
                     @for (link of socialLinks(); track link.url) {
-                      <a [href]="link.url" target="_blank" rel="noopener noreferrer" [attr.aria-label]="socialLabel(link.url, link.title)">
-                        <span class="social-link-icon" [class]="'social-link-icon social-link-icon--' + socialPlatform(link.url)">{{ socialIcon(link.url) }}</span>
-                        <span>{{ socialLabel(link.url, link.title) }}</span>
+                      <a [href]="link.url" target="_blank" rel="noopener noreferrer" [attr.aria-label]="socialLabel(link.url, link.title, link.platform)">
+                        <span class="social-link-icon" [class]="'social-link-icon social-link-icon--' + socialPlatform(link.url, link.platform)">
+                          @switch (socialPlatform(link.url, link.platform)) {
+                            @case ('facebook') { <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M24 12.07A12 12 0 1 0 10.13 23.93v-8.39H7.08v-3.47h3.05V9.43c0-3.01 1.79-4.67 4.53-4.67 1.31 0 2.69.23 2.69.23v2.95h-1.51c-1.49 0-1.95.93-1.95 1.88v2.25h3.33l-.53 3.47h-2.8v8.39A12 12 0 0 0 24 12.07Z"/></svg> }
+                            @case ('instagram') { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg> }
+                            @case ('tiktok') { <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15 3h3a5 5 0 0 0 3 3v3a8 8 0 0 1-3-1v7a6 6 0 1 1-6-6v3a3 3 0 1 0 3 3V3Z"/></svg> }
+                            @case ('twitter') { <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m4 3 6.2 7.98L3.3 21h2.8l5.35-7.1L16.95 21H21l-6.55-8.43L20.7 3h-2.8l-4.98 6.62L8.05 3H4Zm3.5 2h1.1l8.9 14h-1.1L7.5 5Z"/></svg> }
+                            @case ('youtube') { <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.6 3.5 12 3.5 12 3.5s-7.6 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.8.6 9.4.6 9.4.6s7.6 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.5v-7l6.2 3.5-6.2 3.5Z"/></svg> }
+                            @default { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> }
+                          }
+                        </span>
+                        <span>{{ socialLabel(link.url, link.title, link.platform) }}</span>
                       </a>
                     }
                   </div>
                 } @else {
-                  <a class="social-empty" routerLink="/account" (click)="closeAccountDrawer()">Thêm Instagram, Facebook, TikTok… <b aria-hidden="true">→</b></a>
+                  <a class="social-empty" [routerLink]="myChannel() ? ['/channel', myChannel()!.handle, 'customize'] : ['/channel/create']" (click)="closeAccountDrawer()">{{ 'ui.addLinks' | translate }} <b aria-hidden="true">→</b></a>
                 }
               </section>
 
@@ -187,7 +241,7 @@
 
       <a class="auth-login-btn" routerLink="/login">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-        <span>Đăng nhập</span>
+        <span>{{ 'ui.signIn' | translate }}</span>
       </a>
     }
   </div>

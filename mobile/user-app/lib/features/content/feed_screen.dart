@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'content_models.dart';
 import 'content_service.dart';
@@ -76,7 +77,7 @@ class _FeedScreenState extends State<FeedScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.message;
+          _error = AppStrings.apiError(error, fallback: 'feed.loadError');
           _loading = false;
           _moreLoading = false;
         });
@@ -84,7 +85,7 @@ class _FeedScreenState extends State<FeedScreen> {
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Không thể tải video. Kiểm tra kết nối rồi thử lại.';
+          _error = AppStrings.t('feed.loadError');
           _loading = false;
           _moreLoading = false;
         });
@@ -116,10 +117,12 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.explore ? 'Khám phá' : 'Dành cho bạn';
+    final title = AppStrings.t(
+      widget.explore ? 'feed.exploreTitle' : 'feed.homeTitle',
+    );
     final description = widget.explore
-        ? 'Chọn chủ đề để tìm nội dung mới trong cộng đồng HuTube.'
-        : 'Video mới và nổi bật từ cộng đồng HuTube.';
+        ? AppStrings.t('feed.exploreDescription')
+        : AppStrings.t('feed.homeDescription');
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primaryPink),
@@ -157,9 +160,9 @@ class _FeedScreenState extends State<FeedScreen> {
           if (_error != null)
             _InlineError(message: _error!, onRetry: () => _load(refresh: true)),
           if (_videos.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 70),
-              child: Center(child: Text('Chưa có video phù hợp.')),
+              child: Center(child: Text(AppStrings.t('feed.empty'))),
             ),
           ..._videos.map((video) => VideoCardTile(video: video)),
           if (_moreLoading)
@@ -198,14 +201,14 @@ class _FilterRow extends StatelessWidget {
         child: Row(
           children: [
             for (final item in const [
-              ('newest', 'Mới nhất'),
-              ('popular', 'Phổ biến'),
-              ('trending', 'Thịnh hành'),
+              ('newest', 'feed.sortNewest'),
+              ('popular', 'feed.sortPopular'),
+              ('trending', 'feed.sortTrending'),
             ])
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(item.$2),
+                  label: Text(AppStrings.t(item.$2)),
                   selected: sort == item.$1,
                   onSelected: (_) => onSort(item.$1),
                 ),
@@ -222,7 +225,7 @@ class _FilterRow extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilterChip(
-                  label: const Text('Tất cả chủ đề'),
+                  label: Text(AppStrings.t('feed.allTopics')),
                   selected: categoryId == null,
                   onSelected: (_) => onCategory(null),
                 ),
@@ -256,15 +259,18 @@ class _Failure extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.cloud_off_rounded,
             size: 48,
-            color: AppColors.textSecondary,
+            color: AppColors.textSecondaryFor(context),
           ),
           const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: const Text('Thử lại')),
+          FilledButton(
+            onPressed: onRetry,
+            child: Text(AppStrings.t('common.retry')),
+          ),
         ],
       ),
     ),
@@ -278,11 +284,17 @@ class _InlineError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-    color: AppColors.dangerBg,
+    color: AppColors.dangerContainerFor(context),
     child: ListTile(
-      leading: const Icon(Icons.error_outline, color: AppColors.danger),
+      leading: Icon(
+        Icons.error_outline,
+        color: AppColors.onDangerContainerFor(context),
+      ),
       title: Text(message),
-      trailing: TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+      trailing: TextButton(
+        onPressed: onRetry,
+        child: Text(AppStrings.t('common.retry')),
+      ),
     ),
   );
 }

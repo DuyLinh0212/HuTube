@@ -1,11 +1,11 @@
-import { DecimalPipe } from '@angular/common';
 import { Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, ViewChild, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import type { AnimationItem } from 'lottie-web';
 import { AuthService } from '../../core/auth.service';
-import { ChannelDetail, ChannelService } from '../../core/channel.service';
+import { ChannelDetail, ChannelInvitation, ChannelService } from '../../core/channel.service';
 import { ThemeService } from '../../core/theme.service';
 import { I18nService } from '../../core/i18n.service';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { AccountService, UserProfile } from '../../core/account.service';
 import { ContentService } from '../../core/content.service';
@@ -14,7 +14,7 @@ import { NotificationPanelComponent } from '../notifications/notification-panel.
 
 @Component({
   selector: 'app-user-topbar',
-  imports: [DecimalPipe, RouterLink, TranslatePipe, NotificationPanelComponent],
+  imports: [LocaleNumberPipe, RouterLink, TranslatePipe, NotificationPanelComponent],
   templateUrl: './user-topbar.component.html',
   styleUrl: './user-topbar.component.scss'
 })
@@ -33,6 +33,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   readonly notifications = inject(NotificationService);
 
   readonly myChannel = signal<ChannelDetail | null>(null);
+  readonly accessibleChannels = signal<ChannelDetail[]>([]);
+  readonly pendingInvitations = signal<ChannelInvitation[]>([]);
+  readonly collaborationChannels = computed(() => this.accessibleChannels().filter(channel => !channel.isOwner));
+  readonly collaborationChannel = computed(() => this.collaborationChannels()[0] ?? null);
   readonly accountDrawerOpen = signal(false);
   readonly accountDrawerMounted = signal(false);
   readonly logoutConfirmOpen = signal(false);
@@ -52,6 +56,14 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
       this.channelService.getMyChannel().subscribe({
         next: ch => this.myChannel.set(ch),
         error: () => this.myChannel.set(null)
+      });
+      this.channelService.getAccessibleChannels().subscribe({
+        next: channels => this.accessibleChannels.set(channels),
+        error: () => this.accessibleChannels.set([])
+      });
+      this.channelService.getMyInvitations().subscribe({
+        next: invitations => this.pendingInvitations.set(invitations),
+        error: () => this.pendingInvitations.set([])
       });
       this.account.getProfile().subscribe({
         next: profile => this.profile.set(profile),
@@ -165,6 +177,18 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     this.account.updatePreferences({ language: next }).subscribe();
   }
 
+  channelRole(role: string | null | undefined): string {
+    if (role === 'owner') return this.i18n.t('studio.roleOwner');
+    return ({
+      manager: 'studio.roleManager',
+      editor: 'studio.roleEditor',
+      moderator: 'studio.roleModerator',
+      viewer: 'studio.roleViewer'
+    } as Record<string, string>)[role ?? '']
+      ? this.i18n.t(({ manager: 'studio.roleManager', editor: 'studio.roleEditor', moderator: 'studio.roleModerator', viewer: 'studio.roleViewer' } as Record<string, string>)[role ?? ''])
+      : this.i18n.t('studio.roleContributor');
+  }
+
   logout() {
     this.closeAccountDrawer();
     this.auth.logout().subscribe({
@@ -191,7 +215,9 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     this.notificationsOpen.set(false);
   }
 
-  socialPlatform(url: string): 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'link' {
+  socialPlatform(url: string, platform?: string): 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'link' {
+    if (platform === 'instagram' || platform === 'facebook' || platform === 'tiktok') return platform;
+    if (platform === 'x') return 'twitter';
     const lower = url.toLowerCase();
     if (lower.includes('instagram.com')) return 'instagram';
     if (lower.includes('facebook.com') || lower.includes('fb.com')) return 'facebook';
@@ -201,37 +227,26 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     return 'link';
   }
 
-  socialIcon(url: string): string {
-    switch (this.socialPlatform(url)) {
-      case 'instagram': return '◎';
-      case 'facebook': return 'f';
-      case 'tiktok': return '♪';
-      case 'twitter': return '𝕏';
-      case 'youtube': return '▶';
-      default: return '↗';
-    }
-  }
-
-  socialLabel(url: string, title: string): string {
+  socialLabel(url: string, title: string, platform?: string): string {
     if (title.trim()) return title.trim();
-    switch (this.socialPlatform(url)) {
+    switch (this.socialPlatform(url, platform)) {
       case 'instagram': return 'Instagram';
       case 'facebook': return 'Facebook';
       case 'tiktok': return 'TikTok';
       case 'twitter': return 'X / Twitter';
       case 'youtube': return 'YouTube';
-      default: return 'Liên kết';
+      default: return this.i18n.t('channel.platform.other');
     }
   }
 
-  private readSocialLinks(settings: string | null | undefined): Array<{ title: string; url: string }> {
+  private readSocialLinks(settings: string | null | undefined): Array<{ platform?: string; title: string; url: string }> {
     if (!settings) return [];
     try {
       const parsed = JSON.parse(settings) as { links?: unknown };
       if (!Array.isArray(parsed?.links)) return [];
       return parsed.links
-        .filter((link): link is { title?: unknown; url?: unknown } => !!link && typeof link === 'object')
-        .map(link => ({ title: typeof link.title === 'string' ? link.title : '', url: typeof link.url === 'string' ? link.url : '' }))
+        .filter((link): link is { platform?: unknown; title?: unknown; url?: unknown } => !!link && typeof link === 'object')
+        .map(link => ({ platform: typeof link.platform === 'string' ? link.platform : undefined, title: typeof link.title === 'string' ? link.title : '', url: typeof link.url === 'string' ? link.url : '' }))
         .filter(link => /^https?:\/\//i.test(link.url))
         .slice(0, 5);
     } catch {

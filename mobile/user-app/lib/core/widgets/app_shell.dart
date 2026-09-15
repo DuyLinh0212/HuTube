@@ -63,7 +63,7 @@ class _AppShellState extends State<AppShell> {
       onError: (Object _) {
         if (mounted) {
           setState(() {
-            _message = 'Không thể mở liên kết. Vui lòng thử lại.';
+            _message = AppStrings.t('auth.linkError');
             _error = true;
           });
         }
@@ -116,7 +116,7 @@ class _AppShellState extends State<AppShell> {
       _page = page == '/account' && !auth.authenticated ? '/login' : page;
       _token = token;
       _message = page == '/account' && !auth.authenticated
-          ? 'Đăng nhập để tiếp tục đến tài khoản của bạn.'
+          ? AppStrings.t('auth.accountMessage')
           : null;
       _error = false;
       _verificationSuggested = false;
@@ -144,7 +144,7 @@ class _AppShellState extends State<AppShell> {
     } on ApiFailure catch (error) {
       if (mounted && operation == _operation) {
         setState(() {
-          _message = error.message;
+          _message = AppStrings.apiError(error);
           _error = true;
           _verificationSuggested =
               error.code == 'EMAIL_NOT_VERIFIED' ||
@@ -154,7 +154,7 @@ class _AppShellState extends State<AppShell> {
     } catch (_) {
       if (mounted && operation == _operation) {
         setState(() {
-          _message = 'Có lỗi xảy ra. Vui lòng thử lại.';
+          _message = AppStrings.t('common.error');
           _error = true;
           _verificationSuggested = false;
         });
@@ -194,16 +194,11 @@ class _AppShellState extends State<AppShell> {
       if (!mounted || _page != page || _token != token) return;
       setState(() {
         _message = switch (page) {
-          '/register' =>
-            'Tài khoản đã được tạo. Mở email để xác minh, sau đó đăng nhập.',
-          '/verify-email' =>
-            'Email đã được xác minh. Bạn có thể đăng nhập ngay.',
-          '/reset-password' =>
-            'Mật khẩu đã được đổi. Hãy đăng nhập bằng mật khẩu mới.',
-          '/forgot-password' =>
-            'Nếu email thuộc tài khoản HuTube, bạn sẽ nhận được liên kết đặt lại mật khẩu.',
-          _ =>
-            'Nếu tài khoản cần xác minh, chúng tôi đã gửi lại email. Kiểm tra cả thư rác.',
+          '/register' => AppStrings.t('auth.registerSuccess'),
+          '/verify-email' => AppStrings.t('auth.verifySuccess'),
+          '/reset-password' => AppStrings.t('auth.resetSuccess'),
+          '/forgot-password' => AppStrings.t('auth.forgotSuccess'),
+          _ => AppStrings.t('auth.resendSuccess'),
         };
         if (page == '/verify-email' ||
             page == '/reset-password' ||
@@ -234,7 +229,7 @@ class _AppShellState extends State<AppShell> {
     } on ApiFailure catch (error) {
       if (mounted && auth.authenticated) {
         setState(() {
-          _message = error.message;
+          _message = AppStrings.apiError(error, fallback: 'common.error');
           _error = true;
         });
       }
@@ -248,8 +243,9 @@ class _AppShellState extends State<AppShell> {
       final info = await auth.api.request('GET', '/system/info');
       if (!mounted) return;
       setState(() {
-        _message =
-            'Đã kết nối HuTube · ${info['environment'] ?? 'API đang hoạt động'}';
+        _message = AppStrings.format('app.connected', {
+          'environment': info['environment'] ?? AppStrings.t('app.apiActive'),
+        });
       });
     });
   }
@@ -264,7 +260,11 @@ class _AppShellState extends State<AppShell> {
       _navigate('/plans');
       return;
     }
-    const labels = ['Trang chủ', 'Khám phá', 'Đăng video'];
+    final labels = [
+      AppStrings.t('nav.home'),
+      AppStrings.t('nav.explore'),
+      AppStrings.t('nav.upload'),
+    ];
     _showNavigationNotice(labels[index]);
   }
 
@@ -274,7 +274,7 @@ class _AppShellState extends State<AppShell> {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            '$label sẽ được kết nối khi module tương ứng hoàn tất.',
+            AppStrings.format('app.modulePending', {'label': label}),
           ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
@@ -295,6 +295,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final message = _message ?? auth.notice;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -302,19 +303,21 @@ class _AppShellState extends State<AppShell> {
         actions: [
           if (auth.authenticated && _page == '/account')
             IconButton(
-              onPressed: () => _showNavigationNotice('Tìm kiếm'),
-              tooltip: 'Tìm kiếm',
+              onPressed: () =>
+                  _showNavigationNotice(AppStrings.t('common.search')),
+              tooltip: AppStrings.t('common.search'),
               icon: const Icon(Icons.search_rounded),
             ),
           if (auth.authenticated && _page == '/account')
             IconButton(
-              onPressed: () => _showNavigationNotice('Thông báo'),
-              tooltip: 'Thông báo',
+              onPressed: () =>
+                  _showNavigationNotice(AppStrings.t('common.notifications')),
+              tooltip: AppStrings.t('common.notifications'),
               icon: const Icon(Icons.notifications_none_rounded),
             ),
           IconButton(
             onPressed: _busy ? null : _diagnostic,
-            tooltip: 'Kiểm tra kết nối',
+            tooltip: AppStrings.t('app.connection'),
             icon: const Icon(Icons.wifi_tethering),
           ),
         ],
@@ -354,13 +357,13 @@ class _AppShellState extends State<AppShell> {
           : null,
       body: SafeArea(
         child: auth.restoring
-            ? const Center(
+            ? Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CircularProgressIndicator(color: AppColors.primaryPink),
                     SizedBox(height: 20),
-                    Text('Đang khôi phục phiên đăng nhập…'),
+                    Text(AppStrings.t('app.restoreSession')),
                   ],
                 ),
               )
@@ -382,14 +385,14 @@ class _AppShellState extends State<AppShell> {
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: _error
-                                    ? AppColors.dangerBg
+                                    ? scheme.errorContainer
                                     : AppColors.primaryPink.withValues(
                                         alpha: 0.1,
                                       ),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: _error
-                                      ? AppColors.dangerBorder
+                                      ? scheme.error.withValues(alpha: 0.35)
                                       : AppColors.primaryPink.withValues(
                                           alpha: 0.3,
                                         ),
@@ -399,7 +402,7 @@ class _AppShellState extends State<AppShell> {
                                 message,
                                 style: TextStyle(
                                   color: _error
-                                      ? AppColors.danger
+                                      ? scheme.onErrorContainer
                                       : AppColors.primaryPink,
                                   height: 1.5,
                                   fontWeight: FontWeight.w500,
@@ -430,12 +433,12 @@ class _AppShellState extends State<AppShell> {
     final reset = _page == '/reset-password';
     final verify = _page == '/verify-email';
     final title = switch (_page) {
-      '/register' => 'Tạo tài khoản',
-      '/forgot-password' => 'Quên mật khẩu?',
-      '/reset-password' => 'Đặt mật khẩu mới',
-      '/verify-email' => 'Xác minh email',
-      '/resend-verification' => 'Gửi lại email xác minh',
-      _ => 'Chào mừng trở lại',
+      '/register' => AppStrings.t('auth.createAccount'),
+      '/forgot-password' => AppStrings.t('auth.forgotTitle'),
+      '/reset-password' => AppStrings.t('auth.resetTitle'),
+      '/verify-email' => AppStrings.t('auth.verifyTitle'),
+      '/resend-verification' => AppStrings.t('auth.resendTitle'),
+      _ => AppStrings.t('auth.welcome'),
     };
     final missingToken =
         (reset || verify) && (_token == null || _token!.isEmpty);
@@ -451,24 +454,23 @@ class _AppShellState extends State<AppShell> {
       const SizedBox(height: 10),
       Text(
         switch (_page) {
-          '/register' =>
-            'Bắt đầu với HuTube. Xác minh email để bảo vệ tài khoản của bạn.',
+          '/register' => AppStrings.t('auth.registerDescription'),
           '/forgot-password' ||
-          '/resend-verification' => 'Nhập email bạn đã dùng để đăng ký HuTube.',
+          '/resend-verification' => AppStrings.t('auth.forgotDescription'),
           '/verify-email' =>
             missingToken
-                ? 'Liên kết thiếu mã xác minh. Hãy yêu cầu một email mới.'
-                : 'Xác nhận địa chỉ email để hoàn tất đăng ký.',
+                ? AppStrings.t('auth.verifyMissing')
+                : AppStrings.t('auth.verifyDescription'),
           '/reset-password' =>
             missingToken
-                ? 'Liên kết thiếu mã đặt lại. Hãy yêu cầu một email mới.'
-                : 'Chọn mật khẩu mới, khác mật khẩu bạn dùng ở nơi khác.',
-          _ => 'Đăng nhập để tiếp tục với tài khoản của bạn.',
+                ? AppStrings.t('auth.resetMissing')
+                : AppStrings.t('auth.resetDescription'),
+          _ => AppStrings.t('auth.loginDescription'),
         },
         style: TextStyle(
           color:
               Theme.of(context).textTheme.bodyMedium?.color ??
-              const Color(0xff526179),
+              Theme.of(context).colorScheme.onSurfaceVariant,
           height: 1.6,
         ),
       ),
@@ -482,27 +484,27 @@ class _AppShellState extends State<AppShell> {
               if (register) ...[
                 _field(
                   _displayName,
-                  'Tên hiển thị',
+                  AppStrings.t('auth.displayNameField'),
                   icon: Icons.person_outline,
                   validator: (v) =>
                       (v ?? '').trim().isEmpty || v!.trim().length > 120
-                      ? 'Nhập tên hiển thị từ 1 đến 120 ký tự.'
+                      ? AppStrings.t('auth.displayNameInvalid')
                       : null,
                 ),
                 _field(
                   _username,
-                  'Tên người dùng',
+                  AppStrings.t('auth.usernameField'),
                   icon: Icons.alternate_email,
                   validator: (v) =>
                       RegExp(r'^[A-Za-z0-9_.-]{3,50}$').hasMatch(v ?? '')
                       ? null
-                      : '3–50 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.',
+                      : AppStrings.t('auth.usernameInvalid'),
                 ),
               ],
               if (!reset && !verify)
                 _field(
                   _email,
-                  'Email',
+                  AppStrings.t('auth.emailField'),
                   icon: Icons.mail_outline,
                   email: true,
                   validator: (v) =>
@@ -510,32 +512,38 @@ class _AppShellState extends State<AppShell> {
                         r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
                       ).hasMatch((v ?? '').trim())
                       ? null
-                      : 'Nhập địa chỉ email hợp lệ.',
+                      : AppStrings.t('auth.emailInvalid'),
                 ),
               if ((login || register || reset) && !missingToken) ...[
                 _field(
                   _password,
-                  reset ? 'Mật khẩu mới' : 'Mật khẩu',
+                  reset
+                      ? AppStrings.t('auth.newPasswordField')
+                      : AppStrings.t('auth.passwordField'),
                   secret: true,
                   validator: login
-                      ? (v) =>
-                            (v ?? '').isEmpty ? 'Nhập mật khẩu của bạn.' : null
+                      ? (v) => (v ?? '').isEmpty
+                            ? AppStrings.t('auth.passwordRequired')
+                            : null
                       : validatePassword,
                 ),
                 if (!login) ...[
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 16),
                     child: Text(
-                      '10–128 ký tự, gồm chữ hoa, chữ thường và số.',
-                      style: TextStyle(color: Color(0xff526179), fontSize: 13),
+                      AppStrings.t('auth.passwordRequirement'),
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   _field(
                     _confirm,
-                    'Nhập lại mật khẩu',
+                    AppStrings.t('auth.confirmPasswordField'),
                     secret: true,
                     validator: (v) => v != _password.text
-                        ? 'Mật khẩu nhập lại chưa khớp.'
+                        ? AppStrings.t('auth.passwordMismatch')
                         : null,
                   ),
                 ],
@@ -547,7 +555,7 @@ class _AppShellState extends State<AppShell> {
                     onPressed: _busy
                         ? null
                         : () => _navigate('/forgot-password'),
-                    child: const Text('Quên mật khẩu?'),
+                    child: Text(AppStrings.t('auth.forgotLink')),
                   ),
                 ),
               if (!missingToken)
@@ -576,14 +584,14 @@ class _AppShellState extends State<AppShell> {
                         )
                       : Text(
                           login
-                              ? 'Đăng nhập'
+                              ? AppStrings.t('auth.loginBtn')
                               : register
-                              ? 'Tạo tài khoản'
+                              ? AppStrings.t('auth.createAccount')
                               : verify
-                              ? 'Xác minh email'
+                              ? AppStrings.t('auth.verifyTitle')
                               : reset
-                              ? 'Lưu mật khẩu mới'
-                              : 'Gửi email',
+                              ? AppStrings.t('auth.saveNewPassword')
+                              : AppStrings.t('auth.sendEmail'),
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -595,13 +603,13 @@ class _AppShellState extends State<AppShell> {
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(48),
-                    side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    side: BorderSide(color: Theme.of(context).dividerColor),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   onPressed: _busy ? null : () => _run(auth.loginWithGoogle),
-                  child: const Text('Tiếp tục với Google'),
+                  child: Text(AppStrings.t('auth.continueGoogle')),
                 ),
               ],
             ],
@@ -612,28 +620,28 @@ class _AppShellState extends State<AppShell> {
       if (login) ...[
         TextButton(
           onPressed: _busy ? null : () => _navigate('/register'),
-          child: const Text('Chưa có tài khoản? Đăng ký'),
+          child: Text(AppStrings.t('auth.noAccount')),
         ),
         if (_verificationSuggested)
           TextButton(
             onPressed: _busy ? null : () => _navigate('/resend-verification'),
-            child: const Text('Gửi lại email xác minh'),
+            child: Text(AppStrings.t('auth.resendVerification')),
           ),
         if (auth.notice != null)
           TextButton(
             onPressed: _busy ? null : auth.restore,
-            child: const Text('Thử khôi phục phiên lần nữa'),
+            child: Text(AppStrings.t('auth.restoreAgain')),
           ),
       ] else ...[
         if (missingToken)
           TextButton(
             onPressed: () =>
                 _navigate(reset ? '/forgot-password' : '/resend-verification'),
-            child: const Text('Yêu cầu liên kết mới'),
+            child: Text(AppStrings.t('auth.requestNewLink')),
           ),
         TextButton(
           onPressed: _busy ? null : () => _navigate('/login'),
-          child: const Text('Quay lại đăng nhập'),
+          child: Text(AppStrings.t('auth.backToLogin')),
         ),
       ],
     ];
@@ -674,7 +682,9 @@ class _AppShellState extends State<AppShell> {
         prefixIcon: Icon(icon ?? Icons.lock_outline),
         suffixIcon: secret
             ? IconButton(
-                tooltip: _hidden ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+                tooltip: _hidden
+                    ? AppStrings.t('auth.showPassword')
+                    : AppStrings.t('auth.hidePassword'),
                 onPressed: () => setState(() => _hidden = !_hidden),
                 icon: Icon(
                   _hidden
@@ -704,12 +714,12 @@ class _AppShellState extends State<AppShell> {
         await auth.protected('POST', '/auth/logout-others');
         await _loadSessions();
         if (mounted) {
-          setState(() => _message = 'Đã đăng xuất tất cả thiết bị khác.');
+          setState(() => _message = AppStrings.t('auth.otherDevicesLoggedOut'));
         }
       }),
       onLogoutAll: () => _run(() async {
         await auth.protected('POST', '/auth/logout-all');
-        await auth.clearSession('Đã đăng xuất khỏi tất cả thiết bị.');
+        await auth.clearSession(AppStrings.t('auth.allDevicesLoggedOut'));
       }),
       onLogout: () => _run(auth.logout),
     ),

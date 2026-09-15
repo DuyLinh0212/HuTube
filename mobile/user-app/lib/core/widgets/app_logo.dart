@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class HuTubeLogo extends StatelessWidget {
   const HuTubeLogo({super.key, this.size = 32, this.showWordmark = true});
   final double size;
@@ -28,7 +30,7 @@ class HuTubeLogo extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: size * 0.68,
-                    color: const Color(0xFF111827),
+                    color: Theme.of(context).colorScheme.onSurface,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -37,7 +39,7 @@ class HuTubeLogo extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: size * 0.68,
-                    color: const Color(0xFFFF2B66),
+                    color: AppColors.primaryPink,
                     letterSpacing: -0.5,
                   ),
                 ),
