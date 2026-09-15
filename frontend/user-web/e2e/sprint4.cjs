@@ -127,7 +127,9 @@ async function login(page, origin, email, platform = 'web') {
   const response = await responsePromise;
   assert(response.status() === 200, `${platform} login failed for ${email}: ${response.status()}`);
   const payload = await response.json();
-  await page.getByRole('heading', { name: platform === 'admin' ? 'Tài khoản quản trị' : 'Cài đặt tài khoản', exact: true }).waitFor();
+  // The user account page intentionally has no standalone hero heading anymore;
+  // wait for its first visible settings section instead.
+  await page.getByRole('heading', { name: platform === 'admin' ? 'Tài khoản quản trị' : 'Kênh HuTube của bạn', exact: true }).waitFor();
   return payload.accessToken;
 }
 
@@ -188,7 +190,7 @@ async function mobileLogin(page, email) {
   const refreshResponse = await refreshPromise;
   assert(refreshResponse.status() === 200, `Session refresh returned ${refreshResponse.status()}.`);
   ownerToken = (await refreshResponse.json()).accessToken;
-  await ownerPage.getByRole('heading', { name: 'Cài đặt tài khoản', exact: true }).waitFor();
+  await ownerPage.getByRole('heading', { name: 'Kênh HuTube của bạn', exact: true }).waitFor();
   await ownerPage.screenshot({ path: path.join(outputDir, 'e2e-s4-01-session-restored.png'), fullPage: true });
   console.log('PASS E2E-S4-01 register, verify, login, protected profile and refresh restore.');
 
@@ -242,8 +244,8 @@ async function mobileLogin(page, email) {
   await ownerPage.locator('form button[type="submit"]').click();
   await ownerPage.waitForURL(new RegExp(`/channel/${handle}$`));
   await ownerPage.getByRole('heading', { name: channelName, exact: true }).waitFor();
-  await ownerPage.getByAltText(`Ảnh đại diện kênh ${channelName}`).waitFor();
-  await ownerPage.getByAltText(`Ảnh bìa kênh ${channelName}`).waitFor();
+  await ownerPage.locator(`img.avatar-image[alt="${channelName}"]`).waitFor();
+  await ownerPage.locator(`img.banner-image[alt="${channelName}"]`).waitFor();
   await ownerPage.goto(`${userOrigin}/channel/${handle}/customize`);
   await ownerPage.getByLabel('Mô tả kênh', { exact: true }).fill(updatedDescription);
   await ownerPage.getByRole('button', { name: 'Lưu thay đổi', exact: true }).click();
