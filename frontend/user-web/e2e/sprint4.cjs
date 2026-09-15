@@ -258,7 +258,8 @@ async function mobileLogin(page, email) {
   await ownerPage.locator('.branding-tab-pane input[type="file"]').nth(1).setInputFiles(bannerPath);
   await ownerPage.getByRole('status').filter({ hasText: 'Đã cập nhật ảnh bìa kênh' }).waitFor();
   await ownerPage.reload();
-  await ownerPage.getByRole('heading', { name: 'Tùy chỉnh kênh', exact: true }).waitFor();
+  // The customize page no longer renders a standalone hero heading; its form is the stable ready marker.
+  await ownerPage.getByLabel(/^Tên kênh/).waitFor();
   const ownerMobileToken = await mobileLogin(ownerPage, owner.email);
   const webChannelResponse = await api(ownerPage, 'GET', `/channels/handle/${handle}`, ownerMobileToken, 'web');
   const mobileChannelResponse = await api(ownerPage, 'GET', `/channels/handle/${handle}`, ownerMobileToken, 'mobile');
