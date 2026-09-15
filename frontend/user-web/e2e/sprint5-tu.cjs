@@ -88,11 +88,12 @@ function json(route, body, status = 200) {
   });
 
   await page.goto(`${origin}/home`);
-  await page.getByRole('heading', { name: 'Video dành cho bạn' }).waitFor();
+  await page.locator('main.feed .card').filter({ hasText: video.title }).waitFor();
   assert.equal(await page.getByText(video.title, { exact: true }).count(), 1, 'Guest Home should show public fallback video');
 
   await page.goto(`${origin}/explore`);
-  await page.getByRole('heading', { name: 'Khám phá' }).waitFor();
+  await page.locator('main.feed .feed-filters').waitFor();
+  await page.locator('main.feed .card').filter({ hasText: video.title }).waitFor();
   await page.locator('.feed-filters select').nth(1).selectOption(categoryId);
   await page.getByText(video.title, { exact: true }).waitFor();
   assert.equal(latestExploreRequest.searchParams.get('categoryId'), categoryId, 'Explore category filter must reach API');
