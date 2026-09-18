@@ -8,6 +8,10 @@ namespace HuTube.Infrastructure.Persistence.Migrations;
 public sealed class StandardPlansSeed : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""
+        -- Keep this seed safe when applied before PlanQuotaAndDisplayOrder.
+        ALTER TABLE public.plans
+          ADD COLUMN IF NOT EXISTS display_order INT NOT NULL DEFAULT 0;
+
         INSERT INTO public.plans
           (plan_id, code, name, description, price, duration_days, storage_limit, max_upload_size, max_video_duration,
            max_video_quality, max_download_quality, max_members, display_order, status, features, created_at, updated_at)

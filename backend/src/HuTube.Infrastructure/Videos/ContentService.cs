@@ -195,14 +195,36 @@ public sealed class ContentService(
         try
         {
             await using (var local = File.Create(sourceFile)) await command.Content.CopyToAsync(local, ct);
-            await using (var local = File.OpenRead(sourceFile))
-                videoUrl = await storage.SaveVideoAsync("videos", command.FileName, local, command.ContentType, ct);
             if (command.ThumbnailContent != null && command.ThumbnailFileName != null && command.ThumbnailContentType != null)
                 thumbnailUrl = await storage.SaveFileAsync("video-thumbnails", command.ThumbnailFileName, command.ThumbnailContent, command.ThumbnailContentType, ct);
+            else
+            {
+                string? generatedThumbnailPath = null;
+                try
+                {
+                    generatedThumbnailPath = await transcoder.CreateThumbnailAsync(sourceFile, temporaryDirectory, ct);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    // A thumbnail is optional; a missing FFmpeg binary or an
+                    // unsupported codec must not discard an otherwise valid upload.
+                    logger.LogWarning(ex, "Không thể tự tạo thumbnail cho video {FileName}; tiếp tục upload không có thumbnail.", command.FileName);
+                }
+                if (!string.IsNullOrWhiteSpace(generatedThumbnailPath))
+                {
+                    await using var generatedThumbnail = File.OpenRead(generatedThumbnailPath);
+                    thumbnailUrl = await storage.SaveFileAsync(
+                        "video-thumbnails", $"{Guid.NewGuid():N}.jpg", generatedThumbnail, "image/jpeg", ct);
+                }
+            }
+            await using (var local = File.OpenRead(sourceFile))
+                videoUrl = await storage.SaveVideoAsync("videos", command.FileName, local, command.ContentType, ct);
         }
         catch
         {
             if (videoUrl != null) await storage.DeleteFileAsync(videoUrl, CancellationToken.None);
+            if (thumbnailUrl != null) await storage.DeleteFileAsync(thumbnailUrl, CancellationToken.None);
             try { Directory.Delete(temporaryDirectory, true); }
             catch (IOException ex) { logger.LogWarning(ex, "Không thể xóa thư mục xử lý video {Directory}", temporaryDirectory); }
             throw;

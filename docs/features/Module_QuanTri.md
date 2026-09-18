@@ -361,21 +361,21 @@ IsSystemRole = true
 ### Nhóm 1 - Dashboard: 2 quyền
 
 1. `dashboard.view`
-2. `dashboard.export`
+2. `dashboard.export`(thiếu)
 
 ### Nhóm 2 - User: 11 quyền
 
 3. `user.view`
-4. `user.view_activity`
-5. `user.view_history`
+4. `user.view_activity`(thiếu)
+5. `user.view_history`(thiếu)
 6. `user.edit`
-7. `user.change_plan`
-8. `user.suspend`
+7. `user.change_plan`(thiếu)
+8. `user.suspend`(thiếu)
 9. `user.ban`
 10. `user.unban`
-11. `user.force_logout`
-12. `user.send_message`
-13. `user.export`
+11. `user.force_logout`(thiếu)
+12. `user.send_message`(thiếu)
+13. `user.export`(thiếu)
 
 ### Nhóm 3 - Role & Permission: 9 quyền
 

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using HuTube.Api.Middleware;
+using HuTube.Api.Services;
 using HuTube.Application.Account;
 using HuTube.Application.Auth;
 using HuTube.Application.Channels;
@@ -9,6 +10,8 @@ using HuTube.Application.Plans;
 using HuTube.Application.Storage;
 using HuTube.Application.Videos;
 using HuTube.Infrastructure.Account;
+using HuTube.Application.CfSeeding;
+using HuTube.Infrastructure.CfSeeding;
 using HuTube.Infrastructure.Authentication;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Plans;
@@ -96,6 +99,8 @@ builder.Services.AddSingleton<IObjectStorage>(services => new DualObjectStorageS
     hasR2Credentials ? services.GetRequiredService<R2ObjectStorageService>() : services.GetRequiredService<LocalStorageService>()));
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContentService, ContentService>();
+builder.Services.AddScoped<ICfSeederService, CfSeederService>();
+builder.Services.AddSingleton<CfSeedChunkUploadStore>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<ModerationService>();

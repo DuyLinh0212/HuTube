@@ -9,6 +9,14 @@ public interface IVideoTranscoder
         string sourceQuality,
         string workingDirectory,
         CancellationToken ct = default);
+
+    // Implementations may generate a JPEG preview from the source video. The
+    // default keeps lightweight test transcoders and disabled processing modes
+    // compatible; uploads can still proceed without an optional thumbnail.
+    Task<string?> CreateThumbnailAsync(
+        string sourceFilePath,
+        string workingDirectory,
+        CancellationToken ct = default) => Task.FromResult<string?>(null);
 }
 
 public sealed class VideoProcessingOptions

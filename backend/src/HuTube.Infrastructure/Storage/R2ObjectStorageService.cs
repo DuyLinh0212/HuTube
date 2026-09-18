@@ -1,6 +1,7 @@
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Amazon.S3.Transfer;
 using HuTube.Application.Storage;
 
 namespace HuTube.Infrastructure.Storage;
@@ -9,6 +10,9 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
 {
     private readonly R2Options _options;
     private readonly AmazonS3Client _client;
+    private readonly TransferUtility _transfer;
+    private const long MultipartThreshold = 100L * 1024 * 1024;
+    private const long MultipartPartSize = 64L * 1024 * 1024;
 
     public R2ObjectStorageService(R2Options options)
     {
@@ -20,9 +24,18 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
         {
             ServiceURL = $"https://{options.AccountId}.r2.cloudflarestorage.com",
             AuthenticationRegion = "auto",
-            ForcePathStyle = true
+            ForcePathStyle = true,
+            RetryMode = RequestRetryMode.Adaptive,
+            MaxErrorRetry = 5
         };
         _client = new AmazonS3Client(new BasicAWSCredentials(options.AccessKeyId, options.SecretAccessKey), config);
+        _transfer = new TransferUtility(_client, new TransferUtilityConfig
+        {
+            MinSizeBeforePartUpload = MultipartThreshold,
+            // Keep pressure predictable: the CF seeder already uploads one video at a time,
+            // and each large object uses at most two concurrent part requests.
+            ConcurrentServiceRequests = 2
+        });
     }
 
     public Task<string> SaveFileAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default) =>
@@ -37,16 +50,32 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
         var key = $"{folder.Trim().Trim('/', '\\').Replace('\\', '/')}/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
         try
         {
-            await _client.PutObjectAsync(new PutObjectRequest
+            if (content.CanSeek && content.Length - content.Position >= MultipartThreshold)
             {
-                BucketName = _options.BucketName,
-                Key = key,
-                InputStream = content,
-                ContentType = contentType,
-                AutoCloseStream = false,
-                DisablePayloadSigning = true,
-                DisableDefaultChecksumValidation = true
-            }, ct);
+                await _transfer.UploadAsync(new TransferUtilityUploadRequest
+                {
+                    BucketName = _options.BucketName,
+                    Key = key,
+                    InputStream = content,
+                    ContentType = contentType,
+                    PartSize = MultipartPartSize,
+                    AutoCloseStream = false,
+                    AutoResetStreamPosition = false
+                }, ct);
+            }
+            else
+            {
+                await _client.PutObjectAsync(new PutObjectRequest
+                {
+                    BucketName = _options.BucketName,
+                    Key = key,
+                    InputStream = content,
+                    ContentType = contentType,
+                    AutoCloseStream = false,
+                    DisablePayloadSigning = true,
+                    DisableDefaultChecksumValidation = true
+                }, ct);
+            }
             return $"r2://{_options.BucketName}/{key}";
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -80,5 +109,9 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
         return key.Length > 0;
     }
 
-    public void Dispose() => _client.Dispose();
+    public void Dispose()
+    {
+        _transfer.Dispose();
+        _client.Dispose();
+    }
 }

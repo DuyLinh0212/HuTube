@@ -28,6 +28,7 @@ public static class AdminPermissions
     public const string SystemViewSetting = "system.view_setting";
     public const string SystemEditSetting = "system.edit_setting";
     public const string TaxonomyManage = "taxonomy.manage";
+    public const string CfSeedManage = "cf_seed.manage";
     public const string PlanView = "plan.view";
     public const string PlanCreate = "plan.create";
     public const string PlanEdit = "plan.edit";
@@ -42,7 +43,7 @@ public static class AdminPermissions
         ModerationViewQueue, ModerationClaim, ModerationReview, ModerationApprove, ModerationReject,
         AuditView,
         SystemViewSetting, SystemEditSetting,
-        TaxonomyManage,
+        TaxonomyManage, CfSeedManage,
         PlanView, PlanCreate, PlanEdit, PlanArchive
     ];
 }

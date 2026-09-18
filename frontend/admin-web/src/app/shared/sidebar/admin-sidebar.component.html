@@ -21,7 +21,7 @@
         }
       </section>
     }
-    @if (can('channel.view') || can('video.view') || can('system.view_setting')) {
+    @if (can('channel.view') || can('video.view') || can('system.view_setting') || can('cf_seed.manage')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupContent' | translate">
         <p class="nav-label">{{ 'nav.groupContent' | translate }}</p>
         @if (can('channel.view')) {
@@ -33,6 +33,11 @@
         @if (can('system.view_setting')) {
           <a class="nav-item" routerLink="/topics" routerLinkActive="is-active" [title]="'nav.topics' | translate" (click)="closeNavigation()">
             <img src="/assets/icons/topics.png" alt="" /><span>{{ 'nav.topics' | translate }}</span>
+          </a>
+        }
+        @if (can('cf_seed.manage')) {
+          <a class="nav-item" routerLink="/cf-seeder" routerLinkActive="is-active" [title]="'nav.cfSeeder' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/upload_video.png" alt="" /><span>{{ 'nav.cfSeeder' | translate }}</span>
           </a>
         }
       </section>
