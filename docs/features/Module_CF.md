@@ -2236,7 +2236,7 @@ Request:
 {
   "userId": "...",
   "limit": 50,
-  "excludeVideoIds": []
+  "excludeItemIds": []
 }
 ```
 
@@ -2245,16 +2245,33 @@ Response:
 ```json
 {
   "modelVersion": "mbmf_2026_09_05_v1",
+  "source": "REAL",
   "items": [
     {
-      "videoId": "...",
+      "itemId": "...",
       "score": 0.92
     }
   ]
 }
 ```
 
-Internal service phải được bảo vệ bằng private network hoặc service credential; không expose trực tiếp ra Internet nếu không cần thiết.
+`itemId` là định danh generic theo `source`. Adapter .NET chỉ ánh xạ `itemId` sang
+`videoId` khi artifact có source `BOT` hoặc `REAL`; MovieLens chỉ dùng benchmark.
+Internal service yêu cầu `X-Service-Token`, tự loại item đã xem và
+`excludeItemIds`, chỉ nhận `limit` từ 1 đến 100, và không trả full Video DTO. Service
+không được expose trực tiếp ra Internet nếu không cần thiết.
+
+Artifact MBMF benchmark gồm `model.pt`, `config.yaml`, `metrics.json`,
+`metadata.json`, `user_index.json`, `item_index.json`, `item_metadata.json` và
+`item_popularity.json`, `seen_items.npz`. Ranking policy như popularity prior phải
+được lưu trong metadata và dùng nhất quán khi inference. Report theo version gồm
+JSON, CSV, Markdown, HTML tự chứa và PNG.
+MovieLens luôn có `source=MOVIELENS`, `deployable=false`; các behavior không quan sát
+và metric tương ứng phải ghi `N/A`, không báo cáo giả bằng 0.
+
+Benchmark có thể chạy thêm Item-Based CF adjusted-cosine trên cùng temporal split
+để làm baseline. Kết quả so sánh phải xuất JSON, CSV, Markdown, HTML tự chứa và PNG;
+baseline này không phải model inference production và không thay đổi contract API.
 
 ##### Admin API
 
