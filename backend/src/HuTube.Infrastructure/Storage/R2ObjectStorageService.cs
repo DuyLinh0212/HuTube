@@ -26,7 +26,11 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
             AuthenticationRegion = "auto",
             ForcePathStyle = true,
             RetryMode = RequestRetryMode.Adaptive,
-            MaxErrorRetry = 5
+            MaxErrorRetry = 5,
+            // AWS SDK v4 defaults to request checksums when an S3 operation supports
+            // them. R2 does not accept the checksum mode emitted by TransferUtility
+            // for multipart completion, so only calculate checksums when required.
+            RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED
         };
         _client = new AmazonS3Client(new BasicAWSCredentials(options.AccessKeyId, options.SecretAccessKey), config);
         _transfer = new TransferUtility(_client, new TransferUtilityConfig
@@ -60,7 +64,9 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
                     ContentType = contentType,
                     PartSize = MultipartPartSize,
                     AutoCloseStream = false,
-                    AutoResetStreamPosition = false
+                    AutoResetStreamPosition = false,
+                    DisableDefaultChecksumValidation = true,
+                    DisablePayloadSigning = true
                 }, ct);
             }
             else

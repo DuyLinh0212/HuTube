@@ -47,7 +47,8 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
     public Task<IReadOnlyList<CfSeedAccountResponse>> GetExistingAccountsAsync(
         [FromQuery] string? search, CancellationToken ct) => seeder.GetExistingAccountsAsync(search, ct);
 
-    [HttpPost("videos"), DisableRequestSizeLimit]
+    [HttpPost("videos"), DisableRequestSizeLimit,
+        RequestFormLimits(MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024)]
     public async Task<ActionResult<CfSeedVideoResponse>> UploadVideoAsync(
         [FromForm] UploadCfSeedVideoForm form, CancellationToken ct)
     {

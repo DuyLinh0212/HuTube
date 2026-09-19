@@ -22,7 +22,6 @@ const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'mkv']);
 const HISTORY_KEY = 'hutube.cf-seeder.history.v1';
 const MAX_HISTORY = 8;
 const MAX_VISIBLE_LOGS = 400;
-const CHUNKED_UPLOAD_THRESHOLD = 80 * 1024 * 1024;
 const DEFAULT_CHUNK_SIZE = 24 * 1024 * 1024;
 const QUALITY_HEIGHTS = [360, 480, 720, 1080, 1440, 2160];
 
@@ -369,8 +368,22 @@ export class CfSeederRunnerService {
   }
 
   private async uploadVideoWithRetry(request: UploadCfSeedVideoRequest) {
-    if (request.file.size >= CHUNKED_UPLOAD_THRESHOLD) return this.uploadVideoInChunks(request);
-    return this.withTransientRetry(() => firstValueFrom(this.api.uploadVideo(request)), 'upload video');
+    // The API upload endpoint streams directly to storage and has no ASP.NET
+    // request-size limit. Prefer that path for every file so large videos do
+    // not get written to the temporary chunk store and then read back again.
+    // If a Cloudflare/proxy in front of the API rejects the body, fall back to
+    // the resumable endpoint instead of making the user retry manually.
+    try {
+      return await this.withTransientRetry(
+        () => firstValueFrom(this.api.uploadVideo(request)),
+        'upload video',
+        error => isTransientUploadError(error) && !isDirectUploadSizeFailure(error, request.file.size),
+      );
+    } catch (error) {
+      if (!isDirectUploadSizeFailure(error, request.file.size)) throw error;
+      this.log(`Upload trực tiếp bị giới hạn hoặc bị reset; chuyển ${request.file.name} sang upload từng phần.`);
+      return this.uploadVideoInChunks(request);
+    }
   }
 
   private async uploadVideoInChunks(request: UploadCfSeedVideoRequest) {
@@ -382,7 +395,7 @@ export class CfSeederRunnerService {
     );
     if (session.chunkSize !== DEFAULT_CHUNK_SIZE)
       throw new Error('Kích thước chunk giữa giao diện và API không đồng nhất.');
-    this.log(`Video ${request.file.name} vượt 80 MB; chia thành ${expectedChunks} phần 24 MB để tránh giới hạn request.`);
+    this.log(`Đang upload ${request.file.name} theo ${expectedChunks} phần ${Math.round(session.chunkSize / 1024 / 1024)} MB.`);
     for (let chunkIndex = 0; chunkIndex < expectedChunks; chunkIndex++) {
       if (this.cancelRequested) throw new Error('Đã hủy trong lúc upload từng phần.');
       const start = chunkIndex * session.chunkSize;
@@ -399,12 +412,13 @@ export class CfSeederRunnerService {
     );
   }
 
-  private async withTransientRetry<T>(operation: () => Promise<T>, operationName: string): Promise<T> {
+  private async withTransientRetry<T>(operation: () => Promise<T>, operationName: string,
+    shouldRetry: (error: unknown) => boolean = isTransientUploadError): Promise<T> {
     const maxAttempts = 4;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try { return await operation(); }
       catch (error) {
-        if (!isTransientUploadError(error) || attempt === maxAttempts) throw error;
+        if (!shouldRetry(error) || attempt === maxAttempts) throw error;
         const delayMs = retryDelayMs(error, attempt);
         this.log(`⚠ ${operationName} tạm thời bị gián đoạn; thử lại ${attempt}/${maxAttempts - 1} sau ${Math.ceil(delayMs / 1000)} giây.`);
         await delay(delayMs);
@@ -527,6 +541,11 @@ function plainError(error: unknown): string {
 
 function displayError(error: unknown): string {
   return error instanceof HttpErrorResponse ? errorMessage(error) : plainError(error);
+}
+
+function isDirectUploadSizeFailure(error: unknown, fileSize: number): boolean {
+  if (!(error instanceof HttpErrorResponse)) return false;
+  return error.status === 413 || (fileSize >= 80 * 1024 * 1024 && error.status === 0);
 }
 
 function isTransientUploadError(error: unknown): boolean {

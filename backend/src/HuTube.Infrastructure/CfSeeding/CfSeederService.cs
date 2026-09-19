@@ -5,6 +5,7 @@ using HuTube.Application.Auth;
 using HuTube.Application.CfSeeding;
 using HuTube.Application.Videos;
 using HuTube.Domain.Channels;
+using HuTube.Domain.Plans;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
 using HuTube.Infrastructure.Persistence;
@@ -127,6 +128,18 @@ public sealed class CfSeederService(
         db.Channels.AddRange(rows.Select(x => x.Channel));
         await db.SaveChangesAsync(ct);
 
+        if (seedPlan != null)
+            db.PlanHistories.AddRange(rows.Select(x => new PlanHistory
+            {
+                UserId = x.User.UserId,
+                PlanId = seedPlan.PlanId,
+                OwnerUserId = x.User.UserId,
+                Status = "active",
+                StartedAt = now,
+                EndedAt = now.AddDays(seedPlan.DurationDays),
+                AutoRenew = false,
+                CreatedAt = now
+            }));
         db.ChannelQuotas.AddRange(rows.Select(x => new ChannelQuota
         {
             ChannelId = x.Channel.ChannelId,
@@ -191,7 +204,8 @@ public sealed class CfSeederService(
             null,
             [],
             [],
-            $"cf:{command.BatchId:N}:{command.Sequence}"), ct);
+            $"cf:{command.BatchId:N}:{command.Sequence}",
+            false), ct);
 
         var video = await db.Videos.SingleAsync(x => x.VideoId == created.VideoId, ct);
         video.Visibility = NormalizeVisibility(command.Visibility);

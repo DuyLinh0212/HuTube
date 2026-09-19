@@ -241,19 +241,22 @@ public sealed class ContentService(
             Metadata = JsonSerializer.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
         Exception? processingError = null;
-        try
+        if (command.GenerateLowerRenditions)
         {
-            foreach (var rendition in await transcoder.CreateLowerRenditionsAsync(sourceFile, command.SourceQuality, temporaryDirectory, ct))
+            try
             {
-                await using var renditionStream = File.OpenRead(rendition.FilePath);
-                var storedPath = await storage.SaveVideoAsync($"video-renditions/{video.VideoId:N}", $"{rendition.Quality}.mp4", renditionStream, "video/mp4", ct);
-                generated.Add((rendition, storedPath));
+                foreach (var rendition in await transcoder.CreateLowerRenditionsAsync(sourceFile, command.SourceQuality, temporaryDirectory, ct))
+                {
+                    await using var renditionStream = File.OpenRead(rendition.FilePath);
+                    var storedPath = await storage.SaveVideoAsync($"video-renditions/{video.VideoId:N}", $"{rendition.Quality}.mp4", renditionStream, "video/mp4", ct);
+                    generated.Add((rendition, storedPath));
+                }
             }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            processingError = ex;
-            logger.LogError(ex, "Không thể tạo đủ rendition cho video {VideoId}", video.VideoId);
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                processingError = ex;
+                logger.LogError(ex, "Không thể tạo đủ rendition cho video {VideoId}", video.VideoId);
+            }
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
@@ -867,13 +870,21 @@ public sealed class ContentService(
             if (selected != null) return selected;
         }
 
-        return await (from member in db.PlanMembers.AsNoTracking()
-                      join history in db.PlanHistories.AsNoTracking() on member.PlanHistoryId equals history.PlanHistoryId
-                      join plan in db.Plans.AsNoTracking() on history.PlanId equals plan.PlanId
-                      where member.MemberUserId == userId && member.Status == "accepted"
-                            && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now) && plan.Status == "active"
-                      orderby history.EndedAt descending
-                      select plan).FirstOrDefaultAsync(ct);
+        var sharedPlan = await (from member in db.PlanMembers.AsNoTracking()
+                                join history in db.PlanHistories.AsNoTracking() on member.PlanHistoryId equals history.PlanHistoryId
+                                join plan in db.Plans.AsNoTracking() on history.PlanId equals plan.PlanId
+                                where member.MemberUserId == userId && member.Status == "accepted"
+                                      && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now) && plan.Status == "active"
+                                orderby history.EndedAt descending
+                                select plan).FirstOrDefaultAsync(ct);
+        if (sharedPlan != null) return sharedPlan;
+
+        // Users without an active subscription still use the configured Free plan.
+        // This keeps admin changes to the Free plan effective for legacy accounts
+        // that predate plan histories.
+        return await db.Plans.AsNoTracking()
+            .Where(x => x.Code == "free" && x.Status == "active")
+            .FirstOrDefaultAsync(ct);
     }
 
     private async Task<Plan?> GetEffectivePlanAsync(Guid userId, Guid planId, CancellationToken ct)

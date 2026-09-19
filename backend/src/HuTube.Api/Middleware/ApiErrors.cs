@@ -1,5 +1,6 @@
 using HuTube.Application.Auth;
 using Microsoft.AspNetCore.Mvc;
+using HttpBadHttpRequestException = Microsoft.AspNetCore.Http.BadHttpRequestException;
 
 namespace HuTube.Api.Middleware;
 
@@ -29,6 +30,14 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
         catch (HuTube.Application.Storage.ObjectStorageException ex) { logger.LogWarning(ex, "Object storage request failed for {TraceId}", context.TraceIdentifier); await ApiErrors.WriteAsync(context, 502, "STORAGE_UPLOAD_FAILED", ex.Message); }
         catch (HuTube.Application.Videos.ContentException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
         catch (HuTube.Domain.Videos.VideoValidationException ex) { await ApiErrors.WriteAsync(context, 400, ex.Code, ex.Message); }
+        catch (HttpBadHttpRequestException ex)
+        {
+            var status = ex.StatusCode is >= 400 and < 500 ? ex.StatusCode : StatusCodes.Status400BadRequest;
+            logger.LogWarning(ex, "Request {TraceId} was rejected as malformed {Method} {Path}",
+                context.TraceIdentifier, context.Request.Method, context.Request.Path);
+            if (!context.Response.HasStarted && !context.RequestAborted.IsCancellationRequested)
+                await ApiErrors.WriteAsync(context, status, "BAD_REQUEST", "Nội dung yêu cầu không đầy đủ hoặc không hợp lệ.");
+        }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }
         catch (Exception ex)
         {
