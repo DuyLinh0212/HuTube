@@ -19,7 +19,8 @@ public sealed class ContentService(
     INotificationService notifications,
     FeatureOptions features,
     TimeProvider clock,
-    ILogger<ContentService> logger) : IContentService
+    ILogger<ContentService> logger,
+    VideoRenditionProcessingQueue renditionQueue) : IContentService
 {
     private DateTimeOffset Now => clock.GetUtcNow();
 
@@ -241,7 +242,8 @@ public sealed class ContentService(
             Metadata = JsonSerializer.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
         Exception? processingError = null;
-        if (command.GenerateLowerRenditions)
+        var deferredProcessingQueued = false;
+        if (command.GenerateLowerRenditions && !command.DeferLowerRenditions)
         {
             try
             {
@@ -280,18 +282,36 @@ public sealed class ContentService(
             var sourceHeight = VideoRules.QualityHeight(command.SourceQuality);
             db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = command.SourceQuality.ToLowerInvariant(), Width = sourceHeight * 16 / 9,
                 Height = sourceHeight, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "source", Status = "ready", CreatedAt = now, UpdatedAt = now });
-            foreach (var item in generated)
-                db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = item.Rendition.Quality, Width = item.Rendition.Width,
-                    Height = item.Rendition.Height, BitrateKbps = item.Rendition.BitrateKbps, FileUrl = item.StoredPath, FileSize = item.Rendition.FileSize,
-                    Codec = "h264/aac", Status = "ready", CreatedAt = now, UpdatedAt = now });
-            if (processingError != null)
-                foreach (var quality in VideoRules.LowerQualities(command.SourceQuality).Except(generated.Select(x => x.Rendition.Quality)))
+            if (command.DeferLowerRenditions)
+            {
+                foreach (var quality in VideoRules.LowerQualities(command.SourceQuality))
                 {
                     var height = VideoRules.QualityHeight(quality);
                     db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = quality, Width = height * 16 / 9,
-                        Height = height, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "h264/aac", Status = "failed", CreatedAt = now, UpdatedAt = now });
+                        Height = height, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "h264/aac", Status = "processing", CreatedAt = now, UpdatedAt = now });
                 }
+            }
+            else
+            {
+                foreach (var item in generated)
+                    db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = item.Rendition.Quality, Width = item.Rendition.Width,
+                        Height = item.Rendition.Height, BitrateKbps = item.Rendition.BitrateKbps, FileUrl = item.StoredPath, FileSize = item.Rendition.FileSize,
+                        Codec = "h264/aac", Status = "ready", CreatedAt = now, UpdatedAt = now });
+                if (processingError != null)
+                    foreach (var quality in VideoRules.LowerQualities(command.SourceQuality).Except(generated.Select(x => x.Rendition.Quality)))
+                    {
+                        var height = VideoRules.QualityHeight(quality);
+                        db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = quality, Width = height * 16 / 9,
+                            Height = height, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "h264/aac", Status = "failed", CreatedAt = now, UpdatedAt = now });
+                    }
+            }
             await ReplaceTagsAsync(video.VideoId, tags, ct); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
+            if (command.DeferLowerRenditions)
+            {
+                renditionQueue.Enqueue(new DeferredVideoRenditionJob(
+                    video.VideoId, sourceFile, command.SourceQuality, temporaryDirectory));
+                deferredProcessingQueued = true;
+            }
         }
         catch
         {
@@ -303,8 +323,11 @@ public sealed class ContentService(
         }
         finally
         {
-            try { Directory.Delete(temporaryDirectory, true); }
-            catch (IOException ex) { logger.LogWarning(ex, "Không thể xóa thư mục xử lý video {Directory}", temporaryDirectory); }
+            if (!deferredProcessingQueued)
+            {
+                try { Directory.Delete(temporaryDirectory, true); }
+                catch (IOException ex) { logger.LogWarning(ex, "Không thể xóa thư mục xử lý video {Directory}", temporaryDirectory); }
+            }
         }
         return await ToResponseAsync(video, actorId, ct);
     }

@@ -100,6 +100,9 @@ builder.Services.AddSingleton<IObjectStorage>(services => new DualObjectStorageS
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContentService, ContentService>();
 builder.Services.AddScoped<ICfSeederService, CfSeederService>();
+builder.Services.AddSingleton<VideoRenditionProcessingQueue>();
+builder.Services.AddScoped<VideoRenditionProcessor>();
+builder.Services.AddHostedService<VideoRenditionProcessingWorker>();
 builder.Services.AddSingleton<CfSeedChunkUploadStore>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<PolicyService>();

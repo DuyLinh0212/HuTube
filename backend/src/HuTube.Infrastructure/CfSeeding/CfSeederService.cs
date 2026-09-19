@@ -205,7 +205,8 @@ public sealed class CfSeederService(
             [],
             [],
             $"cf:{command.BatchId:N}:{command.Sequence}",
-            false), ct);
+            true,
+            true), ct);
 
         var video = await db.Videos.SingleAsync(x => x.VideoId == created.VideoId, ct);
         video.Visibility = NormalizeVisibility(command.Visibility);

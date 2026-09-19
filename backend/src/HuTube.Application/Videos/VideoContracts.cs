@@ -33,7 +33,7 @@ public sealed record CreateVideoCommand(Guid ChannelId, string Title, string? De
     string FileName, string ContentType, Stream Content, string? ThumbnailFileName,
     string? ThumbnailContentType, Stream? ThumbnailContent, IReadOnlyList<string> Tags,
     IReadOnlyList<ChapterRequest> Chapters, string? IdempotencyKey = null,
-    bool GenerateLowerRenditions = true);
+    bool GenerateLowerRenditions = true, bool DeferLowerRenditions = false);
 public sealed record UpdateVideoRequest(string? Title, string? Description, Guid? CategoryId, bool ClearCategory,
     string? LanguageCode, string? Visibility, bool? AgeRestricted, string? ThumbnailUrl,
     IReadOnlyList<string>? Tags, IReadOnlyList<ChapterRequest>? Chapters);
