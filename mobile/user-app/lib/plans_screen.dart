@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'auth.dart';
 import 'core/localization/app_strings.dart';
+import 'core/theme/app_theme.dart';
+import 'core/widgets/hutube_widgets.dart';
 
 class PlansScreen extends StatefulWidget {
   const PlansScreen({super.key, required this.auth});
@@ -261,8 +263,17 @@ class _PlansScreenState extends State<PlansScreen> {
         : null;
     final endedAt = _formatDate(subscription?['endedAt']);
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.ink, Color(0xFF36263C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -273,44 +284,57 @@ class _PlansScreenState extends State<PlansScreen> {
                 'name':
                     plan['name'] as String? ?? AppStrings.t('common.appName'),
               }),
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(AppStrings.t('plans.storageUsed')),
+                Text(
+                  AppStrings.t('plans.storageUsed'),
+                  style: TextStyle(color: Colors.white.withValues(alpha: .75)),
+                ),
                 Text(
                   '${_formatBytes(used)} / ${_formatBytes(total)}',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 7),
-            LinearProgressIndicator(value: progress),
+            LinearProgressIndicator(
+              value: progress,
+              color: AppColors.primary,
+              backgroundColor: Colors.white.withValues(alpha: .14),
+            ),
             const SizedBox(height: 7),
             Text(
               AppStrings.format('plans.remaining', {
                 'size': _formatBytes(remaining),
               }),
-              style: Theme.of(context).textTheme.bodySmall,
+              style: TextStyle(color: Colors.white.withValues(alpha: .7)),
             ),
             if (endedAt.isNotEmpty) ...[
               const SizedBox(height: 5),
               Text(
                 AppStrings.format('plans.expires', {'date': endedAt}),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: TextStyle(color: Colors.white.withValues(alpha: .7)),
               ),
             ],
             const SizedBox(height: 8),
             Text(
               _qualityText(plan),
-              style: Theme.of(context).textTheme.bodySmall,
+              style: TextStyle(color: Colors.white.withValues(alpha: .7)),
             ),
             const SizedBox(height: 4),
             Text(
               _featureText(plan),
-              style: Theme.of(context).textTheme.bodySmall,
+              style: TextStyle(color: Colors.white.withValues(alpha: .7)),
             ),
             if (plan['isSharedMember'] != true) ...[
               const SizedBox(height: 12),
@@ -329,91 +353,169 @@ class _PlansScreenState extends State<PlansScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+        children: const [
+          _PlanSkeleton(height: 150),
+          SizedBox(height: 18),
+          _PlanSkeleton(height: 180),
+          SizedBox(height: 12),
+          _PlanSkeleton(height: 180),
+        ],
+      );
     }
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _load,
-              child: Text(AppStrings.t('common.retry')),
-            ),
-          ],
-        ),
+      return HuTubeStateView(
+        icon: Icons.workspace_premium_outlined,
+        title: _error!,
+        message: AppStrings.t('common.networkError'),
+        actionLabel: AppStrings.t('common.retry'),
+        onAction: _load,
+        accent: AppColors.violet,
       );
     }
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          Text(
-            AppStrings.t('plans.title'),
-            style: Theme.of(context).textTheme.headlineMedium,
+          HuTubeSectionHeader(
+            title: AppStrings.t('plans.title'),
+            subtitle: AppStrings.t('plans.description'),
           ),
-          const SizedBox(height: 8),
-          Text(AppStrings.t('plans.description')),
           const SizedBox(height: 20),
           _currentPlanCard(context),
-          ..._plans.map(
-            (plan) => Card(
-              margin: const EdgeInsets.only(bottom: 14),
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      plan['name'] as String? ?? AppStrings.t('common.appName'),
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      plan['description'] as String? ??
-                          AppStrings.t('plans.defaultDescription'),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '${_formatBytes(plan['storageLimit'])} · ${AppStrings.format('plans.maxMembers', {'count': AppStrings.number(_number(plan['maxMembers'] ?? 1))})}',
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _qualityText(plan),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _featureText(plan),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () => _sharePlan(plan),
-                          icon: const Icon(Icons.share_outlined),
-                          label: Text(AppStrings.t('plans.share')),
-                        ),
-                        if (widget.auth.authenticated)
-                          FilledButton(
-                            onPressed: () =>
-                                _subscribe(plan['planId'] as String),
-                            child: Text(AppStrings.t('plans.subscribe')),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+          if (_plans.isEmpty)
+            HuTubeStateView(
+              icon: Icons.auto_awesome_outlined,
+              title: AppStrings.t('plans.noPlans'),
+              message: 'Danh mục gói hiện chưa có dữ liệu từ máy chủ.',
+              compact: true,
+              accent: AppColors.violet,
+            ),
+          ..._plans.asMap().entries.map(
+            (entry) => _PlanCard(
+              plan: entry.value,
+              index: entry.key,
+              onShare: () => _sharePlan(entry.value),
+              onSubscribe: widget.auth.authenticated
+                  ? () => _subscribe(entry.value['planId'] as String)
+                  : null,
+              formatBytes: _formatBytes,
+              qualityText: _qualityText,
+              featureText: _featureText,
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.plan,
+    required this.index,
+    required this.onShare,
+    required this.onSubscribe,
+    required this.formatBytes,
+    required this.qualityText,
+    required this.featureText,
+  });
+  final Map<String, dynamic> plan;
+  final int index;
+  final VoidCallback onShare;
+  final VoidCallback? onSubscribe;
+  final String Function(dynamic) formatBytes;
+  final String Function(Map<String, dynamic>) qualityText;
+  final String Function(Map<String, dynamic>) featureText;
+
+  @override
+  Widget build(BuildContext context) {
+    final accents = [AppColors.primary, AppColors.violet, AppColors.success];
+    final accent = accents[index % accents.length];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: .2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  plan['name'] as String? ?? AppStrings.t('common.appName'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              HuTubePill(
+                label: AppStrings.t('plans.details'),
+                color: accent.withValues(alpha: .13),
+                textColor: accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            plan['description'] as String? ??
+                AppStrings.t('plans.defaultDescription'),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '${formatBytes(plan['storageLimit'])} · ${AppStrings.format('plans.maxMembers', {'count': AppStrings.number(plan['maxMembers'] ?? 1)})}',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 7),
+          Text(qualityText(plan), style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 5),
+          Text(featureText(plan), style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onShare,
+                  icon: const Icon(Icons.share_outlined, size: 18),
+                  label: Text(AppStrings.t('plans.share')),
+                ),
+              ),
+              if (onSubscribe != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: onSubscribe,
+                    child: Text(AppStrings.t('plans.subscribe')),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanSkeleton extends StatelessWidget {
+  const _PlanSkeleton({required this.height});
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: height,
+    decoration: BoxDecoration(
+      color: AppColors.borderSubtle,
+      borderRadius: BorderRadius.circular(16),
+    ),
+  );
 }

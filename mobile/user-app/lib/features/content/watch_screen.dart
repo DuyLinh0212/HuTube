@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import 'content_models.dart';
 import 'content_service.dart';
 import 'local_download_manager.dart';
@@ -422,38 +423,32 @@ class _WatchScreenState extends State<WatchScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primaryPink),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
+        children: const [
+          _WatchSkeletonPlayer(),
+          Padding(padding: EdgeInsets.all(20), child: _WatchSkeletonCopy()),
+        ],
       );
     }
     if (_error != null || _video == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error ?? AppStrings.t('watch.videoUnavailable'),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _load,
-                child: Text(AppStrings.t('common.retry')),
-              ),
-            ],
-          ),
-        ),
+      return HuTubeStateView(
+        icon: Icons.play_disabled_rounded,
+        title: _error ?? AppStrings.t('watch.videoUnavailable'),
+        message: 'Nguồn video có thể đã bị gỡ hoặc tạm thời chưa sẵn sàng.',
+        actionLabel: AppStrings.t('common.retry'),
+        onAction: _load,
       );
     }
     final video = _video!;
     final player = _player;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(16),
+          ),
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: player != null
@@ -483,24 +478,30 @@ class _WatchScreenState extends State<WatchScreen> {
                   ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+          child: Text(
+            video.title,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              letterSpacing: -.45,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 7, 20, 0),
+          child: Text(
+            AppStrings.format('watch.viewsAndChannel', {
+              'views': AppStrings.number(video.stats.views),
+              'channel': video.channelName,
+            }),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
         const SizedBox(height: 14),
-        Text(
-          video.title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          AppStrings.format('watch.viewsAndChannel', {
-            'views': AppStrings.number(video.stats.views),
-            'channel': video.channelName,
-          }),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
               _ActionChip(
@@ -549,24 +550,31 @@ class _WatchScreenState extends State<WatchScreen> {
         ),
         if (_actionMessage != null)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: Text(
               _actionMessage!,
               style: const TextStyle(color: AppColors.primaryPink),
             ),
           ),
         const SizedBox(height: 18),
-        _ChannelSummary(video: video),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _ChannelSummary(video: video),
+        ),
         if ((video.description ?? '').isNotEmpty || video.tags.isNotEmpty) ...[
           const SizedBox(height: 14),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: HuTubeSurface(
+              color: AppColors.surfaceAltFor(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if ((video.description ?? '').isNotEmpty)
-                    Text(video.description!),
+                    Text(
+                      video.description!,
+                      style: const TextStyle(height: 1.5),
+                    ),
                   if (video.tags.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
@@ -603,38 +611,34 @@ class _WatchScreenState extends State<WatchScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 18),
-        Text(
-          AppStrings.format('watch.comments', {
-            'count': AppStrings.number(video.stats.comments),
-          }),
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _comment,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: widget.auth.authenticated
-                ? AppStrings.t('watch.commentHint')
-                : AppStrings.t('watch.loginCommentHint'),
+        const SizedBox(height: 22),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: HuTubeSectionHeader(
+            title: AppStrings.format('watch.comments', {
+              'count': AppStrings.number(video.stats.comments),
+            }),
           ),
-          enabled: widget.auth.authenticated,
         ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton(
-            onPressed: _sendingComment ? null : _sendComment,
-            child: Text(
-              _sendingComment
-                  ? AppStrings.t('watch.sending')
-                  : AppStrings.t('watch.commentAction'),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: TextField(
+            controller: _comment,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: widget.auth.authenticated
+                  ? AppStrings.t('watch.commentHint')
+                  : AppStrings.t('watch.loginCommentHint'),
+              suffixIcon: IconButton(
+                onPressed: _sendingComment ? null : _sendComment,
+                icon: const Icon(Icons.send_rounded),
+              ),
             ),
+            enabled: widget.auth.authenticated,
           ),
         ),
+        const SizedBox(height: 8),
         ..._comments.map(
           (item) => _CommentTile(
             item: item,
@@ -642,14 +646,19 @@ class _WatchScreenState extends State<WatchScreen> {
             signedIn: widget.auth.authenticated,
           ),
         ),
-        const SizedBox(height: 18),
-        Text(
-          AppStrings.t('watch.related'),
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        const SizedBox(height: 22),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: HuTubeSectionHeader(title: AppStrings.t('watch.related')),
         ),
-        ..._related.map((item) => VideoCardTile(video: item)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: _related
+                .map((item) => VideoCardTile(video: item))
+                .toList(),
+          ),
+        ),
       ],
     );
   }
@@ -685,18 +694,73 @@ class _ChannelSummary extends StatelessWidget {
   const _ChannelSummary({required this.video});
   final VideoDetail video;
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: CircleAvatar(
-      child: Text(
-        video.channelName.isEmpty ? 'H' : video.channelName.substring(0, 1),
+  Widget build(BuildContext context) => Row(
+    children: [
+      HuTubeAvatar(label: video.channelName, radius: 22),
+      const SizedBox(width: 11),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              video.channelName,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '@${video.channelHandle}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+      OutlinedButton(
+        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Theo dõi kênh sẽ được kết nối khi API sẵn sàng.'),
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+        ),
+        child: const Text('Theo dõi'),
+      ),
+    ],
+  );
+}
+
+class _WatchSkeletonPlayer extends StatelessWidget {
+  const _WatchSkeletonPlayer();
+
+  @override
+  Widget build(BuildContext context) => AspectRatio(
+    aspectRatio: 16 / 9,
+    child: DecoratedBox(
+      decoration: const BoxDecoration(color: AppColors.ink),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+          backgroundColor: Colors.white12,
+        ),
       ),
     ),
-    title: Text(
-      video.channelName,
-      style: const TextStyle(fontWeight: FontWeight.w800),
-    ),
-    subtitle: Text('@${video.channelHandle}'),
+  );
+}
+
+class _WatchSkeletonCopy extends StatelessWidget {
+  const _WatchSkeletonCopy();
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(width: 250, height: 22, color: AppColors.borderSubtle),
+      const SizedBox(height: 10),
+      Container(width: 180, height: 13, color: AppColors.borderSubtle),
+      const SizedBox(height: 22),
+      Container(height: 66, color: AppColors.borderSubtle),
+    ],
   );
 }
 

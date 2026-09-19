@@ -5,6 +5,7 @@ import '../auth.dart';
 import '../core/localization/app_strings.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_logo.dart';
+import '../core/widgets/hutube_widgets.dart';
 
 class MobileScaffold extends StatelessWidget {
   const MobileScaffold({
@@ -20,8 +21,8 @@ class MobileScaffold extends StatelessWidget {
 
   int get _selectedIndex {
     if (location.startsWith('/explore')) return 1;
-    if (location.startsWith('/library')) return 2;
-    if (location.startsWith('/account')) return 3;
+    if (location.startsWith('/subscriptions')) return 3;
+    if (location.startsWith('/account')) return 4;
     return 0;
   }
 
@@ -32,10 +33,72 @@ class MobileScaffold extends StatelessWidget {
       case 1:
         context.go('/explore');
       case 2:
-        auth.authenticated ? context.go('/library') : context.go('/auth');
+        _showCreateSheet(context);
       case 3:
+        context.go('/subscriptions');
+      case 4:
         auth.authenticated ? context.go('/account') : context.go('/auth');
     }
+  }
+
+  void _showCreateSheet(BuildContext context) {
+    if (!auth.authenticated) {
+      context.go('/auth');
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tạo nội dung',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Chọn cách bạn muốn bắt đầu trên HuTube.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              _CreateAction(
+                icon: Icons.cloud_upload_outlined,
+                color: AppColors.primary,
+                title: 'Đăng video',
+                description: 'Chia sẻ video mới với cộng đồng.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.go('/creator');
+                },
+              ),
+              _CreateAction(
+                icon: Icons.playlist_add_rounded,
+                color: AppColors.violet,
+                title: 'Tạo playlist',
+                description: 'Tính năng playlist sẽ sớm khả dụng.',
+                onTap: () => Navigator.pop(sheetContext),
+              ),
+              _CreateAction(
+                icon: Icons.storefront_outlined,
+                color: AppColors.success,
+                title: 'Tạo kênh',
+                description: 'Thiết lập không gian riêng cho nội dung của bạn.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.go('/account');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -48,31 +111,30 @@ class MobileScaffold extends StatelessWidget {
         : rawName.substring(0, 1).toUpperCase();
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: wide ? 168 : 60,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: wide
-              ? const Align(
-                  alignment: Alignment.centerLeft,
-                  child: HuTubeLogo(size: 28),
-                )
-              : Builder(
-                  builder: (drawerContext) => IconButton(
-                    tooltip: AppStrings.t('common.menu'),
-                    icon: const Icon(Icons.menu_rounded),
-                    onPressed: () => Scaffold.of(drawerContext).openDrawer(),
-                  ),
-                ),
+        leadingWidth: wide ? 56 : 52,
+        leading: Builder(
+          builder: (drawerContext) => IconButton(
+            tooltip: AppStrings.t('common.menu'),
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(drawerContext).openDrawer(),
+          ),
         ),
         title: isDetail
             ? Text(AppStrings.t('app.viewVideo'))
-            : const SizedBox.shrink(),
+            : const HuTubeLogo(size: 25),
         actions: [
-          IconButton(
-            tooltip: AppStrings.t('common.policy'),
-            onPressed: () => context.push('/policies'),
-            icon: const Icon(Icons.shield_outlined),
-          ),
+          if (!isDetail)
+            IconButton(
+              tooltip: AppStrings.t('common.search'),
+              onPressed: () => context.push('/search'),
+              icon: const Icon(Icons.search_rounded),
+            ),
+          if (!isDetail)
+            IconButton(
+              tooltip: 'HuAI',
+              onPressed: () => context.push('/huai'),
+              icon: const Icon(Icons.auto_awesome_rounded),
+            ),
           if (auth.authenticated)
             IconButton(
               tooltip: AppStrings.t('common.notifications'),
@@ -87,16 +149,10 @@ class MobileScaffold extends StatelessWidget {
                   : AppStrings.t('common.signIn'),
               onPressed: () =>
                   context.go(auth.authenticated ? '/account' : '/auth'),
-              icon: CircleAvatar(
+              icon: HuTubeAvatar(
+                label: initial,
                 radius: 15,
-                backgroundColor: AppColors.primaryPink.withValues(alpha: .15),
-                child: Text(
-                  initial,
-                  style: const TextStyle(
-                    color: AppColors.primaryPink,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                backgroundColor: AppColors.primary.withValues(alpha: .12),
               ),
             ),
           ),
@@ -104,14 +160,6 @@ class MobileScaffold extends StatelessWidget {
       ),
       drawer: _Drawer(auth: auth),
       body: SafeArea(top: false, child: child),
-      floatingActionButton: auth.authenticated && !isDetail
-          ? FloatingActionButton.extended(
-              onPressed: () => context.go('/creator'),
-              icon: const Icon(Icons.add_rounded),
-              label: Text(AppStrings.t('common.create')),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
@@ -119,29 +167,83 @@ class MobileScaffold extends StatelessWidget {
               onDestinationSelected: (value) => _select(context, value),
               destinations: [
                 NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home_rounded),
                   label: AppStrings.t('nav.home'),
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.explore_outlined),
-                  selectedIcon: Icon(Icons.explore_rounded),
+                  icon: const Icon(Icons.explore_outlined),
+                  selectedIcon: const Icon(Icons.explore_rounded),
                   label: AppStrings.t('nav.explore'),
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.video_library_outlined),
-                  selectedIcon: Icon(Icons.video_library_rounded),
-                  label: AppStrings.t('nav.library'),
+                const NavigationDestination(
+                  icon: _CreateNavIcon(),
+                  selectedIcon: _CreateNavIcon(selected: true),
+                  label: 'Tạo',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(Icons.person_rounded),
+                  icon: const Icon(Icons.subscriptions_outlined),
+                  selectedIcon: const Icon(Icons.subscriptions_rounded),
+                  label: AppStrings.t('nav.subscriptions'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.person_outline_rounded),
+                  selectedIcon: const Icon(Icons.person_rounded),
                   label: AppStrings.t('app.navYou'),
                 ),
               ],
             ),
     );
   }
+}
+
+class _CreateNavIcon extends StatelessWidget {
+  const _CreateNavIcon({this.selected = false});
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 42,
+    height: 32,
+    decoration: BoxDecoration(
+      color: selected ? AppColors.primaryDark : AppColors.primary,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: const Icon(Icons.add_rounded, color: Colors.white, size: 23),
+  );
+}
+
+class _CreateAction extends StatelessWidget {
+  const _CreateAction({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    contentPadding: const EdgeInsets.symmetric(vertical: 3),
+    leading: Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: color),
+    ),
+    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+    subtitle: Text(description),
+    trailing: const Icon(Icons.chevron_right_rounded),
+    onTap: onTap,
+  );
 }
 
 class _Drawer extends StatelessWidget {
@@ -170,6 +272,19 @@ class _Drawer extends StatelessWidget {
             Icons.explore_outlined,
             AppStrings.t('nav.explore'),
             '/explore',
+          ),
+          _item(
+            context,
+            Icons.subscriptions_outlined,
+            AppStrings.t('nav.subscriptions'),
+            '/subscriptions',
+          ),
+          _item(context, Icons.auto_awesome_outlined, 'HuAI', '/huai'),
+          _item(
+            context,
+            Icons.playlist_play_outlined,
+            'Playlist',
+            '/playlists',
           ),
           _SectionLabel(AppStrings.t('app.librarySection')),
           _item(
@@ -247,7 +362,7 @@ class _SectionLabel extends StatelessWidget {
     child: Text(
       text,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w900,
         letterSpacing: 1.1,
       ),
     ),

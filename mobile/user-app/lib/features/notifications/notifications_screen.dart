@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import 'notification_hub.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -138,28 +139,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primaryPink),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+        children: [
+          const _NotificationSkeleton(),
+          const SizedBox(height: 12),
+          const _NotificationSkeleton(),
+          const SizedBox(height: 12),
+          const _NotificationSkeleton(),
+        ],
       );
     }
     if (_error != null) {
-      return Center(
-        child: FilledButton(onPressed: _load, child: Text(_error!)),
+      return HuTubeStateView(
+        icon: Icons.notifications_off_outlined,
+        title: _error!,
+        message: AppStrings.t('common.networkError'),
+        actionLabel: AppStrings.t('common.retry'),
+        onAction: _load,
       );
     }
     return RefreshIndicator(
       color: AppColors.primaryPink,
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
           Row(
             children: [
               Expanded(
                 child: Text(
                   AppStrings.t('notifications.title'),
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.45,
                   ),
                 ),
               ),
@@ -172,46 +185,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ],
           ),
           if (_items.isEmpty)
-            Padding(
-              padding: EdgeInsets.only(top: 120),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.notifications_off_outlined,
-                      size: 52,
-                      color: AppColors.textMutedFor(context),
-                    ),
-                    SizedBox(height: 12),
-                    Text(AppStrings.t('notifications.empty')),
-                  ],
-                ),
-              ),
+            HuTubeStateView(
+              icon: Icons.notifications_off_outlined,
+              title: AppStrings.t('notifications.empty'),
+              message: 'Khi có hoạt động mới, bạn sẽ thấy cập nhật ở đây.',
+              compact: true,
             ),
           ..._items.map(
-            (item) => Card(
-              color: item['isRead'] == true
-                  ? null
-                  : AppColors.primaryPink.withValues(alpha: .06),
-              child: ListTile(
-                leading: Icon(
-                  item['isRead'] == true
-                      ? Icons.notifications_none_rounded
-                      : Icons.notifications_rounded,
-                  color: AppColors.primaryPink,
-                ),
-                title: Text(
-                  '${item['title'] ?? AppStrings.t('notifications.defaultTitle')}',
-                  style: TextStyle(
-                    fontWeight: item['isRead'] == true
-                        ? FontWeight.w600
-                        : FontWeight.w800,
-                  ),
-                ),
-                subtitle: Text('${item['body'] ?? ''}'),
-                onTap: () => _read(item),
-              ),
-            ),
+            (item) => _NotificationCard(item: item, onTap: () => _read(item)),
           ),
           if (_hasMore)
             TextButton(
@@ -222,4 +203,77 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
   }
+}
+
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({required this.item, required this.onTap});
+  final Map<String, dynamic> item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final unread = item['isRead'] != true;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: unread
+            ? AppColors.primary.withValues(alpha: .06)
+            : AppColors.surfaceFor(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: unread
+              ? AppColors.primary.withValues(alpha: .22)
+              : AppColors.borderFor(context),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            unread
+                ? Icons.notifications_rounded
+                : Icons.notifications_none_rounded,
+            color: AppColors.primary,
+          ),
+        ),
+        title: Text(
+          '${item['title'] ?? AppStrings.t('notifications.defaultTitle')}',
+          style: TextStyle(
+            fontWeight: unread ? FontWeight.w900 : FontWeight.w700,
+          ),
+        ),
+        subtitle: Text('${item['body'] ?? ''}'),
+        trailing: unread
+            ? Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+              )
+            : const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _NotificationSkeleton extends StatelessWidget {
+  const _NotificationSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 82,
+    decoration: BoxDecoration(
+      color: AppColors.borderSubtle,
+      borderRadius: BorderRadius.circular(14),
+    ),
+  );
 }

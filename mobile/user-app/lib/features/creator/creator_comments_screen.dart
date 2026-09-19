@@ -5,6 +5,7 @@ import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
 import 'creator_service.dart';
 
@@ -128,52 +129,58 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
     appBar: AppBar(title: Text(AppStrings.t('creator.commentsTitle'))),
     body: _loading
         ? const Center(
-            child: CircularProgressIndicator(color: AppColors.primaryPink),
+            child: CircularProgressIndicator(color: AppColors.violet),
           )
         : _error != null
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_error!, textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _load,
-                  child: Text(AppStrings.t('common.retry')),
-                ),
-              ],
-            ),
+        ? HuTubeStateView(
+            icon: Icons.forum_outlined,
+            title: _error!,
+            message: AppStrings.t('common.networkError'),
+            actionLabel: AppStrings.t('common.retry'),
+            onAction: _load,
+            accent: AppColors.violet,
           )
         : RefreshIndicator(
             onRefresh: _load,
             child: _comments.isEmpty
                 ? ListView(
                     children: [
-                      const SizedBox(height: 190),
-                      Center(child: Text(AppStrings.t('creator.noComments'))),
+                      HuTubeStateView(
+                        icon: Icons.forum_outlined,
+                        title: AppStrings.t('creator.noComments'),
+                        message:
+                            'Bình luận của người xem sẽ xuất hiện ở đây khi có hoạt động.',
+                        compact: true,
+                        accent: AppColors.violet,
+                      ),
                     ],
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                     itemCount: _comments.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, index) {
                       final comment = _comments[index];
                       final hidden = _hidden.contains(comment.id);
-                      return Card(
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceFor(context),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.borderFor(context),
+                          ),
+                        ),
                         child: ListTile(
                           onTap: () =>
                               context.push('/watch/${comment.videoId}'),
-                          leading: CircleAvatar(
-                            child: Text(
-                              comment.displayName.isEmpty
-                                  ? 'H'
-                                  : comment.displayName
-                                        .substring(0, 1)
-                                        .toUpperCase(),
-                            ),
+                          leading: HuTubeAvatar(
+                            label: comment.displayName,
+                            radius: 20,
                           ),
-                          title: Text(comment.displayName),
+                          title: Text(
+                            comment.displayName,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
                           subtitle: Text(
                             comment.content,
                             maxLines: 3,

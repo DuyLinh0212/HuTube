@@ -8,6 +8,7 @@ import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/services/channel_service.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import 'creator_comments_screen.dart';
 import 'creator_content_screen.dart';
 import 'video_upload_screen.dart';
@@ -78,75 +79,48 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Center(
-        child: CircularProgressIndicator(color: AppColors.primaryPink),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+        children: const [
+          _CreatorSkeleton(height: 172),
+          SizedBox(height: 18),
+          _CreatorSkeleton(height: 82),
+          SizedBox(height: 10),
+          _CreatorSkeleton(height: 82),
+        ],
       );
     }
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _load,
-              child: Text(AppStrings.t('common.retry')),
-            ),
-          ],
-        ),
+      return HuTubeStateView(
+        icon: Icons.dashboard_outlined,
+        title: _error!,
+        message: AppStrings.t('common.networkError'),
+        actionLabel: AppStrings.t('common.retry'),
+        onAction: _load,
+        accent: AppColors.violet,
       );
     }
     if (_channel == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.video_call_outlined,
-                size: 54,
-                color: AppColors.primaryPink,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                AppStrings.t('creator.noChannel'),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-              OutlinedButton(
-                onPressed: () =>
-                    _open(ChannelInvitationsScreen(auth: widget.auth)),
-                child: Text(AppStrings.t('creator.openInvitations')),
-              ),
-              const SizedBox(height: 10),
-              FilledButton(
-                onPressed: () => _open(CreateChannelScreen(auth: widget.auth)),
-                child: Text(AppStrings.t('creator.createChannel')),
-              ),
-            ],
-          ),
-        ),
+      return HuTubeStateView(
+        icon: Icons.video_call_outlined,
+        title: AppStrings.t('creator.noChannel'),
+        message: 'Tạo một kênh để đăng video và quản lý cộng đồng của bạn.',
+        actionLabel: AppStrings.t('creator.createChannel'),
+        onAction: () => _open(CreateChannelScreen(auth: widget.auth)),
+        accent: AppColors.violet,
       );
     }
     final channel = _channel!;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       children: [
-        Text(
-          AppStrings.t('creator.title'),
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          AppStrings.format('creator.manageDescription', {
+        HuTubeSectionHeader(
+          title: AppStrings.t('creator.title'),
+          subtitle: AppStrings.format('creator.manageDescription', {
             'name': channel.name,
           }),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         if (_accessibleChannels.length > 1)
           DropdownButtonFormField<String>(
             initialValue: channel.id,
@@ -174,40 +148,77 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
             },
           ),
         if (_accessibleChannels.length > 1) const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundImage: channel.avatarUrl == null
-                      ? null
-                      : NetworkImage(channel.avatarUrl!),
-                  child: channel.avatarUrl == null
-                      ? Text(channel.name.substring(0, 1))
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        channel.name,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        '@${channel.handle} · ${AppStrings.format('channel.stats', {'subscribers': AppStrings.number(channel.subscriberCount), 'videos': AppStrings.number(channel.videoCount)})}',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.ink, Color(0xFF36263C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  HuTubeAvatar(
+                    url: channel.avatarUrl,
+                    label: channel.name,
+                    radius: 26,
+                    backgroundColor: AppColors.violet.withValues(alpha: .2),
+                    foregroundColor: Colors.white,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          channel.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '@${channel.handle}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: .68),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.more_horiz_rounded, color: Colors.white70),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StudioStat(
+                      label: 'Người đăng ký',
+                      value: AppStrings.number(channel.subscriberCount),
+                    ),
+                  ),
+                  Expanded(
+                    child: _StudioStat(
+                      label: 'Video',
+                      value: AppStrings.number(channel.videoCount),
+                    ),
+                  ),
+                  Expanded(
+                    child: _StudioStat(
+                      label: 'Lượt xem',
+                      value: AppStrings.number(channel.viewCount),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
@@ -280,13 +291,64 @@ class _CreatorAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     child: ListTile(
-      leading: Icon(icon, color: AppColors.primaryPink),
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: AppColors.violet.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: AppColors.violet),
+      ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text(detail),
       trailing: onTap == null
           ? const Icon(Icons.info_outline)
           : const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
+    ),
+  );
+}
+
+class _StudioStat extends StatelessWidget {
+  const _StudioStat({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        value,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      const SizedBox(height: 3),
+      Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: .62),
+          fontSize: 11,
+        ),
+      ),
+    ],
+  );
+}
+
+class _CreatorSkeleton extends StatelessWidget {
+  const _CreatorSkeleton({required this.height});
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: height,
+    decoration: BoxDecoration(
+      color: AppColors.borderSubtle,
+      borderRadius: BorderRadius.circular(16),
     ),
   );
 }

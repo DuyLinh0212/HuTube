@@ -4,6 +4,7 @@ import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
 import '../content/video_card.dart';
 import 'creator_service.dart';
@@ -183,35 +184,33 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     ),
     body: _loading
         ? const Center(
-            child: CircularProgressIndicator(color: AppColors.primaryPink),
+            child: CircularProgressIndicator(color: AppColors.violet),
           )
         : _error != null
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_error!, textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _load,
-                  child: Text(AppStrings.t('common.retry')),
-                ),
-              ],
-            ),
+        ? HuTubeStateView(
+            icon: Icons.video_library_outlined,
+            title: _error!,
+            message: AppStrings.t('common.networkError'),
+            actionLabel: AppStrings.t('common.retry'),
+            onAction: _load,
+            accent: AppColors.violet,
           )
         : RefreshIndicator(
             onRefresh: _load,
             child: _items.isEmpty
                 ? ListView(
                     children: [
-                      const SizedBox(height: 190),
-                      Center(
-                        child: Text(AppStrings.t('creator.noManagedVideos')),
+                      HuTubeStateView(
+                        icon: Icons.video_library_outlined,
+                        title: AppStrings.t('creator.noManagedVideos'),
+                        message: AppStrings.t('creator.uploadDescription'),
+                        compact: true,
+                        accent: AppColors.violet,
                       ),
                     ],
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                     itemCount: _items.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, index) {
@@ -268,18 +267,10 @@ class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.label});
   final String label;
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: AppColors.primaryPink.withValues(alpha: .1),
-      borderRadius: BorderRadius.circular(99),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 12, color: AppColors.primaryPink),
-      ),
-    ),
+  Widget build(BuildContext context) => HuTubePill(
+    label: label,
+    color: AppColors.violetContainerFor(context),
+    textColor: AppColors.violet,
   );
 }
 

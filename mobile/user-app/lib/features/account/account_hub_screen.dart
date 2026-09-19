@@ -11,6 +11,7 @@ import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/services/channel_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import '../../account/models/account_models.dart';
 import '../../account/services/account_service.dart';
 
@@ -72,57 +73,90 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         (widget.auth.user?['displayName'] as String?) ??
         AppStrings.t('common.userHuTube');
     final email = (widget.auth.user?['email'] as String?) ?? '';
+    final avatarUrl = widget.auth.user?['avatarUrl'] as String?;
+    final verified = widget.auth.user?['emailVerified'] == true;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 96),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       children: [
         Text(
           AppStrings.t('account.hubTitle'),
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -.5,
+          ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 31,
-                  backgroundColor: AppColors.primaryPink.withValues(alpha: .14),
-                  child: Text(
-                    name.isEmpty ? 'H' : name.substring(0, 1).toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      color: AppColors.primaryPink,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(email, style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: AppStrings.t('account.editTooltip'),
-                  onPressed: _openProfileEditor,
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-              ],
+        const SizedBox(height: 5),
+        Text(
+          'Quản lý hồ sơ, nội dung và trải nghiệm HuTube của bạn.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.ink, Color(0xFF36263C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              HuTubeAvatar(
+                url: avatarUrl,
+                label: name,
+                radius: 31,
+                backgroundColor: AppColors.primary.withValues(alpha: .18),
+                foregroundColor: Colors.white,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: .7),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    HuTubePill(
+                      label: AppStrings.t(
+                        verified
+                            ? 'profile.emailVerified'
+                            : 'profile.emailUnverified',
+                      ),
+                      icon: verified
+                          ? Icons.verified_rounded
+                          : Icons.info_outline_rounded,
+                      color: (verified ? AppColors.success : AppColors.warning)
+                          .withValues(alpha: .18),
+                      textColor: verified
+                          ? const Color(0xFF8BF0C6)
+                          : const Color(0xFFFFD37B),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: AppStrings.t('account.editTooltip'),
+                onPressed: _openProfileEditor,
+                icon: const Icon(Icons.edit_outlined, color: Colors.white),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 18),
@@ -226,12 +260,28 @@ class _Tile extends StatelessWidget {
   final String? subtitle;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => ListTile(
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    leading: Icon(icon),
-    title: Text(title),
-    subtitle: subtitle == null ? null : Text(subtitle!),
-    trailing: const Icon(Icons.chevron_right_rounded),
-    onTap: onTap,
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 6),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceFor(context),
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: AppColors.borderFor(context)),
+    ),
+    child: ListTile(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: .08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppColors.primary, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    ),
   );
 }

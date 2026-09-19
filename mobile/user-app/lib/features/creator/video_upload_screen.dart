@@ -7,6 +7,7 @@ import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
 import '../content/content_service.dart';
 import 'creator_service.dart';
@@ -212,8 +213,42 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
       child: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
           children: [
+            HuTubeSectionHeader(
+              title: AppStrings.t('upload.title'),
+              subtitle: 'Chuẩn bị video, thêm thông tin và gửi lên HuTube.',
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.violetContainerFor(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.violet.withValues(alpha: .15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.lightbulb_outline_rounded,
+                    color: AppColors.violet,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      AppStrings.t('upload.videoQuotaHint'),
+                      style: const TextStyle(
+                        height: 1.35,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
             _FilePicker(
               icon: Icons.video_file_outlined,
               title: _video?.name ?? AppStrings.t('upload.chooseVideo'),
@@ -344,9 +379,21 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                child: HuTubeSurface(
+                  padding: const EdgeInsets.all(13),
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  border: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.error.withValues(alpha: .25),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             FilledButton.icon(
@@ -364,10 +411,6 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                 _uploading
                     ? AppStrings.t('upload.uploading')
                     : AppStrings.t('upload.uploadAction'),
-              ),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                backgroundColor: AppColors.primaryPink,
               ),
             ),
           ],
@@ -389,11 +432,30 @@ class _FilePicker extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: AppColors.surfaceFor(context),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: AppColors.borderFor(context)),
+    ),
     child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       onTap: onTap,
-      leading: Icon(icon, color: AppColors.primaryPink),
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: AppColors.primary),
+      ),
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
     ),

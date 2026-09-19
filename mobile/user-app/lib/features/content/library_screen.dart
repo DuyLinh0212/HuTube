@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import 'content_models.dart';
 import 'content_service.dart';
 import 'video_card.dart';
@@ -66,26 +68,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primaryPink),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+        children: const [
+          _LibrarySkeleton(),
+          SizedBox(height: 12),
+          _LibrarySkeleton(),
+          SizedBox(height: 12),
+          _LibrarySkeleton(),
+        ],
       );
     }
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _load,
-                child: Text(AppStrings.t('common.retry')),
-              ),
-            ],
-          ),
-        ),
+      return HuTubeStateView(
+        icon: Icons.cloud_off_rounded,
+        title: _error!,
+        message: AppStrings.t('common.networkError'),
+        actionLabel: AppStrings.t('common.retry'),
+        onAction: _load,
       );
     }
     final items = _tab == 0 ? _history : _liked;
@@ -94,15 +94,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                AppStrings.t('library.title'),
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+            child: HuTubeSectionHeader(
+              title: AppStrings.t('library.title'),
+              subtitle: 'Những video bạn muốn xem lại hoặc đã đánh giá.',
+              action: 'Playlist',
+              onAction: () => context.push('/playlists'),
             ),
           ),
           TabBar(
@@ -146,16 +143,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
               child: items.isEmpty
                   ? ListView(
                       children: [
-                        const SizedBox(height: 140),
-                        Center(
-                          child: Icon(
-                            Icons.video_library_outlined,
-                            size: 52,
-                            color: AppColors.textSecondaryFor(context),
-                          ),
+                        HuTubeStateView(
+                          icon: Icons.video_library_outlined,
+                          title: AppStrings.t('library.empty'),
+                          message: _tab == 0
+                              ? 'Video bạn đã xem sẽ được lưu tại đây.'
+                              : 'Hãy thả tim video để tìm lại chúng nhanh hơn.',
+                          compact: true,
+                          accent: AppColors.violet,
                         ),
-                        const SizedBox(height: 12),
-                        Center(child: Text(AppStrings.t('library.empty'))),
                       ],
                     )
                   : ListView.builder(
@@ -172,4 +168,40 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
     );
   }
+}
+
+class _LibrarySkeleton extends StatelessWidget {
+  const _LibrarySkeleton();
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: 138,
+        height: 82,
+        decoration: BoxDecoration(
+          color: AppColors.borderSubtle,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      const SizedBox(width: 12),
+      const Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 14,
+              child: ColoredBox(color: AppColors.borderSubtle),
+            ),
+            SizedBox(height: 8),
+            SizedBox(
+              width: 100,
+              height: 12,
+              child: ColoredBox(color: AppColors.borderSubtle),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }

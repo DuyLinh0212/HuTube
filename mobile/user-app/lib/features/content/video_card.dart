@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import 'content_models.dart';
 
 class VideoCardTile extends StatelessWidget {
@@ -19,12 +20,12 @@ class VideoCardTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: () => context.push('/watch/${video.id}'),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
+        padding: const EdgeInsets.symmetric(vertical: 5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               child: Stack(
                 children: [
                   AspectRatio(
@@ -40,24 +41,11 @@ class VideoCardTile extends StatelessWidget {
                   Positioned(
                     right: 8,
                     bottom: 8,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: .78),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        child: Text(
-                          _duration(video.duration),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
+                    child: HuTubePill(
+                      label: _duration(video.duration),
+                      icon: Icons.schedule_rounded,
+                      color: Colors.black.withValues(alpha: .78),
+                      textColor: Colors.white,
                     ),
                   ),
                   if (progress != null)
@@ -76,25 +64,11 @@ class VideoCardTile extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+              padding: const EdgeInsets.fromLTRB(2, 11, 0, 5),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 17,
-                    backgroundColor: AppColors.primaryPink.withValues(
-                      alpha: .12,
-                    ),
-                    child: Text(
-                      video.channelName.isEmpty
-                          ? 'H'
-                          : video.channelName.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.primaryPink,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
+                  HuTubeAvatar(radius: 17, label: video.channelName),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -105,7 +79,8 @@ class VideoCardTile extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
                             height: 1.25,
                           ),
                         ),
@@ -114,7 +89,11 @@ class VideoCardTile extends StatelessWidget {
                           '${video.channelName} · ${AppStrings.format('feed.views', {'count': AppStrings.number(video.views)})}${_dateSuffix(video.publishedAt)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.textMutedFor(context),
+                                fontSize: 11,
+                              ),
                         ),
                       ],
                     ),

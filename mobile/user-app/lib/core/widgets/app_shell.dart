@@ -296,6 +296,8 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final message = _message ?? auth.notice;
     final scheme = Theme.of(context).colorScheme;
+    final authPage = !auth.authenticated && _page != '/plans';
+    if (authPage) return _buildAuthLayout(message, scheme);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -427,6 +429,149 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  Widget _buildAuthLayout(String? message, ColorScheme scheme) {
+    final compact = MediaQuery.sizeOf(context).height < 700;
+    return Scaffold(
+      backgroundColor: AppColors.ink,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  compact ? 16 : 28,
+                  24,
+                  compact ? 20 : 42,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Image.asset(
+                          'assets/logo-mark.png',
+                          width: 30,
+                          height: 30,
+                        ),
+                        const SizedBox(width: 9),
+                        RichText(
+                          text: const TextSpan(
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -.6,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'Hu',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              TextSpan(
+                                text: 'Tube',
+                                style: TextStyle(color: AppColors.primary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: compact ? 18 : 38),
+                    Text(
+                      'XEM ĐIỀU BẠN YÊU',
+                      style: TextStyle(
+                        color: AppColors.primaryHover,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      compact
+                          ? 'Một nơi cho\nmọi câu chuyện.'
+                          : 'Một không gian\ncho mọi câu chuyện.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: compact ? 25 : 30,
+                        height: 1.12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.8,
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Khám phá video mới, lưu lại khoảnh khắc yêu thích và chia sẻ điều bạn tạo ra.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: .68),
+                          height: 1.45,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                padding: EdgeInsets.fromLTRB(24, compact ? 20 : 28, 24, 34),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (message != null) ...[
+                        _messageBanner(message, scheme),
+                        const SizedBox(height: 18),
+                      ],
+                      ..._authForm(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _messageBanner(String message, ColorScheme scheme) => Semantics(
+    liveRegion: true,
+    child: Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _error ? scheme.errorContainer : AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _error
+              ? scheme.error.withValues(alpha: .35)
+              : AppColors.primary.withValues(alpha: .22),
+        ),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          color: _error ? scheme.onErrorContainer : AppColors.primaryDark,
+          height: 1.45,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ),
+  );
+
   List<Widget> _authForm() {
     final register = _page == '/register';
     final login = _page == '/login';
@@ -446,12 +591,13 @@ class _AppShellState extends State<AppShell> {
       Text(
         title,
         style: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
+          fontSize: 25,
+          fontWeight: FontWeight.w900,
           color: Theme.of(context).colorScheme.onSurface,
+          letterSpacing: -.5,
         ),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 8),
       Text(
         switch (_page) {
           '/register' => AppStrings.t('auth.registerDescription'),
@@ -474,7 +620,7 @@ class _AppShellState extends State<AppShell> {
           height: 1.6,
         ),
       ),
-      const SizedBox(height: 28),
+      const SizedBox(height: 22),
       Form(
         key: _form,
         child: AutofillGroup(
@@ -560,16 +706,6 @@ class _AppShellState extends State<AppShell> {
                 ),
               if (!missingToken)
                 FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primaryPink,
-                    foregroundColor: Colors.white,
-                    elevation: 3,
-                    shadowColor: AppColors.primaryPink.withValues(alpha: 0.5),
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
                   onPressed: _busy ? null : _submit,
                   child: _busy
                       ? const SizedBox(
@@ -601,13 +737,6 @@ class _AppShellState extends State<AppShell> {
               if (login) ...[
                 const SizedBox(height: 14),
                 OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    side: BorderSide(color: Theme.of(context).dividerColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
                   onPressed: _busy ? null : () => _run(auth.loginWithGoogle),
                   child: Text(AppStrings.t('auth.continueGoogle')),
                 ),

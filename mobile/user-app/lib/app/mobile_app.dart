@@ -9,14 +9,18 @@ import '../core/theme/app_theme.dart';
 import '../core/theme/theme_notifier.dart';
 import '../core/widgets/app_shell.dart';
 import '../features/account/account_hub_screen.dart';
+import '../features/ai/hu_ai_screen.dart';
 import '../features/content/feed_screen.dart';
 import '../features/content/downloads_screen.dart';
 import '../features/content/library_screen.dart';
 import '../features/content/watch_screen.dart';
 import '../features/creator/creator_hub_screen.dart';
 import '../features/notifications/notifications_screen.dart';
+import '../features/playlists/playlists_screen.dart';
 import '../features/policies/policies_screen.dart';
 import '../features/plans/mobile_plans_screen.dart';
+import '../features/search/search_screen.dart';
+import '../features/subscriptions/subscriptions_screen.dart';
 import 'mobile_scaffold.dart';
 
 class HuTubeApp extends StatefulWidget {
@@ -92,6 +96,19 @@ class _HuTubeAppState extends State<HuTubeApp> {
             builder: (_, _) => FeedScreen(auth: auth, explore: true),
           ),
           GoRoute(
+            path: '/subscriptions',
+            builder: (_, _) => SubscriptionsScreen(auth: auth),
+          ),
+          GoRoute(
+            path: '/huai',
+            builder: (_, _) => HuAiScreen(auth: auth),
+          ),
+          GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
+          GoRoute(
+            path: '/playlists',
+            builder: (_, _) => PlaylistsScreen(auth: auth),
+          ),
+          GoRoute(
             path: '/watch/:videoId',
             builder: (_, state) => WatchScreen(
               auth: auth,
@@ -151,6 +168,9 @@ class _HuTubeAppState extends State<HuTubeApp> {
       ('watch', final id?) => '/watch/${Uri.encodeComponent(id)}',
       ('plans', _) => '/plans',
       ('notifications', _) => '/notifications',
+      ('huai', _) => '/huai',
+      ('search', _) => '/search',
+      ('playlists', _) => '/playlists',
       ('policies', _) => '/policies',
       _ => null,
     };
