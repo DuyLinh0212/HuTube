@@ -1,0 +1,56 @@
+data:
+  path: data/raw/movielens/ml-100k
+  strict_counts: true
+  max_users: 40
+  processed_path: data/processed/movielens-100k-smoke/unified_interactions.csv
+  split:
+    train: 0.80
+    validation: 0.10
+    test: 0.10
+
+model:
+  embedding_dimension: 16
+  preference_head: true
+
+training:
+  seed: 42
+  optimizer: AdamW
+  learning_rate: 0.003
+  weight_decay: 0.00001
+  batch_size: 256
+  max_epochs: 2
+  device: cpu
+
+loss:
+  rating: huber
+  like: bce
+  dislike: bce
+  comment: bce
+  share: bce
+  watch_ratio: huber
+  preference: bpr
+  weighting: uncertainty
+
+early_stopping:
+  enabled: false
+  patience: 2
+  metric: ndcg@10
+  mode: max
+
+negative_sampling:
+  enabled: true
+  negatives_per_positive: 1
+
+relevance:
+  rating_threshold: 4.0
+  watch_ratio_threshold: 0.70
+
+evaluation:
+  k: [5, 10]
+
+ranking:
+  popularity_weight: 0.20
+
+output:
+  artifact_root: data/artifacts
+  report_root: reports

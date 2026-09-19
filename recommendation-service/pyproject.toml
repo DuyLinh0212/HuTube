@@ -1,0 +1,45 @@
+[project]
+name = "hutube-recommendation-service"
+version = "0.1.0"
+description = "HuTube MBMF training pipeline and internal recommendation API"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "uvicorn[standard]>=0.35,<1",
+  "pydantic-settings>=2.10,<3",
+  "torch>=2.7,<3",
+  "numpy>=2.1,<3",
+  "pandas>=2.2,<3",
+  "scipy>=1.14,<2",
+  "matplotlib>=3.9,<4",
+  "PyYAML>=6.0,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "ruff>=0.12,<1",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app", "app.data", "app.recommenders", "training"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+  "dataset: tests that require the local MovieLens 100K dataset",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

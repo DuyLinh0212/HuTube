@@ -36,6 +36,18 @@ backend/src/HuTube.Api/uploads/
 **/test-results/
 .local/
 
+# Python recommendation service
+recommendation-service/.venv/
+recommendation-service/*.egg-info/
+recommendation-service/**/__pycache__/
+recommendation-service/.pytest_cache/
+recommendation-service/.ruff_cache/
+recommendation-service/data/raw/
+recommendation-service/data/processed/
+recommendation-service/data/snapshots/
+recommendation-service/data/artifacts/
+recommendation-service/reports/
+
 # Local PostgreSQL exports may contain the complete application dataset.
 hutube-*.dump
 hutube-*.backup
