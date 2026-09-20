@@ -44,13 +44,12 @@ public sealed class FfmpegVideoTranscoder(VideoProcessingOptions options) : IVid
         if (width % 2 != 0) width--;
         var bitrate = Bitrates[height];
         var output = Path.Combine(workingDirectory, $"{quality}.mp4");
-        if (File.Exists(output) && new FileInfo(output).Length > 0)
-        {
-            // A previous worker may have completed this rendition before the
-            // process was restarted. Reuse it instead of encoding the same
-            // quality again.
-            return new(quality, width, height, bitrate, output, new FileInfo(output).Length);
-        }
+        // Never reuse a non-empty output blindly: a worker can be terminated
+        // after FFmpeg has created the file but before it writes the MP4 moov
+        // atom. Encode to a temporary path and publish it atomically only
+        // after FFmpeg exits successfully.
+        var temporaryOutput = output + ".part";
+        if (File.Exists(temporaryOutput)) File.Delete(temporaryOutput);
 
         var start = new ProcessStartInfo
         {
@@ -65,7 +64,7 @@ public sealed class FfmpegVideoTranscoder(VideoProcessingOptions options) : IVid
             "-hide_banner", "-loglevel", "error", "-y", "-i", sourceFilePath,
             "-vf", $"scale=-2:{height}", "-c:v", "libx264", "-preset", "veryfast",
             "-b:v", $"{bitrate}k", "-maxrate", $"{bitrate}k", "-bufsize", $"{bitrate * 2}k",
-            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", output
+            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-f", "mp4", temporaryOutput
         }) start.ArgumentList.Add(argument);
 
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Không thể khởi động FFmpeg.");
@@ -74,9 +73,11 @@ public sealed class FfmpegVideoTranscoder(VideoProcessingOptions options) : IVid
         var error = await stderr;
         if (process.ExitCode != 0)
             throw new InvalidOperationException($"FFmpeg không tạo được {quality}: {error.Trim()}");
-        var info = new FileInfo(output);
+        var info = new FileInfo(temporaryOutput);
         if (!info.Exists || info.Length == 0)
             throw new InvalidOperationException($"FFmpeg không tạo ra file {quality} hợp lệ.");
+        File.Move(temporaryOutput, output, true);
+        info = new FileInfo(output);
         return new(quality, width, height, bitrate, output, info.Length);
     }
 

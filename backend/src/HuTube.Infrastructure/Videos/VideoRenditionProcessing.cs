@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Threading.Channels;
 using HuTube.Application.Storage;
 using HuTube.Application.Videos;
@@ -277,13 +278,13 @@ public sealed class VideoRenditionProcessor(
         CancellationToken ct)
     {
         if (!string.IsNullOrWhiteSpace(sourceFilePath) && File.Exists(sourceFilePath)
-            && new FileInfo(sourceFilePath).Length > 0)
+            && new FileInfo(sourceFilePath).Length == video.FileSize)
             return sourceFilePath;
 
         var existingSource = Directory.EnumerateFiles(workingDirectory, "source.*")
             .FirstOrDefault(path =>
             {
-                try { return new FileInfo(path).Length > 0; }
+                try { return new FileInfo(path).Length == video.FileSize; }
                 catch (FileNotFoundException) { return false; }
                 catch (DirectoryNotFoundException) { return false; }
             });
@@ -297,15 +298,77 @@ public sealed class VideoRenditionProcessor(
         var extension = Path.GetExtension(uri.AbsolutePath);
         if (string.IsNullOrWhiteSpace(extension)) extension = ".mp4";
         var recoveredSource = Path.Combine(workingDirectory, "source" + extension);
-        using var response = await httpClientFactory.CreateClient().GetAsync(
-            uri, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (response.StatusCode is not HttpStatusCode.OK and not HttpStatusCode.PartialContent)
-            throw new InvalidOperationException($"Không thể tải source video (HTTP {(int)response.StatusCode}).");
-
-        await using (var output = File.Create(recoveredSource))
-            await response.Content.CopyToAsync(output, ct);
-        if (!File.Exists(recoveredSource) || new FileInfo(recoveredSource).Length == 0)
+        await DownloadSourceInRangesAsync(httpClientFactory.CreateClient(), uri, recoveredSource, video.FileSize, ct);
+        if (!File.Exists(recoveredSource) || new FileInfo(recoveredSource).Length != video.FileSize)
             throw new InvalidOperationException("Source video tải về bị rỗng.");
         return recoveredSource;
+    }
+
+    private static async Task DownloadSourceInRangesAsync(
+        HttpClient client,
+        Uri sourceUri,
+        string destination,
+        long expectedLength,
+        CancellationToken ct)
+    {
+        var temporaryPath = destination + ".part";
+        try
+        {
+            using var probeRequest = new HttpRequestMessage(HttpMethod.Get, sourceUri);
+            probeRequest.Headers.Range = new RangeHeaderValue(0, 0);
+            using var probeResponse = await client.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!probeResponse.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Không thể tải source video (HTTP {(int)probeResponse.StatusCode}).");
+
+            if (probeResponse.StatusCode == HttpStatusCode.OK)
+            {
+                await using var output = File.Create(temporaryPath);
+                await probeResponse.Content.CopyToAsync(output, ct);
+            }
+            else
+            {
+                var totalLength = probeResponse.Content.Headers.ContentRange?.Length ?? expectedLength;
+                if (totalLength <= 0 || totalLength != expectedLength)
+                    throw new InvalidOperationException("Kích thước source video từ storage không khớp metadata.");
+
+                const int chunkSize = 1 * 1024 * 1024;
+                var offsets = new List<long>();
+                for (long start = 0; start < totalLength; start += chunkSize) offsets.Add(start);
+                await using (var output = new FileStream(
+                    temporaryPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, chunkSize, useAsync: true))
+                {
+                    output.SetLength(totalLength);
+                }
+
+                await Parallel.ForEachAsync(
+                    offsets,
+                    new ParallelOptions { MaxDegreeOfParallelism = 16, CancellationToken = ct },
+                    async (start, token) =>
+                    {
+                        var end = Math.Min(totalLength - 1, start + chunkSize - 1);
+                        using var rangeRequest = new HttpRequestMessage(HttpMethod.Get, sourceUri);
+                        rangeRequest.Headers.Range = new RangeHeaderValue(start, end);
+                        using var rangeResponse = await client.SendAsync(rangeRequest, HttpCompletionOption.ResponseHeadersRead, token);
+                        if (rangeResponse.StatusCode != HttpStatusCode.PartialContent)
+                            throw new InvalidOperationException($"Storage không trả source theo range (HTTP {(int)rangeResponse.StatusCode}).");
+
+                        var bytes = await rangeResponse.Content.ReadAsByteArrayAsync(token);
+                        if (bytes.LongLength != end - start + 1)
+                            throw new InvalidOperationException("Tải thiếu một phần source video từ storage.");
+                        await using var output = new FileStream(
+                            temporaryPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, bytes.Length, useAsync: true);
+                        output.Position = start;
+                        await output.WriteAsync(bytes, token);
+                    });
+            }
+
+            if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length != expectedLength)
+                throw new InvalidOperationException("Source video tải về không đủ dữ liệu.");
+            File.Move(temporaryPath, destination, true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
     }
 }
