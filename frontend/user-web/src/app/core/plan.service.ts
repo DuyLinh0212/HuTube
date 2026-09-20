@@ -63,11 +63,36 @@ export interface PlanShare {
   features?: Record<string, boolean>;
 }
 
+export interface CreatePaymentResponse {
+  paymentId: string;
+  planId: string;
+  planName: string;
+  transactionCode: string;
+  qrCodeUrl: string;
+  amount: number;
+  currency: string;
+  expiresAt: string;
+}
+
+export interface PaymentSummary {
+  paymentId: string;
+  planId: string;
+  planName: string;
+  transactionCode: string;
+  amount: number;
+  currency: string;
+  status: string;
+  paidAt: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PlanService {
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
   private base = this.config.apiBaseUrl + '/plans';
+  private paymentsBase = this.config.apiBaseUrl + '/payments';
 
   getPlans(): Observable<Plan[]> { return this.http.get<Plan[]>(this.base); }
   getPlan(planId: string): Observable<Plan> { return this.http.get<Plan>(`${this.base}/${planId}`); }
@@ -82,5 +107,17 @@ export class PlanService {
   }
   updateOwnerStorage(allocatedStorage: number | null): Observable<void> {
     return this.http.patch<void>(`${this.base}/my-subscription/owner-storage`, { allocatedStorage });
+  }
+
+  initiatePayment(planId: string, autoRenew = false, idempotencyKey?: string): Observable<CreatePaymentResponse> {
+    return this.http.post<CreatePaymentResponse>(this.paymentsBase, { planId, autoRenew, idempotencyKey });
+  }
+
+  getPayment(paymentId: string): Observable<PaymentSummary> {
+    return this.http.get<PaymentSummary>(`${this.paymentsBase}/${paymentId}`);
+  }
+
+  getMyPayments(): Observable<PaymentSummary[]> {
+    return this.http.get<PaymentSummary[]>(this.paymentsBase);
   }
 }

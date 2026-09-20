@@ -303,6 +303,49 @@ public sealed class PlanService(
         return ToResponse(plan);
     }
 
+    /// <inheritdoc/>
+    public async Task<Guid> ActivatePaidPlanAsync(Guid userId, Guid planId, Guid paymentId, bool autoRenew, CancellationToken ct = default)
+    {
+        var user = await db.Users.SingleAsync(x => x.UserId == userId, ct);
+        var plan = await db.Plans.SingleAsync(x => x.PlanId == planId && x.Status == "active", ct);
+        var now = Now;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        // Expire tất cả gói đang active của user
+        await db.PlanHistories
+            .Where(x => x.UserId == userId && x.Status == "active")
+            .ExecuteUpdateAsync(update => update
+                .SetProperty(x => x.Status, "expired")
+                .SetProperty(x => x.EndedAt, now), ct);
+
+        // Tạo PlanHistory mới
+        var historyId = Guid.NewGuid();
+        db.PlanHistories.Add(new PlanHistory
+        {
+            PlanHistoryId = historyId,
+            UserId = userId,
+            PlanId = plan.PlanId,
+            OwnerUserId = userId,
+            Status = "active",
+            StartedAt = now,
+            EndedAt = now.AddDays(plan.DurationDays),
+            AutoRenew = autoRenew,
+            PaymentReference = paymentId.ToString(),
+            CreatedAt = now
+        });
+
+        user.PlanId = plan.PlanId;
+        user.UpdatedAt = now;
+
+        await SyncChannelQuotaAsync(userId, plan.StorageLimit, now, ct);
+
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return historyId;
+    }
+
     public async Task<long?> GetEffectiveStorageLimitAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == userId, ct);

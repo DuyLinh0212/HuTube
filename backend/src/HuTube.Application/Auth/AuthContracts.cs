@@ -91,6 +91,11 @@ public interface IAuthStore
     Task<PasswordResetToken?> FindResetAsync(string hash, CancellationToken ct);
     Task<bool> IsAdminAsync(Guid userId, CancellationToken ct);
     void AddUser(User user, string passwordHash);
+    Task AddUserAsync(User user, string passwordHash, CancellationToken ct = default)
+    {
+        AddUser(user, passwordHash);
+        return Task.CompletedTask;
+    }
     void AddSession(UserSession session);
     void AddVerification(User user, EmailVerificationToken token);
     void AddReset(User user, PasswordResetToken token);
