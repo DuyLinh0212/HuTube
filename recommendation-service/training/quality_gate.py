@@ -6,9 +6,16 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+MODEL_VARIANTS = (
+    "user_based_cosine.npz",
+    "user_based_jaccard.npz",
+    "user_based_pearson.npz",
+    "item_based_cosine.npz",
+    "item_based_jaccard.npz",
+    "item_based_pearson.npz",
+)
 REQUIRED_ARTIFACT_FILES = (
-    "user_based.npz",
-    "item_based.npz",
+    *MODEL_VARIANTS,
     "config.yaml",
     "metrics.json",
     "metadata.json",
@@ -18,6 +25,9 @@ REQUIRED_ARTIFACT_FILES = (
     "seen_items.npz",
 )
 BOUNDED_PREFIXES = (
+    "collaborative_support@",
+    "collaborative_evidence_strength@",
+    "support_coverage@",
     "preference_alignment@",
     "preference_genre_coverage@",
     "catalog_coverage@",
@@ -61,7 +71,10 @@ def validate_metrics(metrics: dict[str, Any]) -> list[str]:
         if not isinstance(payload, dict):
             errors.append(f"metrics.models.{model_name} must be an object.")
             continue
-        preference_metrics = payload.get("preference")
+        preference_metrics = payload.get(
+            "evaluation",
+            payload.get("preference"),
+        )
         if not isinstance(preference_metrics, dict):
             errors.append(f"metrics.models.{model_name}.preference must be an object.")
             continue
@@ -84,14 +97,22 @@ def run_quality_gate(artifact_dir: str | Path) -> QualityGateResult:
     if not missing:
         metadata = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
         model_types = set(metadata.get("modelTypes", []))
-        models_ok = {"user_based", "item_based"}.issubset(model_types)
+        models_ok = (
+            {"user_based_cosine", "user_based_jaccard", "user_based_pearson",
+             "item_based_cosine", "item_based_jaccard", "item_based_pearson"}
+            .issubset(model_types)
+            or {"user_based", "item_based"}.issubset(model_types)
+        )
         metadata_ok = (
             metadata.get("source") == "MOVIELENS"
             and metadata.get("deployable") is False
             and bool(metadata.get("modelVersion"))
         )
         if not models_ok:
-            errors.append("Artifact must contain both user_based and item_based models.")
+            errors.append(
+                "Artifact must contain all six user/item similarity variants, "
+                "including both user_based and item_based families."
+            )
         if not metadata_ok:
             errors.append(
                 "Benchmark metadata must include source=MOVIELENS, deployable=false, "

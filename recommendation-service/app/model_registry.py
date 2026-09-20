@@ -13,7 +13,16 @@ from app.recommenders.base import CollaborativeFilter
 from app.recommenders.item_cf import ItemBasedCF
 from app.recommenders.user_cf import UserBasedCF
 
-ModelType = Literal["user_based", "item_based"]
+ModelType = Literal[
+    "user_based",
+    "item_based",
+    "user_based_cosine",
+    "user_based_jaccard",
+    "user_based_pearson",
+    "item_based_cosine",
+    "item_based_jaccard",
+    "item_based_pearson",
+]
 
 
 @dataclass(slots=True)
@@ -39,9 +48,23 @@ def _read_json(path: Path) -> dict:
 
 
 def _validate_model_type(value: str) -> ModelType:
-    if value not in {"user_based", "item_based"}:
-        raise ValueError("model_type must be 'user_based' or 'item_based'.")
+    allowed = {
+        "user_based",
+        "item_based",
+        "user_based_cosine",
+        "user_based_jaccard",
+        "user_based_pearson",
+        "item_based_cosine",
+        "item_based_jaccard",
+        "item_based_pearson",
+    }
+    if value not in allowed:
+        raise ValueError("Unsupported model_type.")
     return value  # type: ignore[return-value]
+
+
+def _canonical_model_type(value: ModelType) -> str:
+    return f"{value}_cosine" if value in {"user_based", "item_based"} else value
 
 
 def load_artifact_directory(
@@ -53,9 +76,13 @@ def load_artifact_directory(
     """Load one of the two pure-CF models from a shared artifact."""
     del device_name  # Kept as a harmless compatibility argument for old callers.
     selected_type = _validate_model_type(model_type)
+    canonical_type = _canonical_model_type(selected_type)
     path = Path(artifact_dir).expanduser().resolve()
+    model_file = path / f"{canonical_type}.npz"
+    if not model_file.is_file() and selected_type in {"user_based", "item_based"}:
+        model_file = path / f"{selected_type}.npz"
     required = (
-        f"{selected_type}.npz",
+        model_file.name,
         "metadata.json",
         "user_index.json",
         "item_index.json",
@@ -67,9 +94,9 @@ def load_artifact_directory(
         raise FileNotFoundError(f"Artifact {path} is incomplete: {', '.join(missing)}")
 
     model = (
-        UserBasedCF.load_npz(path / "user_based.npz")
-        if selected_type == "user_based"
-        else ItemBasedCF.load_npz(path / "item_based.npz")
+        UserBasedCF.load_npz(model_file)
+        if canonical_type.startswith("user_based")
+        else ItemBasedCF.load_npz(model_file)
     )
     user_to_index = {
         str(key): int(value)

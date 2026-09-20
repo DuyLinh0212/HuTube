@@ -5,7 +5,7 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-SimilarityName = Literal["cosine", "jaccard"]
+SimilarityName = Literal["cosine", "jaccard", "pearson"]
 InteractionMode = Literal["binary", "rating"]
 
 
@@ -75,11 +75,66 @@ def jaccard_similarity(matrix: np.ndarray) -> np.ndarray:
     return similarity
 
 
+def pearson_similarity(matrix: np.ndarray, *, block_size: int = 256) -> np.ndarray:
+    """Compute pairwise Pearson correlation on co-observed values.
+
+    Missing interactions are not treated as zero ratings.  For every pair of
+    rows, the mean and variance are calculated only over positions observed by
+    both rows.  The calculation is blocked so the item-item matrix remains
+    practical for MovieLens 100K without a scientific-computing dependency.
+    """
+    values = np.asarray(matrix, dtype=np.float32)
+    if values.ndim != 2:
+        raise ValueError("matrix must be two-dimensional.")
+    if block_size < 1:
+        raise ValueError("block_size must be positive.")
+
+    observed = (values > 0).astype(np.float32)
+    squared = values * values
+    count = values.shape[0]
+    similarity = np.zeros((count, count), dtype=np.float32)
+
+    for start in range(0, count, block_size):
+        stop = min(start + block_size, count)
+        block_values = values[start:stop]
+        block_observed = observed[start:stop]
+
+        overlap = block_observed @ observed.T
+        safe_overlap = np.where(overlap > 0, overlap, 1.0)
+        sum_left = block_values @ observed.T
+        sum_right = block_observed @ values.T
+        sum_product = block_values @ values.T
+        sum_left_squared = squared[start:stop] @ observed.T
+        sum_right_squared = block_observed @ squared.T
+
+        covariance = sum_product - (sum_left * sum_right / safe_overlap)
+        variance_left = sum_left_squared - (sum_left * sum_left / safe_overlap)
+        variance_right = sum_right_squared - (sum_right * sum_right / safe_overlap)
+        denominator = np.sqrt(np.maximum(variance_left, 0.0)) * np.sqrt(
+            np.maximum(variance_right, 0.0)
+        )
+
+        block_similarity = np.zeros_like(covariance, dtype=np.float32)
+        valid = (overlap >= 2.0) & (denominator > 1e-8)
+        np.divide(covariance, denominator, out=block_similarity, where=valid)
+        similarity[start:stop] = np.nan_to_num(
+            block_similarity,
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
+
+    np.fill_diagonal(similarity, 0.0)
+    return np.clip(similarity, -1.0, 1.0)
+
+
 def compute_similarity(matrix: np.ndarray, name: SimilarityName) -> np.ndarray:
     if name == "cosine":
         return cosine_similarity(matrix)
     if name == "jaccard":
         return jaccard_similarity(matrix)
+    if name == "pearson":
+        return pearson_similarity(matrix)
     raise ValueError(f"Unsupported similarity: {name}")
 
 

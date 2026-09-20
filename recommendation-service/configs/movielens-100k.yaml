@@ -5,7 +5,7 @@ data:
   processed_path: data/processed/movielens-100k/unified_interactions.csv
 
 model:
-  similarity: cosine
+  similarities: [cosine, jaccard, pearson]
   interaction_mode: rating
   neighbor_count: 50
 
@@ -13,7 +13,11 @@ preference:
   positive_rating_threshold: 4.0
 
 evaluation:
-  k: [5, 10, 20]
+  k: [10, 20, 30]
+
+benchmark:
+  enabled: true
+  similarity: cosine
 
 output:
   artifact_root: data/artifacts

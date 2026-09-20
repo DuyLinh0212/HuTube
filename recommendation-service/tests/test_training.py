@@ -55,4 +55,6 @@ def test_both_from_scratch_models_train_and_evaluate(
         assert result.fit_seconds >= 0
         assert 0.0 <= evaluation.metrics["preference_alignment@2"] <= 1.0
         assert 0.0 <= evaluation.metrics["preference_genre_coverage@3"] <= 1.0
+        assert 0.0 <= evaluation.metrics["collaborative_support@2"] <= 1.0
+        assert 0.0 <= evaluation.metrics["collaborative_evidence_strength@3"] <= 1.0
         assert evaluation.metrics["recommendation_count"] > 0

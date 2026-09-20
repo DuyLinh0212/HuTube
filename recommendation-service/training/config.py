@@ -6,6 +6,8 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+from app.recommenders.similarity import SimilarityName
+
 
 class DataConfig(BaseModel):
     path: Path
@@ -15,11 +17,28 @@ class DataConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    """Parameters shared by User-Based and Item-Based CF."""
+    """Parameters shared by all from-scratch CF variants."""
 
-    similarity: Literal["cosine", "jaccard"] = "cosine"
+    similarities: list[SimilarityName] = Field(
+        default_factory=lambda: ["cosine", "jaccard", "pearson"]
+    )
+    # Kept for old local configs.  New configs should use ``similarities``.
+    similarity: SimilarityName | None = None
     interaction_mode: Literal["binary", "rating"] = "rating"
     neighbor_count: int = Field(default=50, ge=1)
+
+    @field_validator("similarities")
+    @classmethod
+    def validate_similarities(cls, values: list[SimilarityName]) -> list[SimilarityName]:
+        normalized = list(dict.fromkeys(values))
+        if not normalized:
+            raise ValueError("model.similarities must contain at least one metric.")
+        return normalized
+
+    @property
+    def selected_similarities(self) -> list[SimilarityName]:
+        """Return configured metrics, honoring the legacy singular field."""
+        return [self.similarity] if self.similarity is not None else list(self.similarities)
 
 
 class PreferenceConfig(BaseModel):
@@ -38,6 +57,11 @@ class EvaluationConfig(BaseModel):
         return normalized
 
 
+class BenchmarkConfig(BaseModel):
+    enabled: bool = True
+    similarity: SimilarityName = "cosine"
+
+
 class OutputConfig(BaseModel):
     artifact_root: Path = Path("data/artifacts")
     report_root: Path = Path("reports")
@@ -48,6 +72,7 @@ class TrainConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     preference: PreferenceConfig = Field(default_factory=PreferenceConfig)
     evaluation: EvaluationConfig = Field(default_factory=EvaluationConfig)
+    benchmark: BenchmarkConfig = Field(default_factory=BenchmarkConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
 
     project_root: Path = Field(exclude=True)

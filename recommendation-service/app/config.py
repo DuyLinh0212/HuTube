@@ -14,7 +14,16 @@ class Settings(BaseSettings):
     app_env: str = "development"
     model_storage_path: Path = Path("data/artifacts")
     model_version: str = "benchmark-latest"
-    model_type: Literal["user_based", "item_based"] = "item_based"
+    model_type: Literal[
+        "user_based",
+        "item_based",
+        "user_based_cosine",
+        "user_based_jaccard",
+        "user_based_pearson",
+        "item_based_cosine",
+        "item_based_jaccard",
+        "item_based_pearson",
+    ] = "item_based"
     recommender_service_token: str = ""
     allow_benchmark_model: bool = False
 

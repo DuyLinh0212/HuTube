@@ -155,6 +155,72 @@ def recommend_for_users(
     }
 
 
+def _support_for_item(
+    model: CollaborativeFilter,
+    user_index: int,
+    item_index: int,
+) -> float:
+    """Return the structural CF evidence for one recommendation.
+
+    User-Based support is the fraction of positive neighbor-similarity mass that
+    has interacted with the candidate item. Item-Based support is the average
+    positive similarity between the candidate and the user's observed history.
+    Pearson's negative correlations are treated as counter-evidence and do not
+    increase support.
+    """
+    family = str(model.model_type)
+    if family == "user_based":
+        neighbors = model.neighbor_indices[user_index]
+        valid = neighbors >= 0
+        if not np.any(valid):
+            return 0.0
+        weights = np.maximum(model.neighbor_similarities[user_index][valid], 0.0)
+        observed = model.interactions[neighbors[valid], item_index] > 0
+        denominator = float(weights.sum())
+        if denominator <= 0:
+            return 0.0
+        return float(np.clip(np.dot(weights, observed.astype(np.float32)) / denominator, 0.0, 1.0))
+
+    if family == "item_based":
+        history = np.flatnonzero(model.interactions[user_index] > 0)
+        if history.size == 0:
+            return 0.0
+        similarities = np.maximum(model.similarities[item_index, history], 0.0)
+        return float(np.clip(similarities.mean(), 0.0, 1.0))
+
+    raise ValueError(f"Unsupported collaborative-filter family: {family}")
+
+
+def _collaborative_support(
+    model: CollaborativeFilter,
+    recommendations: dict[int, list[tuple[int, float]]],
+    *,
+    k: int,
+) -> tuple[float, float]:
+    """Calculate binary support coverage and continuous evidence strength.
+
+    The binary value is the requested Collaborative Support@K: a recommended
+    item counts when at least one positive collaborative path supports it. The
+    second value preserves the average similarity strength as a diagnostic.
+    """
+    user_means: list[float] = []
+    supported_slots = 0
+    total_slots = 0
+    for user_index, ranked in recommendations.items():
+        values = [
+            _support_for_item(model, user_index, item_index)
+            for item_index, _score in ranked[:k]
+        ]
+        if not values:
+            continue
+        user_means.append(float(np.mean(values)))
+        supported_slots += sum(value > 0.0 for value in values)
+        total_slots += len(values)
+    coverage = float(supported_slots / total_slots) if total_slots else 0.0
+    strength = float(np.mean(user_means)) if user_means else 0.0
+    return coverage, strength
+
+
 def evaluate_model(
     model: CollaborativeFilter,
     interactions: pd.DataFrame,
@@ -165,12 +231,15 @@ def evaluate_model(
     k_values: list[int],
     positive_rating_threshold: float,
 ) -> EvaluationResult:
-    """Evaluate preference fit without hiding or matching an exact item ID.
+    """Evaluate collaborative evidence without hiding or matching an exact item ID.
 
-    Every user's complete observed history is used to construct a genre preference
-    profile. The model recommends unseen items, and metrics measure preference
-    alignment, preferred-genre coverage, catalog coverage, diversity and novelty.
-    Genre metadata is used only for this offline evaluation, never by the CF scorer.
+    Every user's complete observed history is used to produce recommendations.
+    ``collaborative_support@K`` asks whether each recommended item is supported by
+    the same collaborative evidence used by the model: similar users for
+    User-Based CF, or similar observed items for Item-Based CF. It is an intrinsic
+    structural metric, not a claim that a user will definitely like the item.
+    Genre diagnostics remain available for comparison with older reports, but they
+    are not the primary metric and never enter the CF scorer.
     """
     maximum_k = max(k_values)
     users = list(range(len(mappings.user_to_index)))
@@ -186,6 +255,13 @@ def evaluate_model(
 
     metrics: dict[str, float | None] = {}
     for k in k_values:
+        support, evidence_strength = _collaborative_support(
+            model,
+            recommendations,
+            k=k,
+        )
+        metrics[f"collaborative_support@{k}"] = support
+        metrics[f"collaborative_evidence_strength@{k}"] = evidence_strength
         metrics[f"preference_alignment@{k}"] = _preference_alignment(
             recommendations,
             profiles,

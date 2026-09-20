@@ -12,7 +12,7 @@ import yaml
 from app.data.mapping import IndexMappings, build_seen_csr, save_seen_csr
 from app.recommenders.base import CollaborativeFilter
 from training.config import TrainConfig
-from training.trainer import MODEL_TYPES, ModelType
+from training.trainer import MODEL_FAMILIES, SIMILARITY_NAMES
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -49,7 +49,7 @@ def save_artifact(
     *,
     artifact_root: Path,
     model_version: str,
-    models: dict[ModelType, CollaborativeFilter],
+    models: dict[str, CollaborativeFilter],
     config: TrainConfig,
     mappings: IndexMappings,
     fit_interactions: pd.DataFrame,
@@ -61,10 +61,20 @@ def save_artifact(
 ) -> Path:
     artifact_dir = artifact_root / model_version
     artifact_dir.mkdir(parents=True, exist_ok=False)
-    for model_type in MODEL_TYPES:
-        if model_type not in models:
-            raise ValueError(f"Missing required model: {model_type}")
-        models[model_type].save_npz(artifact_dir / f"{model_type}.npz")
+    if not models:
+        raise ValueError("At least one collaborative-filter model is required.")
+    for model_type, model in models.items():
+        model.save_npz(artifact_dir / f"{model_type}.npz")
+
+    # Keep the old API names as aliases for the cosine variants. This allows a
+    # previously configured local FastAPI process to read a new artifact.
+    for family in MODEL_FAMILIES:
+        legacy_path = artifact_dir / f"{family}.npz"
+        if legacy_path.is_file():
+            continue
+        cosine_model = models.get(f"{family}_cosine") or models.get(family)
+        if cosine_model is not None:
+            cosine_model.save_npz(legacy_path)
 
     config_payload = config.model_dump(mode="json", exclude={"project_root"})
     (artifact_dir / "config.yaml").write_text(
@@ -92,7 +102,11 @@ def update_benchmark_pointer(artifact_root: Path, model_version: str) -> Path:
             "path": model_version,
             "source": "MOVIELENS",
             "deployable": False,
-            "algorithms": list(MODEL_TYPES),
+            "algorithms": [
+                f"{family}_{similarity}"
+                for family in MODEL_FAMILIES
+                for similarity in SIMILARITY_NAMES
+            ],
         },
     )
     return pointer
