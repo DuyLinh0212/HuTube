@@ -10,6 +10,17 @@ public interface IVideoTranscoder
         string workingDirectory,
         CancellationToken ct = default);
 
+    async Task<TranscodedVideo?> CreateRenditionAsync(
+        string sourceFilePath,
+        string sourceQuality,
+        string quality,
+        string workingDirectory,
+        CancellationToken ct = default)
+    {
+        var renditions = await CreateLowerRenditionsAsync(sourceFilePath, sourceQuality, workingDirectory, ct);
+        return renditions.FirstOrDefault(x => string.Equals(x.Quality, quality, StringComparison.OrdinalIgnoreCase));
+    }
+
     // Implementations may generate a JPEG preview from the source video. The
     // default keeps lightweight test transcoders and disabled processing modes
     // compatible; uploads can still proceed without an optional thumbnail.

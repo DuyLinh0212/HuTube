@@ -769,10 +769,18 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
         if (video.Status != "failed") throw Error(409, "VIDEO_NOT_RETRYABLE", "Chỉ video xử lý lỗi mới có thể thử lại.");
+        var sourceQuality = await db.VideoRenditions
+            .Where(x => x.VideoId == videoId && x.Status == "ready" && x.Codec == "source")
+            .OrderByDescending(x => x.Height)
+            .Select(x => x.QualityLabel)
+            .FirstOrDefaultAsync(ct)
+            ?? throw Error(409, "VIDEO_SOURCE_RENDITION_NOT_FOUND", "Không tìm thấy source để encode lại video.");
         video.Status = "processing"; video.ModerationStatus = "not_submitted"; video.UpdatedAt = Now;
         var renditions = await db.VideoRenditions.Where(x => x.VideoId == videoId && x.Status == "failed").ToListAsync(ct);
         foreach (var rendition in renditions) { rendition.Status = "processing"; rendition.UpdatedAt = Now; }
-        await db.SaveChangesAsync(ct); return await ToResponseAsync(video, actorId, ct);
+        await db.SaveChangesAsync(ct);
+        renditionQueue.Enqueue(new DeferredVideoRenditionJob(videoId, sourceQuality));
+        return await ToResponseAsync(video, actorId, ct);
     }
 
     public async Task<WatchProgressResponse> SaveProgressAsync(Guid userId, Guid videoId, WatchProgressRequest request, CancellationToken ct = default)

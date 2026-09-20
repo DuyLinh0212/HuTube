@@ -688,6 +688,23 @@
   border-bottom: 1px solid var(--line);
 }
 
+.channel-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-height: 36px;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.channel-actions .primary-button {
+  width: 116px;
+  min-width: 116px;
+  white-space: nowrap;
+}
+
 .channel-identity {
   display: inline-flex;
   align-items: center;
@@ -974,6 +991,8 @@
 }
 
 .channel-notification-button {
+  width: 136px;
+  min-width: 136px;
   white-space: nowrap;
 }
 
@@ -1511,6 +1530,11 @@
   .channel-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .channel-actions {
+    width: 100%;
+    margin-left: 0;
   }
 
   .description-panel,
