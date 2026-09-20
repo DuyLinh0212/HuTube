@@ -3,6 +3,7 @@ using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
 using HuTube.Application.Rbac;
 using HuTube.Application.Plans;
+using HuTube.Application.Serialization;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Plans;
 using HuTube.Domain.Users;
@@ -55,7 +56,7 @@ public sealed class PlanService(
         db.Plans.Add(plan);
         await db.SaveChangesAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, "plan.created", "plan", plan.PlanId, "Admin tạo gói dịch vụ",
-            NewValues: JsonSerializer.Serialize(ToResponse(plan))), ct);
+            NewValues: PersistenceJson.Serialize(ToResponse(plan))), ct);
         return ToResponse(plan);
     }
 
@@ -78,7 +79,7 @@ public sealed class PlanService(
         plan.Features = features; plan.DisplayOrder = Math.Max(0, request.DisplayOrder); plan.UpdatedAt = Now;
         await db.SaveChangesAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, "plan.updated", "plan", plan.PlanId, "Admin cập nhật gói dịch vụ",
-            OldValues: JsonSerializer.Serialize(old), NewValues: JsonSerializer.Serialize(ToResponse(plan))), ct);
+            OldValues: PersistenceJson.Serialize(old), NewValues: PersistenceJson.Serialize(ToResponse(plan))), ct);
         return ToResponse(plan);
     }
 
@@ -404,7 +405,7 @@ public sealed class PlanService(
         }
 
         await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.member_invited", "plan_member", member.PlanMemberId,
-            "Mời thành viên dùng chung gói", NewValues: JsonSerializer.Serialize(new { member.MemberEmail, plan.PlanId })), ct);
+            "Mời thành viên dùng chung gói", NewValues: PersistenceJson.Serialize(new { member.MemberEmail, plan.PlanId })), ct);
         if (notifications != null && targetUserId.HasValue)
         {
             try
@@ -624,7 +625,7 @@ public sealed class PlanService(
         member.AllocatedStorage = allocatedStorage;
         await db.SaveChangesAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.member_storage_updated", "plan_member", member.PlanMemberId,
-            "Cập nhật dung lượng thành viên", NewValues: JsonSerializer.Serialize(new { allocatedStorage })), ct);
+            "Cập nhật dung lượng thành viên", NewValues: PersistenceJson.Serialize(new { allocatedStorage })), ct);
 
         // Sync channel quota directly if member is accepted
         if (member.Status == "accepted" && member.MemberUserId.HasValue)
@@ -666,7 +667,7 @@ public sealed class PlanService(
         history.OwnerAllocatedStorage = allocatedStorage;
         await db.SaveChangesAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.owner_storage_updated", "plan_history", history.PlanHistoryId,
-            "Cập nhật dung lượng chủ gói", NewValues: JsonSerializer.Serialize(new { allocatedStorage })), ct);
+            "Cập nhật dung lượng chủ gói", NewValues: PersistenceJson.Serialize(new { allocatedStorage })), ct);
 
         // Sync channel quota for owner
         var effectiveQuota = allocatedStorage ?? plan.StorageLimit;

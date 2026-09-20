@@ -1,6 +1,7 @@
 using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
+using HuTube.Application.Serialization;
 using HuTube.Application.Users;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
@@ -256,7 +257,7 @@ public sealed class AdminUserService(
             ResourceType = "user",
             ResourceId = targetUserId,
             Reason = reason,
-            NewValues = newValues == null ? null : JsonSerializer.Serialize(newValues),
+            NewValues = newValues == null ? null : PersistenceJson.Serialize(newValues),
             CreatedAt = Now
         });
     }

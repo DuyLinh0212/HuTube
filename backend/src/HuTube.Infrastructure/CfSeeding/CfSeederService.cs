@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using HuTube.Application.Auth;
 using HuTube.Application.CfSeeding;
+using HuTube.Application.Serialization;
 using HuTube.Application.Videos;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Plans;
@@ -108,7 +109,7 @@ public sealed class CfSeederService(
                 OwnerUserId = user.UserId,
                 Name = account.ChannelName,
                 Handle = handle,
-                Settings = JsonSerializer.Serialize(new { source = "cf-data-seeder", batchId }),
+                Settings = PersistenceJson.Serialize(new { source = "cf-data-seeder", batchId }),
                 Status = "active",
                 CreatedAt = now,
                 UpdatedAt = now
@@ -151,7 +152,7 @@ public sealed class CfSeederService(
             Action = "cf_seed.accounts_created",
             ResourceType = "cf_seed_batch",
             ResourceId = batchId,
-            NewValues = JsonSerializer.Serialize(new
+            NewValues = PersistenceJson.Serialize(new
             {
                 count = rows.Count,
                 users = rows.Select(x => new { x.User.UserId, x.User.Username, x.Channel.ChannelId })
@@ -213,7 +214,7 @@ public sealed class CfSeederService(
         video.ModerationStatus = video.Visibility == "private" ? "not_submitted" : "approved";
         video.PublishedAt = Now;
         video.UpdatedAt = Now;
-        video.Metadata = JsonSerializer.Serialize(new
+        video.Metadata = PersistenceJson.Serialize(new
         {
             chapters = Array.Empty<object>(),
             cfSeed = new { command.BatchId, command.Sequence, adminActorId }

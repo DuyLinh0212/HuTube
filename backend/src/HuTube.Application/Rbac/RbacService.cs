@@ -1,7 +1,7 @@
 using HuTube.Application.Auth;
+using HuTube.Application.Serialization;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
-using System.Text.Json;
 
 namespace HuTube.Application.Rbac;
 
@@ -80,7 +80,7 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
             "role",
             role.RoleId,
             request.Reason.Trim(),
-            NewValues: JsonSerializer.Serialize(new { role.Code, role.Name, role.Description, permissions = permissions.Select(p => p.Code) })), ct);
+            NewValues: PersistenceJson.Serialize(new { role.Code, role.Name, role.Description, permissions = permissions.Select(p => p.Code) })), ct);
         await rbacStore.SaveAsync(ct);
         return new RoleResponse(role.RoleId, role.Code, role.Name, role.Description, permissions.Select(permission => permission.Code).ToList());
     }
@@ -106,8 +106,8 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
             "role",
             role.RoleId,
             request.Reason.Trim(),
-            OldValues: JsonSerializer.Serialize(new { role.Code, previousPermissions }),
-            NewValues: JsonSerializer.Serialize(new { role.Code, role.Name, role.Description, permissions = permissions.Select(p => p.Code) })), ct);
+            OldValues: PersistenceJson.Serialize(new { role.Code, previousPermissions }),
+            NewValues: PersistenceJson.Serialize(new { role.Code, role.Name, role.Description, permissions = permissions.Select(p => p.Code) })), ct);
         await rbacStore.SaveAsync(ct);
         return new RoleResponse(role.RoleId, role.Code, role.Name, role.Description, permissions.Select(permission => permission.Code).ToList());
     }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using HuTube.Application.Auth;
 using HuTube.Application.Rbac;
+using HuTube.Application.Serialization;
 using HuTube.Application.Taxonomy;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
@@ -202,7 +203,7 @@ public sealed class TaxonomyService(
             "taxonomy",
             resourceId,
             "Admin quản lý chủ đề và tag",
-            NewValues: JsonSerializer.Serialize(values)), ct);
+            NewValues: PersistenceJson.Serialize(values)), ct);
 
     private static AdminTopicResponse ToTopicResponse(Category topic, int videoCount) => new(
         topic.CategoryId,

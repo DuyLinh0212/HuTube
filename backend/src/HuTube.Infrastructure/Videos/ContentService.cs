@@ -1,6 +1,7 @@
 using System.Data;
 using System.Net.Http;
 using System.Text.Json;
+using HuTube.Application.Serialization;
 using HuTube.Application.Storage;
 using HuTube.Application.Notifications;
 using HuTube.Application.Videos;
@@ -398,7 +399,7 @@ public sealed class ContentService(
             Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted,
             ModerationStatus = publicUploadRequiresModeration ? "pending" : "not_submitted",
             IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
-            Metadata = JsonSerializer.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
+            Metadata = PersistenceJson.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
         Exception? processingError = null;
         var deferredProcessingQueued = false;
@@ -592,7 +593,7 @@ public sealed class ContentService(
         if (request.ThumbnailUrl != null) video.ThumbnailUrl = Clean(request.ThumbnailUrl);
         if (request.Chapters != null)
         {
-            try { video.Metadata = JsonSerializer.Serialize(new { chapters = VideoRules.ValidateChapters(request.Chapters.Select(x => new VideoChapter(x.StartSeconds, x.Title)), video.Duration) }); }
+            try { video.Metadata = PersistenceJson.Serialize(new { chapters = VideoRules.ValidateChapters(request.Chapters.Select(x => new VideoChapter(x.StartSeconds, x.Title)), video.Duration) }); }
             catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
         }
         if (request.Tags != null) await ReplaceTagsAsync(video.VideoId, NormalizeTags(request.Tags), ct);
@@ -769,14 +770,21 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
         if (video.Status != "failed") throw Error(409, "VIDEO_NOT_RETRYABLE", "Chỉ video xử lý lỗi mới có thể thử lại.");
-        var sourceQuality = await db.VideoRenditions
-            .Where(x => x.VideoId == videoId && x.Status == "ready" && x.Codec == "source")
+        var sourceRendition = await db.VideoRenditions
+            .Where(x => x.VideoId == videoId && x.Codec == "source")
             .OrderByDescending(x => x.Height)
-            .Select(x => x.QualityLabel)
             .FirstOrDefaultAsync(ct)
             ?? throw Error(409, "VIDEO_SOURCE_RENDITION_NOT_FOUND", "Không tìm thấy source để encode lại video.");
+        // The source file is the input for every retry and must not be retried
+        // as a derived rendition. Older failures could have marked all rows as
+        // failed, so restore the source row to ready when its file still exists.
+        var sourceQuality = sourceRendition.QualityLabel;
+        sourceRendition.Status = "ready";
+        sourceRendition.UpdatedAt = Now;
         video.Status = "processing"; video.ModerationStatus = "not_submitted"; video.UpdatedAt = Now;
-        var renditions = await db.VideoRenditions.Where(x => x.VideoId == videoId && x.Status == "failed").ToListAsync(ct);
+        var renditions = await db.VideoRenditions
+            .Where(x => x.VideoId == videoId && x.Status == "failed" && x.Codec != "source")
+            .ToListAsync(ct);
         foreach (var rendition in renditions) { rendition.Status = "processing"; rendition.UpdatedAt = Now; }
         await db.SaveChangesAsync(ct);
         renditionQueue.Enqueue(new DeferredVideoRenditionJob(videoId, sourceQuality));

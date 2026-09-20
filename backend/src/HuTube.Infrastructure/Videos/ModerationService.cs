@@ -2,6 +2,7 @@ using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
 using HuTube.Application.Rbac;
+using HuTube.Application.Serialization;
 using HuTube.Application.Storage;
 using HuTube.Application.Videos;
 using HuTube.Domain.Videos;
@@ -215,7 +216,7 @@ public sealed class ModerationService(
                 {
                     var meta = JsonSerializer.Deserialize<Dictionary<string, object>>(video.Metadata) ?? [];
                     meta["recommendation_restricted"] = true;
-                    video.Metadata = JsonSerializer.Serialize(meta);
+                    video.Metadata = PersistenceJson.Serialize(meta);
                 }
                 catch
                 {
