@@ -39,12 +39,25 @@ export class ContentService {
   private readonly config = inject(RuntimeConfig);
   private get base() { return this.config.apiBaseUrl; }
 
-  feed(kind: 'home' | 'explore', page = 1, pageSize = 20, categoryId?: string, tag?: string, sort?: string) {
+  feed(kind: 'home' | 'explore' | 'subscriptions', page = 1, pageSize = 20, categoryId?: string, tag?: string, sort?: string) {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
     if (sort) params = params.set('sort', sort);
     if (categoryId) params = params.set('categoryId', categoryId);
     if (tag) params = params.set('tag', tag);
     return this.http.get<PageResult<VideoCard>>(`${this.base}/feed/${kind}`, { params });
+  }
+  search(opts: { q?: string; categoryId?: string; tag?: string; channelId?: string; dateRange?: string; duration?: string; sort?: string; page?: number; pageSize?: number }) {
+    let params = new HttpParams()
+      .set('page', opts.page ?? 1)
+      .set('pageSize', opts.pageSize ?? 20);
+    if (opts.q) params = params.set('q', opts.q);
+    if (opts.sort) params = params.set('sort', opts.sort);
+    if (opts.categoryId) params = params.set('categoryId', opts.categoryId);
+    if (opts.tag) params = params.set('tag', opts.tag);
+    if (opts.channelId) params = params.set('channelId', opts.channelId);
+    if (opts.dateRange) params = params.set('dateRange', opts.dateRange);
+    if (opts.duration) params = params.set('duration', opts.duration);
+    return this.http.get<PageResult<VideoCard>>(`${this.base}/videos/search`, { params });
   }
   history(page = 1, pageSize = 20) { return this.http.get<PageResult<LibraryVideo>>(`${this.base}/library/history`, { params: { page, pageSize } }); }
   liked(rating: number | null = null, page = 1, pageSize = 20) {

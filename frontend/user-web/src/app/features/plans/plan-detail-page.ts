@@ -49,8 +49,11 @@ export class PlanDetailPage {
     if (!mp || !mp.planId) return true; // Chưa có gói -> đăng ký mới được
     if (mp.subscription && mp.subscription.isExpired) return true; // Gói cũ đã hết hạn -> đăng ký được
     if (mp.price === 0) return true; // Gói miễn phí -> được mua gói trả phí
-    // Gói cũ chưa hết hạn -> không được hạ gói, chỉ đổi sang gói đã mua và còn hạn
-    return mp.price > 0 && !!p && p.price >= mp.price && (mp.activePaidPlanIds ?? []).includes(p.planId);
+    if (!p) return false;
+    // Nâng cấp lên gói có giá cao hơn -> luôn cho phép
+    if (p.price > mp.price) return true;
+    // Chuyển đổi giữa các gói cùng giá -> phải là gói đã mua và còn hạn
+    return p.price === mp.price && (mp.activePaidPlanIds ?? []).includes(p.planId);
   }
 
   async copyShareUrl() {

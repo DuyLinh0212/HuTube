@@ -91,6 +91,35 @@
           </div>
         </div>
 
+        <div class="quota-allocation-bar">
+          <div class="allocation-item">
+            <span class="alloc-label">{{ 'plans.allocatedTotal' | translate }}</span>
+            <strong class="alloc-val">{{ formatBytes(totalAllocatedStorage(plan)) }}</strong>
+          </div>
+          <div class="allocation-item">
+            <span class="alloc-label">{{ 'plans.unallocated' | translate }}</span>
+            <strong class="alloc-val highlight">{{ formatBytes(unallocatedStorage(plan)) }}</strong>
+          </div>
+          <div class="allocation-item owner-alloc">
+            <span class="alloc-label">{{ 'plans.ownerQuota' | translate }}</span>
+            @if (editingOwnerStorage()) {
+              <div class="inline-edit">
+                <input type="number" [ngModel]="ownerStorageGB()" (ngModelChange)="ownerStorageGB.set($event)" [placeholder]="'plans.storageGBPlaceholder' | translate" min="1" class="input-mini" />
+                <button type="button" class="btn-save-mini" (click)="saveOwnerStorage()" [disabled]="busy()">✓</button>
+                <button type="button" class="btn-cancel-mini" (click)="cancelEditOwnerStorage()">✕</button>
+              </div>
+            } @else {
+              <strong class="alloc-val">{{ plan.ownerAllocatedStorage ? formatBytes(plan.ownerAllocatedStorage) : ('plans.sharedQuota' | translate) }}</strong>
+              @if (plan.ownerAllocatedStorage !== null && plan.ownerAllocatedStorage !== undefined) {
+                <span class="alloc-subtext">{{ 'plans.usedShort' | translate }} {{ formatBytes(plan.usedStorage) }} · {{ 'plans.remainingShort' | translate }} {{ formatBytes(ownerRemainingStorage(plan) ?? 0) }}</span>
+              }
+              @if (!plan.isSharedMember) {
+                <button type="button" class="btn-edit-mini" (click)="startEditOwnerStorage()">✎ {{ 'plans.setQuota' | translate }}</button>
+              }
+            }
+          </div>
+        </div>
+
         <div class="specs-mini-grid">
           <div class="mini-spec"><span class="ms-title">{{ 'plans.maxUpload' | translate }}</span><strong class="ms-val">{{ formatBytes(plan.maxUploadSize) }}</strong></div>
           <div class="mini-spec"><span class="ms-title">{{ 'plans.quality' | translate }}</span><strong class="ms-val">{{ qualitySummary(plan) }}</strong></div>
@@ -118,7 +147,12 @@
           </div>
         } @else {
           <form class="invite-form" (ngSubmit)="invite()">
-            <div class="input-wrap"><input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" [placeholder]="'plans.invitePlaceholder' | translate" required [disabled]="busy() || plan.members.length >= plan.maxMembers - 1" /></div>
+            <div class="input-wrap email-wrap">
+              <input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" [placeholder]="'plans.invitePlaceholder' | translate" required [disabled]="busy() || plan.members.length >= plan.maxMembers - 1" />
+            </div>
+            <div class="input-wrap quota-wrap">
+              <input type="number" name="inviteStorageGB" [(ngModel)]="inviteStorageGB" [placeholder]="'plans.storageGBPlaceholder' | translate" min="1" [disabled]="busy() || plan.members.length >= plan.maxMembers - 1" />
+            </div>
             <button type="submit" class="btn-invite" [disabled]="busy() || !inviteEmail.trim() || plan.members.length >= plan.maxMembers - 1">
               @if (busy()) { <span class="btn-spinner"></span> } @else { <span>+ {{ 'plans.inviteMember' | translate }}</span> }
             </button>
@@ -127,14 +161,52 @@
           <div class="members-table-wrap">
             @if (plan.members.length > 0) {
               <table class="members-table">
-                <thead><tr><th>{{ 'plans.memberEmail' | translate }}</th><th>{{ 'plans.invitedDate' | translate }}</th><th>{{ 'plans.memberStatus' | translate }}</th><th class="col-action">{{ 'ui.actions' | translate }}</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>{{ 'plans.memberEmail' | translate }}</th>
+                    <th>{{ 'plans.allocatedQuota' | translate }}</th>
+                    <th>{{ 'plans.usedQuota' | translate }}</th>
+                    <th>{{ 'plans.invitedDate' | translate }}</th>
+                    <th>{{ 'plans.memberStatus' | translate }}</th>
+                    <th class="col-action">{{ 'ui.actions' | translate }}</th>
+                  </tr>
+                </thead>
                 <tbody>
                   @for (member of plan.members; track member.planMemberId) {
                     <tr>
-                      <td class="cell-email"><div class="member-avatar">{{ member.memberEmail[0].toUpperCase() }}</div><span>{{ member.memberEmail }}</span></td>
+                      <td class="cell-email">
+                        <div class="member-avatar">{{ member.memberEmail[0].toUpperCase() }}</div>
+                        <span>{{ member.memberEmail }}</span>
+                      </td>
+                      <td class="cell-allocated">
+                        @if (editingMemberId() === member.planMemberId) {
+                          <div class="inline-edit">
+                            <input type="number" [ngModel]="editingMemberStorageGB()" (ngModelChange)="editingMemberStorageGB.set($event)" [placeholder]="'plans.storageGBPlaceholder' | translate" min="0" class="input-mini" />
+                            <button type="button" class="btn-save-mini" (click)="saveMemberStorage(member.planMemberId)" [disabled]="busy()">✓</button>
+                            <button type="button" class="btn-cancel-mini" (click)="cancelEditMember()">✕</button>
+                          </div>
+                        } @else {
+                          <span class="quota-text">{{ member.allocatedStorage ? formatBytes(member.allocatedStorage) : ('plans.sharedQuota' | translate) }}</span>
+                          @if (member.status !== 'revoked') {
+                            <button type="button" class="btn-edit-mini" (click)="startEditMember(member)" [title]="'plans.editQuota' | translate">✎</button>
+                          }
+                        }
+                      </td>
+                      <td class="cell-used">
+                        <div>{{ formatBytes(member.storageUsed || 0) }}</div>
+                        @if (memberRemainingStorage(member) !== null) {
+                          <small>{{ 'plans.remainingShort' | translate }} {{ formatBytes(memberRemainingStorage(member) ?? 0) }}</small>
+                        }
+                      </td>
                       <td class="cell-date">{{ member.invitedAt | localeDate:'dd/MM/yyyy' }}</td>
-                      <td class="cell-status"><span class="status-badge" [class.accepted]="member.status === 'accepted'" [class.pending]="member.status === 'pending'">{{ member.status === 'accepted' ? ('plans.accepted' | translate) : ('plans.waiting' | translate) }}</span></td>
-                      <td class="col-action"><button type="button" class="btn-revoke" (click)="revoke(member.planMemberId)" [disabled]="busy()">{{ 'ui.revoke' | translate }}</button></td>
+                      <td class="cell-status">
+                        <span class="status-badge" [class.accepted]="member.status === 'accepted'" [class.pending]="member.status === 'pending'">
+                          {{ member.status === 'accepted' ? ('plans.accepted' | translate) : ('plans.waiting' | translate) }}
+                        </span>
+                      </td>
+                      <td class="col-action">
+                        <button type="button" class="btn-revoke" (click)="revoke(member.planMemberId)" [disabled]="busy()">{{ 'ui.revoke' | translate }}</button>
+                      </td>
                     </tr>
                   }
                 </tbody>
@@ -185,7 +257,17 @@
               <div><dt>{{ 'plans.backgroundPip' | translate }}</dt><dd>{{ featureEnabled(plan, 'background_play') ? ('ui.yes' | translate) : ('ui.no' | translate) }} / {{ featureEnabled(plan, 'pip') ? ('ui.yes' | translate) : ('ui.no' | translate) }}</dd></div>
             </dl>
             <a class="plan-button" [routerLink]="['/plans', plan.planId]">
-              @if (isCurrentPlan(plan.planId)) { {{ 'plans.manage' | translate }} } @else if (canSwitch(plan.planId)) { {{ 'plans.switch' | translate }} } @else if (myPlan()?.planId && myPlan()!.price > 0 && !myPlan()!.subscription?.isExpired) { {{ 'plans.buy' | translate }} } @else { {{ 'plans.detailAndShare' | translate }} }
+              @if (isCurrentPlan(plan.planId)) {
+                {{ 'plans.manage' | translate }}
+              } @else if (myPlan()?.planId && myPlan()!.price > 0 && plan.price > myPlan()!.price) {
+                {{ 'plans.upgradePlan' | translate }}
+              } @else if (canSwitch(plan.planId)) {
+                {{ 'plans.switch' | translate }}
+              } @else if (myPlan()?.planId && myPlan()!.price > 0 && !myPlan()!.subscription?.isExpired) {
+                {{ 'plans.buy' | translate }}
+              } @else {
+                {{ 'plans.detailAndShare' | translate }}
+              }
             </a>
           </article>
         }

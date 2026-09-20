@@ -1,0 +1,85 @@
+<main id="main-content" class="subscriptions-page">
+  <header class="page-header">
+    <h1>{{ 'subscriptions.title' | translate }}</h1>
+  </header>
+
+  @if (!auth.user()) {
+    <section class="guest-prompt">
+      <div class="guest-icon">📺</div>
+      <h2>{{ 'subscriptions.loginTitle' | translate }}</h2>
+      <p>{{ 'subscriptions.loginDesc' | translate }}</p>
+      <a routerLink="/login" [queryParams]="{ returnUrl: '/subscriptions' }" class="btn-signin">
+        {{ 'subscriptions.loginButton' | translate }}
+      </a>
+    </section>
+  } @else if (loading()) {
+    <div class="state-wrap">
+      <div class="spinner"></div>
+      <p class="state">{{ 'common.loading' | translate }}</p>
+    </div>
+  } @else if (error()) {
+    <div class="state-wrap">
+      <p class="state error">{{ error() }}</p>
+      <button type="button" class="btn-retry" (click)="load()">{{ 'common.retry' | translate }}</button>
+    </div>
+  } @else if (channels().length === 0) {
+    <section class="empty-state">
+      <div class="empty-icon">🔔</div>
+      <h2>{{ 'subscriptions.noChannels' | translate }}</h2>
+      <p>{{ 'subscriptions.noChannelsDesc' | translate }}</p>
+      <a routerLink="/explore" class="btn-explore">
+        {{ 'subscriptions.exploreChannels' | translate }}
+      </a>
+    </section>
+  } @else {
+    <!-- Subscribed Channels Strip -->
+    <section class="channels-strip" [attr.aria-label]="'subscriptions.subscribedChannels' | translate">
+      <div class="strip-scroll">
+        @for (channel of channels(); track channel.channelId) {
+          <a class="channel-chip" [routerLink]="['/channel', channel.handle]" [title]="channel.name">
+            <div class="chip-avatar">
+              @if (channel.avatarUrl) {
+                <img [src]="channel.avatarUrl" [alt]="channel.name" />
+              } @else {
+                <span>{{ channel.name[0].toUpperCase() }}</span>
+              }
+            </div>
+            <span class="chip-name">{{ channel.name }}</span>
+          </a>
+        }
+      </div>
+    </section>
+
+    <!-- Videos Grid -->
+    @if (videos().length > 0) {
+      <section class="videos-section">
+        <h2 class="section-title">{{ 'subscriptions.latestVideos' | translate }}</h2>
+        <div class="grid" [attr.aria-label]="'subscriptions.latestVideos' | translate">
+          @for (video of videos(); track video.videoId) {
+            <a class="card" [routerLink]="['/watch', video.videoId]">
+              <div class="thumb">
+                @if (video.thumbnailUrl) {
+                  <img [src]="video.thumbnailUrl" alt="" />
+                } @else {
+                  <span class="fallback-play">▶</span>
+                }
+                <time>{{ duration(video.duration) }}</time>
+              </div>
+              <div class="copy">
+                <h2>{{ video.title }}</h2>
+                <p class="channel-link">{{ video.channelName }}</p>
+                <small>{{ video.views | localeNumber }} {{ 'home.views' | translate }} · {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</small>
+              </div>
+            </a>
+          }
+        </div>
+      </section>
+    } @else {
+      <section class="empty-videos">
+        <div class="empty-icon">📭</div>
+        <h2>{{ 'subscriptions.noVideos' | translate }}</h2>
+        <p>{{ 'subscriptions.noVideosDesc' | translate }}</p>
+      </section>
+    }
+  }
+</main>

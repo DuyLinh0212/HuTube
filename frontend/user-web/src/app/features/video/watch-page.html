@@ -91,6 +91,9 @@
           }
           <button type="button" class="action-button" (click)="share()" [attr.aria-expanded]="shareOpen()" aria-controls="share-popover"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5-5 5M19 10H9a4 4 0 0 0-4 4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>{{ 'watch.shareVideo' | translate }}</span></button>
           @if (auth.user()) {
+            <button type="button" class="action-button" (click)="saveToPlaylist()" [disabled]="savedToPlaylist()">{{ savedToPlaylist() ? 'Đã lưu' : 'Lưu' }}</button>
+          }
+          @if (auth.user()) {
             <button type="button" class="action-button" (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover">{{ 'watch.download' | translate }}</button>
           } @else {
             <a class="action-button" routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }">{{ 'watch.loginDownload' | translate }}</a>
@@ -133,14 +136,29 @@
         </div>
 
         <section class="channel-row">
-          <a class="channel-identity" [routerLink]="['/channel', item.channelHandle]">
-            @if (channel(); as currentChannel) {
-              @if (currentChannel.avatarUrl) { <img class="channel-avatar" [src]="currentChannel.avatarUrl" alt="" /> } @else { <span class="channel-avatar channel-avatar--fallback">{{ initials(item.channelName) }}</span> }
-            } @else { <span class="channel-avatar channel-avatar--fallback">{{ initials(item.channelName) }}</span> }
-            <span class="channel-copy"><strong>{{ item.channelName }}</strong><small>@{{ item.channelHandle }}</small></span>
-          </a>
+          <div class="channel-info">
+            <a class="channel-identity" [routerLink]="['/channel', item.channelHandle]">
+              @if (channel(); as currentChannel) {
+                @if (currentChannel.avatarUrl) { <img class="channel-avatar" [src]="currentChannel.avatarUrl" alt="" /> } @else { <span class="channel-avatar channel-avatar--fallback">{{ initials(item.channelName) }}</span> }
+              } @else { <span class="channel-avatar channel-avatar--fallback">{{ initials(item.channelName) }}</span> }
+              <span class="channel-copy">
+                <strong>{{ item.channelName }}</strong>
+                <small>@{{ item.channelHandle }}</small>
+                <small class="subscriber-count">{{ countLabel('watch.subscribers', subscriberCount()) }}</small>
+              </span>
+            </a>
+          </div>
+          
           @if (channel(); as currentChannel) {
-            @if (currentChannel.subscriberCount !== undefined) { <span class="subscriber-count">{{ countLabel('watch.subscribers', currentChannel.subscriberCount) }}</span> }
+            @if (myChannelId() !== currentChannel.channelId) {
+              <button 
+                type="button" 
+                class="primary-button" 
+                [class.is-subscribed]="subscribed()"
+                (click)="toggleSubscribe()">
+                {{ (subscribed() ? 'watch.subscribed' : 'watch.subscribe') | translate }}
+              </button>
+            }
           }
         </section>
 

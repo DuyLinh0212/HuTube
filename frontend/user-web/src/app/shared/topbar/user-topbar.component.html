@@ -16,10 +16,17 @@
     </a>
   </div>
 
-  <label class="search-box">
+  <label class="search-box" (click)="searchInputEl?.focus()">
     <span class="search-glyph" aria-hidden="true"></span>
-    <input type="search" [placeholder]="'nav.searchPlaceholder' | translate" [attr.aria-label]="'nav.searchPlaceholder' | translate" />
-      <kbd>{{ 'ui.searchShortcut' | translate }}</kbd>
+    <input
+      #searchInputEl
+      type="search"
+      [placeholder]="'nav.searchPlaceholder' | translate"
+      [attr.aria-label]="'nav.searchPlaceholder' | translate"
+      [(ngModel)]="topbarSearch"
+      (keydown.enter)="submitTopbarSearch()"
+    />
+    <kbd>{{ 'ui.searchShortcut' | translate }}</kbd>
   </label>
 
   <div class="top-actions" [attr.aria-label]="'ui.quickActions' | translate">

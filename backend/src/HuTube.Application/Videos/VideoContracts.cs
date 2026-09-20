@@ -59,10 +59,23 @@ public sealed record UploadPreflightRequest(Guid ChannelId, long FileSize, int D
 public sealed record UploadPreflightResponse(bool Allowed, long MaxUploadSize, int MaxDuration, string MaxQuality,
     long StorageLimit, long StorageUsed, long StorageRemaining);
 
+public sealed record SearchVideosQuery(
+    string? Query = null,
+    Guid? CategoryId = null,
+    string? Tag = null,
+    Guid? ChannelId = null,
+    string? DateRange = null,
+    string? DurationRange = null,
+    string? Sort = "relevance",
+    int Page = 1,
+    int PageSize = 20);
+
 public interface IContentService
 {
     Task<IReadOnlyList<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default);
+    Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
+    Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery query, CancellationToken ct = default);
     Task<PageResult<LibraryVideoResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<LibraryVideoResponse>> GetLikedVideosAsync(Guid userId, int? rating, int page, int pageSize, CancellationToken ct = default);
     Task<VideoResponse> GetVideoAsync(Guid videoId, Guid? viewerId, CancellationToken ct = default);

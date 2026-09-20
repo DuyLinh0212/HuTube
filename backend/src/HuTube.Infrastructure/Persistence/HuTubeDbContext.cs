@@ -1,4 +1,5 @@
 using HuTube.Domain.Channels;
+using HuTube.Domain.Playlists;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
 using HuTube.Domain.Videos;
@@ -16,6 +17,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
     public DbSet<ChannelMember> ChannelMembers => Set<ChannelMember>();
     public DbSet<ChannelInvitation> ChannelInvitations => Set<ChannelInvitation>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -23,6 +25,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<HuTube.Domain.Plans.PlanHistory> PlanHistories => Set<HuTube.Domain.Plans.PlanHistory>();
     public DbSet<HuTube.Domain.Plans.PlanMember> PlanMembers => Set<HuTube.Domain.Plans.PlanMember>();
     public DbSet<HuTube.Domain.Plans.PlanInvitationToken> PlanInvitationTokens => Set<HuTube.Domain.Plans.PlanInvitationToken>();
+    public DbSet<Playlist> Playlists => Set<Playlist>();
+    public DbSet<PlaylistVideo> PlaylistVideos => Set<PlaylistVideo>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Video> Videos => Set<Video>();
     public DbSet<VideoRendition> VideoRenditions => Set<VideoRendition>();
@@ -113,6 +117,10 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.ToTable("channel_invitations"); b.HasKey(x => x.ChannelInvitationId);
             b.Property(x => x.InvitedEmail).HasColumnType("citext");
         });
+        model.Entity<Subscription>(b => {
+            b.ToTable("subscriptions"); b.HasKey(x => x.SubscriptionId);
+            b.HasIndex(x => new { x.UserId, x.ChannelId }).IsUnique();
+        });
         model.Entity<Permission>(b => {
             b.ToTable("permissions"); b.HasKey(x => x.PermissionId);
             b.HasIndex(x => x.Code).IsUnique();
@@ -135,6 +143,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<HuTube.Domain.Plans.PlanHistory>(b => { b.ToTable("plan_histories"); b.HasKey(x => x.PlanHistoryId); });
         model.Entity<HuTube.Domain.Plans.PlanMember>(b => { b.ToTable("plan_members"); b.HasKey(x => x.PlanMemberId); });
         model.Entity<HuTube.Domain.Plans.PlanInvitationToken>(b => { b.ToTable("plan_invitation_tokens"); b.HasKey(x => x.PlanInvitationTokenId); });
+        model.Entity<Playlist>(b => { b.ToTable("playlists"); b.HasKey(x => x.PlaylistId); b.HasIndex(x => x.UserId); b.HasIndex(x => x.Status); });
+        model.Entity<PlaylistVideo>(b => { b.ToTable("playlist_videos"); b.HasKey(x => x.PlaylistVideoId); b.HasIndex(x => new { x.PlaylistId, x.VideoId }).IsUnique(); b.HasIndex(x => new { x.PlaylistId, x.Position }).IsUnique(); });
         model.Entity<Category>(b => { b.ToTable("categories"); b.HasKey(x => x.CategoryId); b.HasIndex(x => x.Slug).IsUnique(); });
         model.Entity<Video>(b => {
             b.ToTable("videos");

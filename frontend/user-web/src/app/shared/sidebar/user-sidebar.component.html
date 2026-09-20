@@ -35,10 +35,10 @@
           <img src="/assets/icons/favorite.png" alt="" />
           <span>{{ 'nav.likedVideos' | translate }}</span>
         </a>
-        <span class="nav-item" [title]="'nav.playlists' | translate">
+        <a class="nav-item" routerLink="/playlists" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.playlists' | translate">
           <img src="/assets/icons/playlist.png" alt="" />
           <span>{{ 'nav.playlists' | translate }}</span>
-        </span>
+        </a>
       </section>
 
       <section class="nav-group" [attr.aria-label]="'nav.settings' | translate">
@@ -60,6 +60,23 @@
         </div>
       </section>
     }
+
+    @if (subscribedChannels().length > 0) {
+      <section class="nav-group" [attr.aria-label]="'nav.subscriptions' | translate">
+        <p class="nav-label">{{ 'nav.subscriptions' | translate }}</p>
+        @for (sub of subscribedChannels(); track sub.channelId) {
+          <a class="nav-item" [routerLink]="['/channel', sub.handle]" (click)="closeNavigation()" [title]="sub.name">
+            @if (sub.avatarUrl) {
+              <img class="channel-avatar" [src]="sub.avatarUrl" alt="" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" />
+            } @else {
+              <span class="channel-avatar channel-avatar--fallback" style="width: 24px; height: 24px; line-height: 24px; font-size: 10px;">{{ sub.name.charAt(0).toUpperCase() }}</span>
+            }
+            <span class="channel-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1;">{{ sub.name }}</span>
+          </a>
+        }
+      </section>
+    }
+
   </nav>
 
   <div class="sidebar-footer">

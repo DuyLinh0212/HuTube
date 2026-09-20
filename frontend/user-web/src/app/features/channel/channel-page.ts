@@ -1,13 +1,14 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
-import { ContentService, VideoDetail } from '../../core/content.service';
+import { ContentService, VideoCard, VideoDetail } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 
 export interface ChannelLink {
   platform?: 'facebook' | 'instagram' | 'tiktok' | 'x' | 'other';
@@ -25,8 +26,10 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 })
 export class ChannelPage {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private channelService = inject(ChannelService);
   private contentService = inject(ContentService);
+  private playlistService = inject(PlaylistService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
 
@@ -35,7 +38,8 @@ export class ChannelPage {
   readonly loading = signal(true);
   readonly error = signal('');
   readonly isSubscribed = signal(false);
-  readonly videos = signal<VideoDetail[]>([]);
+  readonly videos = signal<Array<VideoDetail | VideoCard>>([]);
+  readonly playlists = signal<PlaylistSummary[]>([]);
   readonly channelLinks = signal<ChannelLink[]>([]);
   readonly showInfoModal = signal(false);
   readonly shareCopied = signal(false);
@@ -45,7 +49,7 @@ export class ChannelPage {
 
   readonly totalViews = computed(() => {
     const vids = this.videos();
-    return vids.reduce((acc, v) => acc + (v.stats?.views || 0), 0);
+    return vids.reduce((acc, v) => acc + this.videoViews(v), 0);
   });
 
   constructor() {
@@ -65,12 +69,33 @@ export class ChannelPage {
       next: ch => {
         this.channel.set(ch);
         this.parseLinks(ch);
+        this.playlistService.publicByChannel(ch.channelId).subscribe({
+          next: lists => this.playlists.set(lists),
+          error: () => this.playlists.set([])
+        });
         if (ch.isOwner) {
           this.contentService.managed(ch.channelId, 1, 50).subscribe(page => this.videos.set(page.items));
+        } else {
+          // Public channel pages must load the channel's published catalogue too.
+          this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
+            .subscribe(page => this.videos.set(page.items));
+        }
+
+        if (!!this.auth.user() && !ch.isOwner) {
+          this.channelService.getSubscriptionStatus(ch.channelId).subscribe({
+            next: sub => this.isSubscribed.set(sub.status === 'active'),
+            error: () => this.isSubscribed.set(false)
+          });
+        } else {
+          this.isSubscribed.set(false);
         }
       },
       error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.notFound'))
     });
+  }
+
+  videoViews(video: VideoDetail | VideoCard): number {
+    return 'stats' in video ? video.stats.views : video.views;
   }
 
   private parseLinks(ch: ChannelDetail) {
@@ -100,7 +125,36 @@ export class ChannelPage {
   }
 
   toggleSubscribe() {
-    this.isSubscribed.set(!this.isSubscribed());
+    const ch = this.channel();
+    if (!ch) return;
+
+    if (!this.auth.user()) {
+      void this.router.navigate(['/login']);
+      return;
+    }
+
+    if (ch.isOwner) {
+      alert(this.i18n.t('watch.cannotSubscribeSelf'));
+      return;
+    }
+
+    if (this.isSubscribed()) {
+      this.channelService.unsubscribe(ch.channelId).subscribe({
+        next: () => {
+          this.isSubscribed.set(false);
+          this.channel.update(c => c ? { ...c, subscriberCount: Math.max(0, c.subscriberCount - 1) } : c);
+        },
+        error: () => alert(this.i18n.t('watch.unsubscribeError'))
+      });
+    } else {
+      this.channelService.subscribe(ch.channelId).subscribe({
+        next: () => {
+          this.isSubscribed.set(true);
+          this.channel.update(c => c ? { ...c, subscriberCount: c.subscriberCount + 1 } : c);
+        },
+        error: () => alert(this.i18n.t('watch.subscribeError'))
+      });
+    }
   }
 
   openInfoModal() {

@@ -83,6 +83,22 @@ public sealed record ChannelRoleResponse(
     string Description,
     IReadOnlyList<string> Permissions);
 
+public sealed record SubscriptionResponse(
+    Guid SubscriptionId,
+    Guid ChannelId,
+    Guid UserId,
+    DateTimeOffset SubscribedAt,
+    bool NotificationsEnabled,
+    string Status);
+
+public sealed record SubscribedChannelResponse(
+    Guid ChannelId,
+    string Name,
+    string Handle,
+    string? AvatarUrl,
+    long SubscriberCount,
+    DateTimeOffset SubscribedAt);
+
 public sealed class ChannelException(int status, string code, string message) : Exception(message)
 {
     public int Status { get; } = status;

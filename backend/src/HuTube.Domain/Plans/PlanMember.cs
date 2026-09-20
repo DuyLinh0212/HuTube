@@ -12,6 +12,7 @@ public sealed class PlanHistory
     public bool AutoRenew { get; set; }
     public string? PaymentReference { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public long? OwnerAllocatedStorage { get; set; }
 }
 
 public sealed class PlanMember
@@ -25,6 +26,7 @@ public sealed class PlanMember
     public DateTimeOffset InvitedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? AcceptedAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
+    public long? AllocatedStorage { get; set; }
 }
 
 public sealed class PlanInvitationToken

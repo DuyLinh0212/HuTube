@@ -48,6 +48,13 @@ public sealed class AdminController(
         return NoContent();
     }
 
+    [HttpGet("plans/subscriptions/{userId:guid}"), RequirePermission(AdminPermissions.PlanView)]
+    public async Task<ActionResult<PlanDetailResponse>> GetUserSubscriptionAsync(Guid userId, CancellationToken ct)
+    {
+        var result = await plans.GetMyPlanAsync(userId, ct);
+        return result == null ? NotFound() : Ok(result);
+    }
+
     [HttpGet("me")]
     public Task<AdminMeResponse> GetMeAsync(CancellationToken ct) =>
         rbac.GetAdminMeAsync(UserId, ct);

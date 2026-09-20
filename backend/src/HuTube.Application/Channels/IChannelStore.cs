@@ -23,6 +23,11 @@ public interface IChannelStore
     void AddInvitation(ChannelInvitation invitation);
     Task<User?> FindUserByEmailAsync(string email, CancellationToken ct);
     Task<User?> FindUserByIdAsync(Guid userId, CancellationToken ct);
+    Task<Subscription?> FindSubscriptionAsync(Guid userId, Guid channelId, CancellationToken ct);
+    void AddSubscription(Subscription subscription);
+    Task<long> CountSubscribersAsync(Guid channelId, CancellationToken ct);
+    Task<long> CountPublishedVideosAsync(Guid channelId, CancellationToken ct) => Task.FromResult(0L);
+    Task<List<SubscribedChannelResponse>> GetSubscribedChannelsAsync(Guid userId, CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
 }
 

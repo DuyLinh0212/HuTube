@@ -15,6 +15,10 @@ export const routes: Routes = [
 
   { path: 'home', loadComponent: () => import('./features/home/home-page').then(m => m.HomePage) },
   { path: 'explore', loadComponent: () => import('./features/explore/explore-page').then(m => m.ExplorePage) },
+  { path: 'search', loadComponent: () => import('./features/explore/explore-page').then(m => m.ExplorePage) },
+  { path: 'subscriptions', loadComponent: () => import('./features/subscriptions/subscriptions-page').then(m => m.SubscriptionsPage) },
+  { path: 'playlists', loadComponent: () => import('./features/playlists/playlists-page').then(m => m.PlaylistsPage) },
+  { path: 'playlists/:id', loadComponent: () => import('./features/playlists/playlists-page').then(m => m.PlaylistsPage) },
   { path: 'watch/:id', loadComponent: () => import('./features/video/watch-page').then(m => m.WatchPage) },
   { path: 'terms', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },
   { path: 'privacy', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },
@@ -37,6 +41,8 @@ export const routes: Routes = [
       { path: 'liked', data: { library: 'liked' }, loadComponent: () => import('./features/library/library-page').then(m => m.LibraryPage) },
       { path: 'channel/create', loadComponent: () => import('./features/channel/channel-create-page').then(m => m.ChannelCreatePage) },
       { path: 'channel-invitations', pathMatch: 'full', redirectTo: 'studio/invitations' },
+      { path: 'channel/:handle/playlists', loadComponent: () => import('./features/playlists/playlists-page').then(m => m.PlaylistsPage) },
+      { path: 'channel/:handle/playlists/:id', loadComponent: () => import('./features/playlists/playlists-page').then(m => m.PlaylistsPage) },
       { path: 'channel/:handle', loadComponent: () => import('./features/channel/channel-page').then(m => m.ChannelPage) },
       { path: 'channel/:handle/customize', loadComponent: () => import('./features/channel/channel-settings-page').then(m => m.ChannelSettingsPage) },
       {

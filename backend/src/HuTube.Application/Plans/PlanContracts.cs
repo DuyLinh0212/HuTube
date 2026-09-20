@@ -26,7 +26,9 @@ public sealed record PlanMemberResponse(
     string Status,
     DateTimeOffset InvitedAt,
     DateTimeOffset? AcceptedAt,
-    DateTimeOffset? RevokedAt);
+    DateTimeOffset? RevokedAt,
+    long? AllocatedStorage = null,
+    long StorageUsed = 0);
 
 public sealed record PlanShareResponse(
     Guid PlanId,
@@ -64,7 +66,8 @@ public sealed record PlanDetailResponse(
     int MaxVideoDuration = 0,
     string? Description = null,
     string? Status = null,
-    string? MaxDownloadQuality = null);
+    string? MaxDownloadQuality = null,
+    long? OwnerAllocatedStorage = null);
 
 public sealed record PlanSubscriptionRequest(
     string? PaymentMethod = null,
@@ -101,7 +104,14 @@ public sealed record UpdatePlanRequest(
     string? MaxDownloadQuality = null);
 
 public sealed record PlanInviteRequest(
-    string Email);
+    string Email,
+    long? AllocatedStorage = null);
+
+public sealed record UpdatePlanMemberStorageRequest(
+    long? AllocatedStorage);
+
+public sealed record UpdateOwnerStorageRequest(
+    long? AllocatedStorage);
 
 public sealed record PlanAcceptInvitationRequest(
     string Token);
@@ -124,7 +134,9 @@ public interface IPlanService
     Task<PlanDetailResponse?> GetMyPlanAsync(Guid userId, CancellationToken ct = default);
     Task<long?> GetEffectiveStorageLimitAsync(Guid userId, CancellationToken ct = default);
     Task<PlanResponse> SubscribeAsync(Guid userId, Guid planId, PlanSubscriptionRequest request, CancellationToken ct = default);
-    Task<PlanMemberResponse> InviteMemberAsync(Guid ownerUserId, string email, CancellationToken ct = default);
+    Task<PlanMemberResponse> InviteMemberAsync(Guid ownerUserId, string email, long? allocatedStorage, CancellationToken ct = default);
     Task<PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, CancellationToken ct = default);
     Task RemoveMemberAsync(Guid ownerUserId, Guid memberId, CancellationToken ct = default);
+    Task<PlanMemberResponse> UpdateMemberStorageAsync(Guid ownerUserId, Guid memberId, long? allocatedStorage, CancellationToken ct = default);
+    Task UpdateOwnerStorageAsync(Guid ownerUserId, long? allocatedStorage, CancellationToken ct = default);
 }
