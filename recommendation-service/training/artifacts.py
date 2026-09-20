@@ -7,13 +7,12 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import torch
 import yaml
 
 from app.data.mapping import IndexMappings, build_seen_csr, save_seen_csr
-from app.ranking import item_popularity_counts
-from app.recommenders.mbmf import MultiBehaviorMF
+from app.recommenders.base import CollaborativeFilter
 from training.config import TrainConfig
+from training.trainer import MODEL_TYPES, ModelType
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -29,14 +28,28 @@ def make_model_version(config: TrainConfig) -> str:
         json.dumps(payload, sort_keys=True).encode("utf-8")
     ).hexdigest()[:8]
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    return f"mbmf_ml100k_{timestamp}_{digest}"
+    return f"cf_ml100k_{timestamp}_{digest}"
+
+
+def _item_metadata(
+    items: pd.DataFrame,
+    genre_names: list[str],
+) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for _, row in items.iterrows():
+        item_id = str(row["item_id"])
+        result[item_id] = {
+            "title": str(row["title"]),
+            "genres": [genre for genre in genre_names if int(row[genre]) == 1],
+        }
+    return result
 
 
 def save_artifact(
     *,
     artifact_root: Path,
     model_version: str,
-    model: MultiBehaviorMF,
+    models: dict[ModelType, CollaborativeFilter],
     config: TrainConfig,
     mappings: IndexMappings,
     fit_interactions: pd.DataFrame,
@@ -48,15 +61,11 @@ def save_artifact(
 ) -> Path:
     artifact_dir = artifact_root / model_version
     artifact_dir.mkdir(parents=True, exist_ok=False)
-    torch.save(
-        {
-            "state_dict": model.state_dict(),
-            "user_count": model.user_count,
-            "item_count": model.item_count,
-            "embedding_dimension": model.embedding_dimension,
-        },
-        artifact_dir / "model.pt",
-    )
+    for model_type in MODEL_TYPES:
+        if model_type not in models:
+            raise ValueError(f"Missing required model: {model_type}")
+        models[model_type].save_npz(artifact_dir / f"{model_type}.npz")
+
     config_payload = config.model_dump(mode="json", exclude={"project_root"})
     (artifact_dir / "config.yaml").write_text(
         yaml.safe_dump(config_payload, allow_unicode=True, sort_keys=False),
@@ -67,25 +76,9 @@ def save_artifact(
     _write_json(artifact_dir / "training_history.json", history)
     _write_json(artifact_dir / "user_index.json", mappings.user_to_index)
     _write_json(artifact_dir / "item_index.json", mappings.item_to_index)
-
-    item_metadata: dict[str, dict[str, Any]] = {}
-    for _, row in items.iterrows():
-        item_id = str(row["item_id"])
-        item_metadata[item_id] = {
-            "title": str(row["title"]),
-            "genres": [genre for genre in genre_names if int(row[genre]) == 1],
-        }
-    _write_json(artifact_dir / "item_metadata.json", item_metadata)
-    _write_json(
-        artifact_dir / "item_popularity.json",
-        item_popularity_counts(
-            fit_interactions,
-            item_count=len(mappings.item_to_index),
-        ).astype(int).tolist(),
-    )
+    _write_json(artifact_dir / "item_metadata.json", _item_metadata(items, genre_names))
     indptr, indices = build_seen_csr(fit_interactions, mappings)
     save_seen_csr(artifact_dir / "seen_items.npz", indptr, indices)
-
     return artifact_dir
 
 
@@ -99,6 +92,7 @@ def update_benchmark_pointer(artifact_root: Path, model_version: str) -> Path:
             "path": model_version,
             "source": "MOVIELENS",
             "deployable": False,
+            "algorithms": list(MODEL_TYPES),
         },
     )
     return pointer

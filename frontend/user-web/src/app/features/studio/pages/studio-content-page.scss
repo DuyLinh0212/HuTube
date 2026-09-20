@@ -105,6 +105,8 @@ small { color: var(--text-muted); font-size: 0.72rem; }
 .readonly-visibility { color: var(--text-muted); font-size: 0.8rem; font-weight: 600; }
 .updating-spinner { color: var(--primary); font-size: 0.72rem; font-weight: 600; }
 .empty-cell { padding: 40px 20px; color: var(--text-muted); text-align: center; }
+.edit-video-link { display: inline-block; margin-top: 6px; color: var(--primary, #f24755); font-size: .72rem; font-weight: 800; text-decoration: none; }
+.edit-video-link:hover { text-decoration: underline; }
 
 .badge {
   display: inline-flex;

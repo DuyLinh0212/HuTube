@@ -104,4 +104,10 @@ export class ContentService {
   update(videoId: string, data: { visibility?: string; title?: string; description?: string }) {
     return this.http.patch<VideoDetail>(`${this.base}/videos/${videoId}`, data);
   }
+  updateThumbnail(videoId: string, file: File | null, generate = false) {
+    const data = new FormData();
+    data.append('Generate', String(generate));
+    if (file) data.append('Thumbnail', file, file.name);
+    return this.http.post<VideoDetail>(`${this.base}/videos/${videoId}/thumbnail`, data);
+  }
 }

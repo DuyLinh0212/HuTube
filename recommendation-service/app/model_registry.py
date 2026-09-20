@@ -3,18 +3,23 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
-import torch
 
 from app.config import Settings
 from app.data.mapping import IndexMappings
-from app.recommenders.mbmf import MultiBehaviorMF
+from app.recommenders.base import CollaborativeFilter
+from app.recommenders.item_cf import ItemBasedCF
+from app.recommenders.user_cf import UserBasedCF
+
+ModelType = Literal["user_based", "item_based"]
 
 
 @dataclass(slots=True)
 class LoadedModel:
-    model: MultiBehaviorMF
+    model: CollaborativeFilter
+    model_type: ModelType
     mappings: IndexMappings
     index_to_item: list[str]
     seen_indptr: np.ndarray
@@ -22,9 +27,6 @@ class LoadedModel:
     metadata: dict
     item_metadata: dict
     artifact_dir: Path
-    device: torch.device
-    item_popularity: np.ndarray | None = None
-    popularity_weight: float = 0.0
 
     def seen_items(self, user_index: int) -> np.ndarray:
         start = int(self.seen_indptr[user_index])
@@ -36,14 +38,24 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _validate_model_type(value: str) -> ModelType:
+    if value not in {"user_based", "item_based"}:
+        raise ValueError("model_type must be 'user_based' or 'item_based'.")
+    return value  # type: ignore[return-value]
+
+
 def load_artifact_directory(
     artifact_dir: str | Path,
     *,
-    device_name: str = "cpu",
+    model_type: str = "item_based",
+    device_name: str | None = None,
 ) -> LoadedModel:
+    """Load one of the two pure-CF models from a shared artifact."""
+    del device_name  # Kept as a harmless compatibility argument for old callers.
+    selected_type = _validate_model_type(model_type)
     path = Path(artifact_dir).expanduser().resolve()
     required = (
-        "model.pt",
+        f"{selected_type}.npz",
         "metadata.json",
         "user_index.json",
         "item_index.json",
@@ -53,16 +65,12 @@ def load_artifact_directory(
     missing = [name for name in required if not (path / name).is_file()]
     if missing:
         raise FileNotFoundError(f"Artifact {path} is incomplete: {', '.join(missing)}")
-    device = torch.device(device_name)
-    checkpoint = torch.load(path / "model.pt", map_location=device, weights_only=True)
-    model = MultiBehaviorMF(
-        users=int(checkpoint["user_count"]),
-        items=int(checkpoint["item_count"]),
-        embedding_dimension=int(checkpoint["embedding_dimension"]),
+
+    model = (
+        UserBasedCF.load_npz(path / "user_based.npz")
+        if selected_type == "user_based"
+        else ItemBasedCF.load_npz(path / "item_based.npz")
     )
-    model.load_state_dict(checkpoint["state_dict"])
-    model.to(device)
-    model.eval()
     user_to_index = {
         str(key): int(value)
         for key, value in _read_json(path / "user_index.json").items()
@@ -73,25 +81,16 @@ def load_artifact_directory(
     }
     mappings = IndexMappings(user_to_index=user_to_index, item_to_index=item_to_index)
     seen = np.load(path / "seen_items.npz")
-    popularity_path = path / "item_popularity.json"
-    item_popularity = (
-        np.asarray(json.loads(popularity_path.read_text(encoding="utf-8")), dtype=np.float32)
-        if popularity_path.is_file()
-        else None
-    )
-    ranking = _read_json(path / "metadata.json").get("ranking", {})
     return LoadedModel(
         model=model,
+        model_type=selected_type,
         mappings=mappings,
         index_to_item=mappings.index_to_item,
-        seen_indptr=seen["indptr"],
-        seen_indices=seen["indices"],
+        seen_indptr=np.asarray(seen["indptr"], dtype=np.int64),
+        seen_indices=np.asarray(seen["indices"], dtype=np.int64),
         metadata=_read_json(path / "metadata.json"),
         item_metadata=_read_json(path / "item_metadata.json"),
         artifact_dir=path,
-        device=device,
-        item_popularity=item_popularity,
-        popularity_weight=float(ranking.get("popularityWeight", 0.0)),
     )
 
 
@@ -114,7 +113,7 @@ class ModelRegistry:
         try:
             loaded = load_artifact_directory(
                 self._resolve_artifact(),
-                device_name=self.settings.device,
+                model_type=self.settings.model_type,
             )
             source = str(loaded.metadata.get("source", ""))
             deployable = bool(loaded.metadata.get("deployable", False))

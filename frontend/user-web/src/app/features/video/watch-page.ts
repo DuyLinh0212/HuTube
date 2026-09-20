@@ -9,7 +9,7 @@ import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
-import { PlaylistItem, PlaylistService } from '../../core/playlist.service';
+import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 
 @Component({
   selector: 'app-watch-page',
@@ -56,8 +56,13 @@ export class WatchPage {
   readonly downloadOptions = signal<Rendition[]>([]);
   readonly downloadOpen = signal(false);
   readonly downloadBusy = signal(false);
-  readonly savedToPlaylist = signal(false);
+  readonly playlistPickerOpen = signal(false);
+  readonly playlistOptions = signal<PlaylistSummary[]>([]);
+  readonly playlistLoading = signal(false);
+  readonly playlistAddingId = signal<string | null>(null);
+  readonly addedPlaylistIds = signal<Record<string, boolean>>({});
   readonly subscribed = signal(false);
+  readonly subscriptionNotificationsEnabled = signal(false);
   readonly subscriberCount = signal(0);
   readonly visibleRelatedVideos = computed(() => {
     const items = this.relatedVideos();
@@ -77,6 +82,7 @@ export class WatchPage {
   private pendingSeek: number | null = null;
   private resumeApplied = false;
   private continuePlaying = false;
+  private autoPlayAttempted = false;
   private playlistQueue: PlaylistItem[] = [];
   private playlistIndex = -1;
 
@@ -110,7 +116,7 @@ export class WatchPage {
       next: video => {
         this.video.set(video);
         if (video.videoUrl) {
-          this.activeRendition.set({ quality: this.i18n.t('watch.sourceQuality'), width: 0, height: 0, fileSize: video.fileSize, url: video.videoUrl });
+          this.setAutoplayRendition({ quality: this.i18n.t('watch.sourceQuality'), width: 0, height: 0, fileSize: video.fileSize, url: video.videoUrl });
         }
         this.channels.getChannel(video.channelHandle).subscribe({
           next: channel => {
@@ -118,8 +124,14 @@ export class WatchPage {
             this.subscriberCount.set(channel.subscriberCount);
             if (this.auth.user()) {
               this.channels.getSubscriptionStatus(channel.channelId).subscribe({
-                next: sub => this.subscribed.set(sub.status === 'active'),
-                error: () => this.subscribed.set(false)
+                next: sub => {
+                  this.subscribed.set(sub.status === 'active');
+                  this.subscriptionNotificationsEnabled.set(sub.status === 'active' && sub.notificationsEnabled);
+                },
+                error: () => {
+                  this.subscribed.set(false);
+                  this.subscriptionNotificationsEnabled.set(false);
+                }
               });
             }
           },
@@ -141,7 +153,7 @@ export class WatchPage {
         const best = playback.renditions.reduce<Rendition | null>((current, item) => !current || item.height > current.height ? item : current, null);
         if (best) {
           this.quality.set(best.quality);
-          this.activeRendition.set(best);
+          this.setAutoplayRendition(best);
         }
       },
       error: () => this.actionMessage.set(this.i18n.t('watch.playbackQualityError'))
@@ -190,7 +202,35 @@ export class WatchPage {
       this.continuePlaying = false;
       void player.play();
     }
+    if (!this.autoPlayAttempted) {
+      this.autoPlayAttempted = true;
+      this.tryAutoplay(player);
+    }
     this.currentTime.set(player.currentTime);
+  }
+
+  private tryAutoplay(player: HTMLVideoElement) {
+    void player.play().catch(() => {
+      // Browsers commonly reject audible autoplay. A muted fallback still
+      // starts the requested video without making sound unexpectedly.
+      player.muted = true;
+      this.muted.set(true);
+      return player.play().catch(() => {
+        this.actionMessage.set('Trình duyệt đang chặn tự động phát. Hãy bấm nút phát để xem video.');
+      });
+    });
+  }
+
+  private setAutoplayRendition(rendition: Rendition) {
+    if (this.activeRendition()?.url !== rendition.url) {
+      const player = this.playerRef?.nativeElement;
+      if (player && Number.isFinite(player.currentTime)) {
+        this.pendingSeek = player.currentTime;
+        this.continuePlaying = !player.paused;
+      }
+      this.autoPlayAttempted = false;
+    }
+    this.activeRendition.set(rendition);
   }
 
   onPlayerError() {
@@ -351,12 +391,33 @@ export class WatchPage {
     });
   }
 
-  saveToPlaylist() {
+  openPlaylistPicker() {
+    if (!this.requireAuthentication('Vui lòng đăng nhập để thêm video vào danh sách phát.')) return;
+    this.playlistPickerOpen.set(true);
+    this.playlistLoading.set(true);
+    this.playlists.mine().pipe(finalize(() => this.playlistLoading.set(false))).subscribe({
+      next: lists => this.playlistOptions.set(lists),
+      error: () => this.actionMessage.set('Không thể tải danh sách phát của bạn.')
+    });
+  }
+
+  closePlaylistPicker() {
+    if (!this.playlistAddingId()) this.playlistPickerOpen.set(false);
+  }
+
+  addToPlaylist(playlist: PlaylistSummary) {
     const item = this.video();
-    if (!item || !this.auth.user() || this.savedToPlaylist()) return;
-    this.playlists.saveVideo(item.videoId).subscribe({
-      next: () => this.savedToPlaylist.set(true),
-      error: () => this.actionMessage.set('Không thể lưu video vào danh sách cá nhân.')
+    if (!item || this.playlistAddingId() || this.addedPlaylistIds()[playlist.playlistId]) return;
+    this.playlistAddingId.set(playlist.playlistId);
+    this.playlists.addVideo(playlist.playlistId, item.videoId).pipe(finalize(() => this.playlistAddingId.set(null))).subscribe({
+      next: () => {
+        this.addedPlaylistIds.update(ids => ({ ...ids, [playlist.playlistId]: true }));
+        this.playlistOptions.update(lists => lists.map(list => list.playlistId === playlist.playlistId
+          ? { ...list, itemCount: list.itemCount + 1 }
+          : list));
+        this.actionMessage.set(`Đã thêm video vào “${playlist.name}”.`);
+      },
+      error: () => this.actionMessage.set(`Không thể thêm video vào “${playlist.name}”. Có thể video đã có trong danh sách.`)
     });
   }
 
@@ -650,9 +711,19 @@ export class WatchPage {
 
   @HostListener('window:keydown', ['$event'])
   keys(event: KeyboardEvent) {
+    if (event.key === 'Escape' && this.playlistPickerOpen()) {
+      event.preventDefault();
+      this.closePlaylistPicker();
+      return;
+    }
     if (event.key === 'Escape' && this.shareOpen()) {
       event.preventDefault();
       this.closeShare();
+      return;
+    }
+    if (event.key === 'Escape' && this.downloadOpen()) {
+      event.preventDefault();
+      this.downloadOpen.set(false);
       return;
     }
     const target = event.target as HTMLElement | null;
@@ -689,18 +760,33 @@ export class WatchPage {
       this.channels.unsubscribe(channel.channelId).subscribe({
         next: () => {
           this.subscribed.set(false);
+          this.subscriptionNotificationsEnabled.set(false);
           this.subscriberCount.update(c => Math.max(0, c - 1));
         },
         error: () => this.actionMessage.set(this.i18n.t('watch.unsubscribeError'))
       });
     } else {
       this.channels.subscribe(channel.channelId).subscribe({
-        next: () => {
+        next: sub => {
           this.subscribed.set(true);
+          this.subscriptionNotificationsEnabled.set(sub.notificationsEnabled);
           this.subscriberCount.update(c => c + 1);
         },
         error: () => this.actionMessage.set(this.i18n.t('watch.subscribeError'))
       });
     }
+  }
+
+  toggleSubscriptionNotifications() {
+    const channel = this.channel();
+    if (!channel || !this.subscribed()) {
+      this.actionMessage.set('Hãy đăng ký kênh trước khi bật thông báo.');
+      return;
+    }
+    const enabled = !this.subscriptionNotificationsEnabled();
+    this.channels.updateSubscriptionNotifications(channel.channelId, enabled).subscribe({
+      next: response => this.subscriptionNotificationsEnabled.set(response.notificationsEnabled),
+      error: () => this.actionMessage.set('Không thể cập nhật thông báo cho kênh này.')
+    });
   }
 }

@@ -17,7 +17,7 @@ export const routes: Routes = [
   { path: 'explore', loadComponent: () => import('./features/explore/explore-page').then(m => m.ExplorePage) },
   { path: 'search', loadComponent: () => import('./features/explore/explore-page').then(m => m.ExplorePage) },
   { path: 'subscriptions', loadComponent: () => import('./features/subscriptions/subscriptions-page').then(m => m.SubscriptionsPage) },
-  { path: 'playlists', loadComponent: () => import('./features/playlists/playlists-page').then(m => m.PlaylistsPage) },
+  { path: 'playlists', canActivate: [authGuard], loadComponent: () => import('./features/playlists/playlists-page').then(m => m.PlaylistsPage) },
   { path: 'playlists/:id', loadComponent: () => import('./features/playlists/playlists-page').then(m => m.PlaylistsPage) },
   { path: 'watch/:id', loadComponent: () => import('./features/video/watch-page').then(m => m.WatchPage) },
   { path: 'terms', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },
@@ -50,6 +50,7 @@ export const routes: Routes = [
         children: [
           { path: 'setup', loadComponent: () => import('./features/studio/pages/studio-setup-page').then(m => m.StudioSetupPage) },
           { path: 'overview', canActivate: [studioChannelGuard], loadComponent: () => import('./features/studio/pages/studio-overview-page').then(m => m.StudioOverviewPage) },
+          { path: 'content/:id/edit', canActivate: [studioChannelGuard, studioPermissionGuard], data: { studioPermissions: 'video.edit' }, loadComponent: () => import('./features/studio/pages/video-edit-page').then(m => m.VideoEditPage) },
           { path: 'content', canActivate: [studioChannelGuard], loadComponent: () => import('./features/studio/pages/studio-content-page').then(m => m.StudioContentPage) },
           { path: 'upload', canActivate: [studioChannelGuard, studioPermissionGuard], data: { studioPermissions: 'video.upload' }, loadComponent: () => import('./features/studio/upload/video-upload-wizard.component').then(m => m.VideoUploadWizardComponent) },
           { path: 'analytics', canActivate: [studioChannelGuard, studioPermissionGuard], data: { studioPermissions: 'analytics.view' }, loadComponent: () => import('./features/studio/pages/studio-analytics-page').then(m => m.StudioAnalyticsPage) },

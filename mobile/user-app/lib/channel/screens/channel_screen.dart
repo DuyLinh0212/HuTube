@@ -29,6 +29,8 @@ class _ChannelScreenState extends State<ChannelScreen>
   String? _error;
   ChannelDetail? _channel;
   bool _isSubscribed = false;
+  bool _notificationsEnabled = false;
+  bool _subscriptionBusy = false;
   int _subscriberCount = 0;
   bool _showFullDesc = false;
 
@@ -54,10 +56,18 @@ class _ChannelScreenState extends State<ChannelScreen>
 
     try {
       final detail = await _channelService.getChannel(widget.channelOrHandle);
+      var subscribed = detail.isSubscribed;
+      var notificationsEnabled = false;
+      final status = await _channelService.getSubscriptionStatus(detail.id);
+      if (status != null) {
+        subscribed = status['status'] == 'active';
+        notificationsEnabled = subscribed && status['notificationsEnabled'] == true;
+      }
       if (mounted) {
         setState(() {
           _channel = detail;
-          _isSubscribed = detail.isSubscribed;
+          _isSubscribed = subscribed;
+          _notificationsEnabled = notificationsEnabled;
           _subscriberCount = detail.subscriberCount;
           _loading = false;
         });
@@ -79,22 +89,57 @@ class _ChannelScreenState extends State<ChannelScreen>
     }
   }
 
-  void _toggleSubscribe() {
-    setState(() {
-      _isSubscribed = !_isSubscribed;
-      _subscriberCount += _isSubscribed ? 1 : -1;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isSubscribed
-              ? AppStrings.t('channel.subscribedToast')
-              : AppStrings.t('channel.unsubscribedToast'),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  Future<void> _toggleSubscribe() async {
+    if (_subscriptionBusy || _channel == null) return;
+    setState(() => _subscriptionBusy = true);
+    try {
+      if (_isSubscribed) {
+        await _channelService.unsubscribe(_channel!.id);
+        if (mounted) {
+          setState(() {
+            _isSubscribed = false;
+            _notificationsEnabled = false;
+            _subscriberCount = (_subscriberCount - 1).clamp(0, 1 << 31);
+          });
+        }
+      } else {
+        final result = await _channelService.subscribe(_channel!.id);
+        if (mounted) {
+          setState(() {
+            _isSubscribed = true;
+            _notificationsEnabled = result['notificationsEnabled'] == true;
+            _subscriberCount += 1;
+          });
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_isSubscribed ? AppStrings.t('channel.subscribedToast') : AppStrings.t('channel.unsubscribedToast')),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } on ApiFailure catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error, fallback: 'common.serverError'))));
+    } finally {
+      if (mounted) setState(() => _subscriptionBusy = false);
+    }
+  }
+
+  Future<void> _toggleNotifications() async {
+    if (_channel == null || !_isSubscribed || _subscriptionBusy) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hãy đăng ký kênh trước khi bật thông báo.')));
+      return;
+    }
+    setState(() => _subscriptionBusy = true);
+    try {
+      final result = await _channelService.updateSubscriptionNotifications(_channel!.id, !_notificationsEnabled);
+      if (mounted) setState(() => _notificationsEnabled = result['notificationsEnabled'] == true);
+    } on ApiFailure catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error, fallback: 'common.serverError'))));
+    } finally {
+      if (mounted) setState(() => _subscriptionBusy = false);
+    }
   }
 
   @override
@@ -343,7 +388,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                                       : Colors.white,
                                   elevation: 0,
                                 ),
-                                onPressed: _toggleSubscribe,
+                                onPressed: _subscriptionBusy ? null : _toggleSubscribe,
                                 child: Text(
                                   _isSubscribed
                                       ? '${AppStrings.t('channel.subscribed')} ✓'
@@ -353,10 +398,8 @@ class _ChannelScreenState extends State<ChannelScreen>
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
-                              onPressed: () {},
-                              icon: const Icon(
-                                Icons.notifications_none_rounded,
-                              ),
+                              onPressed: _toggleNotifications,
+                              icon: Icon(_notificationsEnabled ? Icons.notifications_active_rounded : Icons.notifications_none_rounded),
                               style: IconButton.styleFrom(
                                 backgroundColor: Theme.of(
                                   context,

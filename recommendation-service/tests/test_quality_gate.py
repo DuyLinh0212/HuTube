@@ -5,7 +5,7 @@ import json
 from training.quality_gate import REQUIRED_ARTIFACT_FILES, run_quality_gate
 
 
-def test_quality_gate_accepts_complete_safe_benchmark(tmp_path) -> None:
+def _complete_artifact(tmp_path):
     artifact = tmp_path / "model"
     artifact.mkdir()
     for name in REQUIRED_ARTIFACT_FILES:
@@ -13,60 +13,70 @@ def test_quality_gate_accepts_complete_safe_benchmark(tmp_path) -> None:
     (artifact / "metadata.json").write_text(
         json.dumps(
             {
-                "modelVersion": "mbmf_test",
+                "modelVersion": "cf_test",
                 "source": "MOVIELENS",
                 "deployable": False,
+                "modelTypes": ["user_based", "item_based"],
             }
         ),
         encoding="utf-8",
     )
     (artifact / "metrics.json").write_text(
-        json.dumps({"test": {"ndcg@10": 0.4, "rmse": 1.1}}),
+        json.dumps(
+            {
+                "models": {
+                    "user_based": {
+                        "preference": {"preference_alignment@10": 0.4},
+                    },
+                    "item_based": {
+                        "preference": {"preference_alignment@10": 0.5},
+                    },
+                }
+            }
+        ),
         encoding="utf-8",
     )
+    return artifact
 
-    result = run_quality_gate(artifact)
+
+def test_quality_gate_accepts_complete_safe_benchmark(tmp_path) -> None:
+    result = run_quality_gate(_complete_artifact(tmp_path))
 
     assert result.passed
     assert not result.errors
 
 
-def test_quality_gate_rejects_invalid_ranking_metric(tmp_path) -> None:
-    artifact = tmp_path / "model"
-    artifact.mkdir()
-    for name in REQUIRED_ARTIFACT_FILES:
-        (artifact / name).write_bytes(b"placeholder")
-    (artifact / "metadata.json").write_text(
-        '{"modelVersion":"mbmf_test","source":"MOVIELENS","deployable":false}',
-        encoding="utf-8",
-    )
+def test_quality_gate_rejects_invalid_preference_metric(tmp_path) -> None:
+    artifact = _complete_artifact(tmp_path)
     (artifact / "metrics.json").write_text(
-        '{"test":{"ndcg@10":1.5}}',
+        json.dumps(
+            {
+                "models": {
+                    "user_based": {
+                        "preference": {"preference_alignment@10": 1.5}
+                    },
+                    "item_based": {
+                        "preference": {"preference_alignment@10": 0.5}
+                    },
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
     result = run_quality_gate(artifact)
 
     assert not result.passed
-    assert "ndcg@10 must be in [0, 1]." in result.errors
+    assert "user_based.preference.preference_alignment@10 must be in [0, 1]." in result.errors
 
 
-def test_quality_gate_requires_popularity_artifact_when_enabled(tmp_path) -> None:
-    artifact = tmp_path / "model"
-    artifact.mkdir()
-    for name in REQUIRED_ARTIFACT_FILES:
-        (artifact / name).write_bytes(b"placeholder")
-    (artifact / "metadata.json").write_text(
-        '{"modelVersion":"mbmf_test","source":"MOVIELENS",'
-        '"deployable":false,"ranking":{"popularityWeight":0.2}}',
-        encoding="utf-8",
-    )
-    (artifact / "metrics.json").write_text(
-        '{"test":{"ndcg@10":0.2}}',
-        encoding="utf-8",
-    )
+def test_quality_gate_requires_both_models(tmp_path) -> None:
+    artifact = _complete_artifact(tmp_path)
+    metadata = json.loads((artifact / "metadata.json").read_text(encoding="utf-8"))
+    metadata["modelTypes"] = ["item_based"]
+    (artifact / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
 
     result = run_quality_gate(artifact)
 
     assert not result.passed
-    assert "item_popularity.json" in result.errors[0]
+    assert "both user_based and item_based" in result.errors[0]

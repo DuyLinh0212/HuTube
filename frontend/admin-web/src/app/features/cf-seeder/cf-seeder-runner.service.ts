@@ -47,6 +47,10 @@ export class CfSeederRunnerService {
   readonly histories = signal<CfSeedRunHistory[]>(this.readHistory());
   readonly currentError = signal('');
   readonly isRunning = computed(() => this.state() === 'provisioning' || this.state() === 'running');
+  readonly averageUploadDurationMs = computed(() => {
+    const metrics = this.metrics();
+    return metrics.uploadCount > 0 ? metrics.totalUploadDurationMs / metrics.uploadCount : 0;
+  });
   readonly progressPercent = computed(() => {
     const value = this.metrics();
     return value.targetVideos === 0 ? 0 : Math.round(value.processedVideos * 100 / value.targetVideos);
@@ -121,9 +125,24 @@ export class CfSeederRunnerService {
   downloadAccountTemplate(): void {
     const template = {
       accounts: [
-        { username: 'minhnguyen2003', displayName: 'Minh Nguyễn', channelName: 'Minh Nguyễn Official' },
-        { username: 'huyen_tran', displayName: 'Huyền Trân', channelName: 'Huyền Trân' },
-        { username: 'hoangnam.travel', displayName: 'Hoàng Nam', channelName: 'Nam Đi Đây' },
+        {
+          username: 'minhnguyen2003',
+          displayName: 'Minh Nguyễn',
+          channelName: 'Minh Nguyễn Official',
+          password: 'MinhNguyen123!',
+        },
+        {
+          username: 'huyen_tran',
+          displayName: 'Huyền Trân',
+          channelName: 'Huyền Trân',
+          password: 'HuyenTran123!',
+        },
+        {
+          username: 'hoangnam.travel',
+          displayName: 'Hoàng Nam',
+          channelName: 'Nam Đi Đây',
+          password: 'HoangNam123!',
+        },
       ],
     };
     downloadJson(template, 'cf-seeder-accounts.sample.json');
@@ -193,10 +212,25 @@ export class CfSeederRunnerService {
           sizeBytes: entry.file.size,
         };
         this.log(`Đang đọc metadata ${entry.name}...`);
+        let uploadStartedAt: number | undefined;
+        const recordUploadDuration = (): void => {
+          if (uploadStartedAt === undefined) return;
+          const durationMs = Math.max(0, Math.round(performance.now() - uploadStartedAt));
+          uploadStartedAt = undefined;
+          result.uploadDurationMs = durationMs;
+          const metrics = this.metrics();
+          this.updateMetrics({
+            totalUploadDurationMs: metrics.totalUploadDurationMs + durationMs,
+            lastUploadDurationMs: durationMs,
+            uploadCount: metrics.uploadCount + 1,
+          });
+          this.log(`⏱ Upload ${entry.name}: ${this.formatUploadDuration(durationMs)}.`);
+        };
         try {
           const metadata = await this.readVideoMetadata(entry.file);
           const sourceQuality = capQuality(config.maxQuality, metadata.height);
           this.log(`Upload ${sequence}/${targetFiles.length} vào kênh @${account.channelHandle} (${sourceQuality})...`);
+          uploadStartedAt = performance.now();
           const uploaded = await this.uploadVideoWithRetry({
             batchId: provision.batchId,
             userId: account.userId,
@@ -210,6 +244,7 @@ export class CfSeederRunnerService {
             useExistingAccount: config.accountMode === 'existing',
             file: withVideoType(entry.file),
           });
+          recordUploadDuration();
           result.uploaded = true;
           result.videoId = uploaded.videoId;
           this.updateMetrics({
@@ -229,6 +264,7 @@ export class CfSeederRunnerService {
             this.log(`✓ Upload xong ${entry.name}; trình duyệt không cấp quyền xóa file nguồn.`);
           }
         } catch (uploadError) {
+          recordUploadDuration();
           result.error = displayError(uploadError);
           this.updateMetrics({ failedVideos: this.metrics().failedVideos + 1 });
           this.log(`✕ Không upload được ${entry.name}: ${result.error}`);
@@ -297,6 +333,15 @@ export class CfSeederRunnerService {
 
   clearLogs(): void {
     this.logs.set([]);
+  }
+
+  formatUploadDuration(milliseconds: number): string {
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) return '—';
+    const seconds = milliseconds / 1000;
+    if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)} giây`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds - minutes * 60;
+    return `${minutes} phút ${remainingSeconds.toFixed(0).padStart(2, '0')} giây`;
   }
 
   private async scanFolderQuality(): Promise<void> {
@@ -475,11 +520,15 @@ function parseAccount(value: unknown, index: number): CfSeedAccountInput {
   const username = typeof value['username'] === 'string' ? value['username'].trim() : '';
   const displayName = typeof value['displayName'] === 'string' ? value['displayName'].trim() : '';
   const channelName = typeof value['channelName'] === 'string' ? value['channelName'].trim() : undefined;
+  const password = typeof value['password'] === 'string' ? value['password'] : '';
   if (!/^[A-Za-z0-9_.-]{3,50}$/.test(username))
     throw new Error(`Account #${index + 1}: username không hợp lệ.`);
   if (!displayName || displayName.length > 120)
     throw new Error(`Account #${index + 1}: displayName không hợp lệ.`);
-  return { username, displayName, channelName };
+  if (password.length < 10 || password.length > 128 || !/[A-Z]/.test(password)
+    || !/[a-z]/.test(password) || !/[0-9]/.test(password))
+    throw new Error(`Account #${index + 1}: password cần 10–128 ký tự, gồm chữ hoa, chữ thường và số.`);
+  return { username, displayName, channelName, password };
 }
 
 function extension(fileName: string): string {

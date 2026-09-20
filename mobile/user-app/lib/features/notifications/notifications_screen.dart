@@ -107,7 +107,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         if (mounted) setState(() => item['isRead'] = true);
       } catch (_) {}
     }
-    final link = item['link'] as String?;
+    final link = (item['actionUrl'] ?? item['link']) as String?;
     if (link == null || !mounted) return;
     if (link.startsWith('/watch/')) context.push(link);
     if (link.startsWith('/creator')) context.go('/creator');
@@ -248,7 +248,7 @@ class _NotificationCard extends StatelessWidget {
             fontWeight: unread ? FontWeight.w900 : FontWeight.w700,
           ),
         ),
-        subtitle: Text('${item['body'] ?? ''}'),
+        subtitle: Text('${item['content'] ?? item['body'] ?? ''}'),
         trailing: unread
             ? Container(
                 width: 8,

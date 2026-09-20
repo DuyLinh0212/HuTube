@@ -79,7 +79,7 @@ public sealed class RbacTests
         public Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
         public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => throw new NotImplementedException();
         public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) => throw new NotImplementedException();
-        public Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, CancellationToken ct) => throw new NotImplementedException();
+        public Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct) => throw new NotImplementedException();
         public Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct) => throw new NotImplementedException();
         public Task<PasswordResetToken?> FindResetAsync(string hash, CancellationToken ct) => throw new NotImplementedException();
         public void AddUser(User user, string passwordHash) => throw new NotImplementedException();

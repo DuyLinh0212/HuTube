@@ -37,6 +37,7 @@ public sealed record CreateVideoCommand(Guid ChannelId, string Title, string? De
 public sealed record UpdateVideoRequest(string? Title, string? Description, Guid? CategoryId, bool ClearCategory,
     string? LanguageCode, string? Visibility, bool? AgeRestricted, string? ThumbnailUrl,
     IReadOnlyList<string>? Tags, IReadOnlyList<ChapterRequest>? Chapters);
+public sealed record UpdateThumbnailRequest(Stream? Content, string? FileName, string? ContentType, bool Generate);
 public sealed record WatchProgressRequest(int WatchedSeconds, bool SaveHistory = true);
 public sealed record WatchProgressResponse(int WatchedSeconds, decimal Progress, DateTimeOffset ViewedAt);
 public sealed record ReactionRequest(string Type);
@@ -86,6 +87,7 @@ public interface IContentService
     Task<PageResult<VideoResponse>> GetManagedVideosAsync(Guid actorId, Guid channelId, string? status, string? visibility,
         string? search, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default);
     Task<VideoResponse> UpdateVideoAsync(Guid actorId, Guid videoId, UpdateVideoRequest request, CancellationToken ct = default);
+    Task<VideoResponse> UpdateThumbnailAsync(Guid actorId, Guid videoId, UpdateThumbnailRequest request, CancellationToken ct = default);
     Task DeleteVideoAsync(Guid actorId, Guid videoId, CancellationToken ct = default);
     Task<VideoResponse> SubmitModerationAsync(Guid actorId, Guid videoId, CancellationToken ct = default);
     Task<VideoResponse> PublishAsync(Guid actorId, Guid videoId, CancellationToken ct = default);

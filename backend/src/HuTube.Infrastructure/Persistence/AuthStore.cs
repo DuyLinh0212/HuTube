@@ -33,9 +33,9 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
     public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => db.Sessions.Where(x => x.UserId == userId).ToListAsync(ct);
     public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) =>
         db.Sessions.Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now).OrderByDescending(x => x.IssuedAt).ToListAsync(ct);
-    public async Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, CancellationToken ct) =>
+    public async Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct) =>
         await db.Sessions.Where(x => x.SessionId == sessionId && x.RevokedAt == null && x.LastActiveAt < now.AddMinutes(-1))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastActiveAt, now), ct);
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastActiveAt, now).SetProperty(x => x.ExpiresAt, expiresAt), ct);
 
     public async Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct)
     {

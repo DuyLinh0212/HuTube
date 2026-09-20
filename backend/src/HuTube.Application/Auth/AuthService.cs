@@ -145,8 +145,9 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         if (old.Platform == "admin" && !await store.IsAdminAsync(user.UserId, ct))
             throw new AuthException(403, "ADMIN_ACCESS_DENIED", "Quyền quản trị đã bị vô hiệu hóa.");
         var (session, nextRefresh) = CreateSession(user.UserId, old.Platform, old.DeviceName, old.DeviceId);
-        // Absolute session lifetime cannot be extended indefinitely by refresh.
-        session.ExpiresAt = old.ExpiresAt;
+        // Refreshing an active session starts a new idle window. A session that is
+        // already expired is still rejected above, so inactive sessions cannot be
+        // revived by this sliding expiration.
         old.Revoke(Now, "rotated"); old.ReplacedBySessionId = session.SessionId;
         store.AddSession(session);
         await store.SaveAsync(ct);
@@ -251,7 +252,9 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         var user = await store.FindUserAsync(userId, ct);
         if (user == null || user.IsBlocked || user.Status != "active" || user.EmailVerifiedAt == null) return false;
         if (session.Platform == "admin" && !await store.IsAdminAsync(userId, ct)) return false;
-        await store.TouchSessionAsync(sessionId, Now, ct);
+        // Keep active users signed in. The store throttles this write to once per
+        // minute while the session expiry moves with the user's activity.
+        await store.TouchSessionAsync(sessionId, Now, Now.AddDays(options.RefreshTokenDays), ct);
         return true;
     }
 

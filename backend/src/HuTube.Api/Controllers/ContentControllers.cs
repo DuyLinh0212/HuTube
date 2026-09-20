@@ -81,6 +81,12 @@ public sealed class UploadVideoForm
     public string? ChaptersJson { get; set; }
 }
 
+public sealed class UpdateThumbnailForm
+{
+    public IFormFile? Thumbnail { get; set; }
+    public bool Generate { get; set; }
+}
+
 [ApiController, Route("api/v1/videos")]
 public sealed class VideosController(IContentService content) : ControllerBase
 {
@@ -137,6 +143,24 @@ public sealed class VideosController(IContentService content) : ControllerBase
 
     [Authorize, HttpPatch("{id:guid}")]
     public Task<VideoResponse> UpdateAsync(Guid id, UpdateVideoRequest request, CancellationToken ct) => content.UpdateVideoAsync(UserId, id, request, ct);
+
+    [Authorize, HttpPost("{id:guid}/thumbnail")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<VideoResponse> UpdateThumbnailAsync(Guid id, [FromForm] UpdateThumbnailForm form, CancellationToken ct)
+    {
+        if (!form.Generate && (form.Thumbnail == null || form.Thumbnail.Length == 0))
+            throw new ContentException(400, "THUMBNAIL_REQUIRED", "Vui lòng chọn thumbnail hoặc bật tự động tạo thumbnail.");
+        if (form.Thumbnail is { Length: > 5 * 1024 * 1024 })
+            throw new ContentException(400, "FILE_TOO_LARGE", "Kích thước thumbnail tối đa là 5MB.");
+
+        var allowed = new HashSet<string>(["image/jpeg", "image/png", "image/webp"], StringComparer.OrdinalIgnoreCase);
+        if (form.Thumbnail != null && !allowed.Contains(form.Thumbnail.ContentType))
+            throw new ContentException(400, "INVALID_FILE_TYPE", "Thumbnail chỉ hỗ trợ JPG, PNG hoặc WEBP.");
+
+        await using var stream = form.Thumbnail?.OpenReadStream();
+        return await content.UpdateThumbnailAsync(UserId, id,
+            new UpdateThumbnailRequest(stream, form.Thumbnail?.FileName, form.Thumbnail?.ContentType, form.Generate), ct);
+    }
 
     [Authorize, HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken ct) { await content.DeleteVideoAsync(UserId, id, ct); return NoContent(); }

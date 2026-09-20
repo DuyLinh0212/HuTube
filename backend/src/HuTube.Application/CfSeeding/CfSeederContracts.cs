@@ -2,7 +2,7 @@ using HuTube.Application.Videos;
 
 namespace HuTube.Application.CfSeeding;
 
-public sealed record CfSeedAccountNameRequest(string Username, string DisplayName, string? ChannelName);
+public sealed record CfSeedAccountNameRequest(string Username, string DisplayName, string? ChannelName, string Password);
 public sealed record CreateCfSeedAccountsRequest(IReadOnlyList<CfSeedAccountNameRequest> Accounts);
 public sealed record CfSeedAccountResponse(Guid UserId, Guid ChannelId, string Username, string DisplayName,
     string ChannelName, string ChannelHandle);

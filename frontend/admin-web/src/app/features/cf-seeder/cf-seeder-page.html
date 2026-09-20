@@ -1,15 +1,4 @@
 <main class="seed-page">
-  <header class="page-head">
-    <div class="page-title">
-      <span class="database-mark" aria-hidden="true">▰</span>
-      <div>
-        <h1>CF Data Seeder</h1>
-        <p>Tạo tài khoản, kênh và dữ liệu video thật phục vụ thực nghiệm Collaborative Filtering</p>
-      </div>
-    </div>
-    <a class="guide-link" href="#seeder-note">ⓘ Hướng dẫn sử dụng</a>
-  </header>
-
   @if (pageError()) {
     <div class="page-alert error-alert" role="alert">{{ pageError() }}</div>
   }
@@ -83,7 +72,7 @@
         </div>
 
         <div class="field-block">
-          <label>File danh sách tên account (JSON) <span>*</span></label>
+          <label>File danh sách account (JSON) <span>*</span></label>
           <div class="file-row">
             <div class="file-name" [class.has-value]="runner.accountFileName()">
               <span aria-hidden="true">&#123; &#125;</span>
@@ -96,9 +85,9 @@
             </label>
             <button class="download-button compact" type="button" (click)="runner.downloadAccountTemplate()">↓ Tải mẫu JSON</button>
           </div>
-          <p class="hint">Đã đọc {{ runner.accounts().length }} account. Cần ít nhất {{ safeUserCount() }} tên hợp lệ.</p>
+          <p class="hint">Đã đọc {{ runner.accounts().length }} account có mật khẩu hợp lệ. Mật khẩu cần 10–128 ký tự, gồm chữ hoa, chữ thường và số.</p>
           @if (runner.accountFileName() && runner.accounts().length < safeUserCount()) {
-            <p class="inline-warning">Thiếu {{ safeUserCount() - runner.accounts().length }} tên account; nút chạy sẽ bị khóa.</p>
+            <p class="inline-warning">Thiếu {{ safeUserCount() - runner.accounts().length }} account; nút chạy sẽ bị khóa.</p>
           }
         </div>
       } @else {
@@ -207,6 +196,8 @@
         <span><strong>{{ runner.metrics().deletedSources }}</strong> file nguồn đã dọn</span>
         <span><strong>{{ runner.metrics().failedVideos }}</strong> lỗi</span>
         <span><strong>{{ formatBytes(runner.metrics().uploadedBytes) }}</strong> đã upload</span>
+        <span><strong>{{ runner.formatUploadDuration(runner.averageUploadDurationMs()) }}</strong> trung bình/video</span>
+        <span><strong>{{ runner.formatUploadDuration(runner.metrics().lastUploadDurationMs) }}</strong> video gần nhất</span>
       </div>
     </aside>
   </section>

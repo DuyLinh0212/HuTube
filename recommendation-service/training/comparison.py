@@ -13,203 +13,177 @@ import numpy as np
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
-LOWER_IS_BETTER = {"rmse", "mae"}
+DISPLAY_NAMES = {
+    "user_based": "User-Based CF",
+    "item_based": "Item-Based CF",
+}
 
 
-def _winner(metric: str, mbmf: float | None, item_cf: float | None) -> str:
-    if mbmf is None or item_cf is None:
+def _format(value: Any) -> str:
+    return "N/A" if value is None else f"{float(value):.6f}"
+
+
+def _winner(values: dict[str, float | None]) -> str:
+    available = {name: value for name, value in values.items() if value is not None}
+    if not available:
         return "N/A"
-    if np.isclose(mbmf, item_cf, rtol=1e-6, atol=1e-8):
-        return "Tie"
-    if metric in LOWER_IS_BETTER:
-        return "MBMF" if mbmf < item_cf else "Item-Based CF"
-    return "MBMF" if mbmf > item_cf else "Item-Based CF"
+    winner = max(available, key=available.get)
+    return DISPLAY_NAMES.get(winner, winner)
 
 
-def _comparison_rows(
-    mbmf_metrics: dict[str, float | None],
-    item_cf_metrics: dict[str, float | None],
-) -> list[dict[str, Any]]:
-    ordered = [
-        "rmse",
-        "mae",
-        *sorted(
-            (name for name in mbmf_metrics if "@" in name),
-            key=lambda name: (name.split("@", 1)[0], int(name.split("@", 1)[1])),
-        ),
+def _comparison_rows(model_metrics: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    preferred = [
+        "preference_alignment@5",
+        "preference_genre_coverage@5",
+        "preference_alignment@10",
+        "preference_genre_coverage@10",
+        "preference_alignment@20",
+        "preference_genre_coverage@20",
+        "catalog_coverage@20",
+        "diversity@20",
+        "novelty@20",
     ]
-    seen: set[str] = set()
+    available = {
+        metric
+        for metrics in model_metrics.values()
+        for metric, value in metrics.items()
+        if value is not None
+    }
+    names = [metric for metric in preferred if metric in available]
+    names.extend(sorted(available.difference(names)))
     rows: list[dict[str, Any]] = []
-    for metric in ordered:
-        if metric in seen or metric not in item_cf_metrics:
-            continue
-        seen.add(metric)
-        mbmf = mbmf_metrics.get(metric)
-        item_cf = item_cf_metrics.get(metric)
+    for metric in names:
+        values = {model: metrics.get(metric) for model, metrics in model_metrics.items()}
         rows.append(
             {
                 "metric": metric,
-                "mbmf": mbmf,
-                "item_cf": item_cf,
-                "winner": _winner(metric, mbmf, item_cf),
+                **values,
+                "winner": _winner(values),
             }
         )
     return rows
 
 
-def _comparison_chart(
-    rows: list[dict[str, Any]],
-    output: Path,
-) -> None:
-    groups = [
-        ("Rating error (lower is better)", ["rmse", "mae"]),
-        (
-            "Top-K ranking (higher is better)",
-            [
-                row["metric"]
-                for row in rows
-                if row["metric"].startswith(
-                    ("precision@", "recall@", "ndcg@", "hitrate@")
-                )
-            ],
-        ),
-        (
-            "Catalog properties (higher is better)",
-            [
-                row["metric"]
-                for row in rows
-                if row["metric"].startswith(("catalog_coverage@", "diversity@"))
-            ],
-        ),
-        (
-            "Novelty (higher means less popular)",
-            [row["metric"] for row in rows if row["metric"].startswith("novelty@")],
-        ),
-    ]
-    by_metric = {row["metric"]: row for row in rows}
-    figure, axes = plt.subplots(2, 2, figsize=(15, 10))
-    for axis, (title, metrics) in zip(axes.flat, groups, strict=True):
-        x = np.arange(len(metrics))
-        width = 0.38
-        axis.bar(
-            x - width / 2,
-            [by_metric[name]["mbmf"] for name in metrics],
+def _save_chart(rows: list[dict[str, Any]], model_names: list[str], path: Path) -> None:
+    chart_metrics = {
+        "preference_alignment@10",
+        "preference_genre_coverage@10",
+        "catalog_coverage@20",
+        "diversity@20",
+    }
+    chart_rows = [row for row in rows if row["metric"] in chart_metrics]
+    if not chart_rows:
+        chart_rows = rows[: min(6, len(rows))]
+    x = np.arange(len(chart_rows))
+    width = 0.8 / max(1, len(model_names))
+    plt.figure(figsize=(11, 5.5))
+    for index, model in enumerate(model_names):
+        values = [float(row.get(model) or 0.0) for row in chart_rows]
+        plt.bar(
+            x + (index - (len(model_names) - 1) / 2) * width,
+            values,
             width,
-            label="MBMF",
+            label=DISPLAY_NAMES.get(model, model),
         )
-        axis.bar(
-            x + width / 2,
-            [by_metric[name]["item_cf"] for name in metrics],
-            width,
-            label="Item-Based CF",
-        )
-        axis.set_xticks(x, metrics, rotation=35, ha="right")
-        axis.set_title(title)
-        axis.grid(axis="y", alpha=0.25)
-        axis.legend()
-    figure.tight_layout()
-    figure.savefig(output, dpi=150, bbox_inches="tight")
-    plt.close(figure)
-
-
-def _format(value: Any) -> str:
-    if value is None:
-        return "N/A"
-    return f"{value:.6f}" if isinstance(value, float) else str(value)
+    plt.xticks(x, [row["metric"] for row in chart_rows], rotation=25, ha="right")
+    plt.ylim(0, 1)
+    plt.ylabel("Score")
+    plt.title("Preference alignment: User-Based CF versus Item-Based CF")
+    plt.legend()
+    plt.grid(axis="y", alpha=0.25)
+    plt.tight_layout()
+    plt.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close()
 
 
 def generate_comparison_report(
     *,
     report_dir: Path,
     model_version: str,
-    mbmf_metrics: dict[str, float | None],
-    item_cf_metrics: dict[str, float | None],
-    neighbor_count: int,
+    model_metrics: dict[str, dict[str, Any]],
 ) -> Path:
     report_dir.mkdir(parents=True, exist_ok=True)
-    rows = _comparison_rows(mbmf_metrics, item_cf_metrics)
+    model_names = list(model_metrics)
+    rows = _comparison_rows(model_metrics)
+    chart = report_dir / "preference_comparison.png"
+    _save_chart(rows, model_names, chart)
+
     payload = {
         "modelVersion": model_version,
-        "split": "same temporal train+validation/test split",
-        "itemCfNeighbors": neighbor_count,
-        "mbmf": mbmf_metrics,
-        "itemCf": item_cf_metrics,
-        "comparison": rows,
+        "models": model_metrics,
+        "rows": rows,
+        "evaluation": "preference alignment; no exact item holdout",
     }
-    (report_dir / "item_cf_comparison.json").write_text(
+    (report_dir / "cf_comparison.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    with (report_dir / "item_cf_comparison.csv").open(
-        "w",
-        encoding="utf-8",
-        newline="",
-    ) as stream:
-        writer = csv.DictWriter(
-            stream,
-            fieldnames=["metric", "mbmf", "item_cf", "winner"],
-        )
+    with (report_dir / "cf_comparison.csv").open("w", encoding="utf-8", newline="") as stream:
+        fieldnames = ["metric", *model_names, "winner"]
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
-    chart = report_dir / "item_cf_comparison.png"
-    _comparison_chart(rows, chart)
-    table_lines = [
-        "| Metric | MBMF | Item-Based CF | Better |",
-        "|---|---:|---:|---|",
-        *[
-            "| {metric} | {mbmf} | {item_cf} | {winner} |".format(
-                metric=row["metric"],
-                mbmf=_format(row["mbmf"]),
-                item_cf=_format(row["item_cf"]),
-                winner=row["winner"],
-            )
-            for row in rows
-        ],
+    table = [
+        "| Metric | "
+        + " | ".join(DISPLAY_NAMES.get(name, name) for name in model_names)
+        + " | Winner |",
+        "|---|" + "---:|" * len(model_names) + "---|",
     ]
-    markdown = [
-        f"# MBMF vs Item-Based CF — {model_version}",
-        "",
-        "Both models use the same per-user temporal split. Item-Based CF is fit on "
-        f"train+validation with {neighbor_count} neighbors per item.",
-        "",
-        *table_lines,
-        "",
-        "![MBMF versus Item-Based CF](./item_cf_comparison.png)",
-        "",
-    ]
-    (report_dir / "item_cf_comparison.md").write_text(
-        "\n".join(markdown),
-        encoding="utf-8",
+    table.extend(
+        "| {metric} | {values} | {winner} |".format(
+            metric=row["metric"],
+            values=" | ".join(_format(row.get(model)) for model in model_names),
+            winner=row["winner"],
+        )
+        for row in rows
     )
+    markdown = [
+        f"# Preference Alignment Comparison — {model_version}",
+        "",
+        "The models use the complete observed history of each user. "
+        "The report measures genre-preference alignment, catalog coverage, diversity "
+        "and novelty; it does not require predicting an exact hidden item ID.",
+        "",
+        *table,
+        "",
+        "![Preference alignment comparison](./preference_comparison.png)",
+        "",
+    ]
+    (report_dir / "cf_comparison.md").write_text("\n".join(markdown), encoding="utf-8")
 
     body = "".join(
         "<tr>"
-        f"<td>{html.escape(row['metric'])}</td>"
-        f"<td>{html.escape(_format(row['mbmf']))}</td>"
-        f"<td>{html.escape(_format(row['item_cf']))}</td>"
-        f"<td>{html.escape(row['winner'])}</td>"
-        "</tr>"
+        f"<td>{html.escape(str(row['metric']))}</td>"
+        + "".join(
+            f"<td>{html.escape(_format(row.get(model)))}</td>"
+            for model in model_names
+        )
+        + f"<td>{html.escape(str(row['winner']))}</td></tr>"
         for row in rows
     )
     encoded = base64.b64encode(chart.read_bytes()).decode("ascii")
+    headers = "".join(
+        f"<th>{html.escape(DISPLAY_NAMES.get(name, name))}</th>"
+        for name in model_names
+    )
     document = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MBMF vs Item-Based CF</title>
+<title>Preference alignment comparison</title>
 <style>
 body{{font-family:Arial,sans-serif;max-width:1200px;margin:auto;padding:32px;color:#172033}}
 table{{border-collapse:collapse;width:100%;margin:24px 0}}
 th,td{{border:1px solid #d7deea;padding:8px;text-align:left}}th{{background:#edf3fb}}
 img{{max-width:100%;border:1px solid #d7deea;border-radius:8px}}
 </style></head><body>
-<h1>MBMF vs Item-Based CF — {html.escape(model_version)}</h1>
-<p>Same temporal split; Item-Based CF uses {neighbor_count} neighbors per item.</p>
-<table><thead><tr><th>Metric</th><th>MBMF</th><th>Item-Based CF</th><th>Better</th>
-</tr></thead><tbody>{body}</tbody></table>
-<img alt="MBMF versus Item-Based CF" src="data:image/png;base64,{encoded}">
-</body></html>
-"""
-    output = report_dir / "item_cf_comparison.html"
+<h1>Preference Alignment Comparison — {html.escape(model_version)}</h1>
+<p>Complete user history builds an evaluation-only preference profile. No exact
+item holdout is required.</p>
+<table><thead><tr><th>Metric</th>{headers}<th>Winner</th></tr></thead>
+<tbody>{body}</tbody></table>
+<img alt="Preference alignment comparison" src="data:image/png;base64,{encoded}">
+</body></html>"""
+    output = report_dir / "cf_comparison.html"
     output.write_text(document, encoding="utf-8")
     return output

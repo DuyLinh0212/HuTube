@@ -205,6 +205,10 @@ export class ChannelService {
     return this.http.get<SubscriptionResponse>(`${this.base}/${channelId}/subscribe-status`);
   }
 
+  updateSubscriptionNotifications(channelId: string, enabled: boolean): Observable<SubscriptionResponse> {
+    return this.http.patch<SubscriptionResponse>(`${this.base}/${channelId}/subscribe-notifications`, { enabled });
+  }
+
   getSubscribedChannels(): Observable<SubscribedChannelResponse[]> {
     return this.http.get<SubscribedChannelResponse[]>(`${this.config.apiBaseUrl}/subscriptions`);
   }

@@ -12,6 +12,7 @@ import { AccountService, UserProfile } from '../../core/account.service';
 import { ContentService } from '../../core/content.service';
 import { NotificationService } from '../../core/notification.service';
 import { NotificationPanelComponent } from '../notifications/notification-panel.component';
+import { PlaylistService } from '../../core/playlist.service';
 
 @Component({
   selector: 'app-user-topbar',
@@ -33,6 +34,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   private elRef = inject(ElementRef);
   private account = inject(AccountService);
   private content = inject(ContentService);
+  private playlists = inject(PlaylistService);
   readonly notifications = inject(NotificationService);
 
   topbarSearch = '';
@@ -96,6 +98,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
       this.content.liked(null, 1, 1).subscribe({
         next: result => this.likedVideoCount.set(result.total ?? result.items?.length ?? 0),
         error: () => this.likedVideoCount.set(null)
+      });
+      this.playlists.mine().subscribe({
+        next: lists => this.playlistCount.set(lists.length),
+        error: () => this.playlistCount.set(0)
       });
       this.account.getPreferences().subscribe({
         next: preferences => {

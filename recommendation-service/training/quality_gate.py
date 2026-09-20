@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 REQUIRED_ARTIFACT_FILES = (
-    "model.pt",
+    "user_based.npz",
+    "item_based.npz",
     "config.yaml",
     "metrics.json",
     "metadata.json",
@@ -16,8 +17,12 @@ REQUIRED_ARTIFACT_FILES = (
     "item_metadata.json",
     "seen_items.npz",
 )
-
-BOUNDED_RANKING_PREFIXES = ("precision@", "recall@", "ndcg@", "hitrate@")
+BOUNDED_PREFIXES = (
+    "preference_alignment@",
+    "preference_genre_coverage@",
+    "catalog_coverage@",
+    "diversity@",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,23 +35,42 @@ class QualityGateResult:
         return asdict(self)
 
 
-def validate_metrics(metrics: dict[str, Any]) -> list[str]:
+def _validate_metric_dict(metrics: dict[str, Any], prefix: str) -> list[str]:
     errors: list[str] = []
-    test_metrics = metrics.get("test")
-    if not isinstance(test_metrics, dict):
-        return ["metrics.test must be an object."]
-    for name, value in test_metrics.items():
+    for name, value in metrics.items():
         if value is None:
             continue
         if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
-            errors.append(f"{name} must be a finite number or null.")
+            errors.append(f"{prefix}.{name} must be a finite number or null.")
             continue
-        if name.startswith(BOUNDED_RANKING_PREFIXES) and not 0.0 <= value <= 1.0:
-            errors.append(f"{name} must be in [0, 1].")
-        if name.startswith(("catalog_coverage@", "diversity@")) and not 0.0 <= value <= 1.0:
-            errors.append(f"{name} must be in [0, 1].")
-        if name in {"rmse", "mae"} and value < 0:
-            errors.append(f"{name} must be non-negative.")
+        if name.startswith(BOUNDED_PREFIXES) and not 0.0 <= float(value) <= 1.0:
+            errors.append(f"{prefix}.{name} must be in [0, 1].")
+        if (
+            name.startswith("novelty@") or name == "recommendation_count"
+        ) and value < 0:
+            errors.append(f"{prefix}.{name} must be non-negative.")
+    return errors
+
+
+def validate_metrics(metrics: dict[str, Any]) -> list[str]:
+    models = metrics.get("models")
+    if not isinstance(models, dict) or not models:
+        return ["metrics.models must be a non-empty object."]
+    errors: list[str] = []
+    for model_name, payload in models.items():
+        if not isinstance(payload, dict):
+            errors.append(f"metrics.models.{model_name} must be an object.")
+            continue
+        preference_metrics = payload.get("preference")
+        if not isinstance(preference_metrics, dict):
+            errors.append(f"metrics.models.{model_name}.preference must be an object.")
+            continue
+        errors.extend(
+            _validate_metric_dict(
+                preference_metrics,
+                f"{model_name}.preference",
+            )
+        )
     return errors
 
 
@@ -54,25 +78,20 @@ def run_quality_gate(artifact_dir: str | Path) -> QualityGateResult:
     path = Path(artifact_dir).expanduser().resolve()
     missing = [name for name in REQUIRED_ARTIFACT_FILES if not (path / name).is_file()]
     errors = [f"Missing artifact file: {name}" for name in missing]
-
     metadata_ok = False
     metrics_ok = False
-    ranking_artifact_ok = True
+    models_ok = False
     if not missing:
         metadata = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
+        model_types = set(metadata.get("modelTypes", []))
+        models_ok = {"user_based", "item_based"}.issubset(model_types)
         metadata_ok = (
             metadata.get("source") == "MOVIELENS"
             and metadata.get("deployable") is False
             and bool(metadata.get("modelVersion"))
         )
-        ranking = metadata.get("ranking", {})
-        if float(ranking.get("popularityWeight", 0.0)) > 0 and not (
-            path / "item_popularity.json"
-        ).is_file():
-            ranking_artifact_ok = False
-            errors.append(
-                "item_popularity.json is required when popularityWeight is greater than 0."
-            )
+        if not models_ok:
+            errors.append("Artifact must contain both user_based and item_based models.")
         if not metadata_ok:
             errors.append(
                 "Benchmark metadata must include source=MOVIELENS, deployable=false, "
@@ -85,8 +104,8 @@ def run_quality_gate(artifact_dir: str | Path) -> QualityGateResult:
 
     checks = {
         "artifact_complete": not missing,
+        "models_complete": models_ok,
         "benchmark_metadata_safe": metadata_ok,
-        "ranking_artifact_consistent": ranking_artifact_ok,
         "metrics_valid": metrics_ok,
     }
     return QualityGateResult(

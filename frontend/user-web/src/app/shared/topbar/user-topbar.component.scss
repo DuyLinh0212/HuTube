@@ -377,6 +377,7 @@
 }
 
 .account-drawer__header {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -559,9 +560,12 @@
 }
 
 .account-drawer__body {
+  flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
-  padding: 22px 26px 30px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 22px 26px calc(30px + env(safe-area-inset-bottom));
 }
 
 .account-drawer__channel-block {
@@ -898,7 +902,7 @@
   }
 
   .account-drawer__header { padding: 20px 18px 17px; }
-  .account-drawer__body { padding: 20px 18px 28px; }
+  .account-drawer__body { padding: 20px 18px calc(28px + env(safe-area-inset-bottom)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

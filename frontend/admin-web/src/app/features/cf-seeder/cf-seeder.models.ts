@@ -6,6 +6,7 @@ export interface CfSeedAccountInput {
   username: string;
   displayName: string;
   channelName?: string;
+  password: string;
 }
 
 export interface CfSeedAccount {
@@ -78,6 +79,9 @@ export interface CfSeedMetrics {
   failedVideos: number;
   deletedSources: number;
   uploadedBytes: number;
+  totalUploadDurationMs: number;
+  lastUploadDurationMs: number;
+  uploadCount: number;
 }
 
 export interface CfSeedVideoResult {
@@ -89,6 +93,7 @@ export interface CfSeedVideoResult {
   uploaded: boolean;
   sourceDeleted: boolean;
   sizeBytes: number;
+  uploadDurationMs?: number;
   error?: string;
 }
 
@@ -126,6 +131,9 @@ export const EMPTY_CF_SEED_METRICS: CfSeedMetrics = {
   failedVideos: 0,
   deletedSources: 0,
   uploadedBytes: 0,
+  totalUploadDurationMs: 0,
+  lastUploadDurationMs: 0,
+  uploadCount: 0,
 };
 
 export const EMPTY_CF_SEED_QUALITY_SCAN: CfSeedQualityScan = {

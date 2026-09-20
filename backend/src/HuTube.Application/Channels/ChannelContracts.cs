@@ -91,6 +91,8 @@ public sealed record SubscriptionResponse(
     bool NotificationsEnabled,
     string Status);
 
+public sealed record UpdateSubscriptionNotificationsRequest(bool Enabled);
+
 public sealed record SubscribedChannelResponse(
     Guid ChannelId,
     string Name,

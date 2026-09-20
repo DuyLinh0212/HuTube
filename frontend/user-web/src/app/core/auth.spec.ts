@@ -67,6 +67,19 @@ describe('Authentication boundary', () => {
     controller.expectOne(base + (ADMIN_APP ? '/admin/me' : '/auth/me')).flush(user);
     expect(await promise).toBeTrue();
   });
+  it('recovers a protected request that starts before the cookie session is restored', async () => {
+    const result = firstValueFrom(http.get<unknown[]>(base + '/playlists'));
+    const initial = controller.expectOne(base + '/playlists');
+    expect(initial.request.headers.has('Authorization')).toBeFalse();
+    initial.flush({}, { status: 401, statusText: 'Unauthorized' });
+    controller.expectOne(base + '/auth/refresh').flush(response);
+    await Promise.resolve(); await Promise.resolve();
+    controller.expectOne(base + (ADMIN_APP ? '/admin/me' : '/auth/me')).flush(user);
+    const retry = controller.expectOne(base + '/playlists');
+    expect(retry.request.headers.get('Authorization')).toBe('Bearer token-one');
+    retry.flush([]);
+    expect(await result).toEqual([]);
+  });
   it('deduplicates concurrent refresh and does not repeat a failed restore', async () => {
     const first = firstValueFrom(auth.refresh()); const second = firstValueFrom(auth.refresh());
     controller.expectOne(base + '/auth/refresh').flush(response);

@@ -536,6 +536,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
 
             subscription.Status = "active";
             subscription.SubscribedAt = DateTimeOffset.UtcNow;
+            subscription.NotificationsEnabled = true;
             await store.SaveAsync(ct);
             return ToSubscriptionResponse(subscription);
         }
@@ -569,6 +570,20 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     {
         var subscription = await store.FindSubscriptionAsync(actorUserId, channelId, ct);
         return subscription != null ? ToSubscriptionResponse(subscription) : null;
+    }
+
+    public async Task<SubscriptionResponse> UpdateSubscriptionNotificationsAsync(
+        Guid channelId, Guid actorUserId, bool enabled, CancellationToken ct = default)
+    {
+        await RequireActiveChannelAsync(channelId, ct);
+        var subscription = await store.FindSubscriptionAsync(actorUserId, channelId, ct)
+            ?? throw new ChannelException(404, "NOT_SUBSCRIBED", "Bạn chưa đăng ký kênh này.");
+        if (subscription.Status != "active")
+            throw new ChannelException(409, "SUBSCRIPTION_NOT_ACTIVE", "Đăng ký kênh đang tạm dừng.");
+
+        subscription.NotificationsEnabled = enabled;
+        await store.SaveAsync(ct);
+        return ToSubscriptionResponse(subscription);
     }
 
     public Task<List<SubscribedChannelResponse>> GetSubscribedChannelsAsync(Guid actorUserId, CancellationToken ct = default) =>

@@ -25,7 +25,10 @@ def create_app(
     app = FastAPI(
         title=resolved_settings.app_name,
         version="0.1.0",
-        description="Internal MBMF inference service for HuTube.",
+        description=(
+            "Internal pure Collaborative Filtering service for HuTube. "
+            "Supports User-Based and Item-Based CF."
+        ),
         lifespan=lifespan,
     )
     app.state.settings = resolved_settings

@@ -219,4 +219,45 @@ class ChannelService {
   Future<void> removeMember(String channelId, String userId) async {
     await auth.protected('DELETE', '/channels/$channelId/members/$userId');
   }
+
+  Future<Map<String, dynamic>> subscribe(String channelId) async {
+    final response = await auth.protected(
+      'POST',
+      '/channels/${Uri.encodeComponent(channelId)}/subscribe',
+      body: const {},
+    );
+    return Map<String, dynamic>.from(response);
+  }
+
+  Future<void> unsubscribe(String channelId) async {
+    await auth.protected(
+      'DELETE',
+      '/channels/${Uri.encodeComponent(channelId)}/subscribe',
+    );
+  }
+
+  Future<Map<String, dynamic>?> getSubscriptionStatus(String channelId) async {
+    try {
+      final response = await auth.protected(
+        'GET',
+        '/channels/${Uri.encodeComponent(channelId)}/subscribe-status',
+      );
+      return Map<String, dynamic>.from(response);
+    } on ApiFailure catch (error) {
+      if (error.status == 404) return null;
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSubscriptionNotifications(
+    String channelId,
+    bool enabled,
+  ) async {
+    final response = await auth.protected(
+      'PATCH',
+      '/channels/${Uri.encodeComponent(channelId)}/subscribe-notifications',
+      body: {'enabled': enabled},
+    );
+    return Map<String, dynamic>.from(response);
+  }
 }

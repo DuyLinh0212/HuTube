@@ -11,21 +11,21 @@ from app.data.mapping import build_mappings, encode_interactions
 
 @pytest.fixture
 def synthetic_interactions() -> pd.DataFrame:
-    rows = []
     started = datetime(2024, 1, 1, tzinfo=UTC)
-    ratings = {
-        "1": [5, 4, 3, 2, 5, 1],
-        "2": [4, 5, 2, 3, 4, 1],
-        "3": [1, 2, 5, 4, 3, 5],
-        "4": [2, 1, 4, 5, 3, 4],
+    watched = {
+        "1": {"1": 5.0, "2": 4.0, "3": 3.0},
+        "2": {"3": 4.0, "5": 5.0, "6": 4.0},
+        "3": {"2": 5.0, "3": 4.0, "4": 5.0},
+        "4": {"1": 4.0, "4": 5.0, "6": 3.0},
     }
-    for user_id, user_ratings in ratings.items():
-        for offset, rating in enumerate(user_ratings):
+    rows = []
+    for user_id, items in watched.items():
+        for offset, (item_id, rating) in enumerate(items.items()):
             rows.append(
                 {
                     "user_id": user_id,
-                    "item_id": str(offset + 1),
-                    "rating": float(rating),
+                    "item_id": item_id,
+                    "rating": rating,
                     "like": None,
                     "dislike": None,
                     "comment": None,
