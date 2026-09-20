@@ -1,87 +1,217 @@
-<main class="playlists-page">
-  <a [routerLink]="channelHandle ? ['/channel', channelHandle] : ['/home']">← {{ channelHandle ? 'Về kênh' : 'Trang chủ' }}</a>
-  <h1>{{ playlist() ? 'Quản lý playlist' : (channelHandle ? 'Playlist của kênh' : 'Playlist cá nhân') }}</h1>
-  @if (error()) { <p class="error">{{ error() }}</p> }
+<main id="main-content" class="playlists-page">
+  @if (error()) {
+    <div class="notice notice-error" role="alert"><span aria-hidden="true">!</span>{{ error() }}</div>
+  }
+
   @if (loading()) {
-    <p>Đang tải...</p>
+    <section class="loading-state" aria-live="polite">
+      <span class="loading-orb" aria-hidden="true"></span>
+      <p>Đang tải danh sách phát…</p>
+    </section>
   } @else if (!playlist()) {
-    <section class="panel">
-      <h2>{{ channelHandle ? 'Tạo playlist cho kênh' : 'Tạo playlist cá nhân' }}</h2>
-      <input [(ngModel)]="name" placeholder="Tên playlist" maxlength="150">
-      <textarea [(ngModel)]="description" placeholder="Mô tả"></textarea>
-      <select [(ngModel)]="visibility">
-        <option value="private">Private</option>
-        <option value="unlisted">Unlisted</option>
-        <option value="public">Public</option>
-      </select>
-      <button type="button" (click)="create()" [disabled]="busy">Tạo</button>
-    </section>
-    <section class="list">
-      @for (item of lists(); track item.playlistId) {
-        <a class="playlist" [routerLink]="['/playlists', item.playlistId]">
-          <strong>{{ item.name }}</strong>
-          <span>{{ item.itemCount }} video · {{ item.visibility }}</span>
-        </a>
-      } @empty { <p>Chưa có playlist.</p> }
-    </section>
-  } @else {
-    @if (canManage()) {
-      <section class="panel">
-        <input [(ngModel)]="name" maxlength="150">
-        <textarea [(ngModel)]="description"></textarea>
-        <select [(ngModel)]="visibility">
-          <option value="private">Private</option>
-          <option value="unlisted">Unlisted</option>
-          <option value="public">Public</option>
-        </select>
-        <button type="button" (click)="save()" [disabled]="busy">Lưu</button>
-        <button type="button" class="danger" (click)="deletePlaylist()" [disabled]="busy">Xóa</button>
+    <div class="library-layout">
+      <section class="library-main" aria-label="Danh sách phát của bạn">
+        @if (lists().length) {
+          <div class="section-heading">
+            <div><h2>Đã lưu</h2><p>{{ lists().length }} danh sách phát</p></div>
+          </div>
+          <div class="playlist-grid">
+            @for (item of lists(); track item.playlistId) {
+              <a class="playlist-card" [routerLink]="['/playlists', item.playlistId]">
+                <div class="card-mosaic" [class.card-mosaic--empty]="!previewItems(item).length">
+                  @for (video of previewItems(item); track video.playlistVideoId) {
+                    @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title || item.name" /> }
+                  }
+                  @if (!previewItems(item).length) {
+                    <span class="mosaic-line mosaic-line--one"></span><span class="mosaic-line mosaic-line--two"></span>
+                    <span class="mosaic-letter">{{ item.name.slice(0, 1).toUpperCase() }}</span>
+                  }
+                  <span class="card-count"><b aria-hidden="true">▣</b> {{ item.itemCount }}</span>
+                </div>
+                <div class="card-copy">
+                  <div class="card-title-row"><h3>{{ item.name }}</h3><span aria-hidden="true">›</span></div>
+                  <p>{{ item.description || 'Một tuyển tập đang chờ được khám phá.' }}</p>
+                  <div class="card-meta"><span>{{ visibilityLabel(item.visibility) }}</span><i aria-hidden="true"></i><span>Cập nhật {{ formatUpdatedAt(item.updatedAt) }}</span></div>
+                </div>
+              </a>
+            }
+          </div>
+        } @else {
+          <div class="empty-library">
+            <div class="empty-art" aria-hidden="true">
+              <div class="empty-art-main"><span>▶</span><i></i><b></b></div>
+              <div class="empty-art-tile empty-art-tile--warm"></div><div class="empty-art-tile empty-art-tile--cool"></div>
+              <span class="empty-art-count">0 video</span>
+            </div>
+            <div class="empty-copy">
+              <span class="empty-label">BẮT ĐẦU BỘ SƯU TẬP ĐẦU TIÊN</span>
+              <h2>Mọi hành trình xem đều bắt đầu từ một video.</h2>
+              <p>Tạo playlist để lưu, sắp xếp và phát liên tục những nội dung bạn quan tâm.</p>
+              <button type="button" class="primary-button" (click)="focusCreateForm()"><span aria-hidden="true">＋</span> Tạo ngay</button>
+            </div>
+          </div>
+        }
       </section>
-      <section class="panel">
-      <h2>Thêm video</h2>
-      <div class="video-picker-search">
-        <input [(ngModel)]="videoSearch" (keyup.enter)="searchVideos()" placeholder="Tìm video bạn đã đăng">
-        <button type="button" (click)="searchVideos()" [disabled]="busy || videoLoading()">Tìm kiếm</button>
-      </div>
-      @if (videoLoading()) {
-        <p class="muted">Đang tải video...</p>
-      } @else {
-        <div class="video-options">
-          @for (video of videoOptions(); track video.videoId) {
-            <article class="video-option">
-              @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title"> }
-              <div>
-                <b>{{ video.title }}</b>
-                <small>{{ video.channelName }} · {{ video.duration }} giây · {{ video.visibility }}</small>
-              </div>
-              <button type="button" (click)="add(video.videoId)" [disabled]="busy">Thêm</button>
-            </article>
-          } @empty {
-            <p class="muted">Không tìm thấy video phù hợp.</p>
+
+      <aside class="create-card" aria-labelledby="create-playlist-title">
+        <div class="create-card-heading">
+          <span class="create-icon" aria-hidden="true">＋</span>
+          <div><p class="eyebrow">PLAYLIST MỚI</p><h2 id="create-playlist-title">Tạo danh sách phát</h2></div>
+        </div>
+        <p class="create-copy">Đặt tên và chọn ai có thể xem danh sách này.</p>
+        <label for="playlist-name">Tên danh sách</label>
+        <input id="playlist-name" [(ngModel)]="name" maxlength="150" placeholder="Ví dụ: Những ngày ở Việt Nam" />
+        <label for="playlist-description">Mô tả <span>Không bắt buộc</span></label>
+        <textarea id="playlist-description" [(ngModel)]="description" maxlength="1000" placeholder="Danh sách này có gì đặc biệt?"></textarea>
+        <label for="playlist-visibility">Chế độ hiển thị</label>
+        <select id="playlist-visibility" [(ngModel)]="visibility">
+          <option value="private">Riêng tư</option><option value="unlisted">Không công khai</option><option value="public">Công khai</option>
+        </select>
+        <button type="button" class="primary-button full-button" (click)="create()" [disabled]="busy || !name.trim()">
+          {{ busy ? 'Đang tạo…' : 'Tạo danh sách phát' }} <span aria-hidden="true">→</span>
+        </button>
+      </aside>
+    </div>
+  } @else {
+    @if (playlist(); as current) {
+      <a class="back-link" [routerLink]="listBackLink()"><span aria-hidden="true">←</span> {{ channelHandle ? 'Về kênh' : 'Về danh sách phát' }}</a>
+      <header class="playlist-hero">
+        <div class="hero-mosaic" [class.hero-mosaic--empty]="!heroItems(current).length">
+          @for (video of heroItems(current); track video.playlistVideoId) {
+            @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title || current.name" /> }
           }
+          @if (!heroItems(current).length) {
+            <span class="hero-letter">{{ current.name.slice(0, 1).toUpperCase() }}</span>
+            <i class="hero-empty-line hero-empty-line--one"></i><i class="hero-empty-line hero-empty-line--two"></i>
+          }
+          <span class="hero-overlay"><b aria-hidden="true">▣</b> {{ current.items.length }}</span>
+        </div>
+
+        <div class="hero-copy">
+          <p class="eyebrow">{{ playlistTypeLabel(current.playlistType) }}</p>
+          <h1>
+            {{ current.name }}
+            @if (canManage()) {
+              <button type="button" class="title-edit-button" (click)="openEditDialog()" aria-label="Chỉnh sửa thông tin playlist" title="Chỉnh sửa thông tin">✎</button>
+            }
+          </h1>
+          <p class="hero-description">{{ current.description || 'Một tuyển tập video được sắp xếp để xem liền mạch.' }}</p>
+          <div class="hero-meta">
+            <span class="creator-mark">{{ current.name.slice(0, 1).toUpperCase() }}</span>
+            <strong>{{ current.userId === auth.user()?.userId ? 'Danh sách của bạn' : 'HuTube creator' }}</strong>
+            <i aria-hidden="true"></i><span>{{ visibilityLabel(current.visibility) }}</span><i aria-hidden="true"></i>
+            <span>Cập nhật {{ formatUpdatedAt(current.updatedAt) }}</span>
+          </div>
+          <div class="hero-actions">
+            <button type="button" class="primary-button" (click)="playAll()"><span aria-hidden="true">▶</span> Phát tất cả</button>
+            <button type="button" class="secondary-button" (click)="shuffle()"><span aria-hidden="true">⌘</span> Trộn</button>
+            @if (canManage()) { <button type="button" class="secondary-button" (click)="focusAddVideo()"><span aria-hidden="true">＋</span> Thêm video</button> }
+            <button type="button" class="icon-button" (click)="share()" [attr.aria-label]="copied() ? 'Đã sao chép liên kết' : 'Chia sẻ danh sách phát'" [title]="copied() ? 'Đã sao chép' : 'Chia sẻ'">{{ copied() ? '✓' : '↗' }}</button>
+          </div>
+        </div>
+
+        <aside class="hero-stats" aria-label="Tổng quan danh sách phát">
+          <div class="stats-title"><span aria-hidden="true">▥</span><h2>Tổng quan playlist</h2></div>
+          <div class="stats-grid">
+            <div><strong>{{ current.items.length }}</strong><span>Video</span></div>
+            <div><strong>{{ formatDuration(totalDuration(current.items)) }}</strong><span>Thời lượng</span></div>
+            <div><strong>{{ visibilityLabel(current.visibility) }}</strong><span>Hiển thị</span></div>
+          </div>
+          <div class="stats-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <p>Cập nhật gần nhất {{ formatUpdatedAt(current.updatedAt) }}</p>
+        </aside>
+      </header>
+
+      <div class="playlist-layout">
+        <section class="video-list-panel" aria-labelledby="video-list-title">
+          <div class="list-toolbar">
+            <div><h2 id="video-list-title">{{ current.items.length }} video</h2><p>Phát theo thứ tự từ trên xuống dưới</p></div>
+            @if (canManage()) { <span class="reorder-hint"><b aria-hidden="true">⠿</b> Dùng mũi tên để sắp xếp</span> }
+          </div>
+          <div class="video-list">
+            @for (item of current.items; track item.playlistVideoId; let i = $index) {
+              <article class="video-row" [class.video-row--unavailable]="!item.available">
+                @if (canManage()) { <span class="drag-handle" aria-hidden="true">⠿</span> }
+                <span class="row-number">{{ i + 1 }}</span>
+                <a class="row-thumb" [routerLink]="item.available ? ['/watch', item.videoId] : null">
+                  @if (item.thumbnailUrl) { <img [src]="item.thumbnailUrl" [alt]="item.title || 'Video'" /> } @else { <span>{{ (item.title || 'V').slice(0, 1).toUpperCase() }}</span> }
+                  <b>{{ formatDuration(item.duration) }}</b>
+                </a>
+                <div class="row-copy">
+                  @if (item.available) { <a [routerLink]="['/watch', item.videoId]"><h3>{{ item.title || 'Video không có tiêu đề' }}</h3></a> } @else { <h3>{{ item.title || 'Video không còn khả dụng' }}</h3> }
+                  <p><span>{{ item.available ? 'Sẵn sàng phát' : (item.unavailableReason || 'Video không khả dụng') }}</span><i aria-hidden="true"></i>{{ visibilityLabel(item.visibility || 'private') }}</p>
+                </div>
+                @if (canManage()) {
+                  <div class="row-actions">
+                    <button type="button" (click)="move(i, -1)" [disabled]="busy || i === 0" aria-label="Đưa video lên">↑</button>
+                    <button type="button" (click)="move(i, 1)" [disabled]="busy || i === current.items.length - 1" aria-label="Đưa video xuống">↓</button>
+                    <button type="button" class="remove-button" (click)="removeVideo(item.videoId)" [disabled]="busy" aria-label="Xóa video khỏi danh sách">×</button>
+                  </div>
+                }
+              </article>
+            } @empty {
+              <div class="empty-items">
+                <span aria-hidden="true">▶</span><h3>Playlist này chưa có video</h3>
+                <p>{{ canManage() ? 'Mở hộp Thêm video để chọn nội dung đầu tiên.' : 'Hãy quay lại sau khi chủ playlist cập nhật nội dung.' }}</p>
+                @if (canManage()) { <button type="button" class="secondary-button" (click)="focusAddVideo()">Thêm video</button> }
+              </div>
+            }
+          </div>
+        </section>
+
+      </div>
+
+      @if (addVideoOpen() && canManage()) {
+        <div class="playlist-modal-backdrop" role="presentation" (click)="closeAddVideoDialog()">
+          <section class="playlist-modal playlist-modal--add" role="dialog" aria-modal="true" aria-labelledby="add-video-dialog-title" (click)="$event.stopPropagation()">
+            <header class="playlist-modal__header">
+              <div><span class="modal-kicker">MỞ RỘNG MẠCH XEM</span><h2 id="add-video-dialog-title">Thêm video vào playlist</h2><p>Chọn nội dung công khai để đặt tiếp vào danh sách này.</p></div>
+              <button type="button" class="modal-close" (click)="closeAddVideoDialog()" aria-label="Đóng">×</button>
+            </header>
+            <div class="playlist-modal__body">
+              <div class="modal-search-row">
+                <label class="sr-only" for="playlist-video-search">Tìm video để thêm</label>
+                <input id="playlist-video-search" [(ngModel)]="videoSearch" (keyup.enter)="searchVideos()" placeholder="Tìm theo tên video…" />
+                <button type="button" class="primary-button" (click)="searchVideos()" [disabled]="videoLoading()">Tìm</button>
+              </div>
+              @if (videoLoading()) { <p class="modal-status">Đang tìm video…</p> } @else {
+                <div class="modal-video-list">
+                  @for (video of videoOptions(); track video.videoId) {
+                    <article class="modal-video-row">
+                      <div class="modal-video-thumb">@if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title" /> } @else { <span>{{ video.title.slice(0, 1).toUpperCase() }}</span> }</div>
+                      <div class="modal-video-copy"><strong>{{ video.title }}</strong><span>{{ video.channelName }}</span></div>
+                      <button type="button" class="secondary-button modal-add-button" (click)="add(video.videoId)" [disabled]="busy">＋ Thêm</button>
+                    </article>
+                  } @empty {
+                    <div class="modal-empty"><span aria-hidden="true">⌕</span><strong>Không có video phù hợp</strong><p>Thử một từ khóa khác để tìm nội dung công khai.</p></div>
+                  }
+                </div>
+              }
+            </div>
+          </section>
         </div>
       }
-      </section>
+
+      @if (editOpen() && canManage()) {
+        <div class="playlist-modal-backdrop" role="presentation" (click)="closeEditDialog()">
+          <section class="playlist-modal playlist-modal--edit" role="dialog" aria-modal="true" aria-labelledby="edit-playlist-dialog-title" (click)="$event.stopPropagation()">
+            <header class="playlist-modal__header">
+              <div><span class="modal-kicker">THÔNG TIN PLAYLIST</span><h2 id="edit-playlist-dialog-title">Chỉnh sửa thông tin</h2><p>Cập nhật nội dung hiển thị mà không rời khỏi playlist.</p></div>
+              <button type="button" class="modal-close" (click)="closeEditDialog()" aria-label="Đóng">×</button>
+            </header>
+            <form class="playlist-modal__body edit-form" (ngSubmit)="save()">
+              <label for="edit-playlist-name">Tên danh sách</label>
+              <input id="edit-playlist-name" name="name" [(ngModel)]="name" maxlength="150" />
+              <label for="edit-playlist-description">Mô tả</label>
+              <textarea id="edit-playlist-description" name="description" [(ngModel)]="description" maxlength="1000"></textarea>
+              <label for="edit-playlist-visibility">Chế độ hiển thị</label>
+              <select id="edit-playlist-visibility" name="visibility" [(ngModel)]="visibility"><option value="private">Riêng tư</option><option value="unlisted">Không công khai</option><option value="public">Công khai</option></select>
+              <button type="submit" class="primary-button full-button" [disabled]="busy">{{ busy ? 'Đang lưu…' : 'Lưu thay đổi' }}</button>
+              <button type="button" class="text-danger-button" (click)="deletePlaylist()" [disabled]="busy">Xóa danh sách phát</button>
+            </form>
+          </section>
+        </div>
+      }
     }
-    <button type="button" (click)="playAll()" [disabled]="busy">Phát tất cả</button>
-    <section class="items">
-      @for (item of playlist()!.items; track item.playlistVideoId; let i = $index) {
-        <article class="item">
-          <div>
-            @if (item.available) {
-              <a [routerLink]="['/watch', item.videoId]"><b>{{ i + 1 }}. {{ item.title }}</b></a>
-            } @else {
-              <b>{{ i + 1 }}. {{ item.title || 'Video không còn khả dụng' }}</b>
-            }
-            <small>{{ item.available ? 'Có thể phát' : 'Không khả dụng: ' + item.unavailableReason }}</small>
-          </div>
-          @if (canManage()) {
-            <button type="button" (click)="move(i, -1)" [disabled]="busy || i === 0">↑</button>
-            <button type="button" (click)="move(i, 1)" [disabled]="busy || i === playlist()!.items.length - 1">↓</button>
-            <button type="button" class="danger" (click)="removeVideo(item.videoId)" [disabled]="busy">Xóa</button>
-          }
-        </article>
-      } @empty { <p>Playlist chưa có video.</p> }
-    </section>
   }
 </main>

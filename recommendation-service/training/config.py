@@ -7,70 +7,23 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 
-class SplitConfig(BaseModel):
-    train: float = 0.80
-    validation: float = 0.10
-    test: float = 0.10
-
-    @field_validator("test")
-    @classmethod
-    def validate_total(cls, value: float, info):
-        values = info.data
-        total = float(values.get("train", 0)) + float(values.get("validation", 0)) + value
-        if abs(total - 1.0) > 1e-9:
-            raise ValueError("data split ratios must sum to 1.")
-        return value
-
-
 class DataConfig(BaseModel):
     path: Path
     strict_counts: bool = True
     max_users: int | None = Field(default=None, ge=1)
     processed_path: Path
-    split: SplitConfig = Field(default_factory=SplitConfig)
 
 
 class ModelConfig(BaseModel):
-    embedding_dimension: int = Field(default=64, ge=2)
-    preference_head: bool = True
+    """Parameters shared by User-Based and Item-Based CF."""
+
+    similarity: Literal["cosine", "jaccard"] = "cosine"
+    interaction_mode: Literal["binary", "rating"] = "rating"
+    neighbor_count: int = Field(default=50, ge=1)
 
 
-class TrainingSettings(BaseModel):
-    seed: int = 42
-    optimizer: Literal["AdamW"] = "AdamW"
-    learning_rate: float = Field(default=0.001, gt=0)
-    weight_decay: float = Field(default=0.00001, ge=0)
-    batch_size: int = Field(default=1024, ge=1)
-    max_epochs: int = Field(default=100, ge=1)
-    device: Literal["cpu", "cuda"] = "cpu"
-
-
-class LossConfig(BaseModel):
-    rating: Literal["huber"] = "huber"
-    like: Literal["bce"] = "bce"
-    dislike: Literal["bce"] = "bce"
-    comment: Literal["bce"] = "bce"
-    share: Literal["bce"] = "bce"
-    watch_ratio: Literal["huber"] = "huber"
-    preference: Literal["bpr"] = "bpr"
-    weighting: Literal["uncertainty", "normalized_equal"] = "uncertainty"
-
-
-class EarlyStoppingConfig(BaseModel):
-    enabled: bool = True
-    patience: int = Field(default=8, ge=1)
-    metric: Literal["ndcg@10"] = "ndcg@10"
-    mode: Literal["max"] = "max"
-
-
-class NegativeSamplingConfig(BaseModel):
-    enabled: bool = True
-    negatives_per_positive: int = Field(default=4, ge=1)
-
-
-class RelevanceConfig(BaseModel):
-    rating_threshold: float = Field(default=4.0, ge=1.0, le=5.0)
-    watch_ratio_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
+class PreferenceConfig(BaseModel):
+    positive_rating_threshold: float = Field(default=4.0, ge=1.0, le=5.0)
 
 
 class EvaluationConfig(BaseModel):
@@ -85,10 +38,6 @@ class EvaluationConfig(BaseModel):
         return normalized
 
 
-class RankingConfig(BaseModel):
-    popularity_weight: float = Field(default=0.0, ge=0.0, le=1.0)
-
-
 class OutputConfig(BaseModel):
     artifact_root: Path = Path("data/artifacts")
     report_root: Path = Path("reports")
@@ -97,15 +46,8 @@ class OutputConfig(BaseModel):
 class TrainConfig(BaseModel):
     data: DataConfig
     model: ModelConfig = Field(default_factory=ModelConfig)
-    training: TrainingSettings = Field(default_factory=TrainingSettings)
-    loss: LossConfig = Field(default_factory=LossConfig)
-    early_stopping: EarlyStoppingConfig = Field(default_factory=EarlyStoppingConfig)
-    negative_sampling: NegativeSamplingConfig = Field(
-        default_factory=NegativeSamplingConfig
-    )
-    relevance: RelevanceConfig = Field(default_factory=RelevanceConfig)
+    preference: PreferenceConfig = Field(default_factory=PreferenceConfig)
     evaluation: EvaluationConfig = Field(default_factory=EvaluationConfig)
-    ranking: RankingConfig = Field(default_factory=RankingConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
 
     project_root: Path = Field(exclude=True)

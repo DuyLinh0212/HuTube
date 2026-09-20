@@ -14,6 +14,8 @@ import pandas as pd
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
+from training.comparison import generate_comparison_report
+
 BEHAVIORS = ("rating", "like", "dislike", "comment", "share", "watch_ratio")
 
 
@@ -34,64 +36,77 @@ def _save_figure(path: Path) -> None:
     plt.close()
 
 
-def _loss_chart(history: list[dict[str, Any]], path: Path) -> None:
-    epochs = [int(row["epoch"]) for row in history]
-    plt.figure(figsize=(8, 4.5))
-    plt.plot(epochs, [float(row["train_loss"]) for row in history], label="Train loss")
-    validation = [row.get("validation_loss") for row in history]
-    if any(value is not None for value in validation):
-        plt.plot(
-            epochs,
-            [float(value) if value is not None else np.nan for value in validation],
-            label="Validation rating loss",
-        )
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title("Training and validation loss")
-    plt.legend()
-    plt.grid(alpha=0.25)
-    _save_figure(path)
+def _model_metrics(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    if isinstance(payload.get("models"), dict):
+        result: dict[str, dict[str, Any]] = {}
+        for name, values in payload["models"].items():
+            if not isinstance(values, dict):
+                continue
+            evaluation = values.get("preference", values.get("evaluation", values))
+            if isinstance(evaluation, dict):
+                result[str(name)] = dict(evaluation)
+        return result
+    return {"model": dict(payload.get("preference", payload))}
 
 
-def _ranking_charts(metrics: dict[str, Any], report_dir: Path) -> None:
-    test_metrics = metrics["test"]
+def _preference_chart(metrics: dict[str, dict[str, Any]], report_dir: Path) -> None:
     k_values = sorted(
-        int(key.split("@", 1)[1])
-        for key in test_metrics
-        if key.startswith("ndcg@")
+        {
+            int(metric.split("@", 1)[1])
+            for values in metrics.values()
+            for metric in values
+            if metric.startswith("preference_alignment@")
+        }
     )
-    plt.figure(figsize=(7, 4.5))
-    plt.bar([str(k) for k in k_values], [test_metrics[f"ndcg@{k}"] for k in k_values])
-    plt.ylim(0, 1)
-    plt.xlabel("K")
-    plt.ylabel("NDCG")
-    plt.title("NDCG@K on test set")
-    plt.grid(axis="y", alpha=0.25)
-    _save_figure(report_dir / "ndcg_at_k.png")
-
+    if not k_values:
+        return
     x = np.arange(len(k_values))
-    width = 0.36
-    plt.figure(figsize=(8, 4.5))
-    plt.bar(
-        x - width / 2,
-        [test_metrics[f"precision@{k}"] for k in k_values],
-        width,
-        label="Precision",
-    )
-    plt.bar(
-        x + width / 2,
-        [test_metrics[f"recall@{k}"] for k in k_values],
-        width,
-        label="Recall",
-    )
+    width = 0.8 / max(1, len(metrics))
+    plt.figure(figsize=(10, 5))
+    for index, (model, values) in enumerate(metrics.items()):
+        plt.bar(
+            x + (index - (len(metrics) - 1) / 2) * width,
+            [float(values.get(f"preference_alignment@{k}") or 0.0) for k in k_values],
+            width,
+            label=model,
+        )
     plt.xticks(x, [str(k) for k in k_values])
     plt.ylim(0, 1)
     plt.xlabel("K")
-    plt.ylabel("Score")
-    plt.title("Precision@K and Recall@K on test set")
+    plt.ylabel("Preference alignment")
+    plt.title("Preference alignment by K")
     plt.legend()
     plt.grid(axis="y", alpha=0.25)
-    _save_figure(report_dir / "precision_recall_at_k.png")
+    _save_figure(report_dir / "preference_alignment_at_k.png")
+
+
+def _coverage_diversity_chart(
+    metrics: dict[str, dict[str, Any]],
+    report_dir: Path,
+) -> None:
+    names = list(metrics)
+    x = np.arange(len(names))
+    width = 0.35
+    plt.figure(figsize=(9, 5))
+    plt.bar(
+        x - width / 2,
+        [float(metrics[name].get("catalog_coverage@20") or 0.0) for name in names],
+        width,
+        label="Catalog coverage@20",
+    )
+    plt.bar(
+        x + width / 2,
+        [float(metrics[name].get("diversity@20") or 0.0) for name in names],
+        width,
+        label="Diversity@20",
+    )
+    plt.xticks(x, names)
+    plt.ylim(0, 1)
+    plt.ylabel("Score")
+    plt.title("Catalog coverage and diversity")
+    plt.legend()
+    plt.grid(axis="y", alpha=0.25)
+    _save_figure(report_dir / "coverage_diversity.png")
 
 
 def _dataset_charts(interactions: pd.DataFrame, report_dir: Path) -> dict[str, float]:
@@ -114,7 +129,7 @@ def _dataset_charts(interactions: pd.DataFrame, report_dir: Path) -> dict[str, f
     plt.ylim(0, 1)
     plt.xticks(rotation=20)
     plt.ylabel("Observed ratio")
-    plt.title("Behavior distribution")
+    plt.title("Behavior observation coverage")
     plt.grid(axis="y", alpha=0.25)
     _save_figure(report_dir / "behavior_distribution.png")
 
@@ -123,7 +138,7 @@ def _dataset_charts(interactions: pd.DataFrame, report_dir: Path) -> dict[str, f
     plt.ylim(0, 1)
     plt.xticks(rotation=20)
     plt.ylabel("Missing ratio")
-    plt.title("Missing data coverage")
+    plt.title("Missing behavior coverage")
     plt.grid(axis="y", alpha=0.25)
     _save_figure(report_dir / "missing_coverage.png")
     return coverage
@@ -131,63 +146,54 @@ def _dataset_charts(interactions: pd.DataFrame, report_dir: Path) -> dict[str, f
 
 def _version_chart(artifact_root: Path, report_dir: Path) -> None:
     versions: list[str] = []
-    ndcg: list[float] = []
-    recall: list[float] = []
-    rmse: list[float] = []
+    alignment: list[float] = []
     for metrics_path in sorted(artifact_root.glob("*/metrics.json")):
         try:
             payload = json.loads(metrics_path.read_text(encoding="utf-8"))
-            test = payload["test"]
+            models = _model_metrics(payload)
+            values = [
+                float(item.get("preference_alignment@10") or 0.0)
+                for item in models.values()
+            ]
             versions.append(metrics_path.parent.name)
-            ndcg.append(float(test.get("ndcg@10", 0.0)))
-            recall.append(float(test.get("recall@10", 0.0)))
-            rmse.append(float(test.get("rmse", 0.0)))
+            alignment.append(max(values) if values else 0.0)
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             continue
     if not versions:
         return
     x = np.arange(len(versions))
     plt.figure(figsize=(max(8, len(versions) * 1.5), 4.8))
-    plt.plot(x, ndcg, marker="o", label="NDCG@10")
-    plt.plot(x, recall, marker="o", label="Recall@10")
-    plt.plot(x, rmse, marker="o", label="RMSE")
+    plt.plot(x, alignment, marker="o", label="Best preference alignment@10")
     plt.xticks(x, versions, rotation=25, ha="right")
-    plt.title("Model metrics by version")
+    plt.ylim(0, 1)
+    plt.title("Best preference alignment@10 by artifact version")
     plt.legend()
     plt.grid(alpha=0.25)
     _save_figure(report_dir / "model_metrics_by_version.png")
 
 
+def _render(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    if isinstance(value, float):
+        return f"{value:.6f}"
+    return str(value)
+
+
 def _markdown_table(rows: list[tuple[str, Any]]) -> str:
     lines = ["| Metric | Value |", "|---|---:|"]
-    for name, value in rows:
-        rendered = (
-            "N/A"
-            if value is None
-            else f"{value:.6f}"
-            if isinstance(value, float)
-            else str(value)
-        )
-        lines.append(f"| {name} | {rendered} |")
+    lines.extend(f"| {name} | {_render(value)} |" for name, value in rows)
     return "\n".join(lines)
 
 
 def _html_table(rows: list[tuple[str, Any]]) -> str:
-    body = []
-    for name, value in rows:
-        rendered = (
-            "N/A"
-            if value is None
-            else f"{value:.6f}"
-            if isinstance(value, float)
-            else str(value)
-        )
-        body.append(
-            f"<tr><td>{html.escape(name)}</td><td>{html.escape(rendered)}</td></tr>"
-        )
+    body = "".join(
+        f"<tr><td>{html.escape(name)}</td><td>{html.escape(_render(value))}</td></tr>"
+        for name, value in rows
+    )
     return (
         "<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>"
-        + "".join(body)
+        + body
         + "</tbody></table>"
     )
 
@@ -220,15 +226,21 @@ def generate_reports(
     pd.DataFrame(history).to_csv(report_dir / "training_history.csv", index=False)
     pd.DataFrame([dataset_summary]).to_csv(report_dir / "dataset_summary.csv", index=False)
 
-    _loss_chart(history, report_dir / "training_validation_loss.png")
-    _ranking_charts(metrics, report_dir)
+    model_metrics = _model_metrics(metrics)
+    _preference_chart(model_metrics, report_dir)
+    _coverage_diversity_chart(model_metrics, report_dir)
     coverage = _dataset_charts(interactions, report_dir)
     _version_chart(artifact_root, report_dir)
+    comparison = generate_comparison_report(
+        report_dir=report_dir,
+        model_version=model_version,
+        model_metrics=model_metrics,
+    )
 
     chart_names = [
-        "training_validation_loss.png",
-        "ndcg_at_k.png",
-        "precision_recall_at_k.png",
+        "preference_comparison.png",
+        "preference_alignment_at_k.png",
+        "coverage_diversity.png",
         "rating_distribution.png",
         "behavior_distribution.png",
         "missing_coverage.png",
@@ -236,13 +248,21 @@ def generate_reports(
     ]
     chart_names = [name for name in chart_names if (report_dir / name).is_file()]
     unavailable = [
-        "Binary behavior PR/ROC curves: N/A – no observed MovieLens data.",
-        "Watch ratio metrics: N/A – no observed MovieLens data.",
-        "Fallback rate: N/A – offline benchmark.",
-        "Cold-start rate: N/A – offline benchmark.",
+        "Exact item-ID holdout metrics: intentionally not used.",
+        "Binary behavior metrics: N/A – no observed MovieLens behavior data.",
+        "Watch-ratio metrics: N/A – no observed MovieLens behavior data.",
+        "Fallback rate: N/A – not a production traffic run.",
+        "Cold-start rate: N/A – benchmark contains known users and items.",
     ]
     markdown = [
-        f"# MBMF MovieLens 100K Report — {model_version}",
+        f"# Pure Collaborative Filtering Report — {model_version}",
+        "",
+        "The benchmark compares User-Based CF and Item-Based CF using each user's "
+        "complete observed history. It evaluates preference alignment rather than "
+        "forcing the model to recover one hidden item ID.",
+        "",
+        "Genre metadata is used only to build the evaluation profile and is not used "
+        "by either CF scorer during training or ranking.",
         "",
         "## Dataset",
         "",
@@ -264,13 +284,14 @@ def generate_reports(
         "",
         *[f"![{name}](./{name})" for name in chart_names],
         "",
+        f"Comparison HTML: `{comparison.name}`",
+        "",
     ]
     (report_dir / "summary.md").write_text("\n".join(markdown), encoding="utf-8")
 
     images = "".join(
         f"<section><h2>{html.escape(name)}</h2>"
-        f"<img alt='{html.escape(name)}' "
-        f"src='{_embed_image(report_dir / name)}'></section>"
+        f"<img alt='{html.escape(name)}' src='{_embed_image(report_dir / name)}'></section>"
         for name in chart_names
     )
     unavailable_html = "".join(f"<li>{html.escape(entry)}</li>" for entry in unavailable)
@@ -279,16 +300,19 @@ def generate_reports(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MBMF MovieLens 100K Report</title>
+<title>Preference Alignment Report</title>
 <style>
-body{{font-family:Arial,sans-serif;max-width:1100px;margin:0 auto;padding:32px;color:#172033}}
+body{{font-family:Arial,sans-serif;max-width:1150px;margin:0 auto;padding:32px;color:#172033}}
 h1,h2{{color:#173f73}}table{{border-collapse:collapse;width:100%;margin:16px 0 28px}}
 th,td{{border:1px solid #d7deea;padding:8px;text-align:left}}th{{background:#edf3fb}}
 img{{max-width:100%;border:1px solid #d7deea;border-radius:8px}}section{{margin:36px 0}}
 </style>
 </head>
 <body>
-<h1>MBMF MovieLens 100K Report — {html.escape(model_version)}</h1>
+<h1>Preference Alignment Report — {html.escape(model_version)}</h1>
+<p>User-Based CF and Item-Based CF are evaluated against each user's complete
+preference profile.</p>
+<p>No exact hidden item-ID target is required. Genre metadata is evaluation-only.</p>
 <h2>Dataset</h2>{_html_table(list(dataset_summary.items()))}
 <h2>Metrics</h2>{_html_table(flat_metrics)}
 <h2>Behavior coverage</h2>{_html_table(list(coverage.items()))}

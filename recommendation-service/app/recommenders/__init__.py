@@ -1,4 +1,4 @@
 from .item_cf import ItemBasedCF
-from .mbmf import BEHAVIOR_HEADS, MultiBehaviorMF
+from .user_cf import UserBasedCF
 
-__all__ = ["BEHAVIOR_HEADS", "ItemBasedCF", "MultiBehaviorMF"]
+__all__ = ["ItemBasedCF", "UserBasedCF"]

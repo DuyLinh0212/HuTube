@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using HuTube.Application.Auth;
@@ -94,7 +93,7 @@ public sealed class CfSeederService(
                 Username = account.Username,
                 DisplayName = account.DisplayName,
                 Email = $"cfseed-{batchCode}-{index + 1}@seed.hutube.invalid",
-                PasswordHash = passwords.Hash(Convert.ToBase64String(RandomNumberGenerator.GetBytes(48))),
+                PasswordHash = passwords.Hash(account.Password),
                 RoleId = UserRoles.User,
                 PlanId = seedPlan?.PlanId,
                 Status = "active",
@@ -225,12 +224,13 @@ public sealed class CfSeederService(
             video.Status, video.Visibility, video.FileSize);
     }
 
-    private static (string Username, string DisplayName, string ChannelName) NormalizeAccount(
+    private static (string Username, string DisplayName, string ChannelName, string Password) NormalizeAccount(
         CfSeedAccountNameRequest account, int index)
     {
         var username = account.Username?.Trim() ?? "";
         var displayName = account.DisplayName?.Trim() ?? "";
         var channelName = string.IsNullOrWhiteSpace(account.ChannelName) ? displayName : account.ChannelName.Trim();
+        var password = account.Password ?? "";
         if (!UsernamePattern.IsMatch(username))
             throw Error(400, "CF_SEED_INVALID_USERNAME",
                 $"Account #{index + 1}: username phải có 3–50 ký tự gồm chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.");
@@ -238,7 +238,11 @@ public sealed class CfSeederService(
             throw Error(400, "CF_SEED_INVALID_DISPLAY_NAME", $"Account #{index + 1}: tên hiển thị phải có 1–120 ký tự.");
         if (channelName.Length is < 1 or > 100)
             throw Error(400, "CF_SEED_INVALID_CHANNEL_NAME", $"Account #{index + 1}: tên kênh phải có 1–100 ký tự.");
-        return (username, displayName, channelName);
+        if (password.Length is < 10 or > 128 || !password.Any(char.IsUpper)
+            || !password.Any(char.IsLower) || !password.Any(char.IsDigit))
+            throw Error(400, "CF_SEED_INVALID_PASSWORD",
+                $"Account #{index + 1}: mật khẩu cần 10–128 ký tự, gồm chữ hoa, chữ thường và số.");
+        return (username, displayName, channelName, password);
     }
 
     private static string UniqueHandle(string username, string batchCode, int index, ISet<string> existing)

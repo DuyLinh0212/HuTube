@@ -69,44 +69,97 @@ class UserProfile {
 
 class NotificationSettingModel {
   const NotificationSettingModel({
-    this.notifyNewVideos = true,
-    this.notifyComments = true,
-    this.notifySubscriptions = true,
-    this.notifyMarketing = false,
+    this.inAppEnabled = true,
+    this.emailEnabled = true,
+    this.newVideoEnabled = true,
+    this.commentReplyEnabled = true,
+    this.reportResultEnabled = true,
+    this.moderationEnabled = true,
+    this.planEnabled = true,
+    this.recommendationEnabled = true,
+    this.mentionEnabled = true,
+    this.channelActivityEnabled = true,
+    this.paymentEnabled = true,
   });
 
-  final bool notifyNewVideos;
-  final bool notifyComments;
-  final bool notifySubscriptions;
-  final bool notifyMarketing;
+  final bool inAppEnabled;
+  final bool emailEnabled;
+  final bool newVideoEnabled;
+  final bool commentReplyEnabled;
+  final bool reportResultEnabled;
+  final bool moderationEnabled;
+  final bool planEnabled;
+  final bool recommendationEnabled;
+  final bool mentionEnabled;
+  final bool channelActivityEnabled;
+  final bool paymentEnabled;
+
+  // Compatibility getters keep the existing settings screen readable while
+  // the wire format now matches the backend contract exactly.
+  bool get notifyNewVideos => newVideoEnabled;
+  bool get notifyComments => commentReplyEnabled;
+  bool get notifySubscriptions => channelActivityEnabled;
+  bool get notifyMarketing => emailEnabled;
 
   factory NotificationSettingModel.fromJson(Map<String, dynamic> json) {
     return NotificationSettingModel(
-      notifyNewVideos: json['notifyNewVideos'] as bool? ?? true,
-      notifyComments: json['notifyComments'] as bool? ?? true,
-      notifySubscriptions: json['notifySubscriptions'] as bool? ?? true,
-      notifyMarketing: json['notifyMarketing'] as bool? ?? false,
+      inAppEnabled: json['inAppEnabled'] as bool? ?? true,
+      emailEnabled: json['emailEnabled'] as bool? ?? json['notifyMarketing'] as bool? ?? false,
+      newVideoEnabled: json['newVideoEnabled'] as bool? ?? json['notifyNewVideos'] as bool? ?? true,
+      commentReplyEnabled: json['commentReplyEnabled'] as bool? ?? json['notifyComments'] as bool? ?? true,
+      reportResultEnabled: json['reportResultEnabled'] as bool? ?? true,
+      moderationEnabled: json['moderationEnabled'] as bool? ?? true,
+      planEnabled: json['planEnabled'] as bool? ?? true,
+      recommendationEnabled: json['recommendationEnabled'] as bool? ?? true,
+      mentionEnabled: json['mentionEnabled'] as bool? ?? true,
+      channelActivityEnabled: json['channelActivityEnabled'] as bool? ?? json['notifySubscriptions'] as bool? ?? true,
+      paymentEnabled: json['paymentEnabled'] as bool? ?? true,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'notifyNewVideos': notifyNewVideos,
-    'notifyComments': notifyComments,
-    'notifySubscriptions': notifySubscriptions,
-    'notifyMarketing': notifyMarketing,
+    'inAppEnabled': inAppEnabled,
+    'emailEnabled': emailEnabled,
+    'newVideoEnabled': newVideoEnabled,
+    'commentReplyEnabled': commentReplyEnabled,
+    'reportResultEnabled': reportResultEnabled,
+    'moderationEnabled': moderationEnabled,
+    'planEnabled': planEnabled,
+    'recommendationEnabled': recommendationEnabled,
+    'mentionEnabled': mentionEnabled,
+    'channelActivityEnabled': channelActivityEnabled,
+    'paymentEnabled': paymentEnabled,
   };
 
   NotificationSettingModel copyWith({
+    bool? inAppEnabled,
+    bool? emailEnabled,
+    bool? newVideoEnabled,
+    bool? commentReplyEnabled,
+    bool? reportResultEnabled,
+    bool? moderationEnabled,
+    bool? planEnabled,
+    bool? recommendationEnabled,
+    bool? mentionEnabled,
+    bool? channelActivityEnabled,
+    bool? paymentEnabled,
     bool? notifyNewVideos,
     bool? notifyComments,
     bool? notifySubscriptions,
     bool? notifyMarketing,
   }) {
     return NotificationSettingModel(
-      notifyNewVideos: notifyNewVideos ?? this.notifyNewVideos,
-      notifyComments: notifyComments ?? this.notifyComments,
-      notifySubscriptions: notifySubscriptions ?? this.notifySubscriptions,
-      notifyMarketing: notifyMarketing ?? this.notifyMarketing,
+      inAppEnabled: inAppEnabled ?? this.inAppEnabled,
+      emailEnabled: emailEnabled ?? notifyMarketing ?? this.emailEnabled,
+      newVideoEnabled: newVideoEnabled ?? notifyNewVideos ?? this.newVideoEnabled,
+      commentReplyEnabled: commentReplyEnabled ?? notifyComments ?? this.commentReplyEnabled,
+      reportResultEnabled: reportResultEnabled ?? this.reportResultEnabled,
+      moderationEnabled: moderationEnabled ?? this.moderationEnabled,
+      planEnabled: planEnabled ?? this.planEnabled,
+      recommendationEnabled: recommendationEnabled ?? this.recommendationEnabled,
+      mentionEnabled: mentionEnabled ?? this.mentionEnabled,
+      channelActivityEnabled: channelActivityEnabled ?? notifySubscriptions ?? this.channelActivityEnabled,
+      paymentEnabled: paymentEnabled ?? this.paymentEnabled,
     );
   }
 }

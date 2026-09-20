@@ -149,6 +149,11 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
         return Ok(result);
     }
 
+    [Authorize, HttpPatch("{id:guid}/subscribe-notifications")]
+    public Task<SubscriptionResponse> UpdateSubscriptionNotificationsAsync(
+        Guid id, UpdateSubscriptionNotificationsRequest request, CancellationToken ct) =>
+        channelService.UpdateSubscriptionNotificationsAsync(id, UserId, request.Enabled, ct);
+
     private async Task<ActionResult<ChannelResponse>> UploadImageAsync(
         Guid channelId,
         IFormFile? file,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,13 +10,13 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
-    app_name: str = "HuTube Recommendation Service"
+    app_name: str = "HuTube Pure Collaborative Filtering Service"
     app_env: str = "development"
     model_storage_path: Path = Path("data/artifacts")
     model_version: str = "benchmark-latest"
+    model_type: Literal["user_based", "item_based"] = "item_based"
     recommender_service_token: str = ""
     allow_benchmark_model: bool = False
-    device: str = "cpu"
 
     model_config = SettingsConfigDict(
         env_file=SERVICE_ROOT / ".env",

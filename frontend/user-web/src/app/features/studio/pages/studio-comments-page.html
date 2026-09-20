@@ -1,15 +1,17 @@
 <main class="page">
+  @if (error()) { <p class="error">{{ error() }}</p> }
   <div class="filters">
     <button [class.active]="filter() === 'visible'" (click)="filter.set('visible')">{{ 'studio.visible' | translate }}</button>
     <button [class.active]="filter() === 'hidden'" (click)="filter.set('hidden')">{{ 'studio.hidden' | translate }}</button>
   </div>
 
   <section>
+    @if (loading()) { <p class="empty">Đang tải bình luận…</p> }
     @for (row of filtered(); track row.comment.commentId) {
       <article>
         <div class="avatar">{{ row.comment.displayName.slice(0, 1) }}</div>
         <div class="body">
-          <p><strong>{{ row.comment.displayName }}</strong> {{ 'studio.onVideo' | translate }} <b>{{ row.video.title }}</b></p>
+          <p><strong>{{ row.comment.displayName }}</strong> {{ 'studio.onVideo' | translate }} <b>{{ row.video?.title || 'Video không còn hiển thị' }}</b></p>
           <span>{{ row.comment.content }}</span>
           <div>
             @if (data.hasPermission('comment.manage')) {

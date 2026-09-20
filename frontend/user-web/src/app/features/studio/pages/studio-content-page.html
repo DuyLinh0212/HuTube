@@ -78,7 +78,12 @@
             </td>
             <td>{{ video.createdAt | localeDate:'dd/MM/yyyy' }}</td>
             <td>{{ video.stats.views | localeNumber }}</td>
-            <td>{{ video.stats.likes | localeNumber }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}</td>
+            <td>
+              {{ video.stats.likes | localeNumber }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}
+              @if (data.hasPermission('video.edit')) {
+                <a class="edit-video-link" [routerLink]="['/studio/content', video.videoId, 'edit']">{{ 'studio.edit' | translate }}</a>
+              }
+            </td>
           </tr>
         } @empty {
           <tr><td colspan="6" class="empty-cell">{{ 'studio.noVideosList' | translate }}</td></tr>

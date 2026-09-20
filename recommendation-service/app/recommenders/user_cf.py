@@ -19,10 +19,10 @@ from .similarity import (
 
 
 @dataclass(slots=True)
-class ItemBasedCF:
-    """Item-Based Collaborative Filtering implemented with NumPy formulas."""
+class UserBasedCF:
+    """User-Based Collaborative Filtering implemented with NumPy formulas."""
 
-    model_type: ClassVar[str] = "item_based"
+    model_type: ClassVar[str] = "user_based"
     user_count: int
     item_count: int
     neighbor_count: int
@@ -44,7 +44,7 @@ class ItemBasedCF:
         neighbor_count: int = 50,
         interaction_mode: InteractionMode = "rating",
         similarity: SimilarityName = "cosine",
-    ) -> ItemBasedCF:
+    ) -> UserBasedCF:
         matrix = build_interaction_matrix(
             interactions,
             user_count=user_count,
@@ -52,8 +52,8 @@ class ItemBasedCF:
             mode=interaction_mode,
         )
         if not np.any(matrix > 0):
-            raise ValueError("Item-Based CF requires at least one observed interaction.")
-        similarities = compute_similarity(matrix.T, similarity)
+            raise ValueError("User-Based CF requires at least one observed interaction.")
+        similarities = compute_similarity(matrix, similarity)
         neighbor_indices, neighbor_similarities = select_positive_neighbors(
             similarities,
             neighbor_count,
@@ -77,15 +77,17 @@ class ItemBasedCF:
 
     def score_all_items(self, user_index: int) -> np.ndarray:
         self._validate_user(user_index)
-        neighbors = self.neighbor_indices
-        if neighbors.shape[1] == 0:
+        neighbors = self.neighbor_indices[user_index]
+        if not len(neighbors):
             return self.item_means.copy()
-        safe_neighbors = np.maximum(neighbors, 0)
-        neighbor_values = self.interactions[user_index][safe_neighbors]
-        observed = (neighbors >= 0) & (neighbor_values > 0)
-        weighted = neighbor_values * self.neighbor_similarities * observed
-        numerator = weighted.sum(axis=1)
-        denominator = (self.neighbor_similarities * observed).sum(axis=1)
+        valid = neighbors >= 0
+        neighbors = neighbors[valid]
+        weights = self.neighbor_similarities[user_index][valid]
+        neighbor_values = self.interactions[neighbors]
+        observed = neighbor_values > 0
+        weighted = neighbor_values * weights[:, None] * observed
+        numerator = weighted.sum(axis=0)
+        denominator = (weights[:, None] * observed).sum(axis=0)
         scores = self.item_means.copy()
         np.divide(numerator, denominator, out=scores, where=denominator > 0)
         return scores.astype(np.float32, copy=False)
@@ -138,7 +140,7 @@ class ItemBasedCF:
         return output
 
     @classmethod
-    def load_npz(cls, path: str | Path) -> ItemBasedCF:
+    def load_npz(cls, path: str | Path) -> UserBasedCF:
         with np.load(path, allow_pickle=False) as payload:
             interactions = np.asarray(payload["interactions"], dtype=np.float32)
             return cls(

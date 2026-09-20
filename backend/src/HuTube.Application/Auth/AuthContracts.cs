@@ -86,7 +86,7 @@ public interface IAuthStore
     Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct);
     Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct);
     Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct);
-    Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, CancellationToken ct);
+    Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct);
     Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct);
     Task<PasswordResetToken?> FindResetAsync(string hash, CancellationToken ct);
     Task<bool> IsAdminAsync(Guid userId, CancellationToken ct);

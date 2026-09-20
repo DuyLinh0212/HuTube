@@ -1,6 +1,6 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { CommentItem, ContentService, VideoDetail } from '../../../core/content.service';
 import { I18nService } from '../../../core/i18n.service';
 import { StudioDataService } from '../../../core/studio-data.service';
@@ -8,7 +8,7 @@ import { TranslatePipe } from '../../../core/translate.pipe';
 
 interface StudioComment {
   comment: CommentItem;
-  video: VideoDetail;
+  video: VideoDetail | null;
 }
 
 @Component({
@@ -23,6 +23,8 @@ export class StudioCommentsPage {
   readonly i18n = inject(I18nService);
   private loadedChannelId = '';
   readonly rows = signal<StudioComment[]>([]);
+  readonly loading = signal(false);
+  readonly error = signal('');
   readonly filter = signal<'visible' | 'hidden'>('visible');
   readonly replying = signal<string | null>(null);
   replyText = '';
@@ -42,15 +44,31 @@ export class StudioCommentsPage {
       this.rows.set([]);
       return;
     }
-    forkJoin({
-      videos: this.content.managed(channelId, 1, 100),
-      comments: this.content.managedComments(channelId, '', 1, 100),
-    }).subscribe(({ videos, comments }) => {
-      const byId = new Map(videos.items.map(video => [video.videoId, video]));
-      this.rows.set(comments.items.flatMap(comment => {
-        const video = byId.get(comment.videoId);
-        return video ? [{ comment, video }] : [];
-      }));
+    this.loading.set(true);
+    this.error.set('');
+    this.content.managedComments(channelId, '', 1, 100).pipe(
+      switchMap(comments => {
+        const byId = new Map(this.data.videos().map(video => [video.videoId, video]));
+        const missingIds = [...new Set(comments.items.map(comment => comment.videoId))]
+          .filter(videoId => !byId.has(videoId));
+        if (!missingIds.length) return of({ comments, byId });
+        return forkJoin(missingIds.map(videoId => this.content.detail(videoId).pipe(catchError(() => of(null))))).pipe(
+          map(videos => {
+            videos.forEach(video => { if (video) byId.set(video.videoId, video); });
+            return { comments, byId };
+          })
+        );
+      })
+    ).subscribe({
+      next: ({ comments, byId }) => {
+        this.rows.set(comments.items.map(comment => ({ comment, video: byId.get(comment.videoId) ?? null })));
+        this.loading.set(false);
+      },
+      error: () => {
+        this.rows.set([]);
+        this.error.set('Không thể tải bình luận của kênh.');
+        this.loading.set(false);
+      }
     });
   }
 
@@ -73,7 +91,7 @@ export class StudioCommentsPage {
 
   reply(row: StudioComment) {
     if (!this.replyText.trim()) return;
-    this.content.createComment(row.video.videoId, this.replyText.trim(), row.comment.commentId)
+    this.content.createComment(row.comment.videoId, this.replyText.trim(), row.comment.commentId)
       .subscribe(() => {
         this.replyText = '';
         this.replying.set(null);

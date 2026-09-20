@@ -512,11 +512,15 @@
 
             <div class="playlist-select-item">
               <label for="videoPlaylist">{{ 'upload.step5.addPlaylist' | translate }}</label>
-              <select id="videoPlaylist" class="select-input" [(ngModel)]="selectedPlaylist">
+              <select id="videoPlaylist" class="select-input" [(ngModel)]="selectedPlaylistId">
                 <option value="">-- {{ 'upload.step5.selectPlaylist' | translate }} --</option>
-                <option value="dalat-trips">{{ 'upload.playlistDalat' | translate }}</option>
-                <option value="travel-vlogs">{{ 'upload.playlistVietnam' | translate }}</option>
+                @for (playlist of playlists(); track playlist.playlistId) {
+                  <option [value]="playlist.playlistId">{{ playlist.name }} · {{ playlist.itemCount }} video</option>
+                }
               </select>
+              @if (!playlists().length) {
+                <small class="section-sub">Bạn chưa có danh sách phát cá nhân nào.</small>
+              }
             </div>
           </div>
 
@@ -552,6 +556,9 @@
             <h2 class="celebration-title">{{ (isAwaitingModeration() ? 'upload.step6.moderationPending' : 'upload.step6.congrats') | translate }}</h2>
             <p class="celebration-desc">{{ (isAwaitingModeration() ? 'upload.step6.moderationPendingDesc' : 'upload.step6.congratsDesc') | translate }}</p>
           </div>
+          @if (playlistBusy() || playlistMessage()) {
+            <p class="playlist-upload-status">{{ playlistBusy() ? 'Đang thêm video vào danh sách phát…' : playlistMessage() }}</p>
+          }
 
           <div class="publish-summary-card">
             <div class="summary-preview">

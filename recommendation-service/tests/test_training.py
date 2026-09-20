@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.data.mapping import IndexMappings
-from app.data.split import temporal_split
+from app.data.mapping import build_mappings
 from training.config import TrainConfig
-from training.evaluate import _ranking_metrics, evaluate_model
-from training.trainer import fit_final_model, train_with_validation
+from training.evaluate import evaluate_model
+from training.trainer import MODEL_TYPES, fit_both_models
 
 
 def _config(tmp_path: Path) -> TrainConfig:
@@ -17,78 +16,43 @@ def _config(tmp_path: Path) -> TrainConfig:
                 "path": "unused",
                 "strict_counts": False,
                 "processed_path": "processed.csv",
-                "split": {"train": 0.8, "validation": 0.1, "test": 0.1},
             },
-            "model": {"embedding_dimension": 8},
-            "training": {
-                "seed": 7,
-                "learning_rate": 0.01,
-                "weight_decay": 0.0,
-                "batch_size": 8,
-                "max_epochs": 2,
-                "device": "cpu",
+            "model": {
+                "similarity": "cosine",
+                "interaction_mode": "rating",
+                "neighbor_count": 3,
             },
-            "early_stopping": {"enabled": False, "patience": 2, "metric": "ndcg@10"},
-            "negative_sampling": {"enabled": True, "negatives_per_positive": 1},
-            "evaluation": {"k": [2, 10]},
-            "output": {"artifact_root": "artifacts", "report_root": "reports"},
+            "preference": {"positive_rating_threshold": 4.0},
+            "evaluation": {"k": [2, 3]},
         }
     )
 
 
-def test_smoke_training_and_evaluation(
+def test_both_from_scratch_models_train_and_evaluate(
     tmp_path: Path,
     synthetic_interactions,
     synthetic_items,
 ) -> None:
     config = _config(tmp_path)
-    split = temporal_split(synthetic_interactions)
-    mappings = IndexMappings(
-        user_to_index={str(index + 1): index for index in range(4)},
-        item_to_index={str(index + 1): index for index in range(6)},
+    mappings = build_mappings(
+        synthetic_interactions,
+        item_ids=synthetic_items["item_id"].tolist(),
     )
-    selection = train_with_validation(
-        split.train,
-        split.validation,
-        config=config,
-        mappings=mappings,
-        items=synthetic_items,
-        genre_names=["Action", "Comedy"],
-    )
-    final = fit_final_model(
-        split.train,
-        config=config,
-        mappings=mappings,
-        items=synthetic_items,
-        genre_names=["Action", "Comedy"],
-        epochs=selection.best_epoch,
-    )
-    result = evaluate_model(
-        final.model,
-        split.test,
-        split.train,
-        mappings=mappings,
-        items=synthetic_items,
-        genre_names=["Action", "Comedy"],
-        k_values=[2, 10],
-        rating_threshold=4.0,
-        device=next(final.model.parameters()).device,
-    )
+    fitted = fit_both_models(synthetic_interactions, config=config, mappings=mappings)
 
-    assert selection.history
-    assert {"rating", "preference"}.issubset(selection.active_tasks)
-    assert result.metrics["rmse"] is not None
-    assert 0 <= result.metrics["ndcg@2"] <= 1
-
-
-def test_ranking_metrics_match_known_example() -> None:
-    recommendations = {0: [(3, 0.9), (2, 0.8)]}
-    relevant = {0: {2}}
-
-    metrics = _ranking_metrics(recommendations, relevant, k=2)
-
-    assert metrics["precision@2"] == 0.5
-    assert metrics["recall@2"] == 1.0
-    assert metrics["hitrate@2"] == 1.0
-    assert metrics["ndcg@2"] == 1 / 1.584962500721156
-    assert all(0.0 <= value <= 1.0 for value in metrics.values())
+    assert set(fitted) == set(MODEL_TYPES)
+    for model_type, result in fitted.items():
+        evaluation = evaluate_model(
+            result.model,
+            synthetic_interactions,
+            mappings=mappings,
+            items=synthetic_items,
+            genre_names=["Action", "Comedy"],
+            k_values=[2, 3],
+            positive_rating_threshold=4.0,
+        )
+        assert result.model.model_type == model_type
+        assert result.fit_seconds >= 0
+        assert 0.0 <= evaluation.metrics["preference_alignment@2"] <= 1.0
+        assert 0.0 <= evaluation.metrics["preference_genre_coverage@3"] <= 1.0
+        assert evaluation.metrics["recommendation_count"] > 0

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Net.Http;
 using System.Text.Json;
 using HuTube.Application.Storage;
 using HuTube.Application.Notifications;
@@ -20,6 +21,7 @@ public sealed class ContentService(
     FeatureOptions features,
     TimeProvider clock,
     ILogger<ContentService> logger,
+    IHttpClientFactory httpClientFactory,
     VideoRenditionProcessingQueue renditionQueue) : IContentService
 {
     private DateTimeOffset Now => clock.GetUtcNow();
@@ -599,6 +601,80 @@ public sealed class ContentService(
         return await ToResponseAsync(video, actorId, ct);
     }
 
+    public async Task<VideoResponse> UpdateThumbnailAsync(Guid actorId, Guid videoId, UpdateThumbnailRequest request, CancellationToken ct = default)
+    {
+        var video = await RequireVideoAsync(videoId, ct);
+        await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
+
+        string? newThumbnailPath = null;
+        var temporaryDirectory = Path.Combine(Path.GetTempPath(), "hutube-thumbnail-processing", Guid.NewGuid().ToString("N"));
+        var persisted = false;
+        try
+        {
+            if (request.Content != null && !string.IsNullOrWhiteSpace(request.FileName) && !string.IsNullOrWhiteSpace(request.ContentType))
+            {
+                newThumbnailPath = await storage.SaveFileAsync("video-thumbnails", request.FileName, request.Content, request.ContentType, ct);
+            }
+            else if (request.Generate)
+            {
+                if (string.IsNullOrWhiteSpace(video.VideoUrl))
+                    throw Error(409, "VIDEO_SOURCE_NOT_FOUND", "Không tìm thấy file source của video để tạo thumbnail.");
+
+                Directory.CreateDirectory(temporaryDirectory);
+                var sourceFile = Path.Combine(temporaryDirectory, "source.mp4");
+                var sourceUrl = await storage.GetReadUrlAsync(video.VideoUrl, TimeSpan.FromMinutes(15), ct);
+                using var response = await httpClientFactory.CreateClient().GetAsync(sourceUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+                if (!response.IsSuccessStatusCode)
+                    throw Error(502, "VIDEO_SOURCE_UNAVAILABLE", "Không thể đọc source video để tạo thumbnail.");
+                await using (var source = File.Create(sourceFile))
+                    await response.Content.CopyToAsync(source, ct);
+
+                var generated = await transcoder.CreateThumbnailAsync(sourceFile, temporaryDirectory, ct);
+                if (string.IsNullOrWhiteSpace(generated) || !File.Exists(generated))
+                    throw Error(422, "THUMBNAIL_GENERATION_FAILED", "FFmpeg không thể tạo thumbnail từ video này.");
+
+                await using var thumbnail = File.OpenRead(generated);
+                newThumbnailPath = await storage.SaveFileAsync(
+                    "video-thumbnails", $"{Guid.NewGuid():N}.jpg", thumbnail, "image/jpeg", ct);
+            }
+            else
+            {
+                throw Error(400, "THUMBNAIL_REQUIRED", "Vui lòng chọn thumbnail hoặc bật tự động tạo thumbnail.");
+            }
+
+            var previousThumbnailPath = video.ThumbnailUrl;
+            video.ThumbnailUrl = newThumbnailPath;
+            video.UpdatedAt = Now;
+            await db.SaveChangesAsync(ct);
+            persisted = true;
+
+            if (!string.IsNullOrWhiteSpace(previousThumbnailPath) && !string.Equals(previousThumbnailPath, newThumbnailPath, StringComparison.Ordinal))
+            {
+                try { await storage.DeleteFileAsync(previousThumbnailPath, CancellationToken.None); }
+                catch (Exception ex) { logger.LogWarning(ex, "Không thể xóa thumbnail cũ của video {VideoId}", videoId); }
+            }
+
+            return await ToResponseAsync(video, actorId, ct);
+        }
+        catch
+        {
+            if (!persisted && !string.IsNullOrWhiteSpace(newThumbnailPath))
+            {
+                try { await storage.DeleteFileAsync(newThumbnailPath, CancellationToken.None); }
+                catch (Exception ex) { logger.LogWarning(ex, "Không thể dọn thumbnail tạm của video {VideoId}", videoId); }
+            }
+            throw;
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(temporaryDirectory)) Directory.Delete(temporaryDirectory, true);
+            }
+            catch (IOException ex) { logger.LogWarning(ex, "Không thể xóa thư mục thumbnail tạm {Directory}", temporaryDirectory); }
+        }
+    }
+
     public async Task DeleteVideoAsync(Guid actorId, Guid videoId, CancellationToken ct = default)
     {
         var video = await RequireVideoAsync(videoId, ct);
@@ -632,9 +708,47 @@ public sealed class ContentService(
         if (!features.ModerationEnabled && video.Visibility == "public")
             throw Error(409, "PUBLICATION_LOCKED", "Chế độ công khai đang tạm khóa cho đến khi kiểm duyệt được bật.");
         if (features.ModerationEnabled && video.ModerationStatus != "approved") throw Error(409, "VIDEO_NOT_APPROVED", "Video phải được kiểm duyệt trước khi xuất bản.");
+        var wasPublished = video.Status == "published" && video.PublishedAt.HasValue;
         video.Status = "published"; video.PublishedAt ??= Now; video.UpdatedAt = Now;
         await db.SaveChangesAsync(ct);
-        await notifications.PublishAsync(actorId, "video_published", "Video đã được xuất bản", video.Title, $"/watch/{video.VideoId}", "video", video.VideoId, ct);
+        if (!wasPublished)
+        {
+            await notifications.PublishAsync(actorId, "video_published", "Video đã được xuất bản", video.Title, $"/watch/{video.VideoId}", "video", video.VideoId, ct);
+
+            if (video.Visibility == "public")
+            {
+                var channelName = await db.Channels.AsNoTracking()
+                    .Where(channel => channel.ChannelId == video.ChannelId)
+                    .Select(channel => channel.Name)
+                    .SingleOrDefaultAsync(ct) ?? "Kênh bạn đăng ký";
+                var subscriberIds = await db.Subscriptions.AsNoTracking()
+                    .Where(subscription => subscription.ChannelId == video.ChannelId
+                        && subscription.Status == "active"
+                        && subscription.NotificationsEnabled)
+                    .Select(subscription => subscription.UserId)
+                    .ToListAsync(ct);
+
+                foreach (var subscriberId in subscriberIds)
+                {
+                    try
+                    {
+                        await notifications.PublishInAppAsync(
+                            subscriberId,
+                            "new_video",
+                            $"{channelName} vừa đăng video mới",
+                            video.Title,
+                            $"/watch/{video.VideoId}",
+                            "video",
+                            video.VideoId,
+                            ct);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        logger.LogWarning(ex, "Không thể gửi thông báo video mới tới {UserId} cho video {VideoId}", subscriberId, video.VideoId);
+                    }
+                }
+            }
+        }
         return await ToResponseAsync(video, actorId, ct);
     }
 

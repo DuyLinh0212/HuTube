@@ -8,6 +8,7 @@ import { TranslatePipe } from '../../../core/translate.pipe';
 import { Category, ContentService, UploadPreflight, VideoDetail } from '../../../core/content.service';
 import { UploadStateService } from '../../../core/upload-state.service';
 import { StudioDataService } from '../../../core/studio-data.service';
+import { PlaylistService, PlaylistSummary } from '../../../core/playlist.service';
 
 export interface Chapter {
   id: number;
@@ -32,6 +33,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly content = inject(ContentService);
   private readonly studio = inject(StudioDataService);
+  private readonly playlistService = inject(PlaylistService);
   readonly uploadState = inject(UploadStateService);
 
   @ViewChild('previewPlayer') private previewPlayer?: ElementRef<HTMLVideoElement>;
@@ -49,6 +51,9 @@ export class VideoUploadWizardComponent implements OnDestroy {
   readonly preflight = signal<UploadPreflight | null>(null);
   readonly preflightLoading = signal(false);
   readonly categoryOptions = signal<Category[]>([]);
+  readonly playlists = signal<PlaylistSummary[]>([]);
+  readonly playlistBusy = signal(false);
+  readonly playlistMessage = signal('');
   readonly previewVideoUrl = signal('');
   readonly previewPlaying = signal(false);
   readonly timelineSeconds = signal(0);
@@ -93,7 +98,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   scheduleDate = '2026-09-15';
   scheduleTime = '19:00';
   allowComments = true;
-  selectedPlaylist = 'dalat-trips';
+  selectedPlaylistId = '';
   policyAgreed = false;
 
   // Step 6 State
@@ -109,6 +114,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
       this.runPreflight();
     });
     this.content.categories().subscribe({ next: items => this.categoryOptions.set(items) });
+    this.playlistService.mine().subscribe({
+      next: items => this.playlists.set(items),
+      error: () => this.playlists.set([])
+    });
 
     effect(() => {
       const state = this.uploadState.state();
@@ -117,6 +126,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       if (state.phase === 'failed' && state.error) this.uploadError.set(state.error);
       if (state.phase === 'completed' && state.video && this.handledUploadVideoId !== state.video.videoId) {
         this.handledUploadVideoId = state.video.videoId;
+        this.attachToSelectedPlaylist(state.video.videoId);
         this.publishedVideoUrl = this.isAwaitingModeration(state.video) ? '' : `${location.origin}/watch/${state.video.videoId}`;
         this.currentStep.set(6);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -431,6 +441,23 @@ export class VideoUploadWizardComponent implements OnDestroy {
       this.uploadError.set(this.i18n.t('upload.uploadInProgress'));
   }
 
+  private attachToSelectedPlaylist(videoId: string) {
+    const playlistId = this.selectedPlaylistId;
+    if (!playlistId) return;
+    this.playlistBusy.set(true);
+    this.playlistMessage.set('');
+    this.playlistService.addVideo(playlistId, videoId).subscribe({
+      next: () => {
+        this.playlistBusy.set(false);
+        this.playlistMessage.set('Đã thêm video vào danh sách phát.');
+      },
+      error: () => {
+        this.playlistBusy.set(false);
+        this.playlistMessage.set('Video đã tải lên nhưng chưa thêm được vào danh sách phát.');
+      }
+    });
+  }
+
   private validateChapters(): boolean {
     let previous = -1;
     for (const chapter of this.chapters()) {
@@ -600,6 +627,8 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.publishedVideoUrl = '';
     this.videoTitle = '';
     this.videoDesc = '';
+    this.selectedPlaylistId = '';
+    this.playlistMessage.set('');
     this.chapters.set([]);
     this.tags.set([]);
     this.thumbnails = [];

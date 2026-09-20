@@ -27,7 +27,7 @@
         <div class="player-shell" [class.is-mini-player]="miniPlayer()">
           <div #playerStage class="player-stage">
             @if (activeRendition(); as source) {
-              <video #player class="video-player" playsinline preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()"></video>
+              <video #player class="video-player" playsinline autoplay preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()"></video>
             } @else {
               <div class="player-empty"><span aria-hidden="true">▶</span><p>{{ 'watch.notReady' | translate }}</p></div>
             }
@@ -91,7 +91,7 @@
           }
           <button type="button" class="action-button" (click)="share()" [attr.aria-expanded]="shareOpen()" aria-controls="share-popover"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5-5 5M19 10H9a4 4 0 0 0-4 4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>{{ 'watch.shareVideo' | translate }}</span></button>
           @if (auth.user()) {
-            <button type="button" class="action-button" (click)="saveToPlaylist()" [disabled]="savedToPlaylist()">{{ savedToPlaylist() ? 'Đã lưu' : 'Lưu' }}</button>
+            <button type="button" class="action-button playlist-action-button" (click)="openPlaylistPicker()" [attr.aria-expanded]="playlistPickerOpen()" aria-controls="playlist-picker-dialog"><span aria-hidden="true">＋</span> Thêm vào danh sách phát</button>
           }
           @if (auth.user()) {
             <button type="button" class="action-button" (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover">{{ 'watch.download' | translate }}</button>
@@ -133,6 +133,32 @@
             </div>
           </div>
         }
+        @if (playlistPickerOpen()) {
+          <div class="playlist-picker-backdrop" role="presentation" (click)="closePlaylistPicker()">
+            <section id="playlist-picker-dialog" class="playlist-picker" role="dialog" aria-modal="true" aria-labelledby="playlist-picker-title" (click)="$event.stopPropagation()">
+              <header class="playlist-picker__header">
+                <div><span class="playlist-picker__kicker">THƯ VIỆN CỦA BẠN</span><h2 id="playlist-picker-title">Thêm vào danh sách phát</h2><p>Chọn một playlist để lưu video này đúng chỗ.</p></div>
+                <button type="button" class="share-popover__close" (click)="closePlaylistPicker()" aria-label="Đóng">×</button>
+              </header>
+              <div class="playlist-picker__body">
+                @if (playlistLoading()) { <p class="playlist-picker__status">Đang tải danh sách phát…</p> }
+                @else {
+                  <div class="playlist-picker__list">
+                    @for (list of playlistOptions(); track list.playlistId) {
+                      <button type="button" class="playlist-picker__row" [class.is-added]="addedPlaylistIds()[list.playlistId]" [disabled]="!!playlistAddingId() || !!addedPlaylistIds()[list.playlistId]" (click)="addToPlaylist(list)">
+                        <span class="playlist-picker__mark">{{ list.name.slice(0, 1).toUpperCase() }}</span>
+                        <span class="playlist-picker__copy"><strong>{{ list.name }}</strong><small>{{ list.itemCount }} video · {{ visibilityLabel(list.visibility) }}</small></span>
+                        <span class="playlist-picker__cta">{{ addedPlaylistIds()[list.playlistId] ? 'Đã thêm' : (playlistAddingId() === list.playlistId ? 'Đang thêm…' : 'Thêm') }}</span>
+                      </button>
+                    } @empty {
+                      <div class="playlist-picker__empty"><strong>Bạn chưa có playlist</strong><p>Tạo một danh sách phát rồi quay lại để thêm video.</p><a routerLink="/playlists" (click)="closePlaylistPicker()">Tạo playlist</a></div>
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+          </div>
+        }
         </div>
 
         <section class="channel-row">
@@ -158,6 +184,18 @@
                 (click)="toggleSubscribe()">
                 {{ (subscribed() ? 'watch.subscribed' : 'watch.subscribe') | translate }}
               </button>
+              @if (subscribed()) {
+                <button
+                  type="button"
+                  class="action-button channel-notification-button"
+                  [class.is-active]="subscriptionNotificationsEnabled()"
+                  [attr.aria-label]="subscriptionNotificationsEnabled() ? 'Tắt thông báo video mới' : 'Bật thông báo video mới'"
+                  [title]="subscriptionNotificationsEnabled() ? 'Tắt thông báo video mới' : 'Bật thông báo video mới'"
+                  (click)="toggleSubscriptionNotifications()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                  {{ subscriptionNotificationsEnabled() ? 'Đang bật' : 'Bật chuông' }}
+                </button>
+              }
             }
           }
         </section>
