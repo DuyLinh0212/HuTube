@@ -1,4 +1,5 @@
 using HuTube.Domain.Channels;
+using HuTube.Domain.Payments;
 using HuTube.Domain.Playlists;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
@@ -25,6 +26,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<HuTube.Domain.Plans.PlanHistory> PlanHistories => Set<HuTube.Domain.Plans.PlanHistory>();
     public DbSet<HuTube.Domain.Plans.PlanMember> PlanMembers => Set<HuTube.Domain.Plans.PlanMember>();
     public DbSet<HuTube.Domain.Plans.PlanInvitationToken> PlanInvitationTokens => Set<HuTube.Domain.Plans.PlanInvitationToken>();
+    public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Playlist> Playlists => Set<Playlist>();
     public DbSet<PlaylistVideo> PlaylistVideos => Set<PlaylistVideo>();
     public DbSet<Category> Categories => Set<Category>();
@@ -140,9 +142,24 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
                 .HasColumnType("inet");
         });
         model.Entity<Plan>(b => { b.ToTable("plans"); b.HasKey(x => x.PlanId); b.Property(x => x.Features).HasColumnType("jsonb"); });
-        model.Entity<HuTube.Domain.Plans.PlanHistory>(b => { b.ToTable("plan_histories"); b.HasKey(x => x.PlanHistoryId); });
+        model.Entity<HuTube.Domain.Plans.PlanHistory>(b => {
+            b.ToTable("plan_histories");
+            b.HasKey(x => x.PlanHistoryId);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+            b.HasOne<Plan>().WithMany().HasForeignKey(x => x.PlanId);
+        });
         model.Entity<HuTube.Domain.Plans.PlanMember>(b => { b.ToTable("plan_members"); b.HasKey(x => x.PlanMemberId); });
         model.Entity<HuTube.Domain.Plans.PlanInvitationToken>(b => { b.ToTable("plan_invitation_tokens"); b.HasKey(x => x.PlanInvitationTokenId); });
+        model.Entity<Payment>(b => {
+            b.ToTable("payments");
+            b.HasKey(x => x.PaymentId);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+            b.HasOne<Plan>().WithMany().HasForeignKey(x => x.PlanId);
+            b.HasOne<HuTube.Domain.Plans.PlanHistory>().WithMany().HasForeignKey(x => x.PlanHistoryId).IsRequired(false);
+            b.Property(x => x.GatewayPayload).HasColumnType("jsonb");
+            b.HasIndex(x => x.TransactionCode).IsUnique().HasDatabaseName("uq_payments_transaction");
+            b.HasIndex(x => x.IdempotencyKey).IsUnique().HasDatabaseName("ux_payments_idempotency").HasFilter("idempotency_key IS NOT NULL");
+        });
         model.Entity<Playlist>(b => { b.ToTable("playlists"); b.HasKey(x => x.PlaylistId); b.HasIndex(x => x.UserId); b.HasIndex(x => x.Status); });
         model.Entity<PlaylistVideo>(b => { b.ToTable("playlist_videos"); b.HasKey(x => x.PlaylistVideoId); b.HasIndex(x => new { x.PlaylistId, x.VideoId }).IsUnique(); b.HasIndex(x => new { x.PlaylistId, x.Position }).IsUnique(); });
         model.Entity<Category>(b => { b.ToTable("categories"); b.HasKey(x => x.CategoryId); b.HasIndex(x => x.Slug).IsUnique(); });
@@ -181,4 +198,3 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<UserSession>().Property(x => x.ReplacedBySessionId).HasColumnName("replaced_by_token_id");
     }
 }
-

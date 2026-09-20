@@ -23,7 +23,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             throw new AuthException(409, "EMAIL_ALREADY_EXISTS", "Email đã được sử dụng.");
         if (await store.UsernameExistsAsync(user.Username, ct))
             throw new AuthException(409, "USERNAME_ALREADY_EXISTS", "Tên người dùng đã được sử dụng.");
-        store.AddUser(user, passwords.Hash(request.Password));
+        await store.AddUserAsync(user, passwords.Hash(request.Password), ct);
         await store.SaveAsync(ct);
         await SendVerificationAsync(user, ct);
         await transaction.CommitAsync(ct);
@@ -90,7 +90,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
                 if (concurrent is not null) concurrentUserId = concurrent.UserId;
                 else
                 {
-                    store.AddUser(user, passwords.Hash(tokens.CreateOpaqueToken()));
+                    await store.AddUserAsync(user, passwords.Hash(tokens.CreateOpaqueToken()), ct);
                     var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ct);
                     await transaction.CommitAsync(ct);
                     return response;

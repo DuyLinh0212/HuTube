@@ -22,7 +22,9 @@ using HuTube.Infrastructure.Taxonomy;
 using HuTube.Infrastructure.Users;
 using HuTube.Infrastructure.Videos;
 using HuTube.Infrastructure.Notifications;
+using HuTube.Infrastructure.Payments;
 using HuTube.Infrastructure.Policies;
+using HuTube.Application.Payments;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
@@ -41,6 +43,7 @@ var storageOptions = builder.Configuration.GetSection("Storage").Get<StorageOpti
 var r2Options = builder.Configuration.GetSection("Storage:R2").Get<R2Options>() ?? new();
 var featureOptions = builder.Configuration.GetSection("Features").Get<FeatureOptions>() ?? new();
 var videoProcessingOptions = builder.Configuration.GetSection("VideoProcessing").Get<VideoProcessingOptions>() ?? new();
+var sepayOptions = builder.Configuration.GetSection("SePay").Get<SepayOptions>() ?? new();
 if (builder.Environment.IsDevelopment())
     R2OptionsLoader.LoadDevelopmentFile(r2Options, builder.Environment.ContentRootPath, builder.Configuration["Storage:R2:CredentialsFile"]);
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
@@ -69,7 +72,8 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
     || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
     throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions);
+builder.Services.AddSingleton<SepaySignatureVerifier>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024);
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
@@ -107,6 +111,7 @@ builder.Services.AddScoped<VideoRenditionProcessor>();
 builder.Services.AddHostedService<VideoRenditionProcessingWorker>();
 builder.Services.AddSingleton<CfSeedChunkUploadStore>();
 builder.Services.AddScoped<IPlanService, PlanService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
  builder.Services.AddScoped<IPlaylistService, PlaylistService>();
 builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<ModerationService>();

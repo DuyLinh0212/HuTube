@@ -46,6 +46,30 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         Assert.NotEqual(factory.Emails.Token(email), user.EmailVerificationTokenHash);
     }
     [Fact]
+    public async Task Register_ShouldAssignFreePlanAndCreatePlanHistory()
+    {
+        var (client, email, id) = await RegisterAsync(true);
+        await using var db = factory.CreateDb();
+        var user = await db.Users.SingleAsync(x => x.UserId == id);
+        var freePlan = await db.Plans.SingleAsync(p => p.Code == "free");
+        Assert.NotNull(user.PlanId);
+        Assert.Equal(freePlan.PlanId, user.PlanId);
+
+        var history = await db.PlanHistories.SingleOrDefaultAsync(h => h.UserId == id && h.Status == "active");
+        Assert.NotNull(history);
+        Assert.Equal(freePlan.PlanId, history.PlanId);
+        Assert.Equal(id, history.OwnerUserId);
+
+        var login = await LoginAsync(client, email);
+        var authClient = Bearer(client, login.AccessToken);
+        var myPlanResponse = await authClient.GetAsync("/api/v1/plans/my-plan");
+        Assert.Equal(HttpStatusCode.OK, myPlanResponse.StatusCode);
+        var myPlan = await myPlanResponse.Content.ReadFromJsonAsync<HuTube.Application.Plans.PlanDetailResponse>();
+        Assert.NotNull(myPlan);
+        Assert.Equal(freePlan.PlanId, myPlan.PlanId);
+        Assert.Equal("free", myPlan.Code);
+    }
+    [Fact]
     public async Task GoogleLogin_VerifiedIdentity_ShouldCreateActiveAccountAndIssueSession()
     {
         var response = await Client().PostAsJsonAsync("/api/v1/auth/google", new { credential = "valid-google-token-123", platform = "mobile", deviceName = "Google integration test" });

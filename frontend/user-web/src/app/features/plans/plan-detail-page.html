@@ -192,4 +192,12 @@
       </section>
     </div>
   }
+
+  @if (activePayment(); as p) {
+    <app-payment-modal
+      [payment]="p"
+      (completed)="onPaymentCompleted()"
+      (dismissed)="onPaymentDismissed()"
+    />
+  }
 </main>

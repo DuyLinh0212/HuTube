@@ -57,10 +57,57 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
         db.Users.Where(u => u.UserId == userId).Join(db.Roles, u => u.RoleId, r => r.RoleId,
             (_, r) => r.Code != "user" && r.Status == "active").SingleOrDefaultAsync(ct);
 
+    public async Task AddUserAsync(User user, string passwordHash, CancellationToken ct = default)
+    {
+        user.PasswordHash = passwordHash;
+        user.RoleId = UserRoles.User;
+
+        var freePlan = await db.Plans.FirstOrDefaultAsync(p => p.Code == "free" && p.Status == "active", ct);
+        if (freePlan != null)
+        {
+            var startedAt = user.CreatedAt != default ? user.CreatedAt : DateTimeOffset.UtcNow;
+            user.PlanId = freePlan.PlanId;
+            db.PlanHistories.Add(new Domain.Plans.PlanHistory
+            {
+                PlanHistoryId = Guid.NewGuid(),
+                UserId = user.UserId,
+                PlanId = freePlan.PlanId,
+                OwnerUserId = user.UserId,
+                Status = "active",
+                StartedAt = startedAt,
+                EndedAt = startedAt.AddDays(freePlan.DurationDays),
+                AutoRenew = false,
+                CreatedAt = startedAt
+            });
+        }
+
+        db.Users.Add(user);
+    }
+
     public void AddUser(User user, string passwordHash)
     {
         user.PasswordHash = passwordHash;
         user.RoleId = UserRoles.User;
+
+        var freePlan = db.Plans.FirstOrDefault(p => p.Code == "free" && p.Status == "active");
+        if (freePlan != null)
+        {
+            var startedAt = user.CreatedAt != default ? user.CreatedAt : DateTimeOffset.UtcNow;
+            user.PlanId = freePlan.PlanId;
+            db.PlanHistories.Add(new Domain.Plans.PlanHistory
+            {
+                PlanHistoryId = Guid.NewGuid(),
+                UserId = user.UserId,
+                PlanId = freePlan.PlanId,
+                OwnerUserId = user.UserId,
+                Status = "active",
+                StartedAt = startedAt,
+                EndedAt = startedAt.AddDays(freePlan.DurationDays),
+                AutoRenew = false,
+                CreatedAt = startedAt
+            });
+        }
+
         db.Users.Add(user);
     }
 

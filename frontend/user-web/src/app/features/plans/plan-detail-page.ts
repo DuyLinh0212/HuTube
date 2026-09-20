@@ -2,13 +2,19 @@ import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
-import { MyPlan, Plan, PlanService, PlanShare } from '../../core/plan.service';
+import { CreatePaymentResponse, MyPlan, Plan, PlanService, PlanShare } from '../../core/plan.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleCurrencyPipe } from '../../core/locale-currency.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { PaymentModalComponent } from './payment-modal.component';
 
-@Component({ selector: 'app-plan-detail-page', imports: [LocaleCurrencyPipe, LocaleNumberPipe, RouterLink, TranslatePipe], templateUrl: './plan-detail-page.html', styleUrl: './plan-detail-page.scss' })
+@Component({
+  selector: 'app-plan-detail-page',
+  imports: [LocaleCurrencyPipe, LocaleNumberPipe, RouterLink, TranslatePipe, PaymentModalComponent],
+  templateUrl: './plan-detail-page.html',
+  styleUrl: './plan-detail-page.scss'
+})
 export class PlanDetailPage {
   private route = inject(ActivatedRoute);
   private plansService = inject(PlanService);
@@ -17,6 +23,7 @@ export class PlanDetailPage {
   readonly plan = signal<Plan | null>(null);
   readonly myPlan = signal<MyPlan | null>(null);
   readonly share = signal<PlanShare | null>(null);
+  readonly activePayment = signal<CreatePaymentResponse | null>(null);
   readonly loading = signal(true);
   readonly message = signal('');
   readonly error = signal('');
@@ -103,7 +110,23 @@ export class PlanDetailPage {
   subscribe() {
     const plan = this.plan();
     if (!plan || this.busy()) return;
-    this.busy.set(true); this.error.set('');
+
+    // Gói trả phí -> tạo đơn hàng SePay và mở modal VietQR
+    if (plan.price > 0) {
+      this.busy.set(true);
+      this.error.set('');
+      this.plansService.initiatePayment(plan.planId)
+        .pipe(finalize(() => this.busy.set(false)))
+        .subscribe({
+          next: payment => this.activePayment.set(payment),
+          error: err => this.error.set(err?.error?.message || this.i18n.t('plans.subscribeErrorFallback', { status: String(err?.status || 500) }))
+        });
+      return;
+    }
+
+    // Gói miễn phí -> đăng ký trực tiếp
+    this.busy.set(true);
+    this.error.set('');
     this.plansService.subscribe(plan.planId).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
         this.message.set(this.i18n.t('plans.subscribeSuccess'));
@@ -111,5 +134,15 @@ export class PlanDetailPage {
       },
       error: err => this.error.set(this.i18n.t('plans.subscribeErrorFallback', { status: String(err?.status || 500) }))
     });
+  }
+
+  onPaymentCompleted() {
+    this.activePayment.set(null);
+    this.message.set(this.i18n.t('plans.subscribeSuccess'));
+    this.plansService.getMyPlan().subscribe({ next: myPlan => this.myPlan.set(myPlan), error: () => {} });
+  }
+
+  onPaymentDismissed() {
+    this.activePayment.set(null);
   }
 }

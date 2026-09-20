@@ -134,6 +134,13 @@ public interface IPlanService
     Task<PlanDetailResponse?> GetMyPlanAsync(Guid userId, CancellationToken ct = default);
     Task<long?> GetEffectiveStorageLimitAsync(Guid userId, CancellationToken ct = default);
     Task<PlanResponse> SubscribeAsync(Guid userId, Guid planId, PlanSubscriptionRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Kích hoạt gói trả phí sau khi thanh toán được xác nhận qua webhook SePay.
+    /// Trả về PlanHistoryId của bản ghi vừa tạo.
+    /// </summary>
+    Task<Guid> ActivatePaidPlanAsync(Guid userId, Guid planId, Guid paymentId, bool autoRenew, CancellationToken ct = default);
+
     Task<PlanMemberResponse> InviteMemberAsync(Guid ownerUserId, string email, long? allocatedStorage, CancellationToken ct = default);
     Task<PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, CancellationToken ct = default);
     Task RemoveMemberAsync(Guid ownerUserId, Guid memberId, CancellationToken ct = default);
