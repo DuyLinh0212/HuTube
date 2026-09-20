@@ -72,7 +72,7 @@ function json(route, body, status = 200) {
       return json(route, { planId, code: 'free', name: 'Free', description: plans[0].description, shareUrl: `${origin}/plans/${planId}`, status: 'active', features: plans[0].features });
     }
     if (requestPath.endsWith('/categories')) return json(route, [{ categoryId, name: 'Giáo dục', slug: 'giao-duc', description: null }]);
-    if (requestPath.endsWith('/feed/explore')) {
+    if (requestPath.endsWith('/videos/search')) {
       latestExploreRequest = requestUrl;
       return json(route, { items: [video], page: 1, pageSize: 20, total: 1 });
     }
@@ -92,9 +92,9 @@ function json(route, body, status = 200) {
   assert.equal(await page.getByText(video.title, { exact: true }).count(), 1, 'Guest Home should show public fallback video');
 
   await page.goto(`${origin}/explore`);
-  await page.locator('main.feed .feed-filters').waitFor();
+  await page.locator('main.feed .filter-bar').waitFor();
   await page.locator('main.feed .card').filter({ hasText: video.title }).waitFor();
-  await page.locator('.feed-filters select').nth(1).selectOption(categoryId);
+  await page.locator('.filter-bar select').nth(1).selectOption(categoryId);
   await page.getByText(video.title, { exact: true }).waitFor();
   assert.equal(latestExploreRequest.searchParams.get('categoryId'), categoryId, 'Explore category filter must reach API');
 
