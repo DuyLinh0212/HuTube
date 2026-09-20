@@ -48,6 +48,8 @@
                 <span>{{ 'plans.activating' | translate }}</span>
               } @else if (myPlan()?.planId && myPlan()!.price > 0 && !canSwitchToThisPlan()) {
                 <span>{{ 'plans.notPurchased' | translate }}</span>
+              } @else if (myPlan()?.planId && myPlan()!.price > 0 && plan.price > myPlan()!.price) {
+                <span>⚡ {{ 'plans.upgradePlan' | translate }}</span>
               } @else {
                 <span>⚡ {{ (myPlan()?.planId && myPlan()!.price > 0 && plan.price > 0 ? 'plans.switch' : 'plans.buy') | translate }}</span>
               }

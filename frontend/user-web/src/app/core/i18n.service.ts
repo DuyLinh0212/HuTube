@@ -41,6 +41,19 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.settings': 'Cài đặt',
     'nav.profile': 'Hồ sơ của bạn',
 
+    // Subscriptions
+    'subscriptions.title': 'Kênh đăng ký',
+    'subscriptions.latestVideos': 'Video mới nhất',
+    'subscriptions.subscribedChannels': 'Kênh bạn đang theo dõi',
+    'subscriptions.noChannels': 'Bạn chưa đăng ký kênh nào',
+    'subscriptions.noChannelsDesc': 'Đăng ký các kênh yêu thích để cập nhật những video mới nhất ngay tại đây.',
+    'subscriptions.exploreChannels': 'Khám phá video & kênh',
+    'subscriptions.noVideos': 'Chưa có video mới',
+    'subscriptions.noVideosDesc': 'Các kênh bạn theo dõi chưa đăng video mới nào.',
+    'subscriptions.loginTitle': 'Đừng bỏ lỡ video mới',
+    'subscriptions.loginDesc': 'Đăng nhập để xem cập nhật từ các kênh bạn yêu thích.',
+    'subscriptions.loginButton': 'Đăng nhập ngay',
+
     // Profile Page (matching profile.jpg)
     'profile.quote': 'Những video hay hơn cho một phiên bản tốt hơn của bạn ♡',
     'profile.editProfile': 'Chỉnh sửa hồ sơ',
@@ -763,9 +776,31 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.newest': 'Mới nhất',
     'explore.popular': 'Phổ biến',
     'explore.trending': 'Thịnh hành',
+    'explore.sortRelevance': 'Liên quan nhất',
+    'explore.sortViews': 'Xem nhiều nhất',
+    'explore.sortEngagement': 'Tương tác cao',
     'explore.category': 'Danh mục',
     'explore.allCategories': 'Tất cả danh mục',
     'explore.videoList': 'Danh sách video',
+    'explore.searchPlaceholder': 'Tìm kiếm video, kênh, chủ đề...',
+    'explore.filterTitle': 'Bộ lọc',
+    'explore.activeFilters': 'Đang lọc',
+    'explore.clearFilters': 'Xóa bộ lọc',
+    'explore.clearAllFilters': 'Xóa tất cả bộ lọc',
+    'explore.durationAll': 'Tất cả thời lượng',
+    'explore.durationShort': 'Dưới 4 phút',
+    'explore.durationMedium': '4 – 20 phút',
+    'explore.durationLong': 'Trên 20 phút',
+    'explore.dateAll': 'Mọi thời điểm',
+    'explore.dateToday': 'Hôm nay',
+    'explore.dateThisWeek': 'Tuần này',
+    'explore.dateThisMonth': 'Tháng này',
+    'explore.dateThisYear': 'Năm nay',
+    'explore.resultsCount': 'Tìm thấy {count} video',
+    'explore.noResultsTitle': 'Không tìm thấy kết quả',
+    'explore.noResultsDesc': 'Thử thay đổi từ khóa hoặc đặt lại bộ lọc để xem thêm video.',
+    'explore.tryDifferentKeywords': 'Thử từ khóa khác',
+    'explore.searchLabel': 'Tìm kiếm trong trang khám phá',
 
     'library.ratingFilter': 'Lọc video theo đánh giá của bạn',
     'library.ratingLabel': 'Lọc theo đánh giá',
@@ -944,6 +979,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.detailShare': 'Chi tiết & chia sẻ gói',
     'plans.switchOther': 'Đổi sang gói khác',
     'plans.upgrade': 'Xem gói nâng cấp',
+    'plans.upgradePlan': 'Nâng cấp lên gói này',
     'plans.owner': 'Chủ sở hữu',
     'plans.sharedMember': 'Thành viên dùng chung',
     'plans.startDate': 'Ngày bắt đầu',
@@ -975,6 +1011,21 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.accepted': 'Đã tham gia',
     'plans.waiting': 'Đang chờ xác nhận',
     'plans.noMembers': 'Chưa có thành viên nào được mời vào gói này.',
+    'plans.allocatedQuota': 'Dung lượng được cấp',
+    'plans.usedQuota': 'Đã dùng',
+    'plans.unallocated': 'Chưa phân bổ:',
+    'plans.allocatedTotal': 'Đã phân bổ:',
+    'plans.ownerQuota': 'Hạn mức chủ gói:',
+    'plans.editQuota': 'Sửa dung lượng',
+    'plans.setQuota': 'Đặt hạn mức',
+    'plans.sharedQuota': 'Dùng chung gói',
+    'plans.storageGBPlaceholder': 'Quota (GB, trống = dùng chung)',
+    'plans.invalidQuota': 'Hạn mức phải là số không âm.',
+    'plans.quotaBelowUsed': 'Hạn mức không được nhỏ hơn dung lượng đã sử dụng.',
+    'plans.usedShort': 'đã dùng',
+    'plans.remainingShort': 'còn lại',
+    'plans.storageUpdated': 'Cập nhật dung lượng thành công.',
+    'plans.storageUpdateError': 'Không thể cập nhật dung lượng.',
     'plans.noPlan': 'Bạn chưa đăng ký gói dịch vụ nào',
     'plans.noPlanDesc': 'Nâng cấp gói để tăng dung lượng kênh, chất lượng upload và chia sẻ quyền lợi cho bạn bè.',
     'plans.exploreNow': 'Khám phá các gói dịch vụ ngay',
@@ -1298,6 +1349,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'watch.sourceQuality': 'Nguồn'
      ,'watch.views': '{count} lượt xem'
      ,'watch.subscribers': '{count} người đăng ký'
+     ,'watch.subscribe': 'Đăng ký'
+     ,'watch.subscribed': 'Đã đăng ký'
+     ,'watch.cannotSubscribeSelf': 'Bạn không thể đăng ký kênh của chính mình.'
+     ,'watch.subscribeError': 'Lỗi khi đăng ký kênh.'
+     ,'watch.unsubscribeError': 'Lỗi khi hủy đăng ký kênh.'
      ,'watch.defaultLanguage': 'Tiếng Việt'
      ,'watch.videoDescriptionEmpty': 'Video này chưa có phần mô tả.'
      ,'watch.chapterCountLabel': '{count} chương'
@@ -1515,6 +1571,19 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.channelInvitations': 'Channel invitations',
     'nav.settings': 'Settings',
     'nav.profile': 'Your profile',
+
+    // Subscriptions
+    'subscriptions.title': 'Subscriptions',
+    'subscriptions.latestVideos': 'Latest videos',
+    'subscriptions.subscribedChannels': 'Channels you follow',
+    'subscriptions.noChannels': 'You have not subscribed to any channels yet',
+    'subscriptions.noChannelsDesc': 'Subscribe to your favorite channels to see their latest videos right here.',
+    'subscriptions.exploreChannels': 'Explore videos & channels',
+    'subscriptions.noVideos': 'No new videos yet',
+    'subscriptions.noVideosDesc': 'The channels you follow have not posted any new videos yet.',
+    'subscriptions.loginTitle': 'Don\'t miss new videos',
+    'subscriptions.loginDesc': 'Sign in to see updates from your favorite channels.',
+    'subscriptions.loginButton': 'Sign in now',
 
     // Profile Page (matching profile.jpg)
     'profile.quote': 'Better videos for a better version of you ♡',
@@ -2238,9 +2307,31 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.newest': 'Newest',
     'explore.popular': 'Popular',
     'explore.trending': 'Trending',
+    'explore.sortRelevance': 'Most relevant',
+    'explore.sortViews': 'Most viewed',
+    'explore.sortEngagement': 'Most engaging',
     'explore.category': 'Category',
     'explore.allCategories': 'All categories',
     'explore.videoList': 'Video list',
+    'explore.searchPlaceholder': 'Search videos, channels, topics...',
+    'explore.filterTitle': 'Filters',
+    'explore.activeFilters': 'Active filters',
+    'explore.clearFilters': 'Clear filter',
+    'explore.clearAllFilters': 'Clear all filters',
+    'explore.durationAll': 'Any duration',
+    'explore.durationShort': 'Under 4 minutes',
+    'explore.durationMedium': '4 – 20 minutes',
+    'explore.durationLong': 'Over 20 minutes',
+    'explore.dateAll': 'Any time',
+    'explore.dateToday': 'Today',
+    'explore.dateThisWeek': 'This week',
+    'explore.dateThisMonth': 'This month',
+    'explore.dateThisYear': 'This year',
+    'explore.resultsCount': 'Found {count} videos',
+    'explore.noResultsTitle': 'No results found',
+    'explore.noResultsDesc': 'Try different keywords or clear your filters to see more videos.',
+    'explore.tryDifferentKeywords': 'Try different keywords',
+    'explore.searchLabel': 'Search in explore page',
 
     'library.ratingFilter': 'Filter videos by your rating',
     'library.ratingLabel': 'Filter by rating',
@@ -2419,6 +2510,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.detailShare': 'Plan details & sharing',
     'plans.switchOther': 'Switch plan',
     'plans.upgrade': 'View upgrades',
+    'plans.upgradePlan': 'Upgrade to this plan',
     'plans.owner': 'Owner',
     'plans.sharedMember': 'Shared member',
     'plans.startDate': 'Start date',
@@ -2450,6 +2542,21 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.accepted': 'Joined',
     'plans.waiting': 'Awaiting confirmation',
     'plans.noMembers': 'No members have been invited to this plan yet.',
+    'plans.allocatedQuota': 'Allocated Quota',
+    'plans.usedQuota': 'Used',
+    'plans.unallocated': 'Unallocated:',
+    'plans.allocatedTotal': 'Total Allocated:',
+    'plans.ownerQuota': 'Owner limit:',
+    'plans.editQuota': 'Edit quota',
+    'plans.setQuota': 'Set limit',
+    'plans.sharedQuota': 'Shared plan',
+    'plans.storageGBPlaceholder': 'Quota (GB, empty = shared)',
+    'plans.invalidQuota': 'Quota must be a non-negative number.',
+    'plans.quotaBelowUsed': 'Quota cannot be lower than used storage.',
+    'plans.usedShort': 'used',
+    'plans.remainingShort': 'remaining',
+    'plans.storageUpdated': 'Storage quota updated successfully.',
+    'plans.storageUpdateError': 'Failed to update storage quota.',
     'plans.noPlan': 'You are not subscribed to a service plan',
     'plans.noPlanDesc': 'Upgrade to increase channel storage, upload quality, and share benefits with friends.',
     'plans.exploreNow': 'Explore service plans',
@@ -2773,6 +2880,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'watch.sourceQuality': 'Source'
      ,'watch.views': '{count} views'
      ,'watch.subscribers': '{count} subscribers'
+     ,'watch.subscribe': 'Subscribe'
+     ,'watch.subscribed': 'Subscribed'
+     ,'watch.cannotSubscribeSelf': 'You cannot subscribe to your own channel.'
+     ,'watch.subscribeError': 'Error subscribing to channel.'
+     ,'watch.unsubscribeError': 'Error unsubscribing from channel.'
      ,'watch.defaultLanguage': 'Vietnamese'
      ,'watch.videoDescriptionEmpty': 'This video has no description yet.'
      ,'watch.chapterCountLabel': '{count} chapters'

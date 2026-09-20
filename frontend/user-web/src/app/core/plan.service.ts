@@ -31,6 +31,8 @@ export interface PlanMember {
   invitedAt: string;
   acceptedAt: string | null;
   revokedAt: string | null;
+  allocatedStorage?: number | null;
+  storageUsed?: number;
 }
 
 export interface PlanSubscriptionInfo {
@@ -48,6 +50,7 @@ export interface MyPlan extends Plan {
   subscription?: PlanSubscriptionInfo | null;
   isSharedMember?: boolean;
   activePaidPlanIds?: string[];
+  ownerAllocatedStorage?: number | null;
 }
 
 export interface PlanShare {
@@ -71,7 +74,13 @@ export class PlanService {
   getShare(planId: string): Observable<PlanShare> { return this.http.get<PlanShare>(`${this.base}/${planId}/share`); }
   getMyPlan(): Observable<MyPlan | null> { return this.http.get<MyPlan | null>(`${this.base}/my-plan`); }
   subscribe(planId: string): Observable<Plan> { return this.http.post<Plan>(`${this.base}/${planId}/subscribe`, { autoRenew: false }); }
-  invite(email: string): Observable<PlanMember> { return this.http.post<PlanMember>(`${this.base}/members/invite`, { email }); }
+  invite(email: string, allocatedStorage?: number | null): Observable<PlanMember> { return this.http.post<PlanMember>(`${this.base}/members/invite`, { email, allocatedStorage }); }
   accept(memberId: string, token: string): Observable<PlanMember> { return this.http.post<PlanMember>(`${this.base}/members/${memberId}/accept`, { token }); }
   revoke(memberId: string): Observable<void> { return this.http.delete<void>(`${this.base}/members/${memberId}`); }
+  updateMemberStorage(memberId: string, allocatedStorage: number | null): Observable<PlanMember> {
+    return this.http.patch<PlanMember>(`${this.base}/my-subscription/members/${memberId}/storage`, { allocatedStorage });
+  }
+  updateOwnerStorage(allocatedStorage: number | null): Observable<void> {
+    return this.http.patch<void>(`${this.base}/my-subscription/owner-storage`, { allocatedStorage });
+  }
 }

@@ -1,6 +1,6 @@
 import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
@@ -9,6 +9,7 @@ import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { PlaylistItem, PlaylistService } from '../../core/playlist.service';
 
 @Component({
   selector: 'app-watch-page',
@@ -18,8 +19,10 @@ import { TranslatePipe } from '../../core/translate.pipe';
 })
 export class WatchPage {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly content = inject(ContentService);
   private readonly channels = inject(ChannelService);
+  private readonly playlists = inject(PlaylistService);
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
 
@@ -53,6 +56,9 @@ export class WatchPage {
   readonly downloadOptions = signal<Rendition[]>([]);
   readonly downloadOpen = signal(false);
   readonly downloadBusy = signal(false);
+  readonly savedToPlaylist = signal(false);
+  readonly subscribed = signal(false);
+  readonly subscriberCount = signal(0);
   readonly visibleRelatedVideos = computed(() => {
     const items = this.relatedVideos();
     const current = this.video();
@@ -71,12 +77,22 @@ export class WatchPage {
   private pendingSeek: number | null = null;
   private resumeApplied = false;
   private continuePlaying = false;
+  private playlistQueue: PlaylistItem[] = [];
+  private playlistIndex = -1;
 
   @ViewChild('player') playerRef?: ElementRef<HTMLVideoElement>;
   @ViewChild('playerStage') playerStageRef?: ElementRef<HTMLElement>;
 
   constructor() {
     this.videoId = this.route.snapshot.paramMap.get('id') ?? '';
+    const playlistId = this.route.snapshot.queryParamMap.get('playlist');
+    this.playlistIndex = Number(this.route.snapshot.queryParamMap.get('index') ?? -1);
+    if (playlistId) {
+      this.playlists.get(playlistId).subscribe({
+        next: playlist => this.playlistQueue = playlist.items,
+        error: () => this.playlistQueue = []
+      });
+    }
     // Restore the refresh-cookie session before loading the detail/comments.
     // Otherwise a hard refresh sends these public requests anonymously and the
     // API cannot include the current user's reaction, rating, or comment votes.
@@ -96,7 +112,19 @@ export class WatchPage {
         if (video.videoUrl) {
           this.activeRendition.set({ quality: this.i18n.t('watch.sourceQuality'), width: 0, height: 0, fileSize: video.fileSize, url: video.videoUrl });
         }
-        this.channels.getChannel(video.channelHandle).subscribe({ next: channel => this.channel.set(channel), error: () => {} });
+        this.channels.getChannel(video.channelHandle).subscribe({
+          next: channel => {
+            this.channel.set(channel);
+            this.subscriberCount.set(channel.subscriberCount);
+            if (this.auth.user()) {
+              this.channels.getSubscriptionStatus(channel.channelId).subscribe({
+                next: sub => this.subscribed.set(sub.status === 'active'),
+                error: () => this.subscribed.set(false)
+              });
+            }
+          },
+          error: () => {}
+        });
         this.loading.set(false);
       },
       error: () => {
@@ -192,6 +220,13 @@ export class WatchPage {
   onEnded() {
     this.isPlaying.set(false);
     this.currentTime.set(this.totalDuration());
+    const next = this.playlistQueue.slice(this.playlistIndex + 1).find(item => item.available);
+    if (!next) return;
+    const nextIndex = this.playlistQueue.findIndex(item => item.playlistVideoId === next.playlistVideoId);
+    const tree = this.router.createUrlTree(['/watch', next.videoId], {
+      queryParams: { playlist: this.route.snapshot.queryParamMap.get('playlist'), index: nextIndex }
+    });
+    window.location.assign(this.router.serializeUrl(tree));
   }
 
   toggleMute() {
@@ -313,6 +348,15 @@ export class WatchPage {
         this.actionMessage.set(this.i18n.t('watch.shareReady'));
       },
       error: () => {}
+    });
+  }
+
+  saveToPlaylist() {
+    const item = this.video();
+    if (!item || !this.auth.user() || this.savedToPlaylist()) return;
+    this.playlists.saveVideo(item.videoId).subscribe({
+      next: () => this.savedToPlaylist.set(true),
+      error: () => this.actionMessage.set('Không thể lưu video vào danh sách cá nhân.')
     });
   }
 
@@ -625,5 +669,38 @@ export class WatchPage {
     else return;
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  toggleSubscribe() {
+    const channel = this.channel();
+    if (!channel) return;
+
+    if (!this.auth.user()) {
+      void this.router.navigate(['/login']);
+      return;
+    }
+
+    if (this.myChannelId() === channel.channelId) {
+      this.actionMessage.set(this.i18n.t('watch.cannotSubscribeSelf'));
+      return;
+    }
+
+    if (this.subscribed()) {
+      this.channels.unsubscribe(channel.channelId).subscribe({
+        next: () => {
+          this.subscribed.set(false);
+          this.subscriberCount.update(c => Math.max(0, c - 1));
+        },
+        error: () => this.actionMessage.set(this.i18n.t('watch.unsubscribeError'))
+      });
+    } else {
+      this.channels.subscribe(channel.channelId).subscribe({
+        next: () => {
+          this.subscribed.set(true);
+          this.subscriberCount.update(c => c + 1);
+        },
+        error: () => this.actionMessage.set(this.i18n.t('watch.subscribeError'))
+      });
+    }
   }
 }

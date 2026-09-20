@@ -1,5 +1,6 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, ViewChild, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { AnimationItem } from 'lottie-web';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelInvitation, ChannelService } from '../../core/channel.service';
@@ -14,23 +15,42 @@ import { NotificationPanelComponent } from '../notifications/notification-panel.
 
 @Component({
   selector: 'app-user-topbar',
-  imports: [LocaleNumberPipe, RouterLink, TranslatePipe, NotificationPanelComponent],
+  imports: [LocaleNumberPipe, RouterLink, TranslatePipe, NotificationPanelComponent, FormsModule],
   templateUrl: './user-topbar.component.html',
   styleUrl: './user-topbar.component.scss'
 })
 export class UserTopbarComponent implements OnDestroy, OnInit {
   @Output() readonly menuOpened = new EventEmitter<void>();
   @Input() sidebarCollapsed = false;
+  @ViewChild('searchInputEl') private searchInputRef?: ElementRef<HTMLInputElement>;
 
   readonly auth = inject(AuthService);
   readonly themeService = inject(ThemeService);
   readonly i18n = inject(I18nService);
   private channelService = inject(ChannelService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private elRef = inject(ElementRef);
   private account = inject(AccountService);
   private content = inject(ContentService);
   readonly notifications = inject(NotificationService);
+
+  topbarSearch = '';
+
+  submitTopbarSearch() {
+    const q = this.topbarSearch.trim();
+    if (!q) return;
+    void this.router.navigate(['/explore'], { queryParams: { q } });
+    this.searchInputRef?.nativeElement.blur();
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onGlobalKeydown(e: KeyboardEvent) {
+    if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      this.searchInputRef?.nativeElement.focus();
+    }
+  }
 
   readonly myChannel = signal<ChannelDetail | null>(null);
   readonly accessibleChannels = signal<ChannelDetail[]>([]);
@@ -52,6 +72,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   readonly socialLinks = computed(() => this.readSocialLinks(this.myChannel()?.settings));
 
   ngOnInit() {
+    this.route.queryParamMap.subscribe(params => {
+      this.topbarSearch = params.get('q') ?? '';
+    });
+
     const loadAuthenticatedContext = () => {
       this.channelService.getMyChannel().subscribe({
         next: ch => this.myChannel.set(ch),

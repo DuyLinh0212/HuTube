@@ -55,7 +55,7 @@ public sealed class PlansController(IPlanService planService) : ControllerBase
     [HttpPost("my-subscription/members")]
     public async Task<ActionResult<PlanMemberResponse>> InviteMemberAsync([FromBody] PlanInviteRequest request, CancellationToken ct)
     {
-        var result = await planService.InviteMemberAsync(UserId, request.Email, ct);
+        var result = await planService.InviteMemberAsync(UserId, request.Email, request.AllocatedStorage, ct);
         return Ok(result);
     }
 
@@ -74,6 +74,23 @@ public sealed class PlansController(IPlanService planService) : ControllerBase
     public async Task<IActionResult> RemoveMemberAsync(Guid memberId, CancellationToken ct)
     {
         await planService.RemoveMemberAsync(UserId, memberId, ct);
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpPatch("members/{memberId:guid}/storage")]
+    [HttpPatch("my-subscription/members/{memberId:guid}/storage")]
+    public async Task<ActionResult<PlanMemberResponse>> UpdateMemberStorageAsync(Guid memberId, [FromBody] UpdatePlanMemberStorageRequest request, CancellationToken ct)
+    {
+        var result = await planService.UpdateMemberStorageAsync(UserId, memberId, request.AllocatedStorage, ct);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPatch("my-subscription/owner-storage")]
+    public async Task<IActionResult> UpdateOwnerStorageAsync([FromBody] UpdateOwnerStorageRequest request, CancellationToken ct)
+    {
+        await planService.UpdateOwnerStorageAsync(UserId, request.AllocatedStorage, ct);
         return NoContent();
     }
 }

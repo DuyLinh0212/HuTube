@@ -1,15 +1,18 @@
 <main id="main-content" class="feed">
-  <div class="feed-filters" [attr.aria-label]="'explore.filters' | translate">
-    <label>
-      {{ 'explore.sort' | translate }}
+
+  <!-- ========== FILTER BAR ========== -->
+  <div class="filter-bar" [attr.aria-label]="'explore.filters' | translate">
+    <label class="filter-bar__item">
+      <span class="filter-bar__label">{{ 'explore.sort' | translate }}</span>
       <select [value]="selectedSort()" (change)="changeSort($any($event.target).value)">
-        <option value="newest">{{ 'explore.newest' | translate }}</option>
-        <option value="popular">{{ 'explore.popular' | translate }}</option>
-        <option value="trending">{{ 'explore.trending' | translate }}</option>
+        @for (opt of sortOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
+        }
       </select>
     </label>
-    <label>
-      {{ 'explore.category' | translate }}
+
+    <label class="filter-bar__item">
+      <span class="filter-bar__label">{{ 'explore.category' | translate }}</span>
       <select [value]="selectedCategoryId()" (change)="changeCategory($any($event.target).value)">
         <option value="">{{ 'explore.allCategories' | translate }}</option>
         @for (category of categories(); track category.categoryId) {
@@ -17,8 +20,41 @@
         }
       </select>
     </label>
+
+    <label class="filter-bar__item">
+      <span class="filter-bar__label">{{ 'explore.durationAll' | translate }}</span>
+      <select [value]="selectedDuration()" (change)="changeDuration($any($event.target).value)">
+        @for (opt of durationOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="filter-bar__item">
+      <span class="filter-bar__label">{{ 'explore.dateAll' | translate }}</span>
+      <select [value]="selectedDateRange()" (change)="changeDateRange($any($event.target).value)">
+        @for (opt of dateOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
+        }
+      </select>
+    </label>
   </div>
 
+  <!-- ========== ACTIVE FILTERS / RESULTS COUNT ========== -->
+  @if (!loading()) {
+    <div class="results-row">
+      @if (!error()) {
+        <span class="results-count">{{ resultsLabel }}</span>
+      }
+      @if (hasActiveFilters) {
+        <button class="clear-all-btn" type="button" (click)="clearAllFilters()">
+          × {{ 'explore.clearAllFilters' | translate }}
+        </button>
+      }
+    </div>
+  }
+
+  <!-- ========== CONTENT ========== -->
   @if (loading()) {
     <p class="state">{{ 'home.loading' | translate }}</p>
   } @else if (error()) {
@@ -29,7 +65,7 @@
         <a class="card" [routerLink]="['/watch', video.videoId]">
           <div class="thumb">
             @if (video.thumbnailUrl) {
-              <img [src]="video.thumbnailUrl" alt="" />
+              <img [src]="video.thumbnailUrl" alt="" loading="lazy" />
             } @else {
               <span>▶</span>
             }
@@ -42,8 +78,44 @@
           </div>
         </a>
       } @empty {
-        <p class="state">{{ 'home.empty' | translate }}</p>
+        <div class="empty-state">
+          <p class="empty-state__title">{{ 'explore.noResultsTitle' | translate }}</p>
+          <p class="empty-state__desc">{{ 'explore.noResultsDesc' | translate }}</p>
+          @if (hasActiveFilters) {
+            <button class="clear-all-btn" type="button" (click)="clearAllFilters()">
+              {{ 'explore.clearAllFilters' | translate }}
+            </button>
+          }
+        </div>
       }
     </section>
+
+    <!-- ========== PAGINATION ========== -->
+    @if (totalPages > 1) {
+      <nav class="pagination" [attr.aria-label]="'ui.pagination' | translate">
+        <button
+          class="pagination__btn"
+          type="button"
+          [disabled]="currentPage() <= 1"
+          (click)="goToPage(currentPage() - 1)"
+        >‹</button>
+
+        @for (p of [].constructor(totalPages); track $index) {
+          <button
+            class="pagination__btn"
+            [class.active]="$index + 1 === currentPage()"
+            type="button"
+            (click)="goToPage($index + 1)"
+          >{{ $index + 1 }}</button>
+        }
+
+        <button
+          class="pagination__btn"
+          type="button"
+          [disabled]="currentPage() >= totalPages"
+          (click)="goToPage(currentPage() + 1)"
+        >›</button>
+      </nav>
+    }
   }
 </main>

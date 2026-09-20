@@ -475,13 +475,15 @@ CREATE TABLE IF NOT EXISTS playlists (
         description  TEXT NULL,
         visibility   VARCHAR(20) NOT NULL DEFAULT 'private',
         playlist_type VARCHAR(20) NOT NULL DEFAULT 'normal',
+        status       VARCHAR(32) NOT NULL DEFAULT 'active',
+        deleted_at   TIMESTAMPTZ NULL,
         created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT pk_playlists PRIMARY KEY (playlist_id),
         CONSTRAINT fk_playlists_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
         CONSTRAINT ck_playlists_name CHECK (char_length(btrim(name)) > 0),
         CONSTRAINT ck_playlists_visibility CHECK (visibility IN ('public', 'unlisted', 'private')),
-        CONSTRAINT ck_playlists_type CHECK (playlist_type IN ('normal', 'watch_later'))
+        CONSTRAINT ck_playlists_type CHECK (playlist_type IN ('personal', 'channel', 'normal', 'watch_later'))
 );
 
 CREATE TABLE IF NOT EXISTS playlist_videos (

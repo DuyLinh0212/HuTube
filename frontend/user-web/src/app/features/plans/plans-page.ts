@@ -32,6 +32,11 @@ export class PlansPage {
   readonly error = signal('');
   readonly message = signal('');
   inviteEmail = '';
+  inviteStorageGB: number | null = null;
+  readonly editingMemberId = signal<string | null>(null);
+  readonly editingMemberStorageGB = signal<number | null>(null);
+  readonly editingOwnerStorage = signal<boolean>(false);
+  readonly ownerStorageGB = signal<number | null>(null);
 
   constructor() {
     this.load();
@@ -81,7 +86,11 @@ export class PlansPage {
     const current = this.myPlan();
     if (!current || !current.planId || (current.subscription && current.subscription.isExpired)) return false;
     const target = this.plans().find(plan => plan.planId === planId);
-    return current.price > 0 && !!target && target.price >= current.price && (current.activePaidPlanIds ?? []).includes(planId);
+    if (!target) return false;
+    // Nâng cấp lên gói cao hơn: luôn cho phép
+    if (current.price > 0 && target.price > current.price) return true;
+    // Chuyển ngang giữa các gói cùng giá: kiểm tra đã mua chưa
+    return current.price > 0 && target.price === current.price && (current.activePaidPlanIds ?? []).includes(planId);
   }
 
   quotaPercent(plan: MyPlan) {
@@ -113,19 +122,131 @@ export class PlansPage {
       : this.i18n.t('plans.hours', { count: this.i18n.formatNumber(hours, { useGrouping: false }) });
   }
 
+  totalAllocatedStorage(plan: MyPlan): number {
+    return (plan.ownerAllocatedStorage ?? 0) + (plan.members ?? []).reduce((sum, m) => sum + (m.allocatedStorage ?? 0), 0);
+  }
+
+  unallocatedStorage(plan: MyPlan): number {
+    return Math.max(0, plan.storageLimit - this.totalAllocatedStorage(plan));
+  }
+  memberRemainingStorage(member: PlanMember): number | null {
+    if (member.allocatedStorage == null) return null;
+    return Math.max(0, member.allocatedStorage - (member.storageUsed ?? 0));
+  }
+
+  ownerRemainingStorage(plan: MyPlan): number | null {
+    if (plan.ownerAllocatedStorage == null) return null;
+    return Math.max(0, plan.ownerAllocatedStorage - (plan.usedStorage ?? 0));
+  }
+
+  private parseQuotaGb(value: number | null): number | null | undefined {
+    if (value == null || value === 0) return null;
+    if (!Number.isFinite(value) || value < 0) return undefined;
+    return Math.round(value * 1024 ** 3);
+  }
+
+  private quotaError(bytes: number | null | undefined): string | null {
+    if (bytes === undefined) return this.i18n.t('plans.invalidQuota');
+    return null;
+  }
+
   invite() {
     const plan = this.myPlan();
     if (!plan || !this.inviteEmail.trim() || this.busy()) return;
 
+    const allocatedBytes = this.parseQuotaGb(this.inviteStorageGB);
+    const quotaError = this.quotaError(allocatedBytes);
+    if (quotaError) {
+      this.error.set(quotaError);
+      return;
+    }
+
     this.busy.set(true);
-    this.error.set('');
-    this.plansService.invite(this.inviteEmail.trim()).pipe(finalize(() => this.busy.set(false))).subscribe({
+    this.error.set('');    this.plansService.invite(this.inviteEmail.trim(), allocatedBytes).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: (member: PlanMember) => {
         this.myPlan.update(current => current ? { ...current, members: [...current.members, member] } : current);
         this.inviteEmail = '';
+        this.inviteStorageGB = null;
         this.message.set(this.i18n.t('plans.inviteSent'));
       },
-      error: () => this.error.set(this.i18n.t('plans.inviteError'))
+      error: (err) => this.error.set(err?.error?.message || this.i18n.t('plans.inviteError'))
+    });
+  }
+
+  startEditMember(member: PlanMember) {
+    this.editingMemberId.set(member.planMemberId);
+    this.editingMemberStorageGB.set(member.allocatedStorage ? Math.round(member.allocatedStorage / 1024 ** 3) : null);
+  }
+
+  cancelEditMember() {
+    this.editingMemberId.set(null);
+    this.editingMemberStorageGB.set(null);
+  }
+
+  saveMemberStorage(memberId: string) {
+    if (this.busy()) return;
+    const member = this.myPlan()?.members.find(item => item.planMemberId === memberId);
+    const bytes = this.parseQuotaGb(this.editingMemberStorageGB());
+    const validationError = this.quotaError(bytes);
+    if (validationError) {
+      this.error.set(validationError);
+      return;
+    }
+    if (bytes === undefined) return;
+    if (member?.storageUsed && bytes !== null && bytes < member.storageUsed) {
+      this.error.set(this.i18n.t('plans.quotaBelowUsed'));
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    this.plansService.updateMemberStorage(memberId, bytes).pipe(finalize(() => this.busy.set(false))).subscribe({
+      next: (updated: PlanMember) => {
+        this.myPlan.update(plan => plan ? {
+          ...plan,
+          members: plan.members.map(m => m.planMemberId === memberId ? { ...m, allocatedStorage: updated.allocatedStorage } : m)
+        } : plan);
+        this.cancelEditMember();
+        this.message.set(this.i18n.t('plans.storageUpdated'));
+      },
+      error: (err) => this.error.set(err?.error?.message || this.i18n.t('plans.storageUpdateError'))
+    });
+  }
+
+  startEditOwnerStorage() {
+    const plan = this.myPlan();
+    if (!plan) return;
+    this.editingOwnerStorage.set(true);
+    this.ownerStorageGB.set(plan.ownerAllocatedStorage ? Math.round(plan.ownerAllocatedStorage / 1024 ** 3) : null);
+  }
+
+  cancelEditOwnerStorage() {
+    this.editingOwnerStorage.set(false);
+    this.ownerStorageGB.set(null);
+  }
+
+  saveOwnerStorage() {
+    if (this.busy()) return;
+    const plan = this.myPlan();
+    const bytes = this.parseQuotaGb(this.ownerStorageGB());
+    const validationError = this.quotaError(bytes);
+    if (validationError) {
+      this.error.set(validationError);
+      return;
+    }
+    if (bytes === undefined) return;
+    if (plan?.usedStorage && bytes !== null && bytes < plan.usedStorage) {
+      this.error.set(this.i18n.t('plans.quotaBelowUsed'));
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    this.plansService.updateOwnerStorage(bytes).pipe(finalize(() => this.busy.set(false))).subscribe({
+      next: () => {
+        this.myPlan.update(plan => plan ? { ...plan, ownerAllocatedStorage: bytes } : plan);
+        this.cancelEditOwnerStorage();
+        this.message.set(this.i18n.t('plans.storageUpdated'));
+      },
+      error: (err) => this.error.set(err?.error?.message || this.i18n.t('plans.storageUpdateError'))
     });
   }
 

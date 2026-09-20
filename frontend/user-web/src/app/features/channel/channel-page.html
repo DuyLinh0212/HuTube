@@ -128,7 +128,7 @@
                   }
                 </div>
                 <strong>{{ video.title }}</strong>
-                <small>{{ video.stats.views | localeNumber }} {{ 'ui.views' | translate }} · {{ visibilityLabel(video.visibility) }}</small>
+                <small>{{ videoViews(video) | localeNumber }} {{ 'ui.views' | translate }} · {{ visibilityLabel(video.visibility) }}</small>
               </a>
             }
           </div>
@@ -144,13 +144,31 @@
       }
 
       @if (activeTab() === 'playlists') {
-        <div class="empty-videos-box">
-          <div class="box-icon">
-            <img src="/assets/icons/playlist.png" class="empty-state-img" alt="" />
+        @if (ch.isOwner) {
+          <a class="channel-playlist-create" [routerLink]="['/channel', ch.handle, 'playlists']">+ Tạo playlist cho kênh</a>
+        }
+        @if (playlists().length) {
+          <div class="channel-playlist-grid">
+            @for (list of playlists(); track list.playlistId) {
+              <a class="channel-playlist-card" [routerLink]="['/channel', ch.handle, 'playlists', list.playlistId]">
+                <img src="/assets/icons/playlist.png" alt="" />
+                <div>
+                  <strong>{{ list.name }}</strong>
+                  <small>{{ list.itemCount }} video</small>
+                  @if (list.description) { <p>{{ list.description }}</p> }
+                </div>
+              </a>
+            }
           </div>
-          <h3>{{ 'channel.noPlaylists' | translate }}</h3>
-          <p>{{ 'channel.noPlaylistsDesc' | translate }}</p>
-        </div>
+        } @else {
+          <div class="empty-videos-box">
+            <div class="box-icon">
+              <img src="/assets/icons/playlist.png" class="empty-state-img" alt="" />
+            </div>
+            <h3>{{ 'channel.noPlaylists' | translate }}</h3>
+            <p>{{ 'channel.noPlaylistsDesc' | translate }}</p>
+          </div>
+        }
       }
     </div>
 

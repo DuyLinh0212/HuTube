@@ -21,9 +21,30 @@ public sealed class FeedController(IContentService content) : ControllerBase
         content.GetFeedAsync("home", sort, null, null, page, pageSize, ct);
 
     [HttpGet("explore")]
-    public Task<PageResult<VideoCardResponse>> ExploreAsync([FromQuery] string sort = "newest", [FromQuery] Guid? categoryId = null,
-        [FromQuery] string? tag = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        content.GetFeedAsync("explore", sort, categoryId, tag, page, pageSize, ct);
+    public Task<PageResult<VideoCardResponse>> ExploreAsync(
+        [FromQuery] string? q = null,
+        [FromQuery] string sort = "newest",
+        [FromQuery] Guid? categoryId = null,
+        [FromQuery] string? tag = null,
+        [FromQuery] Guid? channelId = null,
+        [FromQuery] string? dateRange = null,
+        [FromQuery] string? duration = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default) =>
+        content.SearchVideosAsync(new SearchVideosQuery(q, categoryId, tag, channelId, dateRange, duration, sort, page, pageSize), ct);
+
+    [HttpGet("subscriptions"), Authorize]
+    public Task<PageResult<VideoCardResponse>> SubscriptionsAsync(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var subject = User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(subject, out var userId))
+            throw new ContentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
+        return content.GetSubscriptionsFeedAsync(userId, page, pageSize, ct);
+    }
 }
 
 [ApiController, Route("api/v1/library"), Authorize]
@@ -65,6 +86,20 @@ public sealed class VideosController(IContentService content) : ControllerBase
 {
     private Guid? CurrentUserId => Guid.TryParse(User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
     private Guid UserId => CurrentUserId ?? throw new ContentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
+
+    [HttpGet("search")]
+    public Task<PageResult<VideoCardResponse>> SearchAsync(
+        [FromQuery] string? q = null,
+        [FromQuery] Guid? categoryId = null,
+        [FromQuery] string? tag = null,
+        [FromQuery] Guid? channelId = null,
+        [FromQuery] string? dateRange = null,
+        [FromQuery] string? duration = null,
+        [FromQuery] string? sort = "relevance",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default) =>
+        content.SearchVideosAsync(new SearchVideosQuery(q, categoryId, tag, channelId, dateRange, duration, sort, page, pageSize), ct);
 
     [HttpGet("{id:guid}")]
     public Task<VideoResponse> GetAsync(Guid id, CancellationToken ct) => content.GetVideoAsync(id, CurrentUserId, ct);

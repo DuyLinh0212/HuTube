@@ -95,7 +95,9 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     public async Task<ChannelResponse> GetChannelAsync(Guid channelId, Guid? actorUserId = null, CancellationToken ct = default)
     {
         var channel = await RequireChannelAsync(channelId, ct);
-        return ToResponse(channel, await ResolveRoleAsync(channel, actorUserId, ct));
+        var subCount = await store.CountSubscribersAsync(channelId, ct);
+        var videoCount = await store.CountPublishedVideosAsync(channelId, ct);
+        return ToResponse(channel, await ResolveRoleAsync(channel, actorUserId, ct), subCount, videoCount);
     }
 
     public async Task<ChannelResponse> GetChannelByHandleAsync(string handle, Guid? actorUserId = null, CancellationToken ct = default)
@@ -105,7 +107,9 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
 
         var channel = await store.FindChannelByHandleAsync(Channel.NormalizeHandle(handle), ct)
             ?? throw new ChannelException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
-        return ToResponse(channel, await ResolveRoleAsync(channel, actorUserId, ct));
+        var subCount = await store.CountSubscribersAsync(channel.ChannelId, ct);
+        var videoCount = await store.CountPublishedVideosAsync(channel.ChannelId, ct);
+        return ToResponse(channel, await ResolveRoleAsync(channel, actorUserId, ct), subCount, videoCount);
     }
 
     public async Task<CheckHandleResponse> CheckHandleAsync(string handle, Guid? currentChannelId = null, CancellationToken ct = default)
@@ -505,10 +509,10 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, action, "channel", channelId, reason), ct);
     }
 
-    private static ChannelResponse ToResponse(Channel channel, string? roleCode) =>
+    private static ChannelResponse ToResponse(Channel channel, string? roleCode, long subscriberCount = 0, long videoCount = 0) =>
         new(channel.ChannelId, channel.OwnerUserId, channel.Name, channel.Handle, channel.Description,
             channel.AvatarUrl, channel.BannerUrl, channel.ContactEmail, channel.WatermarkUrl, channel.Settings,
-            channel.Status, 0, 0, roleCode == ChannelRoles.Owner, roleCode,
+            channel.Status, subscriberCount, videoCount, roleCode == ChannelRoles.Owner, roleCode,
             ChannelPermissions.ForRole(roleCode), channel.CreatedAt);
 
     private static ChannelMemberResponse ToMemberResponse(ChannelMember member, string username, string email, string displayName, string? avatarUrl) =>
@@ -518,6 +522,58 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     private static ChannelInvitationResponse ToInvitationResponse(ChannelInvitation invitation, Channel channel) =>
         ToInvitationResponse(invitation, channel.Name, channel.Handle);
 
+    public async Task<SubscriptionResponse> SubscribeAsync(Guid channelId, Guid actorUserId, CancellationToken ct = default)
+    {
+        var channel = await RequireActiveChannelAsync(channelId, ct);
+        if (channel.OwnerUserId == actorUserId)
+            throw new ChannelException(400, "CANNOT_SUBSCRIBE_OWN_CHANNEL", "Bạn không thể đăng ký kênh của chính mình.");
+
+        var subscription = await store.FindSubscriptionAsync(actorUserId, channelId, ct);
+        if (subscription != null)
+        {
+            if (subscription.Status == "active")
+                return ToSubscriptionResponse(subscription);
+
+            subscription.Status = "active";
+            subscription.SubscribedAt = DateTimeOffset.UtcNow;
+            await store.SaveAsync(ct);
+            return ToSubscriptionResponse(subscription);
+        }
+
+        subscription = new Subscription
+        {
+            SubscriptionId = Guid.NewGuid(),
+            UserId = actorUserId,
+            ChannelId = channelId,
+            SubscribedAt = DateTimeOffset.UtcNow,
+            NotificationsEnabled = true,
+            Status = "active"
+        };
+        store.AddSubscription(subscription);
+        await store.SaveAsync(ct);
+
+        return ToSubscriptionResponse(subscription);
+    }
+
+    public async Task UnsubscribeAsync(Guid channelId, Guid actorUserId, CancellationToken ct = default)
+    {
+        var subscription = await store.FindSubscriptionAsync(actorUserId, channelId, ct);
+        if (subscription == null || subscription.Status != "active")
+            return;
+
+        subscription.Status = "paused";
+        await store.SaveAsync(ct);
+    }
+
+    public async Task<SubscriptionResponse?> GetSubscriptionStatusAsync(Guid channelId, Guid actorUserId, CancellationToken ct = default)
+    {
+        var subscription = await store.FindSubscriptionAsync(actorUserId, channelId, ct);
+        return subscription != null ? ToSubscriptionResponse(subscription) : null;
+    }
+
+    public Task<List<SubscribedChannelResponse>> GetSubscribedChannelsAsync(Guid actorUserId, CancellationToken ct = default) =>
+        store.GetSubscribedChannelsAsync(actorUserId, ct);
+
     private static ChannelInvitationResponse ToInvitationResponse(ChannelInvitation invitation, string channelName, string channelHandle)
     {
         var role = NormalizeRole(invitation.RoleCode);
@@ -525,4 +581,8 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
             invitation.InvitedUserId, invitation.InvitedEmail, invitation.InvitedByUserId, role,
             ChannelPermissions.ForRole(role), invitation.Status, invitation.ExpiresAt, invitation.CreatedAt);
     }
+
+    private static SubscriptionResponse ToSubscriptionResponse(Subscription subscription) =>
+        new(subscription.SubscriptionId, subscription.ChannelId, subscription.UserId,
+            subscription.SubscribedAt, subscription.NotificationsEnabled, subscription.Status);
 }

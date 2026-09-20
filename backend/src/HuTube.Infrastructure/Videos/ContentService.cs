@@ -68,6 +68,166 @@ public sealed class ContentService(
         return new(cards, page, pageSize, total);
     }
 
+    public async Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var (p, size) = Page(page, pageSize);
+        var subscribedChannelIds = await db.Subscriptions.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Status == "active")
+            .Select(s => s.ChannelId)
+            .ToListAsync(ct);
+
+        if (subscribedChannelIds.Count == 0)
+        {
+            return new([], p, size, 0);
+        }
+
+        var query = db.Videos.AsNoTracking()
+            .Where(x => subscribedChannelIds.Contains(x.ChannelId) && x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+
+        var total = await query.CountAsync(ct);
+        var rows = from video in query
+                   join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                   orderby video.PublishedAt descending
+                   select new
+                   {
+                       video.VideoId,
+                       video.ChannelId,
+                       ChannelName = channel.Name,
+                       ChannelHandle = channel.Handle,
+                       video.Title,
+                       video.ThumbnailUrl,
+                       video.Duration,
+                       video.Visibility,
+                       video.PublishedAt,
+                       Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId)
+                   };
+
+        var pageRows = await rows.Skip((p - 1) * size).Take(size).ToListAsync(ct);
+        var cards = new List<VideoCardResponse>();
+        foreach (var row in pageRows)
+        {
+            cards.Add(new(row.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
+                row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration, row.Visibility, row.PublishedAt, row.Views));
+        }
+        return new(cards, p, size, total);
+    }
+
+    public async Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery search, CancellationToken ct = default)
+    {
+        var (page, pageSize) = Page(search.Page, search.PageSize);
+        var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+
+        var term = search.Query?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(x =>
+                x.Title.ToLower().Contains(term) ||
+                (x.Description != null && x.Description.ToLower().Contains(term)) ||
+                db.Channels.Any(c => c.ChannelId == x.ChannelId && c.Name.ToLower().Contains(term)) ||
+                db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && t.Name.ToLower().Contains(term)))
+            );
+        }
+
+        if (search.CategoryId.HasValue)
+        {
+            query = query.Where(x => x.CategoryId == search.CategoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search.Tag))
+        {
+            var normalizedTag = search.Tag.Trim().TrimStart('#').ToLowerInvariant();
+            query = query.Where(x => db.VideoTags.Any(vt => vt.VideoId == x.VideoId &&
+                db.Tags.Any(t => t.TagId == vt.TagId && t.Name.ToLower() == normalizedTag)));
+        }
+
+        if (search.ChannelId.HasValue)
+        {
+            query = query.Where(x => x.ChannelId == search.ChannelId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search.DateRange))
+        {
+            var now = Now;
+            var todayUtc = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
+            var weekAgo = now.AddDays(-7);
+            var monthAgo = now.AddDays(-30);
+            var yearAgo = now.AddDays(-365);
+
+            query = search.DateRange.Trim().ToLowerInvariant() switch
+            {
+                "today" or "day" => query.Where(x => x.PublishedAt.HasValue && x.PublishedAt.Value >= todayUtc),
+                "this_week" or "week" => query.Where(x => x.PublishedAt.HasValue && x.PublishedAt.Value >= weekAgo),
+                "this_month" or "month" => query.Where(x => x.PublishedAt.HasValue && x.PublishedAt.Value >= monthAgo),
+                "this_year" or "year" => query.Where(x => x.PublishedAt.HasValue && x.PublishedAt.Value >= yearAgo),
+                _ => query
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(search.DurationRange))
+        {
+            query = search.DurationRange.Trim().ToLowerInvariant() switch
+            {
+                "short" => query.Where(x => x.Duration < 240),
+                "medium" => query.Where(x => x.Duration >= 240 && x.Duration <= 1200),
+                "long" => query.Where(x => x.Duration > 1200),
+                _ => query
+            };
+        }
+
+        var total = await query.CountAsync(ct);
+
+        var rows = from video in query
+                   join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                   select new
+                   {
+                       video.VideoId,
+                       video.ChannelId,
+                       ChannelName = channel.Name,
+                       ChannelHandle = channel.Handle,
+                       video.Title,
+                       video.ThumbnailUrl,
+                       video.Duration,
+                       video.Visibility,
+                       video.PublishedAt,
+                       Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId),
+                       Likes = db.VideoReactions.LongCount(r => r.VideoId == video.VideoId && r.Type == "like"),
+                       Comments = db.Comments.LongCount(c => c.VideoId == video.VideoId && c.Status == "visible")
+                   };
+
+        var sort = search.Sort?.Trim().ToLowerInvariant() ?? "relevance";
+        rows = sort switch
+        {
+            "newest" => rows.OrderByDescending(x => x.PublishedAt),
+            "views" or "popular" => rows.OrderByDescending(x => x.Views).ThenByDescending(x => x.PublishedAt),
+            "engagement" => rows.OrderByDescending(x => x.Likes + x.Comments).ThenByDescending(x => x.Views),
+            _ when !string.IsNullOrWhiteSpace(term) =>
+                rows.OrderByDescending(x => x.Title.ToLower().StartsWith(term))
+                    .ThenByDescending(x => x.Title.ToLower().Contains(term))
+                    .ThenByDescending(x => x.Views)
+                    .ThenByDescending(x => x.PublishedAt),
+            _ => rows.OrderByDescending(x => x.Views).ThenByDescending(x => x.PublishedAt)
+        };
+
+        var pageRows = await rows.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var cards = new List<VideoCardResponse>();
+        foreach (var row in pageRows)
+        {
+            cards.Add(new(
+                row.VideoId,
+                row.ChannelId,
+                row.ChannelName,
+                row.ChannelHandle,
+                row.Title,
+                row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct),
+                row.Duration,
+                row.Visibility,
+                row.PublishedAt,
+                row.Views));
+        }
+
+        return new(cards, page, pageSize, total);
+    }
+
     public async Task<PageResult<LibraryVideoResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)
     {
         (page, pageSize) = Page(page, pageSize);
@@ -173,11 +333,8 @@ public sealed class ContentService(
         // Upload limits belong to the channel owner’s subscription. A Manager/Editor
         // may upload on behalf of the channel, but must not downgrade or bypass the
         // owner’s quota simply because the actor has a different plan.
-        var effectivePlan = features.PlanEnforcementEnabled ? await GetEffectivePlanForUserAsync(channel.OwnerUserId, ct) : null;
         if (quota != null)
         {
-            if (features.PlanEnforcementEnabled)
-                quota.StorageLimit = effectivePlan?.StorageLimit ?? ChannelQuotaRules.DefaultStorageLimit;
             if (!ChannelQuotaRules.CanReserve(quota.StorageUsed, command.FileSize, quota.StorageLimit))
                 throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
         }
@@ -266,8 +423,6 @@ public sealed class ContentService(
         {
             if (quota != null)
             {
-                if (features.PlanEnforcementEnabled)
-                    quota.StorageLimit = effectivePlan?.StorageLimit ?? ChannelQuotaRules.DefaultStorageLimit;
                 if (!ChannelQuotaRules.CanReserve(quota.StorageUsed, command.FileSize, quota.StorageLimit))
                     throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
                 quota.StorageUsed += command.FileSize;
@@ -353,9 +508,9 @@ public sealed class ContentService(
         if (sourceHeight == 0) throw Error(400, "INVALID_VIDEO_QUALITY", "Chất lượng video không hợp lệ.");
         if (sourceHeight > VideoRules.QualityHeight(maxQuality)) throw Error(403, "UPLOAD_QUALITY_DENIED", "Chất lượng video vượt quá giới hạn gói.");
         var quota = await db.ChannelQuotas.AsNoTracking().SingleOrDefaultAsync(x => x.ChannelId == request.ChannelId, ct);
-        var limit = features.PlanEnforcementEnabled
+        var limit = quota?.StorageLimit ?? (features.PlanEnforcementEnabled
             ? plan?.StorageLimit ?? ChannelQuotaRules.DefaultStorageLimit
-            : quota?.StorageLimit ?? maxUpload;
+            : maxUpload);
         var used = quota?.StorageUsed ?? 0;
         if (!ChannelQuotaRules.CanReserve(used, request.FileSize, limit)) throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
         return new(true, maxUpload, maxDuration, maxQuality, limit, used, ChannelQuotaRules.Remaining(limit, used));

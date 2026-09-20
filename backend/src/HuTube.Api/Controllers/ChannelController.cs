@@ -127,6 +127,28 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
         return NoContent();
     }
 
+    [Authorize, HttpPost("{id:guid}/subscribe")]
+    public async Task<ActionResult<SubscriptionResponse>> SubscribeAsync(Guid id, CancellationToken ct)
+    {
+        var result = await channelService.SubscribeAsync(id, UserId, ct);
+        return Ok(result);
+    }
+
+    [Authorize, HttpDelete("{id:guid}/subscribe")]
+    public async Task<IActionResult> UnsubscribeAsync(Guid id, CancellationToken ct)
+    {
+        await channelService.UnsubscribeAsync(id, UserId, ct);
+        return NoContent();
+    }
+
+    [Authorize, HttpGet("{id:guid}/subscribe-status")]
+    public async Task<ActionResult<SubscriptionResponse>> GetSubscriptionStatusAsync(Guid id, CancellationToken ct)
+    {
+        var result = await channelService.GetSubscriptionStatusAsync(id, UserId, ct);
+        if (result == null) return NotFound(new { code = "NOT_SUBSCRIBED", message = "Chưa đăng ký kênh này." });
+        return Ok(result);
+    }
+
     private async Task<ActionResult<ChannelResponse>> UploadImageAsync(
         Guid channelId,
         IFormFile? file,

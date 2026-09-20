@@ -191,4 +191,39 @@ export class ChannelService {
   removeMember(channelId: string, userId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${channelId}/members/${userId}`);
   }
+
+  // Subscriptions
+  subscribe(channelId: string): Observable<SubscriptionResponse> {
+    return this.http.post<SubscriptionResponse>(`${this.base}/${channelId}/subscribe`, {});
+  }
+
+  unsubscribe(channelId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${channelId}/subscribe`);
+  }
+
+  getSubscriptionStatus(channelId: string): Observable<SubscriptionResponse> {
+    return this.http.get<SubscriptionResponse>(`${this.base}/${channelId}/subscribe-status`);
+  }
+
+  getSubscribedChannels(): Observable<SubscribedChannelResponse[]> {
+    return this.http.get<SubscribedChannelResponse[]>(`${this.config.apiBaseUrl}/subscriptions`);
+  }
+}
+
+export interface SubscriptionResponse {
+  subscriptionId: string;
+  channelId: string;
+  userId: string;
+  subscribedAt: string;
+  notificationsEnabled: boolean;
+  status: string;
+}
+
+export interface SubscribedChannelResponse {
+  channelId: string;
+  name: string;
+  handle: string;
+  avatarUrl: string | null;
+  subscriberCount: number;
+  subscribedAt: string;
 }

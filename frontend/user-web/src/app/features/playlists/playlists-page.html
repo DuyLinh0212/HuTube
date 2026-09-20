@@ -1,0 +1,87 @@
+<main class="playlists-page">
+  <a [routerLink]="channelHandle ? ['/channel', channelHandle] : ['/home']">← {{ channelHandle ? 'Về kênh' : 'Trang chủ' }}</a>
+  <h1>{{ playlist() ? 'Quản lý playlist' : (channelHandle ? 'Playlist của kênh' : 'Playlist cá nhân') }}</h1>
+  @if (error()) { <p class="error">{{ error() }}</p> }
+  @if (loading()) {
+    <p>Đang tải...</p>
+  } @else if (!playlist()) {
+    <section class="panel">
+      <h2>{{ channelHandle ? 'Tạo playlist cho kênh' : 'Tạo playlist cá nhân' }}</h2>
+      <input [(ngModel)]="name" placeholder="Tên playlist" maxlength="150">
+      <textarea [(ngModel)]="description" placeholder="Mô tả"></textarea>
+      <select [(ngModel)]="visibility">
+        <option value="private">Private</option>
+        <option value="unlisted">Unlisted</option>
+        <option value="public">Public</option>
+      </select>
+      <button type="button" (click)="create()" [disabled]="busy">Tạo</button>
+    </section>
+    <section class="list">
+      @for (item of lists(); track item.playlistId) {
+        <a class="playlist" [routerLink]="['/playlists', item.playlistId]">
+          <strong>{{ item.name }}</strong>
+          <span>{{ item.itemCount }} video · {{ item.visibility }}</span>
+        </a>
+      } @empty { <p>Chưa có playlist.</p> }
+    </section>
+  } @else {
+    @if (canManage()) {
+      <section class="panel">
+        <input [(ngModel)]="name" maxlength="150">
+        <textarea [(ngModel)]="description"></textarea>
+        <select [(ngModel)]="visibility">
+          <option value="private">Private</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="public">Public</option>
+        </select>
+        <button type="button" (click)="save()" [disabled]="busy">Lưu</button>
+        <button type="button" class="danger" (click)="deletePlaylist()" [disabled]="busy">Xóa</button>
+      </section>
+      <section class="panel">
+      <h2>Thêm video</h2>
+      <div class="video-picker-search">
+        <input [(ngModel)]="videoSearch" (keyup.enter)="searchVideos()" placeholder="Tìm video bạn đã đăng">
+        <button type="button" (click)="searchVideos()" [disabled]="busy || videoLoading()">Tìm kiếm</button>
+      </div>
+      @if (videoLoading()) {
+        <p class="muted">Đang tải video...</p>
+      } @else {
+        <div class="video-options">
+          @for (video of videoOptions(); track video.videoId) {
+            <article class="video-option">
+              @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title"> }
+              <div>
+                <b>{{ video.title }}</b>
+                <small>{{ video.channelName }} · {{ video.duration }} giây · {{ video.visibility }}</small>
+              </div>
+              <button type="button" (click)="add(video.videoId)" [disabled]="busy">Thêm</button>
+            </article>
+          } @empty {
+            <p class="muted">Không tìm thấy video phù hợp.</p>
+          }
+        </div>
+      }
+      </section>
+    }
+    <button type="button" (click)="playAll()" [disabled]="busy">Phát tất cả</button>
+    <section class="items">
+      @for (item of playlist()!.items; track item.playlistVideoId; let i = $index) {
+        <article class="item">
+          <div>
+            @if (item.available) {
+              <a [routerLink]="['/watch', item.videoId]"><b>{{ i + 1 }}. {{ item.title }}</b></a>
+            } @else {
+              <b>{{ i + 1 }}. {{ item.title || 'Video không còn khả dụng' }}</b>
+            }
+            <small>{{ item.available ? 'Có thể phát' : 'Không khả dụng: ' + item.unavailableReason }}</small>
+          </div>
+          @if (canManage()) {
+            <button type="button" (click)="move(i, -1)" [disabled]="busy || i === 0">↑</button>
+            <button type="button" (click)="move(i, 1)" [disabled]="busy || i === playlist()!.items.length - 1">↓</button>
+            <button type="button" class="danger" (click)="removeVideo(item.videoId)" [disabled]="busy">Xóa</button>
+          }
+        </article>
+      } @empty { <p>Playlist chưa có video.</p> }
+    </section>
+  }
+</main>

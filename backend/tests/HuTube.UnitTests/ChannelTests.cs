@@ -25,6 +25,25 @@ public sealed class ChannelTests
         public List<ChannelMember> Members { get; } = [];
         public List<ChannelInvitation> Invitations { get; } = [];
         public List<User> Users { get; } = [];
+        public List<Subscription> Subscriptions { get; } = [];
+
+        public Task<Subscription?> FindSubscriptionAsync(Guid userId, Guid channelId, CancellationToken ct) =>
+            Task.FromResult(Subscriptions.SingleOrDefault(s => s.UserId == userId && s.ChannelId == channelId));
+
+        public void AddSubscription(Subscription subscription) => Subscriptions.Add(subscription);
+
+        public Task<long> CountSubscribersAsync(Guid channelId, CancellationToken ct) =>
+            Task.FromResult((long)Subscriptions.Count(s => s.ChannelId == channelId && s.Status == "active"));
+
+        public Task<List<SubscribedChannelResponse>> GetSubscribedChannelsAsync(Guid userId, CancellationToken ct)
+        {
+            var result = from s in Subscriptions
+                         where s.UserId == userId && s.Status == "active"
+                         join c in Channels on s.ChannelId equals c.ChannelId
+                         where c.Status == "active"
+                         select new SubscribedChannelResponse(c.ChannelId, c.Name, c.Handle, c.AvatarUrl, 1, s.SubscribedAt);
+            return Task.FromResult(result.ToList());
+        }
 
         public Task<Channel?> FindChannelAsync(Guid channelId, CancellationToken ct) =>
             Task.FromResult(Channels.SingleOrDefault(c => c.ChannelId == channelId));
@@ -312,5 +331,140 @@ public sealed class ChannelTests
 
         Assert.Equal(400, ex.Status);
         Assert.Equal("CANNOT_REMOVE_OWNER", ex.Code);
+    }
+
+    [Fact]
+    public async Task Subscribe_Success_ShouldCreateActiveSubscription()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var subscriberId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("My Channel", "mychannel", null));
+
+        var sub = await service.SubscribeAsync(channel.ChannelId, subscriberId);
+
+        Assert.NotNull(sub);
+        Assert.Equal("active", sub.Status);
+        Assert.Equal(channel.ChannelId, sub.ChannelId);
+        Assert.Equal(subscriberId, sub.UserId);
+        Assert.Single(store.Subscriptions);
+
+        var count = await store.CountSubscribersAsync(channel.ChannelId, CancellationToken.None);
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Subscribe_OwnChannel_ShouldThrow400()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("My Channel", "mychannel", null));
+
+        var ex = await Assert.ThrowsAsync<ChannelException>(() =>
+            service.SubscribeAsync(channel.ChannelId, ownerId));
+
+        Assert.Equal(400, ex.Status);
+        Assert.Equal("CANNOT_SUBSCRIBE_OWN_CHANNEL", ex.Code);
+        Assert.Empty(store.Subscriptions);
+    }
+
+    [Fact]
+    public async Task Subscribe_InactiveChannel_ShouldThrowNotActive()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var subscriberId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("My Channel", "mychannel", null));
+        store.Channels[0].Status = "suspended";
+
+        var ex = await Assert.ThrowsAsync<ChannelException>(() =>
+            service.SubscribeAsync(channel.ChannelId, subscriberId));
+
+        Assert.Equal(409, ex.Status);
+        Assert.Equal("CHANNEL_NOT_ACTIVE", ex.Code);
+    }
+
+    [Fact]
+    public async Task Subscribe_DuplicateRequest_ShouldBeIdempotent()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var subscriberId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("My Channel", "mychannel", null));
+
+        var sub1 = await service.SubscribeAsync(channel.ChannelId, subscriberId);
+        var sub2 = await service.SubscribeAsync(channel.ChannelId, subscriberId);
+
+        Assert.Equal(sub1.SubscriptionId, sub2.SubscriptionId);
+        Assert.Single(store.Subscriptions);
+        var count = await store.CountSubscribersAsync(channel.ChannelId, CancellationToken.None);
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task Unsubscribe_Success_ShouldPauseSubscription_AndDecrementCount()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var subscriberId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("My Channel", "mychannel", null));
+
+        await service.SubscribeAsync(channel.ChannelId, subscriberId);
+        Assert.Equal(1, await store.CountSubscribersAsync(channel.ChannelId, CancellationToken.None));
+
+        await service.UnsubscribeAsync(channel.ChannelId, subscriberId);
+
+        Assert.Equal(0, await store.CountSubscribersAsync(channel.ChannelId, CancellationToken.None));
+        var sub = await service.GetSubscriptionStatusAsync(channel.ChannelId, subscriberId);
+        Assert.NotNull(sub);
+        Assert.Equal("paused", sub.Status);
+    }
+
+    [Fact]
+    public async Task Unsubscribe_DuplicateOrNonExistent_ShouldNotThrow()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var subscriberId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("My Channel", "mychannel", null));
+
+        // Unsubscribe when never subscribed
+        await service.UnsubscribeAsync(channel.ChannelId, subscriberId);
+
+        // Subscribe then unsubscribe twice
+        await service.SubscribeAsync(channel.ChannelId, subscriberId);
+        await service.UnsubscribeAsync(channel.ChannelId, subscriberId);
+        await service.UnsubscribeAsync(channel.ChannelId, subscriberId);
+
+        Assert.Equal(0, await store.CountSubscribersAsync(channel.ChannelId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetSubscribedChannels_ShouldReturnOnlyActiveChannels()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var subscriberId = Guid.NewGuid();
+
+        var ch1 = await service.CreateChannelAsync(Guid.NewGuid(), new("Channel 1", "ch1", null));
+        var ch2 = await service.CreateChannelAsync(Guid.NewGuid(), new("Channel 2", "ch2", null));
+
+        await service.SubscribeAsync(ch1.ChannelId, subscriberId);
+        await service.SubscribeAsync(ch2.ChannelId, subscriberId);
+
+        var list = await service.GetSubscribedChannelsAsync(subscriberId);
+        Assert.Equal(2, list.Count);
+
+        // Unsubscribe ch2
+        await service.UnsubscribeAsync(ch2.ChannelId, subscriberId);
+        list = await service.GetSubscribedChannelsAsync(subscriberId);
+        Assert.Single(list);
+        Assert.Equal(ch1.ChannelId, list[0].ChannelId);
     }
 }

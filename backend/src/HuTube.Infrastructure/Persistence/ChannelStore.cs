@@ -89,5 +89,37 @@ public sealed class ChannelStore(HuTubeDbContext db) : IChannelStore
     public Task<User?> FindUserByIdAsync(Guid userId, CancellationToken ct) =>
         db.Users.SingleOrDefaultAsync(x => x.UserId == userId, ct);
 
+    public Task<Subscription?> FindSubscriptionAsync(Guid userId, Guid channelId, CancellationToken ct) =>
+        db.Subscriptions.SingleOrDefaultAsync(x => x.UserId == userId && x.ChannelId == channelId, ct);
+
+    public void AddSubscription(Subscription subscription) => db.Subscriptions.Add(subscription);
+
+    public Task<long> CountSubscribersAsync(Guid channelId, CancellationToken ct) =>
+        db.Subscriptions.LongCountAsync(x => x.ChannelId == channelId && x.Status == "active", ct);
+
+    public Task<long> CountPublishedVideosAsync(Guid channelId, CancellationToken ct) =>
+        db.Videos.LongCountAsync(x => x.ChannelId == channelId && x.Status == "published" &&
+            x.Visibility == "public" && x.ModerationStatus == "approved", ct);
+
+    public async Task<List<SubscribedChannelResponse>> GetSubscribedChannelsAsync(Guid userId, CancellationToken ct)
+    {
+        return await db.Subscriptions
+            .Where(s => s.UserId == userId && s.Status == "active")
+            .Join(db.Channels.Where(c => c.Status == "active"),
+                s => s.ChannelId,
+                c => c.ChannelId,
+                (s, c) => new { s.SubscribedAt, c.ChannelId, c.Name, c.Handle, c.AvatarUrl })
+            .OrderByDescending(x => x.SubscribedAt)
+            .Select(x => new SubscribedChannelResponse(
+                x.ChannelId,
+                x.Name,
+                x.Handle,
+                x.AvatarUrl,
+                // Count subscribers directly (can be optimized later using a cached field if needed)
+                db.Subscriptions.LongCount(sub => sub.ChannelId == x.ChannelId && sub.Status == "active"),
+                x.SubscribedAt))
+            .ToListAsync(ct);
+    }
+
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }
