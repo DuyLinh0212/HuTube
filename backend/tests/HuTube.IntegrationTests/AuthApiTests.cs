@@ -309,7 +309,7 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     {
         await using var db = factory.CreateDb(); await db.Database.MigrateAsync();
         var count = await db.Database.SqlQueryRaw<int>("SELECT count(*)::integer AS \"Value\" FROM information_schema.tables WHERE table_schema='public' AND table_name <> '__EFMigrationsHistory'").SingleAsync();
-        Assert.Equal(46, count);
+        Assert.Equal(47, count);
         Assert.True(await db.Policies.CountAsync() >= 33);
     }
 
