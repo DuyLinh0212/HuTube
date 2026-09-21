@@ -61,6 +61,101 @@ export interface PolicyItem {
   effectiveAt: string;
 }
 
+export interface ReportItem {
+  reportId: string;
+  userId: string;
+  reporterName: string | null;
+  targetType: 'video' | 'comment' | 'channel';
+  targetId: string;
+  targetTitle: string | null;
+  violationTypeId: string;
+  violationTypeCode: string | null;
+  violationTypeName: string | null;
+  description: string;
+  status: string;
+  reviewerId: string | null;
+  reviewerName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResolveReportRequest {
+  decision: string;
+  reason?: string;
+  internalNote?: string;
+  policyCode?: string;
+}
+
+export interface ReportResolutionResponse {
+  reportId: string;
+  status: string;
+  decision: string;
+  message: string;
+}
+
+export interface AppealItem {
+  appealId: string;
+  userId: string;
+  userName: string | null;
+  targetType: string;
+  targetId: string;
+  targetTitle: string | null;
+  appealNumber: number;
+  reviewerId: string | null;
+  reviewerName: string | null;
+  reason: string;
+  status: string;
+  reviewNote: string | null;
+  evidenceUrl: string | null;
+  evidenceNote: string | null;
+  moderationCaseId: string | null;
+  strikeId: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface ResolveAppealRequest {
+  decision: 'approve' | 'reject' | 'escalate';
+  reviewNote?: string;
+}
+
+export interface AppealResolutionResponse {
+  appealId: string;
+  status: string;
+  decision: string;
+  message: string;
+}
+
+export interface StrikeItem {
+  strikeId: string;
+  channelId: string;
+  channelName: string | null;
+  userId: string;
+  strikeNumber: number;
+  severity: string;
+  policyCode: string | null;
+  reason: string;
+  internalNote: string | null;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+  revokedAt: string | null;
+  revokedByUserId: string | null;
+  revocationReason: string | null;
+}
+
+export interface CreateStrikeRequest {
+  channelId: string;
+  policyCode?: string;
+  severity: string;
+  reason: string;
+  internalNote?: string;
+}
+
+export interface RevokeStrikeRequest {
+  reason: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminModerationService {
   private readonly http = inject(HttpClient);
@@ -96,4 +191,70 @@ export class AdminModerationService {
   getPolicies(): Observable<PolicyItem[]> {
     return this.http.get<PolicyItem[]>(`${this.config.apiBaseUrl}/policies`);
   }
+
+  // Reports
+  getReports(targetType?: string, status?: string, page = 1, pageSize = 50): Observable<ReportItem[]> {
+    let params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
+    if (targetType && targetType !== 'ALL') params = params.set('targetType', targetType);
+    if (status && status !== 'ALL') params = params.set('status', status);
+    return this.http.get<ReportItem[]>(`${this.config.apiBaseUrl}/admin/reports`, { params });
+  }
+
+  claimReport(reportId: string): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/claim`, {});
+  }
+
+  releaseReport(reportId: string): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/release`, {});
+  }
+
+  resolveReport(reportId: string, request: ResolveReportRequest): Observable<ReportResolutionResponse> {
+    return this.http.post<ReportResolutionResponse>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/resolve`, request);
+  }
+
+  // Appeals
+  getAppeals(targetType?: string, status?: string, page = 1, pageSize = 50): Observable<AppealItem[]> {
+    let params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
+    if (targetType && targetType !== 'ALL') params = params.set('targetType', targetType);
+    if (status && status !== 'ALL') params = params.set('status', status);
+    return this.http.get<AppealItem[]>(`${this.config.apiBaseUrl}/admin/appeals`, { params });
+  }
+
+  claimAppeal(appealId: string): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/claim`, {});
+  }
+
+  releaseAppeal(appealId: string): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/release`, {});
+  }
+
+  resolveAppeal(appealId: string, request: ResolveAppealRequest): Observable<AppealResolutionResponse> {
+    return this.http.post<AppealResolutionResponse>(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/resolve`, request);
+  }
+
+  // Strikes
+  getStrikes(channelId?: string, status?: string, page = 1, pageSize = 50): Observable<StrikeItem[]> {
+    let params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
+    if (channelId) params = params.set('channelId', channelId);
+    if (status && status !== 'ALL') params = params.set('status', status);
+    return this.http.get<StrikeItem[]>(`${this.config.apiBaseUrl}/admin/strikes`, { params });
+  }
+
+  createStrike(request: CreateStrikeRequest): Observable<StrikeItem> {
+    return this.http.post<StrikeItem>(`${this.config.apiBaseUrl}/admin/strikes`, request);
+  }
+
+  revokeStrike(strikeId: string, request: RevokeStrikeRequest): Observable<StrikeItem> {
+    return this.http.post<StrikeItem>(`${this.config.apiBaseUrl}/admin/strikes/${strikeId}/revoke`, request);
+  }
+
+  // Channel Lock / Unlock
+  lockChannel(channelId: string, reason: string): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/channels/${channelId}/lock`, { reason });
+  }
+
+  unlockChannel(channelId: string, reason: string): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/channels/${channelId}/unlock`, { reason });
+  }
 }
+

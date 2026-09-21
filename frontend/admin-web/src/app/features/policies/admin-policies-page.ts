@@ -243,7 +243,7 @@ export class AdminPoliciesPage implements OnInit {
     const u = this.auth.user();
     if (!u) return false;
     if (u.role === 'super_admin' || u.role === 'admin' || u.isAdmin) return true;
-    return this.auth.hasPermission('system.edit_setting') || this.auth.hasPermission('system.view_setting');
+    return this.auth.hasPermission('policy.manage') || this.auth.hasPermission('system.edit_setting');
   }
 
   private showMessage(msg: string): void {

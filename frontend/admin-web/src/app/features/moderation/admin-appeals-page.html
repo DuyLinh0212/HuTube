@@ -1,0 +1,268 @@
+<div class="moderation-container">
+  <header class="page-header">
+    <div class="header-titles">
+      <p class="eyebrow">KIỂM DUYỆT KHIẾU NẠI</p>
+      <h1>Xử lý đơn khiếu nại quyết định</h1>
+      <p class="subtitle">Xem xét và tái thẩm định các quyết định khóa kênh, gắn gậy phạt hoặc từ chối video theo nguyên tắc phân quyền độc lập (Separation of Duties).</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+        </svg>
+        <span>Làm mới</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="alert alert-danger">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span class="alert-text">{{ error() }}</span>
+      <button type="button" class="close-btn" (click)="error.set(null)">&times;</button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="alert alert-success">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <span class="alert-text">{{ successMessage() }}</span>
+      <button type="button" class="close-btn" (click)="successMessage.set(null)">&times;</button>
+    </div>
+  }
+
+  <!-- Status Tabs -->
+  <div class="status-tabs" role="tablist" aria-label="Trạng thái khiếu nại">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">
+      Chờ thẩm định <b>{{ countPending() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">
+      Đang xem xét <b>{{ countReviewing() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'approved'" (click)="selectedStatus.set('approved')">
+      Đã chấp thuận <b>{{ countApproved() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'rejected'" (click)="selectedStatus.set('rejected')">
+      Bác khiếu nại <b>{{ countRejected() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'ALL'" (click)="selectedStatus.set('ALL')">
+      Tất cả <b>{{ appeals().length }}</b>
+    </button>
+  </div>
+
+  <!-- Filters Toolbar -->
+  <section class="toolbar">
+    <div class="filter-group">
+      <label for="appeal-target-filter">Đối tượng:</label>
+      <select id="appeal-target-filter" [ngModel]="selectedTargetType()" (ngModelChange)="selectedTargetType.set($event)">
+        <option value="ALL">Tất cả đối tượng</option>
+        <option value="video">Video</option>
+        <option value="channel">Kênh</option>
+        <option value="strike">Gậy phạt</option>
+        <option value="comment">Bình luận</option>
+      </select>
+    </div>
+
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" placeholder="Tìm kiếm đối tượng, lý do, người khiếu nại..."
+        [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+    </div>
+  </section>
+
+  <!-- Appeals Table -->
+  <section class="table-card">
+    <div class="table-heading">
+      <div>
+        <h2>Hồ sơ khiếu nại quyết định kiểm duyệt</h2>
+        <p>{{ filteredAppeals().length }} kết quả phù hợp</p>
+      </div>
+      @if (countPending() > 0) {
+        <span class="queue-count">{{ countPending() }} chờ thẩm định</span>
+      }
+    </div>
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Đang tải danh sách khiếu nại...</p>
+      </div>
+    } @else if (filteredAppeals().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-box">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1"></path>
+            <path d="M18 8h4a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-4"></path>
+            <circle cx="8" cy="12" r="2"></circle>
+          </svg>
+        </div>
+        <h3>Không có khiếu nại nào</h3>
+        <p>Tất cả đơn khiếu nại đã được phân xử hoặc nội dung tìm kiếm không khớp.</p>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 75px;">Lần</th>
+              <th style="width: 100px;">Đối tượng</th>
+              <th style="min-width: 180px;">Mục khiếu nại</th>
+              <th style="min-width: 220px;">Lý do từ người dùng</th>
+              <th style="width: 120px;">Bằng chứng</th>
+              <th style="width: 130px;">Người gửi</th>
+              <th style="width: 135px;">Trạng thái</th>
+              <th style="width: 120px;">Người thụ lý</th>
+              <th style="width: 135px;">Thời gian</th>
+              <th class="actions-col" style="width: 170px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredAppeals(); track item.appealId) {
+              <tr>
+                <td>
+                  <span class="appeal-index">#{{ item.appealNumber }}</span>
+                </td>
+                <td>
+                  <span class="badge" [class.badge-video]="item.targetType === 'video'"
+                    [class.badge-channel]="item.targetType === 'channel'"
+                    [class.badge-strike]="item.targetType === 'strike'">
+                    {{ item.targetType | uppercase }}
+                  </span>
+                </td>
+                <td class="target-title-col">
+                  <div class="target-info">
+                    <strong class="target-title">{{ item.targetTitle || item.targetType }}</strong>
+                    <span class="target-id" [title]="item.targetId">{{ item.targetId }}</span>
+                  </div>
+                </td>
+                <td class="description-col">
+                  <span class="reason-text">{{ item.reason }}</span>
+                </td>
+                <td>
+                  @if (item.evidenceUrl) {
+                    <a [href]="item.evidenceUrl" target="_blank" rel="noopener" class="link-evidence">
+                      <span>Xem đính kèm</span>
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="link-icon">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                    </a>
+                  } @else {
+                    <span class="text-muted">Không có</span>
+                  }
+                </td>
+                <td>
+                  <span class="user-name">{{ item.userName || 'Người dùng' }}</span>
+                </td>
+                <td>
+                  <span class="status-pill" [class.status-pending]="item.status === 'pending'"
+                    [class.status-reviewing]="item.status === 'reviewing'"
+                    [class.status-approved]="item.status === 'approved'"
+                    [class.status-rejected]="item.status === 'rejected'">
+                    <span class="status-dot"></span>
+                    {{ item.status === 'pending' ? 'Chờ thẩm định' : item.status === 'reviewing' ? 'Đang xem xét' : item.status === 'approved' ? 'Đã chấp thuận' : 'Bác khiếu nại' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="reviewer-name">{{ item.reviewerName || '—' }}</span>
+                </td>
+                <td class="time-col">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td class="actions-col">
+                  <div class="action-buttons">
+                    @if (item.status === 'pending') {
+                      <button type="button" class="btn-action btn-claim" (click)="claimAppeal(item)" [disabled]="submitting()" title="Nhận thẩm định hồ sơ khiếu nại này">
+                        Nhận thụ lý
+                      </button>
+                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Mở hộp thoại phán quyết">
+                        Phán quyết
+                      </button>
+                    } @else if (item.status === 'reviewing') {
+                      <button type="button" class="btn-action btn-claim" (click)="releaseAppeal(item)" [disabled]="submitting()" title="Hủy nhận xử lý để chuyên viên khác tiếp quản">
+                        Bỏ nhận
+                      </button>
+                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Mở hộp thoại phán quyết">
+                        Phán quyết
+                      </button>
+                    } @else {
+                      <span class="done-label">Đã xử lý</span>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <!-- Resolution Modal -->
+  @if (isResolveModalOpen() && activeAppeal()) {
+    <div class="modal-backdrop" (click)="closeResolveModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Phán quyết đơn khiếu nại #{{ activeAppeal()!.appealNumber }}</h3>
+          <button type="button" class="close-btn" (click)="closeResolveModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="context-box">
+            <div class="context-row">
+              <span class="context-label">Đối tượng:</span>
+              <span class="badge" [class.badge-video]="activeAppeal()!.targetType === 'video'"
+                [class.badge-channel]="activeAppeal()!.targetType === 'channel'"
+                [class.badge-strike]="activeAppeal()!.targetType === 'strike'">
+                {{ activeAppeal()!.targetType | uppercase }}
+              </span>
+              <strong style="margin-left: 0.35rem;">{{ activeAppeal()!.targetTitle }}</strong>
+            </div>
+            <div class="context-row">
+              <span class="context-label">Lý do giải trình:</span>
+              <span>{{ activeAppeal()!.reason }}</span>
+            </div>
+            @if (activeAppeal()!.evidenceUrl) {
+              <div class="context-row">
+                <span class="context-label">Bằng chứng:</span>
+                <a [href]="activeAppeal()!.evidenceUrl" target="_blank" rel="noopener" class="link-evidence">
+                  {{ activeAppeal()!.evidenceUrl }}
+                </a>
+              </div>
+            }
+          </div>
+
+          <div class="form-group">
+            <label>Quyết định phán quyết <span class="required">*</span></label>
+            <select [ngModel]="selectedDecision()" (ngModelChange)="selectedDecision.set($event)">
+              <option value="approve">Chấp thuận khiếu nại (Hủy phạt / Mở khóa / Khôi phục)</option>
+              <option value="reject">Bác đơn khiếu nại (Giữ nguyên quyết định kiểm duyệt)</option>
+              <option value="escalate">Chuyển tiếp lên cấp quản lý cao hơn</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Ghi chú kết quả phán quyết</label>
+            <textarea rows="3" placeholder="Nhập lý do kết quả phán quyết gửi đến chủ thể..."
+              [ngModel]="reviewNote()" (ngModelChange)="reviewNote.set($event)"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeResolveModal()" [disabled]="submitting()">Hủy</button>
+          <button type="button" class="btn btn-primary" (click)="submitResolution()" [disabled]="submitting()">
+            {{ submitting() ? 'Đang lưu...' : 'Xác nhận phán quyết' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

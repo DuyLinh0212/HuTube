@@ -1,0 +1,354 @@
+<div class="moderation-container">
+  <header class="page-header">
+    <div class="header-titles">
+      <p class="eyebrow">CHẾ TÀI &amp; GẬY PHẠT</p>
+      <h1>Quản lý Gậy phạt &amp; Khóa kênh</h1>
+      <p class="subtitle">Theo dõi lịch sử xử lý vi phạm, áp dụng chế tài lũy tiến (Cảnh cáo &rarr; Gậy 1 &rarr; Gậy 2 &rarr; Gậy 3 đình chỉ), thu hồi gậy và cưỡng chế khóa kênh.</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn btn-secondary" (click)="openChannelLockModal()" [disabled]="loading()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>Khóa / Mở kênh</span>
+      </button>
+      <button type="button" class="btn btn-primary btn-brand-cta" (click)="openCreateModal()" [disabled]="loading()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Phạt gậy thủ công</span>
+      </button>
+      <button type="button" class="btn btn-secondary btn-icon-only" (click)="loadData()" [disabled]="loading()" title="Làm mới dữ liệu">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="alert alert-danger">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span class="alert-text">{{ error() }}</span>
+      <button type="button" class="close-btn" (click)="error.set(null)">&times;</button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="alert alert-success">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <span class="alert-text">{{ successMessage() }}</span>
+      <button type="button" class="close-btn" (click)="successMessage.set(null)">&times;</button>
+    </div>
+  }
+
+  <!-- Status Tabs -->
+  <div class="status-tabs" role="tablist" aria-label="Trạng thái gậy phạt">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'active'" (click)="selectedStatus.set('active')">
+      Đang hiệu lực <b>{{ countActive() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'expired'" (click)="selectedStatus.set('expired')">
+      Đã hết hạn <b>{{ countExpired() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'revoked'" (click)="selectedStatus.set('revoked')">
+      Đã thu hồi <b>{{ countRevoked() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'ALL'" (click)="selectedStatus.set('ALL')">
+      Tất cả <b>{{ strikes().length }}</b>
+    </button>
+  </div>
+
+  <!-- Strike Policy Banner -->
+  <section class="policy-banner">
+    <div class="tier-card tier-warn">
+      <div class="tier-header">
+        <span class="tier-badge">Mức 0</span>
+        <h4>Cảnh cáo (Warning)</h4>
+      </div>
+      <p>Lần đầu vi phạm nhẹ. Lưu hồ sơ kiểm duyệt, không hạn chế quyền đăng tải nội dung.</p>
+    </div>
+    <div class="tier-card tier-strike1">
+      <div class="tier-header">
+        <span class="tier-badge">Mức 1</span>
+        <h4>Gậy 1 (Strike 1)</h4>
+      </div>
+      <p>Hạn chế quyền đăng tải video trong <strong>7 ngày</strong>. Bản ghi có hiệu lực 90 ngày.</p>
+    </div>
+    <div class="tier-card tier-strike2">
+      <div class="tier-header">
+        <span class="tier-badge">Mức 2</span>
+        <h4>Gậy 2 (Strike 2)</h4>
+      </div>
+      <p>Hạn chế quyền đăng tải video trong <strong>14 ngày</strong>. Bản ghi có hiệu lực 90 ngày.</p>
+    </div>
+    <div class="tier-card tier-strike3">
+      <div class="tier-header">
+        <span class="tier-badge">Mức 3</span>
+        <h4>Gậy 3 hoặc 5 Video bị từ chối</h4>
+      </div>
+      <p>Tự động áp dụng chế tài <strong>Đình chỉ / Khóa kênh</strong> hoàn toàn.</p>
+    </div>
+  </section>
+
+  <!-- Filters Toolbar -->
+  <section class="toolbar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" placeholder="Tìm theo tên kênh, mã định danh, lý do..."
+        [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+    </div>
+  </section>
+
+  <!-- Strikes Table -->
+  <section class="table-card">
+    <div class="table-heading">
+      <div>
+        <h2>Danh sách bản ghi gậy phạt</h2>
+        <p>{{ filteredStrikes().length }} kết quả phù hợp</p>
+      </div>
+      @if (countActive() > 0) {
+        <span class="queue-count is-danger">{{ countActive() }} gậy đang hiệu lực</span>
+      }
+    </div>
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Đang tải danh sách gậy phạt...</p>
+      </div>
+    } @else if (filteredStrikes().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-box">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+        </div>
+        <h3>Không có bản ghi gậy phạt nào</h3>
+        <p>Không có kênh nào đang bị đánh gậy hoặc nội dung tìm kiếm không khớp.</p>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 105px;">Cấp độ</th>
+              <th style="width: 100px;">Mức độ</th>
+              <th style="min-width: 220px;">Kênh vi phạm</th>
+              <th style="width: 160px;">Chính sách</th>
+              <th>Lý do vi phạm</th>
+              <th style="width: 130px;">Trạng thái</th>
+              <th style="width: 105px;">Ngày cấp</th>
+              <th style="width: 105px;">Hết hạn</th>
+              <th class="actions-col" style="width: 180px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredStrikes(); track item.strikeId) {
+              <tr>
+                <td>
+                  <span class="strike-number" [class.strike-high]="item.strikeNumber === 2" [class.strike-max]="item.strikeNumber >= 3">
+                    Strike #{{ item.strikeNumber }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" [class.badge-low]="item.severity === 'low'"
+                    [class.badge-high]="item.severity === 'high'"
+                    [class.badge-critical]="item.severity === 'critical'">
+                    {{ item.severity | uppercase }}
+                  </span>
+                </td>
+                <td class="target-title-col">
+                  <div class="channel-info">
+                    <strong class="channel-name">{{ item.channelName || 'Kênh' }}</strong>
+                    <span class="channel-id" [title]="item.channelId">{{ item.channelId }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge-tag">{{ item.policyCode || 'Quy chuẩn chung' }}</span>
+                </td>
+                <td class="description-col">
+                  <span class="reason-text">{{ item.reason }}</span>
+                  @if (item.revocationReason) {
+                    <div class="revocation-note">
+                      <span class="note-label">Đã thu hồi:</span> {{ item.revocationReason }}
+                    </div>
+                  }
+                </td>
+                <td>
+                  <span class="status-pill" [class.status-active]="item.status === 'active'"
+                    [class.status-expired]="item.status === 'expired'"
+                    [class.status-revoked]="item.status === 'revoked'">
+                    <span class="status-dot"></span>
+                    {{ item.status === 'active' ? 'Đang hiệu lực' : item.status === 'expired' ? 'Đã hết hạn' : 'Đã thu hồi' }}
+                  </span>
+                </td>
+                <td class="time-col">{{ item.createdAt | date:'dd/MM/yyyy' }}</td>
+                <td class="time-col">{{ item.expiresAt | date:'dd/MM/yyyy' }}</td>
+                <td class="actions-col">
+                  <div class="action-buttons">
+                    @if (item.status === 'active') {
+                      <button type="button" class="btn-action btn-revoke" (click)="openRevokeModal(item)" title="Thu hồi gậy vi phạm">
+                        Thu hồi
+                      </button>
+                    }
+                    <button type="button" class="btn-action btn-lock" (click)="openChannelLockModal(item.channelId, 'lock')" title="Khóa đình chỉ kênh này">
+                      Khóa kênh
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <!-- Create Strike Modal -->
+  @if (isCreateModalOpen()) {
+    <div class="modal-backdrop" (click)="closeCreateModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Phạt gậy vi phạm kênh</h3>
+          <button type="button" class="close-btn" (click)="closeCreateModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Channel ID (Mã định danh kênh) <span class="required">*</span></label>
+            <input type="text" placeholder="Nhập UUID kênh (ví dụ: e3a0...)"
+              [ngModel]="createChannelId()" (ngModelChange)="createChannelId.set($event)" />
+          </div>
+
+          <div class="form-group">
+            <label>Mức độ nghiêm trọng <span class="required">*</span></label>
+            <select [ngModel]="createSeverity()" (ngModelChange)="createSeverity.set($event)">
+              <option value="low">Cảnh cáo nhẹ (Warning - Nhắc nhở, không hạn chế)</option>
+              <option value="high">Cao (High - Hạn chế tải lên video)</option>
+              <option value="critical">Nghiêm trọng (Critical - Khóa kênh ngay lập tức)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Chính sách vi phạm</label>
+            <select [ngModel]="createPolicyCode()" (ngModelChange)="createPolicyCode.set($event)">
+              <option value="">-- Chọn chính sách quy chuẩn --</option>
+              @for (p of policies(); track p.policyId) {
+                <option [value]="p.code">{{ p.code }} &mdash; {{ p.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Lý do áp dụng gậy <span class="required">*</span></label>
+            <textarea rows="3" placeholder="Mô tả cụ thể hành vi vi phạm..."
+              [ngModel]="createReason()" (ngModelChange)="createReason.set($event)"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Ghi chú nội bộ (Tùy chọn)</label>
+            <input type="text" placeholder="Ghi chú thêm phục vụ kiểm toán nội bộ..."
+              [ngModel]="createInternalNote()" (ngModelChange)="createInternalNote.set($event)" />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeCreateModal()" [disabled]="submitting()">Hủy</button>
+          <button type="button" class="btn btn-primary" (click)="submitCreateStrike()" [disabled]="submitting()">
+            {{ submitting() ? 'Đang xử lý...' : 'Xác nhận phạt gậy' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Revoke Strike Modal -->
+  @if (isRevokeModalOpen() && activeStrike()) {
+    <div class="modal-backdrop" (click)="closeRevokeModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Thu hồi Gậy vi phạm #{{ activeStrike()!.strikeNumber }}</h3>
+          <button type="button" class="close-btn" (click)="closeRevokeModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="context-box">
+            <div class="context-row">
+              <span class="context-label">Kênh áp dụng:</span>
+              <strong>{{ activeStrike()!.channelName || 'Kênh' }}</strong>
+            </div>
+            <div class="context-row">
+              <span class="context-label">Lý do phạt trước:</span>
+              <span>{{ activeStrike()!.reason }}</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Căn cứ thu hồi gậy vi phạm <span class="required">*</span></label>
+            <textarea rows="3" placeholder="Căn cứ thu hồi (khiếu nại được chấp thuận, bằng chứng đính chính nhầm lẫn...)"
+              [ngModel]="revokeReason()" (ngModelChange)="revokeReason.set($event)"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeRevokeModal()" [disabled]="submitting()">Hủy</button>
+          <button type="button" class="btn btn-primary" (click)="submitRevokeStrike()" [disabled]="submitting()">
+            {{ submitting() ? 'Đang lưu...' : 'Xác nhận thu hồi' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Channel Lock/Unlock Modal -->
+  @if (isChannelLockModalOpen()) {
+    <div class="modal-backdrop" (click)="closeChannelLockModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>{{ lockAction() === 'lock' ? 'Khóa đình chỉ hoạt động kênh' : 'Mở khóa khôi phục hoạt động kênh' }}</h3>
+          <button type="button" class="close-btn" (click)="closeChannelLockModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Hành động xử lý</label>
+            <select [ngModel]="lockAction()" (ngModelChange)="lockAction.set($event)">
+              <option value="lock">Khóa kênh (Chuyển trạng thái: Đình chỉ / Suspended)</option>
+              <option value="unlock">Mở khóa kênh (Chuyển trạng thái: Hoạt động / Active)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Channel ID (Mã kênh) <span class="required">*</span></label>
+            <input type="text" placeholder="UUID kênh cần thao tác..."
+              [ngModel]="lockChannelId()" (ngModelChange)="lockChannelId.set($event)" />
+          </div>
+
+          <div class="form-group">
+            <label>Lý do xử lý <span class="required">*</span></label>
+            <textarea rows="3" placeholder="Nhập lý do gửi đến chủ kênh và lưu kiểm toán..."
+              [ngModel]="lockReason()" (ngModelChange)="lockReason.set($event)"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeChannelLockModal()" [disabled]="submitting()">Hủy</button>
+          <button type="button" class="btn btn-primary" (click)="submitChannelLock()" [disabled]="submitting()">
+            {{ submitting() ? 'Đang lưu...' : (lockAction() === 'lock' ? 'Xác nhận khóa kênh' : 'Xác nhận mở khóa') }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

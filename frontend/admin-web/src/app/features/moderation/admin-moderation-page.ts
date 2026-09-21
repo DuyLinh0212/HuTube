@@ -86,24 +86,7 @@ export class AdminModerationPage implements OnInit {
     };
   });
 
-  readonly ageBuckets = computed(() => {
-    const now = Date.now();
-    const active = this.queue().filter(item => !this.isProcessed(item));
-    const age = (item: ModerationQueueItem) => Math.max(0, now - new Date(item.submittedAt).getTime()) / 3_600_000;
-    return [
-      { label: 'Dưới 2 giờ', count: active.filter(item => age(item) < 2).length, tone: 'green' },
-      { label: '2–6 giờ', count: active.filter(item => age(item) >= 2 && age(item) < 6).length, tone: 'orange' },
-      { label: 'Trên 6 giờ', count: active.filter(item => age(item) >= 6).length, tone: 'red' },
-    ];
-  });
-
   readonly categories = computed(() => [...new Set(this.queue().map(item => item.categoryName || 'Chưa phân loại'))].sort((a, b) => a.localeCompare(b, 'vi')));
-  readonly slaPercent = computed(() => {
-    const active = this.queue().filter(item => !this.isProcessed(item));
-    if (!active.length) return 100;
-    const withinTarget = active.filter(item => Date.now() - new Date(item.submittedAt).getTime() <= 6 * 3_600_000).length;
-    return Math.round((withinTarget / active.length) * 100);
-  });
 
   ngOnInit(): void {
     this.loadData();
@@ -257,10 +240,6 @@ export class AdminModerationPage implements OnInit {
     return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
   }
 
-  ageBarHeight(count: number): number {
-    const max = Math.max(...this.ageBuckets().map(bucket => bucket.count), 1);
-    return Math.max(12, Math.round((count / max) * 100));
-  }
 
   getRiskLabel(risk: string): string {
     switch (risk?.toLowerCase()) {

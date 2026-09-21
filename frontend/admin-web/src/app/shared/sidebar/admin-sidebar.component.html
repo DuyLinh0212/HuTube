@@ -42,15 +42,29 @@
         }
       </section>
     }
-    @if (can('moderation.view_queue')) {
+    @if (can('moderation.view_queue') || can('report.view') || can('appeal.view') || can('strike.view')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupModeration' | translate">
         <p class="nav-label">{{ 'nav.groupModeration' | translate }}</p>
-        <a class="nav-item" routerLink="/moderation/videos" routerLinkActive="is-active" [title]="'nav.videoQueue' | translate" (click)="closeNavigation()">
-          <img src="/assets/icons/queue.png" alt="" /><span>{{ 'nav.videoQueue' | translate }}</span>
-        </a>
-        <span class="nav-item" [title]="'nav.reports' | translate"><img src="/assets/icons/report.png" alt="" /><span>{{ 'nav.reports' | translate }}</span></span>
-        <span class="nav-item" [title]="'nav.appeals' | translate"><img src="/assets/icons/appeals.png" alt="" /><span>{{ 'nav.appeals' | translate }}</span></span>
-        <span class="nav-item" [title]="'nav.warnings' | translate"><img src="/assets/icons/warning_strike.png" alt="" /><span>{{ 'nav.warnings' | translate }}</span></span>
+        @if (can('moderation.view_queue')) {
+          <a class="nav-item" routerLink="/moderation/videos" routerLinkActive="is-active" [title]="'nav.videoQueue' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/queue.png" alt="" /><span>{{ 'nav.videoQueue' | translate }}</span>
+          </a>
+        }
+        @if (can('report.view')) {
+          <a class="nav-item" routerLink="/moderation/reports" routerLinkActive="is-active" [title]="'nav.reports' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/report.png" alt="" /><span>{{ 'nav.reports' | translate }}</span>
+          </a>
+        }
+        @if (can('appeal.view')) {
+          <a class="nav-item" routerLink="/moderation/appeals" routerLinkActive="is-active" [title]="'nav.appeals' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/appeals.png" alt="" /><span>{{ 'nav.appeals' | translate }}</span>
+          </a>
+        }
+        @if (can('strike.view')) {
+          <a class="nav-item" routerLink="/moderation/strikes" routerLinkActive="is-active" [title]="'nav.warnings' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/warning_strike.png" alt="" /><span>{{ 'nav.warnings' | translate }}</span>
+          </a>
+        }
       </section>
     }
     @if (can('plan.view') || can('subscription.view') || can('payment.view')) {

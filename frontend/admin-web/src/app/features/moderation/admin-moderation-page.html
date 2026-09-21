@@ -68,13 +68,6 @@
       </section>
     </div>
 
-    <aside class="sla-panel" aria-label="Tuổi hàng đợi">
-      <div class="sla-heading"><div><h2>Tuổi hàng đợi</h2><p>Hồ sơ đang chờ xử lý</p></div><span aria-hidden="true">ⓘ</span></div>
-      <div class="age-list">@for (bucket of ageBuckets(); track bucket.label) { <div class="age-row"><span><i [class]="bucket.tone"></i>{{ bucket.label }}</span><strong>{{ bucket.count }}</strong></div> }</div>
-      <div class="total-row"><strong>Tổng</strong><b>{{ stats().total }}</b></div>
-      <div class="chart" aria-label="Phân bổ tuổi hàng đợi">@for (bucket of ageBuckets(); track bucket.label) { <div class="chart-bar"><span [style.height.%]="ageBarHeight(bucket.count)" [class]="bucket.tone"></span><small>{{ bucket.count }}</small></div> }</div>
-      <div class="sla-target"><h3>SLA mục tiêu <span>ⓘ</span></h3><p>Xử lý ≥ 90% hồ sơ trong vòng 6 giờ</p><strong [class.is-warning]="slaPercent() < 90"><i></i> Hiện đạt {{ slaPercent() }}%</strong><small>Cập nhật theo dữ liệu hiện tại</small></div>
-    </aside>
   </section>
 
   @if (isReviewModalOpen() && activeCase(); as currentCase) {

@@ -1,0 +1,254 @@
+<div class="moderation-container">
+  <header class="page-header">
+    <div class="header-titles">
+      <p class="eyebrow">KIỂM DUYỆT BÁO CÁO</p>
+      <h1>Báo cáo vi phạm cộng đồng</h1>
+      <p class="subtitle">Tiếp nhận, xử lý và phân xử các khiếu nại, báo cáo từ người xem cho Video, Bình luận và Kênh.</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+        </svg>
+        <span>Làm mới</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="alert alert-danger">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span class="alert-text">{{ error() }}</span>
+      <button type="button" class="close-btn" (click)="error.set(null)">&times;</button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="alert alert-success">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <span class="alert-text">{{ successMessage() }}</span>
+      <button type="button" class="close-btn" (click)="successMessage.set(null)">&times;</button>
+    </div>
+  }
+
+  <!-- Status Tabs -->
+  <div class="status-tabs" role="tablist" aria-label="Trạng thái báo cáo">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">
+      Chờ xử lý <b>{{ countPending() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'resolved'" (click)="selectedStatus.set('resolved')">
+      Đã xử lý <b>{{ countResolved() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'dismissed'" (click)="selectedStatus.set('dismissed')">
+      Đã bác bỏ <b>{{ countDismissed() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'ALL'" (click)="selectedStatus.set('ALL')">
+      Tất cả <b>{{ reports().length }}</b>
+    </button>
+  </div>
+
+  <!-- Filters Toolbar -->
+  <section class="toolbar">
+    <div class="filter-group">
+      <label for="target-type-filter">Đối tượng:</label>
+      <select id="target-type-filter" [ngModel]="selectedTargetType()" (ngModelChange)="selectedTargetType.set($event)">
+        <option value="ALL">Tất cả đối tượng</option>
+        <option value="video">Video</option>
+        <option value="comment">Bình luận</option>
+        <option value="channel">Kênh</option>
+      </select>
+    </div>
+
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" placeholder="Tìm kiếm tiêu đề, nội dung, người báo cáo..."
+        [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+    </div>
+  </section>
+
+  <!-- Reports Table -->
+  <section class="table-card">
+    <div class="table-heading">
+      <div>
+        <h2>Hồ sơ báo cáo trong hàng đợi</h2>
+        <p>{{ filteredReports().length }} kết quả phù hợp</p>
+      </div>
+      @if (countPending() > 0) {
+        <span class="queue-count">{{ countPending() }} chờ xử lý</span>
+      }
+    </div>
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Đang tải danh sách báo cáo...</p>
+      </div>
+    } @else if (filteredReports().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-box">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+        </div>
+        <h3>Không có báo cáo nào</h3>
+        <p>Tất cả báo cáo vi phạm đã được xử lý hoặc nội dung tìm kiếm không khớp.</p>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 105px;">Đối tượng</th>
+              <th style="min-width: 200px;">Nội dung bị báo cáo</th>
+              <th style="width: 150px;">Loại vi phạm</th>
+              <th style="min-width: 220px;">Lý do báo cáo</th>
+              <th style="width: 130px;">Người báo cáo</th>
+              <th style="width: 125px;">Trạng thái</th>
+              <th style="width: 120px;">Người duyệt</th>
+              <th style="width: 135px;">Thời gian</th>
+              <th class="actions-col" style="width: 150px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredReports(); track item.reportId) {
+              <tr>
+                <td>
+                  <span class="badge" [class.badge-video]="item.targetType === 'video'"
+                    [class.badge-comment]="item.targetType === 'comment'"
+                    [class.badge-channel]="item.targetType === 'channel'">
+                    {{ item.targetType | uppercase }}
+                  </span>
+                </td>
+                <td class="target-title-col">
+                  <div class="target-info">
+                    <strong class="target-title">{{ item.targetTitle || 'N/A' }}</strong>
+                    <span class="target-id" [title]="item.targetId">{{ item.targetId }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge-tag">{{ item.violationTypeName || item.violationTypeCode || 'Quy chuẩn' }}</span>
+                </td>
+                <td class="description-col">
+                  <span class="reason-text">{{ item.description }}</span>
+                </td>
+                <td>
+                  <span class="user-name">{{ item.reporterName || 'Ẩn danh' }}</span>
+                </td>
+                <td>
+                  <span class="status-pill" [class.status-pending]="item.status === 'pending'"
+                    [class.status-resolved]="item.status === 'resolved'"
+                    [class.status-dismissed]="item.status === 'dismissed'">
+                    <span class="status-dot"></span>
+                    {{ item.status === 'pending' ? 'Chờ xử lý' : item.status === 'resolved' ? 'Đã giải quyết' : 'Đã bác bỏ' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="reviewer-name">{{ item.reviewerName || '—' }}</span>
+                </td>
+                <td class="time-col">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td class="actions-col">
+                  @if (item.status === 'pending') {
+                    <div class="action-buttons">
+                      <button type="button" class="btn-action btn-claim" (click)="claimReport(item)" [disabled]="submitting()" title="Nhận xử lý báo cáo này">
+                        Nhận
+                      </button>
+                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Phán quyết giải quyết báo cáo">
+                        Xử lý
+                      </button>
+                    </div>
+                  } @else {
+                    <span class="done-label">Hoàn tất</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <!-- Resolution Modal -->
+  @if (isResolveModalOpen() && activeReport()) {
+    <div class="modal-backdrop" (click)="closeResolveModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Xử lý báo cáo vi phạm</h3>
+          <button type="button" class="close-btn" (click)="closeResolveModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="context-box">
+            <div class="context-row">
+              <span class="context-label">Đối tượng:</span>
+              <span class="badge" [class.badge-video]="activeReport()!.targetType === 'video'"
+                [class.badge-comment]="activeReport()!.targetType === 'comment'"
+                [class.badge-channel]="activeReport()!.targetType === 'channel'">
+                {{ activeReport()!.targetType | uppercase }}
+              </span>
+            </div>
+            <div class="context-row">
+              <span class="context-label">Tiêu đề:</span>
+              <strong>{{ activeReport()!.targetTitle }}</strong>
+            </div>
+            <div class="context-row">
+              <span class="context-label">Lý do tố cáo:</span>
+              <span>{{ activeReport()!.description }}</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Quyết định xử lý <span class="required">*</span></label>
+            <select [ngModel]="selectedDecision()" (ngModelChange)="selectedDecision.set($event)">
+              <option value="dismiss">Bác bỏ báo cáo (Không phát hiện vi phạm)</option>
+              <option value="warn">Cảnh cáo người dùng / chủ kênh</option>
+              <option value="strike">Áp dụng Strike (Gậy phạt vi phạm)</option>
+              <option value="hide">Ẩn nội dung khỏi feed công khai</option>
+              <option value="remove">Gỡ bỏ hoàn toàn nội dung vi phạm</option>
+              <option value="lock_channel">Khóa kênh (Đình chỉ hoạt động)</option>
+              <option value="escalate">Chuyển tiếp lên cấp cao hơn</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Chính sách quy chuẩn áp dụng</label>
+            <select [ngModel]="selectedPolicyCode()" (ngModelChange)="selectedPolicyCode.set($event)">
+              <option value="">-- Chọn chính sách quy chuẩn --</option>
+              @for (p of policies(); track p.policyId) {
+                <option [value]="p.code">{{ p.code }} &mdash; {{ p.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Lý do quyết định</label>
+            <textarea rows="3" placeholder="Nhập lý do gửi đến người dùng liên quan..."
+              [ngModel]="resolutionReason()" (ngModelChange)="resolutionReason.set($event)"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Ghi chú nội bộ (Tùy chọn)</label>
+            <input type="text" placeholder="Ghi chú điều tra hoặc căn cứ đối chiếu..."
+              [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeResolveModal()" [disabled]="submitting()">Hủy</button>
+          <button type="button" class="btn btn-primary" (click)="submitResolution()" [disabled]="submitting()">
+            {{ submitting() ? 'Đang lưu...' : 'Xác nhận xử lý' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
