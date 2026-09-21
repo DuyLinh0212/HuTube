@@ -99,6 +99,8 @@ public sealed class ModerationStrikesAndAppeals : Migration
             'appeal.view', 'appeal.resolve',
             'strike.view'
         )
+        ON CONFLICT (role_id, permission_id) DO NOTHING;
+
         -- 5. Seed standard violation_types
         INSERT INTO public.violation_types (violation_type_id, code, name, description, status, created_at, updated_at)
         VALUES
