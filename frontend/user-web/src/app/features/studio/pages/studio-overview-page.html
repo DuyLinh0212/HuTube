@@ -2,6 +2,43 @@
   @if (data.loading()) {
     <p>{{ 'studio.loading' | translate }}</p>
   } @else {
+    <!-- Moderation & Strike Alert Banner -->
+    @if (strikeStatus(); as strikes) {
+      @if (strikes.isSuspended) {
+        <div class="strike-alert strike-alert-danger">
+          <div class="alert-icon">🛑</div>
+          <div class="alert-content">
+            <h3>Kênh của bạn đang bị TẠM NGƯNG HOẠT ĐỘNG (Khóa kênh)</h3>
+            <p>Kênh đã bị khóa do tích lũy vi phạm tiêu chuẩn cộng đồng (3 Gậy phạt) hoặc có từ 5 video bị từ chối duyệt liên tiếp.</p>
+            <div class="alert-actions">
+              <button class="btn btn-appeal" (click)="openAppealModal()">Nộp đơn khiếu nại (Appeal)</button>
+            </div>
+          </div>
+        </div>
+      } @else if (strikes.activeStrikesCount > 0) {
+        <div class="strike-alert strike-alert-warning">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <h3>Kênh đang có {{ strikes.activeStrikesCount }} gậy phạt vi phạm cộng đồng (Strikes)</h3>
+            @if (strikes.uploadRestrictedUntil) {
+              <p>Quyền đăng tải video của kênh bị tạm ngưng đến <strong>{{ strikes.uploadRestrictedUntil | localeDate:'dd/MM/yyyy HH:mm' }}</strong>.</p>
+            }
+            <div class="alert-actions">
+              <button class="btn btn-appeal" (click)="openAppealModal()">Gửi đơn khiếu nại</button>
+            </div>
+          </div>
+        </div>
+      } @else if (strikes.hasWarning) {
+        <div class="strike-alert strike-alert-info">
+          <div class="alert-icon">ℹ️</div>
+          <div class="alert-content">
+            <h3>Cảnh báo vi phạm chính sách (Warning)</h3>
+            <p>Kênh đã nhận 1 cảnh báo vi phạm. Lần vi phạm kế tiếp sẽ dẫn đến gậy phạt chính thức (cấm đăng tải 7 ngày).</p>
+          </div>
+        </div>
+      }
+    }
+
     <section class="stats" [attr.aria-label]="'studio.channelOverview' | translate">
       <article><span>{{ 'studio.subscribersCount' | translate }}</span><strong>{{ data.channel()?.subscriberCount | localeNumber }}</strong></article>
       <article><span>{{ 'studio.viewsCount' | translate }}</span><strong>{{ data.views() | localeNumber }}</strong></article>
@@ -34,5 +71,53 @@
         <p>{{ 'studio.emptyVideo' | translate }}</p>
       }
     </section>
+  }
+
+  <!-- Creator Appeal Modal -->
+  @if (isAppealModalOpen()) {
+    <div class="modal-backdrop" (click)="closeAppealModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Nộp đơn khiếu nại kiểm duyệt kênh</h3>
+          <button class="close-btn" (click)="closeAppealModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+          @if (appealError()) {
+            <div class="alert-box alert-box-danger">{{ appealError() }}</div>
+          }
+          @if (appealMessage()) {
+            <div class="alert-box alert-box-success">{{ appealMessage() }}</div>
+          }
+
+          <p class="appeal-intro">Đơn khiếu nại sẽ được xem xét bởi kiểm duyệt viên độc lập theo nguyên tắc Separation of Duties.</p>
+
+          <div class="form-group">
+            <label>Lý do khiếu nại <span class="required">*</span></label>
+            <textarea rows="4" placeholder="Giải trình chi tiết lý do bạn cho rằng quyết định phạt/khóa kênh là nhầm lẫn..."
+              [ngModel]="appealReason()" (ngModelChange)="appealReason.set($event)"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Liên kết bằng chứng / tài liệu sở hữu (tùy chọn)</label>
+            <input type="url" placeholder="https://..."
+              [ngModel]="appealEvidenceUrl()" (ngModelChange)="appealEvidenceUrl.set($event)" />
+          </div>
+
+          <div class="form-group">
+            <label>Ghi chú bổ sung</label>
+            <input type="text" placeholder="Bổ sung thêm thông tin..."
+              [ngModel]="appealEvidenceNote()" (ngModelChange)="appealEvidenceNote.set($event)" />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="closeAppealModal()" [disabled]="appealSubmitting()">Đóng</button>
+          <button class="btn btn-primary" (click)="submitAppeal()" [disabled]="appealSubmitting() || !!appealMessage()">
+            {{ appealSubmitting() ? 'Đang gửi...' : 'Gửi đơn khiếu nại' }}
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </main>
