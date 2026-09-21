@@ -10,10 +10,11 @@ import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
+import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 
 @Component({
   selector: 'app-watch-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
+  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })
@@ -583,29 +584,38 @@ export class WatchPage {
     });
   }
 
+  readonly reportModalOpen = signal(false);
+  readonly reportTargetType = signal<'video' | 'channel' | 'comment'>('video');
+  readonly reportTargetId = signal('');
+  readonly reportTargetTitle = signal('');
+
   report(comment: CommentItem) {
-    const types = this.violationTypes();
     if (!this.auth.user()) {
       this.actionMessage.set(this.i18n.t('watch.loginReport'));
       return;
     }
-    if (!types.length) {
-      this.actionMessage.set(this.i18n.t('watch.noViolationTypes'));
+    this.reportTargetType.set('comment');
+    this.reportTargetId.set(comment.commentId);
+    this.reportTargetTitle.set(`Bình luận của ${comment.displayName}`);
+    this.reportModalOpen.set(true);
+  }
+
+  reportVideo() {
+    if (!this.auth.user()) {
+      this.actionMessage.set('Vui lòng đăng nhập để báo cáo video.');
       return;
     }
-    const choices = types.map(type => `${type.code}: ${type.name}`).join('\n');
-    const code = prompt(this.i18n.t('watch.violationChoice', { choices }), types[0].code)?.trim().toLowerCase();
-    if (!code) return;
-    const type = types.find(item => item.code.toLowerCase() === code);
-    if (!type) {
-      this.actionMessage.set(this.i18n.t('watch.invalidViolationCode'));
-      return;
-    }
-    const description = prompt(this.i18n.t('watch.reportDescriptionPrompt'), '') ?? '';
-    this.content.reportComment(comment.commentId, type.violationTypeId, description).subscribe({
-      next: () => this.actionMessage.set(this.i18n.t('watch.reportSent')),
-      error: () => this.actionMessage.set(this.i18n.t('watch.reportError'))
-    });
+    const currentVideo = this.video();
+    if (!currentVideo) return;
+    this.reportTargetType.set('video');
+    this.reportTargetId.set(currentVideo.videoId);
+    this.reportTargetTitle.set(currentVideo.title);
+    this.reportModalOpen.set(true);
+  }
+
+  onReportSubmitted() {
+    this.actionMessage.set('Báo cáo vi phạm đã được gửi đến ban kiểm duyệt.');
+    setTimeout(() => this.actionMessage.set(''), 4000);
   }
 
   openDownloads() {

@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { RuntimeConfig } from './runtime-config';
 
 export interface PageResult<T> { items: T[]; page: number; pageSize: number; total: number; }
@@ -23,6 +24,17 @@ export interface Playback { videoId: string; title: string; visibility: string; 
 export interface CommentItem { commentId: string; videoId: string; userId: string; displayName: string; parentCommentId: string | null; content: string; status: string; createdAt: string; updatedAt: string; likes: number; dislikes: number; myReaction: 'like' | 'dislike' | null; replyCount: number; }
 export interface Category { categoryId: string; name: string; slug: string; description: string | null; }
 export interface ViolationType { violationTypeId: string; code: string; name: string; description: string | null; }
+
+export const DEFAULT_VIOLATION_TYPES: ViolationType[] = [
+  { violationTypeId: '00000000-0000-0002-0000-000000000001', code: 'sexual', name: 'Nội dung khiêu dâm', description: 'Hình ảnh, video hoặc nội dung khiêu dâm, không phù hợp thuần phong mỹ tục.' },
+  { violationTypeId: '00000000-0000-0002-0000-000000000002', code: 'violent', name: 'Nội dung bạo lực hoặc phản cảm', description: 'Bạo lực, đẫm máu, gây sốc hoặc phản cảm.' },
+  { violationTypeId: '00000000-0000-0002-0000-000000000003', code: 'hate', name: 'Nội dung lăng mạ hoặc kích động thù hận', description: 'Xúc phạm danh dự, kỳ thị hoặc kích động thù địch.' },
+  { violationTypeId: '00000000-0000-0002-0000-000000000004', code: 'harassment', name: 'Nội dung quấy rối hoặc bắt nạt', description: 'Đe dọa, quấy rối, bắt nạt trực tuyến.' },
+  { violationTypeId: '00000000-0000-0002-0000-000000000005', code: 'harmful', name: 'Hành động gây hại hoặc nguy hiểm', description: 'Hành vi khuyến khích nguy hiểm hoặc tự gây hại.' },
+  { violationTypeId: '00000000-0000-0002-0000-000000000006', code: 'spam', name: 'Spam hoặc thông tin sai lệch', description: 'Lừa đảo, tin giả, quảng cáo rác hoặc thao túng người xem.' },
+  { violationTypeId: '00000000-0000-0002-0000-000000000007', code: 'copyright', name: 'Vi phạm bản quyền', description: 'Sử dụng tác phẩm không có bản quyền hoặc quyền sở hữu hợp pháp.' },
+  { violationTypeId: '00000000-0000-0002-0000-000000000008', code: 'other', name: 'Vi phạm khác', description: 'Các hành vi vi phạm điều khoản dịch vụ hoặc tiêu chuẩn cộng đồng khác.' },
+];
 export interface UploadPreflight {
   allowed: boolean;
   maxUploadSize: number;
@@ -31,6 +43,52 @@ export interface UploadPreflight {
   storageLimit: number;
   storageUsed: number;
   storageRemaining: number;
+}
+
+export interface ChannelStrikeStatus {
+  channelId: string;
+  activeStrikesCount: number;
+  hasWarning: boolean;
+  isSuspended: boolean;
+  uploadRestrictedUntil: string | null;
+  strikes: ChannelStrike[];
+}
+
+export interface ChannelStrike {
+  strikeId: string;
+  channelId: string;
+  strikeNumber: number;
+  severity: string;
+  policyCode: string | null;
+  reason: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface CreateAppealPayload {
+  targetType: 'video' | 'channel' | 'comment' | 'strike';
+  targetId: string;
+  reason: string;
+  evidenceUrl?: string;
+  evidenceNote?: string;
+  moderationCaseId?: string;
+  strikeId?: string;
+}
+
+export interface AppealItem {
+  appealId: string;
+  userId: string;
+  targetType: string;
+  targetId: string;
+  targetTitle: string | null;
+  appealNumber: number;
+  reason: string;
+  status: string;
+  reviewNote: string | null;
+  evidenceUrl: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -76,7 +134,12 @@ export class ContentService {
   comments(videoId: string, page = 1, pageSize = 20, sort = 'newest') { return this.http.get<PageResult<CommentItem>>(`${this.base}/videos/${videoId}/comments`, { params: { page, pageSize, sort } }); }
   replies(commentId: string, page = 1, pageSize = 20) { return this.http.get<PageResult<CommentItem>>(`${this.base}/comments/${commentId}/replies`, { params: { page, pageSize } }); }
   managedComments(channelId: string, status = '', page = 1, pageSize = 50) { return this.http.get<PageResult<CommentItem>>(`${this.base}/channels/${channelId}/comments/manage`, { params: { status, page, pageSize } }); }
-  violationTypes() { return this.http.get<ViolationType[]>(`${this.base}/violation-types`); }
+  violationTypes(): Observable<ViolationType[]> {
+    return this.http.get<ViolationType[]>(`${this.base}/violation-types`).pipe(
+      map(types => (types && types.length > 0 ? types : DEFAULT_VIOLATION_TYPES)),
+      catchError(() => of(DEFAULT_VIOLATION_TYPES))
+    );
+  }
   createComment(videoId: string, content: string, parentCommentId: string | null = null) { return this.http.post<CommentItem>(`${this.base}/videos/${videoId}/comments`, { content, parentCommentId }); }
   reactVideo(videoId: string, type: 'like' | 'dislike' | null): Observable<{ myReaction: string | null; likes: number; dislikes: number }> { return type ? this.http.put<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/videos/${videoId}/reaction`, { type }) : this.http.delete<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/videos/${videoId}/reaction`); }
   rate(videoId: string, score: number | null) {
@@ -87,7 +150,27 @@ export class ContentService {
   reactComment(commentId: string, type: 'like' | 'dislike' | null): Observable<{ myReaction: string | null; likes: number; dislikes: number }> { return type ? this.http.put<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/comments/${commentId}/reaction`, { type }) : this.http.delete<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/comments/${commentId}/reaction`); }
   hideComment(commentId: string, hidden: boolean, reason = '') { return this.http.patch<CommentItem>(`${this.base}/comments/${commentId}/visibility`, { hidden, reason }); }
   deleteComment(commentId: string) { return this.http.delete<void>(`${this.base}/comments/${commentId}`); }
-  reportComment(commentId: string, violationTypeId: string, description: string) { return this.http.post(`${this.base}/comments/${commentId}/report`, { violationTypeId, description }); }
+  reportComment(commentId: string, violationTypeId: string, description: string) {
+    return this.http.post(`${this.base}/reports`, { targetType: 'comment', targetId: commentId, violationTypeId, description }).pipe(
+      catchError(() => this.http.post(`${this.base}/comments/${commentId}/report`, { violationTypeId, description }))
+    );
+  }
+  reportVideo(videoId: string, violationTypeId: string, description: string) {
+    return this.http.post(`${this.base}/videos/${videoId}/report`, { violationTypeId, description }).pipe(
+      catchError(() => this.http.post(`${this.base}/reports`, { targetType: 'video', targetId: videoId, violationTypeId, description }))
+    );
+  }
+  reportChannel(channelId: string, violationTypeId: string, description: string) {
+    return this.http.post(`${this.base}/channels/${channelId}/report`, { violationTypeId, description }).pipe(
+      catchError(() => this.http.post(`${this.base}/reports`, { targetType: 'channel', targetId: channelId, violationTypeId, description }))
+    );
+  }
+  reportContent(targetType: 'video' | 'comment' | 'channel', targetId: string, violationTypeId: string, description: string) {
+    return this.http.post(`${this.base}/reports`, { targetType, targetId, violationTypeId, description });
+  }
+  getChannelStrikes(channelId: string) { return this.http.get<ChannelStrikeStatus>(`${this.base}/channels/${channelId}/strikes`); }
+  createAppeal(request: CreateAppealPayload) { return this.http.post<AppealItem>(`${this.base}/appeals`, request); }
+  getMyAppeals() { return this.http.get<AppealItem[]>(`${this.base}/appeals/my`); }
   progress(videoId: string, watchedSeconds: number) { return this.http.put(`${this.base}/videos/${videoId}/watch-progress`, { watchedSeconds, saveHistory: true }); }
   share(videoId: string) { return this.http.post<{ url: string; shareCount: number }>(`${this.base}/videos/${videoId}/share`, { method: 'copy_link' }); }
   downloadOptions(videoId: string) { return this.http.get<Rendition[]>(`${this.base}/videos/${videoId}/download-options`); }

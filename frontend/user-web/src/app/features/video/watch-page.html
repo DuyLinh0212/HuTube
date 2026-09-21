@@ -95,6 +95,10 @@
           }
           @if (auth.user()) {
             <button type="button" class="action-button" (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover">{{ 'watch.download' | translate }}</button>
+            <button type="button" class="action-button" (click)="reportVideo()" [attr.aria-label]="'Báo cáo vi phạm'">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Báo cáo</span>
+            </button>
           } @else {
             <a class="action-button" routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }">{{ 'watch.loginDownload' | translate }}</a>
           }
@@ -308,4 +312,13 @@
       </aside>
     </div>
   }
+
+  <app-report-modal
+    [isOpen]="reportModalOpen()"
+    [targetType]="reportTargetType()"
+    [targetId]="reportTargetId()"
+    [targetTitle]="reportTargetTitle()"
+    (close)="reportModalOpen.set(false)"
+    (submitted)="onReportSubmitted()">
+  </app-report-modal>
 </main>

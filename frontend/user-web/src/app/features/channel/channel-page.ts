@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
@@ -9,6 +9,7 @@ import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistService, PlaylistSummary } from '../../core/playlist.service';
+import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 
 export interface ChannelLink {
   platform?: 'facebook' | 'instagram' | 'tiktok' | 'x' | 'other';
@@ -20,7 +21,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
+  imports: [LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -30,7 +31,7 @@ export class ChannelPage {
   private channelService = inject(ChannelService);
   private contentService = inject(ContentService);
   private playlistService = inject(PlaylistService);
-  readonly auth = inject(AuthService);
+  private auth = inject(AuthService);
   readonly i18n = inject(I18nService);
 
   readonly channel = signal<ChannelDetail | null>(null);
@@ -43,6 +44,10 @@ export class ChannelPage {
   readonly channelLinks = signal<ChannelLink[]>([]);
   readonly showInfoModal = signal(false);
   readonly shareCopied = signal(false);
+  readonly reportModalOpen = signal(false);
+  readonly reportMenuOpen = signal(false);
+  readonly reportTargetId = signal('');
+  readonly reportTargetTitle = signal('');
 
   readonly firstLink = computed(() => this.channelLinks()[0] ?? null);
   readonly otherLinksCount = computed(() => Math.max(0, this.channelLinks().length - 1));
@@ -165,6 +170,43 @@ export class ChannelPage {
     this.showInfoModal.set(false);
   }
 
+  toggleReportMenu(event: MouseEvent) {
+    event.stopPropagation();
+    this.reportMenuOpen.update(v => !v);
+  }
+
+  hideUserFromMyChannel() {
+    this.reportMenuOpen.set(false);
+    alert('Đã ẩn người dùng khỏi kênh của bạn.');
+  }
+
+  openChannelReportModal(actionType: string = 'user') {
+    const ch = this.channel();
+    if (!ch) return;
+
+    if (!this.auth.user()) {
+      void this.router.navigate(['/login'], { queryParams: { returnUrl: `/channel/${ch.handle}` } });
+      return;
+    }
+
+    this.reportMenuOpen.set(false);
+    this.showInfoModal.set(false);
+    this.reportTargetId.set(ch.channelId);
+    this.reportTargetTitle.set(ch.name);
+    this.reportModalOpen.set(true);
+  }
+
+  reportChannel() {
+    this.openChannelReportModal('user');
+  }
+
+  @HostListener('document:click')
+  onDocumentClick() {
+    if (this.reportMenuOpen()) {
+      this.reportMenuOpen.set(false);
+    }
+  }
+
   copyShareLink() {
     const ch = this.channel();
     if (!ch) return;
@@ -175,9 +217,6 @@ export class ChannelPage {
     }).catch(() => {});
   }
 
-  reportChannel() {
-    alert(this.i18n.t('channel.reportSuccess'));
-  }
 
   getBrandType(url: string, platform?: ChannelLink['platform']): 'facebook' | 'instagram' | 'tiktok' | 'twitter' | 'youtube' | 'generic' {
     if (platform === 'facebook' || platform === 'instagram' || platform === 'tiktok') return platform;

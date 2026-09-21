@@ -291,19 +291,52 @@
             </div>
           </div>
 
-          <!-- Footer Actions (Image 3) -->
+          <!-- Footer Actions (Hình 1) -->
           <footer class="modal-footer">
             <button type="button" class="btn-modal-action" (click)="copyShareLink()">
-              <img src="/assets/icons/utility/icon-utility-share.png" class="btn-action-icon" alt="" />
-              <span>{{ (shareCopied() ? 'channel.shareCopied' : 'channel.share') | translate }}</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m15 14 5-5-5-5"/>
+                <path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
+              </svg>
+              <span>{{ (shareCopied() ? 'Đã sao chép liên kết' : 'Chia sẻ kênh') }}</span>
             </button>
-            <button type="button" class="btn-modal-action" (click)="reportChannel()">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-              <span>{{ 'channel.report' | translate }}</span>
-            </button>
+            <div class="report-user-dropdown-container">
+              <button type="button" class="btn-modal-action btn-report-action" (click)="toggleReportMenu($event)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                  <line x1="4" y1="22" x2="4" y2="15"/>
+                </svg>
+                <span>Báo cáo người dùng</span>
+              </button>
+
+              @if (reportMenuOpen()) {
+                <div class="report-user-menu" (click)="$event.stopPropagation()">
+                  <button type="button" class="report-menu-item" (click)="hideUserFromMyChannel()">
+                    Ẩn người dùng khỏi kênh của tôi
+                  </button>
+                  <button type="button" class="report-menu-item" (click)="openChannelReportModal('banner')">
+                    Báo cáo hình ảnh kênh
+                  </button>
+                  <button type="button" class="report-menu-item" (click)="openChannelReportModal('avatar')">
+                    Báo cáo ảnh hồ sơ
+                  </button>
+                  <button type="button" class="report-menu-item" (click)="openChannelReportModal('user')">
+                    Báo cáo người dùng
+                  </button>
+                </div>
+              }
+            </div>
           </footer>
         </div>
       </div>
     }
   }
+
+  <app-report-modal
+    [isOpen]="reportModalOpen()"
+    [targetType]="'channel'"
+    [targetId]="reportTargetId()"
+    [targetTitle]="reportTargetTitle()"
+    (close)="reportModalOpen.set(false)">
+  </app-report-modal>
 </main>
