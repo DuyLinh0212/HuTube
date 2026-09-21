@@ -47,6 +47,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<ModerationCase> ModerationCases => Set<ModerationCase>();
     public DbSet<CommentModerationAction> CommentModerationActions => Set<CommentModerationAction>();
     public DbSet<VideoDownload> VideoDownloads => Set<VideoDownload>();
+    public DbSet<ChannelStrike> ChannelStrikes => Set<ChannelStrike>();
+    public DbSet<Appeal> Appeals => Set<Appeal>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
@@ -190,6 +192,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<ModerationCase>(b => { b.ToTable("moderation_cases"); b.HasKey(x => x.ModerationCaseId); });
         model.Entity<CommentModerationAction>(b => { b.ToTable("comment_moderation_actions"); b.HasKey(x => x.CommentModerationActionId); });
         model.Entity<VideoDownload>(b => { b.ToTable("video_downloads"); b.HasKey(x => x.VideoDownloadId); b.HasIndex(x => new { x.UserId, x.VideoId, x.QualityLabel }).IsUnique(); });
+        model.Entity<ChannelStrike>(b => { b.ToTable("channel_strikes"); b.HasKey(x => x.StrikeId); });
+        model.Entity<Appeal>(b => { b.ToTable("appeals"); b.HasKey(x => x.AppealId); });
         foreach (var entity in model.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
                 property.SetColumnName(System.Text.RegularExpressions.Regex.Replace(property.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant());

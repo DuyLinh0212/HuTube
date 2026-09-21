@@ -1,14 +1,26 @@
 using HuTube.Api.Middleware;
 using HuTube.Application.Auth;
 using HuTube.Application.Rbac;
+using HuTube.Domain.Rbac;
 using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace HuTube.Api.Authorization;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-public sealed class RequirePermissionAttribute(string permission) : Attribute, IAsyncActionFilter
+public sealed class RequirePermissionAttribute : Attribute, IAsyncActionFilter
 {
-    public string Permission { get; } = permission;
+    public IReadOnlyList<string> Permissions { get; }
+    public string Permission => Permissions.FirstOrDefault() ?? string.Empty;
+
+    public RequirePermissionAttribute(string permission)
+    {
+        Permissions = [permission];
+    }
+
+    public RequirePermissionAttribute(params string[] permissions)
+    {
+        Permissions = permissions;
+    }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
@@ -44,26 +56,46 @@ public sealed class RequirePermissionAttribute(string permission) : Attribute, I
             return;
         }
 
-        var hasPermission = await rbacService.HasPermissionAsync(userId, Permission, httpContext.RequestAborted);
+        var hasPermission = false;
+        foreach (var p in Permissions)
+        {
+            if (await rbacService.HasPermissionAsync(userId, p, httpContext.RequestAborted))
+            {
+                hasPermission = true;
+                break;
+            }
+        }
+
         var roleCode = (await rbacService.GetAdminMeAsync(userId, httpContext.RequestAborted)).Role;
-        if (!hasPermission && Permission.StartsWith("plan.", StringComparison.OrdinalIgnoreCase)
-            && (string.Equals(roleCode, "admin", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(roleCode, "super_admin", StringComparison.OrdinalIgnoreCase)
-                || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.Admin
-                || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.SuperAdmin))
-            hasPermission = true;
+        var isAdminOrSuperAdmin = string.Equals(roleCode, "admin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roleCode, "super_admin", StringComparison.OrdinalIgnoreCase)
+            || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.Admin
+            || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.SuperAdmin;
+
+        if (!hasPermission && isAdminOrSuperAdmin)
+        {
+            if (Permissions.Any(p => p.StartsWith("plan.", StringComparison.OrdinalIgnoreCase)
+                                  || p.StartsWith("policy.", StringComparison.OrdinalIgnoreCase)
+                                  || p == AdminPermissions.PolicyManage
+                                  || p == AdminPermissions.SystemEditSetting))
+            {
+                hasPermission = true;
+            }
+        }
+
         if (!hasPermission)
         {
+            var permLabel = string.Join("' hoặc '", Permissions);
             await rbacService.LogAuditAsync(new AuditLogEntry(
                 userId,
                 "security.permission_denied",
                 "permission",
                 null,
-                $"Access denied for permission '{Permission}'",
+                $"Access denied for permission '{permLabel}'",
                 IpAddress: httpContext.Connection.RemoteIpAddress?.ToString(),
                 UserAgent: httpContext.Request.Headers.UserAgent.ToString()), httpContext.RequestAborted);
 
-            await ApiErrors.WriteAsync(httpContext, 403, "PERMISSION_DENIED", $"Bạn không có quyền '{Permission}' để thực hiện thao tác này.");
+            await ApiErrors.WriteAsync(httpContext, 403, "PERMISSION_DENIED", $"Bạn không có quyền '{permLabel}' để thực hiện thao tác này.");
             return;
         }
 

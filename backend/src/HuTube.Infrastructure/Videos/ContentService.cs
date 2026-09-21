@@ -493,6 +493,21 @@ public sealed class ContentService(
     public async Task<UploadPreflightResponse> PreflightAsync(Guid actorId, UploadPreflightRequest request, CancellationToken ct = default)
     {
         var channel = await RequireChannelPermissionAsync(request.ChannelId, actorId, ChannelPermissions.VideoUpload, ct);
+        var activeStrike = await db.ChannelStrikes.AsNoTracking()
+            .Where(s => s.ChannelId == channel.ChannelId && s.Status == "active" && s.ExpiresAt > Now)
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (activeStrike != null)
+        {
+            var restrictionDays = activeStrike.StrikeNumber >= 2 ? 14 : 7;
+            var restrictionEnd = activeStrike.CreatedAt.AddDays(restrictionDays);
+            if (restrictionEnd > Now)
+            {
+                throw Error(403, "UPLOAD_RESTRICTED", $"Kênh đang bị tạm ngưng quyền đăng tải video đến {restrictionEnd:dd/MM/yyyy HH:mm} do bị đánh gậy phạt vi phạm.");
+            }
+        }
+
         var maxUpload = long.MaxValue;
         var maxDuration = int.MaxValue;
         var maxQuality = "2160p";
@@ -886,9 +901,31 @@ public sealed class ContentService(
         return new(items, page, pageSize, total);
     }
 
-    public async Task<IReadOnlyList<ViolationTypeResponse>> GetViolationTypesAsync(CancellationToken ct = default) =>
-        await db.ViolationTypes.AsNoTracking().Where(x => x.Status == "active").OrderBy(x => x.Name)
+    public async Task<IReadOnlyList<ViolationTypeResponse>> GetViolationTypesAsync(CancellationToken ct = default)
+    {
+        var list = await db.ViolationTypes.AsNoTracking().Where(x => x.Status == "active").OrderBy(x => x.Name)
             .Select(x => new ViolationTypeResponse(x.ViolationTypeId, x.Code, x.Name, x.Description)).ToListAsync(ct);
+        if (list.Count > 0) return list;
+
+        var defaults = new List<ViolationType>
+        {
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000001"), Code = "sexual", Name = "Nội dung khiêu dâm", Description = "Hình ảnh, video hoặc nội dung khiêu dâm, không phù hợp thuần phong mỹ tục.", Status = "active", CreatedAt = Now, UpdatedAt = Now },
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000002"), Code = "violent", Name = "Nội dung bạo lực hoặc phản cảm", Description = "Bạo lực, đẫm máu, gây sốc hoặc phản cảm.", Status = "active", CreatedAt = Now, UpdatedAt = Now },
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000003"), Code = "hate", Name = "Nội dung lăng mạ hoặc kích động thù hận", Description = "Xúc phạm danh dự, kỳ thị hoặc kích động thù địch.", Status = "active", CreatedAt = Now, UpdatedAt = Now },
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000004"), Code = "harassment", Name = "Nội dung quấy rối hoặc bắt nạt", Description = "Đe dọa, quấy rối, bắt nạt trực tuyến.", Status = "active", CreatedAt = Now, UpdatedAt = Now },
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000005"), Code = "harmful", Name = "Hành động gây hại hoặc nguy hiểm", Description = "Hành vi khuyến khích nguy hiểm hoặc tự gây hại.", Status = "active", CreatedAt = Now, UpdatedAt = Now },
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000006"), Code = "spam", Name = "Spam hoặc thông tin sai lệch", Description = "Lừa đảo, tin giả, quảng cáo rác hoặc thao túng người xem.", Status = "active", CreatedAt = Now, UpdatedAt = Now },
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000007"), Code = "copyright", Name = "Vi phạm bản quyền", Description = "Sử dụng tác phẩm không có bản quyền hoặc quyền sở hữu hợp pháp.", Status = "active", CreatedAt = Now, UpdatedAt = Now },
+            new() { ViolationTypeId = Guid.Parse("00000000-0000-0002-0000-000000000008"), Code = "other", Name = "Vi phạm khác", Description = "Các hành vi vi phạm điều khoản dịch vụ hoặc tiêu chuẩn cộng đồng khác.", Status = "active", CreatedAt = Now, UpdatedAt = Now }
+        };
+        try
+        {
+            db.ViolationTypes.AddRange(defaults);
+            await db.SaveChangesAsync(ct);
+        }
+        catch { /* ignore duplicate key if race condition */ }
+        return defaults.Select(x => new ViolationTypeResponse(x.ViolationTypeId, x.Code, x.Name, x.Description)).ToList();
+    }
 
     public async Task<CommentResponse> CreateCommentAsync(Guid userId, Guid videoId, CreateCommentRequest request, CancellationToken ct = default)
     {
@@ -956,9 +993,19 @@ public sealed class ContentService(
     public async Task<ReportResponse> ReportCommentAsync(Guid userId, Guid commentId, ReportCommentRequest request, CancellationToken ct = default)
     {
         await RequireCommentAsync(commentId, ct);
-        if (!await db.ViolationTypes.AnyAsync(x => x.ViolationTypeId == request.ViolationTypeId && x.Status == "active", ct)) throw Error(400, "INVALID_VIOLATION_TYPE", "Loại vi phạm không hợp lệ.");
+        var violationTypeId = request.ViolationTypeId;
+        if (!await db.ViolationTypes.AnyAsync(x => x.ViolationTypeId == violationTypeId && x.Status == "active", ct))
+        {
+            var fallback = await db.ViolationTypes.FirstOrDefaultAsync(x => x.Status == "active", ct);
+            if (fallback != null) violationTypeId = fallback.ViolationTypeId;
+            else
+            {
+                var defaults = await GetViolationTypesAsync(ct);
+                violationTypeId = defaults[0].ViolationTypeId;
+            }
+        }
         var description = Clean(request.Description); if (description == null) throw Error(400, "DESCRIPTION_REQUIRED", "Vui lòng mô tả vi phạm.");
-        var report = new Report { UserId = userId, CommentId = commentId, ViolationTypeId = request.ViolationTypeId, Description = description, CreatedAt = Now, UpdatedAt = Now };
+        var report = new Report { UserId = userId, CommentId = commentId, ViolationTypeId = violationTypeId, Description = description, CreatedAt = Now, UpdatedAt = Now };
         db.Reports.Add(report); await db.SaveChangesAsync(ct);
         db.ModerationCases.Add(new ModerationCase { ReportId = report.ReportId, CaseType = "report_review", Status = "pending", SubmittedAt = Now, UpdatedAt = Now });
         await db.SaveChangesAsync(ct); return new(report.ReportId, report.Status, report.CreatedAt);
@@ -1128,7 +1175,9 @@ public sealed class ContentService(
 
     private async Task<Channel> RequireChannelPermissionAsync(Guid channelId, Guid actorId, string permission, CancellationToken ct)
     {
-        var channel = await db.Channels.SingleOrDefaultAsync(x => x.ChannelId == channelId && x.Status == "active", ct) ?? throw Error(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
+        var channel = await db.Channels.SingleOrDefaultAsync(x => x.ChannelId == channelId, ct) ?? throw Error(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
+        if (channel.Status == "suspended") throw Error(403, "CHANNEL_SUSPENDED", "Kênh đã bị khóa do vi phạm chính sách cộng đồng.");
+        if (channel.Status != "active") throw Error(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
         if (!await HasChannelPermissionAsync(channelId, actorId, permission, ct)) throw Error(403, "CHANNEL_PERMISSION_DENIED", "Bạn không có quyền thực hiện thao tác này trên kênh.");
         return channel;
     }

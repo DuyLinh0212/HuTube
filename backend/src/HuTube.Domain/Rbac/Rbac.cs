@@ -33,14 +33,27 @@ public static class AdminPermissions
     public const string PlanCreate = "plan.create";
     public const string PlanEdit = "plan.edit";
     public const string PlanArchive = "plan.archive";
+    public const string PolicyView = "policy.view";
+    public const string PolicyManage = "policy.manage";
+    public const string ReportView = "report.view";
+    public const string ReportResolve = "report.resolve";
+    public const string AppealView = "appeal.view";
+    public const string AppealResolve = "appeal.resolve";
+    public const string StrikeView = "strike.view";
+    public const string StrikeManage = "strike.manage";
+    public const string ChannelLock = "channel.lock";
 
     public static readonly IReadOnlyList<string> All = [
         DashboardView,
         UserView, UserEdit, UserBan,
         RoleView, RoleEdit,
-        ChannelView, ChannelEdit,
+        ChannelView, ChannelEdit, ChannelLock,
         VideoView,
         ModerationViewQueue, ModerationClaim, ModerationReview, ModerationApprove, ModerationReject,
+        ReportView, ReportResolve,
+        AppealView, AppealResolve,
+        StrikeView, StrikeManage,
+        PolicyView, PolicyManage,
         AuditView,
         SystemViewSetting, SystemEditSetting,
         TaxonomyManage, CfSeedManage,

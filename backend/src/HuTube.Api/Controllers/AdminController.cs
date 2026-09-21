@@ -23,7 +23,10 @@ public sealed class AdminController(
     ModerationService moderation,
     PolicyService policyService,
     TaxonomyService taxonomy,
-    AdminUserService users) : ControllerBase
+    AdminUserService users,
+    StrikeService strikeService,
+    ReportService reportService,
+    AppealService appealService) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
 
@@ -147,7 +150,7 @@ public sealed class AdminController(
         CancellationToken ct = default) =>
         policyService.GetAdminPoliciesAsync(group, status, ct);
 
-    [HttpPost("policies"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpPost("policies"), RequirePermission(AdminPermissions.PolicyManage, AdminPermissions.SystemEditSetting)]
     public async Task<ActionResult<PolicyDto>> CreatePolicyAsync(
         [FromBody] CreatePolicyRequest request,
         CancellationToken ct)
@@ -156,7 +159,7 @@ public sealed class AdminController(
         return Created($"/api/v1/admin/policies/{created.PolicyId}", created);
     }
 
-    [HttpPut("policies/{policyId:guid}/publish"), RequirePermission(AdminPermissions.SystemEditSetting)]
+    [HttpPut("policies/{policyId:guid}/publish"), RequirePermission(AdminPermissions.PolicyManage, AdminPermissions.SystemEditSetting)]
     public Task<PolicyDto> PublishPolicyVersionAsync(
         Guid policyId,
         [FromBody] UpdatePolicyRequest request,
@@ -224,4 +227,117 @@ public sealed class AdminController(
     [HttpGet("audit-logs"), RequirePermission(AdminPermissions.AuditView)]
     public Task<List<AuditLogResponse>> GetAuditLogsAsync(CancellationToken ct) =>
         rbac.GetAuditLogsAsync(50, ct);
+
+    // ================= SPRINT 6: MODERATION REPORTS =================
+
+    [HttpGet("reports"), RequirePermission(AdminPermissions.ReportView)]
+    public Task<List<ReportDto>> GetReportsQueueAsync(
+        [FromQuery] string? targetType = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default) =>
+        reportService.GetReportsQueueAsync(targetType, status, page, pageSize, ct);
+
+    [HttpPost("reports/{reportId:guid}/claim"), RequirePermission(AdminPermissions.ReportResolve)]
+    public async Task<IActionResult> ClaimReportAsync(Guid reportId, CancellationToken ct)
+    {
+        await reportService.ClaimReportAsync(UserId, reportId, ct);
+        return NoContent();
+    }
+
+    [HttpPost("reports/{reportId:guid}/release"), RequirePermission(AdminPermissions.ReportResolve)]
+    public async Task<IActionResult> ReleaseReportAsync(Guid reportId, CancellationToken ct)
+    {
+        await reportService.ReleaseReportAsync(UserId, reportId, ct);
+        return NoContent();
+    }
+
+    [HttpPost("reports/{reportId:guid}/resolve"), RequirePermission(AdminPermissions.ReportResolve)]
+    public Task<ReportResolutionResponse> ResolveReportAsync(
+        Guid reportId,
+        [FromBody] ResolveReportRequest request,
+        CancellationToken ct) =>
+        reportService.ResolveReportAsync(UserId, reportId, request, ct);
+
+    // ================= SPRINT 6: APPEALS =================
+
+    [HttpGet("appeals"), RequirePermission(AdminPermissions.AppealView)]
+    public Task<List<AppealDto>> GetAdminAppealsAsync(
+        [FromQuery] string? targetType = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default) =>
+        appealService.GetAdminAppealsAsync(targetType, status, page, pageSize, ct);
+
+    [HttpPost("appeals/{appealId:guid}/claim"), RequirePermission(AdminPermissions.AppealResolve)]
+    public async Task<IActionResult> ClaimAppealAsync(Guid appealId, CancellationToken ct)
+    {
+        await appealService.ClaimAppealAsync(UserId, appealId, ct);
+        return NoContent();
+    }
+
+    [HttpPost("appeals/{appealId:guid}/release"), RequirePermission(AdminPermissions.AppealResolve)]
+    public async Task<IActionResult> ReleaseAppealAsync(Guid appealId, CancellationToken ct)
+    {
+        await appealService.ReleaseAppealAsync(UserId, appealId, ct);
+        return NoContent();
+    }
+
+    [HttpPost("appeals/{appealId:guid}/resolve"), RequirePermission(AdminPermissions.AppealResolve)]
+    public Task<AppealResolutionResponse> ResolveAppealAsync(
+        Guid appealId,
+        [FromBody] ResolveAppealRequest request,
+        CancellationToken ct) =>
+        appealService.ResolveAppealAsync(UserId, appealId, request, ct);
+
+    // ================= SPRINT 6: STRIKES =================
+
+    [HttpGet("strikes"), RequirePermission(AdminPermissions.StrikeView)]
+    public Task<List<ChannelStrikeDto>> GetAdminStrikesAsync(
+        [FromQuery] Guid? channelId = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default) =>
+        strikeService.GetAdminStrikesAsync(channelId, status, page, pageSize, ct);
+
+    [HttpPost("strikes"), RequirePermission(AdminPermissions.StrikeManage)]
+    public async Task<ActionResult<ChannelStrikeDto>> CreateManualStrikeAsync(
+        [FromBody] CreateStrikeRequest request,
+        CancellationToken ct)
+    {
+        var created = await strikeService.CreateManualStrikeAsync(UserId, request, ct);
+        return Created($"/api/v1/admin/strikes/{created.StrikeId}", created);
+    }
+
+    [HttpPost("strikes/{strikeId:guid}/revoke"), RequirePermission(AdminPermissions.StrikeManage)]
+    public Task<ChannelStrikeDto> RevokeStrikeAsync(
+        Guid strikeId,
+        [FromBody] RevokeStrikeRequest request,
+        CancellationToken ct) =>
+        strikeService.RevokeStrikeAsync(UserId, strikeId, request, ct);
+
+    // ================= SPRINT 6: CHANNEL LOCK / UNLOCK =================
+
+    [HttpPost("channels/{channelId:guid}/lock"), RequirePermission(AdminPermissions.ChannelLock)]
+    public async Task<IActionResult> LockChannelAsync(
+        Guid channelId,
+        [FromBody] LockChannelRequest request,
+        CancellationToken ct)
+    {
+        await strikeService.SetChannelLockAsync(UserId, channelId, true, request.Reason, ct);
+        return NoContent();
+    }
+
+    [HttpPost("channels/{channelId:guid}/unlock"), RequirePermission(AdminPermissions.ChannelLock)]
+    public async Task<IActionResult> UnlockChannelAsync(
+        Guid channelId,
+        [FromBody] UnlockChannelRequest request,
+        CancellationToken ct)
+    {
+        await strikeService.SetChannelLockAsync(UserId, channelId, false, request.Reason, ct);
+        return NoContent();
+    }
 }

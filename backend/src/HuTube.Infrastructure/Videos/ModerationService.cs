@@ -157,7 +157,7 @@ public sealed class ModerationService(
         var video = await db.Videos.FirstOrDefaultAsync(v => v.VideoId == moderationCase.VideoId.Value, ct)
             ?? throw new AuthException(404, "VIDEO_NOT_FOUND", "Không tìm thấy video cần duyệt.");
 
-        var channel = await db.Channels.AsNoTracking().FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);
+        var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);
         var now = DateTimeOffset.UtcNow;
         var message = "";
 
@@ -254,6 +254,53 @@ public sealed class ModerationService(
                 {
                     await notifications.PublishAsync(channel.OwnerUserId, "video_rejected", "Video bị từ chối xuất bản",
                         $"Video '{video.Title}' bị từ chối xuất bản do vi phạm điều khoản {request.PolicyCode}. Lý do: {request.Reason}", $"/studio", "video", video.VideoId, ct);
+
+                    var distinctRejectedCount = await db.Videos.AsNoTracking()
+                        .Where(v => v.ChannelId == channel.ChannelId && (v.VideoId == video.VideoId || v.ModerationStatus == "rejected"))
+                        .Select(v => v.VideoId)
+                        .Distinct()
+                        .CountAsync(ct);
+
+                    if (distinctRejectedCount >= 5 && channel.Status != "suspended")
+                    {
+                        var strike = new ChannelStrike
+                        {
+                            ChannelId = channel.ChannelId,
+                            UserId = channel.OwnerUserId,
+                            StrikeNumber = 1,
+                            Severity = StrikeSeverities.High,
+                            PolicyCode = "SPAM.REPEATED_VIOLATIONS",
+                            Reason = "Kênh đã có 5 nội dung vi phạm bị từ chối kiểm duyệt.",
+                            InternalNote = "Hệ thống tự động khóa kênh sau 5 lần video bị từ chối.",
+                            Status = StrikeStatuses.Active,
+                            ExpiresAt = now.AddDays(90),
+                            CreatedAt = now,
+                            SourceModerationCaseId = moderationCase.ModerationCaseId
+                        };
+                        db.ChannelStrikes.Add(strike);
+
+                        channel.Status = "suspended";
+                        channel.UpdatedAt = now;
+
+                        await rbac.LogAuditAsync(new AuditLogEntry(
+                            actorId,
+                            "channel.auto_lock",
+                            "channel",
+                            channel.ChannelId,
+                            $"Tự động khóa kênh '{channel.Name}' do đạt ngưỡng 5 video bị từ chối kiểm duyệt."
+                        ), ct);
+
+                        await notifications.PublishAsync(
+                            channel.OwnerUserId,
+                            "channel_suspended",
+                            "Kênh của bạn đã bị khóa tự động",
+                            $"Kênh '{channel.Name}' đã bị khóa tự động do có 5 nội dung bị từ chối xuất bản. Vui lòng gửi khiếu nại nếu bạn cho rằng đây là nhầm lẫn.",
+                            "/studio",
+                            "channel",
+                            channel.ChannelId,
+                            ct
+                        );
+                    }
                 }
                 break;
 
