@@ -3,10 +3,10 @@ namespace HuTube.Application.Playlists;
 public sealed record PlaylistItemResponse(Guid PlaylistVideoId, Guid VideoId, int Position, string? Title, string? ThumbnailUrl,
     int Duration, string? Visibility, string? Status, string? ModerationStatus, bool Available, string? UnavailableReason);
 public sealed record PlaylistResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string Visibility,
-    string PlaylistType, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, IReadOnlyList<PlaylistItemResponse> Items);
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, IReadOnlyList<PlaylistItemResponse> Items);
 public sealed record PlaylistSummaryResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string Visibility,
-    string PlaylistType, int ItemCount, DateTimeOffset UpdatedAt);
-public sealed record CreatePlaylistRequest(string Name, string? Description = null, string Visibility = "private", string PlaylistType = "personal");
+    int ItemCount, DateTimeOffset UpdatedAt);
+public sealed record CreatePlaylistRequest(string Name, string? Description = null, string Visibility = "private");
 public sealed record UpdatePlaylistRequest(string Name, string? Description, string Visibility);
 public sealed record AddPlaylistVideoRequest(Guid VideoId);
 public sealed record SaveVideoRequest(Guid VideoId);

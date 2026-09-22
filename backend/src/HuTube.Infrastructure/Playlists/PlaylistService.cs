@@ -10,10 +10,10 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
     private DateTimeOffset Now => clock.GetUtcNow();
 
     public async Task<IReadOnlyList<PlaylistSummaryResponse>> GetMineAsync(Guid userId, CancellationToken ct = default) =>
-        await db.Playlists.AsNoTracking().Where(x => x.UserId == userId && x.PlaylistType == "personal")
+        await db.Playlists.AsNoTracking().Where(x => x.UserId == userId)
             .OrderByDescending(x => x.UpdatedAt)
             .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
-                x.PlaylistType, db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
+                db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<PlaylistSummaryResponse>> GetPublicByChannelAsync(Guid channelId, CancellationToken ct = default)
@@ -25,10 +25,10 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
             ?? throw Error(404, "CHANNEL_NOT_FOUND", "Khong tim thay kenh.");
 
         return await db.Playlists.AsNoTracking()
-            .Where(x => x.UserId == ownerUserId && x.PlaylistType != "personal" && x.Visibility == "public")
+            .Where(x => x.UserId == ownerUserId && x.Visibility == "public")
             .OrderByDescending(x => x.UpdatedAt)
             .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
-                x.PlaylistType, db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
+                db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
             .ToListAsync(ct);
     }
 
@@ -37,10 +37,10 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         var ownsChannel = await db.Channels.AsNoTracking().AnyAsync(x => x.ChannelId == channelId && x.OwnerUserId == userId && x.Status == "active", ct);
         if (!ownsChannel) throw Error(403, "CHANNEL_OWNER_REQUIRED", "Chi chu kenh moi duoc xem playlist kenh.");
         return await db.Playlists.AsNoTracking()
-            .Where(x => x.UserId == userId && x.PlaylistType != "personal")
+            .Where(x => x.UserId == userId)
             .OrderByDescending(x => x.UpdatedAt)
             .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
-                x.PlaylistType, db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
+                db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
             .ToListAsync(ct);
     }
 
@@ -72,18 +72,15 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
                 video?.Duration ?? 0, video?.Visibility, video?.Status, video?.ModerationStatus, available, reason));
         }
         return new(playlist.PlaylistId, playlist.UserId, playlist.Name, playlist.Description, playlist.Visibility,
-            playlist.PlaylistType, playlist.CreatedAt, playlist.UpdatedAt, items);
+            playlist.CreatedAt, playlist.UpdatedAt, items);
     }
 
     public async Task<PlaylistResponse> CreateAsync(Guid userId, CreatePlaylistRequest request, CancellationToken ct = default)
     {
         var name = request.Name.Trim();
         var visibility = NormalizeVisibility(request.Visibility);
-        var playlistType = NormalizePlaylistType(request.PlaylistType);
-        if (playlistType == "channel" && !await db.Channels.AsNoTracking().AnyAsync(x => x.OwnerUserId == userId && x.Status == "active", ct))
-            throw Error(403, "CHANNEL_OWNER_REQUIRED", "Chi chu kenh moi duoc tao playlist kenh.");
         if (name.Length is 0 or > 150) throw Error(400, "INVALID_PLAYLIST_NAME", "Ten playlist khong hop le.");
-        var playlist = new HuTube.Domain.Playlists.Playlist { UserId = userId, Name = name, Description = Clean(request.Description), Visibility = visibility, PlaylistType = playlistType, CreatedAt = Now, UpdatedAt = Now };
+        var playlist = new HuTube.Domain.Playlists.Playlist { UserId = userId, Name = name, Description = Clean(request.Description), Visibility = visibility, CreatedAt = Now, UpdatedAt = Now };
         db.Playlists.Add(playlist);
         await db.SaveChangesAsync(ct);
         return await GetAsync(playlist.PlaylistId, userId, ct);
@@ -91,10 +88,10 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
 
     public async Task<PlaylistResponse> SaveVideoAsync(Guid userId, SaveVideoRequest request, CancellationToken ct = default)
     {
-        var playlist = await db.Playlists.SingleOrDefaultAsync(x => x.UserId == userId && x.PlaylistType == "personal" && x.Name == "Video đã lưu", ct);
+        var playlist = await db.Playlists.SingleOrDefaultAsync(x => x.UserId == userId && x.Name == "Video đã lưu", ct);
         if (playlist == null)
         {
-            playlist = new HuTube.Domain.Playlists.Playlist { UserId = userId, Name = "Video đã lưu", Visibility = "private", PlaylistType = "personal", CreatedAt = Now, UpdatedAt = Now };
+            playlist = new HuTube.Domain.Playlists.Playlist { UserId = userId, Name = "Video đã lưu", Visibility = "private", CreatedAt = Now, UpdatedAt = Now };
             db.Playlists.Add(playlist);
             await db.SaveChangesAsync(ct);
         }
@@ -126,10 +123,7 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         var video = await db.Videos.AsNoTracking().SingleOrDefaultAsync(x => x.VideoId == request.VideoId && x.Status != "deleted", ct)
             ?? throw Error(404, "VIDEO_NOT_FOUND", "Khong tim thay video.");
         var ownerChannel = await db.Channels.AsNoTracking().AnyAsync(x => x.ChannelId == video.ChannelId && x.OwnerUserId == userId, ct);
-        if (playlist.PlaylistType == "channel" && !ownerChannel)
-            throw Error(403, "CHANNEL_VIDEO_REQUIRED", "Playlist kenh chi duoc chua video cua chinh kenh.");
-        if (playlist.PlaylistType == "personal" && !ownerChannel &&
-            !(video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility is "public" or "unlisted"))
+        if (!ownerChannel && !(video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility is "public" or "unlisted"))
             throw Error(403, "VIDEO_NOT_SAVABLE", "Chi co the luu video dang cong khai.");
         if (await db.PlaylistVideos.AnyAsync(x => x.PlaylistId == playlistId && x.VideoId == request.VideoId, ct))
             throw Error(409, "PLAYLIST_VIDEO_EXISTS", "Video da co trong playlist.");
@@ -184,7 +178,6 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         await db.Playlists.SingleOrDefaultAsync(x => x.PlaylistId == playlistId && x.UserId == userId, ct)
         ?? throw Error(403, "PLAYLIST_OWNER_REQUIRED", "Chi chu playlist moi duoc thao tac.");
     private static string NormalizeVisibility(string value) => value.Trim().ToLowerInvariant() switch { "public" => "public", "unlisted" => "unlisted", _ => "private" };
-    private static string NormalizePlaylistType(string value) => value.Trim().ToLowerInvariant() switch { "channel" or "normal" => "channel", _ => "personal" };
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static PlaylistException Error(int status, string code, string message) => new(status, code, message);
 }

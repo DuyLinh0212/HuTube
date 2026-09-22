@@ -138,7 +138,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     setTimeout(() => void this.mountLogoutAnimation());
   }
 
-  toggleNotifications() { this.closeAccountDrawer(); this.notificationsOpen.update(value => !value); if (this.notificationsOpen()) this.notifications.loadInitial(); }
+  toggleNotifications() { this.closeAccountDrawer(); this.notificationsOpen.set(!this.notificationsOpen()); if (this.notificationsOpen()) this.notifications.loadInitial(); }
 
   closeAccountDrawer() {
     this.accountDrawerOpen.set(false);

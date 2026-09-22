@@ -38,13 +38,11 @@ export class PlaylistsPage {
   videoSearch = '';
   channelHandle: string | null = null;
   channelId: string | null = null;
-  playlistType = 'personal';
   busy = false;
 
   constructor() {
     this.route.paramMap.subscribe(params => {
       this.channelHandle = params.get('handle');
-      this.playlistType = this.channelHandle ? 'channel' : 'personal';
       const id = params.get('id');
       this.error.set('');
       if (id) this.loadDetail(id);
@@ -101,7 +99,7 @@ export class PlaylistsPage {
     if (!this.playlist()) return;
     this.videoLoading.set(true);
     const query = this.videoSearch.trim();
-    const request = this.playlistType === 'channel'
+    const request = this.channelHandle
       ? this.channels.getMyChannel().pipe(switchMap(channel => this.content.managed(channel.channelId, 1, 50, query)))
       : this.content.search({ q: query || undefined, sort: 'newest', page: 1, pageSize: 50 });
     request.subscribe({
@@ -113,7 +111,7 @@ export class PlaylistsPage {
       error: () => {
         this.videoOptions.set([]);
         this.videoLoading.set(false);
-        this.error.set(this.playlistType === 'channel' ? 'Không thể tải video của kênh.' : 'Không thể tải danh sách video công khai.');
+        this.error.set(this.channelHandle ? 'Không thể tải video của kênh.' : 'Không thể tải danh sách video công khai.');
       }
     });
   }
@@ -121,7 +119,7 @@ export class PlaylistsPage {
   create() {
     if (!this.name.trim() || this.busy) return;
     this.busy = true;
-    this.service.create(this.name, this.description, this.visibility, this.playlistType).subscribe({
+    this.service.create(this.name, this.description, this.visibility).subscribe({
       next: value => { this.busy = false; void this.router.navigate(['/playlists', value.playlistId]); },
       error: () => { this.busy = false; this.error.set('Không thể tạo danh sách phát.'); }
     });
@@ -232,7 +230,6 @@ export class PlaylistsPage {
   formatDuration(seconds: number) { const total = Math.max(0, Math.round(seconds)); const hours = Math.floor(total / 3600); const minutes = Math.floor((total % 3600) / 60); const remainder = total % 60; return hours ? `${hours} giờ ${minutes} phút` : `${minutes} phút ${remainder} giây`; }
   formatUpdatedAt(value: string) { return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value)); }
   visibilityLabel(value: string) { return value === 'public' ? 'Công khai' : value === 'unlisted' ? 'Không công khai' : 'Riêng tư'; }
-  playlistTypeLabel(value: string) { return value === 'channel' ? 'Danh sách phát của kênh' : 'Bộ sưu tập cá nhân'; }
   share() {
     void navigator.clipboard?.writeText(location.href).then(() => {
       this.copied.set(true);

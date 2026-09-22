@@ -840,6 +840,12 @@ public sealed class ContentService(
             await PublishInteractionNotificationAsync(ownerId, userId, "video_like", "Video của bạn vừa được thích",
                 video.Title, $"/watch/{videoId}", "video", videoId, ct);
         }
+        else if (normalizedReaction == "dislike" && previousReaction != "dislike")
+        {
+            var ownerId = await db.Channels.AsNoTracking().Where(x => x.ChannelId == video.ChannelId).Select(x => x.OwnerUserId).SingleAsync(ct);
+            await PublishInteractionNotificationAsync(ownerId, userId, "video_dislike", "Video của bạn có lượt không thích mới",
+                video.Title, $"/watch/{videoId}", "video", videoId, ct);
+        }
         return new(normalizedReaction, await db.VideoReactions.LongCountAsync(x => x.VideoId == videoId && x.Type == "like", ct), await db.VideoReactions.LongCountAsync(x => x.VideoId == videoId && x.Type == "dislike", ct));
     }
 
@@ -946,6 +952,15 @@ public sealed class ContentService(
         {
             await PublishInteractionNotificationAsync(parent.UserId, userId, "comment_reply", "Có người trả lời bình luận", content,
                 $"/watch/{videoId}?comment={comment.CommentId}", "comment", parent.CommentId, ct);
+        }
+        var ownerId = await db.Channels.AsNoTracking().Where(x => x.ChannelId == video.ChannelId).Select(x => x.OwnerUserId).SingleOrDefaultAsync(ct);
+        if (ownerId != Guid.Empty && ownerId != userId && (parent == null || parent.UserId != ownerId))
+        {
+            var commentTitle = parent == null
+                ? "Bình luận mới về video của bạn"
+                : "Phản hồi mới trong video của bạn";
+            await PublishInteractionNotificationAsync(ownerId, userId, "video_comment", commentTitle,
+                $"\"{content}\" trên video '{video.Title}'", $"/watch/{videoId}?comment={comment.CommentId}", "video", videoId, ct);
         }
         return await ToCommentAsync(comment, userId, ct);
     }

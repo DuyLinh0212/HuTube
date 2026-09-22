@@ -74,12 +74,12 @@ public sealed class NotificationService(
         var setting = await db.NotificationSettings.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, ct);
         var categoryEnabled = type switch
         {
-            "comment_reply" => setting?.CommentReplyEnabled ?? true,
+            "comment_reply" or "video_comment" => setting?.CommentReplyEnabled ?? true,
             "mention" => setting?.MentionEnabled ?? true,
             "new_video" => setting?.NewVideoEnabled ?? true,
             "report_result" => setting?.ReportResultEnabled ?? true,
             "moderation" => setting?.ModerationEnabled ?? true,
-            "channel_activity" or "video_like" or "comment_like" => setting?.ChannelActivityEnabled ?? true,
+            "channel_activity" or "video_like" or "video_dislike" or "comment_like" => setting?.ChannelActivityEnabled ?? true,
             _ => true
         };
         if (!categoryEnabled) return;

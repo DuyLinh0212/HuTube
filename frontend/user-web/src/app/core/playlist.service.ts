@@ -22,7 +22,6 @@ export interface Playlist {
   name: string;
   description: string | null;
   visibility: string;
-  playlistType: string;
   createdAt: string;
   updatedAt: string;
   items: PlaylistItem[];
@@ -34,7 +33,6 @@ export interface PlaylistSummary {
   name: string;
   description: string | null;
   visibility: string;
-  playlistType: string;
   itemCount: number;
   updatedAt: string;
 }
@@ -49,8 +47,8 @@ export class PlaylistService {
   publicByChannel(channelId: string) { return this.http.get<PlaylistSummary[]>(this.base + '/channel/' + channelId); }
   channelMine(channelId: string) { return this.http.get<PlaylistSummary[]>(this.base + '/channel/' + channelId + '/mine'); }
   get(id: string) { return this.http.get<Playlist>(this.base + '/' + id); }
-  create(name: string, description: string, visibility: string, playlistType = 'personal') {
-    return this.http.post<Playlist>(this.base, { name, description, visibility, playlistType });
+  create(name: string, description: string, visibility: string) {
+    return this.http.post<Playlist>(this.base, { name, description, visibility });
   }
   update(id: string, name: string, description: string, visibility: string) {
     return this.http.patch<Playlist>(this.base + '/' + id, { name, description, visibility });
