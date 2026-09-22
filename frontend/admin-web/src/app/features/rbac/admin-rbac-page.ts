@@ -41,6 +41,25 @@ export class AdminRbacPage {
   readonly createDescription = signal('');
   readonly createReason = signal('');
   readonly createPermissionCodes = signal<string[]>([]);
+  private readonly moduleOrder = [
+    'Tổng quan',
+    'Người dùng',
+    'Vai trò & phân quyền',
+    'Kênh',
+    'Video',
+    'Bình luận',
+    'Kiểm duyệt',
+    'Báo cáo',
+    'Khiếu nại',
+    'Plan & Subscription',
+    'Thanh toán & doanh thu',
+    'Điều khoản & chính sách',
+    'Danh mục & Tag',
+    'Thông báo',
+    'Thống kê & phân tích',
+    'Nhật ký hệ thống',
+    'Cấu hình hệ thống',
+  ];
 
   readonly canEdit = computed(() => this.auth.hasPermission('role.edit'));
 
@@ -79,7 +98,9 @@ export class AdminRbacPage {
       byGroup.set(group, [...(byGroup.get(group) ?? []), permission]);
     }
 
-    return [...byGroup.entries()].map(([name, permissions]) => ({ name, permissions }));
+    return [...byGroup.entries()]
+      .sort(([left], [right]) => this.moduleRank(left) - this.moduleRank(right))
+      .map(([name, permissions]) => ({ name, permissions }));
   });
 
   constructor() {
@@ -117,17 +138,21 @@ export class AdminRbacPage {
 
   accessLevel(permission: AdminPermission): AccessLevel {
     if (!this.roleHas(permission)) return 'none';
-    if (permission.code.includes('.edit') || permission.code.endsWith('.ban') || permission.code.endsWith('.approve')
-      || permission.code.endsWith('.reject') || permission.code.endsWith('.claim') || permission.code.endsWith('.review')) {
+    if (permission.code.startsWith('system.')) return 'admin';
+    if (/\.(edit|create|delete|clone|assign_permission|remove_permission|assign_user|remove_user|change_plan|suspend|ban|unban|force_logout|send_message|export|hide|unhide|remove|restore|strike|remove_strike|claim|review|approve|reject|escalate|reopen|resolve|dismiss|contact_reporter|change|cancel|refund|retry|publish|archive|manage_template)$/.test(permission.code)) {
       return 'action';
     }
-    if (permission.code.includes('system.')) return 'admin';
     return 'view';
   }
 
   assignedPermissions(): AdminPermission[] {
     const assigned = new Set(this.selectedPermissionCodes());
     return this.permissions().filter((permission) => assigned.has(permission.code));
+  }
+
+  groupAssignedCount(group: PermissionGroup): number {
+    const assigned = new Set(this.selectedPermissionCodes());
+    return group.permissions.filter((permission) => assigned.has(permission.code)).length;
   }
 
   permissionCount(role: AdminRole): number {
@@ -139,14 +164,30 @@ export class AdminRbacPage {
     const labels: Record<string, string> = {
       dashboard: 'Tổng quan',
       user: 'Người dùng',
-      role: 'Vai trò & quyền',
+      role: 'Vai trò & phân quyền',
       channel: 'Kênh',
       video: 'Video',
+      comment: 'Bình luận',
       moderation: 'Kiểm duyệt',
+      report: 'Báo cáo',
+      appeal: 'Khiếu nại',
+      plan: 'Plan & Subscription',
+      subscription: 'Plan & Subscription',
+      payment: 'Thanh toán & doanh thu',
+      revenue: 'Thanh toán & doanh thu',
+      policy: 'Điều khoản & chính sách',
+      taxonomy: 'Danh mục & Tag',
+      notification: 'Thông báo',
+      analytics: 'Thống kê & phân tích',
       audit: 'Nhật ký hệ thống',
-      system: 'Hệ thống',
+      system: 'Cấu hình hệ thống',
     };
     return labels[module] ?? 'Khác';
+  }
+
+  private moduleRank(name: string): number {
+    const rank = this.moduleOrder.indexOf(name);
+    return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
   }
 
   levelLabel(level: AccessLevel): string {

@@ -76,27 +76,40 @@
       <section class="permission-workspace" aria-label="Chi tiết quyền của vai trò">
         @if (selectedRole(); as role) {
           <header class="role-summary">
-            <span class="role-summary__icon" aria-hidden="true">⌘</span>
-            <div>
-              <p class="panel-kicker">Vai trò được chọn</p>
-              <h2>{{ role.name }}</h2>
-              <p>{{ role.description || 'Vai trò quản trị được cấu hình và enforce bởi backend HuTube.' }}</p>
-              <dl>
-                <div><dt>Mã vai trò</dt><dd>{{ role.code }}</dd></div>
-                <div><dt>Phạm vi</dt><dd>Toàn hệ thống</dd></div>
-                <div><dt>Quyền được cấp</dt><dd>{{ permissionCount(role) }}</dd></div>
-              </dl>
+            <div class="role-summary__identity">
+              <span class="role-summary__icon" aria-hidden="true">⌘</span>
+              <div>
+                <p class="panel-kicker">Vai trò đang chọn</p>
+                <h2>{{ role.name }}</h2>
+                <p>{{ role.description || 'Vai trò quản trị được cấu hình và enforce bởi backend HuTube.' }}</p>
+              </div>
             </div>
+            <dl class="role-summary__metrics">
+              <div>
+                <dt>Permission cấp</dt>
+                <dd>{{ permissionCount(role) }}<small>/{{ permissions().length }}</small></dd>
+              </div>
+              <div>
+                <dt>Phạm vi</dt>
+                <dd>Toàn hệ thống</dd>
+              </div>
+              <div>
+                <dt>Mã role</dt>
+                <dd>{{ role.code }}</dd>
+              </div>
+            </dl>
           </header>
 
           <div class="matrix-toolbar">
-            <div>
-              <h3>Ma trận quyền</h3>
-              <p>@if (editing()) { Chọn quyền cần cấp hoặc thu hồi, sau đó lưu kèm lý do. } @else { Mỗi dòng phản ánh permission đang được gán cho role từ API. }</p>
+            <div class="matrix-toolbar__copy">
+              <p class="panel-kicker">Permission catalog</p>
+              <h3>Quyền theo module</h3>
+              <p>@if (editing()) { Chạm vào từng permission để cấp hoặc thu hồi, sau đó lưu kèm lý do. } @else { Các module được gom gọn trong khung cuộn để admin xem và thao tác nhanh. }</p>
             </div>
             <div class="matrix-actions">
               @if (canEdit()) {
                 @if (editing()) {
+                  <span class="edit-mode-badge"><span aria-hidden="true">●</span> Đang chỉnh sửa</span>
                   <button class="secondary-action" type="button" (click)="cancelEdit()" [disabled]="saving()">Hủy</button>
                 } @else {
                   <button class="secondary-action" type="button" (click)="beginEdit()">Chỉnh sửa quyền</button>
@@ -105,56 +118,64 @@
               <label class="search-field search-field--compact">
                 <span class="search-field__icon" aria-hidden="true"></span>
                 <span class="sr-only">Lọc quyền</span>
-                <input type="search" [value]="permissionSearch()" (input)="permissionSearch.set($any($event.target).value)" placeholder="Lọc quyền…" />
+                <input type="search" [value]="permissionSearch()" (input)="permissionSearch.set($any($event.target).value)" placeholder="Lọc permission…" />
               </label>
             </div>
           </div>
 
-          <div class="matrix-scroll">
-            <table class="permission-matrix">
-              <caption class="sr-only">Ma trận quyền của {{ role.name }}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Module / quyền</th>
-                  <th scope="col">Không có</th>
-                  <th scope="col">Chỉ xem</th>
-                  <th scope="col">Thao tác</th>
-                  <th scope="col">Quản trị</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (group of groups(); track group.name) {
-                  <tr class="module-row"><th colspan="5" scope="colgroup">{{ group.name }}</th></tr>
-                  @for (permission of group.permissions; track permission.permissionId) {
-                    <tr>
-                      <th scope="row">
-                        <strong>{{ permission.name }}</strong>
-                        <small>{{ permission.code }}</small>
-                        @if (permission.description) { <span>{{ permission.description }}</span> }
-                      </th>
-                      @for (level of ['none', 'view', 'action', 'admin']; track level) {
-                        <td>
-                          <button class="matrix-cell" type="button" [disabled]="!editing() || !canEdit()"
-                            (click)="togglePermission(permission)" [attr.aria-label]="editing() ? 'Bật hoặc tắt quyền ' + permission.name : levelLabel($any(level))">
-                            <span class="permission-dot" [class.is-selected]="accessLevel(permission) === level"
-                              [attr.aria-label]="levelLabel($any(level))" [title]="levelLabel($any(level))"></span>
-                          </button>
-                        </td>
-                      }
-                    </tr>
-                  }
-                } @empty {
-                  <tr><td class="no-permission-results" colspan="5">Không tìm thấy quyền phù hợp.</td></tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <section class="permission-catalog" aria-label="Danh sách permission theo module">
+            <div class="permission-catalog__head">
+              <div>
+                <strong>{{ groups().length }} module</strong>
+                <span>· {{ permissions().length }} permission khả dụng</span>
+              </div>
+              <span class="scroll-hint"><span aria-hidden="true">↕</span> Cuộn trong khung</span>
+            </div>
 
-          <footer class="matrix-legend" aria-label="Chú thích ma trận quyền">
-            @for (level of ['none', 'view', 'action', 'admin']; track level) {
-              <span><i class="permission-dot" [class.is-selected]="level !== 'none'" [class.is-view]="level === 'view'"
-                [class.is-action]="level === 'action'" [class.is-admin]="level === 'admin'"></i>{{ levelLabel($any(level)) }}</span>
-            }
+            <div class="permission-groups">
+              @for (group of groups(); track group.name) {
+                <section class="permission-group">
+                  <div class="permission-group__summary">
+                    <span class="permission-group__title">
+                      <strong>{{ group.name }}</strong>
+                      <small>{{ group.permissions.length }} permission</small>
+                    </span>
+                    <span class="permission-group__meta">
+                      <b>{{ groupAssignedCount(group) }}/{{ group.permissions.length }}</b>
+                    </span>
+                  </div>
+                  <div class="permission-group__body">
+                    @for (permission of group.permissions; track permission.permissionId) {
+                      <button class="permission-row" type="button" [class.is-granted]="roleHas(permission)"
+                        [disabled]="!editing() || !canEdit()" (click)="togglePermission(permission)"
+                        [attr.aria-label]="editing() ? 'Bật hoặc tắt quyền ' + permission.name : 'Xem trạng thái ' + permission.name"
+                        [title]="permission.description || permission.name">
+                        <span class="permission-row__state" aria-hidden="true">{{ roleHas(permission) ? '✓' : '·' }}</span>
+                        <span class="permission-row__copy">
+                          <strong>{{ permission.name }}</strong>
+                          <small>{{ permission.code }}</small>
+                        </span>
+                        <span class="permission-level"
+                          [class.is-view]="roleHas(permission) && accessLevel(permission) === 'view'"
+                          [class.is-action]="roleHas(permission) && accessLevel(permission) === 'action'"
+                          [class.is-admin]="roleHas(permission) && accessLevel(permission) === 'admin'">
+                          {{ roleHas(permission) ? levelLabel(accessLevel(permission)) : 'Chưa cấp' }}
+                        </span>
+                      </button>
+                    }
+                  </div>
+                </section>
+              } @empty {
+                <p class="no-permission-results">Không tìm thấy permission phù hợp với bộ lọc hiện tại.</p>
+              }
+            </div>
+          </section>
+
+          <footer class="matrix-legend" aria-label="Chú thích trạng thái permission">
+            <span><i class="permission-dot is-selected"></i>Đã cấp</span>
+            <span><i class="permission-dot is-view"></i>Chỉ xem</span>
+            <span><i class="permission-dot is-action"></i>Thao tác</span>
+            <span><i class="permission-dot is-admin"></i>Quản trị</span>
             <em>@if (canEdit()) { Chọn “Chỉnh sửa quyền” để thay đổi; API sẽ kiểm tra role.edit. } @else { Chỉ đọc: tài khoản chưa có quyền role.edit. }</em>
           </footer>
         }
