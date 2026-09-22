@@ -77,6 +77,11 @@ export interface ReportItem {
   reviewerName: string | null;
   createdAt: string;
   updatedAt: string;
+  targetUrl?: string | null;
+  targetThumbnailUrl?: string | null;
+  targetChannelName?: string | null;
+  targetChannelHandle?: string | null;
+  contextText?: string | null;
 }
 
 export interface ResolveReportRequest {
@@ -142,6 +147,8 @@ export interface StrikeItem {
   revokedAt: string | null;
   revokedByUserId: string | null;
   revocationReason: string | null;
+  channelHandle?: string | null;
+  channelStatus?: string | null;
 }
 
 export interface CreateStrikeRequest {

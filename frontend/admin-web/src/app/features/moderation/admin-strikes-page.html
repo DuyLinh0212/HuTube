@@ -170,7 +170,17 @@
                 </td>
                 <td class="target-title-col">
                   <div class="channel-info">
-                    <strong class="channel-name">{{ item.channelName || 'Kênh' }}</strong>
+                    <div class="channel-name-row">
+                      <strong class="channel-name">{{ item.channelName || 'Kênh' }}</strong>
+                      @if (item.channelStatus === 'suspended') {
+                        <span class="channel-status-badge suspended">Đã khóa</span>
+                      } @else {
+                        <span class="channel-status-badge active">Hoạt động</span>
+                      }
+                    </div>
+                    @if (item.channelHandle) {
+                      <span class="channel-handle">&#64;{{ item.channelHandle }}</span>
+                    }
                     <span class="channel-id" [title]="item.channelId">{{ item.channelId }}</span>
                   </div>
                 </td>
@@ -202,9 +212,15 @@
                         Thu hồi
                       </button>
                     }
-                    <button type="button" class="btn-action btn-lock" (click)="openChannelLockModal(item.channelId, 'lock')" title="Khóa đình chỉ kênh này">
-                      Khóa kênh
-                    </button>
+                    @if (item.channelStatus === 'suspended') {
+                      <button type="button" class="btn-action btn-unlock" (click)="openChannelLockModal(item.channelId, 'unlock')" title="Mở khóa khôi phục hoạt động cho kênh này">
+                        Mở khóa
+                      </button>
+                    } @else {
+                      <button type="button" class="btn-action btn-lock" (click)="openChannelLockModal(item.channelId, 'lock')" title="Khóa đình chỉ kênh này">
+                        Khóa kênh
+                      </button>
+                    }
                   </div>
                 </td>
               </tr>
@@ -244,8 +260,12 @@
             <label>Chính sách vi phạm</label>
             <select [ngModel]="createPolicyCode()" (ngModelChange)="createPolicyCode.set($event)">
               <option value="">-- Chọn chính sách quy chuẩn --</option>
-              @for (p of policies(); track p.policyId) {
-                <option [value]="p.code">{{ p.code }} &mdash; {{ p.name }}</option>
+              @for (grp of policyGroups(); track grp.label) {
+                <optgroup [label]="grp.label">
+                  @for (p of grp.items; track p.policyId) {
+                    <option [value]="p.code">{{ p.name }} ({{ p.code }})</option>
+                  }
+                </optgroup>
               }
             </select>
           </div>
@@ -329,9 +349,23 @@
             </select>
           </div>
 
+          @if (knownChannels().length > 0) {
+            <div class="form-group">
+              <label>Chọn nhanh kênh từ hệ thống</label>
+              <select (change)="onSelectChannelForLock($any($event.target).value)">
+                <option value="">-- Chọn kênh từ danh sách vi phạm --</option>
+                @for (c of knownChannels(); track c.channelId) {
+                  <option [value]="c.channelId" [selected]="lockChannelId() === c.channelId">
+                    {{ c.name }} (&#64;{{ c.handle || 'chưa đặt handle' }}) &mdash; {{ c.status === 'suspended' ? 'Đã khóa' : 'Đang hoạt động' }}
+                  </option>
+                }
+              </select>
+            </div>
+          }
+
           <div class="form-group">
             <label>Channel ID (Mã kênh) <span class="required">*</span></label>
-            <input type="text" placeholder="UUID kênh cần thao tác..."
+            <input type="text" placeholder="UUID kênh cần thao tác (hoặc chọn kênh ở menu trên)..."
               [ngModel]="lockChannelId()" (ngModelChange)="lockChannelId.set($event)" />
           </div>
 

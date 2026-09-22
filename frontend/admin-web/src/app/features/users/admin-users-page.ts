@@ -226,6 +226,11 @@ export class AdminUsersPage implements OnInit {
       'admin.user_locked': 'Khóa tài khoản',
       'admin.user_unlocked': 'Mở khóa tài khoản',
       'admin.user_role_updated': 'Cập nhật vai trò',
+      'strike.issued': 'Gậy vi phạm',
+      'strike.revoked': 'Thu hồi gậy',
+      'moderation.warned': 'Cảnh cáo vi phạm',
+      'channel.suspended': 'Khóa kênh',
+      'channel.unlocked': 'Mở khóa kênh',
     } as Record<string, string>)[action] ?? action;
   }
 

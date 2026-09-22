@@ -59,6 +59,44 @@ export class AdminStrikesPage implements OnInit {
   readonly countExpired = computed(() => this.strikes().filter(s => s.status === 'expired').length);
   readonly countRevoked = computed(() => this.strikes().filter(s => s.status === 'revoked').length);
 
+  readonly policyGroups = computed(() => {
+    const groupsMap = new Map<string, { label: string; items: PolicyItem[] }>();
+    const groupLabelMap: Record<string, string> = {
+      community_guidelines: 'Tiêu chuẩn nội dung cộng đồng',
+      safety: 'An toàn & Bảo vệ người dùng',
+      copyright: 'Bảo vệ bản quyền & Sở hữu trí tuệ',
+      monetization: 'Chính sách kiếm tiền',
+      platform: 'Nguyên tắc nền tảng & Quy trình',
+      terms: 'Điều khoản dịch vụ'
+    };
+
+    for (const p of this.policies()) {
+      const grpKey = p.group || 'community_guidelines';
+      if (!groupsMap.has(grpKey)) {
+        const label = groupLabelMap[grpKey] || grpKey.toUpperCase();
+        groupsMap.set(grpKey, { label, items: [] });
+      }
+      groupsMap.get(grpKey)!.items.push(p);
+    }
+
+    return Array.from(groupsMap.values());
+  });
+
+  readonly knownChannels = computed(() => {
+    const map = new Map<string, { channelId: string; name: string; handle?: string | null; status?: string | null }>();
+    for (const s of this.strikes()) {
+      if (s.channelId && !map.has(s.channelId)) {
+        map.set(s.channelId, {
+          channelId: s.channelId,
+          name: s.channelName || 'Kênh',
+          handle: s.channelHandle,
+          status: s.channelStatus
+        });
+      }
+    }
+    return Array.from(map.values());
+  });
+
   readonly filteredStrikes = computed(() => {
     let items = this.strikes();
     const status = this.selectedStatus();
@@ -71,7 +109,8 @@ export class AdminStrikesPage implements OnInit {
       items = items.filter(x =>
         (x.channelName && x.channelName.toLowerCase().includes(query)) ||
         (x.reason && x.reason.toLowerCase().includes(query)) ||
-        (x.policyCode && x.policyCode.toLowerCase().includes(query))
+        (x.policyCode && x.policyCode.toLowerCase().includes(query)) ||
+        (x.channelHandle && x.channelHandle.toLowerCase().includes(query))
       );
     }
     return items;
@@ -186,6 +225,17 @@ export class AdminStrikesPage implements OnInit {
     this.lockAction.set(action);
     this.lockReason.set('');
     this.isChannelLockModalOpen.set(true);
+  }
+
+  onSelectChannelForLock(channelId: string): void {
+    if (!channelId) return;
+    this.lockChannelId.set(channelId);
+    const found = this.knownChannels().find(c => c.channelId === channelId);
+    if (found?.status === 'suspended') {
+      this.lockAction.set('unlock');
+    } else if (found?.status === 'active') {
+      this.lockAction.set('lock');
+    }
   }
 
   closeChannelLockModal(): void {

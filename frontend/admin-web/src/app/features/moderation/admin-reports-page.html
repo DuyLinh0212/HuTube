@@ -43,6 +43,9 @@
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">
       Chờ xử lý <b>{{ countPending() }}</b>
     </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">
+      Đang xử lý <b>{{ countReviewing() }}</b>
+    </button>
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'resolved'" (click)="selectedStatus.set('resolved')">
       Đã xử lý <b>{{ countResolved() }}</b>
     </button>
@@ -108,14 +111,14 @@
           <thead>
             <tr>
               <th style="width: 105px;">Đối tượng</th>
-              <th style="min-width: 200px;">Nội dung bị báo cáo</th>
+              <th style="min-width: 250px;">Nội dung bị báo cáo</th>
               <th style="width: 150px;">Loại vi phạm</th>
-              <th style="min-width: 220px;">Lý do báo cáo</th>
-              <th style="width: 130px;">Người báo cáo</th>
+              <th style="min-width: 200px;">Lý do báo cáo</th>
+              <th style="width: 120px;">Người báo cáo</th>
               <th style="width: 125px;">Trạng thái</th>
               <th style="width: 120px;">Người duyệt</th>
               <th style="width: 135px;">Thời gian</th>
-              <th class="actions-col" style="width: 150px;">Thao tác</th>
+              <th class="actions-col" style="width: 160px;">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -129,9 +132,28 @@
                   </span>
                 </td>
                 <td class="target-title-col">
-                  <div class="target-info">
-                    <strong class="target-title">{{ item.targetTitle || 'N/A' }}</strong>
-                    <span class="target-id" [title]="item.targetId">{{ item.targetId }}</span>
+                  <div class="target-cell-preview">
+                    @if (item.targetThumbnailUrl) {
+                      <div class="thumb-mini">
+                        <img [src]="item.targetThumbnailUrl" alt="Thumbnail" />
+                      </div>
+                    }
+                    <div class="target-info">
+                      <div class="target-headline">
+                        <strong class="target-title">{{ item.targetTitle || 'N/A' }}</strong>
+                        @if (item.targetChannelName) {
+                          <span class="channel-tag">Kênh: {{ item.targetChannelName }}</span>
+                        }
+                      </div>
+                      <div class="target-actions-inline">
+                        <a [href]="getTargetHref(item)" target="_blank" class="link-view-target" title="Mở xem nội dung thực tế trên trang người dùng">
+                          Mở link ↗
+                        </a>
+                        <button type="button" class="btn-preview-inline" (click)="openPreviewModal(item)" title="Xem trước chi tiết báo cáo">
+                          Xem chi tiết
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </td>
                 <td>
@@ -145,10 +167,11 @@
                 </td>
                 <td>
                   <span class="status-pill" [class.status-pending]="item.status === 'pending'"
+                    [class.status-reviewing]="item.status === 'reviewing'"
                     [class.status-resolved]="item.status === 'resolved'"
-                    [class.status-dismissed]="item.status === 'dismissed'">
+                    [class.status-dismissed]="item.status === 'dismissed' || item.status === 'rejected'">
                     <span class="status-dot"></span>
-                    {{ item.status === 'pending' ? 'Chờ xử lý' : item.status === 'resolved' ? 'Đã giải quyết' : 'Đã bác bỏ' }}
+                    {{ item.status === 'pending' ? 'Chờ xử lý' : item.status === 'reviewing' ? 'Đang xử lý' : item.status === 'resolved' ? 'Đã giải quyết' : 'Đã bác bỏ' }}
                   </span>
                 </td>
                 <td>
@@ -163,6 +186,15 @@
                       </button>
                       <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Phán quyết giải quyết báo cáo">
                         Xử lý
+                      </button>
+                    </div>
+                  } @else if (item.status === 'reviewing') {
+                    <div class="action-buttons">
+                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Phán quyết giải quyết báo cáo">
+                        Xử lý
+                      </button>
+                      <button type="button" class="btn-action btn-release" (click)="releaseReport(item)" [disabled]="submitting()" title="Trả lại vào hàng đợi chờ xử lý">
+                        Trả lại
                       </button>
                     </div>
                   } @else {
@@ -204,6 +236,12 @@
               <span class="context-label">Lý do tố cáo:</span>
               <span>{{ activeReport()!.description }}</span>
             </div>
+            @if (activeReport()!.contextText) {
+              <div class="context-row">
+                <span class="context-label">Trích dẫn:</span>
+                <span class="context-quote">{{ activeReport()!.contextText }}</span>
+              </div>
+            }
           </div>
 
           <div class="form-group">
@@ -223,8 +261,12 @@
             <label>Chính sách quy chuẩn áp dụng</label>
             <select [ngModel]="selectedPolicyCode()" (ngModelChange)="selectedPolicyCode.set($event)">
               <option value="">-- Chọn chính sách quy chuẩn --</option>
-              @for (p of policies(); track p.policyId) {
-                <option [value]="p.code">{{ p.code }} &mdash; {{ p.name }}</option>
+              @for (grp of policyGroups(); track grp.label) {
+                <optgroup [label]="grp.label">
+                  @for (p of grp.items; track p.policyId) {
+                    <option [value]="p.code">{{ p.name }} ({{ p.code }})</option>
+                  }
+                </optgroup>
               }
             </select>
           </div>
@@ -247,6 +289,69 @@
           <button type="button" class="btn btn-primary" (click)="submitResolution()" [disabled]="submitting()">
             {{ submitting() ? 'Đang lưu...' : 'Xác nhận xử lý' }}
           </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Content Preview Modal -->
+  @if (isPreviewModalOpen() && previewReport(); as rpt) {
+    <div class="modal-backdrop" (click)="closePreviewModal()">
+      <div class="modal-card preview-modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Chi tiết nội dung bị báo cáo</h3>
+          <button type="button" class="close-btn" (click)="closePreviewModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="preview-target-card">
+            @if (rpt.targetThumbnailUrl) {
+              <div class="preview-media">
+                <img [src]="rpt.targetThumbnailUrl" alt="Thumbnail" />
+              </div>
+            }
+            <div class="preview-info">
+              <span class="badge" [class.badge-video]="rpt.targetType === 'video'"
+                [class.badge-comment]="rpt.targetType === 'comment'"
+                [class.badge-channel]="rpt.targetType === 'channel'">
+                {{ rpt.targetType | uppercase }}
+              </span>
+              <h4 class="preview-title">{{ rpt.targetTitle }}</h4>
+              @if (rpt.targetChannelName) {
+                <p class="preview-meta">Thuộc kênh: <strong>{{ rpt.targetChannelName }}</strong> (&#64;{{ rpt.targetChannelHandle }})</p>
+              }
+              <div class="preview-links">
+                <a [href]="getTargetHref(rpt)" target="_blank" class="btn btn-outline-primary">
+                  Mở xem trực tiếp trên nền tảng ↗
+                </a>
+              </div>
+            </div>
+          </div>
+
+          @if (rpt.contextText) {
+            <div class="preview-section">
+              <h5>Nội dung đối tượng (Trích dẫn):</h5>
+              <blockquote class="preview-quote">{{ rpt.contextText }}</blockquote>
+            </div>
+          }
+
+          <div class="preview-section">
+            <h5>Thông tin báo cáo vi phạm:</h5>
+            <div class="report-detail-grid">
+              <div><strong>Người báo cáo:</strong> {{ rpt.reporterName || 'Ẩn danh' }}</div>
+              <div><strong>Loại vi phạm:</strong> {{ rpt.violationTypeName || rpt.violationTypeCode }}</div>
+              <div><strong>Thời gian báo cáo:</strong> {{ rpt.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</div>
+              <div><strong>Lý do từ người báo cáo:</strong></div>
+              <p class="report-user-reason">{{ rpt.description }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closePreviewModal()">Đóng</button>
+          @if (rpt.status === 'pending' || rpt.status === 'reviewing') {
+            <button type="button" class="btn btn-primary" (click)="closePreviewModal(); openResolveModal(rpt)">
+              Chuyển sang Xử lý báo cáo
+            </button>
+          }
         </div>
       </div>
     </div>
