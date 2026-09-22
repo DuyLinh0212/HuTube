@@ -10,6 +10,7 @@ import {
   ChannelService
 } from '../../core/channel.service';
 import { errorMessage } from '../../core/auth.service';
+import { ContentService } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -33,6 +34,7 @@ type SettingsTab = 'basic' | 'branding' | 'members' | 'danger';
 export class ChannelSettingsPage {
   private route = inject(ActivatedRoute);
   private channelService = inject(ChannelService);
+  private contentService = inject(ContentService);
   private router = inject(Router);
   readonly i18n = inject(I18nService);
 
@@ -50,6 +52,12 @@ export class ChannelSettingsPage {
   readonly message = signal('');
   readonly linkOptions: ChannelLinkPlatform[] = ['facebook', 'instagram', 'tiktok', 'x', 'other'];
 
+  readonly showAppealModal = signal(false);
+  readonly appealSubmitting = signal(false);
+  readonly appealSuccess = signal(false);
+  appealReason = '';
+  appealEvidenceUrl = '';
+
   name = '';
   handle = '';
   description = '';
@@ -63,6 +71,41 @@ export class ChannelSettingsPage {
 
   constructor() {
     this.loadChannel();
+  }
+
+  openAppealModal() {
+    this.appealReason = '';
+    this.appealEvidenceUrl = '';
+    this.appealSuccess.set(false);
+    this.showAppealModal.set(true);
+  }
+
+  closeAppealModal() {
+    this.showAppealModal.set(false);
+  }
+
+  submitAppeal() {
+    const ch = this.channel();
+    if (!ch || !this.appealReason.trim()) return;
+
+    this.appealSubmitting.set(true);
+    this.contentService.createAppeal({
+      targetType: 'channel',
+      targetId: ch.channelId,
+      reason: this.appealReason.trim(),
+      evidenceUrl: this.appealEvidenceUrl.trim() || undefined
+    }).pipe(finalize(() => this.appealSubmitting.set(false))).subscribe({
+      next: () => {
+        this.appealSuccess.set(true);
+        setTimeout(() => {
+          this.closeAppealModal();
+          this.message.set(this.i18n.t('studio.appealSubmitted') || 'Đơn khiếu nại đã được gửi thành công! Quản trị viên sẽ xem xét đơn của bạn.');
+        }, 1500);
+      },
+      error: err => {
+        this.error.set(errorMessage(err, this.i18n) || 'Không thể gửi đơn khiếu nại. Vui lòng thử lại sau.');
+      }
+    });
   }
 
   can(permission: string): boolean {
@@ -155,19 +198,27 @@ export class ChannelSettingsPage {
 
   loadCollaboration() {
     const channel = this.channel();
-    if (!channel) return;
+    if (!channel || channel.status === 'suspended') return;
 
     this.channelService.getRoles().subscribe({ next: roles => this.roles.set(roles) });
     if (this.can('member.view')) {
       this.channelService.getMembers(channel.channelId).subscribe({
         next: members => this.members.set(members),
-        error: err => this.error.set(errorMessage(err, this.i18n))
+        error: err => {
+          if (this.channel()?.status !== 'suspended') {
+            this.error.set(errorMessage(err, this.i18n));
+          }
+        }
       });
     }
     if (this.can('member.invite')) {
       this.channelService.getPendingInvitations(channel.channelId).subscribe({
         next: invitations => this.invitations.set(invitations),
-        error: err => this.error.set(errorMessage(err, this.i18n))
+        error: err => {
+          if (this.channel()?.status !== 'suspended') {
+            this.error.set(errorMessage(err, this.i18n));
+          }
+        }
       });
     }
   }

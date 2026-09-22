@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ChannelStrikeStatus, ContentService, CreateAppealPayload } from '../../../core/content.service';
+import { AppealItem, ChannelStrikeStatus, ContentService, CreateAppealPayload } from '../../../core/content.service';
 import { I18nService } from '../../../core/i18n.service';
 import { LocaleDatePipe } from '../../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../../core/locale-number.pipe';
@@ -22,6 +22,9 @@ export class StudioOverviewPage implements OnInit {
   readonly i18n = inject(I18nService);
 
   readonly strikeStatus = signal<ChannelStrikeStatus | null>(null);
+  readonly appeals = signal<AppealItem[]>([]);
+  readonly loadingAppeals = signal(false);
+
   readonly isAppealModalOpen = signal(false);
   readonly appealReason = signal('');
   readonly appealEvidenceUrl = signal('');
@@ -29,6 +32,16 @@ export class StudioOverviewPage implements OnInit {
   readonly appealSubmitting = signal(false);
   readonly appealMessage = signal<string | null>(null);
   readonly appealError = signal<string | null>(null);
+
+  constructor() {
+    effect(() => {
+      const ch = this.data.channel();
+      if (ch?.channelId) {
+        this.loadStrikes(ch.channelId);
+        this.loadAppeals();
+      }
+    });
+  }
 
   visibilityLabel(value: string): string {
     if (value === 'public') return this.i18n.t('ui.public');
@@ -48,11 +61,32 @@ export class StudioOverviewPage implements OnInit {
     }
   }
 
+  appealStatusLabel(status: string): string {
+    switch (status?.toLowerCase()) {
+      case 'pending': return 'Chờ xử lý';
+      case 'under_review': return 'Đang thẩm định';
+      case 'approved': return 'Chấp thuận (Gỡ phạt)';
+      case 'rejected': return 'Bác bỏ (Giữ nguyên phạt)';
+      default: return status || 'Không rõ';
+    }
+  }
+
+  appealStatusClass(status: string): string {
+    switch (status?.toLowerCase()) {
+      case 'pending': return 'status-pending';
+      case 'under_review': return 'status-reviewing';
+      case 'approved': return 'status-approved';
+      case 'rejected': return 'status-rejected';
+      default: return '';
+    }
+  }
+
   ngOnInit() {
     this.data.load();
     const ch = this.data.channel();
     if (ch?.channelId) {
       this.loadStrikes(ch.channelId);
+      this.loadAppeals();
     }
   }
 
@@ -60,6 +94,17 @@ export class StudioOverviewPage implements OnInit {
     this.content.getChannelStrikes(channelId).subscribe({
       next: (status) => this.strikeStatus.set(status),
       error: () => {}
+    });
+  }
+
+  loadAppeals() {
+    this.loadingAppeals.set(true);
+    this.content.getMyAppeals().subscribe({
+      next: (items) => {
+        this.appeals.set(items || []);
+        this.loadingAppeals.set(false);
+      },
+      error: () => this.loadingAppeals.set(false)
     });
   }
 
@@ -98,7 +143,8 @@ export class StudioOverviewPage implements OnInit {
       next: () => {
         this.appealSubmitting.set(false);
         this.appealMessage.set('Đơn khiếu nại của bạn đã được gửi. Ban quản trị độc lập sẽ thẩm định và phản hồi sớm nhất.');
-        setTimeout(() => this.closeAppealModal(), 3000);
+        this.loadAppeals();
+        setTimeout(() => this.closeAppealModal(), 2500);
       },
       error: (err) => {
         this.appealSubmitting.set(false);

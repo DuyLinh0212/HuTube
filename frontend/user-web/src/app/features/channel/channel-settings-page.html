@@ -1,6 +1,28 @@
 <main id="main-content" class="settings-page-container">
   @if (channel(); as ch) {
-    @if (error()) {
+    @if (ch.status === 'suspended') {
+      <div class="channel-suspended-banner" role="alert">
+        <div class="banner-icon-wrap">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div class="banner-body">
+          <h3 class="banner-title">Kênh đang bị tạm dừng hoạt động (Suspended)</h3>
+          <p class="banner-desc">Kênh của bạn hiện bị tạm khóa do vi phạm Điều khoản & Nguyên tắc Cộng đồng hoặc tích lũy đủ 3 gậy cảnh cáo. Các thao tác tải lên, chỉnh sửa và quản lý bị hạn chế. Bạn có thể gửi đơn khiếu nại (Appeal) để đội ngũ kiểm duyệt xem xét gỡ bỏ trạng thái đình chỉ.</p>
+          <div class="banner-actions">
+            <button type="button" class="btn-appeal-action" (click)="openAppealModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Gửi đơn khiếu nại (Appeal)
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (error() && ch.status !== 'suspended') {
       <div class="alert-banner alert-error" role="alert">
         <span class="alert-content">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -287,6 +309,40 @@
               {{ 'channel.confirmDelete' | translate }}
             </button>
           </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal Appeal for Suspended Channel -->
+    @if (showAppealModal()) {
+      <div class="modal-backdrop" (click)="closeAppealModal()">
+        <div class="modal-dialog modal-appeal-dialog" (click)="$event.stopPropagation()">
+          <div class="modal-header-row">
+            <h2>Gửi khiếu nại cho kênh &#64;{{ ch.handle }}</h2>
+            <button type="button" class="btn-close-modal" (click)="closeAppealModal()">✕</button>
+          </div>
+          @if (appealSuccess()) {
+            <div class="appeal-success-box">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <p>Đơn khiếu nại đã được tiếp nhận thành công. Ban quản trị độc lập sẽ thẩm định và phản hồi sớm nhất!</p>
+            </div>
+          } @else {
+            <p class="modal-warning">Hãy nêu rõ lý do bạn cho rằng quyết định khóa kênh là nhầm lẫn hoặc cung cấp thêm bằng chứng giải trình.</p>
+            <div class="form-group">
+              <label for="appealReasonText" class="input-label">Lý do khiếu nại <span class="required">*</span></label>
+              <textarea id="appealReasonText" class="textarea-input" [(ngModel)]="appealReason" rows="4" placeholder="Trình bày lý do hoặc bằng chứng giải trình..."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="appealEvidenceInput" class="input-label">Đường dẫn bằng chứng (URL / Drive / Cloud tài liệu)</label>
+              <input id="appealEvidenceInput" type="url" class="text-input" [(ngModel)]="appealEvidenceUrl" placeholder="https://..." />
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" (click)="closeAppealModal()" [disabled]="appealSubmitting()">Hủy</button>
+              <button type="button" class="btn-primary" (click)="submitAppeal()" [disabled]="appealSubmitting() || !appealReason.trim()">
+                {{ appealSubmitting() ? 'Đang gửi...' : 'Gửi khiếu nại' }}
+              </button>
+            </div>
+          }
         </div>
       </div>
     }
