@@ -77,7 +77,18 @@ public sealed class AdminUserService(
             .GroupBy(channel => channel.OwnerUserId)
             .Select(group => new { UserId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.UserId, item => item.Count, ct);
-        var warningCounts = await GetAuditCountsAsync(userIds, ct);
+        var nowUtc = DateTimeOffset.UtcNow;
+        var strikeCounts = await db.ChannelStrikes.AsNoTracking()
+            .Where(s => userIds.Contains(s.UserId) && s.Status == "active" && s.ExpiresAt > nowUtc)
+            .GroupBy(s => s.UserId)
+            .Select(group => new { UserId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.UserId, item => item.Count, ct);
+        var auditCounts = await GetAuditCountsAsync(userIds, ct);
+
+        var warningCounts = userIds.ToDictionary(
+            uid => uid,
+            uid => strikeCounts.GetValueOrDefault(uid) + auditCounts.GetValueOrDefault(uid)
+        );
 
         var items = rows.Select(row => new AdminUserListItem(
             row.UserId,
@@ -128,12 +139,41 @@ public sealed class AdminUserService(
                 (_, permission) => permission.Code)
             .OrderBy(code => code)
             .ToListAsync(ct);
-        var auditHistory = await db.AuditLogs.AsNoTracking()
+        var auditLogs = await db.AuditLogs.AsNoTracking()
             .Where(item => item.ResourceType == "user" && item.ResourceId == userId)
             .OrderByDescending(item => item.CreatedAt)
             .Take(10)
             .Select(item => new AdminUserAuditItem(item.Action, item.Reason, item.CreatedAt))
             .ToListAsync(ct);
+
+        var userStrikes = await db.ChannelStrikes.AsNoTracking()
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.CreatedAt)
+            .Take(10)
+            .ToListAsync(ct);
+
+        var strikeAuditItems = userStrikes.Select(s =>
+        {
+            var policyPart = !string.IsNullOrWhiteSpace(s.PolicyCode) ? $" [{s.PolicyCode}]" : "";
+            if (s.Status == "revoked")
+            {
+                return new AdminUserAuditItem(
+                    "strike.revoked",
+                    $"Thu hồi Strike #{s.StrikeNumber} ({s.Severity}): {s.RevocationReason ?? "Đã thu hồi"}",
+                    s.RevokedAt ?? s.CreatedAt
+                );
+            }
+            return new AdminUserAuditItem(
+                s.Severity == "low" ? "moderation.warned" : "strike.issued",
+                $"Strike #{s.StrikeNumber} ({s.Severity}){policyPart}: {s.Reason}",
+                s.CreatedAt
+            );
+        });
+
+        var auditHistory = auditLogs.Concat(strikeAuditItems)
+            .OrderByDescending(item => item.CreatedAt)
+            .Take(15)
+            .ToList();
         var channels = await db.Channels.AsNoTracking()
             .Where(channel => channel.OwnerUserId == userId)
             .OrderBy(channel => channel.Name)

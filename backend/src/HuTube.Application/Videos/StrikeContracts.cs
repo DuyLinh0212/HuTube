@@ -17,7 +17,9 @@ public sealed record ChannelStrikeDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? RevokedAt,
     Guid? RevokedByUserId,
-    string? RevocationReason
+    string? RevocationReason,
+    string? ChannelHandle = null,
+    string? ChannelStatus = null
 );
 
 public sealed record CreateStrikeRequest(
@@ -58,7 +60,12 @@ public sealed record ReportDto(
     Guid? ReviewerId,
     string? ReviewerName,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    string? TargetUrl = null,
+    string? TargetThumbnailUrl = null,
+    string? TargetChannelName = null,
+    string? TargetChannelHandle = null,
+    string? ContextText = null
 );
 
 public sealed record CreateContentReportRequest(

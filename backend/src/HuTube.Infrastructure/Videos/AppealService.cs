@@ -312,6 +312,14 @@ public sealed class AppealService(
         appeal.ReviewNote = request.ReviewNote?.Trim();
         appeal.UpdatedAt = now;
 
+        string targetTitle = appeal.TargetType switch
+        {
+            AppealTargetTypes.Video => (await db.Videos.AsNoTracking().Where(v => v.VideoId == appeal.TargetId).Select(v => v.Title).FirstOrDefaultAsync(ct)) ?? "Video",
+            AppealTargetTypes.Channel => (await db.Channels.AsNoTracking().Where(c => c.ChannelId == appeal.TargetId).Select(c => c.Name).FirstOrDefaultAsync(ct)) ?? "Kênh",
+            AppealTargetTypes.Comment => "Bình luận",
+            _ => "Nội dung"
+        };
+
         string message;
         if (decision == "approve")
         {
@@ -415,7 +423,7 @@ public sealed class AppealService(
                 appeal.UserId,
                 "appeal_approved",
                 "Khiếu nại của bạn đã được chấp thuận",
-                $"Đơn khiếu nại #{appeal.AppealNumber} của bạn đã được xem xét và chấp thuận. Các hạn chế liên quan đã được gỡ bỏ.",
+                $"Đơn khiếu nại #{appeal.AppealNumber} của bạn đối với {appeal.TargetType} \"{targetTitle}\" đã được xem xét và chấp thuận. Ghi chú: {request.ReviewNote ?? "Xem xét lại hợp lệ, các hạn chế liên quan đã được gỡ bỏ."}",
                 "/studio",
                 "appeal",
                 appeal.AppealId,
@@ -432,7 +440,7 @@ public sealed class AppealService(
                 appeal.UserId,
                 "appeal_rejected",
                 "Khiếu nại của bạn đã bị từ chối",
-                $"Đơn khiếu nại #{appeal.AppealNumber} của bạn đã bị từ chối sau khi xem xét kỹ lưỡng. Lý do: {request.ReviewNote ?? "Nội dung vẫn vi phạm điều khoản chính sách"}",
+                $"Đơn khiếu nại #{appeal.AppealNumber} của bạn đối với {appeal.TargetType} \"{targetTitle}\" đã bị từ chối sau khi xem xét kỹ lưỡng. Lý do: {request.ReviewNote ?? "Nội dung vẫn vi phạm điều khoản chính sách cộng đồng."}",
                 "/studio",
                 "appeal",
                 appeal.AppealId,

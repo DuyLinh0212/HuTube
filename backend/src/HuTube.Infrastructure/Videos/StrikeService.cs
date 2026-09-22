@@ -59,7 +59,9 @@ public sealed class StrikeService(
             s.CreatedAt,
             s.RevokedAt,
             s.RevokedByUserId,
-            s.RevocationReason
+            s.RevocationReason,
+            channel.Handle,
+            channel.Status
         )).ToList();
 
         return new ChannelStrikeStatusResponse(
@@ -113,25 +115,31 @@ public sealed class StrikeService(
         var channelIds = strikes.Select(s => s.ChannelId).Distinct().ToList();
         var channels = await db.Channels.AsNoTracking()
             .Where(c => channelIds.Contains(c.ChannelId))
-            .ToDictionaryAsync(c => c.ChannelId, c => c.Name, ct);
+            .ToDictionaryAsync(c => c.ChannelId, c => new { c.Name, c.Handle, c.Status }, ct);
 
-        return strikes.Select(s => new ChannelStrikeDto(
-            s.StrikeId,
-            s.ChannelId,
-            channels.GetValueOrDefault(s.ChannelId, "Kênh không xác định"),
-            s.UserId,
-            s.StrikeNumber,
-            s.Severity,
-            s.PolicyCode,
-            s.Reason,
-            s.InternalNote,
-            s.ExpiresAt <= now && s.Status == StrikeStatuses.Active ? StrikeStatuses.Expired : s.Status,
-            s.ExpiresAt,
-            s.CreatedAt,
-            s.RevokedAt,
-            s.RevokedByUserId,
-            s.RevocationReason
-        )).ToList();
+        return strikes.Select(s =>
+        {
+            channels.TryGetValue(s.ChannelId, out var ch);
+            return new ChannelStrikeDto(
+                s.StrikeId,
+                s.ChannelId,
+                ch?.Name ?? "Kênh không xác định",
+                s.UserId,
+                s.StrikeNumber,
+                s.Severity,
+                s.PolicyCode,
+                s.Reason,
+                s.InternalNote,
+                s.ExpiresAt <= now && s.Status == StrikeStatuses.Active ? StrikeStatuses.Expired : s.Status,
+                s.ExpiresAt,
+                s.CreatedAt,
+                s.RevokedAt,
+                s.RevokedByUserId,
+                s.RevocationReason,
+                ch?.Handle,
+                ch?.Status
+            );
+        }).ToList();
     }
 
     public async Task<ChannelStrikeDto> CreateManualStrikeAsync(Guid actorId, CreateStrikeRequest request, CancellationToken ct = default)
@@ -207,7 +215,9 @@ public sealed class StrikeService(
             strike.CreatedAt,
             strike.RevokedAt,
             strike.RevokedByUserId,
-            strike.RevocationReason
+            strike.RevocationReason,
+            channel.Handle,
+            channel.Status
         );
     }
 
@@ -281,7 +291,9 @@ public sealed class StrikeService(
             strike.CreatedAt,
             strike.RevokedAt,
             strike.RevokedByUserId,
-            strike.RevocationReason
+            strike.RevocationReason,
+            channel?.Handle,
+            channel?.Status
         );
     }
 

@@ -223,25 +223,77 @@ public sealed class ReportService(
         var videoIds = reports.Where(r => r.VideoId.HasValue).Select(r => r.VideoId!.Value).Distinct().ToList();
         var videos = await db.Videos.AsNoTracking()
             .Where(v => videoIds.Contains(v.VideoId))
-            .ToDictionaryAsync(v => v.VideoId, v => v.Title, ct);
+            .ToDictionaryAsync(v => v.VideoId, v => new { v.VideoId, v.Title, v.ThumbnailUrl, v.ChannelId }, ct);
 
         var commentIds = reports.Where(r => r.CommentId.HasValue).Select(r => r.CommentId!.Value).Distinct().ToList();
         var comments = await db.Comments.AsNoTracking()
             .Where(c => commentIds.Contains(c.CommentId))
-            .ToDictionaryAsync(c => c.CommentId, c => c.Content.Length > 50 ? c.Content[..50] + "..." : c.Content, ct);
+            .ToDictionaryAsync(c => c.CommentId, c => new { c.CommentId, c.Content, c.VideoId }, ct);
 
-        var channelIds = reports.Where(r => r.ChannelId.HasValue).Select(r => r.ChannelId!.Value).Distinct().ToList();
+        var extraVideoIds = comments.Values.Select(c => c.VideoId).Distinct().Except(videoIds).ToList();
+        if (extraVideoIds.Count > 0)
+        {
+            var extraVideos = await db.Videos.AsNoTracking()
+                .Where(v => extraVideoIds.Contains(v.VideoId))
+                .ToDictionaryAsync(v => v.VideoId, v => new { v.VideoId, v.Title, v.ThumbnailUrl, v.ChannelId }, ct);
+            foreach (var kv in extraVideos) videos[kv.Key] = kv.Value;
+        }
+
+        var channelIdsFromReports = reports.Where(r => r.ChannelId.HasValue).Select(r => r.ChannelId!.Value);
+        var channelIdsFromVideos = videos.Values.Select(v => v.ChannelId);
+        var allChannelIds = channelIdsFromReports.Concat(channelIdsFromVideos).Distinct().ToList();
+
         var channels = await db.Channels.AsNoTracking()
-            .Where(c => channelIds.Contains(c.ChannelId))
-            .ToDictionaryAsync(c => c.ChannelId, c => c.Name, ct);
+            .Where(c => allChannelIds.Contains(c.ChannelId))
+            .ToDictionaryAsync(c => c.ChannelId, c => new { c.ChannelId, c.Name, c.Handle, c.AvatarUrl }, ct);
 
         return reports.Select(r =>
         {
             var tType = r.VideoId != null ? "video" : (r.CommentId != null ? "comment" : "channel");
             var tId = r.VideoId ?? (r.CommentId ?? (r.ChannelId ?? Guid.Empty));
-            var tTitle = r.VideoId != null
-                ? videos.GetValueOrDefault(r.VideoId.Value, "Video")
-                : (r.CommentId != null ? comments.GetValueOrDefault(r.CommentId.Value, "Bình luận") : channels.GetValueOrDefault(r.ChannelId ?? Guid.Empty, "Kênh"));
+            string? tTitle = null;
+            string? targetUrl = null;
+            string? targetThumbnailUrl = null;
+            string? targetChannelName = null;
+            string? targetChannelHandle = null;
+            string? contextText = null;
+
+            if (r.VideoId != null && videos.TryGetValue(r.VideoId.Value, out var vid))
+            {
+                tTitle = vid.Title;
+                targetUrl = $"/watch/{vid.VideoId}";
+                targetThumbnailUrl = vid.ThumbnailUrl;
+                if (channels.TryGetValue(vid.ChannelId, out var ch))
+                {
+                    targetChannelName = ch.Name;
+                    targetChannelHandle = ch.Handle;
+                }
+            }
+            else if (r.CommentId != null && comments.TryGetValue(r.CommentId.Value, out var cm))
+            {
+                contextText = cm.Content;
+                tTitle = cm.Content.Length > 50 ? cm.Content[..50] + "..." : cm.Content;
+                targetUrl = $"/watch/{cm.VideoId}";
+                if (videos.TryGetValue(cm.VideoId, out var cv))
+                {
+                    targetThumbnailUrl = cv.ThumbnailUrl;
+                    if (channels.TryGetValue(cv.ChannelId, out var ch))
+                    {
+                        targetChannelName = ch.Name;
+                        targetChannelHandle = ch.Handle;
+                    }
+                }
+            }
+            else if (r.ChannelId != null && channels.TryGetValue(r.ChannelId.Value, out var ch))
+            {
+                tTitle = ch.Name;
+                targetUrl = $"/channel/{ch.Handle}";
+                targetThumbnailUrl = ch.AvatarUrl;
+                targetChannelName = ch.Name;
+                targetChannelHandle = ch.Handle;
+            }
+
+            tTitle ??= (r.VideoId != null ? "Video" : (r.CommentId != null ? "Bình luận" : "Kênh"));
 
             violationTypes.TryGetValue(r.ViolationTypeId, out var vt);
             moderationCases.TryGetValue(r.ReportId, out var mc);
@@ -263,7 +315,12 @@ public sealed class ReportService(
                 mc?.ReviewerId,
                 reviewerName,
                 r.CreatedAt,
-                r.UpdatedAt
+                r.UpdatedAt,
+                targetUrl,
+                targetThumbnailUrl,
+                targetChannelName,
+                targetChannelHandle,
+                contextText
             );
         }).ToList();
     }
@@ -337,11 +394,16 @@ public sealed class ReportService(
         Guid? targetOwnerUserId = null;
         Guid? affectedChannelId = null;
 
+        string targetTitle = "nội dung";
+        string targetTypeStr = "nội dung";
+
         if (report.VideoId.HasValue)
         {
             var video = await db.Videos.FirstOrDefaultAsync(v => v.VideoId == report.VideoId.Value, ct);
             if (video != null)
             {
+                targetTitle = video.Title;
+                targetTypeStr = "video";
                 var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);
                 targetOwnerUserId = channel?.OwnerUserId;
                 affectedChannelId = video.ChannelId;
@@ -360,6 +422,8 @@ public sealed class ReportService(
             var comment = await db.Comments.FirstOrDefaultAsync(c => c.CommentId == report.CommentId.Value, ct);
             if (comment != null)
             {
+                targetTitle = comment.Content.Length > 40 ? comment.Content[..40] + "..." : comment.Content;
+                targetTypeStr = "bình luận";
                 targetOwnerUserId = comment.UserId;
                 if (decision is "hide" or "remove")
                 {
@@ -374,6 +438,8 @@ public sealed class ReportService(
             var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == report.ChannelId.Value, ct);
             if (channel != null)
             {
+                targetTitle = channel.Name;
+                targetTypeStr = "kênh";
                 targetOwnerUserId = channel.OwnerUserId;
                 affectedChannelId = channel.ChannelId;
 
@@ -385,6 +451,8 @@ public sealed class ReportService(
                 }
             }
         }
+
+        var policyText = !string.IsNullOrWhiteSpace(request.PolicyCode) ? $"quy chuẩn '{request.PolicyCode}'" : "Tiêu chuẩn Cộng đồng";
 
         if (decision == "strike" && affectedChannelId.HasValue)
         {
@@ -408,7 +476,7 @@ public sealed class ReportService(
                 targetOwnerUserId.Value,
                 "moderation_warning",
                 "Cảnh cáo vi phạm chính sách",
-                $"Nội dung của bạn bị báo cáo vi phạm chính sách {request.PolicyCode ?? ""}. Lý do: {request.Reason}. Vui lòng tuân thủ Tiêu chuẩn Cộng đồng.",
+                $"Nội dung {targetTypeStr} \"{targetTitle}\" của bạn bị báo cáo vi phạm {policyText}. Lý do: {request.Reason}. Vui lòng tuân thủ Tiêu chuẩn Cộng đồng.",
                 "/studio",
                 "report",
                 report.ReportId,
@@ -425,6 +493,21 @@ public sealed class ReportService(
         {
             finalStatus = "escalated";
             message = "Đã chuyển báo cáo lên cấp cao hơn.";
+        }
+
+        // Notify content owner if removed or hidden
+        if (targetOwnerUserId.HasValue && decision is "hide" or "remove" or "lock_channel")
+        {
+            await notifications.PublishAsync(
+                targetOwnerUserId.Value,
+                "moderation_action_taken",
+                "Thông báo xử lý nội dung vi phạm",
+                $"Nội dung {targetTypeStr} \"{targetTitle}\" của bạn đã bị gỡ bỏ hoặc khóa hoạt động do vi phạm {policyText}. Lý do: {request.Reason}. Nếu bạn cho rằng đây là một sự nhầm lẫn, bạn có thể nộp đơn khiếu nại (Appeal) trong Creator Studio.",
+                "/studio",
+                "report",
+                report.ReportId,
+                ct
+            );
         }
 
         report.Status = finalStatus;
@@ -452,14 +535,16 @@ public sealed class ReportService(
             $"{message} - Lý do: {request.Reason}"
         ), ct);
 
-        // Notify the reporter
+        // Notify the reporter with clear context
+        string reporterMsg = decision == "dismiss"
+            ? $"Cảm ơn bạn đã gửi báo cáo đối với {targetTypeStr} \"{targetTitle}\". Sau khi xem xét kỹ lưỡng, chúng tôi xác định nội dung này không vi phạm {policyText} và tuân thủ nguyên tắc cộng đồng."
+            : $"Cảm ơn bạn đã gửi báo cáo đối với {targetTypeStr} \"{targetTitle}\". Chúng tôi đã thẩm định và xác nhận nội dung vi phạm {policyText}. Biện pháp xử lý đã được áp dụng ({message}). Đóng góp của bạn giúp cộng đồng HuTube an toàn hơn.";
+
         await notifications.PublishAsync(
             report.UserId,
             "report_resolved",
-            "Báo cáo của bạn đã được xử lý",
-            decision == "dismiss"
-                ? "Cảm ơn bạn đã gửi báo cáo. Chúng tôi đã xem xét và xác định nội dung không vi phạm điều khoản."
-                : "Cảm ơn bạn đã gửi báo cáo. Chúng tôi đã tiến hành các biện pháp xử lý phù hợp theo Tiêu chuẩn Cộng đồng.",
+            "Kết quả xử lý báo cáo vi phạm",
+            reporterMsg,
             "/",
             "report",
             report.ReportId,
