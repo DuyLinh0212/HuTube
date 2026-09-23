@@ -16,10 +16,16 @@ import '../../account/models/account_models.dart';
 import '../../account/services/account_service.dart';
 import '../../account/state/account_controller.dart';
 import '../../account/screens/profile_screen.dart';
+import '../notifications/notification_center.dart';
 
 class AccountHubScreen extends StatefulWidget {
-  const AccountHubScreen({super.key, required this.auth});
+  const AccountHubScreen({
+    super.key,
+    required this.auth,
+    required this.notifications,
+  });
   final AuthController auth;
+  final NotificationCenter notifications;
 
   @override
   State<AccountHubScreen> createState() => _AccountHubScreenState();
@@ -76,6 +82,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     await _open(
       ProfileScreen(
         auth: widget.auth,
+        notifications: widget.notifications,
         sessions: controller.sessions,
         sessionsLoading: controller.loadingSessions,
         onRefreshSessions: controller.loadSessions,
@@ -217,7 +224,12 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         _Tile(
           icon: Icons.notifications_outlined,
           title: AppStrings.t('account.notificationSettings'),
-          onTap: () => _open(NotificationSettingsScreen(auth: widget.auth)),
+          onTap: () => _open(
+            NotificationSettingsScreen(
+              auth: widget.auth,
+              notifications: widget.notifications,
+            ),
+          ),
         ),
         const SizedBox(height: 18),
         _Heading(AppStrings.t('account.channelHeading')),

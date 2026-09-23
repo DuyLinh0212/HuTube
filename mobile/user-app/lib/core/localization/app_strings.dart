@@ -151,6 +151,13 @@ class AppStrings {
           'Thông báo về hoạt động trên bình luận và video của bạn.',
       'notif.subsDesc': 'Nhận tóm tắt về hoạt động của các kênh bạn quan tâm.',
       'notif.marketingDesc': 'Nhận tin tức về các tính năng mới từ HuTube.',
+      'notif.deviceTitle': 'Thông báo nổi trên thiết bị',
+      'notif.deviceEnabled':
+          'Đang bật khi ứng dụng mở. Thông báo khi app chạy nền cần cổng push riêng.',
+      'notif.deviceDisabled':
+          'Cho phép để hiện thông báo nổi khi HuTube đang mở. App hiện chưa có dịch vụ push cho lúc chạy nền.',
+      'notif.deviceEnable': 'Bật',
+      'notif.permissionDenied': 'Chưa được cấp quyền thông báo trên thiết bị.',
       'notif.autoSaving': 'Đang tự động lưu...',
       'notif.loadError': 'Không thể tải cài đặt thông báo.',
       'notif.saveError': 'Không thể lưu cài đặt.',
@@ -838,6 +845,14 @@ class AppStrings {
       'notif.subsDesc':
           'Get summaries about activity from channels you care about.',
       'notif.marketingDesc': 'Get news about new HuTube features.',
+      'notif.deviceTitle': 'Device notifications',
+      'notif.deviceEnabled':
+          'Enabled while the app is open. Background notifications require a separate push service.',
+      'notif.deviceDisabled':
+          'Allow alerts while HuTube is open. Background push is not configured for this app.',
+      'notif.deviceEnable': 'Enable',
+      'notif.permissionDenied':
+          'Notification permission was not granted on this device.',
       'notif.autoSaving': 'Auto-saving changes...',
       'notif.loadError': 'Unable to load notification settings.',
       'notif.saveError': 'Unable to save notification settings.',

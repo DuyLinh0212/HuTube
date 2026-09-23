@@ -1,15 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
-import 'notification_hub.dart';
+import 'notification_center.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key, required this.auth});
+  const NotificationsScreen({
+    super.key,
+    required this.auth,
+    required this.notifications,
+  });
   final AuthController auth;
+  final NotificationCenter notifications;
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -21,13 +27,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String? _error;
   int _page = 1;
   bool _hasMore = false;
-  late final NotificationHubClient _hub = NotificationHubClient(widget.auth);
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
+    _notificationSubscription = widget.notifications.newNotifications.listen(
+      _receive,
+    );
     _load();
-    _hub.connect(onNotification: _receive);
   }
 
   void _receive(Map<String, dynamic> item) {
@@ -45,7 +53,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   void dispose() {
-    _hub.disconnect();
+    unawaited(_notificationSubscription?.cancel());
     super.dispose();
   }
 
@@ -70,6 +78,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             .map((item) => Map<String, dynamic>.from(item))
             .toList();
         _items = more ? [..._items, ...items] : items;
+        final unreadCount = json['unreadCount'];
+        if (!more && unreadCount is num) {
+          widget.notifications.setUnreadCount(unreadCount.toInt());
+        }
         _page = nextPage;
         _hasMore = items.length == 20;
         _loading = false;
@@ -97,29 +109,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _read(Map<String, dynamic> item) async {
     final id = '${item['notificationId'] ?? ''}';
     if (id.isEmpty) return;
-    if (item['isRead'] != true) {
-      try {
-        await widget.auth.protected(
-          'PATCH',
-          '/notifications/$id/read',
-          body: const {},
-        );
-        if (mounted) setState(() => item['isRead'] = true);
-      } catch (_) {}
+    if (item['isRead'] != true && id.isNotEmpty) {
+      final marked = await widget.notifications.markRead(id);
+      if (mounted && marked) setState(() => item['isRead'] = true);
     }
-    final link = (item['actionUrl'] ?? item['link']) as String?;
-    if (link == null || !mounted) return;
-    if (link.startsWith('/watch/')) context.push(link);
-    if (link.startsWith('/creator')) context.go('/creator');
+    if (mounted) widget.notifications.openNotification(item);
   }
 
   Future<void> _readAll() async {
     try {
-      await widget.auth.protected(
-        'POST',
-        '/notifications/read-all',
-        body: const {},
-      );
+      await widget.notifications.markAllRead();
       if (mounted) {
         setState(() {
           for (final item in _items) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
@@ -5,10 +7,16 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/account_models.dart';
 import '../services/account_service.dart';
+import '../../features/notifications/notification_center.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
-  const NotificationSettingsScreen({super.key, required this.auth});
+  const NotificationSettingsScreen({
+    super.key,
+    required this.auth,
+    required this.notifications,
+  });
   final AuthController auth;
+  final NotificationCenter notifications;
 
   @override
   State<NotificationSettingsScreen> createState() =>
@@ -29,6 +37,7 @@ class _NotificationSettingsScreenState
     super.initState();
     _accountService = AccountService(widget.auth);
     _load();
+    unawaited(widget.notifications.refreshLocalPermission());
   }
 
   Future<void> _load() async {
@@ -107,6 +116,35 @@ class _NotificationSettingsScreenState
                     const SizedBox(height: 16),
                   ],
 
+                  AnimatedBuilder(
+                    animation: widget.notifications,
+                    builder: (context, _) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.notifications_active_outlined),
+                      title: Text(AppStrings.t('notif.deviceTitle')),
+                      subtitle: Text(
+                        widget.notifications.localAlertsEnabled
+                            ? AppStrings.t('notif.deviceEnabled')
+                            : AppStrings.t('notif.deviceDisabled'),
+                        style: TextStyle(
+                          color: AppColors.textSecondaryFor(context),
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      trailing: widget.notifications.localAlertsEnabled
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: AppColors.success,
+                            )
+                          : TextButton(
+                              onPressed: _requestDeviceNotifications,
+                              child: Text(AppStrings.t('notif.deviceEnable')),
+                            ),
+                    ),
+                  ),
+                  const Divider(height: 24),
+
                   _switchTile(
                     title: AppStrings.t('notifications.videoUpdates'),
                     subtitle: AppStrings.t('notifications.videoUpdatesDesc'),
@@ -169,6 +207,15 @@ class _NotificationSettingsScreenState
                 ],
               ),
       ),
+    );
+  }
+
+  Future<void> _requestDeviceNotifications() async {
+    final enabled = await widget.notifications
+        .requestLocalNotificationsPermission();
+    if (!mounted || enabled) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.t('notif.permissionDenied'))),
     );
   }
 

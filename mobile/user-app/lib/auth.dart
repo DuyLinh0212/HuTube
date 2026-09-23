@@ -26,6 +26,7 @@ class AuthController extends ChangeNotifier {
   String? _refreshToken;
   bool restoring = true;
   String? notice;
+  Future<void> Function()? beforeSessionCleared;
   int _generation = 0;
   Future<void>? _refreshing;
   Future<void> _storageWork = Future.value();
@@ -464,6 +465,9 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> clearSession([String? message]) async {
+    try {
+      await beforeSessionCleared?.call().timeout(const Duration(seconds: 2));
+    } catch (_) {}
     ++_generation;
     _accessToken = null;
     _refreshToken = null;

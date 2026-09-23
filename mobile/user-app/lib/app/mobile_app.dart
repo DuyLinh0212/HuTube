@@ -16,9 +16,11 @@ import '../features/content/library_screen.dart';
 import '../features/content/playback_session.dart';
 import '../features/content/watch_screen.dart';
 import '../features/moderation/moderation_screen.dart';
+import '../channel/screens/channel_invitations_screen.dart';
 import '../channel/screens/channel_screen.dart';
 import '../features/creator/creator_hub_screen.dart';
 import '../features/notifications/notifications_screen.dart';
+import '../features/notifications/notification_center.dart';
 import '../features/playlists/playlists_screen.dart';
 import '../features/policies/policies_screen.dart';
 import '../features/plans/mobile_plans_screen.dart';
@@ -39,12 +41,16 @@ class HuTubeApp extends StatefulWidget {
 class _HuTubeAppState extends State<HuTubeApp> {
   late final GoRouter _router;
   final PlaybackSession _playback = PlaybackSession();
+  late final NotificationCenter _notifications;
   StreamSubscription<Uri>? _linkSubscription;
+  String? _pendingNotificationPath;
 
   @override
   void initState() {
     super.initState();
-    _router = _buildRouter(widget.auth, _playback);
+    _notifications = NotificationCenter(widget.auth);
+    _router = _buildRouter(widget.auth, _playback, _notifications);
+    unawaited(_notifications.initialize(onOpenNotification: _openNotification));
     _linkSubscription = widget.links?.listen(_openDeepLink);
     unawaited(widget.auth.restore());
   }
@@ -52,6 +58,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
   GoRouter _buildRouter(
     AuthController auth,
     PlaybackSession playback,
+    NotificationCenter notifications,
   ) => GoRouter(
     initialLocation: '/splash',
     refreshListenable: auth,
@@ -61,11 +68,23 @@ class _HuTubeAppState extends State<HuTubeApp> {
       // Preserve the existing first-run authentication flow. Public pages can
       // still be opened through a deep link, but a cold start does not issue
       // unauthenticated feed requests before the user has chosen a session.
-      if (path == '/splash') return auth.authenticated ? '/home' : '/auth';
+      if (path == '/splash') {
+        if (auth.authenticated && _pendingNotificationPath != null) {
+          final target = _pendingNotificationPath!;
+          _pendingNotificationPath = null;
+          return target;
+        }
+        return auth.authenticated ? '/home' : '/auth';
+      }
       // Keep legacy account deep links on the auth shell long enough for its
       // session-management view to complete. Ordinary successful sign-in
       // still enters the new mobile home route.
       if (auth.authenticated && path == '/auth') {
+        if (_pendingNotificationPath != null) {
+          final target = _pendingNotificationPath!;
+          _pendingNotificationPath = null;
+          return target;
+        }
         return state.uri.queryParameters['step'] == '/account' ? null : '/home';
       }
       const protected = <String>{
@@ -76,6 +95,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
         '/downloads',
         '/subscriptions',
         '/moderation',
+        '/channel-invitations',
       };
       final needsAuth =
           path == '/playlists' ||
@@ -88,6 +108,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
         path: '/auth',
         builder: (_, state) => AppShell(
           auth: auth,
+          notifications: notifications,
           initialPage: state.uri.queryParameters['step'],
           initialToken: state.uri.queryParameters['token'],
         ),
@@ -96,6 +117,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
         builder: (context, state, child) => MobileScaffold(
           auth: auth,
           playback: playback,
+          notifications: notifications,
           location: state.uri.path,
           child: child,
         ),
@@ -143,6 +165,10 @@ class _HuTubeAppState extends State<HuTubeApp> {
             builder: (_, _) => ModerationScreen(auth: auth),
           ),
           GoRoute(
+            path: '/channel-invitations',
+            builder: (_, _) => ChannelInvitationsScreen(auth: auth),
+          ),
+          GoRoute(
             path: '/watch/:videoId',
             builder: (_, state) => WatchScreen(
               auth: auth,
@@ -160,7 +186,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/account',
-            builder: (_, _) => AccountHubScreen(auth: auth),
+            builder: (_, _) =>
+                AccountHubScreen(auth: auth, notifications: notifications),
           ),
           GoRoute(
             path: '/creator',
@@ -168,7 +195,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/notifications',
-            builder: (_, _) => NotificationsScreen(auth: auth),
+            builder: (_, _) =>
+                NotificationsScreen(auth: auth, notifications: notifications),
           ),
           GoRoute(
             path: '/plans',
@@ -189,6 +217,78 @@ class _HuTubeAppState extends State<HuTubeApp> {
       ),
     ],
   );
+
+  void _openNotification(Map<String, dynamic> data) {
+    final target =
+        _safeNotificationTarget(data['actionUrl'] as String?) ??
+        _fallbackNotificationTarget(data);
+    const protected = [
+      '/account',
+      '/creator',
+      '/downloads',
+      '/library',
+      '/moderation',
+      '/notifications',
+      '/playlists',
+      '/subscriptions',
+      '/channel-invitations',
+    ];
+    if (!widget.auth.authenticated &&
+        protected.any(
+          (path) => target == path || target.startsWith('$path/'),
+        )) {
+      _pendingNotificationPath = target;
+      _router.go('/auth');
+      return;
+    }
+    _router.go(target);
+  }
+
+  String? _safeNotificationTarget(String? actionUrl) {
+    if (actionUrl == null ||
+        !actionUrl.startsWith('/') ||
+        actionUrl.startsWith('//')) {
+      return null;
+    }
+    final uri = Uri.tryParse(actionUrl);
+    if (uri == null || uri.hasAuthority || uri.pathSegments.contains('..')) {
+      return null;
+    }
+    const supported = {
+      '/home',
+      '/explore',
+      '/subscriptions',
+      '/huai',
+      '/search',
+      '/playlists',
+      '/moderation',
+      '/channel-invitations',
+      '/account',
+      '/creator',
+      '/downloads',
+      '/library',
+      '/notifications',
+      '/plans',
+      '/policies',
+    };
+    final pathSegments = uri.pathSegments;
+    final isSupportedDynamicRoute =
+        pathSegments.length == 2 &&
+        const {'watch', 'channels', 'playlists'}.contains(pathSegments.first);
+    if (!supported.contains(uri.path) && !isSupportedDynamicRoute) {
+      return null;
+    }
+    return uri.toString();
+  }
+
+  String _fallbackNotificationTarget(Map<String, dynamic> data) {
+    final resourceType = '${data['resourceType'] ?? ''}';
+    final resourceId = '${data['resourceId'] ?? ''}';
+    if (resourceType == 'video' && resourceId.isNotEmpty) {
+      return '/watch/${Uri.encodeComponent(resourceId)}';
+    }
+    return '/notifications';
+  }
 
   void _openDeepLink(Uri uri) {
     final authLink = AuthLink.parse(uri);
@@ -223,6 +323,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
     _linkSubscription?.cancel();
     _router.dispose();
     _playback.dispose();
+    _notifications.dispose();
     super.dispose();
   }
 

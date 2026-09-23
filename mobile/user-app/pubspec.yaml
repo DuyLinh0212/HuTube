@@ -46,6 +46,7 @@ dependencies:
   better_native_video_player: ^1.6.0
   path_provider: ^2.1.5
   signalr_netcore: ^1.4.3
+  flutter_local_notifications: ^22.3.1
 
 dev_dependencies:
   flutter_test:

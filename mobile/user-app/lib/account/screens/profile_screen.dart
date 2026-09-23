@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../auth.dart';
+import '../../features/notifications/notification_center.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/app_strings.dart';
 import '../../channel/models/channel_models.dart';
@@ -21,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
     required this.auth,
+    required this.notifications,
     required this.sessions,
     required this.sessionsLoading,
     required this.onRefreshSessions,
@@ -31,6 +33,7 @@ class ProfileScreen extends StatefulWidget {
   });
 
   final AuthController auth;
+  final NotificationCenter notifications;
   final List<Map<String, dynamic>> sessions;
   final bool sessionsLoading;
   final Future<void> Function() onRefreshSessions;
@@ -443,8 +446,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: AppStrings.t('profile.notifications'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) =>
-                        NotificationSettingsScreen(auth: widget.auth),
+                    builder: (_) => NotificationSettingsScreen(
+                      auth: widget.auth,
+                      notifications: widget.notifications,
+                    ),
                   ),
                 ),
               ),

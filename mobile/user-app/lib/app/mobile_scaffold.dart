@@ -8,18 +8,21 @@ import '../core/widgets/app_logo.dart';
 import '../core/widgets/hutube_widgets.dart';
 import '../features/content/mini_player.dart';
 import '../features/content/playback_session.dart';
+import '../features/notifications/notification_center.dart';
 
 class MobileScaffold extends StatelessWidget {
   const MobileScaffold({
     super.key,
     required this.auth,
     required this.playback,
+    required this.notifications,
     required this.location,
     required this.child,
   });
 
   final AuthController auth;
   final PlaybackSession playback;
+  final NotificationCenter notifications;
   final String location;
   final Widget child;
 
@@ -143,10 +146,52 @@ class MobileScaffold extends StatelessWidget {
               icon: const Icon(Icons.auto_awesome_rounded),
             ),
           if (auth.authenticated)
-            IconButton(
-              tooltip: AppStrings.t('common.notifications'),
-              onPressed: () => context.push('/notifications'),
-              icon: const Icon(Icons.notifications_none_rounded),
+            AnimatedBuilder(
+              animation: notifications,
+              builder: (context, _) => IconButton(
+                tooltip: AppStrings.t('common.notifications'),
+                onPressed: () => context.push('/notifications'),
+                icon: Semantics(
+                  label: notifications.unreadCount == 0
+                      ? AppStrings.t('common.notifications')
+                      : '${AppStrings.t('common.notifications')}, ${notifications.unreadCount} chưa đọc',
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.notifications_none_rounded),
+                      if (notifications.unreadCount > 0)
+                        Positioned(
+                          top: -7,
+                          right: -9,
+                          child: Container(
+                            constraints: const BoxConstraints(minWidth: 17),
+                            height: 17,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryPink,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.surface,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Text(
+                              notifications.unreadCount > 99
+                                  ? '99+'
+                                  : '${notifications.unreadCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           Padding(
             padding: const EdgeInsets.only(right: 8),

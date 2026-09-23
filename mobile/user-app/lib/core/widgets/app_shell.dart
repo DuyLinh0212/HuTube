@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../account/screens/profile_screen.dart';
 import '../../plans_screen.dart';
 import '../../auth.dart';
+import '../../features/notifications/notification_center.dart';
 import '../localization/app_strings.dart';
 import '../theme/app_theme.dart';
 import 'app_logo.dart';
@@ -14,11 +15,13 @@ class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
     required this.auth,
+    required this.notifications,
     this.links,
     this.initialPage,
     this.initialToken,
   });
   final AuthController auth;
+  final NotificationCenter notifications;
   final Stream<Uri>? links;
   final String? initialPage;
   final String? initialToken;
@@ -829,6 +832,7 @@ class _AppShellState extends State<AppShell> {
   List<Widget> _account() => [
     ProfileScreen(
       auth: auth,
+      notifications: widget.notifications,
       sessions: _sessions,
       sessionsLoading: _sessionsLoading,
       onRefreshSessions: _loadSessions,
