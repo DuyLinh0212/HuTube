@@ -58,7 +58,9 @@ class _PlansScreenState extends State<PlansScreen> {
         }
         try {
           payments = await _paymentService.mine();
-        } on ApiFailure {}
+        } on ApiFailure {
+          // Payment history is optional for the public plan catalogue.
+        }
       }
       if (!mounted) {
         return;
@@ -106,10 +108,11 @@ class _PlansScreenState extends State<PlansScreen> {
               _PaymentDialog(payment: payment, service: _paymentService),
         );
         if (paid == true) {
-          if (mounted)
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Thanh toán đã được xác nhận.')),
             );
+          }
         }
       } else {
         await _planService.subscribe(planId);
@@ -240,10 +243,11 @@ class _PlansScreenState extends State<PlansScreen> {
         await _load();
       }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -254,10 +258,11 @@ class _PlansScreenState extends State<PlansScreen> {
       await _planService.removeMember(id);
       await _load();
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -299,10 +304,11 @@ class _PlansScreenState extends State<PlansScreen> {
       );
       await _load();
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -341,10 +347,11 @@ class _PlansScreenState extends State<PlansScreen> {
       await _planService.updateOwnerStorage(value);
       await _load();
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -368,10 +375,11 @@ class _PlansScreenState extends State<PlansScreen> {
         ),
       );
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -404,10 +412,11 @@ class _PlansScreenState extends State<PlansScreen> {
         ),
       );
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -925,12 +934,13 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                 await Clipboard.setData(
                   ClipboardData(text: '${_payment['transactionCode'] ?? ''}'),
                 );
-                if (context.mounted)
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Đã sao chép nội dung chuyển khoản.'),
                     ),
                   );
+                }
               },
               icon: const Icon(Icons.copy_rounded, size: 17),
               label: const Text('Sao chép nội dung'),

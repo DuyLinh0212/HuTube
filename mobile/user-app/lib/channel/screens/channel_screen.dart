@@ -155,7 +155,7 @@ class _ChannelScreenState extends State<ChannelScreen>
         );
       }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -163,6 +163,7 @@ class _ChannelScreenState extends State<ChannelScreen>
             ),
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _subscriptionBusy = false);
     }
@@ -187,12 +188,13 @@ class _ChannelScreenState extends State<ChannelScreen>
         _channel!.id,
         !_notificationsEnabled,
       );
-      if (mounted)
+      if (mounted) {
         setState(
           () => _notificationsEnabled = result['notificationsEnabled'] == true,
         );
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -200,6 +202,7 @@ class _ChannelScreenState extends State<ChannelScreen>
             ),
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _subscriptionBusy = false);
     }
@@ -669,91 +672,6 @@ class _ChannelScreenState extends State<ChannelScreen>
           Icon(icon, size: 20, color: AppColors.textSecondaryFor(context)),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    );
-  }
-
-  Widget _videoCard({
-    required String title,
-    required String views,
-    required String duration,
-    required String date,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceFor(context),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderFor(context)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(
-                height: 160,
-                width: double.infinity,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: const Center(
-                  child: Icon(
-                    Icons.play_circle_fill,
-                    size: 50,
-                    color: AppColors.primaryPink,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(190),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    duration,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.textPrimaryFor(context),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$views · $date',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondaryFor(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

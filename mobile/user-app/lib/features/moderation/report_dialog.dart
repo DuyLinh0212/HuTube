@@ -53,7 +53,7 @@ Future<void> showContentReportDialog(
               const Text('Chọn lý do phù hợp và mô tả ngắn gọn sự việc.'),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: selected,
+                initialValue: selected,
                 decoration: const InputDecoration(labelText: 'Lý do'),
                 items: [
                   for (final type in types)

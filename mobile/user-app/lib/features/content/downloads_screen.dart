@@ -30,17 +30,19 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   Future<void> _loadRemote() async {
     try {
       final items = await _content.downloads();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _remote = items;
           _remoteLoading = false;
         });
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _remoteLoading = false;
           if (error.status != 404) _remote = const [];
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _remoteLoading = false);
     }
@@ -54,10 +56,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       await _loadRemote();
       if (operation == 'cancel') await _downloads.remove(id);
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -69,10 +72,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       await _downloads.remove(id);
       await _loadRemote();
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -107,10 +111,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       }
       await _loadRemote();
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -165,10 +170,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                   ),
                   trailing: PopupMenuButton<String>(
                     onSelected: (choice) {
-                      if (choice == 'delete')
+                      if (choice == 'delete') {
                         _removeRemote(item);
-                      else
+                      } else {
                         _operate(item, choice);
+                      }
                     },
                     itemBuilder: (_) {
                       final status = '${item['status'] ?? ''}'.toLowerCase();

@@ -120,10 +120,11 @@ class _WatchScreenState extends State<WatchScreen> {
           widget.playback.initialize(source, resumeAt: resumeAt).catchError((
             _,
           ) {
-            if (mounted)
+            if (mounted) {
               setState(
                 () => _actionMessage = AppStrings.t('watch.playerError'),
               );
+            }
           }),
         );
       });
@@ -391,8 +392,9 @@ class _WatchScreenState extends State<WatchScreen> {
       } else {
         await service.addVideo(selected, widget.videoId);
       }
-      if (mounted)
+      if (mounted) {
         setState(() => _actionMessage = 'Video đã được lưu vào playlist.');
+      }
     } on ApiFailure catch (error) {
       if (mounted) setState(() => _actionMessage = AppStrings.apiError(error));
     }
@@ -433,12 +435,13 @@ class _WatchScreenState extends State<WatchScreen> {
                     try {
                       await widget.playback.changeQuality(rendition);
                     } on Object catch (_) {
-                      if (mounted)
+                      if (mounted) {
                         setState(
                           () => _actionMessage = AppStrings.t(
                             'watch.playerError',
                           ),
                         );
+                      }
                     }
                   },
                 ),
@@ -461,7 +464,7 @@ class _WatchScreenState extends State<WatchScreen> {
               2.0,
             ])
               ListTile(
-                title: Text(speed == 1 ? 'Bình thường' : '${speed}×'),
+                title: Text(speed == 1 ? 'Bình thường' : '$speed×'),
                 trailing: (player.speed - speed).abs() < .01
                     ? const Icon(Icons.check_rounded, color: AppColors.primary)
                     : null,
@@ -1085,8 +1088,9 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
     final rest = seconds % 60;
-    if (hours > 0)
+    if (hours > 0) {
       return '$hours:${minutes.toString().padLeft(2, '0')}:${rest.toString().padLeft(2, '0')}';
+    }
     return '$minutes:${rest.toString().padLeft(2, '0')}';
   }
 }
@@ -1362,10 +1366,11 @@ class _CommentTileState extends State<_CommentTile> {
       final updated = await widget.content.updateComment(_item.id, updatedText);
       if (mounted) setState(() => _item = updated);
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -1390,7 +1395,7 @@ class _CommentTileState extends State<_CommentTile> {
     if (confirmed != true) return;
     try {
       await widget.content.deleteComment(_item.id);
-      if (mounted)
+      if (mounted) {
         setState(
           () => _item = CommentItem(
             id: _item.id,
@@ -1406,11 +1411,13 @@ class _CommentTileState extends State<_CommentTile> {
             status: 'deleted',
           ),
         );
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 

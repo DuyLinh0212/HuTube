@@ -34,10 +34,7 @@ class PlanService {
       auth.protected(
         'POST',
         '/plans/members/invite',
-        body: {
-          'email': email.trim(),
-          if (allocatedStorage != null) 'allocatedStorage': allocatedStorage,
-        },
+        body: {'email': email.trim(), 'allocatedStorage': ?allocatedStorage},
       );
 
   Future<Map<String, dynamic>> acceptInvitation(

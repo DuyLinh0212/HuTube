@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:image_picker/image_picker.dart';
 
 import '../../auth.dart';
-import '../../core/network/api_client.dart';
 import '../content/content_models.dart';
 
 class UploadPreflight {

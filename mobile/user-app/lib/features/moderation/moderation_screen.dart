@@ -38,29 +38,33 @@ class _ModerationScreenState extends State<ModerationScreen> {
       Map<String, dynamic>? strikes;
       try {
         final channel = await ChannelService(widget.auth).getMyChannel();
-        if (channel != null)
+        if (channel != null) {
           strikes = await _service.channelStrikes(channel.id);
+        }
       } on ApiFailure catch (error) {
         if (error.status != 404) rethrow;
       }
-      if (mounted)
+      if (mounted) {
         setState(() {
           _appeals = appeals;
           _strikes = strikes;
           _loading = false;
         });
+      }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = AppStrings.apiError(error, fallback: 'common.error');
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = AppStrings.t('common.networkError');
           _loading = false;
         });
+      }
     }
   }
 
@@ -94,7 +98,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: targetType,
+                  initialValue: targetType,
                   decoration: const InputDecoration(labelText: 'Loại nội dung'),
                   items: const [
                     DropdownMenuItem(value: 'video', child: Text('Video')),
@@ -186,10 +190,11 @@ class _ModerationScreenState extends State<ModerationScreen> {
         await _load();
       }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     } finally {
       targetId.dispose();
       reason.dispose();

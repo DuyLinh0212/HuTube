@@ -37,31 +37,35 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     try {
       if (widget.playlistId != null) {
         final detail = await _service.get(widget.playlistId!);
-        if (mounted)
+        if (mounted) {
           setState(() {
             _detail = detail;
             _loading = false;
           });
+        }
       } else {
         final playlists = await _service.mine();
-        if (mounted)
+        if (mounted) {
           setState(() {
             _playlists = playlists;
             _loading = false;
           });
+        }
       }
     } on ApiFailure catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = AppStrings.apiError(error, fallback: 'common.error');
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = AppStrings.t('common.networkError');
           _loading = false;
         });
+      }
     }
   }
 
@@ -107,7 +111,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: visibility,
+                initialValue: visibility,
                 decoration: const InputDecoration(labelText: 'Quyền riêng tư'),
                 items: const [
                   DropdownMenuItem(value: 'private', child: Text('Riêng tư')),
@@ -200,7 +204,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   Future<void> _reorder(int oldIndex, int newIndex) async {
     final current = _detail;
     if (current == null) return;
-    if (newIndex > oldIndex) newIndex--;
     final items = [...current.items];
     final moved = items.removeAt(oldIndex);
     items.insert(newIndex, moved);
@@ -225,10 +228,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   }
 
   void _message(String message) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   @override
@@ -365,7 +369,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             : ReorderableListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 itemCount: detail.items.length,
-                onReorder: _reorder,
+                onReorderItem: _reorder,
                 itemBuilder: (context, index) {
                   final item = detail.items[index];
                   return ListTile(
