@@ -7,7 +7,6 @@ public sealed class Playlist
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public string Visibility { get; set; } = "private";
-    public string PlaylistType { get; set; } = "personal";
     public string Status { get; set; } = "active";
     public DateTimeOffset? DeletedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

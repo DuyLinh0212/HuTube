@@ -168,6 +168,7 @@ public sealed class ModerationService(
             : request.PolicyCode.Trim();
         moderationCase.InternalNote = request.InternalNote?.Trim();
         moderationCase.UpdatedAt = now;
+        var wasPublished = video.Status == "published" && video.PublishedAt.HasValue;
 
         switch (decision)
         {
@@ -311,6 +312,37 @@ public sealed class ModerationService(
         }
 
         await db.SaveChangesAsync(ct);
+
+        if (!wasPublished && (decision is "approve" or "age_restricted" or "recommendation_restricted") && video.Visibility == "public" && channel != null)
+        {
+            var channelName = channel.Name;
+            var subscriberIds = await db.Subscriptions.AsNoTracking()
+                .Where(subscription => subscription.ChannelId == video.ChannelId
+                    && subscription.Status == "active"
+                    && subscription.NotificationsEnabled)
+                .Select(subscription => subscription.UserId)
+                .ToListAsync(ct);
+
+            foreach (var subscriberId in subscriberIds)
+            {
+                try
+                {
+                    await notifications.PublishInAppAsync(
+                        subscriberId,
+                        "new_video",
+                        $"{channelName} vừa đăng video mới",
+                        video.Title,
+                        $"/watch/{video.VideoId}",
+                        "video",
+                        video.VideoId,
+                        ct);
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
         await rbac.LogAuditAsync(new AuditLogEntry(
             actorId,
             $"moderation.{decision}",
