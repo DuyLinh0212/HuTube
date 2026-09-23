@@ -1,6 +1,9 @@
 import 'dart:math';
 
+import 'package:image_picker/image_picker.dart';
+
 import '../../auth.dart';
+import '../../core/network/api_client.dart';
 import '../content/content_models.dart';
 
 class UploadPreflight {
@@ -171,6 +174,66 @@ class CreatorService {
       '/videos/${Uri.encodeComponent(videoId)}/publish',
     );
     return VideoDetail.fromJson(json);
+  }
+
+  Future<void> cancelUpload(String videoId) async {
+    await auth.protected(
+      'POST',
+      '/videos/${Uri.encodeComponent(videoId)}/cancel-upload',
+    );
+  }
+
+  Future<VideoDetail> retryProcessing(String videoId) async =>
+      VideoDetail.fromJson(
+        await auth.protected(
+          'POST',
+          '/videos/${Uri.encodeComponent(videoId)}/retry-processing',
+        ),
+      );
+
+  Future<VideoDetail> updateThumbnail(
+    String videoId, {
+    XFile? image,
+    bool generate = false,
+  }) async {
+    final mime = image?.mimeType ?? (image == null ? null : _mime(image.name));
+    if (image != null &&
+        !(const {'image/jpeg', 'image/png', 'image/webp'}.contains(mime))) {
+      throw const ApiFailure(
+        400,
+        'INVALID_FILE_TYPE',
+        'Ảnh thu nhỏ chỉ hỗ trợ JPG, PNG hoặc WEBP.',
+      );
+    }
+    if (image != null && (await image.length()) > 5 * 1024 * 1024) {
+      throw const ApiFailure(
+        400,
+        'FILE_TOO_LARGE',
+        'Kích thước ảnh thu nhỏ tối đa là 5MB.',
+      );
+    }
+    final response = await auth.protectedMultipart(
+      '/videos/${Uri.encodeComponent(videoId)}/thumbnail',
+      fields: {'Generate': '$generate'},
+      files: [
+        if (image != null)
+          MultipartFilePayload(
+            field: 'Thumbnail',
+            path: image.path,
+            fileName: image.name,
+            contentType: mime!,
+          ),
+      ],
+    );
+    return VideoDetail.fromJson(response);
+  }
+
+  String _mime(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'application/octet-stream';
   }
 
   Future<PageResult<CommentItem>> managedComments(String channelId) async {

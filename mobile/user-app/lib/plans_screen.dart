@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -5,18 +7,30 @@ import 'auth.dart';
 import 'core/localization/app_strings.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/hutube_widgets.dart';
+import 'features/payments/payment_service.dart';
+import 'features/plans/plan_service.dart';
 
 class PlansScreen extends StatefulWidget {
-  const PlansScreen({super.key, required this.auth});
+  const PlansScreen({
+    super.key,
+    required this.auth,
+    this.invitationId,
+    this.invitationToken,
+  });
 
   final AuthController auth;
+  final String? invitationId;
+  final String? invitationToken;
 
   @override
   State<PlansScreen> createState() => _PlansScreenState();
 }
 
 class _PlansScreenState extends State<PlansScreen> {
+  late final PlanService _planService = PlanService(widget.auth);
+  late final PaymentService _paymentService = PaymentService(widget.auth);
   List<Map<String, dynamic>> _plans = [];
+  List<Map<String, dynamic>> _payments = [];
   Map<String, dynamic>? _myPlan;
   bool _loading = true;
   String? _error;
@@ -24,35 +38,35 @@ class _PlansScreenState extends State<PlansScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.invitationId != null && widget.invitationToken != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvitation());
+    }
     _load();
   }
 
   Future<void> _load() async {
     try {
-      final dynamic result = await widget.auth.api.request('GET', '/plans');
+      final plans = await _planService.catalogue();
       Map<String, dynamic>? myPlan;
+      var payments = <Map<String, dynamic>>[];
       if (widget.auth.authenticated) {
         try {
-          final current = await widget.auth.protected('GET', '/plans/my-plan');
-          if (current.isNotEmpty) {
-            myPlan = current;
-          }
+          myPlan = await _planService.myPlan();
         } on ApiFailure {
           // The public plan catalogue remains usable if the private quota
           // snapshot is temporarily unavailable.
         }
+        try {
+          payments = await _paymentService.mine();
+        } on ApiFailure {}
       }
       if (!mounted) {
         return;
       }
       setState(() {
-        final rawPlans = result is List
-            ? List<dynamic>.from(result)
-            : <dynamic>[];
-        _plans = rawPlans
-            .map((item) => Map<String, dynamic>.from(item as Map))
-            .toList();
+        _plans = plans;
         _myPlan = myPlan;
+        _payments = payments;
         _loading = false;
       });
     } on ApiFailure catch (error) {
@@ -74,11 +88,32 @@ class _PlansScreenState extends State<PlansScreen> {
 
   Future<void> _subscribe(String planId) async {
     try {
-      await widget.auth.protected(
-        'POST',
-        '/plans/$planId/subscribe',
-        body: {'autoRenew': false},
-      );
+      Map<String, dynamic>? plan;
+      for (final item in _plans) {
+        if ('${item['planId']}' == planId) {
+          plan = item;
+          break;
+        }
+      }
+      final price = _number(plan?['price']);
+      if (price > 0) {
+        final payment = await _paymentService.initiate(planId);
+        if (!mounted) return;
+        final paid = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) =>
+              _PaymentDialog(payment: payment, service: _paymentService),
+        );
+        if (paid == true) {
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Thanh toán đã được xác nhận.')),
+            );
+        }
+      } else {
+        await _planService.subscribe(planId);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppStrings.t('plans.subscribeSuccess'))),
@@ -100,10 +135,7 @@ class _PlansScreenState extends State<PlansScreen> {
 
   Future<void> _sharePlan(Map<String, dynamic> plan) async {
     try {
-      final share = await widget.auth.api.request(
-        'GET',
-        '/plans/${plan['planId']}/share',
-      );
+      final share = await _planService.share('${plan['planId']}');
       final url = share['shareUrl'] as String?;
       if (url == null || url.isEmpty) {
         return;
@@ -175,11 +207,7 @@ class _PlansScreenState extends State<PlansScreen> {
       return;
     }
     try {
-      await widget.auth.protected(
-        'POST',
-        '/plans/members/invite',
-        body: {'email': trimmed},
-      );
+      await _planService.invite(trimmed);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppStrings.t('plans.inviteSent'))),
@@ -196,6 +224,190 @@ class _PlansScreenState extends State<PlansScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _acceptInvitation() async {
+    final id = widget.invitationId;
+    final token = widget.invitationToken;
+    if (id == null || token == null || !widget.auth.authenticated) return;
+    try {
+      await _planService.acceptInvitation(id, token);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã chấp nhận lời mời gói dịch vụ.')),
+        );
+        await _load();
+      }
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
+  }
+
+  Future<void> _removeMember(Map<String, dynamic> member) async {
+    final id = '${member['planMemberId'] ?? ''}';
+    if (id.isEmpty) return;
+    try {
+      await _planService.removeMember(id);
+      await _load();
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
+  }
+
+  Future<void> _editMemberStorage(Map<String, dynamic> member) async {
+    final controller = TextEditingController(
+      text: '${member['allocatedStorage'] ?? ''}',
+    );
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dung lượng thành viên'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Byte (để trống dùng mặc định)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: Text(AppStrings.t('common.save')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (raw == null) return;
+    final value = int.tryParse(raw.trim());
+    if (raw.trim().isNotEmpty && value == null) return;
+    try {
+      await _planService.updateMemberStorage(
+        '${member['planMemberId']}',
+        value,
+      );
+      await _load();
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
+  }
+
+  Future<void> _editOwnerStorage() async {
+    final controller = TextEditingController(
+      text: '${_myPlan?['ownerAllocatedStorage'] ?? ''}',
+    );
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dung lượng của bạn'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Byte (để trống dùng mặc định)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: Text(AppStrings.t('common.save')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (raw == null) return;
+    final value = int.tryParse(raw.trim());
+    if (raw.trim().isNotEmpty && value == null) return;
+    try {
+      await _planService.updateOwnerStorage(value);
+      await _load();
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
+  }
+
+  Future<void> _showPaymentDetails(String paymentId) async {
+    try {
+      final payment = await _paymentService.get(paymentId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('${payment['planName'] ?? 'Giao dịch'}'),
+          content: Text(
+            'Mã: ${payment['transactionCode'] ?? '—'}\nTrạng thái: ${payment['status'] ?? '—'}\nSố tiền: ${payment['amount'] ?? '—'} ${payment['currency'] ?? ''}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đóng'),
+            ),
+          ],
+        ),
+      );
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
+  }
+
+  Future<void> _showPlanDetails(String planId) async {
+    try {
+      final plan = await _planService.get(planId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('${plan['name'] ?? 'Gói HuTube'}'),
+          content: SingleChildScrollView(
+            child: Text(
+              '${plan['description'] ?? ''}\n\n'
+              'Giá: ${plan['price'] ?? 0}\n'
+              'Thời hạn: ${plan['durationDays'] ?? 0} ngày\n'
+              'Dung lượng: ${_formatBytes(plan['storageLimit'])}\n'
+              'Dung lượng mỗi video tối đa: ${_formatBytes(plan['maxUploadSize'])}\n'
+              'Thời lượng tối đa: ${plan['maxVideoDuration'] ?? 0} giây\n'
+              'Chất lượng video: ${plan['maxVideoQuality'] ?? '—'}\n'
+              'Thành viên: ${plan['maxMembers'] ?? 1}',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đóng'),
+            ),
+          ],
+        ),
+      );
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
     }
   }
 
@@ -262,6 +474,10 @@ class _PlansScreenState extends State<PlansScreen> {
         ? Map<String, dynamic>.from(plan['subscription'] as Map)
         : null;
     final endedAt = _formatDate(subscription?['endedAt']);
+    final members = (plan['members'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -339,10 +555,62 @@ class _PlansScreenState extends State<PlansScreen> {
             if (plan['isSharedMember'] != true) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
+                onPressed: _editOwnerStorage,
+                icon: const Icon(Icons.storage_outlined),
+                label: const Text('Điều chỉnh dung lượng của bạn'),
+              ),
+              OutlinedButton.icon(
                 onPressed: _inviteMember,
                 icon: const Icon(Icons.person_add_alt_1_outlined),
                 label: Text(AppStrings.t('plans.invite')),
               ),
+            ],
+            if (members.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Thành viên gói',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              for (final member in members)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(
+                    '${member['memberEmail'] ?? 'Thành viên'}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${member['status'] ?? ''} · ${_formatBytes(member['allocatedStorage'] ?? 0)}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: .65),
+                    ),
+                  ),
+                  trailing: plan['isSharedMember'] == true
+                      ? null
+                      : PopupMenuButton<String>(
+                          iconColor: Colors.white,
+                          onSelected: (choice) {
+                            if (choice == 'storage') _editMemberStorage(member);
+                            if (choice == 'remove') _removeMember(member);
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: 'storage',
+                              child: Text('Sửa dung lượng'),
+                            ),
+                            PopupMenuItem(
+                              value: 'remove',
+                              child: Text('Xóa thành viên'),
+                            ),
+                          ],
+                        ),
+                ),
             ],
           ],
         ),
@@ -385,6 +653,33 @@ class _PlansScreenState extends State<PlansScreen> {
           ),
           const SizedBox(height: 20),
           _currentPlanCard(context),
+          if (_payments.isNotEmpty) ...[
+            HuTubeSectionHeader(
+              title: 'Lịch sử thanh toán',
+              subtitle: 'Theo dõi trạng thái các giao dịch gói dịch vụ.',
+            ),
+            const SizedBox(height: 8),
+            for (final payment in _payments.take(5))
+              Card(
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.receipt_long_outlined,
+                    color: AppColors.violet,
+                  ),
+                  title: Text('${payment['planName'] ?? 'Gói dịch vụ'}'),
+                  subtitle: Text(
+                    '${payment['transactionCode'] ?? ''} · ${payment['status'] ?? ''}',
+                  ),
+                  trailing: Text(
+                    '${payment['amount'] ?? ''} ${payment['currency'] ?? ''}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  onTap: () =>
+                      _showPaymentDetails('${payment['paymentId'] ?? ''}'),
+                ),
+              ),
+            const SizedBox(height: 12),
+          ],
           if (_plans.isEmpty)
             HuTubeStateView(
               icon: Icons.auto_awesome_outlined,
@@ -398,6 +693,7 @@ class _PlansScreenState extends State<PlansScreen> {
               plan: entry.value,
               index: entry.key,
               onShare: () => _sharePlan(entry.value),
+              onDetails: () => _showPlanDetails('${entry.value['planId']}'),
               onSubscribe: widget.auth.authenticated
                   ? () => _subscribe(entry.value['planId'] as String)
                   : null,
@@ -417,6 +713,7 @@ class _PlanCard extends StatelessWidget {
     required this.plan,
     required this.index,
     required this.onShare,
+    required this.onDetails,
     required this.onSubscribe,
     required this.formatBytes,
     required this.qualityText,
@@ -425,6 +722,7 @@ class _PlanCard extends StatelessWidget {
   final Map<String, dynamic> plan;
   final int index;
   final VoidCallback onShare;
+  final VoidCallback onDetails;
   final VoidCallback? onSubscribe;
   final String Function(dynamic) formatBytes;
   final String Function(Map<String, dynamic>) qualityText;
@@ -455,10 +753,14 @@ class _PlanCard extends StatelessWidget {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
               ),
-              HuTubePill(
-                label: AppStrings.t('plans.details'),
-                color: accent.withValues(alpha: .13),
-                textColor: accent,
+              InkWell(
+                borderRadius: BorderRadius.circular(99),
+                onTap: onDetails,
+                child: HuTubePill(
+                  label: AppStrings.t('plans.details'),
+                  color: accent.withValues(alpha: .13),
+                  textColor: accent,
+                ),
               ),
             ],
           ),
@@ -504,6 +806,162 @@ class _PlanCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PaymentDialog extends StatefulWidget {
+  const _PaymentDialog({required this.payment, required this.service});
+  final Map<String, dynamic> payment;
+  final PaymentService service;
+
+  @override
+  State<_PaymentDialog> createState() => _PaymentDialogState();
+}
+
+class _PaymentDialogState extends State<_PaymentDialog> {
+  late Map<String, dynamic> _payment = widget.payment;
+  Timer? _pollTimer;
+  bool _checking = false;
+
+  String get _status => '${_payment['status'] ?? 'pending'}'.toLowerCase();
+  bool get _paid =>
+      _status == 'paid' || _status == 'completed' || _status == 'success';
+  bool get _expired =>
+      _status == 'expired' || _status == 'cancelled' || _status == 'failed';
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_paid && !_expired) {
+      _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _poll());
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _poll() async {
+    if (_checking || !mounted) return;
+    _checking = true;
+    try {
+      final latest = await widget.service.get('${widget.payment['paymentId']}');
+      if (!mounted) return;
+      setState(() => _payment = latest);
+      if (_paid || _expired) _pollTimer?.cancel();
+    } on ApiFailure {
+      // Keep the pending payment visible; the user can retry by reopening it.
+    } finally {
+      _checking = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(_paid ? 'Đã nhận thanh toán' : 'Thanh toán gói HuTube'),
+    content: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 360, maxHeight: 540),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_paid)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.success,
+                  size: 64,
+                ),
+              )
+            else if (_expired)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  color: AppColors.danger,
+                  size: 56,
+                ),
+              )
+            else if ('${_payment['qrCodeUrl'] ?? ''}'.startsWith('http'))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Image.network(
+                  '${_payment['qrCodeUrl']}',
+                  width: 210,
+                  height: 210,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const SizedBox(
+                    width: 210,
+                    height: 210,
+                    child: Icon(Icons.qr_code_2_rounded, size: 100),
+                  ),
+                ),
+              ),
+            Text(
+              '${_payment['planName'] ?? 'Gói dịch vụ'}',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '${_payment['amount'] ?? ''} ${_payment['currency'] ?? ''}',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SelectableText(
+              '${_payment['transactionCode'] ?? ''}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(
+                  ClipboardData(text: '${_payment['transactionCode'] ?? ''}'),
+                );
+                if (context.mounted)
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đã sao chép nội dung chuyển khoản.'),
+                    ),
+                  );
+              },
+              icon: const Icon(Icons.copy_rounded, size: 17),
+              label: const Text('Sao chép nội dung'),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _paid
+                  ? 'Gói của bạn đã được kích hoạt.'
+                  : _expired
+                  ? 'Giao dịch đã hết hạn hoặc không thành công.'
+                  : 'Quét mã để chuyển khoản. Ứng dụng tự kiểm tra kết quả mỗi vài giây.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (_checking && !_paid && !_expired) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(minHeight: 2),
+            ],
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      if (!_paid && !_expired)
+        TextButton(onPressed: _poll, child: const Text('Kiểm tra ngay')),
+      TextButton(
+        onPressed: () => Navigator.pop(context, _paid),
+        child: Text(_paid ? 'Hoàn tất' : 'Đóng'),
+      ),
+    ],
+  );
 }
 
 class _PlanSkeleton extends StatelessWidget {

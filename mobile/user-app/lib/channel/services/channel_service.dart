@@ -28,10 +28,10 @@ class ChannelService {
     final clean = handleOrId.startsWith('@')
         ? handleOrId.substring(1)
         : handleOrId;
-    final res = await auth.protected(
-      'GET',
-      '/channels/handle/${Uri.encodeComponent(clean)}',
-    );
+    final path = '/channels/handle/${Uri.encodeComponent(clean)}';
+    final res = auth.authenticated
+        ? await auth.protected('GET', path)
+        : await auth.api.request('GET', path);
     return ChannelDetail.fromJson(res);
   }
 

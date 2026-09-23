@@ -45,6 +45,52 @@ class ContentService {
     );
   }
 
+  Future<PageResult<VideoCard>> searchVideos({
+    required String query,
+    String? channelId,
+    int page = 1,
+    int pageSize = 20,
+    String sort = 'relevance',
+  }) async {
+    final endpoint = _query('/videos/search', {
+      'q': query.trim(),
+      'channelId': channelId,
+      'sort': sort,
+      'page': page,
+      'pageSize': pageSize,
+    });
+    final json = await auth.api.request('GET', endpoint);
+    return _videoPage(json, page, pageSize);
+  }
+
+  Future<PageResult<VideoCard>> subscriptionsFeed({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final endpoint = _query('/feed/subscriptions', {
+      'page': page,
+      'pageSize': pageSize,
+    });
+    final json = await auth.protected('GET', endpoint);
+    return _videoPage(json, page, pageSize);
+  }
+
+  PageResult<VideoCard> _videoPage(
+    Map<String, dynamic> json,
+    int requestedPage,
+    int requestedPageSize,
+  ) => PageResult(
+    items: (json['items'] as List? ?? const [])
+        .whereType<Map>()
+        .map((value) => VideoCard.fromJson(Map<String, dynamic>.from(value)))
+        .toList(),
+    page: asInt(json['page']) == 0 ? requestedPage : asInt(json['page']),
+    pageSize: asInt(json['pageSize']) == 0
+        ? requestedPageSize
+        : asInt(json['pageSize']),
+    total: asInt(json['total']),
+  );
+
   Future<List<Category>> categories() async {
     final json = await auth.api.requestList('GET', '/categories');
     return json
@@ -169,6 +215,19 @@ class ContentService {
     return CommentItem.fromJson(json);
   }
 
+  Future<CommentItem> updateComment(String id, String content) async =>
+      CommentItem.fromJson(
+        await auth.protected(
+          'PATCH',
+          '/comments/${Uri.encodeComponent(id)}',
+          body: {'content': content.trim()},
+        ),
+      );
+
+  Future<void> deleteComment(String id) async {
+    await auth.protected('DELETE', '/comments/${Uri.encodeComponent(id)}');
+  }
+
   Future<Map<String, dynamic>> reactComment(String id, String? type) =>
       type == null
       ? auth.protected(
@@ -197,6 +256,47 @@ class ContentService {
         '/videos/${Uri.encodeComponent(videoId)}/downloads',
         body: {'quality': quality},
       );
+
+  Future<List<Map<String, dynamic>>> downloads() async =>
+      (await auth.protectedList('/downloads'))
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+
+  Future<Map<String, dynamic>> updateDownload(
+    String downloadId,
+    String operation,
+  ) => auth.protected(
+    'POST',
+    '/downloads/${Uri.encodeComponent(downloadId)}/$operation',
+  );
+
+  Future<void> deleteDownload(String downloadId) async {
+    await auth.protected(
+      'DELETE',
+      '/downloads/${Uri.encodeComponent(downloadId)}',
+    );
+  }
+
+  Future<void> deleteDownloads(List<String> downloadIds) async {
+    await auth.protected('DELETE', '/downloads', body: {'ids': downloadIds});
+  }
+
+  Future<List<Map<String, dynamic>>> violationTypes() async =>
+      (await auth.api.requestList('GET', '/violation-types'))
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+
+  Future<Map<String, dynamic>> reportComment(
+    String commentId,
+    String violationTypeId,
+    String description,
+  ) => auth.protected(
+    'POST',
+    '/comments/${Uri.encodeComponent(commentId)}/report',
+    body: {'violationTypeId': violationTypeId, 'description': description},
+  );
 
   Future<PageResult<LibraryVideo>> history({int page = 1}) =>
       _library('history', page: page);

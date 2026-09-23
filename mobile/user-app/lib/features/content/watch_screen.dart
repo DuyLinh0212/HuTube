@@ -3,21 +3,32 @@ import 'dart:io';
 
 import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
+import '../../channel/services/channel_service.dart';
+import '../playlists/playlist_service.dart';
 import 'content_models.dart';
 import 'content_service.dart';
 import 'local_download_manager.dart';
 import 'media_entitlements.dart';
+import 'playback_session.dart';
 import 'video_card.dart';
+import '../moderation/report_dialog.dart';
 
 class WatchScreen extends StatefulWidget {
-  const WatchScreen({super.key, required this.auth, required this.videoId});
+  const WatchScreen({
+    super.key,
+    required this.auth,
+    required this.playback,
+    required this.videoId,
+  });
   final AuthController auth;
+  final PlaybackSession playback;
   final String videoId;
 
   @override
@@ -27,19 +38,15 @@ class WatchScreen extends StatefulWidget {
 class _WatchScreenState extends State<WatchScreen> {
   late final ContentService _content;
   final _comment = TextEditingController();
-  NativeVideoPlayerController? _player;
-  BackgroundPlaybackGuard? _backgroundPlaybackGuard;
-  StreamSubscription<Duration>? _positionSubscription;
   VideoDetail? _video;
+  List<Rendition> _renditions = const [];
   MediaEntitlements _entitlements = const MediaEntitlements.none();
   List<CommentItem> _comments = [];
   List<VideoCard> _related = [];
   bool _loading = true;
   bool _sendingComment = false;
-  bool _playerReady = false;
   String? _error;
   String? _actionMessage;
-  int _lastSavedSecond = 0;
 
   @override
   void initState() {
@@ -51,10 +58,17 @@ class _WatchScreenState extends State<WatchScreen> {
   @override
   void dispose() {
     _comment.dispose();
-    _positionSubscription?.cancel();
-    _backgroundPlaybackGuard?.dispose();
-    unawaited(_player?.dispose());
+    if (widget.playback.videoId == widget.videoId &&
+        !widget.playback.minimized) {
+      unawaited(widget.playback.dismiss());
+    }
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant WatchScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoId != widget.videoId) _load();
   }
 
   Future<void> _load() async {
@@ -75,6 +89,8 @@ class _WatchScreenState extends State<WatchScreen> {
       if (!mounted) return;
       setState(() {
         _video = detail;
+        _renditions = [...playback.renditions]
+          ..sort((a, b) => a.height.compareTo(b.height));
         _entitlements = entitlements;
         _comments = comments.items;
         _related = related.items
@@ -83,14 +99,34 @@ class _WatchScreenState extends State<WatchScreen> {
             .toList();
         _loading = false;
       });
-      await _startPlayer(
-        playback.renditions.isNotEmpty
-            ? playback.renditions.last.url
-            : detail.videoUrl,
-        resumeAt: playback.resumeAt > 0
-            ? playback.resumeAt
-            : detail.viewerState.resumeAt,
+      final resumeAt = playback.resumeAt > 0
+          ? playback.resumeAt
+          : detail.viewerState.resumeAt;
+      final source = _renditions.isNotEmpty
+          ? _renditions.last.url
+          : detail.videoUrl;
+      await widget.playback.start(
+        auth: widget.auth,
+        video: detail,
+        videoRenditions: _renditions,
+        mediaEntitlements: entitlements,
+        sourceUrl: source,
+        resumeAt: resumeAt,
       );
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(
+          widget.playback.initialize(source, resumeAt: resumeAt).catchError((
+            _,
+          ) {
+            if (mounted)
+              setState(
+                () => _actionMessage = AppStrings.t('watch.playerError'),
+              );
+          }),
+        );
+      });
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
@@ -108,95 +144,9 @@ class _WatchScreenState extends State<WatchScreen> {
     }
   }
 
-  Future<void> _startPlayer(String url, {int resumeAt = 0}) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) {
-      if (mounted) {
-        setState(() => _actionMessage = AppStrings.t('watch.invalidSource'));
-      }
-      return;
-    }
-    // The native player keeps media alive in the background by default. A
-    // guard is therefore always installed and only permits that behavior for
-    // accounts whose current plan has `background_play` enabled.
-    final next = NativeVideoPlayerController(
-      id: widget.videoId.hashCode & 0x7fffffff,
-      autoPlay: false,
-      showNativeControls: true,
-      allowsPictureInPicture: _entitlements.pictureInPicture,
-      canStartPictureInPictureAutomatically: _entitlements.pictureInPicture,
-    );
-    final nextGuard = BackgroundPlaybackGuard(
-      next,
-      pauseInBackground: !_entitlements.backgroundPlayback,
-    );
-    final old = _player;
-    final oldGuard = _backgroundPlaybackGuard;
-    final oldSubscription = _positionSubscription;
-    if (!mounted) {
-      nextGuard.dispose();
-      unawaited(next.dispose());
-      return;
-    }
-    setState(() {
-      _player = next;
-      _backgroundPlaybackGuard = nextGuard;
-      _positionSubscription = null;
-      _playerReady = false;
-    });
-    oldGuard?.dispose();
-    unawaited(oldSubscription?.cancel());
-    unawaited(old?.dispose());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && identical(_player, next)) {
-        unawaited(_initializePlayer(next, url, resumeAt: resumeAt));
-      }
-    });
-  }
-
-  Future<void> _initializePlayer(
-    NativeVideoPlayerController player,
-    String url, {
-    required int resumeAt,
-  }) async {
-    try {
-      // initialize waits until NativeVideoPlayer has created its platform view,
-      // which is why it runs only after the widget is in the tree.
-      await player.initialize();
-      await player.loadUrl(
-        url: url,
-        startAt: resumeAt > 0 ? Duration(seconds: resumeAt) : null,
-      );
-      if (!mounted || !identical(_player, player)) return;
-      _positionSubscription = player.positionStream.listen((position) {
-        if (identical(_player, player)) _onPositionChanged(position);
-      });
-      setState(() => _playerReady = true);
-    } catch (_) {
-      if (!mounted || !identical(_player, player)) return;
-      _backgroundPlaybackGuard?.dispose();
-      _backgroundPlaybackGuard = null;
-      _player = null;
-      unawaited(player.dispose());
-      setState(() {
-        _playerReady = false;
-        _actionMessage = AppStrings.t('watch.playerError');
-      });
-    }
-  }
-
-  void _onPositionChanged(Duration position) {
-    if (!mounted) return;
-    final seconds = position.inSeconds;
-    if (widget.auth.authenticated && seconds - _lastSavedSecond >= 10) {
-      _lastSavedSecond = seconds;
-      unawaited(_content.progress(widget.videoId, seconds));
-    }
-  }
-
   Future<void> _enterPictureInPicture() async {
-    final player = _player;
-    if (player == null || !_playerReady) return;
+    final player = widget.playback.player;
+    if (player == null || !widget.playback.ready) return;
     // Android only permits PiP from fullscreen. The native player tracks that
     // state before opening the system fullscreen surface, so this can remain a
     // single user action on both platforms.
@@ -253,6 +203,7 @@ class _WatchScreenState extends State<WatchScreen> {
             resumeAt: video.viewerState.resumeAt,
           ),
           moderationStatus: video.moderationStatus,
+          processingStatus: video.processingStatus,
         );
       });
     } on ApiFailure catch (error) {
@@ -322,6 +273,7 @@ class _WatchScreenState extends State<WatchScreen> {
             resumeAt: old.viewerState.resumeAt,
           ),
           moderationStatus: old.moderationStatus,
+          processingStatus: old.processingStatus,
         );
         _actionMessage = AppStrings.t('watch.ratingSaved');
       });
@@ -393,6 +345,137 @@ class _WatchScreenState extends State<WatchScreen> {
     }
   }
 
+  Future<void> _saveToPlaylist() async {
+    if (!widget.auth.authenticated) {
+      setState(() => _actionMessage = 'Đăng nhập để lưu video vào playlist.');
+      return;
+    }
+    try {
+      final service = PlaylistService(widget.auth);
+      final playlists = await service.mine();
+      if (!mounted) return;
+      final selected = await showModalBottomSheet<String>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('Lưu video')),
+              ListTile(
+                leading: const Icon(Icons.bookmark_add_outlined),
+                title: const Text('Video đã lưu'),
+                onTap: () => Navigator.pop(context, '__saved__'),
+              ),
+              for (final playlist in playlists)
+                ListTile(
+                  leading: const Icon(Icons.playlist_play_rounded),
+                  title: Text(playlist.name),
+                  subtitle: Text('${playlist.itemCount} video'),
+                  onTap: () => Navigator.pop(context, playlist.id),
+                ),
+              ListTile(
+                leading: const Icon(Icons.add_rounded),
+                title: const Text('Tạo playlist mới'),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/playlists');
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+      if (selected == null) return;
+      if (selected == '__saved__') {
+        await service.saveVideo(widget.videoId);
+      } else {
+        await service.addVideo(selected, widget.videoId);
+      }
+      if (mounted)
+        setState(() => _actionMessage = 'Video đã được lưu vào playlist.');
+    } on ApiFailure catch (error) {
+      if (mounted) setState(() => _actionMessage = AppStrings.apiError(error));
+    }
+  }
+
+  Future<void> _showPlaybackSettings() async {
+    final player = widget.playback.player;
+    if (player == null || !widget.playback.ready) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(
+              title: Text(
+                'Chất lượng',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              subtitle: Text('Chọn độ phân giải video'),
+            ),
+            if (_renditions.isEmpty)
+              const ListTile(title: Text('Chất lượng gốc'))
+            else
+              for (final rendition in _renditions)
+                ListTile(
+                  title: Text(rendition.quality),
+                  subtitle: Text('${rendition.width} × ${rendition.height}'),
+                  trailing:
+                      widget.playback.selectedRendition?.url == rendition.url
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: AppColors.primary,
+                        )
+                      : null,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    try {
+                      await widget.playback.changeQuality(rendition);
+                    } on Object catch (_) {
+                      if (mounted)
+                        setState(
+                          () => _actionMessage = AppStrings.t(
+                            'watch.playerError',
+                          ),
+                        );
+                    }
+                  },
+                ),
+            const Divider(),
+            const ListTile(
+              title: Text(
+                'Tốc độ phát',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              subtitle: Text('Thay đổi tốc độ phát video'),
+            ),
+            for (final speed in const [
+              0.25,
+              0.5,
+              0.75,
+              1.0,
+              1.25,
+              1.5,
+              1.75,
+              2.0,
+            ])
+              ListTile(
+                title: Text(speed == 1 ? 'Bình thường' : '${speed}×'),
+                trailing: (player.speed - speed).abs() < .01
+                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  unawaited(widget.playback.setSpeed(speed));
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _sendComment() async {
     final text = _comment.text.trim();
     if (text.isEmpty || _sendingComment) return;
@@ -441,7 +524,6 @@ class _WatchScreenState extends State<WatchScreen> {
       );
     }
     final video = _video!;
-    final player = _player;
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
       children: [
@@ -451,31 +533,28 @@ class _WatchScreenState extends State<WatchScreen> {
           ),
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: player != null
-                ? Stack(
-                    children: [
-                      NativeVideoPlayer(controller: player),
-                      if (!_playerReady)
-                        const Positioned.fill(
-                          child: ColoredBox(
-                            color: Color(0xB3171927),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primaryPink,
-                              ),
-                            ),
-                          ),
+            child: AnimatedBuilder(
+              animation: widget.playback,
+              builder: (context, _) => widget.playback.player != null
+                  ? _CustomVideoStage(
+                      session: widget.playback,
+                      onMinimize: () {
+                        widget.playback.minimize();
+                        Navigator.of(context).maybePop();
+                      },
+                      onSettings: _showPlaybackSettings,
+                      onPictureInPicture: _enterPictureInPicture,
+                      showPictureInPicture: _entitlements.pictureInPicture,
+                    )
+                  : const DecoratedBox(
+                      decoration: BoxDecoration(color: Color(0xff171927)),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryPink,
                         ),
-                    ],
-                  )
-                : const DecoratedBox(
-                    decoration: BoxDecoration(color: Color(0xff171927)),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryPink,
                       ),
                     ),
-                  ),
+            ),
           ),
         ),
         Padding(
@@ -531,6 +610,21 @@ class _WatchScreenState extends State<WatchScreen> {
                 label: AppStrings.t('watch.downloadAction'),
                 onTap: _download,
               ),
+              _ActionChip(
+                icon: Icons.playlist_add_rounded,
+                label: 'Lưu playlist',
+                onTap: _saveToPlaylist,
+              ),
+              _ActionChip(
+                icon: Icons.flag_outlined,
+                label: 'Báo cáo',
+                onTap: () => showContentReportDialog(
+                  context,
+                  auth: widget.auth,
+                  targetType: 'video',
+                  targetId: video.id,
+                ),
+              ),
               if (_entitlements.pictureInPicture)
                 _ActionChip(
                   icon: Icons.picture_in_picture_alt_outlined,
@@ -559,7 +653,7 @@ class _WatchScreenState extends State<WatchScreen> {
         const SizedBox(height: 18),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: _ChannelSummary(video: video),
+          child: _ChannelSummary(video: video, auth: widget.auth),
         ),
         if ((video.description ?? '').isNotEmpty || video.tags.isNotEmpty) ...[
           const SizedBox(height: 14),
@@ -606,8 +700,9 @@ class _WatchScreenState extends State<WatchScreen> {
               subtitle: Text(
                 '${chapter.startSeconds ~/ 60}:${(chapter.startSeconds % 60).toString().padLeft(2, '0')}',
               ),
-              onTap: () =>
-                  _player?.seekTo(Duration(seconds: chapter.startSeconds)),
+              onTap: () => widget.playback.seekTo(
+                Duration(seconds: chapter.startSeconds),
+              ),
             ),
           ),
         ],
@@ -644,6 +739,7 @@ class _WatchScreenState extends State<WatchScreen> {
             item: item,
             content: _content,
             signedIn: widget.auth.authenticated,
+            auth: widget.auth,
           ),
         ),
         const SizedBox(height: 22),
@@ -655,7 +751,7 @@ class _WatchScreenState extends State<WatchScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: _related
-                .map((item) => VideoCardTile(video: item))
+                .map((item) => VideoCardTile(video: item, replaceRoute: true))
                 .toList(),
           ),
         ),
@@ -690,41 +786,403 @@ class _ActionChip extends StatelessWidget {
   );
 }
 
-class _ChannelSummary extends StatelessWidget {
-  const _ChannelSummary({required this.video});
+class _CustomVideoStage extends StatefulWidget {
+  const _CustomVideoStage({
+    required this.session,
+    required this.onMinimize,
+    required this.onSettings,
+    required this.onPictureInPicture,
+    required this.showPictureInPicture,
+  });
+
+  final PlaybackSession session;
+  final VoidCallback onMinimize;
+  final VoidCallback onSettings;
+  final VoidCallback onPictureInPicture;
+  final bool showPictureInPicture;
+
+  @override
+  State<_CustomVideoStage> createState() => _CustomVideoStageState();
+}
+
+class _CustomVideoStageState extends State<_CustomVideoStage> {
+  bool _controlsVisible = true;
+  bool? _seekForward;
+  double _tapX = 0;
+  Timer? _controlsTimer;
+  Timer? _pulseTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleHide();
+  }
+
+  @override
+  void dispose() {
+    _controlsTimer?.cancel();
+    _pulseTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleHide() {
+    _controlsTimer?.cancel();
+    if (!widget.session.isPlaying) return;
+    _controlsTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _toggleControls() {
+    setState(() => _controlsVisible = !_controlsVisible);
+    if (_controlsVisible) _scheduleHide();
+  }
+
+  void _seek() {
+    final forward = _tapX >= MediaQuery.sizeOf(context).width / 2;
+    unawaited(widget.session.seekBy(forward ? 10 : -10));
+    setState(() {
+      _seekForward = forward;
+      _controlsVisible = true;
+    });
+    _scheduleHide();
+    _pulseTimer?.cancel();
+    _pulseTimer = Timer(const Duration(milliseconds: 850), () {
+      if (mounted) setState(() => _seekForward = null);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.session,
+    builder: (context, _) {
+      final player = widget.session.player;
+      if (player == null) return const ColoredBox(color: AppColors.ink);
+      final total = widget.session.duration.inMilliseconds;
+      final current = widget.session.position.inMilliseconds
+          .clamp(0, total > 0 ? total : 1)
+          .toDouble();
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          NativeVideoPlayer(controller: player),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _toggleControls,
+              onDoubleTapDown: (details) => _tapX = details.localPosition.dx,
+              onDoubleTap: _seek,
+              onVerticalDragEnd: (details) {
+                if ((details.primaryVelocity ?? 0) > 240) widget.onMinimize();
+              },
+            ),
+          ),
+          if (!widget.session.ready)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x9917111F),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryPink,
+                  ),
+                ),
+              ),
+            ),
+          if (_seekForward != null)
+            Align(
+              alignment: _seekForward!
+                  ? Alignment.centerRight
+                  : Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 25),
+                child: Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .68),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _seekForward!
+                            ? Icons.forward_10_rounded
+                            : Icons.replay_10_rounded,
+                        color: Colors.white,
+                        size: 31,
+                      ),
+                      const Text(
+                        '10 giây',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !_controlsVisible,
+              child: AnimatedOpacity(
+                opacity: _controlsVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xB8000000),
+                        Colors.transparent,
+                        Color(0xD9000000),
+                      ],
+                      stops: [0, .48, 1],
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.session.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Thu nhỏ video',
+                            onPressed: widget.onMinimize,
+                            color: Colors.white,
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                          ),
+                          IconButton(
+                            tooltip: 'Chất lượng và tốc độ',
+                            onPressed: widget.onSettings,
+                            color: Colors.white,
+                            icon: const Icon(Icons.settings_rounded, size: 20),
+                          ),
+                          if (widget.showPictureInPicture)
+                            IconButton(
+                              tooltip: 'Phát cửa sổ nổi',
+                              onPressed: widget.onPictureInPicture,
+                              color: Colors.white,
+                              icon: const Icon(
+                                Icons.picture_in_picture_alt_rounded,
+                                size: 19,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const Spacer(),
+                      if (!widget.session.isPlaying)
+                        IconButton.filled(
+                          tooltip: 'Phát video',
+                          onPressed: () {
+                            unawaited(widget.session.togglePlayback());
+                            _scheduleHide();
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black.withValues(
+                              alpha: .58,
+                            ),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(58, 58),
+                          ),
+                          icon: const Icon(Icons.play_arrow_rounded, size: 36),
+                        )
+                      else
+                        IconButton.filled(
+                          tooltip: 'Tạm dừng video',
+                          onPressed: () =>
+                              unawaited(widget.session.togglePlayback()),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black.withValues(
+                              alpha: .58,
+                            ),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(52, 52),
+                          ),
+                          icon: const Icon(Icons.pause_rounded, size: 30),
+                        ),
+                      const Spacer(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 0, 10, 5),
+                        child: Row(
+                          children: [
+                            Text(
+                              _time(widget.session.position),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Expanded(
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 2.5,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 5,
+                                  ),
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 13,
+                                  ),
+                                ),
+                                child: Slider(
+                                  min: 0,
+                                  max: total > 0 ? total.toDouble() : 1,
+                                  value: current,
+                                  activeColor: AppColors.primaryPink,
+                                  inactiveColor: Colors.white38,
+                                  onChanged: total <= 0
+                                      ? null
+                                      : (value) => unawaited(
+                                          widget.session.seekTo(
+                                            Duration(
+                                              milliseconds: value.round(),
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _time(widget.session.duration),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  String _time(Duration value) {
+    final seconds = value.inSeconds;
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final rest = seconds % 60;
+    if (hours > 0)
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${rest.toString().padLeft(2, '0')}';
+    return '$minutes:${rest.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ChannelSummary extends StatefulWidget {
+  const _ChannelSummary({required this.video, required this.auth});
   final VideoDetail video;
+  final AuthController auth;
+
+  @override
+  State<_ChannelSummary> createState() => _ChannelSummaryState();
+}
+
+class _ChannelSummaryState extends State<_ChannelSummary> {
+  late final ChannelService _channels = ChannelService(widget.auth);
+  bool _subscribed = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSubscription();
+  }
+
+  Future<void> _loadSubscription() async {
+    if (!widget.auth.authenticated) return;
+    try {
+      final status = await _channels.getSubscriptionStatus(
+        widget.video.channelId,
+      );
+      if (mounted) setState(() => _subscribed = status?['status'] == 'active');
+    } catch (_) {}
+  }
+
+  Future<void> _toggleSubscription() async {
+    if (!widget.auth.authenticated) {
+      context.go('/auth');
+      return;
+    }
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      if (_subscribed) {
+        await _channels.unsubscribe(widget.video.channelId);
+      } else {
+        await _channels.subscribe(widget.video.channelId);
+      }
+      if (mounted) setState(() => _subscribed = !_subscribed);
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      HuTubeAvatar(label: video.channelName, radius: 22),
+      HuTubeAvatar(label: widget.video.channelName, radius: 22),
       const SizedBox(width: 11),
       Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              video.channelName,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              '@${video.channelHandle}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+        child: InkWell(
+          onTap: () => context.push('/channels/${widget.video.channelHandle}'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.video.channelName,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '@${widget.video.channelHandle}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
       ),
       OutlinedButton(
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Theo dõi kênh sẽ được kết nối khi API sẵn sàng.'),
-          ),
-        ),
+        onPressed: _busy ? null : _toggleSubscription,
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 40),
+          minimumSize: const Size(0, 42),
           padding: const EdgeInsets.symmetric(horizontal: 14),
+          backgroundColor: _subscribed
+              ? AppColors.surfaceAltFor(context)
+              : null,
         ),
-        child: const Text('Theo dõi'),
+        child: Text(
+          _busy ? '…' : (_subscribed ? 'Đang theo dõi' : 'Theo dõi'),
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
     ],
   );
@@ -769,10 +1227,12 @@ class _CommentTile extends StatefulWidget {
     required this.item,
     required this.content,
     required this.signedIn,
+    required this.auth,
   });
   final CommentItem item;
   final ContentService content;
   final bool signedIn;
+  final AuthController auth;
   @override
   State<_CommentTile> createState() => _CommentTileState();
 }
@@ -807,6 +1267,8 @@ class _CommentTileState extends State<_CommentTile> {
           dislikes: asInt(response['dislikes']),
           myReaction: response['myReaction'] as String?,
           replyCount: _item.replyCount,
+          userId: _item.userId,
+          status: _item.status,
         );
       });
     } on ApiFailure {
@@ -875,6 +1337,83 @@ class _CommentTileState extends State<_CommentTile> {
     }
   }
 
+  Future<void> _edit() async {
+    final controller = TextEditingController(text: _item.content);
+    final updatedText = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Chỉnh sửa bình luận'),
+        content: TextField(controller: controller, minLines: 2, maxLines: 5),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: Text(AppStrings.t('common.save')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (updatedText == null || updatedText.trim().isEmpty) return;
+    try {
+      final updated = await widget.content.updateComment(_item.id, updatedText);
+      if (mounted) setState(() => _item = updated);
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xóa bình luận?'),
+        content: const Text('Bạn có thể đăng bình luận mới sau khi xóa.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(AppStrings.t('common.delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.content.deleteComment(_item.id);
+      if (mounted)
+        setState(
+          () => _item = CommentItem(
+            id: _item.id,
+            videoId: _item.videoId,
+            displayName: _item.displayName,
+            content: 'Bình luận đã bị xóa.',
+            createdAt: _item.createdAt,
+            likes: _item.likes,
+            dislikes: _item.dislikes,
+            myReaction: null,
+            replyCount: 0,
+            userId: _item.userId,
+            status: 'deleted',
+          ),
+        );
+    } on ApiFailure catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 12),
@@ -914,6 +1453,32 @@ class _CommentTileState extends State<_CommentTile> {
                         onPressed: _reply,
                         child: Text(AppStrings.t('common.reply')),
                       ),
+                      if (_item.userId == widget.auth.user?['userId'])
+                        PopupMenuButton<String>(
+                          tooltip: 'Tùy chọn bình luận',
+                          onSelected: (choice) {
+                            if (choice == 'edit') _edit();
+                            if (choice == 'delete') _delete();
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Chỉnh sửa'),
+                            ),
+                            PopupMenuItem(value: 'delete', child: Text('Xóa')),
+                          ],
+                        )
+                      else if (widget.signedIn && _item.status != 'deleted')
+                        IconButton(
+                          tooltip: 'Báo cáo bình luận',
+                          onPressed: () => showContentReportDialog(
+                            context,
+                            auth: widget.auth,
+                            targetType: 'comment',
+                            targetId: _item.id,
+                          ),
+                          icon: const Icon(Icons.flag_outlined, size: 18),
+                        ),
                     ],
                   ),
                 ],

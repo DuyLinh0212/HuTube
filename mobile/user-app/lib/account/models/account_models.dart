@@ -104,15 +104,27 @@ class NotificationSettingModel {
   factory NotificationSettingModel.fromJson(Map<String, dynamic> json) {
     return NotificationSettingModel(
       inAppEnabled: json['inAppEnabled'] as bool? ?? true,
-      emailEnabled: json['emailEnabled'] as bool? ?? json['notifyMarketing'] as bool? ?? false,
-      newVideoEnabled: json['newVideoEnabled'] as bool? ?? json['notifyNewVideos'] as bool? ?? true,
-      commentReplyEnabled: json['commentReplyEnabled'] as bool? ?? json['notifyComments'] as bool? ?? true,
+      emailEnabled:
+          json['emailEnabled'] as bool? ??
+          json['notifyMarketing'] as bool? ??
+          false,
+      newVideoEnabled:
+          json['newVideoEnabled'] as bool? ??
+          json['notifyNewVideos'] as bool? ??
+          true,
+      commentReplyEnabled:
+          json['commentReplyEnabled'] as bool? ??
+          json['notifyComments'] as bool? ??
+          true,
       reportResultEnabled: json['reportResultEnabled'] as bool? ?? true,
       moderationEnabled: json['moderationEnabled'] as bool? ?? true,
       planEnabled: json['planEnabled'] as bool? ?? true,
       recommendationEnabled: json['recommendationEnabled'] as bool? ?? true,
       mentionEnabled: json['mentionEnabled'] as bool? ?? true,
-      channelActivityEnabled: json['channelActivityEnabled'] as bool? ?? json['notifySubscriptions'] as bool? ?? true,
+      channelActivityEnabled:
+          json['channelActivityEnabled'] as bool? ??
+          json['notifySubscriptions'] as bool? ??
+          true,
       paymentEnabled: json['paymentEnabled'] as bool? ?? true,
     );
   }
@@ -151,14 +163,20 @@ class NotificationSettingModel {
     return NotificationSettingModel(
       inAppEnabled: inAppEnabled ?? this.inAppEnabled,
       emailEnabled: emailEnabled ?? notifyMarketing ?? this.emailEnabled,
-      newVideoEnabled: newVideoEnabled ?? notifyNewVideos ?? this.newVideoEnabled,
-      commentReplyEnabled: commentReplyEnabled ?? notifyComments ?? this.commentReplyEnabled,
+      newVideoEnabled:
+          newVideoEnabled ?? notifyNewVideos ?? this.newVideoEnabled,
+      commentReplyEnabled:
+          commentReplyEnabled ?? notifyComments ?? this.commentReplyEnabled,
       reportResultEnabled: reportResultEnabled ?? this.reportResultEnabled,
       moderationEnabled: moderationEnabled ?? this.moderationEnabled,
       planEnabled: planEnabled ?? this.planEnabled,
-      recommendationEnabled: recommendationEnabled ?? this.recommendationEnabled,
+      recommendationEnabled:
+          recommendationEnabled ?? this.recommendationEnabled,
       mentionEnabled: mentionEnabled ?? this.mentionEnabled,
-      channelActivityEnabled: channelActivityEnabled ?? notifySubscriptions ?? this.channelActivityEnabled,
+      channelActivityEnabled:
+          channelActivityEnabled ??
+          notifySubscriptions ??
+          this.channelActivityEnabled,
       paymentEnabled: paymentEnabled ?? this.paymentEnabled,
     );
   }
@@ -171,6 +189,7 @@ class UserPreferencesModel {
     this.autoplayNext = true,
     this.keepSubscriptionsPrivate = false,
     this.keepPlaylistsPrivate = true,
+    this.location,
   });
 
   final String theme;
@@ -178,6 +197,7 @@ class UserPreferencesModel {
   final bool autoplayNext;
   final bool keepSubscriptionsPrivate;
   final bool keepPlaylistsPrivate;
+  final String? location;
 
   factory UserPreferencesModel.fromJson(Map<String, dynamic> json) {
     return UserPreferencesModel(
@@ -188,6 +208,7 @@ class UserPreferencesModel {
       keepSubscriptionsPrivate:
           json['keepSubscriptionsPrivate'] as bool? ?? false,
       keepPlaylistsPrivate: json['keepPlaylistsPrivate'] as bool? ?? true,
+      location: json['location'] as String?,
     );
   }
 
@@ -197,6 +218,7 @@ class UserPreferencesModel {
     'autoplayNext': autoplayNext,
     'keepSubscriptionsPrivate': keepSubscriptionsPrivate,
     'keepPlaylistsPrivate': keepPlaylistsPrivate,
+    'location': location,
   };
 
   UserPreferencesModel copyWith({
@@ -205,6 +227,7 @@ class UserPreferencesModel {
     bool? autoplayNext,
     bool? keepSubscriptionsPrivate,
     bool? keepPlaylistsPrivate,
+    String? location,
   }) {
     return UserPreferencesModel(
       theme: theme ?? this.theme,
@@ -214,6 +237,7 @@ class UserPreferencesModel {
       keepSubscriptionsPrivate:
           keepSubscriptionsPrivate ?? this.keepSubscriptionsPrivate,
       keepPlaylistsPrivate: keepPlaylistsPrivate ?? this.keepPlaylistsPrivate,
+      location: location ?? this.location,
     );
   }
 }

@@ -7,10 +7,16 @@ import '../../core/widgets/hutube_widgets.dart';
 import 'content_models.dart';
 
 class VideoCardTile extends StatelessWidget {
-  const VideoCardTile({super.key, required this.video, this.progress});
+  const VideoCardTile({
+    super.key,
+    required this.video,
+    this.progress,
+    this.replaceRoute = false,
+  });
 
   final VideoCard video;
   final double? progress;
+  final bool replaceRoute;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -18,7 +24,9 @@ class VideoCardTile extends StatelessWidget {
     label: AppStrings.format('feed.openVideo', {'title': video.title}),
     child: InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: () => context.push('/watch/${video.id}'),
+      onTap: () => replaceRoute
+          ? context.go('/watch/${video.id}')
+          : context.push('/watch/${video.id}'),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Column(

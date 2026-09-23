@@ -13,7 +13,10 @@ import '../features/ai/hu_ai_screen.dart';
 import '../features/content/feed_screen.dart';
 import '../features/content/downloads_screen.dart';
 import '../features/content/library_screen.dart';
+import '../features/content/playback_session.dart';
 import '../features/content/watch_screen.dart';
+import '../features/moderation/moderation_screen.dart';
+import '../channel/screens/channel_screen.dart';
 import '../features/creator/creator_hub_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/playlists/playlists_screen.dart';
@@ -35,17 +38,21 @@ class HuTubeApp extends StatefulWidget {
 
 class _HuTubeAppState extends State<HuTubeApp> {
   late final GoRouter _router;
+  final PlaybackSession _playback = PlaybackSession();
   StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
     super.initState();
-    _router = _buildRouter(widget.auth);
+    _router = _buildRouter(widget.auth, _playback);
     _linkSubscription = widget.links?.listen(_openDeepLink);
     unawaited(widget.auth.restore());
   }
 
-  GoRouter _buildRouter(AuthController auth) => GoRouter(
+  GoRouter _buildRouter(
+    AuthController auth,
+    PlaybackSession playback,
+  ) => GoRouter(
     initialLocation: '/splash',
     refreshListenable: auth,
     redirect: (context, state) {
@@ -67,10 +74,12 @@ class _HuTubeAppState extends State<HuTubeApp> {
         '/notifications',
         '/creator',
         '/downloads',
+        '/subscriptions',
+        '/moderation',
       };
-      final needsAuth = protected.any(
-        (item) => path == item || path.startsWith('$item/'),
-      );
+      final needsAuth =
+          path == '/playlists' ||
+          protected.any((item) => path == item || path.startsWith('$item/'));
       return !auth.authenticated && needsAuth ? '/auth' : null;
     },
     routes: [
@@ -84,8 +93,12 @@ class _HuTubeAppState extends State<HuTubeApp> {
         ),
       ),
       ShellRoute(
-        builder: (context, state, child) =>
-            MobileScaffold(auth: auth, location: state.uri.path, child: child),
+        builder: (context, state, child) => MobileScaffold(
+          auth: auth,
+          playback: playback,
+          location: state.uri.path,
+          child: child,
+        ),
         routes: [
           GoRoute(
             path: '/home',
@@ -103,15 +116,37 @@ class _HuTubeAppState extends State<HuTubeApp> {
             path: '/huai',
             builder: (_, _) => HuAiScreen(auth: auth),
           ),
-          GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
+          GoRoute(
+            path: '/search',
+            builder: (_, _) => SearchScreen(auth: auth),
+          ),
           GoRoute(
             path: '/playlists',
             builder: (_, _) => PlaylistsScreen(auth: auth),
           ),
           GoRoute(
+            path: '/playlists/:playlistId',
+            builder: (_, state) => PlaylistsScreen(
+              auth: auth,
+              playlistId: state.pathParameters['playlistId'],
+            ),
+          ),
+          GoRoute(
+            path: '/channels/:handle',
+            builder: (_, state) => ChannelScreen(
+              auth: auth,
+              channelOrHandle: state.pathParameters['handle']!,
+            ),
+          ),
+          GoRoute(
+            path: '/moderation',
+            builder: (_, _) => ModerationScreen(auth: auth),
+          ),
+          GoRoute(
             path: '/watch/:videoId',
             builder: (_, state) => WatchScreen(
               auth: auth,
+              playback: playback,
               videoId: state.pathParameters['videoId']!,
             ),
           ),
@@ -137,7 +172,11 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/plans',
-            builder: (_, _) => MobilePlansScreen(auth: auth),
+            builder: (_, state) => MobilePlansScreen(
+              auth: auth,
+              invitationId: state.uri.queryParameters['invitationId'],
+              invitationToken: state.uri.queryParameters['invitationToken'],
+            ),
           ),
           GoRoute(
             path: '/policies',
@@ -166,6 +205,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
     final segment = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
     final target = switch ((uri.host, segment)) {
       ('watch', final id?) => '/watch/${Uri.encodeComponent(id)}',
+      ('plans', final memberId?) when uri.queryParameters['token'] != null =>
+        '/plans?invitationId=${Uri.encodeQueryComponent(memberId)}&invitationToken=${Uri.encodeQueryComponent(uri.queryParameters['token']!)}',
       ('plans', _) => '/plans',
       ('notifications', _) => '/notifications',
       ('huai', _) => '/huai',
@@ -181,6 +222,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
   void dispose() {
     _linkSubscription?.cancel();
     _router.dispose();
+    _playback.dispose();
     super.dispose();
   }
 

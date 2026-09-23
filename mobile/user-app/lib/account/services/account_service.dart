@@ -1,5 +1,7 @@
 import '../../auth.dart';
+import '../../core/network/api_client.dart';
 import '../models/account_models.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AccountService {
   AccountService(this.auth);
@@ -16,19 +18,59 @@ class AccountService {
     String? country,
   }) async {
     final res = await auth.protected(
-      'PUT',
+      'PATCH',
       '/account/profile',
-      body: {
-        'displayName': displayName.trim(),
-        'bio': bio?.trim(),
-        'country': country?.trim(),
-      },
+      body: {'displayName': displayName.trim(), 'bio': bio?.trim()},
     );
+    if (country != null && country.trim().isNotEmpty) {
+      final preferences = await getPreferences();
+      await updatePreferences(preferences.copyWith(location: country.trim()));
+    }
     // Update local user if displayName changed
     if (auth.user != null) {
       auth.user!['displayName'] = res['displayName'];
     }
     return UserProfile.fromJson(res);
+  }
+
+  Future<UserProfile> uploadAvatar(XFile image) async {
+    final mime = image.mimeType ?? _imageMime(image.name);
+    const allowed = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'};
+    if (!allowed.contains(mime)) {
+      throw const ApiFailure(
+        400,
+        'INVALID_FILE_TYPE',
+        'Chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.',
+      );
+    }
+    final bytes = await image.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) {
+      throw const ApiFailure(
+        400,
+        'FILE_TOO_LARGE',
+        'Kích thước ảnh tối đa là 5MB.',
+      );
+    }
+    final response = await auth.protectedUpload(
+      '/account/avatar',
+      UploadPayload(
+        bytes: bytes,
+        fileName: image.name.trim().isEmpty ? 'avatar.jpg' : image.name,
+        contentType: mime,
+      ),
+    );
+    final profile = UserProfile.fromJson(response);
+    if (auth.user != null) auth.user!['avatarUrl'] = profile.avatarUrl;
+    return profile;
+  }
+
+  String _imageMime(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'application/octet-stream';
   }
 
   Future<void> changePassword({
@@ -39,11 +81,7 @@ class AccountService {
     await auth.protected(
       'POST',
       '/account/change-password',
-      body: {
-        'currentPassword': currentPassword,
-        'newPassword': newPassword,
-        'confirmPassword': confirmPassword,
-      },
+      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
     );
   }
 

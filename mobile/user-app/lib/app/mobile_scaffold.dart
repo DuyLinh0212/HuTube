@@ -6,16 +6,20 @@ import '../core/localization/app_strings.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_logo.dart';
 import '../core/widgets/hutube_widgets.dart';
+import '../features/content/mini_player.dart';
+import '../features/content/playback_session.dart';
 
 class MobileScaffold extends StatelessWidget {
   const MobileScaffold({
     super.key,
     required this.auth,
+    required this.playback,
     required this.location,
     required this.child,
   });
 
   final AuthController auth;
+  final PlaybackSession playback;
   final String location;
   final Widget child;
 
@@ -81,8 +85,11 @@ class MobileScaffold extends StatelessWidget {
                 icon: Icons.playlist_add_rounded,
                 color: AppColors.violet,
                 title: 'Tạo playlist',
-                description: 'Tính năng playlist sẽ sớm khả dụng.',
-                onTap: () => Navigator.pop(sheetContext),
+                description: 'Gom video vào bộ sưu tập riêng của bạn.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.go('/playlists');
+                },
               ),
               _CreateAction(
                 icon: Icons.storefront_outlined,
@@ -159,7 +166,16 @@ class MobileScaffold extends StatelessWidget {
         ],
       ),
       drawer: _Drawer(auth: auth),
-      body: SafeArea(top: false, child: child),
+      body: SafeArea(
+        top: false,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            child,
+            MiniPlayer(session: playback),
+          ],
+        ),
+      ),
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
@@ -285,6 +301,7 @@ class _Drawer extends StatelessWidget {
             Icons.playlist_play_outlined,
             'Playlist',
             '/playlists',
+            protected: true,
           ),
           _SectionLabel(AppStrings.t('app.librarySection')),
           _item(
@@ -313,6 +330,13 @@ class _Drawer extends StatelessWidget {
             Icons.gavel_outlined,
             AppStrings.t('policies.title'),
             '/policies',
+          ),
+          _item(
+            context,
+            Icons.report_gmailerrorred_outlined,
+            'Báo cáo & kháng nghị',
+            '/moderation',
+            protected: true,
           ),
           if (auth.authenticated) ...[
             _item(

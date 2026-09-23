@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../features/content/content_models.dart';
+import '../../features/content/content_service.dart';
+import '../../features/content/video_card.dart';
+import '../../features/moderation/report_dialog.dart';
+import '../../features/playlists/playlist_service.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
 import 'channel_settings_screen.dart';
@@ -33,6 +40,8 @@ class _ChannelScreenState extends State<ChannelScreen>
   bool _subscriptionBusy = false;
   int _subscriberCount = 0;
   bool _showFullDesc = false;
+  List<VideoCard> _videos = const [];
+  List<PlaylistSummary> _playlists = const [];
 
   @override
   void initState() {
@@ -58,13 +67,29 @@ class _ChannelScreenState extends State<ChannelScreen>
       final detail = await _channelService.getChannel(widget.channelOrHandle);
       var subscribed = detail.isSubscribed;
       var notificationsEnabled = false;
-      final status = await _channelService.getSubscriptionStatus(detail.id);
-      if (status != null) {
-        subscribed = status['status'] == 'active';
-        notificationsEnabled = subscribed && status['notificationsEnabled'] == true;
+      if (widget.auth.authenticated && !detail.isOwner) {
+        final status = await _channelService.getSubscriptionStatus(detail.id);
+        if (status != null) {
+          subscribed = status['status'] == 'active';
+          notificationsEnabled =
+              subscribed && status['notificationsEnabled'] == true;
+        }
       }
+      final results = await Future.wait([
+        ContentService(widget.auth).searchVideos(
+          query: '',
+          channelId: detail.id,
+          pageSize: 30,
+          sort: 'newest',
+        ),
+        detail.isOwner
+            ? PlaylistService(widget.auth).channelMine(detail.id)
+            : PlaylistService(widget.auth).publicByChannel(detail.id),
+      ]);
       if (mounted) {
         setState(() {
+          _videos = (results[0] as PageResult<VideoCard>).items;
+          _playlists = results[1] as List<PlaylistSummary>;
           _channel = detail;
           _isSubscribed = subscribed;
           _notificationsEnabled = notificationsEnabled;
@@ -91,6 +116,10 @@ class _ChannelScreenState extends State<ChannelScreen>
 
   Future<void> _toggleSubscribe() async {
     if (_subscriptionBusy || _channel == null) return;
+    if (!widget.auth.authenticated) {
+      context.go('/auth');
+      return;
+    }
     setState(() => _subscriptionBusy = true);
     try {
       if (_isSubscribed) {
@@ -113,30 +142,64 @@ class _ChannelScreenState extends State<ChannelScreen>
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_isSubscribed ? AppStrings.t('channel.subscribedToast') : AppStrings.t('channel.unsubscribedToast')),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isSubscribed
+                  ? AppStrings.t('channel.subscribedToast')
+                  : AppStrings.t('channel.unsubscribedToast'),
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } on ApiFailure catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error, fallback: 'common.serverError'))));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.apiError(error, fallback: 'common.serverError'),
+            ),
+          ),
+        );
     } finally {
       if (mounted) setState(() => _subscriptionBusy = false);
     }
   }
 
   Future<void> _toggleNotifications() async {
+    if (!widget.auth.authenticated) {
+      context.go('/auth');
+      return;
+    }
     if (_channel == null || !_isSubscribed || _subscriptionBusy) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hãy đăng ký kênh trước khi bật thông báo.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hãy đăng ký kênh trước khi bật thông báo.'),
+        ),
+      );
       return;
     }
     setState(() => _subscriptionBusy = true);
     try {
-      final result = await _channelService.updateSubscriptionNotifications(_channel!.id, !_notificationsEnabled);
-      if (mounted) setState(() => _notificationsEnabled = result['notificationsEnabled'] == true);
+      final result = await _channelService.updateSubscriptionNotifications(
+        _channel!.id,
+        !_notificationsEnabled,
+      );
+      if (mounted)
+        setState(
+          () => _notificationsEnabled = result['notificationsEnabled'] == true,
+        );
     } on ApiFailure catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error, fallback: 'common.serverError'))));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.apiError(error, fallback: 'common.serverError'),
+            ),
+          ),
+        );
     } finally {
       if (mounted) setState(() => _subscriptionBusy = false);
     }
@@ -190,17 +253,25 @@ class _ChannelScreenState extends State<ChannelScreen>
       appBar: AppBar(
         title: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+          if (!c.isOwner)
+            IconButton(
+              tooltip: 'Báo cáo kênh',
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: () => showContentReportDialog(
+                context,
+                auth: widget.auth,
+                targetType: 'channel',
+                targetId: c.id,
+              ),
+            ),
+          IconButton(
+            tooltip: AppStrings.t('common.search'),
+            icon: const Icon(Icons.search),
+            onPressed: () => context.push('/search'),
+          ),
           IconButton(
             icon: const Icon(Icons.share_outlined),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(AppStrings.t('channel.copied')),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
+            onPressed: () => Share.share('HuTube · ${c.name}\n@${c.handle}'),
           ),
         ],
       ),
@@ -388,7 +459,9 @@ class _ChannelScreenState extends State<ChannelScreen>
                                       : Colors.white,
                                   elevation: 0,
                                 ),
-                                onPressed: _subscriptionBusy ? null : _toggleSubscribe,
+                                onPressed: _subscriptionBusy
+                                    ? null
+                                    : _toggleSubscribe,
                                 child: Text(
                                   _isSubscribed
                                       ? '${AppStrings.t('channel.subscribed')} ✓'
@@ -399,7 +472,14 @@ class _ChannelScreenState extends State<ChannelScreen>
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
                               onPressed: _toggleNotifications,
-                              icon: Icon(_notificationsEnabled ? Icons.notifications_active_rounded : Icons.notifications_none_rounded),
+                              tooltip: _notificationsEnabled
+                                  ? 'Tắt thông báo'
+                                  : 'Bật thông báo',
+                              icon: Icon(
+                                _notificationsEnabled
+                                    ? Icons.notifications_active_rounded
+                                    : Icons.notifications_none_rounded,
+                              ),
                               style: IconButton.styleFrom(
                                 backgroundColor: Theme.of(
                                   context,
@@ -454,14 +534,13 @@ class _ChannelScreenState extends State<ChannelScreen>
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
-        _videoCard(
-          title: AppStrings.format('channel.welcomeVideo', {'name': c.name}),
-          views: AppStrings.format('channel.viewCount', {
-            'count': AppStrings.number(c.viewCount),
-          }),
-          duration: '04:15',
-          date: AppStrings.t('channel.recent'),
-        ),
+        if (_videos.isEmpty)
+          Text(
+            'Kênh chưa có video công khai.',
+            style: TextStyle(color: AppColors.textSecondaryFor(context)),
+          )
+        else
+          for (final video in _videos.take(5)) VideoCardTile(video: video),
       ],
     );
   }
@@ -469,25 +548,42 @@ class _ChannelScreenState extends State<ChannelScreen>
   Widget _videosTab(ChannelDetail c) {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: [
-        _videoCard(
-          title: AppStrings.format('channel.introVideo', {'name': c.name}),
-          views: AppStrings.format('channel.viewCount', {'count': '1.2K'}),
-          duration: '10:45',
-          date: AppStrings.format('channel.daysAgo', {'count': '3'}),
-        ),
-        const SizedBox(height: 16),
-        _videoCard(
-          title: AppStrings.t('channel.tutorialVideo'),
-          views: AppStrings.format('channel.viewCount', {'count': '5.8K'}),
-          duration: '15:20',
-          date: AppStrings.t('channel.weekAgo'),
-        ),
-      ],
+      children: _videos.isEmpty
+          ? [
+              Text(
+                'Kênh chưa có video công khai.',
+                style: TextStyle(color: AppColors.textSecondaryFor(context)),
+              ),
+            ]
+          : [for (final video in _videos) VideoCardTile(video: video)],
     );
   }
 
   Widget _playlistsTab() {
+    if (_playlists.isNotEmpty) {
+      return ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _playlists.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final playlist = _playlists[index];
+          return Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.playlist_play_rounded,
+                color: AppColors.primary,
+              ),
+              title: Text(
+                playlist.name,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text('${playlist.itemCount} video'),
+              onTap: () => context.push('/playlists/${playlist.id}'),
+            ),
+          );
+        },
+      );
+    }
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

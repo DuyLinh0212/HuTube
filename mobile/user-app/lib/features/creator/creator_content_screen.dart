@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
@@ -92,6 +93,94 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       await _service.submitModeration(item.id);
       await _load();
       if (mounted) _show(AppStrings.t('creator.submitted'));
+    } on ApiFailure catch (error) {
+      if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
+    }
+  }
+
+  Future<void> _publish(VideoDetail item) async {
+    try {
+      await _service.publish(item.id);
+      await _load();
+      if (mounted) _show('Video đã được xuất bản.');
+    } on ApiFailure catch (error) {
+      if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
+    }
+  }
+
+  Future<void> _retryProcessing(VideoDetail item) async {
+    try {
+      await _service.retryProcessing(item.id);
+      await _load();
+      if (mounted) _show('Đã gửi yêu cầu xử lý lại video.');
+    } on ApiFailure catch (error) {
+      if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
+    }
+  }
+
+  Future<void> _cancelUpload(VideoDetail item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hủy tải video?'),
+        content: Text('Bạn muốn hủy lượt tải “${item.title}”?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hủy tải'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _service.cancelUpload(item.id);
+      await _load();
+    } on ApiFailure catch (error) {
+      if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
+    }
+  }
+
+  Future<void> _updateThumbnail(VideoDetail item) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            const ListTile(title: Text('Ảnh thu nhỏ video')),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Chọn ảnh từ thư viện'),
+              onTap: () => Navigator.pop(context, 'pick'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.auto_awesome_outlined),
+              title: const Text('Tạo ảnh từ video'),
+              onTap: () => Navigator.pop(context, 'generate'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) return;
+    try {
+      if (choice == 'generate') {
+        await _service.updateThumbnail(item.id, generate: true);
+      } else {
+        final image = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 90,
+          maxWidth: 1920,
+        );
+        if (image == null) return;
+        await _service.updateThumbnail(item.id, image: image);
+      }
+      await _load();
+      if (mounted) _show('Đã cập nhật ảnh thu nhỏ.');
     } on ApiFailure catch (error) {
       if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
     }
@@ -230,14 +319,46 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                         : _statusLabel(video.moderationStatus),
                                   ),
                                   const Spacer(),
-                                  if (video.visibility == 'public' &&
-                                      video.moderationStatus.toLowerCase() !=
-                                          'approved')
+                                  if (video.moderationStatus.toLowerCase() !=
+                                          'approved' &&
+                                      !video.processingStatus
+                                          .toLowerCase()
+                                          .contains('upload'))
                                     TextButton(
                                       onPressed: () => _submit(video),
                                       child: Text(
                                         AppStrings.t('creator.submitReview'),
                                       ),
+                                    ),
+                                  IconButton(
+                                    tooltip: 'Ảnh thu nhỏ',
+                                    onPressed: () => _updateThumbnail(video),
+                                    icon: const Icon(Icons.image_outlined),
+                                  ),
+                                  if (video.moderationStatus.toLowerCase() ==
+                                          'approved' &&
+                                      video.visibility.toLowerCase() !=
+                                          'public')
+                                    IconButton(
+                                      tooltip: 'Xuất bản video',
+                                      onPressed: () => _publish(video),
+                                      icon: const Icon(Icons.publish_rounded),
+                                    ),
+                                  if (video.processingStatus
+                                      .toLowerCase()
+                                      .contains('fail'))
+                                    IconButton(
+                                      tooltip: 'Xử lý lại video',
+                                      onPressed: () => _retryProcessing(video),
+                                      icon: const Icon(Icons.refresh_rounded),
+                                    ),
+                                  if (video.processingStatus
+                                      .toLowerCase()
+                                      .contains('upload'))
+                                    IconButton(
+                                      tooltip: 'Hủy tải',
+                                      onPressed: () => _cancelUpload(video),
+                                      icon: const Icon(Icons.cancel_outlined),
                                     ),
                                   IconButton(
                                     tooltip: AppStrings.t('creator.editVideo'),

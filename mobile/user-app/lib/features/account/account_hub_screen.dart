@@ -14,6 +14,8 @@ import '../../core/localization/app_strings.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../../account/models/account_models.dart';
 import '../../account/services/account_service.dart';
+import '../../account/state/account_controller.dart';
+import '../../account/screens/profile_screen.dart';
 
 class AccountHubScreen extends StatefulWidget {
   const AccountHubScreen({super.key, required this.auth});
@@ -65,6 +67,36 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         SnackBar(content: Text(AppStrings.t('account.profileLoadError'))),
       );
     }
+  }
+
+  Future<void> _openSessions() async {
+    final controller = AccountController(AccountService(widget.auth));
+    await controller.loadSessions();
+    if (!mounted) return;
+    await _open(
+      ProfileScreen(
+        auth: widget.auth,
+        sessions: controller.sessions,
+        sessionsLoading: controller.loadingSessions,
+        onRefreshSessions: controller.loadSessions,
+        onRevokeSession: (id) async {
+          await controller.revokeSession(id);
+        },
+        onLogoutOthers: () async {
+          await controller.revokeOtherSessions();
+        },
+        onLogoutAll: () async {
+          await AccountService(widget.auth).revokeAllSessions();
+          await widget.auth.logout();
+          if (mounted) context.go('/auth');
+        },
+        onLogout: () async {
+          await widget.auth.logout();
+          if (mounted) context.go('/auth');
+        },
+      ),
+    );
+    controller.dispose();
   }
 
   @override
@@ -170,6 +202,12 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
           icon: Icons.lock_outline,
           title: AppStrings.t('account.passwordSecurity'),
           onTap: () => _open(ChangePasswordScreen(auth: widget.auth)),
+        ),
+        _Tile(
+          icon: Icons.devices_outlined,
+          title: 'Phiên đăng nhập & thiết bị',
+          subtitle: 'Xem và đăng xuất thiết bị đang dùng tài khoản.',
+          onTap: _openSessions,
         ),
         _Tile(
           icon: Icons.tune_rounded,

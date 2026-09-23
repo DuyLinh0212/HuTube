@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
@@ -24,6 +25,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _displayNameController;
   late final TextEditingController _bioController;
   late String _country;
+  late String? _avatarUrl;
   late final AccountService _accountService;
 
   bool _busy = false;
@@ -49,6 +51,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bioController = TextEditingController(text: widget.profile.bio ?? '');
     _bioLength = _bioController.text.length;
     _country = widget.profile.country ?? 'Việt Nam';
+    _avatarUrl = widget.profile.avatarUrl;
     if (!_countries.contains(_country)) {
       _countries.add(_country);
     }
@@ -104,6 +107,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  Future<void> _pickAvatar() async {
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+      maxWidth: 1200,
+    );
+    if (image == null || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final profile = await _accountService.uploadAvatar(image);
+      if (mounted) setState(() => _avatarUrl = profile.avatarUrl);
+    } on ApiFailure catch (error) {
+      if (mounted) setState(() => _error = AppStrings.apiError(error));
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.t('common.error'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,10 +158,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   backgroundColor: AppColors.primaryPink.withValues(
                     alpha: 0.15,
                   ),
-                  backgroundImage: widget.profile.avatarUrl != null
-                      ? NetworkImage(widget.profile.avatarUrl!)
+                  backgroundImage: _avatarUrl != null
+                      ? NetworkImage(_avatarUrl!)
                       : null,
-                  child: widget.profile.avatarUrl == null
+                  child: _avatarUrl == null
                       ? Text(
                           (widget.profile.displayName.isNotEmpty
                                   ? widget.profile.displayName[0]
@@ -148,6 +174,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                         )
                       : null,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  onPressed: _busy ? null : _pickAvatar,
+                  icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                  label: const Text('Đổi ảnh đại diện'),
                 ),
               ),
               const SizedBox(height: 8),

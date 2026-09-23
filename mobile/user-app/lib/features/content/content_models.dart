@@ -140,6 +140,7 @@ class VideoDetail extends VideoCard {
     required this.stats,
     required this.viewerState,
     required this.moderationStatus,
+    this.processingStatus = '',
   });
 
   final String? description;
@@ -149,6 +150,7 @@ class VideoDetail extends VideoCard {
   final VideoStats stats;
   final ViewerState viewerState;
   final String moderationStatus;
+  final String processingStatus;
 
   factory VideoDetail.fromJson(Map<String, dynamic> json) => VideoDetail(
     id: '${json['videoId'] ?? ''}',
@@ -177,6 +179,7 @@ class VideoDetail extends VideoCard {
           : null,
     ),
     moderationStatus: '${json['moderationStatus'] ?? ''}',
+    processingStatus: '${json['status'] ?? ''}',
   );
 }
 
@@ -228,6 +231,8 @@ class CommentItem {
     required this.dislikes,
     required this.myReaction,
     required this.replyCount,
+    this.userId,
+    this.status,
   });
 
   final String id;
@@ -239,6 +244,8 @@ class CommentItem {
   final int dislikes;
   final String? myReaction;
   final int replyCount;
+  final String? userId;
+  final String? status;
 
   factory CommentItem.fromJson(Map<String, dynamic> json) => CommentItem(
     id: '${json['commentId'] ?? ''}',
@@ -250,6 +257,8 @@ class CommentItem {
     dislikes: asInt(json['dislikes']),
     myReaction: json['myReaction'] as String?,
     replyCount: asInt(json['replyCount']),
+    userId: json['userId'] as String?,
+    status: json['status'] as String?,
   );
 }
 
