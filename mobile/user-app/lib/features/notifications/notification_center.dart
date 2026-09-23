@@ -135,8 +135,9 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _connectHub() async {
-    if (_disposed || !_foreground || !auth.authenticated || _hub != null)
+    if (_disposed || !_foreground || !auth.authenticated || _hub != null) {
       return;
+    }
     final hubUrl =
         '${auth.api.baseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '')}/hubs/notifications';
     final connection = HubConnectionBuilder()
