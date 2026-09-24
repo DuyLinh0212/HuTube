@@ -28,6 +28,10 @@
 .summary-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:6px; color:var(--pipeline); background:var(--surface); font-size:.7rem; }
 .permission-state { text-align:right; color:var(--success); }
 .permission-state.warning { color:#b56b00; }
+.quality-inventory { margin-top:10px; padding:10px 11px; border:1px solid var(--line); border-radius:7px; background:var(--surface); }
+.quality-inventory>strong { display:block; margin-bottom:7px; color:var(--ink); font-size:.69rem; }
+.quality-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.quality-chips span { padding:4px 7px; border-radius:999px; color:var(--pipeline); background:var(--pipeline-soft); font-size:.62rem; font-weight:750; }
 .inline-warning { margin:7px 0 0; color:#a96500; font-size:.68rem; }
 .account-mode-block { margin-top:16px; }
 .mode-switch { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:4px; border:1px solid var(--line); border-radius:9px; background:var(--card-hover); }

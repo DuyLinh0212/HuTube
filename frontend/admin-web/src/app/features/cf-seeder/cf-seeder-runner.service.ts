@@ -2,10 +2,11 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { errorMessage } from '../../core/auth.service';
-import { CfSeederApiService, UploadCfSeedVideoRequest } from './cf-seeder-api.service';
+import { CfSeederApiService, UploadCfSeedRenditionRequest, UploadCfSeedVideoRequest } from './cf-seeder-api.service';
 import {
   CfSeedAccountInput,
   CfSeedFileEntry,
+  CfSeedRenditionFile,
   CfSeedFolderSelection,
   CfSeedMetrics,
   CfSeedRunConfig,
@@ -18,14 +19,15 @@ import {
   EMPTY_CF_SEED_METRICS,
 } from './cf-seeder.models';
 
-const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'mkv']);
+const VIDEO_EXTENSIONS = new Set(['mp4']);
 const HISTORY_KEY = 'hutube.cf-seeder.history.v1';
 const MAX_HISTORY = 8;
 const MAX_VISIBLE_LOGS = 400;
 const DEFAULT_CHUNK_SIZE = 24 * 1024 * 1024;
-const QUALITY_HEIGHTS = [360, 480, 720, 1080, 1440, 2160];
+const QUALITY_HEIGHTS = [144, 240, 360, 480, 720, 1080, 1440, 2160];
 
-type CfSeedVideoMetadata = { duration: number; height: number };
+type CfSeedVideoMetadata = { duration: number; width: number; height: number };
+type ScannedFile = { file: File; relativePath: string };
 
 @Injectable({ providedIn: 'root' })
 export class CfSeederRunnerService {
@@ -33,8 +35,6 @@ export class CfSeederRunnerService {
   private cancelRequested = false;
   private startedAtMs = 0;
   private elapsedTimer?: number;
-  private qualityScanToken = 0;
-  private readonly metadataCache = new WeakMap<File, CfSeedVideoMetadata>();
 
   readonly folder = signal<CfSeedFolderSelection | null>(null);
   readonly qualityScan = signal<CfSeedQualityScan>({ ...EMPTY_CF_SEED_QUALITY_SCAN });
@@ -64,49 +64,62 @@ export class CfSeederRunnerService {
     const picker = (window as Window & {
       showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
     }).showDirectoryPicker;
-    if (!picker) throw new Error('Trình duyệt không hỗ trợ chọn thư mục có quyền xóa file.');
-    const directory = await picker({ mode: 'readwrite' });
-    const entries: CfSeedFileEntry[] = [];
+    if (!picker) throw new Error('Trình duyệt không hỗ trợ chọn thư mục.');
+    const directory = await picker({ mode: 'read' });
+    const scanned: ScannedFile[] = [];
     let ignoredFileCount = 0;
-    let totalBytes = 0;
-    for await (const [name, handle] of directory.entries()) {
-      if (handle.kind !== 'file') {
-        ignoredFileCount++;
-        continue;
+    const visit = async (current: FileSystemDirectoryHandle, parentPath: string): Promise<void> => {
+      for await (const [name, handle] of current.entries()) {
+        const relativePath = parentPath ? `${parentPath}/${name}` : name;
+        if (handle.kind === 'directory') {
+          await visit(handle as FileSystemDirectoryHandle, relativePath);
+          continue;
+        }
+        const file = await (handle as FileSystemFileHandle).getFile();
+        if (isVideoFile(file) || isMetadataFile(file)) scanned.push({ file, relativePath });
+        else ignoredFileCount++;
       }
-      const fileHandle = handle as FileSystemFileHandle;
-      const file = await fileHandle.getFile();
-      if (!isVideoFile(file)) {
-        ignoredFileCount++;
-        continue;
-      }
-      entries.push({ name, file, handle: fileHandle });
-      totalBytes += file.size;
-    }
-    entries.sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true }));
-    this.folder.set({
-      name: directory.name,
-      files: entries,
-      ignoredFileCount,
-      totalBytes,
-      directoryHandle: directory,
-      canDeleteSources: true,
-    });
-    await this.scanFolderQuality();
+    };
+    await visit(directory, '');
+    await this.loadScannedFolder(directory.name, scanned, ignoredFileCount);
   }
 
   async useFallbackFiles(files: FileList): Promise<void> {
-    const videoFiles = Array.from(files).filter(isVideoFile);
-    const entries = videoFiles.map(file => ({ name: file.name, file }));
-    const firstPath = videoFiles[0]?.webkitRelativePath ?? '';
-    this.folder.set({
-      name: firstPath.split('/')[0] || 'Thư mục đã chọn',
-      files: entries,
-      ignoredFileCount: files.length - entries.length,
-      totalBytes: entries.reduce((sum, item) => sum + item.file.size, 0),
-      canDeleteSources: false,
+    const allFiles = Array.from(files);
+    const scanned = allFiles
+      .filter(file => isVideoFile(file) || isMetadataFile(file))
+      .map(file => ({
+        file,
+        relativePath: file.webkitRelativePath.split('/').slice(1).join('/') || file.name,
+      }));
+    const firstPath = allFiles[0]?.webkitRelativePath ?? '';
+    await this.loadScannedFolder(firstPath.split('/')[0] || 'Thư mục đã chọn', scanned,
+      allFiles.length - scanned.length);
+  }
+
+  private async loadScannedFolder(name: string, scanned: ScannedFile[], ignoredFileCount: number): Promise<void> {
+    const videoCount = scanned.filter(item => isVideoFile(item.file)).length;
+    this.qualityScan.set({ status: 'scanning', processedFiles: 0, totalFiles: videoCount });
+    const discovered = await discoverVideoEntries(scanned, processedFiles => {
+      this.qualityScan.update(current => ({ ...current, processedFiles }));
     });
-    await this.scanFolderQuality();
+    const files = discovered.entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath, 'vi', { numeric: true }));
+    const totalBytes = files.reduce((sum, item) => sum + item.renditions.reduce((bytes, rendition) => bytes + rendition.file.size, 0), 0);
+    this.folder.set({ name, files, ignoredFileCount: ignoredFileCount + discovered.ignoredCount, totalBytes, canDeleteSources: false });
+    if (!files.length) {
+      this.qualityScan.set({
+        status: 'error', processedFiles: discovered.processedFiles, totalFiles: videoCount,
+        error: 'Không tìm thấy thư mục video hợp lệ có rendition và metadata chất lượng đọc được.',
+      });
+      return;
+    }
+    const qualityCounts = QUALITY_HEIGHTS.slice().reverse()
+      .map(height => ({ quality: `${height}p`, videoCount: files.filter(video => video.renditions.some(rendition => rendition.quality === `${height}p`)).length }))
+      .filter(item => item.videoCount > 0);
+    this.qualityScan.set({
+      status: 'ready', processedFiles: discovered.processedFiles, totalFiles: videoCount, qualityCounts,
+      duplicateFormatCount: discovered.duplicateFormatCount,
+    });
   }
 
   async loadAccountFile(file: File): Promise<void> {
@@ -156,11 +169,8 @@ export class CfSeederRunnerService {
       throw new Error(`File JSON chỉ có ${this.accounts().length} account, cần ít nhất ${config.userCount}.`);
     if (config.accountMode === 'existing' && config.existingAccounts.length === 0)
       throw new Error('Hãy chọn ít nhất một user/kênh hiện có.');
-    const qualityScan = this.qualityScan();
-    if (qualityScan.status !== 'ready' || !qualityScan.maxCommonQuality)
-      throw new Error(qualityScan.error || 'Chưa phân tích xong chất lượng của toàn bộ video.');
-    if (qualityHeight(config.maxQuality) > qualityHeight(qualityScan.maxCommonQuality))
-      throw new Error(`Chất lượng đã chọn vượt quá mức chung ${qualityScan.maxCommonQuality} của toàn bộ video.`);
+    if (this.qualityScan().status !== 'ready')
+      throw new Error(this.qualityScan().error || 'Chưa phân tích xong các rendition trong thư mục.');
 
     const runId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
@@ -209,9 +219,10 @@ export class CfSeederRunnerService {
           channelId: account.channelId,
           uploaded: false,
           sourceDeleted: false,
-          sizeBytes: entry.file.size,
+          sizeBytes: entry.renditions.reduce((sum, rendition) => sum + rendition.file.size, 0),
+          qualities: entry.renditions.map(rendition => rendition.quality),
         };
-        this.log(`Đang đọc metadata ${entry.name}...`);
+        this.log(`Đang upload ${entry.name}: ${entry.renditions.map(rendition => rendition.quality).join(', ')}.`);
         let uploadStartedAt: number | undefined;
         const recordUploadDuration = (): void => {
           if (uploadStartedAt === undefined) return;
@@ -227,42 +238,43 @@ export class CfSeederRunnerService {
           this.log(`⏱ Upload ${entry.name}: ${this.formatUploadDuration(durationMs)}.`);
         };
         try {
-          const metadata = await this.readVideoMetadata(entry.file);
-          const sourceQuality = capQuality(config.maxQuality, metadata.height);
-          this.log(`Upload ${sequence}/${targetFiles.length} vào kênh @${account.channelHandle} (${sourceQuality})...`);
+          const source = [...entry.renditions].sort((a, b) => b.height - a.height)[0];
+          if (!source) throw new Error('Video chưa có rendition hợp lệ.');
+          const sourceQuality = source.quality;
+          this.log(`Upload ${sequence}/${targetFiles.length} vào kênh @${account.channelHandle}; rendition nguồn ${sourceQuality}...`);
           uploadStartedAt = performance.now();
           const uploaded = await this.uploadVideoWithRetry({
             batchId: provision.batchId,
             userId: account.userId,
             channelId: account.channelId,
             categoryId: config.categoryId,
-            title: titleFromFile(entry.name),
+            title: entry.name.slice(0, 100),
             visibility: config.visibility,
-            duration: metadata.duration,
+            duration: entry.duration,
             sourceQuality,
+            sourceWidth: source.width,
+            sourceHeight: source.height,
+            description: entry.description,
             sequence,
             useExistingAccount: config.accountMode === 'existing',
-            file: withVideoType(entry.file),
+            file: withVideoType(source.file),
           });
+          result.videoId = uploaded.videoId;
+          this.updateMetrics({ uploadedBytes: this.metrics().uploadedBytes + source.file.size });
+          this.log(`✓ Đã upload rendition nguồn ${source.quality} lên R2.`);
+          for (const rendition of entry.renditions.filter(item => item.quality !== source.quality)
+            .sort((a, b) => b.height - a.height)) {
+            this.log(`Đang upload ${rendition.quality} (${formatBytes(rendition.file.size)}) lên R2...`);
+            await this.uploadRenditionWithRetry(uploaded.videoId, rendition);
+            this.updateMetrics({ uploadedBytes: this.metrics().uploadedBytes + rendition.file.size });
+            this.log(`✓ ${rendition.quality} đã sẵn sàng trên R2.`);
+          }
           recordUploadDuration();
           result.uploaded = true;
-          result.videoId = uploaded.videoId;
           this.updateMetrics({
             uploadedVideos: this.metrics().uploadedVideos + 1,
-            uploadedBytes: this.metrics().uploadedBytes + entry.file.size,
           });
-          if (folder.directoryHandle && entry.handle) {
-            try {
-              await folder.directoryHandle.removeEntry(entry.name);
-              result.sourceDeleted = true;
-              this.updateMetrics({ deletedSources: this.metrics().deletedSources + 1 });
-              this.log(`✓ Upload xong và đã xóa file nguồn: ${entry.name}`);
-            } catch (deleteError) {
-              this.log(`⚠ Upload thành công nhưng không xóa được ${entry.name}: ${plainError(deleteError)}`);
-            }
-          } else {
-            this.log(`✓ Upload xong ${entry.name}; trình duyệt không cấp quyền xóa file nguồn.`);
-          }
+          this.log(`✓ ${entry.name}: đã đưa ${entry.renditions.length} rendition lên R2; file dataset được giữ nguyên.`);
         } catch (uploadError) {
           recordUploadDuration();
           result.error = displayError(uploadError);
@@ -276,7 +288,7 @@ export class CfSeederRunnerService {
 
       if (this.cancelRequested) {
         this.state.set('cancelled');
-        this.log('Đã dừng theo yêu cầu. Video đang upload trước đó đã được xử lý xong.');
+        this.log('Đã dừng theo yêu cầu sau khi xử lý xong video hiện tại.');
       } else if (this.metrics().failedVideos > 0) {
         this.state.set('completed_with_errors');
         this.log(`Hoàn tất với ${this.metrics().failedVideos} video lỗi.`);
@@ -307,9 +319,9 @@ export class CfSeederRunnerService {
         maxVideosPerChannel: config.maxVideosPerChannel,
         selectedVideoCount: folder.files.length,
         targetVideoCount: targetFiles.length,
-        maxQuality: config.maxQuality,
+        qualities: [...new Set(targetFiles.flatMap(video => video.renditions.map(rendition => rendition.quality)))],
         visibility: config.visibility,
-        canDeleteSources: folder.canDeleteSources,
+        canDeleteSources: false,
         metrics: { ...this.metrics() },
         results,
         logs: [...this.logs()],
@@ -323,7 +335,7 @@ export class CfSeederRunnerService {
   cancel(): void {
     if (!this.isRunning()) return;
     this.cancelRequested = true;
-    this.log('Đã nhận yêu cầu dừng; sẽ dừng sau file đang xử lý.');
+    this.log('Đã nhận yêu cầu dừng; sẽ dừng sau khi hoàn tất video hiện tại.');
   }
 
   downloadHistory(history: CfSeedRunHistory): void {
@@ -342,70 +354,6 @@ export class CfSeederRunnerService {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds - minutes * 60;
     return `${minutes} phút ${remainingSeconds.toFixed(0).padStart(2, '0')} giây`;
-  }
-
-  private async scanFolderQuality(): Promise<void> {
-    const folder = this.folder();
-    const token = ++this.qualityScanToken;
-    if (!folder || folder.files.length === 0) {
-      this.qualityScan.set({ ...EMPTY_CF_SEED_QUALITY_SCAN });
-      return;
-    }
-
-    this.qualityScan.set({
-      status: 'scanning',
-      processedFiles: 0,
-      totalFiles: folder.files.length,
-    });
-
-    let minimumSourceHeight = Number.POSITIVE_INFINITY;
-    for (let index = 0; index < folder.files.length; index++) {
-      if (token !== this.qualityScanToken) return;
-      const entry = folder.files[index];
-      try {
-        const metadata = await this.readVideoMetadata(entry.file);
-        if (!Number.isFinite(metadata.height) || metadata.height <= 0)
-          throw new Error('không xác định được độ phân giải');
-        minimumSourceHeight = Math.min(minimumSourceHeight, metadata.height);
-      } catch (error) {
-        if (token !== this.qualityScanToken) return;
-        this.qualityScan.set({
-          status: 'error',
-          processedFiles: index + 1,
-          totalFiles: folder.files.length,
-          error: `Không thể đọc chất lượng video “${entry.name}”: ${plainError(error)}`,
-        });
-        return;
-      }
-      this.qualityScan.update(current => ({ ...current, processedFiles: index + 1 }));
-    }
-
-    const commonQualityHeight = highestQualityForHeight(minimumSourceHeight);
-    if (commonQualityHeight === 0) {
-      this.qualityScan.set({
-        status: 'error',
-        processedFiles: folder.files.length,
-        totalFiles: folder.files.length,
-        minimumSourceHeight,
-        error: 'Có video thấp hơn 360p; hệ thống hiện chỉ hỗ trợ chất lượng từ 360p trở lên.',
-      });
-      return;
-    }
-    this.qualityScan.set({
-      status: 'ready',
-      processedFiles: folder.files.length,
-      totalFiles: folder.files.length,
-      minimumSourceHeight,
-      maxCommonQuality: `${commonQualityHeight}p`,
-    });
-  }
-
-  private async readVideoMetadata(file: File): Promise<CfSeedVideoMetadata> {
-    const cached = this.metadataCache.get(file);
-    if (cached) return cached;
-    const metadata = await readVideoMetadata(file);
-    this.metadataCache.set(file, metadata);
-    return metadata;
   }
 
   private updateMetrics(change: Partial<CfSeedMetrics>): void {
@@ -429,6 +377,51 @@ export class CfSeederRunnerService {
       this.log(`Upload trực tiếp bị giới hạn hoặc bị reset; chuyển ${request.file.name} sang upload từng phần.`);
       return this.uploadVideoInChunks(request);
     }
+  }
+
+  private async uploadRenditionWithRetry(videoId: string, rendition: CfSeedRenditionFile): Promise<void> {
+    const request: UploadCfSeedRenditionRequest = {
+      quality: rendition.quality,
+      width: rendition.width,
+      height: rendition.height,
+      bitrateKbps: rendition.bitrateKbps,
+      codec: rendition.codec,
+      file: withVideoType(rendition.file),
+    };
+    try {
+      await this.withTransientRetry(
+        () => firstValueFrom(this.api.uploadRendition(videoId, request)),
+        `upload rendition ${rendition.quality}`,
+        error => isTransientUploadError(error) && !isDirectUploadSizeFailure(error, request.file.size),
+      );
+    } catch (error) {
+      if (!isDirectUploadSizeFailure(error, request.file.size)) throw error;
+      this.log(`Rendition ${rendition.quality} bị giới hạn khi upload trực tiếp; chuyển sang upload từng phần.`);
+      await this.uploadRenditionInChunks(videoId, request);
+    }
+  }
+
+  private async uploadRenditionInChunks(videoId: string, request: UploadCfSeedRenditionRequest): Promise<void> {
+    const expectedChunks = Math.ceil(request.file.size / DEFAULT_CHUNK_SIZE);
+    const session = await this.withTransientRetry(
+      () => firstValueFrom(this.api.startChunkedUpload(crypto.randomUUID(), request.file, expectedChunks)),
+      'khởi tạo upload rendition',
+    );
+    if (session.chunkSize !== DEFAULT_CHUNK_SIZE)
+      throw new Error('Kích thước chunk giữa giao diện và API không đồng nhất.');
+    for (let chunkIndex = 0; chunkIndex < expectedChunks; chunkIndex++) {
+      const start = chunkIndex * session.chunkSize;
+      const chunk = request.file.slice(start, Math.min(start + session.chunkSize, request.file.size));
+      await this.withTransientRetry(
+        () => firstValueFrom(this.api.uploadChunk(session.uploadId, chunkIndex, chunk)),
+        `phần ${chunkIndex + 1}/${expectedChunks} của ${request.quality}`,
+      );
+    }
+    const { file: _, ...completion } = request;
+    await this.withTransientRetry(
+      () => firstValueFrom(this.api.completeChunkedRenditionUpload(session.uploadId, videoId, completion)),
+      `hoàn tất rendition ${request.quality}`,
+    );
   }
 
   private async uploadVideoInChunks(request: UploadCfSeedVideoRequest) {
@@ -511,6 +504,175 @@ export class CfSeederRunnerService {
   }
 }
 
+type VideoFormatMetadata = {
+  format_id?: string;
+  height?: number;
+  width?: number;
+  tbr?: number;
+  vcodec?: string;
+};
+
+type DatasetInfo = {
+  title?: string;
+  id?: string;
+  duration?: number;
+  duration_string?: string;
+  description?: string;
+  formats?: VideoFormatMetadata[];
+};
+
+async function discoverVideoEntries(
+  scanned: ScannedFile[],
+  onProgress: (processed: number) => void,
+): Promise<{ entries: CfSeedFileEntry[]; ignoredCount: number; duplicateFormatCount: number; processedFiles: number }> {
+  const videos = scanned.filter(item => isVideoFile(item.file));
+  const byDirectory = new Map<string, ScannedFile[]>();
+  for (const item of videos) {
+    const parent = item.relativePath.includes('/') ? item.relativePath.slice(0, item.relativePath.lastIndexOf('/')) : '';
+    byDirectory.set(parent, [...(byDirectory.get(parent) ?? []), item]);
+  }
+
+  const entries: CfSeedFileEntry[] = [];
+  let ignoredCount = 0;
+  let duplicateFormatCount = 0;
+  let processedFiles = 0;
+  for (const [directory, directoryVideos] of byDirectory) {
+    const sidecars = scanned.filter(item => {
+      const parent = item.relativePath.includes('/') ? item.relativePath.slice(0, item.relativePath.lastIndexOf('/')) : '';
+      return parent === directory;
+    });
+    const infoFiles = sidecars.filter(item => item.file.name.toLowerCase().endsWith('.info.json'));
+    const descriptionFiles = sidecars.filter(item => item.file.name.toLowerCase().endsWith('.description'));
+    const formatNamedVideos = directoryVideos.filter(item => parseQualityFilename(item.file.name));
+    const isRenditionFolder = formatNamedVideos.length > 0;
+    const groups = isRenditionFolder
+      ? [{ videos: formatNamedVideos, titleFallback: datasetFolderTitle(leafName(directory)) || leafName(formatNamedVideos[0].relativePath) }]
+      : directoryVideos.map(item => ({ videos: [item], titleFallback: item.file.name.replace(/\.[^.]+$/, '') }));
+
+    for (const group of groups) {
+      let info: DatasetInfo | undefined;
+      const infoFile = infoFiles.length === 1 ? infoFiles[0] : infoFiles.find(item => {
+        const id = item.file.name.replace(/\.info\.json$/i, '').split('_').slice(-2, -1)[0];
+        return !!id && group.videos.some(video => video.file.name.includes(id));
+      });
+      if (infoFile) {
+        try {
+          const parsed: unknown = JSON.parse(await infoFile.file.text());
+          if (isObject(parsed)) info = parsed as DatasetInfo;
+        } catch { ignoredCount++; }
+      }
+      const formatMap = new Map<string, VideoFormatMetadata>();
+      for (const format of info?.formats ?? []) {
+        if (typeof format.format_id === 'string') formatMap.set(format.format_id, format);
+      }
+      const candidates: Array<CfSeedRenditionFile & { bitrate: number }> = [];
+      let duration = finiteNumber(info?.duration) ? Math.ceil(info!.duration!) : parseDuration(info?.duration_string);
+      let discoveredTitle = typeof info?.title === 'string' ? info.title.trim() : group.titleFallback;
+
+      for (const item of group.videos) {
+        const parsedName = parseQualityFilename(item.file.name);
+        const format = parsedName?.formatId ? formatMap.get(parsedName.formatId) : undefined;
+        let height = finiteNumber(format?.height) ? format!.height! : parsedName?.height ?? 0;
+        let width = finiteNumber(format?.width) ? format!.width! : 0;
+        if (!height || !duration) {
+          try {
+            const media = await readVideoMetadata(item.file);
+            if (!duration) duration = media.duration;
+            if (!height) height = media.height;
+            if (!width) width = media.width;
+          } catch { /* Sidecar and filename metadata are still used when the browser cannot decode the codec. */ }
+        }
+        const qualityHeight = height > 2160 ? 0 : highestQualityForHeight(height);
+        if (!qualityHeight) {
+          ignoredCount++;
+          processedFiles++;
+          onProgress(processedFiles);
+          continue;
+        }
+        const videoCodec = typeof format?.vcodec === 'string' ? format.vcodec : '';
+        const bitrate = finiteNumber(format?.tbr) ? format!.tbr! : 0;
+        candidates.push({
+          name: item.file.name,
+          file: item.file,
+          quality: `${qualityHeight}p`,
+          width: width > 0 ? width : Math.round(height * 16 / 9),
+          height,
+          bitrateKbps: bitrate > 0 ? Math.round(bitrate) : undefined,
+          codec: videoCodec || undefined,
+          bitrate,
+        });
+        processedFiles++;
+        onProgress(processedFiles);
+      }
+
+      if (!duration || candidates.length === 0) {
+        ignoredCount += candidates.length;
+        continue;
+      }
+      const bestByQuality = new Map<string, typeof candidates>();
+      for (const candidate of candidates) bestByQuality.set(candidate.quality, [...(bestByQuality.get(candidate.quality) ?? []), candidate]);
+      const renditions: CfSeedRenditionFile[] = [];
+      for (const [quality, duplicates] of bestByQuality) {
+        duplicates.sort((a, b) => b.bitrate - a.bitrate || b.file.size - a.file.size);
+        const selected = duplicates[0];
+        renditions.push({
+          name: selected.name, file: selected.file, quality, width: selected.width, height: selected.height,
+          bitrateKbps: selected.bitrateKbps, codec: selected.codec,
+        });
+        duplicateFormatCount += duplicates.length - 1;
+      }
+      renditions.sort((a, b) => a.height - b.height);
+      const descriptionSidecar = descriptionFiles[0];
+      let description = typeof info?.description === 'string' ? info.description : undefined;
+      if (descriptionSidecar) {
+        try { description = await descriptionSidecar.file.text(); }
+        catch { /* Keep the description embedded in the info JSON. */ }
+      }
+      const title = (discoveredTitle || group.titleFallback).slice(0, 100) || 'CF Seed Video';
+      entries.push({
+        name: title,
+        relativePath: group.videos[0]?.relativePath ?? directory,
+        duration,
+        description: description?.trim() || undefined,
+        renditions,
+      });
+    }
+  }
+  return { entries, ignoredCount, duplicateFormatCount, processedFiles };
+}
+
+function parseQualityFilename(fileName: string): { height: number; formatId?: string } | undefined {
+  const stem = fileName.replace(/\.[^.]+$/, '');
+  const match = /^(\d{2,4})p(?:_(.+))?$/i.exec(stem);
+  if (!match) return undefined;
+  const height = Number.parseInt(match[1], 10);
+  return Number.isFinite(height) ? { height, formatId: match[2] } : undefined;
+}
+
+function isMetadataFile(file: File): boolean {
+  const lowerName = file.name.toLowerCase();
+  return lowerName.endsWith('.info.json') || lowerName.endsWith('.description');
+}
+
+function leafName(path: string): string {
+  return path.split('/').filter(Boolean).at(-1) ?? '';
+}
+
+function datasetFolderTitle(folderName: string): string {
+  return folderName.replace(/_[A-Za-z0-9_-]{10,12}$/, '').trim();
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function parseDuration(value: unknown): number {
+  if (typeof value !== 'string') return 0;
+  const pieces = value.split(':').map(item => Number.parseInt(item, 10));
+  if (pieces.some(item => !Number.isFinite(item))) return 0;
+  return pieces.reduce((total, part) => total * 60 + part, 0);
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -536,22 +698,18 @@ function extension(fileName: string): string {
 }
 
 function isVideoFile(file: File): boolean {
-  return file.type.startsWith('video/') || VIDEO_EXTENSIONS.has(extension(file.name));
+  return VIDEO_EXTENSIONS.has(extension(file.name));
 }
 
 function withVideoType(file: File): File {
-  if (file.type) return file;
+  if (file.type.startsWith('video/')) return file;
   const contentTypes: Record<string, string> = {
     mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska',
   };
   return new File([file], file.name, { type: contentTypes[extension(file.name)] ?? 'video/mp4', lastModified: file.lastModified });
 }
 
-function titleFromFile(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 100) || 'CF Seed Video';
-}
-
-async function readVideoMetadata(file: File): Promise<{ duration: number; height: number }> {
+async function readVideoMetadata(file: File): Promise<CfSeedVideoMetadata> {
   const url = URL.createObjectURL(file);
   try {
     return await new Promise((resolve, reject) => {
@@ -561,7 +719,7 @@ async function readVideoMetadata(file: File): Promise<{ duration: number; height
       video.onloadedmetadata = () => {
         window.clearTimeout(timeout);
         if (!Number.isFinite(video.duration) || video.duration <= 0) reject(new Error('Thời lượng video không hợp lệ.'));
-        else resolve({ duration: Math.max(1, Math.ceil(video.duration)), height: video.videoHeight });
+        else resolve({ duration: Math.max(1, Math.ceil(video.duration)), width: video.videoWidth, height: video.videoHeight });
       };
       video.onerror = () => { window.clearTimeout(timeout); reject(new Error('File video bị lỗi hoặc trình duyệt không hỗ trợ codec.')); };
       video.src = url;
@@ -569,19 +727,13 @@ async function readVideoMetadata(file: File): Promise<{ duration: number; height
   } finally { URL.revokeObjectURL(url); }
 }
 
-function capQuality(selected: string, height: number): string {
-  const selectedHeight = Number.parseInt(selected, 10) || 720;
-  const limit = height > 0 ? Math.min(selectedHeight, height) : selectedHeight;
-  const chosen = highestQualityForHeight(limit) || 360;
-  return `${chosen}p`;
-}
-
-function qualityHeight(value: string): number {
-  return Number.parseInt(value, 10) || 0;
-}
-
 function highestQualityForHeight(height: number): number {
   return [...QUALITY_HEIGHTS].reverse().find(value => value <= height) ?? 0;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function plainError(error: unknown): string {

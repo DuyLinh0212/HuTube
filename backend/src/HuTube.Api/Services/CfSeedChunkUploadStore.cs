@@ -6,7 +6,7 @@ namespace HuTube.Api.Services;
 
 public sealed record CfSeedChunkSessionInfo(Guid UploadId, int ChunkSize);
 public sealed record CfSeedChunkReady(string FilePath, string FileName, string ContentType,
-    long FileSize, CfSeedVideoResponse? CompletedResponse);
+    long FileSize, CfSeedVideoResponse? CompletedResponse, CfSeedRenditionResponse? CompletedRenditionResponse);
 
 public sealed class CfSeedChunkUploadStore
 {
@@ -60,7 +60,7 @@ public sealed class CfSeedChunkUploadStore
         await session.Gate.WaitAsync(ct);
         try
         {
-            if (session.CompletedResponse != null) return session.NextChunk;
+            if (session.CompletedResponse != null || session.CompletedRenditionResponse != null) return session.NextChunk;
             if (session.Processing) throw Error(409, "CF_SEED_UPLOAD_PROCESSING", "Video đang được hoàn tất.");
             if (chunkIndex < 0 || chunkIndex >= session.TotalChunks)
                 throw Error(400, "CF_SEED_CHUNK_INDEX", "Số thứ tự phần upload không hợp lệ.");
@@ -94,7 +94,9 @@ public sealed class CfSeedChunkUploadStore
         try
         {
             if (session.CompletedResponse != null)
-                return new(session.FilePath, session.FileName, session.ContentType, session.FileSize, session.CompletedResponse);
+                return new(session.FilePath, session.FileName, session.ContentType, session.FileSize, session.CompletedResponse, null);
+            if (session.CompletedRenditionResponse != null)
+                return new(session.FilePath, session.FileName, session.ContentType, session.FileSize, null, session.CompletedRenditionResponse);
             if (session.Processing) throw Error(409, "CF_SEED_UPLOAD_PROCESSING", "Video đang được hoàn tất.");
             if (session.NextChunk != session.TotalChunks)
                 throw Error(409, "CF_SEED_UPLOAD_INCOMPLETE", $"Mới nhận {session.NextChunk}/{session.TotalChunks} phần video.");
@@ -102,7 +104,7 @@ public sealed class CfSeedChunkUploadStore
                 throw Error(409, "CF_SEED_UPLOAD_CORRUPTED", "File tạm không đủ dung lượng; hãy upload lại video.");
             session.Processing = true;
             session.LastTouchedAt = DateTimeOffset.UtcNow;
-            return new(session.FilePath, session.FileName, session.ContentType, session.FileSize, null);
+            return new(session.FilePath, session.FileName, session.ContentType, session.FileSize, null, null);
         }
         finally { session.Gate.Release(); }
     }
@@ -114,6 +116,21 @@ public sealed class CfSeedChunkUploadStore
         try
         {
             session.CompletedResponse = response;
+            session.Processing = false;
+            session.LastTouchedAt = DateTimeOffset.UtcNow;
+            DeleteSafe(session.FilePath);
+        }
+        finally { session.Gate.Release(); }
+    }
+
+    public async Task MarkRenditionCompletedAsync(Guid actorId, Guid uploadId,
+        CfSeedRenditionResponse response, CancellationToken ct)
+    {
+        var session = Require(actorId, uploadId);
+        await session.Gate.WaitAsync(ct);
+        try
+        {
+            session.CompletedRenditionResponse = response;
             session.Processing = false;
             session.LastTouchedAt = DateTimeOffset.UtcNow;
             DeleteSafe(session.FilePath);
@@ -173,6 +190,7 @@ public sealed class CfSeedChunkUploadStore
         public int NextChunk { get; set; }
         public bool Processing { get; set; }
         public CfSeedVideoResponse? CompletedResponse { get; set; }
+        public CfSeedRenditionResponse? CompletedRenditionResponse { get; set; }
         public DateTimeOffset LastTouchedAt { get; set; } = createdAt;
         public SemaphoreSlim Gate { get; } = new(1, 1);
     }

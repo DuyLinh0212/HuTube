@@ -36,7 +36,6 @@ export class CfSeederPage implements OnInit {
   existingSearch = '';
   userCount = 10;
   maxVideosPerChannel = 15;
-  maxQuality = '1080p';
   visibility: CfSeedVisibility = 'public';
 
   capacity(): number { return this.effectiveAccountCount() * this.safeVideoLimit(); }
@@ -73,13 +72,7 @@ export class CfSeederPage implements OnInit {
     && accountCount <= 100
     && this.safeVideoLimit() >= 1
     && hasRequiredAccounts
-    && qualityScan.status === 'ready'
-    && !!qualityScan.maxCommonQuality
-    && qualityHeight(this.maxQuality) <= qualityHeight(qualityScan.maxCommonQuality);
-  }
-  qualityOptionDisabled(value: string): boolean {
-    const maxCommonQuality = this.runner.qualityScan().maxCommonQuality;
-    return !!maxCommonQuality && qualityHeight(value) > qualityHeight(maxCommonQuality);
+    && qualityScan.status === 'ready';
   }
   readonly stateLabel = computed(() => stateLabel(this.runner.state()));
 
@@ -146,7 +139,6 @@ export class CfSeederPage implements OnInit {
     }
     try {
       await this.runner.selectDirectory();
-      this.applyQualityLimit();
     }
     catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -158,7 +150,6 @@ export class CfSeederPage implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files?.length) {
       await this.runner.useFallbackFiles(input.files);
-      this.applyQualityLimit();
     }
     input.value = '';
   }
@@ -177,10 +168,7 @@ export class CfSeederPage implements OnInit {
     if (!this.canStart()) return;
     const folder = this.runner.folder();
     if (!folder) return;
-    const deletionNotice = folder.canDeleteSources
-      ? '\n\nSau mỗi upload thành công, FILE NGUỒN trong thư mục đã chọn sẽ bị xóa vĩnh viễn. Video trên Cloudflare R2 vẫn được giữ.'
-      : '\n\nTrình duyệt chưa cấp quyền xóa, nên file nguồn sẽ được giữ lại sau upload.';
-    if (!window.confirm(`Bắt đầu upload tối đa ${Math.min(folder.files.length, this.capacity())} video?${deletionNotice}`)) return;
+    if (!window.confirm(`Bắt đầu upload tối đa ${Math.min(folder.files.length, this.capacity())} video và toàn bộ rendition đã phát hiện? File dataset sẽ được giữ lại.`)) return;
     this.pageError.set('');
     const config: CfSeedRunConfig = {
       accountMode: this.accountMode,
@@ -189,7 +177,6 @@ export class CfSeederPage implements OnInit {
       userCount: this.effectiveAccountCount(),
       existingAccounts: this.selectedExistingAccounts(),
       maxVideosPerChannel: this.safeVideoLimit(),
-      maxQuality: this.maxQuality,
       visibility: this.visibility,
     };
     try { await this.runner.start(config); }
@@ -214,11 +201,6 @@ export class CfSeederPage implements OnInit {
   }
   trackLog(index: number): number { return index; }
 
-  private applyQualityLimit(): void {
-    const maxCommonQuality = this.runner.qualityScan().maxCommonQuality;
-    if (maxCommonQuality && qualityHeight(this.maxQuality) > qualityHeight(maxCommonQuality))
-      this.maxQuality = maxCommonQuality;
-  }
 }
 
 function stateLabel(state: CfSeedRunState): string {
@@ -227,8 +209,4 @@ function stateLabel(state: CfSeedRunState): string {
     completed: 'Hoàn thành', completed_with_errors: 'Xong, có lỗi', cancelled: 'Đã dừng', failed: 'Thất bại',
   };
   return labels[state];
-}
-
-function qualityHeight(value: string): number {
-  return Number.parseInt(value, 10) || 0;
 }

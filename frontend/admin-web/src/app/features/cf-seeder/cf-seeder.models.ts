@@ -33,10 +33,32 @@ export interface CfSeedVideoResponse {
   fileSize: number;
 }
 
-export interface CfSeedFileEntry {
+export interface CfSeedVideoProcessingResponse {
+  videoId: string;
+  totalRenditions: number;
+  readyRenditions: number;
+  processingRenditions: number;
+  failedRenditions: number;
+  isComplete: boolean;
+  isSuccessful: boolean;
+}
+
+export interface CfSeedRenditionFile {
   name: string;
   file: File;
-  handle?: FileSystemFileHandle;
+  quality: string;
+  width: number;
+  height: number;
+  bitrateKbps?: number;
+  codec?: string;
+}
+
+export interface CfSeedFileEntry {
+  name: string;
+  relativePath: string;
+  duration: number;
+  description?: string;
+  renditions: CfSeedRenditionFile[];
 }
 
 export interface CfSeedFolderSelection {
@@ -44,7 +66,6 @@ export interface CfSeedFolderSelection {
   files: CfSeedFileEntry[];
   ignoredFileCount: number;
   totalBytes: number;
-  directoryHandle?: FileSystemDirectoryHandle;
   canDeleteSources: boolean;
 }
 
@@ -54,8 +75,8 @@ export interface CfSeedQualityScan {
   status: CfSeedQualityScanStatus;
   processedFiles: number;
   totalFiles: number;
-  minimumSourceHeight?: number;
-  maxCommonQuality?: string;
+  qualityCounts?: { quality: string; videoCount: number }[];
+  duplicateFormatCount?: number;
   error?: string;
 }
 
@@ -66,7 +87,6 @@ export interface CfSeedRunConfig {
   userCount: number;
   existingAccounts: CfSeedAccount[];
   maxVideosPerChannel: number;
-  maxQuality: string;
   visibility: CfSeedVisibility;
 }
 
@@ -93,6 +113,7 @@ export interface CfSeedVideoResult {
   uploaded: boolean;
   sourceDeleted: boolean;
   sizeBytes: number;
+  qualities: string[];
   uploadDurationMs?: number;
   error?: string;
 }
@@ -113,7 +134,7 @@ export interface CfSeedRunHistory {
   maxVideosPerChannel: number;
   selectedVideoCount: number;
   targetVideoCount: number;
-  maxQuality: string;
+  qualities: string[];
   visibility: CfSeedVisibility;
   canDeleteSources: boolean;
   metrics: CfSeedMetrics;
@@ -140,4 +161,6 @@ export const EMPTY_CF_SEED_QUALITY_SCAN: CfSeedQualityScan = {
   status: 'idle',
   processedFiles: 0,
   totalFiles: 0,
+  qualityCounts: [],
+  duplicateFormatCount: 0,
 };

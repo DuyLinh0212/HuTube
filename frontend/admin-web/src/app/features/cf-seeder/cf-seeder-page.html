@@ -18,21 +18,38 @@
             <strong>{{ runner.folder()?.name || 'Chưa chọn thư mục' }}</strong>
           </div>
           <button class="primary-button compact" type="button" [disabled]="runner.isRunning()" (click)="chooseFolder(fallbackFolder)">Chọn thư mục</button>
-          <input #fallbackFolder class="visually-hidden" type="file" multiple webkitdirectory accept="video/mp4,video/webm,video/quicktime,video/x-matroska,.mkv" (change)="onFallbackFolder($event)" />
+            <input #fallbackFolder class="visually-hidden" type="file" multiple webkitdirectory accept="video/mp4,.mp4,.json,.description" (change)="onFallbackFolder($event)" />
         </div>
-        <p class="hint">Hỗ trợ .mp4, .mov, .webm, .mkv. Chỉ đọc file nằm trực tiếp trong thư mục đã chọn.</p>
+        <p class="hint">Quét thư mục con, chỉ nhận MP4, nhóm theo từng video và đọc độ phân giải từ metadata hoặc tên rendition.</p>
       </div>
 
       @if (runner.folder(); as folder) {
         <div class="folder-summary">
-          <div><span class="summary-icon">▶</span><p><strong>{{ folder.files.length }} video</strong><small>Tổng dung lượng {{ formatBytes(folder.totalBytes) }}</small></p></div>
-          <div class="permission-state" [class.warning]="!folder.canDeleteSources">
-            <strong>{{ folder.canDeleteSources ? 'Có quyền dọn file' : 'Chỉ có quyền đọc' }}</strong>
-            <small>{{ folder.canDeleteSources ? 'Xóa nguồn sau upload thành công' : 'File nguồn sẽ không tự xóa' }}</small>
+          <div><span class="summary-icon">▶</span><p><strong>{{ folder.files.length }} video</strong><small>Dung lượng rendition sẽ upload {{ formatBytes(folder.totalBytes) }}</small></p></div>
+          <div class="permission-state">
+            <strong>Đọc và giữ nguyên file</strong>
+            <small>Seeder upload các rendition đã phát hiện</small>
           </div>
         </div>
+        @if (runner.qualityScan().status === 'scanning') {
+          <p class="hint">Đang đọc metadata video {{ runner.qualityScan().processedFiles }}/{{ runner.qualityScan().totalFiles }}...</p>
+        } @else if (runner.qualityScan().status === 'ready') {
+          <div class="quality-inventory" aria-label="Các chất lượng được phát hiện">
+            <strong>Rendition theo chất lượng</strong>
+            <div class="quality-chips">
+              @for (item of runner.qualityScan().qualityCounts ?? []; track item.quality) {
+                <span>{{ item.quality }} · {{ item.videoCount }} video</span>
+              }
+            </div>
+          </div>
+          @if ((runner.qualityScan().duplicateFormatCount ?? 0) > 0) {
+            <p class="hint">Bỏ qua {{ runner.qualityScan().duplicateFormatCount }} định dạng trùng độ phân giải; mỗi chất lượng chỉ upload một file tốt nhất.</p>
+          }
+        } @else if (runner.qualityScan().status === 'error') {
+          <p class="inline-warning">{{ runner.qualityScan().error }}</p>
+        }
         @if (folder.ignoredFileCount > 0) {
-          <p class="inline-warning">Đã bỏ qua {{ folder.ignoredFileCount }} mục không phải video hoặc thư mục con.</p>
+          <p class="inline-warning">Đã bỏ qua {{ folder.ignoredFileCount }} mục không phải MP4 hoặc không đọc được độ phân giải/thời lượng cần thiết.</p>
         }
       }
 
@@ -118,25 +135,10 @@
         </div>
       }
 
-      <div class="three-columns">
+      <div class="two-columns">
         <div class="field-block">
           <label for="seed-max-videos">Số video tối đa mỗi kênh <span>*</span></label>
           <input id="seed-max-videos" name="maxVideos" type="number" min="1" max="1000" [(ngModel)]="maxVideosPerChannel" [disabled]="runner.isRunning()" />
-        </div>
-        <div class="field-block">
-          <label for="seed-quality">Chất lượng tối đa sinh ra <span>*</span></label>
-          <select id="seed-quality" name="quality" [(ngModel)]="maxQuality" [disabled]="runner.isRunning() || runner.qualityScan().status === 'scanning' || runner.qualityScan().status === 'error'">
-            <option value="360p" [disabled]="qualityOptionDisabled('360p')">360p</option><option value="480p" [disabled]="qualityOptionDisabled('480p')">480p (SD)</option>
-            <option value="720p" [disabled]="qualityOptionDisabled('720p')">720p (HD)</option><option value="1080p" [disabled]="qualityOptionDisabled('1080p')">1080p (Full HD)</option>
-            <option value="1440p" [disabled]="qualityOptionDisabled('1440p')">1440p (2K)</option><option value="2160p" [disabled]="qualityOptionDisabled('2160p')">2160p (4K)</option>
-          </select>
-          @if (runner.qualityScan().status === 'scanning') {
-            <p class="hint">Đang phân tích chất lượng {{ runner.qualityScan().processedFiles }}/{{ runner.qualityScan().totalFiles }} video...</p>
-          } @else if (runner.qualityScan().status === 'ready') {
-            <p class="hint">Mức cao nhất dùng chung cho toàn bộ video: <strong>{{ runner.qualityScan().maxCommonQuality }}</strong>. Các mức cao hơn đã bị khóa.</p>
-          } @else if (runner.qualityScan().status === 'error') {
-            <p class="inline-warning">{{ runner.qualityScan().error }}</p>
-          }
         </div>
         <div class="field-block">
           <label for="seed-visibility">Chế độ hiển thị video <span>*</span></label>
@@ -157,7 +159,7 @@
       </div>
 
       <div class="form-actions">
-        <button class="secondary-button" type="button" [disabled]="!runner.isRunning()" (click)="runner.cancel()">Hủy sau file hiện tại</button>
+        <button class="secondary-button" type="button" [disabled]="!runner.isRunning()" (click)="runner.cancel()">Hủy sau video hiện tại</button>
         <button class="primary-button start-button" type="submit" [disabled]="!canStart()"><span aria-hidden="true">▷</span> Bắt đầu Seeder</button>
       </div>
     </form>
@@ -170,7 +172,7 @@
       <p class="current-action">
         @if (runner.state() === 'provisioning' && accountMode === 'existing') { Đang chuẩn bị user và kênh đã chọn... }
         @else if (runner.state() === 'provisioning') { Đang tạo người dùng và kênh... }
-        @else if (runner.state() === 'running') { Đang xử lý video trong hàng đợi... }
+        @else if (runner.state() === 'running') { Đang đưa từng rendition lên R2... }
         @else if (runner.state() === 'completed') { Lượt seed đã hoàn thành. }
         @else if (runner.state() === 'failed') { Lượt seed đã thất bại. }
         @else { Chọn dữ liệu đầu vào rồi bắt đầu một lượt seed mới. }
@@ -178,7 +180,7 @@
       <div class="progress-track" role="progressbar" [attr.aria-valuenow]="runner.progressPercent()" aria-valuemin="0" aria-valuemax="100">
         <span [style.width.%]="runner.progressPercent()"></span>
       </div>
-      <p class="progress-caption"><strong>{{ runner.progressPercent() }}%</strong><span>{{ runner.metrics().processedVideos }} / {{ runner.metrics().targetVideos }} file đã xử lý</span></p>
+      <p class="progress-caption"><strong>{{ runner.progressPercent() }}%</strong><span>{{ runner.metrics().processedVideos }} / {{ runner.metrics().targetVideos }} video đã xử lý</span></p>
 
       <div class="metric-grid">
         <article><span class="metric-icon users">♙</span><p>{{ accountMode === 'existing' ? 'User đã chọn' : 'Người dùng' }}<strong>{{ runner.metrics().usersCreated }} / {{ effectiveAccountCount() }}</strong></p></article>
@@ -193,7 +195,6 @@
         @for (line of runner.logs(); track trackLog($index)) { <p>{{ line }}</p> }
       </div>
       <div class="run-stats">
-        <span><strong>{{ runner.metrics().deletedSources }}</strong> file nguồn đã dọn</span>
         <span><strong>{{ runner.metrics().failedVideos }}</strong> lỗi</span>
         <span><strong>{{ formatBytes(runner.metrics().uploadedBytes) }}</strong> đã upload</span>
         <span><strong>{{ runner.formatUploadDuration(runner.averageUploadDurationMs()) }}</strong> trung bình/video</span>

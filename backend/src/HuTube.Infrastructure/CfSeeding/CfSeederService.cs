@@ -1,13 +1,16 @@
+using System.Data;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using HuTube.Application.Auth;
 using HuTube.Application.CfSeeding;
 using HuTube.Application.Serialization;
+using HuTube.Application.Storage;
 using HuTube.Application.Videos;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Plans;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
+using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +20,7 @@ public sealed class CfSeederService(
     HuTubeDbContext db,
     IPasswordService passwords,
     IContentService content,
+    IObjectStorage storage,
     TimeProvider clock) : ICfSeederService
 {
     private static readonly Regex UsernamePattern = new("^[A-Za-z0-9_.-]{3,50}$", RegexOptions.Compiled);
@@ -188,7 +192,7 @@ public sealed class CfSeederService(
         var created = await content.CreateVideoAsync(command.UserId, new CreateVideoCommand(
             command.ChannelId,
             command.Title,
-            "Video dữ liệu được tạo bởi CF Data Seeder.",
+            command.Description,
             command.CategoryId,
             "vi",
             "private",
@@ -205,10 +209,20 @@ public sealed class CfSeederService(
             [],
             [],
             $"cf:{command.BatchId:N}:{command.Sequence}",
-            true,
-            true), ct);
+            false,
+            false), ct);
 
         var video = await db.Videos.SingleAsync(x => x.VideoId == created.VideoId, ct);
+        if (command.SourceWidth > 0 && command.SourceHeight > 0)
+        {
+            var sourceRendition = await db.VideoRenditions.SingleOrDefaultAsync(
+                x => x.VideoId == video.VideoId && x.QualityLabel == command.SourceQuality.ToLowerInvariant(), ct);
+            if (sourceRendition != null)
+            {
+                sourceRendition.Width = command.SourceWidth;
+                sourceRendition.Height = command.SourceHeight;
+            }
+        }
         video.Visibility = NormalizeVisibility(command.Visibility);
         video.Status = "published";
         video.ModerationStatus = video.Visibility == "private" ? "not_submitted" : "approved";
@@ -223,6 +237,101 @@ public sealed class CfSeederService(
 
         return new CfSeedVideoResponse(video.VideoId, command.UserId, video.ChannelId, video.Title,
             video.Status, video.Visibility, video.FileSize);
+    }
+
+    public async Task<CfSeedRenditionResponse> UploadRenditionAsync(Guid adminActorId,
+        UploadCfSeedRenditionCommand command, CancellationToken ct = default)
+    {
+        var quality = command.Quality.Trim().ToLowerInvariant();
+        var qualityHeight = VideoRules.QualityHeight(quality);
+        if (qualityHeight == 0 || command.Width <= 0 || command.Height <= 0 || command.Height > 2160
+            || QualityForHeight(command.Height) != quality)
+            throw Error(400, "CF_SEED_RENDITION_QUALITY", "Độ phân giải rendition không hợp lệ hoặc không khớp metadata video.");
+        if (command.BitrateKbps is < 0 or > 2_000_000)
+            throw Error(400, "CF_SEED_RENDITION_BITRATE", "Bitrate rendition không hợp lệ.");
+        if (string.IsNullOrWhiteSpace(command.FileName))
+            throw Error(400, "CF_SEED_RENDITION_FILENAME", "Tên file rendition không hợp lệ.");
+        try { VideoRules.ValidateUpload(command.ContentType, command.FileSize, long.MaxValue); }
+        catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
+
+        var video = await db.Videos.SingleOrDefaultAsync(x => x.VideoId == command.VideoId, ct)
+            ?? throw Error(404, "CF_SEED_VIDEO_NOT_FOUND", "Không tìm thấy video seed.");
+        if (!IsCfSeedVideo(video.Metadata))
+            throw Error(403, "CF_SEED_VIDEO_REQUIRED", "Rendition này không thuộc video được tạo bởi CF Data Seeder.");
+
+        var existing = await db.VideoRenditions.SingleOrDefaultAsync(
+            x => x.VideoId == command.VideoId && x.QualityLabel == quality, ct);
+        if (existing?.Status == "ready")
+            return new(video.VideoId, quality, existing.Width, existing.Height, existing.FileSize, existing.Status);
+
+        var extension = Path.GetExtension(command.FileName).ToLowerInvariant();
+        if (extension is not (".mp4" or ".mov" or ".webm" or ".mkv")) extension = ".mp4";
+        var storedPath = await storage.SaveVideoAsync(
+            $"video-renditions/{video.VideoId:N}", $"{quality}{extension}", command.Content,
+            command.ContentType, ct);
+        var objectStored = true;
+        try
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var current = await db.VideoRenditions.SingleOrDefaultAsync(
+                x => x.VideoId == command.VideoId && x.QualityLabel == quality, ct);
+            if (current?.Status == "ready")
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                await storage.DeleteFileAsync(storedPath, CancellationToken.None);
+                objectStored = false;
+                return new(video.VideoId, quality, current.Width, current.Height, current.FileSize, current.Status);
+            }
+
+            var quota = await db.ChannelQuotas.SingleOrDefaultAsync(x => x.ChannelId == video.ChannelId, ct);
+            if (quota != null)
+            {
+                if (!ChannelQuotaRules.CanReserve(quota.StorageUsed, command.FileSize, quota.StorageLimit))
+                    throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ cho rendition.");
+                quota.StorageUsed += command.FileSize;
+                quota.UpdatedAt = Now;
+            }
+
+            if (current == null)
+            {
+                current = new VideoRendition { VideoId = video.VideoId, QualityLabel = quality, CreatedAt = Now };
+                db.VideoRenditions.Add(current);
+            }
+            current.Width = command.Width;
+            current.Height = command.Height;
+            current.BitrateKbps = command.BitrateKbps;
+            current.Codec = string.IsNullOrWhiteSpace(command.Codec) ? null : command.Codec.Trim();
+            current.FileUrl = storedPath;
+            current.FileSize = command.FileSize;
+            current.Status = "ready";
+            current.UpdatedAt = Now;
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            objectStored = false;
+
+            return new(video.VideoId, quality, current.Width, current.Height, current.FileSize, current.Status);
+        }
+        catch
+        {
+            if (objectStored) await storage.DeleteFileAsync(storedPath, CancellationToken.None);
+            throw;
+        }
+    }
+
+    public async Task<CfSeedVideoProcessingResponse> GetVideoProcessingAsync(Guid videoId,
+        CancellationToken ct = default)
+    {
+        var exists = await db.Videos.AsNoTracking().AnyAsync(x => x.VideoId == videoId, ct);
+        if (!exists) throw Error(404, "CF_SEED_VIDEO_NOT_FOUND", "Không tìm thấy video seed.");
+
+        var renditions = await db.VideoRenditions.AsNoTracking()
+            .Where(x => x.VideoId == videoId)
+            .Select(x => x.Status)
+            .ToListAsync(ct);
+        var ready = renditions.Count(status => status == "ready");
+        var processing = renditions.Count(status => status == "processing");
+        var failed = renditions.Count(status => status == "failed");
+        return new CfSeedVideoProcessingResponse(videoId, renditions.Count, ready, processing, failed);
     }
 
     private static (string Username, string DisplayName, string ChannelName, string Password) NormalizeAccount(
@@ -268,6 +377,24 @@ public sealed class CfSeederService(
         }
         catch (JsonException) { return false; }
     }
+
+    private static bool IsCfSeedVideo(string metadata)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(metadata);
+            return json.RootElement.TryGetProperty("cfSeed", out var marker)
+                && marker.ValueKind == JsonValueKind.Object;
+        }
+        catch (JsonException) { return false; }
+    }
+
+    private static string? QualityForHeight(int height) =>
+        VideoRules.Qualities.Select(quality => (Quality: quality, Height: VideoRules.QualityHeight(quality)))
+            .Where(item => item.Height <= height)
+            .OrderByDescending(item => item.Height)
+            .Select(item => item.Quality)
+            .FirstOrDefault();
 
     private static string NormalizeVisibility(string value)
     {

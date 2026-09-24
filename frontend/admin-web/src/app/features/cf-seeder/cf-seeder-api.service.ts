@@ -6,6 +6,7 @@ import {
   CfSeedAccount,
   CfSeedAccountInput,
   CfSeedProvisionResponse,
+  CfSeedVideoProcessingResponse,
   CfSeedVideoResponse,
   CfSeedVisibility,
 } from './cf-seeder.models';
@@ -19,9 +20,30 @@ export interface UploadCfSeedVideoRequest {
   visibility: CfSeedVisibility;
   duration: number;
   sourceQuality: string;
+  sourceWidth: number;
+  sourceHeight: number;
+  description?: string;
   sequence: number;
   useExistingAccount: boolean;
   file: File;
+}
+
+export interface UploadCfSeedRenditionRequest {
+  quality: string;
+  width: number;
+  height: number;
+  bitrateKbps?: number;
+  codec?: string;
+  file: File;
+}
+
+export interface CfSeedRenditionResponse {
+  videoId: string;
+  quality: string;
+  width: number;
+  height: number;
+  fileSize: number;
+  status: string;
 }
 
 export interface CfSeedUploadSession {
@@ -58,12 +80,35 @@ export class CfSeederApiService {
     form.append('visibility', request.visibility);
     form.append('duration', String(request.duration));
     form.append('sourceQuality', request.sourceQuality);
+    form.append('sourceWidth', String(request.sourceWidth));
+    form.append('sourceHeight', String(request.sourceHeight));
+    if (request.description) form.append('description', request.description);
     form.append('sequence', String(request.sequence));
     form.append('useExistingAccount', String(request.useExistingAccount));
     form.append('video', request.file, request.file.name);
     return this.http.post<CfSeedVideoResponse>(
       `${this.config.apiBaseUrl}/admin/cf-seeder/videos`,
       form,
+    );
+  }
+
+  uploadRendition(videoId: string, request: UploadCfSeedRenditionRequest): Observable<CfSeedRenditionResponse> {
+    const form = new FormData();
+    form.append('quality', request.quality);
+    form.append('width', String(request.width));
+    form.append('height', String(request.height));
+    if (request.bitrateKbps !== undefined) form.append('bitrateKbps', String(request.bitrateKbps));
+    if (request.codec) form.append('codec', request.codec);
+    form.append('video', request.file, request.file.name);
+    return this.http.post<CfSeedRenditionResponse>(
+      `${this.config.apiBaseUrl}/admin/cf-seeder/videos/${videoId}/renditions`,
+      form,
+    );
+  }
+
+  getVideoProcessing(videoId: string): Observable<CfSeedVideoProcessingResponse> {
+    return this.http.get<CfSeedVideoProcessingResponse>(
+      `${this.config.apiBaseUrl}/admin/cf-seeder/videos/${videoId}/processing`,
     );
   }
 
@@ -90,6 +135,14 @@ export class CfSeederApiService {
     return this.http.post<CfSeedVideoResponse>(
       `${this.config.apiBaseUrl}/admin/cf-seeder/upload-sessions/${uploadId}/complete`,
       request,
+    );
+  }
+
+  completeChunkedRenditionUpload(uploadId: string, videoId: string,
+    request: Omit<UploadCfSeedRenditionRequest, 'file'>): Observable<CfSeedRenditionResponse> {
+    return this.http.post<CfSeedRenditionResponse>(
+      `${this.config.apiBaseUrl}/admin/cf-seeder/upload-sessions/${uploadId}/complete-rendition`,
+      { videoId, ...request },
     );
   }
 }
