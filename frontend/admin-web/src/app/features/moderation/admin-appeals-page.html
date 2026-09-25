@@ -149,14 +149,14 @@
                 </td>
                 <td>
                   @if (item.evidenceUrl) {
-                    <a [href]="item.evidenceUrl" target="_blank" rel="noopener" class="link-evidence">
+                    <button type="button" class="link-evidence" (click)="openEvidence(item)">
                       <span>Xem đính kèm</span>
                       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="link-icon">
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                         <polyline points="15 3 21 3 21 9"></polyline>
                         <line x1="10" y1="14" x2="21" y2="3"></line>
                       </svg>
-                    </a>
+                    </button>
                   } @else {
                     <span class="text-muted">Không có</span>
                   }
@@ -179,22 +179,24 @@
                 <td class="time-col">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
                 <td class="actions-col">
                   <div class="action-buttons">
-                    @if (item.status === 'pending') {
+                    @if (canResolveAppeal() && item.status === 'pending') {
                       <button type="button" class="btn-action btn-claim" (click)="claimAppeal(item)" [disabled]="submitting()" title="Nhận thẩm định hồ sơ khiếu nại này">
                         Nhận thụ lý
                       </button>
                       <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Mở hộp thoại phán quyết">
                         Phán quyết
                       </button>
-                    } @else if (item.status === 'reviewing') {
+                    } @else if (canResolveAppeal() && item.status === 'reviewing') {
                       <button type="button" class="btn-action btn-claim" (click)="releaseAppeal(item)" [disabled]="submitting()" title="Hủy nhận xử lý để chuyên viên khác tiếp quản">
                         Bỏ nhận
                       </button>
                       <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Mở hộp thoại phán quyết">
                         Phán quyết
                       </button>
-                    } @else {
+                    } @else if (item.status !== 'pending' && item.status !== 'reviewing') {
                       <span class="done-label">Đã xử lý</span>
+                    } @else {
+                      <span class="text-muted">Chờ thụ lý</span>
                     }
                   </div>
                 </td>
@@ -233,9 +235,7 @@
             @if (activeAppeal()!.evidenceUrl) {
               <div class="context-row">
                 <span class="context-label">Bằng chứng:</span>
-                <a [href]="activeAppeal()!.evidenceUrl" target="_blank" rel="noopener" class="link-evidence">
-                  {{ activeAppeal()!.evidenceUrl }}
-                </a>
+                <button type="button" class="link-evidence" (click)="openEvidence(activeAppeal()!)">Mở tệp bằng chứng</button>
               </div>
             }
           </div>

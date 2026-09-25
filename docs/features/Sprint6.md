@@ -611,7 +611,7 @@ Tách quyền xem, quản lý Policy và thực hiện các hành động modera
 
 ### Tiêu chí hoàn thành
 
-- [ ] Permission được seed/migrate đầy đủ.
+- [x] Permission được seed/migrate đầy đủ.
 - [ ] Role phù hợp được gán đúng quyền.
 - [ ] API trả 401 khi chưa đăng nhập và 403 khi không đủ quyền.
 - [ ] UI không hiển thị thao tác không được phép.

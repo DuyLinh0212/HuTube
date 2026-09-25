@@ -29,6 +29,7 @@ export class AdminModerationPage implements OnInit {
   readonly error = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
   readonly queue = signal<ModerationQueueItem[]>([]);
+  readonly selectedCaseIds = signal<string[]>([]);
   readonly policies = signal<PolicyItem[]>([]);
 
   readonly selectedStatus = signal<'ALL' | 'pending' | 'reviewing' | 'processed' | 'escalated'>('pending');
@@ -103,6 +104,8 @@ export class AdminModerationPage implements OnInit {
     }).subscribe({
       next: ({ active, processed, policies }) => {
         this.queue.set([...active, ...processed]);
+        const availableIds = new Set([...active, ...processed].map(item => item.moderationCaseId));
+        this.selectedCaseIds.update(ids => ids.filter(id => availableIds.has(id)));
         this.policies.set(policies);
         this.loading.set(false);
       },
@@ -137,6 +140,63 @@ export class AdminModerationPage implements OnInit {
       error: (err) => {
         this.error.set(err?.error?.detail || this.i18n.t('common.error'));
         this.loading.set(false);
+      }
+    });
+  }
+
+  canSelectForBatch(item: ModerationQueueItem): boolean {
+    if (!this.canClaim() || this.isProcessed(item)) return false;
+    return item.status === 'pending' || (item.status === 'reviewing' && this.isClaimedByMe(item));
+  }
+
+  isSelected(item: ModerationQueueItem): boolean { return this.selectedCaseIds().includes(item.moderationCaseId); }
+
+  toggleCaseSelection(item: ModerationQueueItem, checked: boolean): void {
+    if (!this.canSelectForBatch(item)) return;
+    this.selectedCaseIds.update(ids => checked
+      ? [...new Set([...ids, item.moderationCaseId])]
+      : ids.filter(id => id !== item.moderationCaseId));
+  }
+
+  toggleVisibleSelection(checked: boolean): void {
+    const selectable = this.filteredQueue().filter(item => this.canSelectForBatch(item)).map(item => item.moderationCaseId);
+    this.selectedCaseIds.update(ids => checked
+      ? [...new Set([...ids, ...selectable])]
+      : ids.filter(id => !selectable.includes(id)));
+  }
+
+  visibleSelectionComplete(): boolean {
+    const selectable = this.filteredQueue().filter(item => this.canSelectForBatch(item));
+    return selectable.length > 0 && selectable.every(item => this.isSelected(item));
+  }
+
+  bulkClaimSelected(): void { this.applyBulkSelection('claim'); }
+  bulkReleaseSelected(): void { this.applyBulkSelection('release'); }
+
+  canApprove(): boolean { return this.auth.hasPermission('moderation.approve'); }
+  canReject(): boolean { return this.auth.hasPermission('moderation.reject'); }
+
+  private applyBulkSelection(action: 'claim' | 'release'): void {
+    if (!this.canClaim()) return;
+    const selected = new Set(this.selectedCaseIds());
+    const eligible = this.filteredQueue().filter(item => selected.has(item.moderationCaseId)
+      && (action === 'claim' ? item.status === 'pending' : item.status === 'reviewing' && this.isClaimedByMe(item)));
+    if (!eligible.length) return;
+    const label = action === 'claim' ? 'nhận xử lý' : 'trả lại hàng đợi';
+    if (!window.confirm(`Xác nhận ${label} ${eligible.length} hồ sơ đã chọn?`)) return;
+    this.loading.set(true);
+    const requests = eligible.map(item => action === 'claim'
+      ? this.moderationService.claim(item.moderationCaseId)
+      : this.moderationService.release(item.moderationCaseId));
+    forkJoin(requests).subscribe({
+      next: () => {
+        this.selectedCaseIds.update(ids => ids.filter(id => !eligible.some(item => item.moderationCaseId === id)));
+        this.showMessage(`Đã ${label} ${eligible.length} hồ sơ.`);
+        this.loadData();
+      },
+      error: err => {
+        this.error.set(err?.error?.detail || `Không thể ${label} toàn bộ hồ sơ. Danh sách sẽ được làm mới để phản ánh các thay đổi đã áp dụng.`);
+        this.loadData();
       }
     });
   }

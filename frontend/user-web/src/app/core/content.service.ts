@@ -1,7 +1,7 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { map, catchError, switchMap } from 'rxjs/operators';
 import { RuntimeConfig } from './runtime-config';
 
 export interface PageResult<T> { items: T[]; page: number; pageSize: number; total: number; }
@@ -18,12 +18,21 @@ export interface LibraryVideo extends VideoCard {
   progress: number;
   activityAt: string;
 }
-export interface VideoDetail extends VideoCard { categoryId: string | null; description: string | null; videoUrl: string; fileSize: number; status: string; moderationStatus: string; languageCode: string | null; ageRestricted: boolean; createdAt: string; tags: string[]; chapters: { startSeconds: number; title: string }[]; stats: VideoStats; viewerState: VideoViewerState | null; }
+export interface WatchHistoryItem extends Partial<LibraryVideo> { videoId: string; channelId: string; channelName: string; channelHandle: string; title: string; thumbnailUrl: string | null; duration: number; watchedSeconds: number; progress: number; activityAt: string; }
+export interface VideoDetail extends VideoCard { categoryId: string | null; description: string | null; videoUrl: string; fileSize: number; status: string; moderationStatus: string; moderationReason?: string | null; channelWatermarkUrl?: string | null; languageCode: string | null; ageRestricted: boolean; createdAt: string; tags: string[]; chapters: { startSeconds: number; title: string }[]; stats: VideoStats; viewerState: VideoViewerState | null; }
 export interface Rendition { quality: string; width: number; height: number; fileSize: number; url: string; }
 export interface Playback { videoId: string; title: string; visibility: string; duration: number; renditions: Rendition[]; resumeAtSeconds: number; progress: number; }
 export interface CommentItem { commentId: string; videoId: string; userId: string; displayName: string; parentCommentId: string | null; content: string; status: string; createdAt: string; updatedAt: string; likes: number; dislikes: number; myReaction: 'like' | 'dislike' | null; replyCount: number; }
 export interface Category { categoryId: string; name: string; slug: string; description: string | null; }
 export interface ViolationType { violationTypeId: string; code: string; name: string; description: string | null; }
+export interface CategoryRankingGroup { categoryId: string; categoryName: string; slug: string; videos: VideoCard[]; }
+export interface FeaturedCreator { channelId: string; name: string; handle: string; avatarUrl: string | null; subscriberCount: number; verified: boolean; }
+export interface ExploreHub {
+  rankings: CategoryRankingGroup[];
+  creators: FeaturedCreator[];
+  trending: VideoCard[];
+  topVideos?: VideoCard[];
+}
 
 export const DEFAULT_VIOLATION_TYPES: ViolationType[] = [
   { violationTypeId: '00000000-0000-0002-0000-000000000001', code: 'sexual', name: 'Nội dung khiêu dâm', description: 'Hình ảnh, video hoặc nội dung khiêu dâm, không phù hợp thuần phong mỹ tục.' },
@@ -51,6 +60,8 @@ export interface ChannelStrikeStatus {
   hasWarning: boolean;
   isSuspended: boolean;
   uploadRestrictedUntil: string | null;
+  uploadRestrictionReason?: string | null;
+  appealEligible?: boolean;
   strikes: ChannelStrike[];
 }
 
@@ -83,10 +94,12 @@ export interface AppealItem {
   targetId: string;
   targetTitle: string | null;
   appealNumber: number;
+  reviewerName?: string | null;
   reason: string;
   status: string;
   reviewNote: string | null;
   evidenceUrl: string | null;
+  evidenceNote?: string | null;
   createdAt: string;
   resolvedAt: string | null;
 }
@@ -117,13 +130,14 @@ export class ContentService {
     if (opts.duration) params = params.set('duration', opts.duration);
     return this.http.get<PageResult<VideoCard>>(`${this.base}/videos/search`, { params });
   }
-  history(page = 1, pageSize = 20) { return this.http.get<PageResult<LibraryVideo>>(`${this.base}/library/history`, { params: { page, pageSize } }); }
+  history(page = 1, pageSize = 20) { return this.http.get<PageResult<WatchHistoryItem>>(`${this.base}/library/history`, { params: { page, pageSize } }); }
   liked(rating: number | null = null, page = 1, pageSize = 20) {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
     if (rating !== null) params = params.set('rating', rating);
     return this.http.get<PageResult<LibraryVideo>>(`${this.base}/library/liked`, { params });
   }
   categories() { return this.http.get<Category[]>(`${this.base}/categories`); }
+  exploreHub() { return this.http.get<ExploreHub>(`${this.base}/feed/explore-hub`); }
   detail(id: string) { return this.http.get<VideoDetail>(`${this.base}/videos/${id}`); }
   playback(id: string) { return this.http.get<Playback>(`${this.base}/videos/${id}/playback`); }
   managed(channelId: string, page = 1, pageSize = 20, search = '') {
@@ -165,11 +179,24 @@ export class ContentService {
       catchError(() => this.http.post(`${this.base}/reports`, { targetType: 'channel', targetId: channelId, violationTypeId, description }))
     );
   }
-  reportContent(targetType: 'video' | 'comment' | 'channel', targetId: string, violationTypeId: string, description: string) {
-    return this.http.post(`${this.base}/reports`, { targetType, targetId, violationTypeId, description });
+  reportContent(targetType: 'video' | 'comment' | 'channel', targetId: string, violationTypeId: string, description: string, idempotencyKey?: string) {
+    const headers = idempotencyKey ? new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) : undefined;
+    return this.http.post(`${this.base}/reports`, { targetType, targetId, violationTypeId, description }, { headers });
   }
   getChannelStrikes(channelId: string) { return this.http.get<ChannelStrikeStatus>(`${this.base}/channels/${channelId}/strikes`); }
-  createAppeal(request: CreateAppealPayload) { return this.http.post<AppealItem>(`${this.base}/appeals`, request); }
+  getAppealEvidence(appealId: string) { return this.http.get(`${this.base}/appeals/${appealId}/evidence`, { responseType: 'blob' }); }
+  createAppeal(request: CreateAppealPayload, evidence?: File | null) {
+    return this.http.post<AppealItem>(`${this.base}/appeals`, request).pipe(
+      switchMap(appeal => evidence
+        ? this.uploadAppealEvidence(appeal.appealId, evidence).pipe(map(() => appeal))
+        : of(appeal))
+    );
+  }
+  uploadAppealEvidence(appealId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<{ appealId: string; evidenceUrl: string }>(`${this.base}/appeals/${appealId}/evidence`, form);
+  }
   getMyAppeals() { return this.http.get<AppealItem[]>(`${this.base}/appeals/my`); }
   progress(videoId: string, watchedSeconds: number) { return this.http.put(`${this.base}/videos/${videoId}/watch-progress`, { watchedSeconds, saveHistory: true }); }
   share(videoId: string) { return this.http.post<{ url: string; shareCount: number }>(`${this.base}/videos/${videoId}/share`, { method: 'copy_link' }); }
@@ -184,7 +211,7 @@ export class ContentService {
     });
   }
   publish(videoId: string) { return this.http.post<VideoDetail>(`${this.base}/videos/${videoId}/publish`, {}); }
-  update(videoId: string, data: { visibility?: string; title?: string; description?: string }) {
+  update(videoId: string, data: { visibility?: string; title?: string; description?: string; categoryId?: string | null; clearCategory?: boolean }) {
     return this.http.patch<VideoDetail>(`${this.base}/videos/${videoId}`, data);
   }
   updateThumbnail(videoId: string, file: File | null, generate = false) {

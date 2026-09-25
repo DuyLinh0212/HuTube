@@ -6,30 +6,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 import yaml
 
 from app.config import SERVICE_ROOT
 from app.data.mapping import build_mappings, encode_interactions
 from app.data.movielens import export_unified_csv, load_ml100k, validate_ml100k
-from app.model_registry import load_artifact_directory
 from training.artifacts import (
     load_json,
     make_model_version,
     save_artifact,
     update_benchmark_pointer,
 )
-from training.cohorts import run_cohort_evaluation, write_cohort_report
 from training.comparison import generate_comparison_report
 from training.complexity import benchmark_item_based_strategies
 from training.config import TrainConfig, load_train_config
-from training.evaluate import EvaluationResult, evaluate_model
 from training.quality_gate import run_quality_gate, write_quality_gate
 from training.reports import generate_reports
-from training.trainer import (
-    MODEL_TYPES,
-    fit_all_models,
-)
+from training.trainer import fit_all_models
 
 
 def _load_artifact_config(artifact_dir: Path) -> TrainConfig:
@@ -68,81 +61,18 @@ def _dataset_summary(dataset, interactions) -> dict[str, Any]:
     }
 
 
-def _evaluate_models(
-    models: dict[str, Any],
-    interactions: pd.DataFrame,
-    *,
-    dataset,
-    mappings,
-    config: TrainConfig,
-) -> dict[str, EvaluationResult]:
-    return {
-        model_type: evaluate_model(
-            model,
-            interactions,
-            mappings=mappings,
-            items=dataset.items,
-            genre_names=dataset.genre_names,
-            k_values=config.evaluation.k,
-            positive_rating_threshold=config.preference.positive_rating_threshold,
-        )
-        for model_type, model in models.items()
-    }
-
-
-def _comparison_summary(
-    metrics: dict[str, dict[str, Any]],
-    *,
-    k_values: list[int],
-) -> dict[str, Any]:
-    primary_metric = (
-        "collaborative_support@10"
-        if 10 in k_values
-        else f"collaborative_support@{max(k_values)}"
-    )
-    values = {
-        model_type: values.get(primary_metric)
-        for model_type, values in metrics.items()
-    }
-    available = {name: value for name, value in values.items() if value is not None}
-    winner = max(available, key=available.get) if available else None
-    return {
-        "primaryMetric": primary_metric,
-        "winner": winner,
-        "values": values,
-    }
-
-
-def _metrics_payload(
-    evaluations: dict[str, EvaluationResult],
-    *,
-    config: TrainConfig,
-) -> dict[str, Any]:
-    model_metrics = {
-        model_type: {"evaluation": result.metrics}
-        for model_type, result in evaluations.items()
+def _runtime_payload(history: list[dict[str, Any]]) -> dict[str, Any]:
+    models = {
+        str(row["model"]): {"fit_seconds": float(row["fit_seconds"])}
+        for row in history
     }
     return {
-        "models": model_metrics,
-        "comparison": _comparison_summary(
-            {model_type: result.metrics for model_type, result in evaluations.items()},
-            k_values=config.evaluation.k,
-        ),
-        "evaluation_protocol": {
-            "name": "collaborative_support",
-            "uses_exact_item_holdout": False,
-            "uses_genre_only_for_diagnostics": True,
-            "profile_source": "complete_observed_user_history",
+        "runtime": {
+            "models": models,
+            "total_fit_seconds": sum(
+                float(row["fit_seconds"]) for row in history
+            ),
         },
-        "binary_behaviors": {
-            "like": None,
-            "dislike": None,
-            "comment": None,
-            "share": None,
-        },
-        "watch_ratio": None,
-        "fallback_rate": None,
-        "cold_start_rate": None,
     }
 
 
@@ -158,14 +88,18 @@ def command_train(args: argparse.Namespace) -> int:
 
     fitted = fit_all_models(interactions, config=config, mappings=mappings)
     models = {model_type: result.model for model_type, result in fitted.items()}
-    evaluations = _evaluate_models(
-        models,
-        interactions,
-        dataset=dataset,
-        mappings=mappings,
-        config=config,
-    )
-    metrics = _metrics_payload(evaluations, config=config)
+    history = [
+        {
+            "model": model_type,
+            "family": model_type.rsplit("_", 1)[0],
+            "similarity": model_type.rsplit("_", 1)[1],
+            "fit_seconds": fitted[model_type].fit_seconds,
+            "neighbor_count": config.model.neighbor_count,
+            "interaction_mode": config.model.interaction_mode,
+        }
+        for model_type in fitted
+    ]
+    metrics = _runtime_payload(history)
     if config.benchmark.enabled:
         metrics["complexity_benchmark"] = benchmark_item_based_strategies(
             interactions,
@@ -196,20 +130,8 @@ def command_train(args: argparse.Namespace) -> int:
             if isinstance(metrics.get("complexity_benchmark"), dict)
             else None
         ),
-        "primaryMetric": metrics["comparison"]["primaryMetric"],
-        "evaluationProtocol": metrics["evaluation_protocol"],
+        "reportScope": "runtime_only",
     }
-    history = [
-        {
-            "model": model_type,
-            "family": model_type.rsplit("_", 1)[0],
-            "similarity": model_type.rsplit("_", 1)[1],
-            "fit_seconds": fitted[model_type].fit_seconds,
-            "neighbor_count": config.model.neighbor_count,
-            "interaction_mode": config.model.interaction_mode,
-        }
-        for model_type in fitted
-    ]
     artifact_root = config.resolve(config.output.artifact_root)
     artifact_dir = save_artifact(
         artifact_root=artifact_root,
@@ -249,7 +171,7 @@ def command_train(args: argparse.Namespace) -> int:
                 "artifact": str(artifact_dir),
                 "report": str(report),
                 "qualityGate": quality_gate.as_dict(),
-                "comparison": metrics["comparison"],
+                "runtime": metrics["runtime"],
             },
             ensure_ascii=False,
             indent=2,
@@ -258,50 +180,13 @@ def command_train(args: argparse.Namespace) -> int:
     return 0
 
 
-def _load_evaluation_context(artifact_dir: Path):
-    config = _load_artifact_config(artifact_dir)
-    dataset, generated_interactions, _generated_mappings = _prepare_data(config)
-    loaded = load_artifact_directory(artifact_dir, model_type="item_based")
-    frame = generated_interactions.drop(columns=["user_index", "item_index"])
-    interactions = encode_interactions(frame, loaded.mappings)
-    return config, dataset, interactions, loaded.mappings
-
-
-def _evaluate_artifact(artifact_dir: Path):
-    config, dataset, interactions, mappings = _load_evaluation_context(artifact_dir)
-    metadata = load_json(artifact_dir / "metadata.json")
-    model_types = metadata.get("modelTypes") or list(MODEL_TYPES)
-    results: dict[str, EvaluationResult] = {}
-    for model_type in model_types:
-        loaded = load_artifact_directory(artifact_dir, model_type=model_type)
-        results[model_type] = evaluate_model(
-            loaded.model,
-            interactions,
-            mappings=mappings,
-            items=dataset.items,
-            genre_names=dataset.genre_names,
-            k_values=config.evaluation.k,
-            positive_rating_threshold=config.preference.positive_rating_threshold,
-        )
-    return config, dataset, interactions, mappings, results
-
-
 def command_evaluate(args: argparse.Namespace) -> int:
     artifact_dir = Path(args.artifact).expanduser().resolve()
-    config, _dataset, _interactions, _mappings, results = _evaluate_artifact(artifact_dir)
-    metrics = {model_type: result.metrics for model_type, result in results.items()}
+    metadata = load_json(artifact_dir / "metadata.json")
+    history = load_json(artifact_dir / "training_history.json")
     payload = {
-        "models": {
-            model_type: {"evaluation": values}
-            for model_type, values in metrics.items()
-        },
-        "comparison": _comparison_summary(metrics, k_values=config.evaluation.k),
-        "evaluation_protocol": {
-            "name": "collaborative_support",
-            "uses_exact_item_holdout": False,
-            "uses_genre_only_for_diagnostics": True,
-            "profile_source": "complete_observed_user_history",
-        },
+        "modelVersion": metadata.get("modelVersion"),
+        **_runtime_payload(history),
     }
     output = artifact_dir / "metrics.recomputed.json"
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -332,13 +217,17 @@ def command_report(args: argparse.Namespace) -> int:
 
 def command_compare(args: argparse.Namespace) -> int:
     artifact_dir = Path(args.artifact).expanduser().resolve()
-    config, _dataset, _interactions, _mappings, results = _evaluate_artifact(artifact_dir)
     metadata = load_json(artifact_dir / "metadata.json")
+    config = _load_artifact_config(artifact_dir)
+    history = load_json(artifact_dir / "training_history.json")
     report_dir = config.resolve(config.output.report_root) / str(metadata["modelVersion"])
     output = generate_comparison_report(
         report_dir=report_dir,
         model_version=str(metadata["modelVersion"]),
-        model_metrics={model_type: result.metrics for model_type, result in results.items()},
+        model_metrics={
+            str(row["model"]): {"fit_seconds": float(row["fit_seconds"])}
+            for row in history
+        },
     )
     print(output)
     return 0
@@ -350,36 +239,6 @@ def command_quality_gate(args: argparse.Namespace) -> int:
     write_quality_gate(result, artifact_dir / "quality_gate.json")
     print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
     return 0 if result.passed else 1
-
-
-def command_cohort_report(args: argparse.Namespace) -> int:
-    config = load_train_config(args.config)
-    _dataset, interactions, mappings = _prepare_data(config)
-    rows, _models = run_cohort_evaluation(
-        interactions,
-        config=config,
-        mappings=mappings,
-    )
-    model_version = f"cohort_{make_model_version(config)}"
-    report_dir = config.resolve(config.output.report_root) / model_version
-    report = write_cohort_report(
-        report_dir=report_dir,
-        model_version=model_version,
-        rows=rows,
-    )
-    print(
-        json.dumps(
-            {
-                "modelVersion": model_version,
-                "report": str(report),
-                "rows": len(rows),
-                "primaryMetric": "collaborative_support@10/@20/@30",
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -413,12 +272,6 @@ def build_parser() -> argparse.ArgumentParser:
     quality_gate.add_argument("--artifact", required=True)
     quality_gate.set_defaults(handler=command_quality_gate)
 
-    cohort_report = subparsers.add_parser(
-        "cohort-report",
-        help="evaluate Support@K by minimum user-history cohort",
-    )
-    cohort_report.add_argument("--config", required=True)
-    cohort_report.set_defaults(handler=command_cohort_report)
     return parser
 
 

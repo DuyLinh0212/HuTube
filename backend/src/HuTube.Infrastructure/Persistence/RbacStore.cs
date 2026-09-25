@@ -18,6 +18,10 @@ public sealed class RbacStore(HuTubeDbContext db) : IRbacStore
 
         return await db.RolePermissions
             .Where(rp => rp.RoleId == roleId.Value)
+            .Join(db.Roles.Where(role => role.Status == "active"),
+                rp => rp.RoleId,
+                role => role.RoleId,
+                (rp, _) => rp)
             .Join(db.Permissions.Where(p => p.Status == "active"),
                 rp => rp.PermissionId,
                 p => p.PermissionId,
@@ -30,7 +34,7 @@ public sealed class RbacStore(HuTubeDbContext db) : IRbacStore
     {
         var role = await db.Users
             .Where(u => u.UserId == userId && u.DeletedAt == null)
-            .Join(db.Roles, u => u.RoleId, r => r.RoleId, (_, r) => new { r.Code, r.Name })
+            .Join(db.Roles.Where(r => r.Status == "active"), u => u.RoleId, r => r.RoleId, (_, r) => new { r.Code, r.Name })
             .SingleOrDefaultAsync(ct);
 
         return (role?.Code, role?.Name);
@@ -47,7 +51,11 @@ public sealed class RbacStore(HuTubeDbContext db) : IRbacStore
 
     public async Task<List<RoleWithPermissions>> GetAllRolesWithPermissionsAsync(CancellationToken ct)
     {
-        var roles = await db.Roles.ToListAsync(ct);
+        // Deleted custom roles are retained for audit/history, but must not be
+        // offered as assignable roles in the administration UI.
+        var roles = await db.Roles
+            .Where(role => role.Status != "deleted")
+            .ToListAsync(ct);
         var rolePermissions = await db.RolePermissions
             .Join(db.Permissions, rp => rp.PermissionId, p => p.PermissionId, (rp, p) => new { rp.RoleId, p.Code })
             .ToListAsync(ct);
@@ -57,11 +65,15 @@ public sealed class RbacStore(HuTubeDbContext db) : IRbacStore
             r.Code,
             r.Name,
             r.Description,
-            rolePermissions.Where(rp => rp.RoleId == r.RoleId).Select(rp => rp.Code).ToList())).ToList();
+            rolePermissions.Where(rp => rp.RoleId == r.RoleId).Select(rp => rp.Code).ToList(),
+            r.Status)).ToList();
     }
 
     public Task<Role?> FindRoleAsync(Guid roleId, CancellationToken ct) =>
         db.Roles.SingleOrDefaultAsync(role => role.RoleId == roleId, ct);
+
+    public Task<int> CountUsersForRoleAsync(Guid roleId, CancellationToken ct) =>
+        db.Users.IgnoreQueryFilters().CountAsync(user => user.RoleId == roleId, ct);
 
     public Task<bool> RoleCodeExistsAsync(string code, CancellationToken ct) =>
         db.Roles.AnyAsync(role => role.Code == code, ct);

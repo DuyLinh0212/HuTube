@@ -16,6 +16,9 @@ export interface AdminRole {
   name: string;
   description: string | null;
   permissions: string[];
+  status: string;
+  isSystemRole: boolean;
+  assignedUserCount: number;
 }
 
 export interface SaveRoleRequest {
@@ -48,5 +51,11 @@ export class AdminRbacService {
 
   updateRole(roleId: string, request: SaveRoleRequest) {
     return this.http.put<AdminRole>(this.config.apiBaseUrl + '/admin/roles/' + encodeURIComponent(roleId), request);
+  }
+
+  deleteRole(roleId: string, reason: string) {
+    return this.http.delete<void>(this.config.apiBaseUrl + '/admin/roles/' + encodeURIComponent(roleId), {
+      params: { reason }
+    });
   }
 }

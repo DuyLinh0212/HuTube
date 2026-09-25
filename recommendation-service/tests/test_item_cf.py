@@ -43,4 +43,4 @@ def test_item_cf_predicts_and_excludes_seen_items(
     assert predictions.shape == (3,)
     assert np.isfinite(predictions).all()
     assert all(item not in seen for item, _score in recommendations)
-    assert 0.0 <= result.metrics["preference_alignment@2"] <= 1.0
+    assert result.metrics["recommendation_count"] > 0

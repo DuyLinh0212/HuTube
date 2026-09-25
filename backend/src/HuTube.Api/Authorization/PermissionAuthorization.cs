@@ -66,23 +66,6 @@ public sealed class RequirePermissionAttribute : Attribute, IAsyncActionFilter
             }
         }
 
-        var roleCode = (await rbacService.GetAdminMeAsync(userId, httpContext.RequestAborted)).Role;
-        var isAdminOrSuperAdmin = string.Equals(roleCode, "admin", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(roleCode, "super_admin", StringComparison.OrdinalIgnoreCase)
-            || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.Admin
-            || dbUser.RoleId == HuTube.Domain.Rbac.SystemRoles.SuperAdmin;
-
-        if (!hasPermission && isAdminOrSuperAdmin)
-        {
-            if (Permissions.Any(p => p.StartsWith("plan.", StringComparison.OrdinalIgnoreCase)
-                                  || p.StartsWith("policy.", StringComparison.OrdinalIgnoreCase)
-                                  || p == AdminPermissions.PolicyManage
-                                  || p == AdminPermissions.SystemEditSetting))
-            {
-                hasPermission = true;
-            }
-        }
-
         if (!hasPermission)
         {
             var permLabel = string.Join("' hoặc '", Permissions);

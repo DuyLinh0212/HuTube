@@ -14,6 +14,7 @@ export interface ChannelSummary {
   contactEmail: string | null;
   watermarkUrl: string | null;
   status: string;
+  statusReason?: string | null;
   createdAt: string;
 }
 
@@ -29,6 +30,7 @@ export interface ChannelDetail {
   watermarkUrl: string | null;
   settings: string;
   status: string;
+  statusReason?: string | null;
   subscriberCount: number;
   videoCount: number;
   isOwner: boolean;
@@ -150,6 +152,12 @@ export class ChannelService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<ChannelSummary>(`${this.base}/${channelId}/banner`, formData);
+  }
+
+  uploadWatermark(channelId: string, file: File): Observable<ChannelSummary> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<ChannelSummary>(`${this.base}/${channelId}/watermark`, formData);
   }
 
   getRoles(): Observable<ChannelRole[]> {

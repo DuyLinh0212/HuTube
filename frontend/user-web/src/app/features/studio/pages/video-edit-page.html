@@ -28,6 +28,12 @@
           <label class="field-label" for="video-description">Mô tả</label>
           <textarea id="video-description" name="description" class="text-field description-field" [(ngModel)]="description" maxlength="5000" placeholder="Chia sẻ thêm bối cảnh cho video của bạn…"></textarea>
           <div class="field-meta"><span>Thêm ngữ cảnh, liên kết hoặc mốc thời gian.</span><strong>{{ description.length }}/5000</strong></div>
+          <label class="field-label" for="video-category">Danh mục</label>
+          <select id="video-category" name="categoryId" class="text-field category-field" [(ngModel)]="categoryId">
+            <option value="">Không chọn danh mục</option>
+            @for (category of categories(); track category.categoryId) { <option [value]="category.categoryId">{{ category.name }}</option> }
+          </select>
+          <div class="field-meta"><span>Chọn danh mục phù hợp để người xem dễ khám phá video.</span></div>
         </section>
 
         <section class="editor-card thumbnail-card">

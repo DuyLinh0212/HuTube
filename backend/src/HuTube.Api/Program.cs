@@ -109,6 +109,7 @@ builder.Services.AddScoped<ICfSeederService, CfSeederService>();
 builder.Services.AddSingleton<VideoRenditionProcessingQueue>();
 builder.Services.AddScoped<VideoRenditionProcessor>();
 builder.Services.AddHostedService<VideoRenditionProcessingWorker>();
+builder.Services.AddHostedService<VideoMediaRetentionCleanupService>();
 builder.Services.AddSingleton<CfSeedChunkUploadStore>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
@@ -117,6 +118,7 @@ builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<ModerationService>();
 builder.Services.AddScoped<StrikeService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<AdminContentService>();
 builder.Services.AddScoped<AppealService>();
 builder.Services.AddScoped<TaxonomyService>();
 builder.Services.AddScoped<AdminUserService>();
@@ -155,7 +157,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
             if (!Guid.TryParse(context.Principal?.FindFirst("sub")?.Value, out var userId)
                 || !Guid.TryParse(context.Principal?.FindFirst("sid")?.Value, out var sessionId)
                 || !Guid.TryParse(context.Principal?.FindFirst("jti")?.Value, out var jti)
-                || !await context.HttpContext.RequestServices.GetRequiredService<AuthService>().ValidateSessionAsync(userId, sessionId, jti, context.HttpContext.RequestAborted))
+                || !await context.HttpContext.RequestServices.GetRequiredService<AuthService>().ValidateSessionAsync(
+                    userId, sessionId, jti, context.HttpContext.RequestAborted, context.HttpContext.Connection.RemoteIpAddress?.ToString()))
                 context.Fail("SESSION_EXPIRED");
         },
         OnChallenge = async context => { context.HandleResponse(); await ApiErrors.WriteAsync(context.HttpContext, 401, "SESSION_EXPIRED", "Phiên đã hết hạn. Vui lòng đăng nhập lại."); },

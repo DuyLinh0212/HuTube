@@ -70,6 +70,7 @@ public sealed class UserSession
     public string DeviceName { get; set; } = "";
     /// <summary>Stable, app-generated identifier for one installation/browser profile.</summary>
     public string DeviceId { get; set; } = "";
+    public string? IpAddress { get; set; }
     public string Platform { get; set; } = "web";
     public DateTimeOffset IssuedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }

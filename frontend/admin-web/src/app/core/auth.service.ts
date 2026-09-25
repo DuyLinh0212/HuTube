@@ -33,6 +33,7 @@ export class AuthService {
   readonly user = signal<User | null>(null);
   readonly accessToken = signal<string | null>(null);
   private refreshFlight?: Observable<LoginResponse>;
+  private restoreFlight?: Observable<boolean>;
   private generation = 0;
   private restored = false;
   get sessionVersion(): number { return this.generation; }
@@ -75,7 +76,16 @@ export class AuthService {
     const denied = () => { if (generation === this.generation) this.clear(); return of(false); };
     if (this.accessToken()) return this.me().pipe(map(() => true), catchError(denied));
     if (this.restored) return of(false);
-    return this.refresh().pipe(switchMap(() => this.me()), map(() => true), catchError(denied));
+    if (!this.restoreFlight) {
+      this.restoreFlight = this.refresh().pipe(
+        switchMap(() => this.me()),
+        map(() => true),
+        catchError(denied),
+        finalize(() => { this.restoreFlight = undefined; }),
+        shareReplay({ bufferSize: 1, refCount: false })
+      );
+    }
+    return this.restoreFlight;
   }
   me(): Observable<User> {
     const generation = this.generation;

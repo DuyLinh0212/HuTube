@@ -88,7 +88,11 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
             b.Property(x => x.SessionId).HasColumnName("refresh_token_id"); b.Property(x => x.UserId).HasColumnName("user_id");
             b.Property(x => x.RefreshTokenHash).HasColumnName("token_hash"); b.Property(x => x.Jti).HasColumnName("jti");
-            b.Property(x => x.DeviceName).HasColumnName("device_name"); b.Property(x => x.DeviceId).HasColumnName("device_id"); b.Property(x => x.Platform).HasColumnName("platform");
+            b.Property(x => x.DeviceName).HasColumnName("device_name"); b.Property(x => x.DeviceId).HasColumnName("device_id");
+            b.Property(x => x.IpAddress).HasColumnName("ip_address")
+                .HasMaxLength(45)
+                .HasColumnType("character varying(45)");
+            b.Property(x => x.Platform).HasColumnName("platform");
             b.Property(x => x.IssuedAt).HasColumnName("issued_at"); b.Property(x => x.ExpiresAt).HasColumnName("expires_at");
             b.Property(x => x.LastActiveAt).HasColumnName("last_active_at"); b.Property(x => x.RevokedAt).HasColumnName("revoked_at");
             b.Property(x => x.RevokeReason).HasColumnName("revoke_reason"); b.Property(x => x.ReplacedBySessionId).HasColumnName("replaced_by_token_id");
@@ -188,8 +192,16 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasKey(x => x.PolicyId);
             b.Property(x => x.Group).HasColumnName("group");
         });
-        model.Entity<Report>(b => { b.ToTable("reports"); b.HasKey(x => x.ReportId); });
-        model.Entity<ModerationCase>(b => { b.ToTable("moderation_cases"); b.HasKey(x => x.ModerationCaseId); });
+        model.Entity<Report>(b => {
+            b.ToTable("reports"); b.HasKey(x => x.ReportId);
+            b.HasOne<ModerationCase>().WithMany().HasForeignKey(x => x.ModerationCaseId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.UserId, x.IdempotencyKey }).IsUnique().HasFilter("idempotency_key IS NOT NULL");
+            b.HasIndex(x => x.ModerationCaseId);
+        });
+        model.Entity<ModerationCase>(b => {
+            b.ToTable("moderation_cases"); b.HasKey(x => x.ModerationCaseId);
+            b.HasIndex(x => new { x.CaseType, x.TargetType, x.TargetId }).IsUnique().HasFilter("case_type = 'report_case'");
+        });
         model.Entity<CommentModerationAction>(b => { b.ToTable("comment_moderation_actions"); b.HasKey(x => x.CommentModerationActionId); });
         model.Entity<VideoDownload>(b => { b.ToTable("video_downloads"); b.HasKey(x => x.VideoDownloadId); b.HasIndex(x => new { x.UserId, x.VideoId, x.QualityLabel }).IsUnique(); });
         model.Entity<ChannelStrike>(b => { b.ToTable("channel_strikes"); b.HasKey(x => x.StrikeId); });

@@ -27,6 +27,133 @@ public sealed class ContentService(
 {
     private DateTimeOffset Now => clock.GetUtcNow();
 
+    public async Task<ExploreHubResponse> GetExploreHubAsync(CancellationToken ct = default)
+    {
+        // 1. Categories & Top 3 Videos per Category
+        var categories = await db.Categories.AsNoTracking()
+            .Where(x => x.Status == "active")
+            .OrderBy(x => x.Name)
+            .Take(8)
+            .ToListAsync(ct);
+
+        var rankings = new List<CategoryRankingGroup>();
+        foreach (var cat in categories)
+        {
+            var catVideosQuery = from video in db.Videos.AsNoTracking()
+                                 join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                                 where video.CategoryId == cat.CategoryId && video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public"
+                                 orderby db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId) descending, video.PublishedAt descending
+                                 select new
+                                 {
+                                     video.VideoId,
+                                     video.ChannelId,
+                                     ChannelName = channel.Name,
+                                     ChannelHandle = channel.Handle,
+                                     video.Title,
+                                     video.ThumbnailUrl,
+                                     video.Duration,
+                                     video.Visibility,
+                                     video.PublishedAt,
+                                     Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId)
+                                 };
+
+            var catPageRows = await catVideosQuery.Take(3).ToListAsync(ct);
+            var videoCards = new List<VideoCardResponse>();
+            foreach (var r in catPageRows)
+            {
+                videoCards.Add(new(r.VideoId, r.ChannelId, r.ChannelName, r.ChannelHandle,
+                    r.Title, r.ThumbnailUrl == null ? null : await ReadUrlAsync(r.ThumbnailUrl, ct),
+                    r.Duration, r.Visibility, r.PublishedAt, r.Views));
+            }
+
+            if (videoCards.Count > 0)
+            {
+                rankings.Add(new(cat.CategoryId, cat.Name, cat.Slug, videoCards));
+            }
+        }
+
+        // The aggregate BXH needs its own global ranking.  Deriving it from
+        // the per-category top-three lists can omit videos that rank below a
+        // category leader, so query the published catalogue directly.
+        var topRankingRows = await (from video in db.Videos.AsNoTracking()
+                                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                                    where video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public"
+                                    orderby db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId) descending, video.PublishedAt descending
+                                    select new
+                                    {
+                                        video.VideoId,
+                                        video.ChannelId,
+                                        ChannelName = channel.Name,
+                                        ChannelHandle = channel.Handle,
+                                        video.Title,
+                                        video.ThumbnailUrl,
+                                        video.Duration,
+                                        video.Visibility,
+                                        video.PublishedAt,
+                                        Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId)
+                                    }).Take(12).ToListAsync(ct);
+
+        var topRankingCards = new List<VideoCardResponse>();
+        foreach (var r in topRankingRows)
+        {
+            topRankingCards.Add(new(r.VideoId, r.ChannelId, r.ChannelName, r.ChannelHandle,
+                r.Title, r.ThumbnailUrl == null ? null : await ReadUrlAsync(r.ThumbnailUrl, ct),
+                r.Duration, r.Visibility, r.PublishedAt, r.Views));
+        }
+
+        // 2. Featured Creators
+        var topChannels = await (from c in db.Channels.AsNoTracking()
+                                 where c.Status == "active"
+                                 let subCount = db.Subscriptions.LongCount(s => s.ChannelId == c.ChannelId && s.Status == "active")
+                                 let vidCount = db.Videos.LongCount(v => v.ChannelId == c.ChannelId && v.Status == "published" && v.ModerationStatus == "approved")
+                                 where vidCount > 0 || subCount > 0
+                                 orderby subCount descending, vidCount descending, c.CreatedAt descending
+                                 select new
+                                 {
+                                     c.ChannelId,
+                                     c.Name,
+                                     c.Handle,
+                                     c.AvatarUrl,
+                                     SubscriberCount = subCount
+                                 }).Take(5).ToListAsync(ct);
+
+        var creators = new List<FeaturedCreatorResponse>();
+        foreach (var ch in topChannels)
+        {
+            var avatar = ch.AvatarUrl == null ? null : await ReadUrlAsync(ch.AvatarUrl, ct);
+            creators.Add(new(ch.ChannelId, ch.Name, ch.Handle, avatar, ch.SubscriberCount, true));
+        }
+
+        // 3. Trending Videos
+        var trendingRows = await (from video in db.Videos.AsNoTracking()
+                                  join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                                  where video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public"
+                                  orderby db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId) descending, video.PublishedAt descending
+                                  select new
+                                  {
+                                      video.VideoId,
+                                      video.ChannelId,
+                                      ChannelName = channel.Name,
+                                      ChannelHandle = channel.Handle,
+                                      video.Title,
+                                      video.ThumbnailUrl,
+                                      video.Duration,
+                                      video.Visibility,
+                                      video.PublishedAt,
+                                      Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId)
+                                  }).Take(10).ToListAsync(ct);
+
+        var trendingCards = new List<VideoCardResponse>();
+        foreach (var r in trendingRows)
+        {
+            trendingCards.Add(new(r.VideoId, r.ChannelId, r.ChannelName, r.ChannelHandle,
+                r.Title, r.ThumbnailUrl == null ? null : await ReadUrlAsync(r.ThumbnailUrl, ct),
+                r.Duration, r.Visibility, r.PublishedAt, r.Views));
+        }
+
+        return new ExploreHubResponse(rankings, creators, trendingCards, topRankingCards);
+    }
+
     public async Task<IReadOnlyList<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default) =>
         await db.Categories.AsNoTracking().Where(x => x.Status == "active").OrderBy(x => x.Name)
             .Select(x => new CategoryResponse(x.CategoryId, x.Name, x.Slug, x.Description)).ToListAsync(ct);
@@ -231,7 +358,7 @@ public sealed class ContentService(
         return new(cards, page, pageSize, total);
     }
 
-    public async Task<PageResult<LibraryVideoResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)
     {
         (page, pageSize) = Page(page, pageSize);
         // Keep only the newest row for each video. A correlated NOT EXISTS is
@@ -246,16 +373,19 @@ public sealed class ContentService(
                  (other.ViewedAt == history.ViewedAt && other.ViewingHistoryId > history.ViewingHistoryId))));
         var query = from history in latest
                     join video in LibraryVisibleVideos(userId) on history.VideoId equals video.VideoId
+                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
                     orderby history.ViewedAt descending
-                    select new { Video = video, history.WatchDuration, history.Progress, history.ViewedAt };
+                    select new { video.VideoId, video.ChannelId, ChannelName = channel.Name, ChannelHandle = channel.Handle,
+                        video.Title, video.ThumbnailUrl, video.Duration, history.WatchDuration, history.Progress, history.ViewedAt };
 
         var total = await query.CountAsync(ct);
         var rows = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        var items = new List<LibraryVideoResponse>(rows.Count);
+        var items = new List<WatchHistoryResponse>(rows.Count);
         foreach (var row in rows)
         {
-            var detail = await ToResponseAsync(row.Video, userId, ct);
-            items.Add(ToLibraryResponse(detail, row.WatchDuration, row.Progress, row.ViewedAt));
+            items.Add(new(row.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle, row.Title,
+                row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration,
+                row.WatchDuration, row.Progress, row.ViewedAt));
         }
 
         return new(items, page, pageSize, total);
@@ -493,19 +623,23 @@ public sealed class ContentService(
     public async Task<UploadPreflightResponse> PreflightAsync(Guid actorId, UploadPreflightRequest request, CancellationToken ct = default)
     {
         var channel = await RequireChannelPermissionAsync(request.ChannelId, actorId, ChannelPermissions.VideoUpload, ct);
-        var activeStrike = await db.ChannelStrikes.AsNoTracking()
+        var activeStrikes = await db.ChannelStrikes.AsNoTracking()
             .Where(s => s.ChannelId == channel.ChannelId && s.Status == "active" && s.ExpiresAt > Now)
             .OrderByDescending(s => s.CreatedAt)
-            .FirstOrDefaultAsync(ct);
-
-        if (activeStrike != null)
-        {
-            var restrictionDays = activeStrike.StrikeNumber >= 2 ? 14 : 7;
-            var restrictionEnd = activeStrike.CreatedAt.AddDays(restrictionDays);
-            if (restrictionEnd > Now)
+            .Select(s => new { s.CreatedAt, s.StrikeNumber, s.UploadRestrictedUntil, s.Reason })
+            .ToListAsync(ct);
+        var activeRestrictions = activeStrikes.Select(s => new
             {
-                throw Error(403, "UPLOAD_RESTRICTED", $"Kênh đang bị tạm ngưng quyền đăng tải video đến {restrictionEnd:dd/MM/yyyy HH:mm} do bị đánh gậy phạt vi phạm.");
-            }
+                Until = s.UploadRestrictedUntil ?? s.CreatedAt.AddDays(s.StrikeNumber >= 2 ? 14 : 7),
+                s.Reason
+            })
+            .Where(x => x.Until > Now).ToList();
+        var restrictionEnd = activeRestrictions.Select(x => x.Until).DefaultIfEmpty().Max();
+        if (restrictionEnd > Now)
+        {
+            var reason = activeRestrictions.OrderByDescending(x => x.Until).FirstOrDefault()?.Reason;
+            var details = string.IsNullOrWhiteSpace(reason) ? "vi phạm chính sách" : $"lý do: {reason}";
+            throw Error(403, "UPLOAD_RESTRICTED", $"Kênh đang bị tạm ngưng quyền đăng tải video đến {restrictionEnd:dd/MM/yyyy HH:mm}; {details}.");
         }
 
         var maxUpload = long.MaxValue;
@@ -785,6 +919,7 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
         if (video.Status != "failed") throw Error(409, "VIDEO_NOT_RETRYABLE", "Chỉ video xử lý lỗi mới có thể thử lại.");
+        if (video.MediaPurgedAt.HasValue) throw Error(409, "VIDEO_MEDIA_PURGED", "Tệp video đã được dọn và không thể xử lý lại.");
         var sourceRendition = await db.VideoRenditions
             .Where(x => x.VideoId == videoId && x.Codec == "source")
             .OrderByDescending(x => x.Height)
@@ -1126,7 +1261,8 @@ public sealed class ContentService(
         return new(video.VideoId, video.ChannelId, channel.Name, channel.Handle, video.CategoryId, video.Title, video.Description,
             await ReadUrlAsync(video.VideoUrl, ct), video.ThumbnailUrl == null ? null : await ReadUrlAsync(video.ThumbnailUrl, ct), video.Duration, video.FileSize, video.Visibility, video.Status, video.ModerationStatus,
             video.LanguageCode, video.AgeRestricted, video.PublishedAt, video.CreatedAt, tags, chapters,
-            new(views, likes, dislikes, comments, ratings.Count == 0 ? null : Math.Round((decimal)ratings.Average(), 2), ratings.Count, shares), state);
+            new(views, likes, dislikes, comments, ratings.Count == 0 ? null : Math.Round((decimal)ratings.Average(), 2), ratings.Count, shares), state,
+            viewerId == channel.OwnerUserId ? video.ModerationReason : null, channel.WatermarkUrl);
     }
 
     private async Task PublishInteractionNotificationAsync(Guid recipientId, Guid actorId, string type, string title,

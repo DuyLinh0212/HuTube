@@ -153,7 +153,7 @@
                   <span>{{ 'ui.playlist' | translate }}</span>
                 </div>
                 <div class="drawer-stat">
-                  @if (myChannel()) { <strong>{{ myChannel()!.subscriberCount | localeNumber }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
+                  @if (subscribedChannelCount() !== null) { <strong>{{ subscribedChannelCount() | localeNumber }}</strong> } @else { <strong class="stat-unavailable">—</strong> }
                   <span>{{ 'ui.subscriptions' | translate }}</span>
                 </div>
                 <a class="drawer-stat" routerLink="/liked" (click)="closeAccountDrawer()">

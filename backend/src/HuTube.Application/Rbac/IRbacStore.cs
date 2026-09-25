@@ -11,6 +11,7 @@ public interface IRbacStore
     Task<List<Permission>> GetAllPermissionsAsync(CancellationToken ct);
     Task<List<RoleWithPermissions>> GetAllRolesWithPermissionsAsync(CancellationToken ct);
     Task<Role?> FindRoleAsync(Guid roleId, CancellationToken ct);
+    Task<int> CountUsersForRoleAsync(Guid roleId, CancellationToken ct) => Task.FromResult(0);
     Task<bool> RoleCodeExistsAsync(string code, CancellationToken ct);
     Task<List<Permission>> GetActivePermissionsByCodesAsync(IReadOnlyCollection<string> codes, CancellationToken ct);
     void AddRole(Role role);
@@ -25,4 +26,5 @@ public sealed record RoleWithPermissions(
     string Code,
     string Name,
     string? Description,
-    List<string> Permissions);
+    List<string> Permissions,
+    string Status = "active");

@@ -70,6 +70,7 @@
                 <span class="badge badge-reviewing">{{ 'ui.moderationReviewing' | translate }}</span>
               } @else if (video.moderationStatus === 'rejected') {
                 <span class="badge badge-danger">{{ 'ui.moderationRejected' | translate }}</span>
+                @if (video.moderationReason) { <small class="moderation-reason">{{ video.moderationReason }}</small> }
               } @else if (video.visibility === 'public') {
                 <span class="badge badge-pending">{{ 'ui.moderationPending' | translate }}</span>
               } @else {

@@ -10,6 +10,12 @@
       @if (canEdit()) {
         <button class="primary-action" type="button" (click)="openCreate()">＋ Tạo nhóm quyền</button>
       }
+      @if (selectedRole(); as role) {
+        @if (canDelete() && !role.isSystemRole && role.status !== 'deleted') {
+          <button class="secondary-action danger-action" type="button" (click)="deleteSelectedRole()"
+            [disabled]="role.assignedUserCount > 0" [title]="role.assignedUserCount > 0 ? 'Hãy chuyển người dùng khỏi vai trò này trước' : 'Xóa mềm vai trò'"><span aria-hidden="true">⌫</span> Xóa vai trò</button>
+        }
+      }
       <button class="secondary-action" type="button" (click)="load()" [disabled]="loading()">
         <span aria-hidden="true">↻</span> Làm mới
       </button>
@@ -61,7 +67,7 @@
               <span class="role-card__body">
                 <strong>{{ role.name }}</strong>
                 <small>{{ role.code }}</small>
-                <span>{{ permissionCount(role) }} quyền được cấp</span>
+                <span>{{ permissionCount(role) }} quyền · {{ role.assignedUserCount }} người dùng @if (role.status === 'deleted') { · Đã xóa }</span>
               </span>
               <span class="role-card__more" aria-hidden="true">⋮</span>
             </button>
@@ -96,6 +102,10 @@
               <div>
                 <dt>Mã role</dt>
                 <dd>{{ role.code }}</dd>
+              </div>
+              <div>
+                <dt>Người dùng đang gán</dt>
+                <dd>{{ role.assignedUserCount }}</dd>
               </div>
             </dl>
           </header>

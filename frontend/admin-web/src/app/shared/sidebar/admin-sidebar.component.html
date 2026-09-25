@@ -21,16 +21,16 @@
         }
       </section>
     }
-    @if (can('channel.view') || can('video.view') || can('system.view_setting') || can('cf_seed.manage')) {
+    @if (can('channel.view') || can('video.view') || can('system.view_setting') || can('taxonomy.manage') || can('cf_seed.manage')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupContent' | translate">
         <p class="nav-label">{{ 'nav.groupContent' | translate }}</p>
         @if (can('channel.view')) {
-          <span class="nav-item" [title]="'nav.channels' | translate"><img src="/assets/icons/channel.png" alt="" /><span>{{ 'nav.channels' | translate }}</span></span>
+          <a class="nav-item" routerLink="/channels" routerLinkActive="is-active" [title]="'nav.channels' | translate" (click)="closeNavigation()"><img src="/assets/icons/channel.png" alt="" /><span>{{ 'nav.channels' | translate }}</span></a>
         }
         @if (can('video.view')) {
-          <span class="nav-item" [title]="'nav.videos' | translate"><img src="/assets/icons/my_video.png" alt="" /><span>{{ 'nav.videos' | translate }}</span></span>
+          <a class="nav-item" routerLink="/videos" routerLinkActive="is-active" [title]="'nav.videos' | translate" (click)="closeNavigation()"><img src="/assets/icons/my_video.png" alt="" /><span>{{ 'nav.videos' | translate }}</span></a>
         }
-        @if (can('system.view_setting')) {
+        @if (can('system.view_setting') || can('taxonomy.manage')) {
           <a class="nav-item" routerLink="/topics" routerLinkActive="is-active" [title]="'nav.topics' | translate" (click)="closeNavigation()">
             <img src="/assets/icons/topics.png" alt="" /><span>{{ 'nav.topics' | translate }}</span>
           </a>
@@ -81,10 +81,10 @@
         }
       </section>
     }
-    @if (can('audit.view') || can('system.view_setting')) {
+    @if (can('audit.view') || can('system.view_setting') || can('policy.view') || can('moderation.review') || can('moderation.view_queue')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupSystem' | translate">
         <p class="nav-label">{{ 'nav.groupSystem' | translate }}</p>
-        @if (can('system.view_setting')) {
+        @if (can('system.view_setting') || can('policy.view') || can('moderation.review') || can('moderation.view_queue')) {
           <a class="nav-item" routerLink="/policies" routerLinkActive="is-active" [title]="'nav.policies' | translate" (click)="closeNavigation()">
             <img src="/assets/icons/topics.png" alt="" /><span>{{ 'nav.policies' | translate }}</span>
           </a>

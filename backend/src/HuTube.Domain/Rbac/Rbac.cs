@@ -16,9 +16,25 @@ public static class AdminPermissions
     public const string UserBan = "user.ban";
     public const string RoleView = "role.view";
     public const string RoleEdit = "role.edit";
+    public const string RoleDelete = "role.delete";
     public const string ChannelView = "channel.view";
     public const string ChannelEdit = "channel.edit";
+    public const string ChannelSuspend = "channel.suspend";
+    public const string ChannelBan = "channel.ban";
+    public const string ChannelUnban = "channel.unban";
+    public const string ChannelStrike = "channel.strike";
+    public const string ChannelRemoveStrike = "channel.remove_strike";
+    public const string ChannelDelete = "channel.delete";
+    public const string ChannelExport = "channel.export";
     public const string VideoView = "video.view";
+    public const string VideoViewPrivate = "video.view_private";
+    public const string VideoEditMetadata = "video.edit_metadata";
+    public const string VideoHide = "video.hide";
+    public const string VideoUnhide = "video.unhide";
+    public const string VideoRemove = "video.remove";
+    public const string VideoRestore = "video.restore";
+    public const string VideoStrike = "video.strike";
+    public const string VideoExport = "video.export";
     public const string ModerationViewQueue = "moderation.view_queue";
     public const string ModerationClaim = "moderation.claim";
     public const string ModerationReview = "moderation.review";
@@ -36,6 +52,7 @@ public static class AdminPermissions
     public const string PolicyView = "policy.view";
     public const string PolicyManage = "policy.manage";
     public const string ReportView = "report.view";
+    public const string ReportClaim = "report.claim";
     public const string ReportResolve = "report.resolve";
     public const string AppealView = "appeal.view";
     public const string AppealResolve = "appeal.resolve";
@@ -46,11 +63,13 @@ public static class AdminPermissions
     public static readonly IReadOnlyList<string> All = [
         DashboardView,
         UserView, UserEdit, UserBan,
-        RoleView, RoleEdit,
-        ChannelView, ChannelEdit, ChannelLock,
-        VideoView,
+        RoleView, RoleEdit, RoleDelete,
+        ChannelView, ChannelEdit, ChannelSuspend, ChannelBan, ChannelUnban, ChannelStrike,
+        ChannelRemoveStrike, ChannelDelete, ChannelExport, ChannelLock,
+        VideoView, VideoViewPrivate, VideoEditMetadata, VideoHide, VideoUnhide, VideoRemove,
+        VideoRestore, VideoStrike, VideoExport,
         ModerationViewQueue, ModerationClaim, ModerationReview, ModerationApprove, ModerationReject,
-        ReportView, ReportResolve,
+        ReportView, ReportClaim, ReportResolve,
         AppealView, AppealResolve,
         StrikeView, StrikeManage,
         PolicyView, PolicyManage,

@@ -6,20 +6,24 @@
       <p class="subtitle">Theo dõi lịch sử xử lý vi phạm, áp dụng chế tài lũy tiến (Cảnh cáo &rarr; Gậy 1 &rarr; Gậy 2 &rarr; Gậy 3 đình chỉ), thu hồi gậy và cưỡng chế khóa kênh.</p>
     </div>
     <div class="header-actions">
-      <button type="button" class="btn btn-secondary" (click)="openChannelLockModal()" [disabled]="loading()">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
-        <span>Khóa / Mở kênh</span>
-      </button>
-      <button type="button" class="btn btn-primary btn-brand-cta" (click)="openCreateModal()" [disabled]="loading()">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        <span>Phạt gậy thủ công</span>
-      </button>
+      @if (canLockChannels()) {
+        <button type="button" class="btn btn-secondary" (click)="openChannelLockModal()" [disabled]="loading()">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Khóa / Mở kênh</span>
+        </button>
+      }
+      @if (canManageStrikes()) {
+        <button type="button" class="btn btn-primary btn-brand-cta" (click)="openCreateModal()" [disabled]="loading()">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Phạt gậy thủ công</span>
+        </button>
+      }
       <button type="button" class="btn btn-secondary btn-icon-only" (click)="loadData()" [disabled]="loading()" title="Làm mới dữ liệu">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
           <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
@@ -207,19 +211,24 @@
                 <td class="time-col">{{ item.expiresAt | date:'dd/MM/yyyy' }}</td>
                 <td class="actions-col">
                   <div class="action-buttons">
-                    @if (item.status === 'active') {
+                    @if (canManageStrikes() && item.status === 'active') {
                       <button type="button" class="btn-action btn-revoke" (click)="openRevokeModal(item)" title="Thu hồi gậy vi phạm">
                         Thu hồi
                       </button>
                     }
-                    @if (item.channelStatus === 'suspended') {
-                      <button type="button" class="btn-action btn-unlock" (click)="openChannelLockModal(item.channelId, 'unlock')" title="Mở khóa khôi phục hoạt động cho kênh này">
-                        Mở khóa
-                      </button>
-                    } @else {
-                      <button type="button" class="btn-action btn-lock" (click)="openChannelLockModal(item.channelId, 'lock')" title="Khóa đình chỉ kênh này">
-                        Khóa kênh
-                      </button>
+                    @if (canLockChannels()) {
+                      @if (item.channelStatus === 'suspended') {
+                        <button type="button" class="btn-action btn-unlock" (click)="openChannelLockModal(item.channelId, 'unlock')" title="Mở khóa khôi phục hoạt động cho kênh này">
+                          Mở khóa
+                        </button>
+                      } @else {
+                        <button type="button" class="btn-action btn-lock" (click)="openChannelLockModal(item.channelId, 'lock')" title="Khóa đình chỉ kênh này">
+                          Khóa kênh
+                        </button>
+                      }
+                    }
+                    @if (!canManageStrikes() && !canLockChannels()) {
+                      <span class="no-action" aria-label="Không có quyền thao tác">—</span>
                     }
                   </div>
                 </td>

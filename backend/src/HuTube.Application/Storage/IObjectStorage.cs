@@ -5,6 +5,8 @@ public interface IObjectStorage
     Task<string> SaveFileAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default);
     Task<string> SaveVideoAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default);
     Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default);
+    Task<Stream> OpenReadAsync(string storedPath, CancellationToken ct = default) =>
+        throw new NotSupportedException("This storage provider does not support proxied reads.");
     Task DeleteFileAsync(string relativePath, CancellationToken ct = default);
 }
 

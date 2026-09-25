@@ -52,6 +52,7 @@ export class WatchPage {
   readonly currentTime = signal(0);
   readonly totalDuration = signal(0);
   readonly miniPlayer = signal(false);
+  readonly pipActive = signal(false);
   readonly shareOpen = signal(false);
   readonly shareUrl = signal('');
   readonly downloadOptions = signal<Rendition[]>([]);
@@ -66,13 +67,7 @@ export class WatchPage {
   readonly subscriptionNotificationsEnabled = signal(false);
   readonly subscriberCount = signal(0);
   readonly visibleRelatedVideos = computed(() => {
-    const items = this.relatedVideos();
-    const current = this.video();
-    if (this.recommendationFilter() === 'channel' && current) {
-      const sameChannel = items.filter(item => item.channelId === current.channelId);
-      return sameChannel.length ? sameChannel : items;
-    }
-    return items;
+    return this.relatedVideos();
   });
   readonly speeds = [.25, .5, .75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -235,6 +230,29 @@ export class WatchPage {
   }
 
   onPlayerError() {
+    const player = this.playerRef?.nativeElement;
+    const current = this.activeRendition();
+    const lowerRendition = (this.playback()?.renditions ?? [])
+      .filter(item => item.url !== current?.url && (current?.height ? item.height < current.height : true))
+      .sort((a, b) => b.height - a.height)[0];
+
+    if (lowerRendition) {
+      if (player && Number.isFinite(player.currentTime)) this.pendingSeek = player.currentTime;
+      this.continuePlaying = true;
+      this.quality.set(lowerRendition.quality);
+      this.setAutoplayRendition(lowerRendition);
+      this.actionMessage.set(this.i18n.t('watch.lowerRenditionFallback'));
+      return;
+    }
+
+    const source = this.video();
+    if (source?.videoUrl && source.videoUrl !== current?.url) {
+      if (player && Number.isFinite(player.currentTime)) this.pendingSeek = player.currentTime;
+      this.continuePlaying = true;
+      this.setAutoplayRendition({ quality: this.i18n.t('watch.sourceQuality'), width: 0, height: 0, fileSize: source.fileSize, url: source.videoUrl });
+      this.actionMessage.set(this.i18n.t('watch.sourceFallback'));
+      return;
+    }
     this.actionMessage.set(this.i18n.t('watch.renditionError'));
   }
 
@@ -261,13 +279,19 @@ export class WatchPage {
   onEnded() {
     this.isPlaying.set(false);
     this.currentTime.set(this.totalDuration());
+    if (!this.autoplay()) return;
     const next = this.playlistQueue.slice(this.playlistIndex + 1).find(item => item.available);
-    if (!next) return;
-    const nextIndex = this.playlistQueue.findIndex(item => item.playlistVideoId === next.playlistVideoId);
-    const tree = this.router.createUrlTree(['/watch', next.videoId], {
-      queryParams: { playlist: this.route.snapshot.queryParamMap.get('playlist'), index: nextIndex }
-    });
-    window.location.assign(this.router.serializeUrl(tree));
+    if (next) {
+      const nextIndex = this.playlistQueue.findIndex(item => item.playlistVideoId === next.playlistVideoId);
+      const tree = this.router.createUrlTree(['/watch', next.videoId], {
+        queryParams: { playlist: this.route.snapshot.queryParamMap.get('playlist'), index: nextIndex }
+      });
+      window.location.assign(this.router.serializeUrl(tree));
+      return;
+    }
+    if (this.route.snapshot.queryParamMap.has('playlist')) return;
+    const following = this.visibleRelatedVideos()[0];
+    if (following) window.location.assign(this.router.serializeUrl(this.router.createUrlTree(['/watch', following.videoId])));
   }
 
   toggleMute() {
@@ -318,6 +342,26 @@ export class WatchPage {
   toggleMiniPlayer() {
     if (document.fullscreenElement) void document.exitFullscreen();
     this.miniPlayer.update(value => !value);
+  }
+
+  supportsPictureInPicture(): boolean {
+    const player = this.playerRef?.nativeElement;
+    return !!document.pictureInPictureEnabled && !!player && typeof player.requestPictureInPicture === 'function';
+  }
+
+  async togglePictureInPicture(): Promise<void> {
+    const player = this.playerRef?.nativeElement;
+    if (!this.supportsPictureInPicture() || !player) {
+      this.actionMessage.set(this.i18n.t('watch.pictureInPictureUnsupported'));
+      return;
+    }
+
+    try {
+      if (document.pictureInPictureElement === player) await document.exitPictureInPicture();
+      else await player.requestPictureInPicture();
+    } catch {
+      this.actionMessage.set(this.i18n.t('watch.pictureInPictureFailed'));
+    }
   }
 
   seekTo(seconds: number) {
@@ -417,6 +461,7 @@ export class WatchPage {
           ? { ...list, itemCount: list.itemCount + 1 }
           : list));
         this.actionMessage.set(`Đã thêm video vào “${playlist.name}”.`);
+        this.playlistPickerOpen.set(false);
       },
       error: () => this.actionMessage.set(`Không thể thêm video vào “${playlist.name}”. Có thể video đã có trong danh sách.`)
     });
@@ -643,7 +688,7 @@ export class WatchPage {
       next: result => {
         this.downloadOpen.set(false);
         this.actionMessage.set(result.fileUrl ? this.i18n.t('watch.downloadCreatedWithLink') : this.i18n.t('watch.downloadCreated'));
-        if (result.fileUrl) window.open(result.fileUrl, '_blank', 'noopener,noreferrer');
+        if (result.fileUrl) window.location.assign(result.fileUrl);
       },
       error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.downloadError'))
     });
@@ -651,6 +696,22 @@ export class WatchPage {
 
   setRecommendationFilter(filter: 'all' | 'related' | 'channel' | 'category') {
     this.recommendationFilter.set(filter);
+    const current = this.video();
+    if ((filter === 'channel' || filter === 'category') && current) {
+      this.content.search({
+        channelId: filter === 'channel' ? current.channelId : undefined,
+        categoryId: filter === 'category' ? current.categoryId ?? undefined : undefined,
+        sort: 'newest', page: 1, pageSize: 12
+      }).subscribe({
+        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== current.videoId).slice(0, 8)),
+        error: () => this.relatedVideos.set([])
+      });
+      return;
+    }
+    this.content.feed('home', 1, 12).subscribe({
+      next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 8)),
+      error: () => this.relatedVideos.set([])
+    });
   }
 
   toggleAutoplay() {

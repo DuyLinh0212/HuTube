@@ -20,11 +20,14 @@ public sealed record LibraryVideoResponse(Guid VideoId, Guid ChannelId, string C
     string? ThumbnailUrl, int Duration, string Visibility, DateTimeOffset? PublishedAt, long Views, long Likes,
     long Dislikes, decimal? AverageRating, int RatingCount, int? MyRating, int WatchedSeconds, decimal Progress,
     DateTimeOffset ActivityAt);
+public sealed record WatchHistoryResponse(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle, string Title,
+    string? ThumbnailUrl, int Duration, int WatchedSeconds, decimal Progress, DateTimeOffset ActivityAt);
 public sealed record VideoResponse(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle, Guid? CategoryId,
     string Title, string? Description, string VideoUrl, string? ThumbnailUrl, int Duration, long FileSize,
     string Visibility, string Status, string ModerationStatus, string? LanguageCode, bool AgeRestricted,
     DateTimeOffset? PublishedAt, DateTimeOffset CreatedAt, IReadOnlyList<string> Tags,
-    IReadOnlyList<VideoChapter> Chapters, VideoStatsResponse Stats, VideoViewerStateResponse? ViewerState);
+    IReadOnlyList<VideoChapter> Chapters, VideoStatsResponse Stats, VideoViewerStateResponse? ViewerState,
+    string? ModerationReason = null, string? ChannelWatermarkUrl = null);
 public sealed record PlaybackResponse(Guid VideoId, string Title, string Visibility, int Duration,
     IReadOnlyList<RenditionResponse> Renditions, int ResumeAtSeconds, decimal Progress);
 
@@ -72,13 +75,37 @@ public sealed record SearchVideosQuery(
     int Page = 1,
     int PageSize = 20);
 
+public sealed record CategoryRankingGroup(
+    Guid CategoryId,
+    string CategoryName,
+    string Slug,
+    IReadOnlyList<VideoCardResponse> Videos
+);
+
+public sealed record FeaturedCreatorResponse(
+    Guid ChannelId,
+    string Name,
+    string Handle,
+    string? AvatarUrl,
+    long SubscriberCount,
+    bool Verified
+);
+
+public sealed record ExploreHubResponse(
+    IReadOnlyList<CategoryRankingGroup> Rankings,
+    IReadOnlyList<FeaturedCreatorResponse> Creators,
+    IReadOnlyList<VideoCardResponse> Trending,
+    IReadOnlyList<VideoCardResponse> TopVideos
+);
+
 public interface IContentService
 {
+    Task<ExploreHubResponse> GetExploreHubAsync(CancellationToken ct = default);
     Task<IReadOnlyList<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery query, CancellationToken ct = default);
-    Task<PageResult<LibraryVideoResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
+    Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<LibraryVideoResponse>> GetLikedVideosAsync(Guid userId, int? rating, int page, int pageSize, CancellationToken ct = default);
     Task<VideoResponse> GetVideoAsync(Guid videoId, Guid? viewerId, CancellationToken ct = default);
     Task<PlaybackResponse> GetPlaybackAsync(Guid videoId, Guid? viewerId, CancellationToken ct = default);

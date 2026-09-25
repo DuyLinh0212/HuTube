@@ -66,6 +66,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   readonly profile = signal<UserProfile | null>(null);
   readonly likedVideoCount = signal<number | null>(null);
   readonly playlistCount = signal<number | null>(null);
+  readonly subscribedChannelCount = signal<number | null>(null);
   @ViewChild('logoutAnimation') private logoutAnimation?: ElementRef<HTMLSpanElement>;
   private logoutAnimationItem: AnimationItem | null = null;
   private drawerCloseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -102,6 +103,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
       this.playlists.mine().subscribe({
         next: lists => this.playlistCount.set(lists.length),
         error: () => this.playlistCount.set(0)
+      });
+      this.channelService.getSubscribedChannels().subscribe({
+        next: channels => this.subscribedChannelCount.set(channels.length),
+        error: () => this.subscribedChannelCount.set(null)
       });
       this.account.getPreferences().subscribe({
         next: preferences => {

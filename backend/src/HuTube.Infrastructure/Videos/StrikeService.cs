@@ -24,25 +24,41 @@ public sealed class StrikeService(
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync(ct);
 
-        var activeStrikes = strikes.Where(s => s.IsActive(now)).ToList();
+        var activeStrikes = strikes.Where(s => s.IsActive(now) && s.StrikeNumber > 0).ToList();
         var activeCount = activeStrikes.Count;
-        var hasWarning = strikes.Any(s => s.Severity == StrikeSeverities.Low || s.StrikeNumber == 0);
+        var hasWarning = activeStrikes.Any(s => s.Severity == StrikeSeverities.Low);
 
         DateTimeOffset? uploadRestrictedUntil = null;
         if (channel.Status == "suspended")
         {
             uploadRestrictedUntil = DateTimeOffset.MaxValue;
         }
-        else if (activeStrikes.Count > 0)
+        else if (strikes.Any(s => s.Status == StrikeStatuses.Active && s.ExpiresAt > now))
         {
-            var newestActive = activeStrikes[0];
-            var days = newestActive.StrikeNumber >= 2 ? 14 : 7;
-            var restrictionEnd = newestActive.CreatedAt.AddDays(days);
-            if (restrictionEnd > now)
-            {
-                uploadRestrictedUntil = restrictionEnd;
-            }
+            uploadRestrictedUntil = strikes.Where(s => s.Status == StrikeStatuses.Active && s.ExpiresAt > now)
+                .Select(s => s.UploadRestrictedUntil ?? s.CreatedAt.AddDays(s.StrikeNumber >= 2 ? 14 : 7))
+                .Where(until => until > now).DefaultIfEmpty().Max();
+            if (uploadRestrictedUntil == default) uploadRestrictedUntil = null;
         }
+
+        var uploadRestrictionReason = strikes
+            .Where(s => s.StrikeNumber == 0 && s.Status == StrikeStatuses.Active && s.UploadRestrictedUntil > now)
+            .OrderByDescending(s => s.UploadRestrictedUntil)
+            .Select(s => s.Reason)
+            .FirstOrDefault();
+
+        var hasModerationDecision = await db.ModerationCases.AsNoTracking().AnyAsync(m =>
+            m.CaseType == "report_case"
+            && m.TargetType == "channel"
+            && m.TargetId == channelId
+            && (m.Status == "resolved" || m.Status == "escalated")
+            && m.Decision != null
+            && m.Decision != "dismiss", ct);
+        var appealEligible = channel.Status is "suspended" or "banned"
+            || activeCount > 0
+            || hasWarning
+            || uploadRestrictedUntil.HasValue
+            || hasModerationDecision;
 
         var dtos = strikes.Select(s => new ChannelStrikeDto(
             s.StrikeId,
@@ -70,7 +86,9 @@ public sealed class StrikeService(
             hasWarning,
             channel.Status == "suspended",
             uploadRestrictedUntil,
-            dtos
+            dtos,
+            uploadRestrictionReason,
+            appealEligible
         );
     }
 
@@ -152,7 +170,7 @@ public sealed class StrikeService(
 
         var now = DateTimeOffset.UtcNow;
         var activeStrikesCount = await db.ChannelStrikes
-            .CountAsync(s => s.ChannelId == request.ChannelId && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
+            .CountAsync(s => s.ChannelId == request.ChannelId && s.StrikeNumber > 0 && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
 
         var nextStrikeNumber = activeStrikesCount + 1;
         var severity = string.IsNullOrWhiteSpace(request.Severity) ? StrikeSeverities.High : request.Severity.Trim().ToLowerInvariant();
@@ -176,6 +194,7 @@ public sealed class StrikeService(
         if (nextStrikeNumber >= 3)
         {
             channel.Status = "suspended";
+            channel.StatusReason = request.Reason.Trim();
             channel.UpdatedAt = now;
         }
 
@@ -221,6 +240,27 @@ public sealed class StrikeService(
         );
     }
 
+    public async Task CreateUploadRestrictionAsync(Guid actorId, Guid channelId, int durationDays, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason)) throw new AuthException(400, "REASON_REQUIRED", "Bắt buộc nhập lý do hạn chế tải lên.");
+        var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == channelId, ct)
+            ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
+        var now = DateTimeOffset.UtcNow;
+        var until = now.AddDays(Math.Clamp(durationDays, 1, 30));
+        db.ChannelStrikes.Add(new ChannelStrike
+        {
+            ChannelId = channel.ChannelId, UserId = channel.OwnerUserId, StrikeNumber = 0,
+            Severity = StrikeSeverities.Low, Reason = reason.Trim(), Status = StrikeStatuses.Active,
+            CreatedAt = now, ExpiresAt = until, UploadRestrictedUntil = until
+        });
+        await db.SaveChangesAsync(ct);
+        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "channel.upload_restrict", "channel", channelId,
+            $"Hạn chế tải lên đến {until:O}. Lý do: {reason}"), ct);
+        await notifications.PublishAsync(channel.OwnerUserId, "upload_restriction", "Tạm hạn chế quyền tải video lên",
+            $"Kênh của bạn bị tạm hạn chế tải video lên đến {until:dd/MM/yyyy HH:mm}. Lý do: {reason.Trim()}",
+            "/studio", "channel", channelId, ct);
+    }
+
     public async Task<ChannelStrikeDto> RevokeStrikeAsync(Guid actorId, Guid strikeId, RevokeStrikeRequest request, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
@@ -248,6 +288,7 @@ public sealed class StrikeService(
             if (remainingActive < 3)
             {
                 channel.Status = "active";
+                channel.StatusReason = null;
                 channel.UpdatedAt = now;
             }
         }
@@ -307,6 +348,7 @@ public sealed class StrikeService(
 
         var now = DateTimeOffset.UtcNow;
         channel.Status = lockChannel ? "suspended" : "active";
+        channel.StatusReason = lockChannel ? reason.Trim() : null;
         channel.UpdatedAt = now;
 
         await db.SaveChangesAsync(ct);

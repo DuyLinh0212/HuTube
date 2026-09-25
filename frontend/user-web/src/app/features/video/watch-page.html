@@ -27,11 +27,12 @@
         <div class="player-shell" [class.is-mini-player]="miniPlayer()">
           <div #playerStage class="player-stage">
             @if (activeRendition(); as source) {
-              <video #player class="video-player" playsinline autoplay preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()"></video>
+              <video #player class="video-player" playsinline autoplay preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()" (enterpictureinpicture)="pipActive.set(true)" (leavepictureinpicture)="pipActive.set(false)"></video>
             } @else {
               <div class="player-empty"><span aria-hidden="true">▶</span><p>{{ 'watch.notReady' | translate }}</p></div>
             }
             @if (activeRendition()) {
+              @if (item.channelWatermarkUrl) { <img class="channel-watermark" [src]="item.channelWatermarkUrl" alt="" aria-hidden="true" /> }
               <div class="player-brand" aria-hidden="true"><span class="player-brand__mark">▶</span><span>{{ 'watch.originalBadge' | translate }}</span></div>
               <button type="button" class="player-info" [title]="'watch.videoInfo' | translate" [attr.aria-label]="'watch.videoInfo' | translate">i</button>
             }
@@ -65,7 +66,8 @@
                     <label class="player-option"><span>{{ 'watch.speed' | translate }}</span><select [ngModel]="speed()" (ngModelChange)="changeSpeed($event)" [attr.aria-label]="'watch.speed' | translate">
                       @for (value of speeds; track value) { <option [ngValue]="value">{{ value }}×</option> }
                     </select></label>
-                    <button type="button" class="player-icon-button player-mini-button" (click)="toggleMiniPlayer()" [attr.aria-pressed]="miniPlayer()" [attr.aria-label]="(miniPlayer() ? 'watch.restoreSize' : 'watch.minimize') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H4zM11 13h9v6h-9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+                    <button type="button" class="player-icon-button player-mini-button" (click)="toggleMiniPlayer()" [attr.aria-pressed]="miniPlayer()" [attr.aria-label]="(miniPlayer() ? 'watch.restoreSize' : 'watch.minimize') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="miniPlayer() ? 'M5 5h14v14H5z' : 'M4 5h16v10H4zM11 13h9v6h-9z'" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+                    <button type="button" class="player-icon-button" (click)="togglePictureInPicture()" [disabled]="!supportsPictureInPicture()" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
                      <button type="button" class="player-icon-button" (click)="toggleFullscreen()" [attr.aria-label]="'watch.fullscreen' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                   </div>
                 </div>

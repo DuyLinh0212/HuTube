@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS roles (
         CONSTRAINT pk_roles PRIMARY KEY (role_id),
         CONSTRAINT ck_roles_code CHECK (char_length(btrim(code)) > 0),
         CONSTRAINT ck_roles_name CHECK (char_length(btrim(name)) > 0),
-        CONSTRAINT ck_roles_status CHECK (status IN ('active', 'inactive'))
+        CONSTRAINT ck_roles_status CHECK (status IN ('active', 'inactive', 'deleted'))
 );
 
 CREATE TABLE IF NOT EXISTS permissions (

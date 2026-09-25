@@ -314,6 +314,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
   readonly successMessage = signal<string | null>(null);
 
   readonly backendViolationTypes = signal<ViolationType[]>(DEFAULT_VIOLATION_TYPES);
+  private reportIdempotencyKey = this.newReportIdempotencyKey();
 
   readonly isDark = computed(() => this.themeService.currentTheme() === 'dark');
 
@@ -340,6 +341,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['isOpen'] && this.isOpen) {
+      this.reportIdempotencyKey = this.newReportIdempotencyKey();
       this.step.set(1);
       this.selectedCode.set('');
       this.activeTooltipCode.set(null);
@@ -467,7 +469,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
     this.submitting.set(true);
     this.errorMessage.set(null);
 
-    this.contentService.reportContent(this.targetType, this.targetId, typeId, finalDescription).subscribe({
+    this.contentService.reportContent(this.targetType, this.targetId, typeId, finalDescription, this.reportIdempotencyKey).subscribe({
       next: () => {
         this.submitting.set(false);
         this.successMessage.set('Cảm ơn bạn! Báo cáo vi phạm đã được gửi đến ban kiểm duyệt.');
@@ -482,5 +484,11 @@ export class ReportModalComponent implements OnInit, OnChanges {
         this.errorMessage.set(msg);
       }
     });
+  }
+
+  private newReportIdempotencyKey(): string {
+    return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   }
 }

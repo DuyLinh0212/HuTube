@@ -1,0 +1,9 @@
+/* The admin topbar is sticky and uses z-index:120. Keep modal content above it. */
+.dialog-backdrop {
+  z-index: 200;
+}
+
+.role-dialog {
+  z-index: 201;
+  max-height: min(790px, calc(100dvh - 32px));
+}

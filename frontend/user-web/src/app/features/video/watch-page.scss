@@ -688,6 +688,8 @@
   border-bottom: 1px solid var(--line);
 }
 
+.channel-watermark { position: absolute; right: 18px; bottom: 64px; z-index: 2; width: clamp(44px, 8vw, 88px); max-height: 64px; object-fit: contain; opacity: .82; pointer-events: none; }
+
 .channel-actions {
   display: flex;
   flex: 0 0 auto;

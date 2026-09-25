@@ -55,9 +55,12 @@ def test_artifact_round_trip_preserves_recommendations(
         items=synthetic_items,
         genre_names=["Action", "Comedy"],
         metrics={
-            "models": {
-                "user_based": {"preference": {"preference_alignment@10": 0.2}},
-                "item_based": {"preference": {"preference_alignment@10": 0.3}},
+            "runtime": {
+                "models": {
+                    "user_based": {"fit_seconds": 0.01},
+                    "item_based": {"fit_seconds": 0.01},
+                },
+                "total_fit_seconds": 0.02,
             }
         },
         history=[{"model": "item_based", "fit_seconds": 0.01}],

@@ -24,13 +24,12 @@ def _complete_artifact(tmp_path):
     (artifact / "metrics.json").write_text(
         json.dumps(
             {
-                "models": {
-                    "user_based": {
-                        "preference": {"preference_alignment@10": 0.4},
+                "runtime": {
+                    "models": {
+                        "user_based": {"fit_seconds": 0.4},
+                        "item_based": {"fit_seconds": 0.5},
                     },
-                    "item_based": {
-                        "preference": {"preference_alignment@10": 0.5},
-                    },
+                    "total_fit_seconds": 0.9,
                 }
             }
         ),
@@ -46,18 +45,16 @@ def test_quality_gate_accepts_complete_safe_benchmark(tmp_path) -> None:
     assert not result.errors
 
 
-def test_quality_gate_rejects_invalid_preference_metric(tmp_path) -> None:
+def test_quality_gate_rejects_invalid_runtime(tmp_path) -> None:
     artifact = _complete_artifact(tmp_path)
     (artifact / "metrics.json").write_text(
         json.dumps(
             {
-                "models": {
-                    "user_based": {
-                        "preference": {"preference_alignment@10": 1.5}
-                    },
-                    "item_based": {
-                        "preference": {"preference_alignment@10": 0.5}
-                    },
+                "runtime": {
+                    "models": {
+                        "user_based": {"fit_seconds": -1.0},
+                        "item_based": {"fit_seconds": 0.5},
+                    }
                 }
             }
         ),
@@ -67,7 +64,7 @@ def test_quality_gate_rejects_invalid_preference_metric(tmp_path) -> None:
     result = run_quality_gate(artifact)
 
     assert not result.passed
-    assert "user_based.preference.preference_alignment@10 must be in [0, 1]." in result.errors
+    assert "runtime.models.user_based.fit_seconds must be non-negative." in result.errors
 
 
 def test_quality_gate_requires_both_models(tmp_path) -> None:

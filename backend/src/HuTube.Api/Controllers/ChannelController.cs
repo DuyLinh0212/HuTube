@@ -79,6 +79,21 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
     public Task<ActionResult<ChannelResponse>> UploadBannerAsync(Guid id, IFormFile? file, CancellationToken ct) =>
         UploadImageAsync(id, file, "channel-banners", 10 * 1024 * 1024, false, ct);
 
+    [Authorize, HttpPost("{id:guid}/watermark")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<ActionResult<ChannelResponse>> UploadWatermarkAsync(Guid id, IFormFile? file, CancellationToken ct)
+    {
+        await channelService.EnsureBrandingPermissionAsync(id, UserId, ct);
+        if (file == null || file.Length == 0) throw new ChannelException(400, "INVALID_FILE", "Vui lòng chọn file watermark.");
+        if (file.Length > 2 * 1024 * 1024) throw new ChannelException(400, "FILE_TOO_LARGE", "Watermark tối đa 2 MiB.");
+        var allowed = new HashSet<string>(["image/jpeg", "image/png", "image/webp"], StringComparer.OrdinalIgnoreCase);
+        if (!allowed.Contains(file.ContentType)) throw new ChannelException(400, "INVALID_FILE_TYPE", "Watermark chỉ hỗ trợ JPG, PNG hoặc WEBP.");
+        await using var stream = file.OpenReadStream();
+        var imageUrl = await storage.SaveFileAsync("channel-watermarks", file.FileName, stream, file.ContentType, ct);
+        return Ok(await channelService.UpdateChannelAsync(id, UserId,
+            new UpdateChannelRequest(null, null, null, null, WatermarkUrl: imageUrl), ct));
+    }
+
     [Authorize, HttpPost("{id:guid}/members/invite")]
     public async Task<ActionResult<ChannelInvitationResponse>> InviteMemberAsync(Guid id, InviteMemberRequest request, CancellationToken ct)
     {

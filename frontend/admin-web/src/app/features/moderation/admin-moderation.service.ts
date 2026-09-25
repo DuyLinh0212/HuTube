@@ -82,7 +82,25 @@ export interface ReportItem {
   targetChannelName?: string | null;
   targetChannelHandle?: string | null;
   contextText?: string | null;
+  disposition?: string | null;
+  abuseFlag?: boolean;
 }
+
+export interface ReportViolationCount { code: string | null; name: string | null; count: number; }
+export interface ReportCaseSummary {
+  caseId: string; targetType: 'video' | 'comment' | 'channel'; targetId: string; targetTitle: string | null;
+  targetUrl: string | null; targetThumbnailUrl: string | null; targetChannelName: string | null; targetChannelHandle: string | null;
+  status: string; reportCount: number; reporterCount: number; unclassifiedCount: number; violationCounts: ReportViolationCount[];
+  reviewerId: string | null; reviewerName: string | null; submittedAt: string; updatedAt: string;
+}
+export interface ReportCaseReportDetail {
+  reportId: string; userId: string; reporterName: string | null; violationTypeId: string; violationTypeCode: string | null;
+  violationTypeName: string | null; description: string; status: string; disposition: string | null; dispositionReason: string | null;
+  dispositionByUserId: string | null; dispositionAt: string | null; abuseFlag: boolean; createdAt: string; updatedAt: string;
+}
+export interface ReportCaseDetail { case: ReportCaseSummary; reports: ReportCaseReportDetail[]; }
+export interface UpdateReportDispositionsRequest { reportIds: string[]; disposition: 'accepted' | 'rejected'; reason: string; }
+export interface ResolveReportCaseRequest { decision: string; reason: string; internalNote?: string; policyCode?: string; restrictionDays?: number; }
 
 export interface ResolveReportRequest {
   decision: string;
@@ -207,6 +225,23 @@ export class AdminModerationService {
     return this.http.get<ReportItem[]>(`${this.config.apiBaseUrl}/admin/reports`, { params });
   }
 
+  getReportCases(targetType?: string, status?: string, page = 1, pageSize = 50) {
+    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
+    if (targetType && targetType !== 'ALL') params = params.set('targetType', targetType);
+    if (status && status !== 'ALL') params = params.set('status', status);
+    return this.http.get<{ items: ReportCaseSummary[]; page: number; pageSize: number; total: number }>(`${this.config.apiBaseUrl}/admin/reports/cases`, { params });
+  }
+
+  getReportCase(caseId: string) { return this.http.get<ReportCaseDetail>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}`); }
+  claimReportCase(caseId: string): Observable<void> { return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/claim`, {}); }
+  releaseReportCase(caseId: string): Observable<void> { return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/release`, {}); }
+  updateReportDispositions(caseId: string, request: UpdateReportDispositionsRequest): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/dispositions`, request);
+  }
+  resolveReportCase(caseId: string, request: ResolveReportCaseRequest): Observable<ReportResolutionResponse> {
+    return this.http.post<ReportResolutionResponse>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/resolve`, request);
+  }
+
   claimReport(reportId: string): Observable<void> {
     return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/claim`, {});
   }
@@ -225,6 +260,10 @@ export class AdminModerationService {
     if (targetType && targetType !== 'ALL') params = params.set('targetType', targetType);
     if (status && status !== 'ALL') params = params.set('status', status);
     return this.http.get<AppealItem[]>(`${this.config.apiBaseUrl}/admin/appeals`, { params });
+  }
+
+  getAppealEvidence(appealId: string): Observable<Blob> {
+    return this.http.get(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/evidence`, { responseType: 'blob' });
   }
 
   claimAppeal(appealId: string): Observable<void> {

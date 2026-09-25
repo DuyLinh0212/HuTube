@@ -30,21 +30,10 @@ def display_name(model_name: str) -> str:
 
 
 def metric_display_name(metric: str) -> str:
-    labels = {
-        "support_coverage": "Support coverage",
-        "catalog_coverage": "Catalog coverage",
-        "preference_alignment": "Preference alignment",
-        "preference_genre_coverage": "Preference genre coverage",
-        "diversity": "Diversity",
-        "novelty": "Novelty",
-    }
-    for prefix, label in labels.items():
-        if metric.startswith(f"{prefix}@"):
-            return f"{label}@{metric.split('@', 1)[1]}"
-    if metric.startswith("collaborative_support@"):
-        return f"Collaborative Support@{metric.split('@', 1)[1]}"
-    if metric.startswith("collaborative_evidence_strength@"):
-        return f"Collaborative Evidence Strength@{metric.split('@', 1)[1]}"
+    if metric == "fit_seconds":
+        return "Training time (seconds)"
+    if metric == "total_seconds":
+        return "Total construction time (seconds)"
     return metric
 
 
@@ -56,70 +45,44 @@ def _winner(values: dict[str, float | None]) -> str:
     available = {name: value for name, value in values.items() if value is not None}
     if not available:
         return "N/A"
-    winner = max(available, key=available.get)
+    winner = min(available, key=available.get)
     return display_name(winner)
 
 
 def _comparison_rows(model_metrics: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    preferred = [
-        "collaborative_support@10",
-        "collaborative_support@20",
-        "collaborative_support@30",
-        "collaborative_evidence_strength@10",
-        "collaborative_evidence_strength@20",
-        "collaborative_evidence_strength@30",
-        "catalog_coverage@30",
-        "diversity@30",
-        "novelty@30",
-        "preference_alignment@30",
-        "preference_genre_coverage@30",
+    """Build a runtime-only comparison table."""
+
+    values = {
+        model: data.get("fit_seconds")
+        for model, data in model_metrics.items()
+    }
+    return [
+        {
+            "metric": "fit_seconds",
+            **values,
+            "winner": _winner(values),
+        }
     ]
-    available = {
-        metric
-        for metrics in model_metrics.values()
-        for metric, value in metrics.items()
-        if value is not None
-    }
-    names = [metric for metric in preferred if metric in available]
-    names.extend(sorted(available.difference(names)))
-    rows: list[dict[str, Any]] = []
-    for metric in names:
-        values = {model: metrics.get(metric) for model, metrics in model_metrics.items()}
-        rows.append({"metric": metric, **values, "winner": _winner(values)})
-    return rows
 
 
-def _save_chart(rows: list[dict[str, Any]], model_names: list[str], path: Path) -> None:
-    chart_metrics = {
-        "collaborative_support@10",
-        "collaborative_support@20",
-        "collaborative_support@30",
-    }
-    chart_rows = [row for row in rows if row["metric"] in chart_metrics]
-    if not chart_rows:
-        chart_rows = rows[: min(6, len(rows))]
-    if not chart_rows:
+def _save_chart(
+    model_metrics: dict[str, dict[str, Any]],
+    path: Path,
+) -> None:
+    if not model_metrics:
         return
-    x = np.arange(len(chart_rows))
-    width = 0.82 / max(1, len(model_names))
-    plt.figure(figsize=(14, 6.5))
-    for index, model in enumerate(model_names):
-        values = [float(row.get(model) or 0.0) for row in chart_rows]
-        plt.bar(
-            x + (index - (len(model_names) - 1) / 2) * width,
-            values,
-            width,
-            label=display_name(model),
-        )
-    plt.xticks(x, [row["metric"] for row in chart_rows])
-    plt.ylim(0, 1)
-    plt.ylabel("Score")
-    plt.title("Collaborative Support@K across six pure-CF variants")
-    plt.legend(ncol=2, fontsize=8)
-    plt.grid(axis="y", alpha=0.25)
-    plt.tight_layout()
-    plt.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close()
+    names = list(model_metrics)
+    values = [float(model_metrics[name].get("fit_seconds") or 0.0) for name in names]
+    x = np.arange(len(names))
+    figure, axis = plt.subplots(figsize=(12, 5.5))
+    axis.bar(x, values, color="#3b6edb")
+    axis.set_xticks(x, [display_name(name) for name in names], rotation=20, ha="right")
+    axis.set_ylabel("Seconds")
+    axis.set_title("Training time by CF variant")
+    axis.grid(axis="y", alpha=0.25)
+    figure.tight_layout()
+    figure.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(figure)
 
 
 def generate_comparison_report(
@@ -128,27 +91,28 @@ def generate_comparison_report(
     model_version: str,
     model_metrics: dict[str, dict[str, Any]],
 ) -> Path:
+    """Write a comparison report containing runtime only."""
+
     report_dir.mkdir(parents=True, exist_ok=True)
     model_names = list(model_metrics)
     rows = _comparison_rows(model_metrics)
-    chart = report_dir / "preference_comparison.png"
-    _save_chart(rows, model_names, chart)
+    chart = report_dir / "runtime_comparison.png"
+    _save_chart(model_metrics, chart)
 
     payload = {
         "modelVersion": model_version,
+        "comparisonType": "runtime",
         "models": model_metrics,
         "rows": rows,
-        "primaryMetric": "collaborative_support@10",
-        "evaluation": (
-            "intrinsic collaborative evidence; no exact item holdout, recall or "
-            "precision target"
-        ),
+        "fastestModel": rows[0]["winner"] if rows else "N/A",
     }
     (report_dir / "cf_comparison.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    with (report_dir / "cf_comparison.csv").open("w", encoding="utf-8", newline="") as stream:
+    with (report_dir / "cf_comparison.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as stream:
         fieldnames = ["metric", *model_names, "winner"]
         writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
@@ -157,7 +121,7 @@ def generate_comparison_report(
     table = [
         "| Metric | "
         + " | ".join(display_name(name) for name in model_names)
-        + " | Winner |",
+        + " | Fastest |",
         "|---|" + "---:|" * len(model_names) + "---|",
     ]
     table.extend(
@@ -169,18 +133,18 @@ def generate_comparison_report(
         for row in rows
     )
     markdown = [
-        f"# Pure CF Comparison — {model_version}",
+        f"# CF Runtime Comparison — {model_version}",
         "",
-        "The primary metric is Collaborative Support@K. It measures whether a "
-        "recommended item is supported by similar users or similar observed items. "
-        "No exact item holdout, recall or precision target is required.",
+        "This report compares only the training time of the pure-CF variants.",
         "",
         *table,
         "",
-        "![Collaborative Support comparison](./preference_comparison.png)",
+        "![Training time comparison](./runtime_comparison.png)",
         "",
     ]
-    (report_dir / "cf_comparison.md").write_text("\n".join(markdown), encoding="utf-8")
+    (report_dir / "cf_comparison.md").write_text(
+        "\n".join(markdown), encoding="utf-8"
+    )
 
     body = "".join(
         "<tr>"
@@ -199,21 +163,18 @@ def generate_comparison_report(
     document = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pure CF comparison</title>
+<title>CF runtime comparison</title>
 <style>
 body{{font-family:Arial,sans-serif;max-width:1500px;margin:auto;padding:32px;color:#172033}}
 table{{border-collapse:collapse;width:100%;margin:24px 0;display:block;overflow-x:auto}}
 th,td{{border:1px solid #d7deea;padding:8px;text-align:left;white-space:nowrap}}
 th{{background:#edf3fb}}img{{max-width:100%;border:1px solid #d7deea;border-radius:8px}}
 </style></head><body>
-<h1>Pure CF Comparison — {html.escape(model_version)}</h1>
-<p>Primary metrics: Collaborative Support@10, Collaborative Support@20 and
-Collaborative Support@30. This is structural collaborative evidence, not a
-guarantee of user satisfaction. No exact item holdout, recall or precision target
-is used.</p>
-<table><thead><tr><th>Metric</th>{headers}<th>Winner</th></tr></thead>
+<h1>CF Runtime Comparison — {html.escape(model_version)}</h1>
+<p>The table and chart compare training time in seconds. Lower is faster.</p>
+<table><thead><tr><th>Metric</th>{headers}<th>Fastest</th></tr></thead>
 <tbody>{body}</tbody></table>
-<img alt="Collaborative Support comparison" src="data:image/png;base64,{encoded}">
+<img alt="Training time comparison" src="data:image/png;base64,{encoded}">
 </body></html>"""
     output = report_dir / "cf_comparison.html"
     output.write_text(document, encoding="utf-8")

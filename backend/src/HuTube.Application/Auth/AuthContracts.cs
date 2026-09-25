@@ -28,7 +28,7 @@ public sealed record MessageResponse(string Message);
 public sealed record UserResponse(Guid UserId, string Username, string Email, string DisplayName, bool EmailVerified, bool IsAdmin);
 public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, string? RefreshToken, UserResponse User);
 public sealed record SessionResponse(Guid SessionId, string DeviceName, string Platform, DateTimeOffset IssuedAt,
-    DateTimeOffset LastActiveAt, DateTimeOffset ExpiresAt, bool IsCurrent);
+    DateTimeOffset LastActiveAt, DateTimeOffset ExpiresAt, bool IsCurrent, string? IpAddress = null);
 public sealed record SessionListResponse(IReadOnlyList<SessionResponse> Items);
 public sealed class AuthException(int status, string code, string message) : Exception(message)
 {
@@ -87,6 +87,8 @@ public interface IAuthStore
     Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct);
     Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct);
     Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct);
+    Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, string? ipAddress, CancellationToken ct) =>
+        TouchSessionAsync(sessionId, now, expiresAt, ct);
     Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct);
     Task<PasswordResetToken?> FindResetAsync(string hash, CancellationToken ct);
     Task<bool> IsAdminAsync(Guid userId, CancellationToken ct);

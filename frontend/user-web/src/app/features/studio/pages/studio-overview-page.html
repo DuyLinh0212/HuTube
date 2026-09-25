@@ -4,15 +4,17 @@
   } @else {
     <!-- Moderation & Strike Alert Banner -->
     @if (strikeStatus(); as strikes) {
-      @if (strikes.isSuspended) {
+      @if (strikes.isSuspended || data.channel()?.status === 'banned') {
         <div class="strike-alert strike-alert-danger">
           <div class="alert-icon">🛑</div>
           <div class="alert-content">
-            <h3>Kênh của bạn đang bị TẠM NGƯNG HOẠT ĐỘNG (Khóa kênh)</h3>
-            <p>Kênh đã bị khóa do tích lũy vi phạm tiêu chuẩn cộng đồng (3 Gậy phạt) hoặc có từ 5 video bị từ chối duyệt liên tiếp.</p>
-            <div class="alert-actions">
-              <button class="btn btn-appeal" (click)="openAppealModal()">Nộp đơn khiếu nại (Appeal)</button>
-            </div>
+            <h3>{{ data.channel()?.status === 'banned' ? 'Kênh của bạn đang bị CẤM HOẠT ĐỘNG' : 'Kênh của bạn đang bị TẠM NGƯNG HOẠT ĐỘNG' }}</h3>
+            <p>{{ data.channel()?.statusReason || 'Kênh đang bị hạn chế hoạt động do vi phạm chính sách cộng đồng.' }}</p>
+            @if (isAppealEligible()) {
+              <div class="alert-actions">
+                <button class="btn btn-appeal" (click)="openAppealModal()">Nộp đơn khiếu nại (Appeal)</button>
+              </div>
+            }
           </div>
         </div>
       } @else if (strikes.activeStrikesCount > 0) {
@@ -23,11 +25,15 @@
             @if (strikes.uploadRestrictedUntil) {
               <p>Quyền đăng tải video của kênh bị tạm ngưng đến <strong>{{ strikes.uploadRestrictedUntil | localeDate:'dd/MM/yyyy HH:mm' }}</strong>.</p>
             }
-            <div class="alert-actions">
-              <button class="btn btn-appeal" (click)="openAppealModal()">Gửi đơn khiếu nại</button>
-            </div>
+            @if (isAppealEligible()) {
+              <div class="alert-actions">
+                <button class="btn btn-appeal" (click)="openAppealModal()">Gửi đơn khiếu nại</button>
+              </div>
+            }
           </div>
         </div>
+      } @else if (strikes.uploadRestrictedUntil) {
+        <div class="strike-alert strike-alert-warning"><div class="alert-icon">⏳</div><div class="alert-content"><h3>Tạm thời không thể tải video lên</h3><p>{{ strikes.uploadRestrictionReason || 'Quyền tải video đang bị hạn chế' }} đến <strong>{{ strikes.uploadRestrictedUntil | localeDate:'dd/MM/yyyy HH:mm' }}</strong>.</p>@if (isAppealEligible()) { <div class="alert-actions"><button class="btn btn-appeal" (click)="openAppealModal()">Gửi đơn khiếu nại</button></div> }</div></div>
       } @else if (strikes.hasWarning) {
         <div class="strike-alert strike-alert-info">
           <div class="alert-icon">ℹ️</div>
@@ -64,6 +70,7 @@
           <div>
             <h3>{{ video.title }}</h3>
             <p>{{ video.createdAt | localeDate:'dd/MM/yyyy' }} · {{ visibilityLabel(video.visibility) }} · {{ statusLabel(video.status) }}</p>
+            @if (video.moderationStatus === 'rejected' && video.moderationReason) { <p class="moderation-reason">Lý do từ chối: {{ video.moderationReason }}</p> }
             <span>{{ video.stats.views | localeNumber }} {{ 'ui.views' | translate }} · {{ video.stats.likes | localeNumber }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}</span>
           </div>
         </a>
@@ -79,12 +86,14 @@
           <h2>Trung tâm Cảnh cáo & Khiếu nại</h2>
           <p class="panel-subtitle">Theo dõi tình trạng tuân thủ nguyên tắc cộng đồng, lịch sử gậy phạt và tiến độ khiếu nại của kênh</p>
         </div>
-        <div class="panel-actions">
-          <button type="button" class="btn-appeal-header" (click)="openAppealModal()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            Gửi khiếu nại (Appeal)
-          </button>
-        </div>
+        @if (isAppealEligible()) {
+          <div class="panel-actions">
+            <button type="button" class="btn-appeal-header" (click)="openAppealModal()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Gửi khiếu nại (Appeal)
+            </button>
+          </div>
+        }
       </div>
 
       <div class="mod-grid">
@@ -160,13 +169,14 @@
                     <th>Lý do khiếu nại</th>
                     <th>Trạng thái</th>
                     <th>Ngày gửi</th>
+                    <th>Bằng chứng</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (app of appeals(); track app.appealId) {
                     <tr>
                       <td>
-                        <span class="target-type-badge">{{ app.targetType === 'video' ? 'Video' : (app.targetType === 'channel' ? 'Kênh' : 'Bình luận') }}</span>
+                        <span class="target-type-badge">{{ appealTargetLabel(app.targetType) }}</span>
                         @if (app.targetTitle) {
                           <div class="appeal-target-title">{{ app.targetTitle }}</div>
                         }
@@ -178,6 +188,8 @@
                             <strong>Phản hồi:</strong> {{ app.reviewNote }}
                           </div>
                         }
+                        @if (app.resolvedAt) { <small class="reviewer-note">Kết quả cuối: {{ app.resolvedAt | localeDate:'dd/MM/yyyy HH:mm' }}</small> }
+                        <button type="button" class="appeal-detail-link" (click)="openAppealDetail(app)">Xem chi tiết</button>
                       </td>
                       <td>
                         <span class="status-pill" [ngClass]="appealStatusClass(app.status)">
@@ -185,6 +197,7 @@
                         </span>
                       </td>
                       <td class="text-nowrap">{{ app.createdAt | localeDate:'dd/MM/yyyy' }}</td>
+                      <td>@if (app.evidenceUrl) { <button type="button" class="evidence-link" (click)="openAppealEvidence(app)">Xem bằng chứng</button> } @else { <span class="mod-empty-desc">Không có</span> }</td>
                     </tr>
                   }
                 </tbody>
@@ -228,9 +241,24 @@
           </div>
 
           <div class="form-group">
-            <label>Liên kết bằng chứng / tài liệu sở hữu (tùy chọn)</label>
-            <input type="url" placeholder="https://..."
-              [ngModel]="appealEvidenceUrl()" (ngModelChange)="appealEvidenceUrl.set($event)" />
+            <label for="appeal-evidence-input">Tệp bằng chứng riêng tư <span class="field-hint">Không bắt buộc · PNG, JPEG, WEBP hoặc PDF · tối đa 10 MiB</span></label>
+            <input id="appeal-evidence-input" class="visually-hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" (change)="onAppealEvidenceSelected($event)" />
+            @if (appealEvidenceFile(); as file) {
+              <div class="evidence-file-card">
+                <div class="evidence-file-icon">✓</div>
+                <div class="evidence-file-meta">
+                  <strong>{{ file.name }}</strong>
+                  <span>{{ formatAppealFileSize(file.size) }} · Tệp riêng tư</span>
+                </div>
+                <button type="button" class="evidence-remove" aria-label="Xóa tệp bằng chứng" (click)="clearAppealEvidence()">Xóa</button>
+              </div>
+            } @else {
+              <label class="evidence-dropzone" for="appeal-evidence-input" (dragover)="onAppealEvidenceDragOver($event)" (drop)="onAppealEvidenceDrop($event)">
+                <span class="evidence-upload-icon" aria-hidden="true">↑</span>
+                <span class="evidence-dropzone-copy"><strong>Chọn tệp hoặc kéo thả vào đây</strong><small>Ảnh chụp, tài liệu hoặc PDF · tối đa 10 MiB</small></span>
+                <span class="evidence-browse">Duyệt tệp</span>
+              </label>
+            }
           </div>
 
           <div class="form-group">
@@ -247,6 +275,63 @@
           </button>
         </div>
       </div>
+    </div>
+  }
+
+  @if (selectedAppeal(); as app) {
+    <div class="modal-backdrop appeal-detail-backdrop" (click)="closeAppealDetail()">
+      <section class="appeal-detail-modal" role="dialog" aria-modal="true" aria-labelledby="appeal-detail-title" (click)="$event.stopPropagation()">
+        <header class="appeal-detail-header">
+          <div>
+            <p class="appeal-detail-eyebrow">{{ appealTargetLabel(app.targetType) }} · Đơn #{{ app.appealNumber }}</p>
+            <h2 id="appeal-detail-title">Chi tiết khiếu nại</h2>
+            @if (app.targetTitle) { <p class="appeal-detail-target">{{ app.targetTitle }}</p> }
+          </div>
+          <button type="button" class="appeal-detail-close" aria-label="Đóng chi tiết" (click)="closeAppealDetail()">×</button>
+        </header>
+
+        <div class="appeal-detail-status">
+          <span class="status-pill" [ngClass]="appealStatusClass(app.status)">{{ appealStatusLabel(app.status) }}</span>
+          <span>Gửi {{ app.createdAt | localeDate:'dd/MM/yyyy HH:mm' }}</span>
+        </div>
+
+        <ol class="appeal-timeline" aria-label="Tiến độ xử lý khiếu nại">
+          <li class="is-complete">
+            <span class="timeline-dot">✓</span>
+            <div><strong>Đã gửi đơn</strong><time>{{ app.createdAt | localeDate:'dd/MM/yyyy HH:mm' }}</time></div>
+          </li>
+          <li [class.is-complete]="app.status !== 'pending'" [class.is-current]="app.status === 'pending' || app.status === 'reviewing' || app.status === 'escalated'">
+            <span class="timeline-dot">2</span>
+            <div><strong>{{ app.status === 'pending' ? 'Chờ tiếp nhận' : app.status === 'escalated' ? 'Đang xem xét ở cấp cao hơn' : 'Đang thẩm định' }}</strong>
+              @if (app.reviewerName) { <time>Người xử lý: {{ app.reviewerName }}</time> }
+            </div>
+          </li>
+          <li [class.is-complete]="appealIsFinal(app.status)" [class.is-current]="!appealIsFinal(app.status)">
+            <span class="timeline-dot">{{ appealIsFinal(app.status) ? '✓' : '3' }}</span>
+            <div><strong>{{ appealIsFinal(app.status) ? appealStatusLabel(app.status) : 'Kết quả cuối cùng' }}</strong>
+              @if (app.resolvedAt) { <time>{{ app.resolvedAt | localeDate:'dd/MM/yyyy HH:mm' }}</time> }
+            </div>
+          </li>
+        </ol>
+
+        <section class="appeal-detail-section">
+          <h3>Lý do khiếu nại</h3>
+          <p>{{ app.reason }}</p>
+        </section>
+        @if (app.reviewNote) {
+          <section class="appeal-detail-section appeal-result-note">
+            <h3>Phản hồi và kết quả</h3>
+            <p>{{ app.reviewNote }}</p>
+          </section>
+        }
+        @if (app.evidenceNote) {
+          <section class="appeal-detail-section"><h3>Ghi chú bằng chứng</h3><p>{{ app.evidenceNote }}</p></section>
+        }
+        <footer class="appeal-detail-footer">
+          @if (app.evidenceUrl) { <button type="button" class="evidence-link" (click)="openAppealEvidence(app)">Mở tệp bằng chứng riêng tư</button> }
+          <button type="button" class="btn btn-secondary" (click)="closeAppealDetail()">Đóng</button>
+        </footer>
+      </section>
     </div>
   }
 </main>

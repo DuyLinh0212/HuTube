@@ -40,6 +40,7 @@ export class ChannelSettingsPage {
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
   @ViewChild('bannerInput') bannerInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('watermarkInput') watermarkInput?: ElementRef<HTMLInputElement>;
 
   readonly channel = signal<ChannelDetail | null>(null);
   readonly members = signal<ChannelMember[]>([]);
@@ -56,7 +57,7 @@ export class ChannelSettingsPage {
   readonly appealSubmitting = signal(false);
   readonly appealSuccess = signal(false);
   appealReason = '';
-  appealEvidenceUrl = '';
+  appealEvidenceFile: File | null = null;
 
   name = '';
   handle = '';
@@ -75,7 +76,7 @@ export class ChannelSettingsPage {
 
   openAppealModal() {
     this.appealReason = '';
-    this.appealEvidenceUrl = '';
+    this.appealEvidenceFile = null;
     this.appealSuccess.set(false);
     this.showAppealModal.set(true);
   }
@@ -93,8 +94,7 @@ export class ChannelSettingsPage {
       targetType: 'channel',
       targetId: ch.channelId,
       reason: this.appealReason.trim(),
-      evidenceUrl: this.appealEvidenceUrl.trim() || undefined
-    }).pipe(finalize(() => this.appealSubmitting.set(false))).subscribe({
+    }, this.appealEvidenceFile).pipe(finalize(() => this.appealSubmitting.set(false))).subscribe({
       next: () => {
         this.appealSuccess.set(true);
         setTimeout(() => {
@@ -315,6 +315,19 @@ export class ChannelSettingsPage {
     const file = input.files?.[0];
     if (!channel || !file || !this.can('channel.edit_branding')) return;
     this.runAction(this.channelService.uploadBanner(channel.channelId, file), this.i18n.t('channel.bannerSaved'));
+    input.value = '';
+  }
+
+  onAppealEvidenceSelected(event: Event) {
+    this.appealEvidenceFile = (event.target as HTMLInputElement).files?.[0] ?? null;
+  }
+
+  onWatermarkSelected(event: Event) {
+    const channel = this.channel();
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!channel || !file || !this.can('channel.edit_branding')) return;
+    this.runAction(this.channelService.uploadWatermark(channel.channelId, file), this.i18n.t('channel.watermarkSaved'));
     input.value = '';
   }
 

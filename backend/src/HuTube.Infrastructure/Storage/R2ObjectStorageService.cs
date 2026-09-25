@@ -101,6 +101,13 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
         return Task.FromResult(_client.GetPreSignedURL(request));
     }
 
+    public async Task<Stream> OpenReadAsync(string storedPath, CancellationToken ct = default)
+    {
+        if (!TryObjectKey(storedPath, out var key)) throw new FileNotFoundException("Không tìm thấy bằng chứng.");
+        var response = await _client.GetObjectAsync(_options.BucketName, key, ct);
+        return response.ResponseStream;
+    }
+
     public async Task DeleteFileAsync(string relativePath, CancellationToken ct = default)
     {
         if (!TryObjectKey(relativePath, out var key)) return;

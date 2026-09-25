@@ -340,15 +340,15 @@
           <div class="password-box">
             <div class="form-field">
               <label for="cp" class="field-label">{{ 'account.currentPassword' | translate }}</label>
-              <input id="cp" type="password" class="yt-input" [(ngModel)]="currentPassword" [disabled]="busy()" />
+              <input id="cp" name="currentPassword" type="password" autocomplete="current-password" class="yt-input" [(ngModel)]="currentPassword" [disabled]="busy()" />
             </div>
             <div class="form-field">
               <label for="np" class="field-label">{{ 'account.newPassword' | translate }}</label>
-              <input id="np" type="password" class="yt-input" [(ngModel)]="newPassword" [disabled]="busy()" />
+              <input id="np" name="newPassword" type="password" autocomplete="new-password" class="yt-input" [(ngModel)]="newPassword" [disabled]="busy()" />
             </div>
             <div class="form-field">
               <label for="cnp" class="field-label">{{ 'account.confirmNewPassword' | translate }}</label>
-              <input id="cnp" type="password" class="yt-input" [(ngModel)]="confirmPassword" [disabled]="busy()" />
+              <input id="cnp" name="confirmPassword" type="password" autocomplete="new-password" class="yt-input" [(ngModel)]="confirmPassword" [disabled]="busy()" />
             </div>
             <button type="button" class="btn-yt-primary" (click)="onChangePassword()" [disabled]="busy() || !currentPassword || !newPassword">
               {{ 'account.savePassword' | translate }}
@@ -388,7 +388,7 @@
                     <strong>{{ session.deviceName }}</strong>
                     @if (session.isCurrent) { <span class="badge-current">{{ 'account.thisDevice' | translate }}</span> }
                   </div>
-                  <small>{{ 'account.signedInAt' | translate }} {{ session.issuedAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | localeDate:'dd/MM/yyyy HH:mm' }}</small>
+                  <small>{{ 'account.signedInAt' | translate }} {{ session.issuedAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (session.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ session.ipAddress }}}</small>
                 </div>
                 @if (!session.isCurrent) {
                   <button type="button" class="btn-revoke" (click)="pendingRevoke.set(session)" [disabled]="busy()">{{ 'account.revoke' | translate }}</button>

@@ -92,6 +92,7 @@ public sealed class Channel
     public string? BannerUrl { get; set; }
     public string? ContactEmail { get; set; }
     public string? WatermarkUrl { get; set; }
+    public string? StatusReason { get; set; }
     public string Settings { get; set; } = "{}";
     public string Status { get; set; } = "active";
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

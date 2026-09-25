@@ -136,7 +136,7 @@
               </td>
               <td style="text-align: right;">
                 <button class="btn btn-sm btn-secondary" (click)="openDetailModal(policy)">
-                  {{ 'policies.detailUpdate' | translate }}
+                  {{ canEdit() ? ('policies.detailUpdate' | translate) : 'Xem chi tiết' }}
                 </button>
               </td>
             </tr>
@@ -266,13 +266,13 @@
             <div class="form-row" style="margin-bottom: 12px;">
               <div class="form-group">
                 <label>{{ 'policies.newVersionLabel' | translate }}</label>
-                <input type="text" [ngModel]="editVersion()" (ngModelChange)="editVersion.set($event)" />
+                <input type="text" [ngModel]="editVersion()" (ngModelChange)="editVersion.set($event)" [disabled]="!canEdit()" />
               </div>
             </div>
 
             <div class="form-group">
               <label>{{ 'policies.policyContentLabel' | translate }}</label>
-              <textarea rows="9" [ngModel]="editContent()" (ngModelChange)="editContent.set($event)"></textarea>
+              <textarea rows="9" [ngModel]="editContent()" (ngModelChange)="editContent.set($event)" [readonly]="!canEdit()"></textarea>
             </div>
           </div>
         </div>

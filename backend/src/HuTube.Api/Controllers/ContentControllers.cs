@@ -20,6 +20,10 @@ public sealed class FeedController(IContentService content) : ControllerBase
     public Task<PageResult<VideoCardResponse>> HomeAsync([FromQuery] string sort = "popular", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
         content.GetFeedAsync("home", sort, null, null, page, pageSize, ct);
 
+    [HttpGet("explore-hub")]
+    public Task<ExploreHubResponse> ExploreHubAsync(CancellationToken ct = default) =>
+        content.GetExploreHubAsync(ct);
+
     [HttpGet("explore")]
     public Task<PageResult<VideoCardResponse>> ExploreAsync(
         [FromQuery] string? q = null,
@@ -55,7 +59,7 @@ public sealed class LibraryController(IContentService content) : ControllerBase
         : throw new ContentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
 
     [HttpGet("history")]
-    public Task<PageResult<LibraryVideoResponse>> HistoryAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+    public Task<PageResult<WatchHistoryResponse>> HistoryAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
         content.GetWatchHistoryAsync(UserId, page, pageSize, ct);
 
     [HttpGet("liked")]

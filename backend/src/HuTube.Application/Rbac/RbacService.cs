@@ -48,7 +48,13 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
     public async Task<List<RoleResponse>> GetAllRolesAsync(CancellationToken ct = default)
     {
         var list = await rbacStore.GetAllRolesWithPermissionsAsync(ct);
-        return list.Select(r => new RoleResponse(r.RoleId, r.Code, r.Name, r.Description, r.Permissions)).ToList();
+        var result = new List<RoleResponse>(list.Count);
+        foreach (var role in list)
+        {
+            result.Add(new RoleResponse(role.RoleId, role.Code, role.Name, role.Description, role.Permissions,
+                role.Status, IsSystemRoleCode(role.Code), await rbacStore.CountUsersForRoleAsync(role.RoleId, ct)));
+        }
+        return result;
     }
 
     public async Task<RoleResponse> CreateRoleAsync(Guid actorUserId, CreateRoleRequest request, CancellationToken ct = default)
@@ -82,13 +88,40 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
             request.Reason.Trim(),
             NewValues: PersistenceJson.Serialize(new { role.Code, role.Name, role.Description, permissions = permissions.Select(p => p.Code) })), ct);
         await rbacStore.SaveAsync(ct);
-        return new RoleResponse(role.RoleId, role.Code, role.Name, role.Description, permissions.Select(permission => permission.Code).ToList());
+        return new RoleResponse(role.RoleId, role.Code, role.Name, role.Description, permissions.Select(permission => permission.Code).ToList(),
+            role.Status, IsSystemRoleCode(role.Code), await rbacStore.CountUsersForRoleAsync(role.RoleId, ct));
+    }
+
+    public async Task DeleteRoleAsync(Guid actorUserId, Guid roleId, string? reason, CancellationToken ct = default)
+    {
+        var role = await rbacStore.FindRoleAsync(roleId, ct)
+            ?? throw new RbacException(404, "ROLE_NOT_FOUND", "Không tìm thấy vai trò.");
+        if (IsSystemRoleCode(role.Code))
+            throw new RbacException(403, "ROLE_PROTECTED", "Không thể xóa vai trò hệ thống.");
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 300)
+            throw new RbacException(400, "INVALID_AUDIT_REASON", "Lý do xóa phải có từ 3 đến 300 ký tự.");
+        await EnsureRoleCanBeManagedAsync(actorUserId, role.Code, ct);
+        var assignedUsers = await rbacStore.CountUsersForRoleAsync(roleId, ct);
+        if (assignedUsers > 0)
+            throw new RbacException(409, "ROLE_IN_USE", $"Không thể xóa vai trò đang được gán cho {assignedUsers} người dùng. Hãy chuyển họ sang vai trò khác trước.");
+        if (role.Status == "deleted") return;
+
+        var oldValues = PersistenceJson.Serialize(new { role.Code, role.Name, role.Status });
+        role.Status = "deleted";
+        rbacStore.AddAuditLog(new AuditLog
+        {
+            AuditLogId = Guid.NewGuid(), ActorUserId = actorUserId, Action = "rbac.role_deleted", ResourceType = "role",
+            ResourceId = roleId, Reason = reason.Trim(), OldValues = oldValues,
+            NewValues = PersistenceJson.Serialize(new { role.Code, role.Name, role.Status }), CreatedAt = DateTimeOffset.UtcNow
+        });
+        await rbacStore.SaveAsync(ct);
     }
 
     public async Task<RoleResponse> UpdateRoleAsync(Guid actorUserId, Guid roleId, UpdateRoleRequest request, CancellationToken ct = default)
     {
         var role = await rbacStore.FindRoleAsync(roleId, ct)
             ?? throw new RbacException(404, "ROLE_NOT_FOUND", "Không tìm thấy vai trò.");
+        if (role.Status == "deleted") throw new RbacException(409, "ROLE_DELETED", "Vai trò đã bị xóa mềm và không thể chỉnh sửa.");
 
         ValidateRoleDetails(role.Code, request.Name, request.Description, request.Reason, rejectSystemCode: false);
         await EnsureRoleCanBeManagedAsync(actorUserId, role.Code, ct);
@@ -109,7 +142,16 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
             OldValues: PersistenceJson.Serialize(new { role.Code, previousPermissions }),
             NewValues: PersistenceJson.Serialize(new { role.Code, role.Name, role.Description, permissions = permissions.Select(p => p.Code) })), ct);
         await rbacStore.SaveAsync(ct);
-        return new RoleResponse(role.RoleId, role.Code, role.Name, role.Description, permissions.Select(permission => permission.Code).ToList());
+        var assignedUserCount = await rbacStore.CountUsersForRoleAsync(role.RoleId, ct);
+        return new RoleResponse(
+            role.RoleId,
+            role.Code,
+            role.Name,
+            role.Description,
+            permissions.Select(permission => permission.Code).ToList(),
+            role.Status,
+            IsSystemRoleCode(role.Code),
+            assignedUserCount);
     }
 
     public async Task LogAuditAsync(AuditLogEntry entry, CancellationToken ct = default)
@@ -175,10 +217,12 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
             throw new RbacException(403, "ROLE_PROTECTED", "Không thể chỉnh sửa vai trò người dùng mặc định tại khu vực quản trị.");
 
         var (actorRoleCode, _) = await rbacStore.GetUserRoleAsync(actorUserId, ct);
-        var protectedRole = targetRoleCode is "admin" or "super_admin";
+        var protectedRole = targetRoleCode is "admin" or "super_admin" or "moderator";
         if (protectedRole && !string.Equals(actorRoleCode, "super_admin", StringComparison.Ordinal))
             throw new RbacException(403, "ROLE_PROTECTED", "Chỉ Super Administrator có thể chỉnh sửa vai trò hệ thống này.");
     }
+
+    private static bool IsSystemRoleCode(string code) => code is "user" or "admin" or "super_admin" or "moderator";
 
     private static string NormalizeCode(string? value) => (value ?? "").Trim().ToLowerInvariant();
 

@@ -240,6 +240,8 @@ public sealed class ModerationService(
                     throw new AuthException(400, "REJECTION_DETAILS_REQUIRED", "Bắt buộc chọn mã chính sách và điền lý do từ chối.");
 
                 video.ModerationStatus = "rejected";
+                video.ModerationReason = request.Reason.Trim();
+                video.MediaRetentionUntil ??= now.AddDays(30);
                 // The videos.status constraint uses "blocked" for content
                 // that cannot be published; "rejected" belongs to the
                 // moderation status field.
@@ -281,6 +283,7 @@ public sealed class ModerationService(
                         db.ChannelStrikes.Add(strike);
 
                         channel.Status = "suspended";
+                        channel.StatusReason = "Kênh đã có 5 nội dung vi phạm bị từ chối kiểm duyệt.";
                         channel.UpdatedAt = now;
 
                         await rbac.LogAuditAsync(new AuditLogEntry(

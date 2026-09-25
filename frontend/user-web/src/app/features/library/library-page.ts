@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { ContentService, LibraryVideo } from '../../core/content.service';
+import { ContentService, LibraryVideo, WatchHistoryItem } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
@@ -21,7 +21,7 @@ export class LibraryPage {
   readonly i18n = inject(I18nService);
 
   readonly mode: LibraryMode = this.route.snapshot.data['library'] === 'liked' ? 'liked' : 'history';
-  readonly items = signal<LibraryVideo[]>([]);
+  readonly items = signal<Array<LibraryVideo | WatchHistoryItem>>([]);
   readonly loading = signal(true);
   readonly error = signal('');
   readonly page = signal(1);
@@ -80,11 +80,11 @@ export class LibraryPage {
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   }
 
-  progressLabel(item: LibraryVideo) {
+  progressLabel(item: LibraryVideo | WatchHistoryItem) {
     return `${Math.round(item.progress || 0)}%`;
   }
 
-  ratingLabel(item: LibraryVideo) {
+  ratingLabel(item: LibraryVideo | WatchHistoryItem) {
     return item.myRating ? `${item.myRating}/5 sao` : this.i18n.t('library.notRated');
   }
 }

@@ -122,8 +122,7 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         var playlist = await OwnedAsync(userId, playlistId, ct);
         var video = await db.Videos.AsNoTracking().SingleOrDefaultAsync(x => x.VideoId == request.VideoId && x.Status != "deleted", ct)
             ?? throw Error(404, "VIDEO_NOT_FOUND", "Khong tim thay video.");
-        var ownerChannel = await db.Channels.AsNoTracking().AnyAsync(x => x.ChannelId == video.ChannelId && x.OwnerUserId == userId, ct);
-        if (!ownerChannel && !(video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility is "public" or "unlisted"))
+        if (video.Status != "published" || video.ModerationStatus != "approved" || video.Visibility != "public")
             throw Error(403, "VIDEO_NOT_SAVABLE", "Chi co the luu video dang cong khai.");
         if (await db.PlaylistVideos.AnyAsync(x => x.PlaylistId == playlistId && x.VideoId == request.VideoId, ct))
             throw Error(409, "PLAYLIST_VIDEO_EXISTS", "Video da co trong playlist.");

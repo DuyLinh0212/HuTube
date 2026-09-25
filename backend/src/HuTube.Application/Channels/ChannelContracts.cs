@@ -37,7 +37,8 @@ public sealed record ChannelResponse(
     bool IsOwner,
     string? MyRole,
     IReadOnlyList<string> Permissions,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? StatusReason = null);
 
 public sealed record CheckHandleResponse(
     string Handle,

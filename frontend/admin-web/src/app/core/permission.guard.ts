@@ -7,11 +7,14 @@ export const permissionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) =>
   const router = inject(Router);
   const auth = inject(AuthService);
   const permission = route.data?.['permission'] as string | undefined;
+  const permissionsAny = route.data?.['permissionsAny'] as readonly string[] | undefined;
 
   return auth.restore().pipe(
     map(allowed => {
       if (!allowed) return router.createUrlTree(['/login']);
-      if (permission && !auth.hasPermission(permission)) {
+      const granted = permission ? auth.hasPermission(permission)
+        : !!permissionsAny?.length && permissionsAny.some(candidate => auth.hasPermission(candidate));
+      if ((permission || permissionsAny?.length) && !granted) {
         return router.createUrlTree(['/forbidden']);
       }
       return true;

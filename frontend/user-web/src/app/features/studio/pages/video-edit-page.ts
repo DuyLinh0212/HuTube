@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
-import { ContentService, VideoDetail } from '../../../core/content.service';
+import { Category, ContentService, VideoDetail } from '../../../core/content.service';
 import { PlaylistService, PlaylistSummary } from '../../../core/playlist.service';
 import { StudioDataService } from '../../../core/studio-data.service';
 
@@ -22,6 +22,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
   readonly studio = inject(StudioDataService);
 
   readonly video = signal<VideoDetail | null>(null);
+  readonly categories = signal<Category[]>([]);
   readonly playlists = signal<PlaylistSummary[]>([]);
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -33,6 +34,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
 
   title = '';
   description = '';
+  categoryId = '';
   visibility = 'public';
   selectedPlaylistIds: string[] = [];
   private videoId = '';
@@ -50,6 +52,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
         this.video.set(video);
         this.title = video.title;
         this.description = video.description ?? '';
+        this.categoryId = video.categoryId ?? '';
         this.visibility = video.visibility;
         this.thumbnailMode.set('keep');
         this.loading.set(false);
@@ -58,6 +61,10 @@ export class VideoEditPage implements OnInit, OnDestroy {
         this.error.set('Không thể tải chi tiết video.');
         this.loading.set(false);
       }
+    });
+    this.content.categories().subscribe({
+      next: categories => this.categories.set(categories ?? []),
+      error: () => this.categories.set([])
     });
     this.playlistService.mine().subscribe({
       next: items => this.playlists.set(items),
@@ -111,7 +118,9 @@ export class VideoEditPage implements OnInit, OnDestroy {
     this.content.update(this.videoId, {
       title: cleanTitle,
       description: this.description.trim(),
-      visibility: this.visibility
+      visibility: this.visibility,
+      categoryId: this.categoryId || null,
+      clearCategory: !this.categoryId
     }).pipe(
       switchMap(updated => this.saveThumbnail(updated)),
       switchMap(updated => this.addToPlaylists(updated.videoId).pipe(map(() => updated)))
@@ -120,6 +129,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
         this.video.set(updated);
         this.title = updated.title;
         this.description = updated.description ?? '';
+        this.categoryId = updated.categoryId ?? '';
         this.visibility = updated.visibility;
         this.saving.set(false);
         this.success.set('Đã lưu thay đổi video.');

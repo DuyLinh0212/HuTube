@@ -458,6 +458,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.thisDevice': 'Thiết bị này',
     'account.signedInAt': 'Đăng nhập:',
     'account.lastActiveAt': 'Hoạt động:',
+    'account.ipAddress': 'Địa chỉ IP:',
     'account.revoke': 'Thu hồi',
     'account.confirmRevokeText': 'Bạn có chắc chắn muốn đăng xuất phiên trên thiết bị',
     'account.noSessions': 'Không có phiên đăng nhập nào.',
@@ -772,6 +773,16 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'home.videoList': 'Danh sách video',
     'home.views': 'lượt xem',
     'explore.filters': 'Bộ lọc khám phá',
+    'explore.heading': 'Khám phá video',
+    'explore.searchHeading': 'Kết quả tìm kiếm',
+    'explore.subtitle': 'Tìm câu chuyện, kiến thức và nhà sáng tạo mới trên HuTube.',
+    'explore.searchSubmit': 'Tìm kiếm',
+    'explore.topics': 'Chủ đề nổi bật',
+    'explore.sortBy': 'Sắp xếp theo',
+    'explore.videoCountUnit': 'video',
+    'explore.pagination': 'Phân trang kết quả',
+    'explore.previousPage': 'Trang trước',
+    'explore.nextPage': 'Trang tiếp theo',
     'explore.sort': 'Sắp xếp',
     'explore.newest': 'Mới nhất',
     'explore.popular': 'Phổ biến',
@@ -855,6 +866,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.studio': 'Vào Studio',
     'channel.subscribe': 'Đã đăng ký',
     'channel.follow': 'Theo dõi',
+    'channel.turnOnNotifications': 'Bật thông báo của kênh',
+    'channel.turnOffNotifications': 'Tắt thông báo của kênh',
+    'channel.notificationsEnabled': 'Đã bật thông báo cho kênh này.',
+    'channel.notificationsDisabled': 'Đã tắt thông báo cho kênh này.',
+    'channel.notificationsUpdateError': 'Không thể cập nhật thông báo lúc này.',
     'channel.tabs': 'Nội dung kênh',
     'channel.noVideos': 'Chưa có video nào',
     'channel.noVideosDesc': 'Kênh này chưa tải lên video nào. Hãy quay lại sau nhé!',
@@ -1112,6 +1128,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.speed': 'Tốc độ',
     'watch.restoreSize': 'Khôi phục kích thước video',
     'watch.minimize': 'Thu nhỏ video',
+    'watch.pictureInPicture': 'Phát trong cửa sổ nổi',
+    'watch.exitPictureInPicture': 'Đóng cửa sổ nổi',
     'watch.fullscreen': 'Toàn màn hình',
     'watch.progress': 'Tiến trình video',
     'watch.actions': 'Tác vụ video',
@@ -1303,6 +1321,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.unavailableError': 'Video không khả dụng hoặc bạn không có quyền xem video này.'
     ,'watch.playbackQualityError': 'Không tải được các bản chất lượng cao hơn. Video nguồn vẫn có thể phát.'
     ,'watch.renditionError': 'Không thể phát bản chất lượng này. Hãy thử chọn chất lượng khác.'
+    ,'watch.lowerRenditionFallback': 'Bản phát hiện tại gặp lỗi; HuTube đang thử chất lượng thấp hơn.'
+    ,'watch.sourceFallback': 'Bản phát chất lượng gặp lỗi; HuTube đang thử tệp nguồn.'
+    ,'watch.pictureInPictureUnsupported': 'Trình duyệt này không hỗ trợ chế độ cửa sổ nổi.'
+    ,'watch.pictureInPictureFailed': 'Không thể mở video trong cửa sổ nổi.'
     ,'watch.playError': 'Không thể phát video ở thời điểm này.'
     ,'watch.loginReaction': 'Vui lòng đăng nhập để thích hoặc không thích video.'
     ,'watch.interactionError': 'Vui lòng đăng nhập để tương tác với video.'
@@ -1989,6 +2011,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.thisDevice': 'This device',
     'account.signedInAt': 'Signed in:',
     'account.lastActiveAt': 'Active:',
+    'account.ipAddress': 'IP address:',
     'account.revoke': 'Revoke',
     'account.confirmRevokeText': 'Are you sure you want to sign out session on device',
     'account.noSessions': 'No active sessions found.',
@@ -2303,6 +2326,16 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'home.videoList': 'Video list',
     'home.views': 'views',
     'explore.filters': 'Explore filters',
+    'explore.heading': 'Explore videos',
+    'explore.searchHeading': 'Search results',
+    'explore.subtitle': 'Find new stories, ideas, and creators on HuTube.',
+    'explore.searchSubmit': 'Search',
+    'explore.topics': 'Popular topics',
+    'explore.sortBy': 'Sort by',
+    'explore.videoCountUnit': 'videos',
+    'explore.pagination': 'Search result pages',
+    'explore.previousPage': 'Previous page',
+    'explore.nextPage': 'Next page',
     'explore.sort': 'Sort by',
     'explore.newest': 'Newest',
     'explore.popular': 'Popular',
@@ -2386,6 +2419,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.studio': 'Open Studio',
     'channel.subscribe': 'Subscribed',
     'channel.follow': 'Subscribe',
+    'channel.turnOnNotifications': 'Turn on channel notifications',
+    'channel.turnOffNotifications': 'Turn off channel notifications',
+    'channel.notificationsEnabled': 'Notifications are on for this channel.',
+    'channel.notificationsDisabled': 'Notifications are off for this channel.',
+    'channel.notificationsUpdateError': 'Could not update notifications right now.',
     'channel.tabs': 'Channel content',
     'channel.noVideos': 'No videos yet',
     'channel.noVideosDesc': 'This channel has not uploaded any videos yet. Check back later!',
@@ -2643,6 +2681,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.speed': 'Speed',
     'watch.restoreSize': 'Restore video size',
     'watch.minimize': 'Minimize video',
+    'watch.pictureInPicture': 'Play in a floating window',
+    'watch.exitPictureInPicture': 'Close floating window',
     'watch.fullscreen': 'Fullscreen',
     'watch.progress': 'Video progress',
     'watch.actions': 'Video actions',
@@ -2834,6 +2874,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.unavailableError': 'This video is unavailable or you do not have permission to view it.'
     ,'watch.playbackQualityError': 'Higher-quality versions could not be loaded. The source video may still play.'
     ,'watch.renditionError': 'This quality could not be played. Try another quality.'
+    ,'watch.lowerRenditionFallback': 'This rendition failed; HuTube is trying a lower quality.'
+    ,'watch.sourceFallback': 'The quality rendition failed; HuTube is trying the source file.'
+    ,'watch.pictureInPictureUnsupported': 'This browser does not support picture-in-picture.'
+    ,'watch.pictureInPictureFailed': 'Could not open the floating video window.'
     ,'watch.playError': 'The video cannot play at this time.'
     ,'watch.loginReaction': 'Sign in to like or dislike this video.'
     ,'watch.interactionError': 'Sign in to interact with this video.'

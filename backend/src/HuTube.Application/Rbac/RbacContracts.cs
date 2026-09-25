@@ -14,7 +14,10 @@ public sealed record RoleResponse(
     string Code,
     string Name,
     string? Description,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    string Status = "active",
+    bool IsSystemRole = false,
+    int AssignedUserCount = 0);
 
 public sealed record CreateRoleRequest(
     string Code,

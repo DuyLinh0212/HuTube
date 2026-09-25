@@ -15,7 +15,7 @@ interface PermissionGroup {
   selector: 'app-admin-rbac-page',
   imports: [FormsModule],
   templateUrl: './admin-rbac-page.html',
-  styleUrl: './admin-rbac-page.scss',
+  styleUrls: ['./admin-rbac-page.scss', './admin-rbac-dialog-overrides.scss'],
 })
 export class AdminRbacPage {
   private readonly rbac = inject(AdminRbacService);
@@ -62,6 +62,7 @@ export class AdminRbacPage {
   ];
 
   readonly canEdit = computed(() => this.auth.hasPermission('role.edit'));
+  readonly canDelete = computed(() => this.auth.hasPermission('role.delete'));
 
   readonly selectedRole = computed(() =>
     this.roles().find((role) => role.roleId === this.selectedRoleId()) ?? this.roles()[0] ?? null,
@@ -139,7 +140,7 @@ export class AdminRbacPage {
   accessLevel(permission: AdminPermission): AccessLevel {
     if (!this.roleHas(permission)) return 'none';
     if (permission.code.startsWith('system.')) return 'admin';
-    if (/\.(edit|create|delete|clone|assign_permission|remove_permission|assign_user|remove_user|change_plan|suspend|ban|unban|force_logout|send_message|export|hide|unhide|remove|restore|strike|remove_strike|claim|review|approve|reject|escalate|reopen|resolve|dismiss|contact_reporter|change|cancel|refund|retry|publish|archive|manage_template)$/.test(permission.code)) {
+    if (/\.(manage|edit|create|delete|clone|assign_permission|remove_permission|assign_user|remove_user|change_plan|suspend|ban|unban|force_logout|send_message|export|hide|unhide|remove|restore|strike|remove_strike|claim|review|approve|reject|escalate|reopen|resolve|dismiss|contact_reporter|change|cancel|refund|retry|publish|archive|manage_template)$/.test(permission.code)) {
       return 'action';
     }
     return 'view';
@@ -295,6 +296,29 @@ export class AdminRbacPage {
         this.saveFailed.set(true);
         this.creating.set(false);
       },
+    });
+  }
+
+  deleteSelectedRole() {
+    const role = this.selectedRole();
+    if (!role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
+    const reason = window.prompt(`Nhập lý do xóa vai trò “${role.name}” (3–300 ký tự):`)?.trim();
+    if (!reason || reason.length < 3 || reason.length > 300) return;
+    if (!window.confirm(`Xóa mềm vai trò “${role.name}”? Thao tác sẽ được ghi vào nhật ký quản trị.`)) return;
+    this.rbac.deleteRole(role.roleId, reason).subscribe({
+      next: () => {
+        const remaining = this.roles().filter(item => item.roleId !== role.roleId);
+        this.roles.set(remaining);
+        const nextRole = remaining.find(item => item.roleId === this.selectedRoleId()) ?? remaining[0] ?? null;
+        this.selectedRoleId.set(nextRole?.roleId ?? null);
+        this.resetDraft(nextRole);
+        this.saveMessage.set(`Đã xóa mềm vai trò “${role.name}”.`);
+        this.saveFailed.set(false);
+      },
+      error: error => {
+        this.saveMessage.set(errorMessage(error));
+        this.saveFailed.set(true);
+      }
     });
   }
 

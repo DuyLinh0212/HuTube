@@ -1,4 +1,4 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
@@ -39,6 +39,11 @@ export class ChannelPage {
   readonly loading = signal(true);
   readonly error = signal('');
   readonly isSubscribed = signal(false);
+  readonly subscriptionNotificationsEnabled = signal(false);
+  readonly subscriptionStatusLoading = signal(true);
+  readonly subscriptionBusy = signal(false);
+  readonly subscriptionMessage = signal('');
+  readonly authReady = signal(false);
   readonly videos = signal<Array<VideoDetail | VideoCard>>([]);
   readonly playlists = signal<PlaylistSummary[]>([]);
   readonly channelLinks = signal<ChannelLink[]>([]);
@@ -58,17 +63,51 @@ export class ChannelPage {
   });
 
   constructor() {
+    this.auth.restore().subscribe({
+      next: () => this.authReady.set(true),
+      error: () => this.authReady.set(true)
+    });
+
     this.route.paramMap.subscribe(params => {
       const handle = params.get('handle');
       if (handle) {
         this.loadChannel(handle);
       }
     });
+
+    effect(onCleanup => {
+      const channel = this.channel();
+      const user = this.auth.user();
+      const authReady = this.authReady();
+      const channelLoading = this.loading();
+      if (!channel || channelLoading || !authReady || !user || channel.isOwner) {
+        this.isSubscribed.set(false);
+        this.subscriptionNotificationsEnabled.set(false);
+        this.subscriptionStatusLoading.set(!!channel && (channelLoading || !authReady));
+        return;
+      }
+
+      this.subscriptionStatusLoading.set(true);
+      const subscription = this.channelService.getSubscriptionStatus(channel.channelId).subscribe({
+        next: status => {
+          this.isSubscribed.set(status.status === 'active');
+          this.subscriptionNotificationsEnabled.set(status.status === 'active' && status.notificationsEnabled);
+          this.subscriptionStatusLoading.set(false);
+        },
+        error: () => {
+          this.isSubscribed.set(false);
+          this.subscriptionNotificationsEnabled.set(false);
+          this.subscriptionStatusLoading.set(false);
+        }
+      });
+      onCleanup(() => subscription.unsubscribe());
+    });
   }
 
   loadChannel(handle: string) {
     this.loading.set(true);
     this.error.set('');
+    this.subscriptionMessage.set('');
 
     this.channelService.getChannel(handle).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: ch => {
@@ -78,22 +117,14 @@ export class ChannelPage {
           next: lists => this.playlists.set(lists),
           error: () => this.playlists.set([])
         });
-        if (ch.isOwner) {
-          this.contentService.managed(ch.channelId, 1, 50).subscribe(page => this.videos.set(page.items));
-        } else {
-          // Public channel pages must load the channel's published catalogue too.
-          this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
-            .subscribe(page => this.videos.set(page.items));
-        }
+        // A channel page is always a public surface, including when its owner is
+        // viewing it. The manage endpoint also returns rejected, private, and
+        // processing videos for Studio, so using it here would expose moderation
+        // outcomes in the public catalogue. The search endpoint applies the
+        // published + public + approved visibility contract on the server.
+        this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
+          .subscribe(page => this.videos.set(page.items));
 
-        if (!!this.auth.user() && !ch.isOwner) {
-          this.channelService.getSubscriptionStatus(ch.channelId).subscribe({
-            next: sub => this.isSubscribed.set(sub.status === 'active'),
-            error: () => this.isSubscribed.set(false)
-          });
-        } else {
-          this.isSubscribed.set(false);
-        }
       },
       error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.notFound'))
     });
@@ -131,7 +162,8 @@ export class ChannelPage {
 
   toggleSubscribe() {
     const ch = this.channel();
-    if (!ch) return;
+    if (!ch || this.subscriptionBusy() || this.subscriptionStatusLoading()) return;
+    this.subscriptionMessage.set('');
 
     if (!this.auth.user()) {
       void this.router.navigate(['/login']);
@@ -144,22 +176,43 @@ export class ChannelPage {
     }
 
     if (this.isSubscribed()) {
-      this.channelService.unsubscribe(ch.channelId).subscribe({
+      this.subscriptionBusy.set(true);
+      this.channelService.unsubscribe(ch.channelId).pipe(finalize(() => this.subscriptionBusy.set(false))).subscribe({
         next: () => {
           this.isSubscribed.set(false);
+          this.subscriptionNotificationsEnabled.set(false);
           this.channel.update(c => c ? { ...c, subscriberCount: Math.max(0, c.subscriberCount - 1) } : c);
         },
         error: () => alert(this.i18n.t('watch.unsubscribeError'))
       });
     } else {
-      this.channelService.subscribe(ch.channelId).subscribe({
-        next: () => {
+      this.subscriptionBusy.set(true);
+      this.channelService.subscribe(ch.channelId).pipe(finalize(() => this.subscriptionBusy.set(false))).subscribe({
+        next: status => {
           this.isSubscribed.set(true);
+          this.subscriptionNotificationsEnabled.set(status.notificationsEnabled);
           this.channel.update(c => c ? { ...c, subscriberCount: c.subscriberCount + 1 } : c);
         },
         error: () => alert(this.i18n.t('watch.subscribeError'))
       });
     }
+  }
+
+  toggleSubscriptionNotifications() {
+    const channel = this.channel();
+    if (!channel || !this.isSubscribed() || this.subscriptionBusy()) return;
+    const enabled = !this.subscriptionNotificationsEnabled();
+    this.subscriptionMessage.set('');
+    this.subscriptionBusy.set(true);
+    this.channelService.updateSubscriptionNotifications(channel.channelId, enabled)
+      .pipe(finalize(() => this.subscriptionBusy.set(false)))
+      .subscribe({
+        next: status => {
+          this.subscriptionNotificationsEnabled.set(status.status === 'active' && status.notificationsEnabled);
+          this.subscriptionMessage.set(this.i18n.t(enabled ? 'channel.notificationsEnabled' : 'channel.notificationsDisabled'));
+        },
+        error: error => this.subscriptionMessage.set(errorMessage(error, this.i18n) || this.i18n.t('channel.notificationsUpdateError'))
+      });
   }
 
   openInfoModal() {

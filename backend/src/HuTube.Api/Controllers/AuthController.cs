@@ -50,7 +50,7 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     {
         ValidateBrowser();
         if (request.Platform != Platform) throw new AuthException(400, "CLIENT_PLATFORM_MISMATCH", "Cấu hình client không khớp nền tảng đăng nhập.");
-        var response = await auth.LoginAsync(request, ct);
+        var response = await auth.LoginAsync(request, ct, HttpContext.Connection.RemoteIpAddress?.ToString());
 
         if (Platform == "admin")
         {
@@ -72,11 +72,11 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
         ValidateBrowser();
         if (request.Platform != Platform || Platform == "admin")
             throw new AuthException(400, "CLIENT_PLATFORM_MISMATCH", "Cấu hình client không khớp nền tảng đăng nhập Google.");
-        return SetSession(await auth.GoogleLoginAsync(request, ct));
+        return SetSession(await auth.GoogleLoginAsync(request, ct, HttpContext.Connection.RemoteIpAddress?.ToString()));
     }
     [HttpPost("refresh")]
     public async Task<ActionResult<LoginResponse>> RefreshAsync(RefreshRequest request, CancellationToken ct) =>
-        SetSession(await auth.RefreshAsync(ReadRefresh(request) ?? "", Platform, ct));
+        SetSession(await auth.RefreshAsync(ReadRefresh(request) ?? "", Platform, ct, HttpContext.Connection.RemoteIpAddress?.ToString()));
     [HttpPost("logout")]
     public async Task<ActionResult<MessageResponse>> LogoutAsync(RefreshRequest request, CancellationToken ct)
     {

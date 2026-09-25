@@ -6,7 +6,7 @@ import { I18nService } from './i18n.service';
 
 export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; }
 export interface LoginResponse { accessToken: string; expiresAt: string; user: User; }
-export interface Session { sessionId: string; deviceName: string; platform: string; issuedAt: string; lastActiveAt: string; expiresAt: string; isCurrent: boolean; }
+export interface Session { sessionId: string; deviceName: string; platform: string; issuedAt: string; lastActiveAt: string; expiresAt: string; isCurrent: boolean; ipAddress?: string | null; }
 export interface Message { message: string; }
 
 function stableDeviceId(): string {

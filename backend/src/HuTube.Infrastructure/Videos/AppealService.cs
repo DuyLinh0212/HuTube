@@ -1,17 +1,21 @@
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
 using HuTube.Application.Rbac;
+using HuTube.Application.Storage;
 using HuTube.Application.Videos;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace HuTube.Infrastructure.Videos;
 
 public sealed class AppealService(
     HuTubeDbContext db,
     RbacService rbac,
-    INotificationService notifications)
+    INotificationService notifications,
+    IObjectStorage storage,
+    IHttpContextAccessor httpContextAccessor)
 {
     public async Task<AppealDto> CreateAppealAsync(Guid userId, CreateAppealRequest request, CancellationToken ct = default)
     {
@@ -21,6 +25,8 @@ public sealed class AppealService(
 
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new AuthException(400, "REASON_REQUIRED", "Vui lòng nhập chi tiết lý do khiếu nại.");
+        if (!string.IsNullOrWhiteSpace(request.EvidenceUrl))
+            throw new AuthException(400, "EVIDENCE_UPLOAD_REQUIRED", "Hãy tải tệp bằng chứng trực tiếp lên HuTube.");
 
         string targetTitle = "Đối tượng kiểm duyệt";
         Guid? linkedModerationCaseId = request.ModerationCaseId;
@@ -35,6 +41,12 @@ public sealed class AppealService(
                 var channel = await db.Channels.AsNoTracking().FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);
                 if (channel == null || channel.OwnerUserId != userId)
                     throw new AuthException(403, "NOT_VIDEO_OWNER", "Bạn chỉ có thể khiếu nại video thuộc quyền sở hữu của mình.");
+
+                if (video.Status != "blocked" || video.ModerationStatus != "rejected")
+                    throw new AuthException(409, "VIDEO_NOT_APPEALABLE", "Chỉ video đã bị từ chối hoặc gỡ mới có thể khiếu nại quyết định đó.");
+                var appealDeadline = video.MediaRetentionUntil ?? video.UpdatedAt.AddDays(30);
+                if (video.MediaPurgedAt.HasValue || appealDeadline <= DateTimeOffset.UtcNow)
+                    throw new AuthException(409, "VIDEO_APPEAL_WINDOW_CLOSED", "Thời hạn khiếu nại video đã kết thúc.");
 
                 targetTitle = video.Title;
 
@@ -54,6 +66,28 @@ public sealed class AppealService(
 
                 if (ch.OwnerUserId != userId)
                     throw new AuthException(403, "NOT_CHANNEL_OWNER", "Bạn chỉ có thể khiếu nại kênh do mình sở hữu.");
+
+                var appealNow = DateTimeOffset.UtcNow;
+                var hasActiveEnforcement = await db.ChannelStrikes.AsNoTracking().AnyAsync(s =>
+                    s.ChannelId == ch.ChannelId
+                    && s.Status == StrikeStatuses.Active
+                    && ((s.StrikeNumber > 0 && s.ExpiresAt > appealNow)
+                        || (s.StrikeNumber == 0 && s.UploadRestrictedUntil > appealNow)), ct);
+                var moderationDecisionCase = await db.ModerationCases.AsNoTracking()
+                    .Where(m =>
+                    m.CaseType == "report_case"
+                    && m.TargetType == "channel"
+                    && m.TargetId == ch.ChannelId
+                    && (m.Status == "resolved" || m.Status == "escalated")
+                    && m.Decision != null
+                    && m.Decision != "dismiss")
+                    .OrderByDescending(m => m.ResolvedAt ?? m.UpdatedAt)
+                    .FirstOrDefaultAsync(ct);
+                if (ch.Status is not ("suspended" or "banned") && !hasActiveEnforcement && moderationDecisionCase == null)
+                    throw new AuthException(409, "CHANNEL_NOT_APPEALABLE", "Kênh hiện không có cảnh báo hoặc quyết định kiểm duyệt còn hiệu lực để khiếu nại.");
+
+                if (linkedModerationCaseId == null)
+                    linkedModerationCaseId = moderationDecisionCase?.ModerationCaseId;
 
                 targetTitle = ch.Name;
                 break;
@@ -84,7 +118,7 @@ public sealed class AppealService(
         var hasActiveAppeal = await db.Appeals.AsNoTracking().AnyAsync(a =>
             a.UserId == userId &&
             a.TargetId == request.TargetId &&
-            (a.Status == AppealStatuses.Pending || a.Status == AppealStatuses.Reviewing), ct);
+                    (a.Status == AppealStatuses.Pending || a.Status == AppealStatuses.Reviewing || a.Status == "escalated"), ct);
 
         if (hasActiveAppeal)
             throw new AuthException(409, "APPEAL_ALREADY_PENDING", "Bạn đã có một đơn khiếu nại đang chờ xử lý cho đối tượng này.");
@@ -101,7 +135,6 @@ public sealed class AppealService(
             AppealNumber = existingAttempts + 1,
             Reason = request.Reason.Trim(),
             Status = AppealStatuses.Pending,
-            EvidenceUrl = request.EvidenceUrl?.Trim(),
             EvidenceNote = request.EvidenceNote?.Trim(),
             ModerationCaseId = linkedModerationCaseId,
             StrikeId = linkedStrikeId,
@@ -135,7 +168,7 @@ public sealed class AppealService(
             appeal.Reason,
             appeal.Status,
             appeal.ReviewNote,
-            appeal.EvidenceUrl,
+            EvidenceLink(appeal),
             appeal.EvidenceNote,
             appeal.ModerationCaseId,
             appeal.StrikeId,
@@ -179,7 +212,7 @@ public sealed class AppealService(
                 a.Reason,
                 a.Status,
                 a.ReviewNote,
-                a.EvidenceUrl,
+                EvidenceLink(a),
                 a.EvidenceNote,
                 a.ModerationCaseId,
                 a.StrikeId,
@@ -250,7 +283,7 @@ public sealed class AppealService(
                 a.Reason,
                 a.Status,
                 a.ReviewNote,
-                a.EvidenceUrl,
+                EvidenceLink(a),
                 a.EvidenceNote,
                 a.ModerationCaseId,
                 a.StrikeId,
@@ -334,6 +367,8 @@ public sealed class AppealService(
                 if (video != null)
                 {
                     video.ModerationStatus = "approved";
+                    video.ModerationReason = null;
+                    video.MediaRetentionUntil = null;
                     video.Status = "published";
                     video.UpdatedAt = now;
 
@@ -360,6 +395,7 @@ public sealed class AppealService(
                     if (ch != null && ch.Status == "suspended" && remainingRejects < 5)
                     {
                         ch.Status = "active";
+                        ch.StatusReason = null;
                         ch.UpdatedAt = now;
 
                         // Also revoke auto strike if any
@@ -381,6 +417,7 @@ public sealed class AppealService(
                 if (ch != null)
                 {
                     ch.Status = "active";
+                    ch.StatusReason = null;
                     ch.UpdatedAt = now;
                 }
             }
@@ -413,6 +450,7 @@ public sealed class AppealService(
                         if (remainingActive < 3)
                         {
                             ch.Status = "active";
+                            ch.StatusReason = null;
                             ch.UpdatedAt = now;
                         }
                     }
@@ -465,6 +503,65 @@ public sealed class AppealService(
 
         return new AppealResolutionResponse(appeal.AppealId, appeal.Status, decision, message);
     }
+
+    public async Task<AppealEvidenceUploadResponse> UploadEvidenceAsync(Guid userId, Guid appealId, string contentType,
+        byte[] content, CancellationToken ct = default)
+    {
+        if (content.Length is < 1 or > 10 * 1024 * 1024)
+            throw new AuthException(400, "EVIDENCE_SIZE_INVALID", "Bằng chứng phải có kích thước tối đa 10 MiB.");
+        var extension = contentType.ToLowerInvariant() switch
+        {
+            "image/png" when IsPng(content) => ".png",
+            "image/jpeg" when IsJpeg(content) => ".jpg",
+            "image/webp" when IsWebP(content) => ".webp",
+            "application/pdf" when IsPdf(content) => ".pdf",
+            "image/png" or "image/jpeg" or "image/webp" or "application/pdf" => throw new AuthException(400, "EVIDENCE_SIGNATURE_INVALID", "Loại tệp không khớp với nội dung tệp."),
+            _ => throw new AuthException(400, "EVIDENCE_TYPE_INVALID", "Bằng chứng chỉ hỗ trợ PNG, JPEG, WEBP hoặc PDF.")
+        };
+        var appeal = await db.Appeals.FirstOrDefaultAsync(a => a.AppealId == appealId, ct)
+            ?? throw new AuthException(404, "APPEAL_NOT_FOUND", "Không tìm thấy đơn khiếu nại.");
+        if (appeal.UserId != userId) throw new AuthException(403, "NOT_APPEAL_OWNER", "Chỉ chủ đơn khiếu nại được tải bằng chứng.");
+        if (appeal.Status is not (AppealStatuses.Pending or AppealStatuses.Reviewing))
+            throw new AuthException(409, "APPEAL_ALREADY_RESOLVED", "Không thể tải thêm bằng chứng sau khi đơn đã có kết quả cuối.");
+        if (!string.IsNullOrWhiteSpace(appeal.EvidenceUrl))
+            throw new AuthException(409, "APPEAL_EVIDENCE_ALREADY_EXISTS", "Mỗi đơn chỉ được đính kèm một tệp bằng chứng.");
+
+        await using var stream = new MemoryStream(content, writable: false);
+        appeal.EvidenceUrl = await storage.SaveVideoAsync("appeal-evidence", $"evidence{extension}", stream, contentType, ct);
+        appeal.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await rbac.LogAuditAsync(new AuditLogEntry(userId, "appeal.evidence.upload", "appeal", appealId,
+            "Tải lên tệp bằng chứng riêng tư cho đơn khiếu nại."), ct);
+        return new(appealId, EvidenceLink(appeal)!);
+    }
+
+    public async Task<string> GetEvidenceStoragePathAsync(Guid requesterId, Guid appealId, bool canViewAll, CancellationToken ct = default)
+    {
+        var appeal = await db.Appeals.AsNoTracking().FirstOrDefaultAsync(a => a.AppealId == appealId, ct)
+            ?? throw new AuthException(404, "APPEAL_NOT_FOUND", "Không tìm thấy đơn khiếu nại.");
+        if (!canViewAll && appeal.UserId != requesterId)
+            throw new AuthException(403, "NOT_APPEAL_OWNER", "Chỉ chủ đơn khiếu nại và người có quyền xử lý mới được đọc bằng chứng.");
+        if (string.IsNullOrWhiteSpace(appeal.EvidenceUrl)
+            || !(appeal.EvidenceUrl.StartsWith("r2://", StringComparison.OrdinalIgnoreCase)
+                 || appeal.EvidenceUrl.StartsWith("local-private://", StringComparison.OrdinalIgnoreCase)))
+            throw new AuthException(404, "APPEAL_EVIDENCE_NOT_FOUND", "Đơn khiếu nại không có tệp bằng chứng riêng tư.");
+        return appeal.EvidenceUrl;
+    }
+
+    private string? EvidenceLink(Appeal appeal)
+    {
+        if (string.IsNullOrWhiteSpace(appeal.EvidenceUrl)) return null;
+        if (!appeal.EvidenceUrl.StartsWith("r2://", StringComparison.OrdinalIgnoreCase)
+            && !appeal.EvidenceUrl.StartsWith("local-private://", StringComparison.OrdinalIgnoreCase)) return appeal.EvidenceUrl;
+        var request = httpContextAccessor.HttpContext?.Request;
+        return request == null ? $"/api/v1/appeals/{appeal.AppealId}/evidence"
+            : $"{request.Scheme}://{request.Host}/api/v1/appeals/{appeal.AppealId}/evidence";
+    }
+
+    private static bool IsPng(byte[] bytes) => bytes.Length >= 8 && bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+    private static bool IsJpeg(byte[] bytes) => bytes.Length >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff;
+    private static bool IsWebP(byte[] bytes) => bytes.Length >= 12 && bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) && bytes.AsSpan(8, 4).SequenceEqual("WEBP"u8);
+    private static bool IsPdf(byte[] bytes) => bytes.Length >= 5 && bytes.AsSpan(0, 5).SequenceEqual("%PDF-"u8);
 
     private async Task EnsureSeparationOfDutiesAsync(Guid actorId, Appeal appeal, CancellationToken ct)
     {

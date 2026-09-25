@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
@@ -12,7 +12,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
   templateUrl: './user-sidebar.component.html',
   styleUrl: './user-sidebar.component.scss'
 })
-export class UserSidebarComponent implements OnInit {
+export class UserSidebarComponent {
   private channelService = inject(ChannelService);
   private router = inject(Router);
   readonly auth = inject(AuthService);
@@ -25,13 +25,19 @@ export class UserSidebarComponent implements OnInit {
 
   readonly subscribedChannels = signal<SubscribedChannelResponse[]>([]);
 
-  ngOnInit() {
-    if (this.auth.user()) {
-      this.channelService.getSubscribedChannels().subscribe({
+  constructor() {
+    effect(onCleanup => {
+      if (!this.auth.user()) {
+        this.subscribedChannels.set([]);
+        return;
+      }
+
+      const subscription = this.channelService.getSubscribedChannels().subscribe({
         next: channels => this.subscribedChannels.set(channels),
         error: () => this.subscribedChannels.set([])
       });
-    }
+      onCleanup(() => subscription.unsubscribe());
+    });
   }
 
   toggleCollapsed() { this.collapsedChange.emit(!this.collapsed); }

@@ -21,6 +21,22 @@ export class AdminAppealsPage implements OnInit {
   private readonly moderationService = inject(AdminModerationService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
+  canResolveAppeal(): boolean { return this.auth.hasPermission('appeal.resolve'); }
+
+  openEvidence(appeal: AppealItem): void {
+    if (!appeal.evidenceUrl) return;
+    const tab = window.open('about:blank', '_blank');
+    if (!tab) { this.error.set('Trình duyệt đã chặn cửa sổ bằng chứng. Hãy cho phép mở tab mới rồi thử lại.'); return; }
+    this.moderationService.getAppealEvidence(appeal.appealId).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        tab.opener = null;
+        tab.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => { tab.close(); this.error.set('Không thể mở tệp bằng chứng của đơn này.'); }
+    });
+  }
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);

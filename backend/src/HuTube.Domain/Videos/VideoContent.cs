@@ -136,6 +136,12 @@ public sealed class Video
     public DateTimeOffset UpdatedAt { get; set; }
     public string? LanguageCode { get; set; }
     public bool AgeRestricted { get; set; }
+    public string? AdminOriginalStatus { get; set; }
+    public string? AdminOriginalVisibility { get; set; }
+    public string? AdminOriginalModerationStatus { get; set; }
+    public string? ModerationReason { get; set; }
+    public DateTimeOffset? MediaRetentionUntil { get; set; }
+    public DateTimeOffset? MediaPurgedAt { get; set; }
     public string ModerationStatus { get; set; } = "not_submitted";
     public DateTimeOffset? ScheduledAt { get; set; }
     public string? IdempotencyKey { get; set; }
@@ -201,12 +207,14 @@ public static class PolicyCodes
 
 public sealed class Notification { public Guid NotificationId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public string Type { get; set; } = ""; public string Title { get; set; } = ""; public string Content { get; set; } = ""; public string? ActionUrl { get; set; } public bool IsRead { get; set; } public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset? ReadAt { get; set; } public string? ResourceType { get; set; } public Guid? ResourceId { get; set; } }
 public sealed class ViolationType { public Guid ViolationTypeId { get; set; } public string Code { get; set; } = ""; public string Name { get; set; } = ""; public string? Description { get; set; } public string Status { get; set; } = "active"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }
-public sealed class Report { public Guid ReportId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid ViolationTypeId { get; set; } public Guid? VideoId { get; set; } public Guid? ChannelId { get; set; } public Guid? CommentId { get; set; } public string Description { get; set; } = ""; public string Status { get; set; } = "pending"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }
+public sealed class Report { public Guid ReportId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid ViolationTypeId { get; set; } public Guid? VideoId { get; set; } public Guid? ChannelId { get; set; } public Guid? CommentId { get; set; } public Guid? ModerationCaseId { get; set; } public string? Disposition { get; set; } public Guid? DispositionByUserId { get; set; } public string? DispositionReason { get; set; } public DateTimeOffset? DispositionAt { get; set; } public string? IdempotencyKey { get; set; } public bool AbuseFlag { get; set; } public string Description { get; set; } = ""; public string Status { get; set; } = "pending"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }
 public sealed class ModerationCase
 {
     public Guid ModerationCaseId { get; set; } = Guid.NewGuid();
     public Guid? VideoId { get; set; }
     public Guid? ReportId { get; set; }
+    public string? TargetType { get; set; }
+    public Guid? TargetId { get; set; }
     public Guid? ReviewerId { get; set; }
     public string CaseType { get; set; } = "upload_review";
     public string Status { get; set; } = "pending";

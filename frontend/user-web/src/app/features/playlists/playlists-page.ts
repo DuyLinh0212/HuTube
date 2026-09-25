@@ -105,7 +105,11 @@ export class PlaylistsPage {
     request.subscribe({
       next: value => {
         const existing = new Set(this.playlist()?.items.map(item => item.videoId));
-        this.videoOptions.set(value.items.filter(video => !existing.has(video.videoId)));
+        this.videoOptions.set(value.items.filter(video => {
+          if (existing.has(video.videoId) || video.visibility !== 'public') return false;
+          const managedVideo = video as { status?: string; moderationStatus?: string };
+          return managedVideo.status === undefined || (managedVideo.status === 'published' && managedVideo.moderationStatus === 'approved');
+        }));
         this.videoLoading.set(false);
       },
       error: () => {
@@ -202,7 +206,7 @@ export class PlaylistsPage {
 
   removeVideo(videoId: string) {
     const value = this.playlist();
-    if (!value || !this.canManage() || this.busy) return;
+    if (!value || !this.canManage() || this.busy || !confirm('Xóa video này khỏi danh sách phát?')) return;
     this.busy = true;
     this.service.removeVideo(value.playlistId, videoId).subscribe({
       next: () => this.loadDetail(value.playlistId),

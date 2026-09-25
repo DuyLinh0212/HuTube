@@ -87,16 +87,17 @@
               {{ 'channel.studio' | translate }}
             </a>
           } @else {
-            <button type="button" class="btn-subscribe" [class.is-subscribed]="isSubscribed()" (click)="toggleSubscribe()">
+            <button type="button" class="btn-subscribe" [class.is-subscribed]="isSubscribed()" (click)="toggleSubscribe()" [disabled]="subscriptionBusy() || subscriptionStatusLoading()">
               {{ (isSubscribed() ? 'channel.subscribe' : 'channel.follow') | translate }}
             </button>
             @if (isSubscribed()) {
-              <button type="button" class="btn-bell-notice" [title]="'nav.notifications' | translate">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <button type="button" class="btn-bell-notice" [class.is-enabled]="subscriptionNotificationsEnabled()" [title]="(subscriptionNotificationsEnabled() ? 'channel.turnOffNotifications' : 'channel.turnOnNotifications') | translate" [attr.aria-label]="(subscriptionNotificationsEnabled() ? 'channel.turnOffNotifications' : 'channel.turnOnNotifications') | translate" [attr.aria-pressed]="subscriptionNotificationsEnabled()" [disabled]="subscriptionBusy() || subscriptionStatusLoading()" (click)="toggleSubscriptionNotifications()">
+                <svg width="18" height="18" viewBox="0 0 24 24" [attr.fill]="subscriptionNotificationsEnabled() ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
               </button>
             }
           }
         </div>
+        @if (subscriptionMessage()) { <p class="subscription-feedback" role="status">{{ subscriptionMessage() }}</p> }
       </div>
     </header>
 

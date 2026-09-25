@@ -1,121 +1,430 @@
-<main id="main-content" class="feed">
-
-  <!-- ========== FILTER BAR ========== -->
-  <div class="filter-bar" [attr.aria-label]="'explore.filters' | translate">
-    <label class="filter-bar__item">
-      <span class="filter-bar__label">{{ 'explore.sort' | translate }}</span>
-      <select [value]="selectedSort()" (change)="changeSort($any($event.target).value)">
-        @for (opt of sortOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
-        }
-      </select>
-    </label>
-
-    <label class="filter-bar__item">
-      <span class="filter-bar__label">{{ 'explore.category' | translate }}</span>
-      <select [value]="selectedCategoryId()" (change)="changeCategory($any($event.target).value)">
-        <option value="">{{ 'explore.allCategories' | translate }}</option>
-        @for (category of categories(); track category.categoryId) {
-          <option [value]="category.categoryId">{{ category.name }}</option>
-        }
-      </select>
-    </label>
-
-    <label class="filter-bar__item">
-      <span class="filter-bar__label">{{ 'explore.durationAll' | translate }}</span>
-      <select [value]="selectedDuration()" (change)="changeDuration($any($event.target).value)">
-        @for (opt of durationOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
-        }
-      </select>
-    </label>
-
-    <label class="filter-bar__item">
-      <span class="filter-bar__label">{{ 'explore.dateAll' | translate }}</span>
-      <select [value]="selectedDateRange()" (change)="changeDateRange($any($event.target).value)">
-        @for (opt of dateOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
-        }
-      </select>
-    </label>
-  </div>
-
-  <!-- ========== ACTIVE FILTERS / RESULTS COUNT ========== -->
-  @if (!loading()) {
-    <div class="results-row">
-      @if (!error()) {
-        <span class="results-count">{{ resultsLabel }}</span>
-      }
-      @if (hasActiveFilters) {
-        <button class="clear-all-btn" type="button" (click)="clearAllFilters()">
-          × {{ 'explore.clearAllFilters' | translate }}
+<main id="main-content" class="explore-page">
+  <!-- If In Search Results Mode -->
+  @if (isSearchMode) {
+    <header class="search-header">
+      <div class="search-header-meta">
+        <button type="button" class="back-showcase-btn" (click)="clearAllFilters()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>Khám phá nổi bật</span>
         </button>
+        <h1 class="search-title">
+          {{ hasSearchQuery() ? ('explore.searchHeading' | translate) : ('explore.heading' | translate) }}
+          @if (searchQuery()) {
+            <span class="search-query-tag">"{{ searchQuery() }}"</span>
+          }
+        </h1>
+        <p class="search-subtitle">{{ resultsLabel }}</p>
+      </div>
+    </header>
+
+    <!-- Filter Control Panel -->
+    <section class="filter-panel" [attr.aria-label]="'explore.filters' | translate">
+      <div class="filter-panel-heading">
+        <div class="filter-heading-left">
+          <span class="filter-symbol" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="6" x2="20" y2="6"></line>
+              <line x1="7" y1="12" x2="17" y2="12"></line>
+              <line x1="10" y1="18" x2="14" y2="18"></line>
+            </svg>
+          </span>
+          <strong>{{ 'explore.filterTitle' | translate }}</strong>
+        </div>
+        <button class="clear-filters" type="button" (click)="clearAllFilters()">
+          {{ 'explore.clearAllFilters' | translate }}
+        </button>
+      </div>
+
+      <div class="filter-grid">
+        <label class="filter-control">
+          <span>{{ 'explore.sortBy' | translate }}</span>
+          <select [value]="selectedSort()" (change)="changeSort($any($event.target).value)">
+            @for (opt of sortOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="filter-control">
+          <span>{{ 'explore.durationAll' | translate }}</span>
+          <select [value]="selectedDuration()" (change)="changeDuration($any($event.target).value)">
+            @for (opt of durationOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="filter-control">
+          <span>{{ 'explore.dateAll' | translate }}</span>
+          <select [value]="selectedDateRange()" (change)="changeDateRange($any($event.target).value)">
+            @for (opt of dateOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- Search Video Results Grid -->
+    @if (loading()) {
+      <div class="state-card" role="status">
+        <span class="loading-dot"></span>
+        <p>{{ 'home.loading' | translate }}</p>
+      </div>
+    } @else if (error()) {
+      <div class="state-card state-card--error" role="alert">
+        <p>{{ error() }}</p>
+        <button type="button" (click)="loadSearch()">{{ 'common.retry' | translate }}</button>
+      </div>
+    } @else {
+      <section class="video-grid" [attr.aria-label]="'explore.videoList' | translate">
+        @for (video of videos(); track video.videoId) {
+          <a class="search-video-card" [routerLink]="['/watch', video.videoId]">
+            <div class="search-video-thumb">
+              @if (video.thumbnailUrl) {
+                <img [src]="video.thumbnailUrl" [alt]="video.title" loading="lazy" (error)="onImageError($event)" />
+              } @else {
+                <span class="thumb-fallback" aria-hidden="true">▶</span>
+              }
+              <span class="duration">{{ duration(video.duration) }}</span>
+            </div>
+            <div class="search-video-copy">
+              <span class="channel-avatar" aria-hidden="true">
+                {{ video.channelName.charAt(0).toUpperCase() }}
+              </span>
+              <div class="search-video-meta">
+                <h2>{{ video.title }}</h2>
+                <p class="channel-name">{{ video.channelName }}</p>
+                <p class="video-stats">
+                  {{ video.views | localeNumber }} {{ 'home.views' | translate }}
+                  <span aria-hidden="true">·</span>
+                  {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}
+                </p>
+              </div>
+            </div>
+          </a>
+        } @empty {
+          <div class="empty-state">
+            <span class="empty-icon" aria-hidden="true">⌕</span>
+            <p class="empty-title">{{ 'explore.noResultsTitle' | translate }}</p>
+            <p class="empty-description">{{ 'explore.noResultsDesc' | translate }}</p>
+            <button class="clear-filters" type="button" (click)="clearAllFilters()">
+              {{ 'explore.clearAllFilters' | translate }}
+            </button>
+          </div>
+        }
+      </section>
+
+      @if (totalPages > 1) {
+        <nav class="pagination" [attr.aria-label]="'explore.pagination' | translate">
+          <button class="page-button" type="button" [disabled]="currentPage() <= 1" (click)="goToPage(currentPage() - 1)">‹</button>
+          @for (p of [].constructor(totalPages); track $index) {
+            <button class="page-button" [class.is-current]="$index + 1 === currentPage()" type="button" (click)="goToPage($index + 1)">
+              {{ $index + 1 }}
+            </button>
+          }
+          <button class="page-button" type="button" [disabled]="currentPage() >= totalPages" (click)="goToPage(currentPage() + 1)">›</button>
+        </nav>
       }
-    </div>
+    }
   }
 
-  <!-- ========== CONTENT ========== -->
-  @if (loading()) {
-    <p class="state">{{ 'home.loading' | translate }}</p>
-  } @else if (error()) {
-    <p class="state error">{{ error() }}</p>
-  } @else {
-    <section class="grid" [attr.aria-label]="'explore.videoList' | translate">
-      @for (video of videos(); track video.videoId) {
-        <a class="card" [routerLink]="['/watch', video.videoId]">
-          <div class="thumb">
-            @if (video.thumbnailUrl) {
-              <img [src]="video.thumbnailUrl" alt="" loading="lazy" />
-            } @else {
-              <span>▶</span>
-            }
-            <time>{{ duration(video.duration) }}</time>
-          </div>
-          <div class="copy">
-            <h2>{{ video.title }}</h2>
-            <p>{{ video.channelName }}</p>
-            <small>{{ video.views | localeNumber }} {{ 'home.views' | translate }} · {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</small>
-          </div>
-        </a>
-      } @empty {
-        <div class="empty-state">
-          <p class="empty-state__title">{{ 'explore.noResultsTitle' | translate }}</p>
-          <p class="empty-state__desc">{{ 'explore.noResultsDesc' | translate }}</p>
-          @if (hasActiveFilters) {
-            <button class="clear-all-btn" type="button" (click)="clearAllFilters()">
-              {{ 'explore.clearAllFilters' | translate }}
+  <!-- MAIN EXPLORE SHOWCASE -->
+  @else {
+    <!-- 1. TOP HEADER & CATEGORY TABS -->
+    <section class="explore-hero-section">
+      <div class="explore-hero-title-row">
+        <span class="ranking-icon" aria-hidden="true">
+          <svg viewBox="0 0 28 28" fill="none">
+            <rect x="3" y="14" width="5.5" height="11" rx="2.75" fill="#f59e0b" />
+            <rect x="11.2" y="8" width="5.5" height="17" rx="2.75" fill="#f97316" />
+            <rect x="19.4" y="2" width="5.5" height="23" rx="2.75" fill="#ef4444" />
+          </svg>
+        </span>
+        <h1 class="explore-hero-title">Bảng xếp hạng video theo chủ đề</h1>
+      </div>
+
+      <!-- Category Filter Pills Bar -->
+      <nav class="category-tabs-bar" aria-label="Chủ đề video">
+        <div class="category-tabs-track">
+          @for (tab of categoryTabs; track tab.id) {
+            <button
+              type="button"
+              class="category-tab-pill"
+              [class.is-active]="activeCategoryTab() === tab.id"
+              [class.is-bxh-tong]="tab.id === 'bxh_tong'"
+              (click)="selectCategoryTab(tab.id)"
+            >
+              {{ tab.label }}
             </button>
           }
         </div>
-      }
+      </nav>
     </section>
 
-    <!-- ========== PAGINATION ========== -->
-    @if (totalPages > 1) {
-      <nav class="pagination" [attr.aria-label]="'ui.pagination' | translate">
-        <button
-          class="pagination__btn"
-          type="button"
-          [disabled]="currentPage() <= 1"
-          (click)="goToPage(currentPage() - 1)"
-        >‹</button>
+    <!-- Hub Loading / Error State -->
+    @if (hubLoading()) {
+      <div class="state-card" role="status">
+        <span class="loading-dot"></span>
+        <p>Đang tải dữ liệu khám phá...</p>
+      </div>
+    } @else if (hubError()) {
+      <div class="state-card state-card--error" role="alert">
+        <p>{{ hubError() }}</p>
+        <button type="button" (click)="loadHub()">Thử lại</button>
+      </div>
+    } @else {
 
-        @for (p of [].constructor(totalPages); track $index) {
-          <button
-            class="pagination__btn"
-            [class.active]="$index + 1 === currentPage()"
-            type="button"
-            (click)="goToPage($index + 1)"
-          >{{ $index + 1 }}</button>
+      <!-- 2. TOPIC RANKINGS -->
+      <section class="ranking-grid-section" aria-label="Bảng xếp hạng theo chuyên mục">
+
+        <!-- A: BXH tổng → global top 12 -->
+        @if (activeCategoryTab() === 'bxh_tong') {
+          <div class="category-top-header">
+            <h2 class="category-top-title">Top 12 · BXH tổng</h2>
+            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ sort: 'views' }">
+              <span>Xem tất cả</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="category-top-grid">
+            @for (video of overallRankingVideos(); track video.videoId; let rank = $index) {
+              <a class="category-top-item" [routerLink]="['/watch', video.videoId]">
+                <div class="category-top-rank" [class.is-gold]="rank === 0" [class.is-silver]="rank === 1" [class.is-bronze]="rank === 2">
+                  {{ rank + 1 }}
+                </div>
+                <div class="category-top-thumb">
+                  @if (video.thumbnailUrl) {
+                    <img [src]="video.thumbnailUrl" [alt]="video.title" loading="lazy" (error)="onImageError($event)" />
+                  } @else {
+                    <span class="thumb-fallback" aria-hidden="true">▶</span>
+                  }
+                  <span class="category-top-duration">{{ duration(video.duration) }}</span>
+                </div>
+                <div class="category-top-info">
+                  <h3 [title]="video.title">{{ video.title }}</h3>
+                  <p class="channel-name">{{ video.channelName }}</p>
+                  <p class="views-count">{{ video.views | localeNumber }} lượt xem</p>
+                </div>
+              </a>
+            } @empty {
+              <p class="empty-category">Chưa có video nào đủ điều kiện xếp hạng.</p>
+            }
+          </div>
         }
 
-        <button
-          class="pagination__btn"
-          type="button"
-          [disabled]="currentPage() >= totalPages"
-          (click)="goToPage(currentPage() + 1)"
-        >›</button>
-      </nav>
+        <!-- B: Single category selected → top 12 grid -->
+        @if (activeCategoryTab() !== 'bxh_tong') {
+          <div class="category-top-header">
+            <h2 class="category-top-title">Top 12 · {{ selectedGroupName() }}</h2>
+            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ q: selectedGroupName(), sort: 'views' }">
+              <span>Xem tất cả</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          @if (categoryLoading()) {
+            <div class="state-card" role="status">
+              <span class="loading-dot"></span>
+              <p>Đang tải...</p>
+            </div>
+          } @else {
+            <div class="category-top-grid">
+              @for (video of categoryVideos(); track video.videoId; let rank = $index) {
+                <a class="category-top-item" [routerLink]="['/watch', video.videoId]">
+                  <div class="category-top-rank" [class.is-gold]="rank === 0" [class.is-silver]="rank === 1" [class.is-bronze]="rank === 2">
+                    {{ rank + 1 }}
+                  </div>
+                  <div class="category-top-thumb">
+                    @if (video.thumbnailUrl) {
+                      <img [src]="video.thumbnailUrl" [alt]="video.title" loading="lazy" (error)="onImageError($event)" />
+                    } @else {
+                      <span class="thumb-fallback" aria-hidden="true">▶</span>
+                    }
+                    <span class="category-top-duration">{{ duration(video.duration) }}</span>
+                  </div>
+                  <div class="category-top-info">
+                    <h3 [title]="video.title">{{ video.title }}</h3>
+                    <p class="channel-name">{{ video.channelName }}</p>
+                    <p class="views-count">{{ video.views | localeNumber }} lượt xem</p>
+                  </div>
+                </a>
+              } @empty {
+                <p class="empty-category">Chưa có video nào trong danh mục này.</p>
+              }
+            </div>
+          }
+        }
+
+      </section>
+
+      <!-- 3. FEATURED CREATORS SECTION -->
+      @if (featuredCreators().length > 0) {
+        <section class="featured-creators-section" aria-label="Nhà sáng tạo nổi bật">
+          <div class="section-heading-row">
+            <div class="section-heading-left">
+              <span class="star-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="#f59e0b">
+                  <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                </svg>
+              </span>
+              <div class="section-title-wrap">
+                <h2 class="section-title">Nhà sáng tạo nổi bật</h2>
+                <p class="section-subtitle">Những gương mặt nổi bật đang được yêu thích trên HuTube</p>
+              </div>
+            </div>
+
+            <a class="view-all-link" [routerLink]="['/subscriptions']">
+              <span>Xem tất cả</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <!-- Creators Horizontal Row -->
+          <div class="creators-row">
+            @for (creator of featuredCreators(); track creator.channelId) {
+              <div class="creator-card">
+                <a class="creator-avatar-wrap" [routerLink]="['/channel', '@' + creator.handle]">
+                  @if (creator.avatarUrl) {
+                    <img [src]="creator.avatarUrl" [alt]="creator.name" loading="lazy" (error)="onImageError($event)" />
+                  } @else {
+                    <span class="avatar-fallback">{{ creator.name.charAt(0).toUpperCase() }}</span>
+                  }
+                </a>
+
+                <div class="creator-info">
+                  <div class="creator-name-row">
+                    <a class="creator-name" [routerLink]="['/channel', '@' + creator.handle]">{{ creator.name }}</a>
+                    @if (creator.verified) {
+                      <span class="verified-badge" title="Đã xác minh" aria-label="Đã xác minh">
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" fill="#3b82f6" />
+                          <path d="m8.5 12 2.5 2.5 5-5" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      </span>
+                    }
+                  </div>
+                  <p class="creator-subs">{{ creator.subscriberCount | localeNumber }} người đăng ký</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="creator-subscribe-btn"
+                  [class.is-subscribed]="isCreatorSubscribed(creator.channelId)"
+                  (click)="toggleSubscribe(creator.channelId, $event)"
+                >
+                  {{ isCreatorSubscribed(creator.channelId) ? 'Đã đăng ký' : 'Đăng ký' }}
+                </button>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- 4. TRENDING VIDEOS SECTION -->
+      @if (trendingVideos().length > 0) {
+        <section class="trending-videos-section" aria-label="Video xu hướng">
+          <div class="section-heading-row">
+            <div class="section-heading-left">
+              <span class="fire-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 2c-.6 2.4-2.8 4.6-4.5 7-2.1 3-3.5 6.4-1.5 10 1.8 3.2 5.5 4 8.5 3 3.6-1.2 5.5-4.8 5.5-8.5 0-3.6-2-6.5-4-9.5-.5-.8-1-1.5-1.5-2.3-.5 2.8-2 4.3-3.5 5.3 0-2.3.5-5 1-7z"
+                    fill="url(#fireGradient)"
+                  />
+                  <defs>
+                    <linearGradient id="fireGradient" x1="6" y1="22" x2="18" y2="4" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#ea580c" />
+                      <stop offset="0.6" stop-color="#f97316" />
+                      <stop offset="1" stop-color="#ef4444" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </span>
+              <div class="section-title-wrap">
+                <h2 class="section-title">Video xu hướng</h2>
+                <p class="section-subtitle">Những video đang được quan tâm nhiều nhất hiện nay</p>
+              </div>
+            </div>
+
+            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ sort: 'views' }">
+              <span>Xem tất cả</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <!-- Trending Carousel with Prev & Next Arrows -->
+          <div class="trending-carousel-wrapper">
+            <button
+              type="button"
+              class="carousel-nav-btn carousel-nav-btn--prev"
+              aria-label="Xem video trước"
+              (click)="scrollTrending('left')"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+
+            <div class="trending-carousel-track" #trendingCarousel>
+              @for (video of trendingVideos(); track video.videoId) {
+                <a class="trending-card" [routerLink]="['/watch', video.videoId]">
+                  <!-- Thumbnail -->
+                  <div class="trending-thumb-wrap">
+                    @if (video.thumbnailUrl) {
+                      <img [src]="video.thumbnailUrl" [alt]="video.title" loading="lazy" (error)="onImageError($event)" />
+                    } @else {
+                      <span class="thumb-fallback" aria-hidden="true">▶</span>
+                    }
+                    <span class="trending-duration">{{ duration(video.duration) }}</span>
+                  </div>
+
+                  <!-- Content Meta -->
+                  <div class="trending-content">
+                    <h3 class="trending-video-title" [title]="video.title">{{ video.title }}</h3>
+
+                    <!-- Channel line -->
+                    <div class="trending-channel-line">
+                      <span class="trending-channel-avatar">
+                        {{ video.channelName.charAt(0).toUpperCase() }}
+                      </span>
+                      <span class="trending-channel-name">{{ video.channelName }}</span>
+                    </div>
+
+                    <!-- Stats line -->
+                    <div class="trending-stats-line">
+                      <span class="eye-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                      </span>
+                      <span>{{ video.views | localeNumber }} lượt xem</span>
+                      <span class="bullet" aria-hidden="true">·</span>
+                      <span>{{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</span>
+                    </div>
+                  </div>
+                </a>
+              }
+            </div>
+
+            <button
+              type="button"
+              class="carousel-nav-btn carousel-nav-btn--next"
+              aria-label="Xem video tiếp theo"
+              (click)="scrollTrending('right')"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+        </section>
+      }
     }
   }
 </main>

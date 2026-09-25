@@ -55,6 +55,12 @@ export class AdminStrikesPage implements OnInit {
   readonly lockAction = signal<'lock' | 'unlock'>('lock');
   readonly lockReason = signal('');
 
+  // Keep the UI aligned with the same permissions enforced by AdminController.
+  // `strike.view` is enough to load this page, but it must not expose mutation
+  // actions that would be rejected by the API.
+  readonly canManageStrikes = computed(() => this.auth.hasPermission('strike.manage'));
+  readonly canLockChannels = computed(() => this.auth.hasPermission('channel.lock'));
+
   readonly countActive = computed(() => this.strikes().filter(s => s.status === 'active').length);
   readonly countExpired = computed(() => this.strikes().filter(s => s.status === 'expired').length);
   readonly countRevoked = computed(() => this.strikes().filter(s => s.status === 'revoked').length);
@@ -142,6 +148,8 @@ export class AdminStrikesPage implements OnInit {
   }
 
   openCreateModal(): void {
+    if (!this.canManageStrikes()) return;
+
     this.createChannelId.set('');
     this.createPolicyCode.set('');
     this.createSeverity.set('high');
@@ -155,6 +163,8 @@ export class AdminStrikesPage implements OnInit {
   }
 
   submitCreateStrike(): void {
+    if (!this.canManageStrikes()) return;
+
     if (!this.createChannelId() || !this.createReason()) {
       this.error.set('Vui lòng nhập Channel ID và lý do áp dụng gậy.');
       return;
@@ -184,6 +194,8 @@ export class AdminStrikesPage implements OnInit {
   }
 
   openRevokeModal(strike: StrikeItem): void {
+    if (!this.canManageStrikes()) return;
+
     this.activeStrike.set(strike);
     this.revokeReason.set('');
     this.isRevokeModalOpen.set(true);
@@ -195,6 +207,8 @@ export class AdminStrikesPage implements OnInit {
   }
 
   submitRevokeStrike(): void {
+    if (!this.canManageStrikes()) return;
+
     const strike = this.activeStrike();
     if (!strike || !this.revokeReason()) {
       this.error.set('Vui lòng nhập lý do thu hồi gậy.');
@@ -221,6 +235,8 @@ export class AdminStrikesPage implements OnInit {
   }
 
   openChannelLockModal(channelId?: string, action: 'lock' | 'unlock' = 'lock'): void {
+    if (!this.canLockChannels()) return;
+
     this.lockChannelId.set(channelId || '');
     this.lockAction.set(action);
     this.lockReason.set('');
@@ -243,6 +259,8 @@ export class AdminStrikesPage implements OnInit {
   }
 
   submitChannelLock(): void {
+    if (!this.canLockChannels()) return;
+
     if (!this.lockChannelId() || !this.lockReason()) {
       this.error.set('Vui lòng nhập Channel ID và lý do.');
       return;

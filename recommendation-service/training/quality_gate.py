@@ -24,15 +24,6 @@ REQUIRED_ARTIFACT_FILES = (
     "item_metadata.json",
     "seen_items.npz",
 )
-BOUNDED_PREFIXES = (
-    "collaborative_support@",
-    "collaborative_evidence_strength@",
-    "support_coverage@",
-    "preference_alignment@",
-    "preference_genre_coverage@",
-    "catalog_coverage@",
-    "diversity@",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,45 +36,65 @@ class QualityGateResult:
         return asdict(self)
 
 
-def _validate_metric_dict(metrics: dict[str, Any], prefix: str) -> list[str]:
-    errors: list[str] = []
-    for name, value in metrics.items():
-        if value is None:
-            continue
-        if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
-            errors.append(f"{prefix}.{name} must be a finite number or null.")
-            continue
-        if name.startswith(BOUNDED_PREFIXES) and not 0.0 <= float(value) <= 1.0:
-            errors.append(f"{prefix}.{name} must be in [0, 1].")
-        if (
-            name.startswith("novelty@") or name == "recommendation_count"
-        ) and value < 0:
-            errors.append(f"{prefix}.{name} must be non-negative.")
-    return errors
+def _finite_non_negative(value: Any, label: str) -> list[str]:
+    if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+        return [f"{label} must be a finite number."]
+    if float(value) < 0:
+        return [f"{label} must be non-negative."]
+    return []
 
 
 def validate_metrics(metrics: dict[str, Any]) -> list[str]:
-    models = metrics.get("models")
+    """Validate the runtime-only metrics payload."""
+
+    runtime = metrics.get("runtime")
+    if not isinstance(runtime, dict):
+        return ["metrics.runtime must be an object."]
+
+    models = runtime.get("models")
     if not isinstance(models, dict) or not models:
-        return ["metrics.models must be a non-empty object."]
+        return ["metrics.runtime.models must be a non-empty object."]
+
     errors: list[str] = []
     for model_name, payload in models.items():
         if not isinstance(payload, dict):
-            errors.append(f"metrics.models.{model_name} must be an object.")
-            continue
-        preference_metrics = payload.get(
-            "evaluation",
-            payload.get("preference"),
-        )
-        if not isinstance(preference_metrics, dict):
-            errors.append(f"metrics.models.{model_name}.preference must be an object.")
+            errors.append(f"runtime.models.{model_name} must be an object.")
             continue
         errors.extend(
-            _validate_metric_dict(
-                preference_metrics,
-                f"{model_name}.preference",
+            _finite_non_negative(
+                payload.get("fit_seconds"),
+                f"runtime.models.{model_name}.fit_seconds",
             )
         )
+    if "total_fit_seconds" in runtime:
+        errors.extend(
+            _finite_non_negative(
+                runtime["total_fit_seconds"],
+                "runtime.total_fit_seconds",
+            )
+        )
+
+    complexity = metrics.get("complexity_benchmark")
+    if isinstance(complexity, dict):
+        for index, row in enumerate(complexity.get("strategies", [])):
+            if not isinstance(row, dict):
+                errors.append(f"complexity_benchmark.strategies[{index}] must be an object.")
+                continue
+            for field in (
+                "matrix_build_seconds",
+                "candidate_generation_seconds",
+                "similarity_seconds",
+                "neighbor_selection_seconds",
+                "total_seconds",
+                "estimated_peak_megabytes",
+            ):
+                if field in row:
+                    errors.extend(
+                        _finite_non_negative(
+                            row[field],
+                            f"complexity_benchmark.strategies[{index}].{field}",
+                        )
+                    )
     return errors
 
 
@@ -98,9 +109,14 @@ def run_quality_gate(artifact_dir: str | Path) -> QualityGateResult:
         metadata = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
         model_types = set(metadata.get("modelTypes", []))
         models_ok = (
-            {"user_based_cosine", "user_based_jaccard", "user_based_pearson",
-             "item_based_cosine", "item_based_jaccard", "item_based_pearson"}
-            .issubset(model_types)
+            {
+                "user_based_cosine",
+                "user_based_jaccard",
+                "user_based_pearson",
+                "item_based_cosine",
+                "item_based_jaccard",
+                "item_based_pearson",
+            }.issubset(model_types)
             or {"user_based", "item_based"}.issubset(model_types)
         )
         metadata_ok = (
@@ -127,7 +143,7 @@ def run_quality_gate(artifact_dir: str | Path) -> QualityGateResult:
         "artifact_complete": not missing,
         "models_complete": models_ok,
         "benchmark_metadata_safe": metadata_ok,
-        "metrics_valid": metrics_ok,
+        "runtime_metrics_valid": metrics_ok,
     }
     return QualityGateResult(
         passed=not errors and all(checks.values()),

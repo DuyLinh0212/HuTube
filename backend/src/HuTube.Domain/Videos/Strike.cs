@@ -28,6 +28,7 @@ public sealed class ChannelStrike
     public string Status { get; set; } = StrikeStatuses.Active;
     public DateTimeOffset ExpiresAt { get; set; } = DateTimeOffset.UtcNow.AddDays(90);
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? UploadRestrictedUntil { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
     public Guid? RevokedByUserId { get; set; }
     public string? RevocationReason { get; set; }

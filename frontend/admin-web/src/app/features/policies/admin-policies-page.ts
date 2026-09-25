@@ -150,6 +150,8 @@ export class AdminPoliciesPage implements OnInit {
   }
 
   openCreateModal(): void {
+    if (!this.canEdit()) return;
+
     this.newCode.set('');
     this.newName.set('');
     this.newGroup.set('guidelines');
@@ -164,6 +166,8 @@ export class AdminPoliciesPage implements OnInit {
   }
 
   createPolicy(): void {
+    if (!this.canEdit()) return;
+
     if (!this.newCode().trim() || !this.newName().trim() || !this.newContent().trim()) {
       alert(this.i18n.t('policies.validationError'));
       return;
@@ -209,6 +213,8 @@ export class AdminPoliciesPage implements OnInit {
   }
 
   publishNewVersion(): void {
+    if (!this.canEdit()) return;
+
     const policy = this.selectedPolicy();
     if (!policy) return;
 
@@ -240,9 +246,6 @@ export class AdminPoliciesPage implements OnInit {
   }
 
   canEdit(): boolean {
-    const u = this.auth.user();
-    if (!u) return false;
-    if (u.role === 'super_admin' || u.role === 'admin' || u.isAdmin) return true;
     return this.auth.hasPermission('policy.manage') || this.auth.hasPermission('system.edit_setting');
   }
 

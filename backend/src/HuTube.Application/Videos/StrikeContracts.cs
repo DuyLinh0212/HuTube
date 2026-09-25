@@ -40,7 +40,9 @@ public sealed record ChannelStrikeStatusResponse(
     bool HasWarning,
     bool IsSuspended,
     DateTimeOffset? UploadRestrictedUntil,
-    IReadOnlyList<ChannelStrikeDto> Strikes
+    IReadOnlyList<ChannelStrikeDto> Strikes,
+    string? UploadRestrictionReason = null,
+    bool AppealEligible = false
 );
 
 // ================= REPORT CONTRACTS =================
@@ -65,14 +67,17 @@ public sealed record ReportDto(
     string? TargetThumbnailUrl = null,
     string? TargetChannelName = null,
     string? TargetChannelHandle = null,
-    string? ContextText = null
+    string? ContextText = null,
+    string? Disposition = null,
+    bool AbuseFlag = false
 );
 
 public sealed record CreateContentReportRequest(
     string TargetType, // video, comment, channel
     Guid TargetId,
     Guid ViolationTypeId,
-    string Description
+    string Description,
+    string? IdempotencyKey = null
 );
 
 public sealed record ResolveReportRequest(
@@ -88,6 +93,52 @@ public sealed record ReportResolutionResponse(
     string Decision,
     string Message
 );
+
+public sealed record ReportViolationCount(string? Code, string? Name, int Count);
+public sealed record ReportCaseSummary(
+    Guid CaseId,
+    string TargetType,
+    Guid TargetId,
+    string? TargetTitle,
+    string? TargetUrl,
+    string? TargetThumbnailUrl,
+    string? TargetChannelName,
+    string? TargetChannelHandle,
+    string Status,
+    int ReportCount,
+    int ReporterCount,
+    int UnclassifiedCount,
+    IReadOnlyList<ReportViolationCount> ViolationCounts,
+    Guid? ReviewerId,
+    string? ReviewerName,
+    DateTimeOffset SubmittedAt,
+    DateTimeOffset UpdatedAt
+);
+public sealed record ReportCaseReportDetail(
+    Guid ReportId,
+    Guid UserId,
+    string? ReporterName,
+    Guid ViolationTypeId,
+    string? ViolationTypeCode,
+    string? ViolationTypeName,
+    string Description,
+    string Status,
+    string? Disposition,
+    string? DispositionReason,
+    Guid? DispositionByUserId,
+    DateTimeOffset? DispositionAt,
+    bool AbuseFlag,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt
+);
+public sealed record ReportCaseDetail(ReportCaseSummary Case, IReadOnlyList<ReportCaseReportDetail> Reports);
+public sealed record UpdateReportDispositionsRequest(IReadOnlyList<Guid> ReportIds, string Disposition, string Reason);
+public sealed record ResolveReportCaseRequest(
+    string Decision, // dismiss, warn, age_restrict, recommendation_restricted, hide, remove, upload_restriction, strike, lock_channel, escalate
+    string Reason,
+    string? InternalNote,
+    string? PolicyCode,
+    int? RestrictionDays = null);
 
 // ================= APPEAL CONTRACTS =================
 
@@ -133,6 +184,8 @@ public sealed record AppealResolutionResponse(
     string Decision,
     string Message
 );
+
+public sealed record AppealEvidenceUploadResponse(Guid AppealId, string EvidenceUrl);
 
 // ================= CHANNEL LOCK CONTRACTS =================
 

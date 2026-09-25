@@ -37,6 +37,11 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
         await db.Sessions.Where(x => x.SessionId == sessionId && x.RevokedAt == null && x.LastActiveAt < now.AddMinutes(-1))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastActiveAt, now).SetProperty(x => x.ExpiresAt, expiresAt), ct);
 
+    public async Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, string? ipAddress, CancellationToken ct) =>
+        await db.Sessions.Where(x => x.SessionId == sessionId && x.RevokedAt == null && x.LastActiveAt < now.AddMinutes(-1))
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastActiveAt, now).SetProperty(x => x.ExpiresAt, expiresAt)
+                .SetProperty(x => x.IpAddress, ipAddress), ct);
+
     public async Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct)
     {
         var user = await db.Users.SingleOrDefaultAsync(x => x.EmailVerificationTokenHash == hash, ct);

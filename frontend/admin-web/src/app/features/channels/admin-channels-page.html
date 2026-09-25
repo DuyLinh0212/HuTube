@@ -1,0 +1,651 @@
+<main class="channels-view-container" id="main-content">
+  <!-- Notifications -->
+  @if (notice()) {
+    <div class="feedback-banner is-success" role="status">
+      <svg class="feedback-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+      </svg>
+      <span>{{ notice() }}</span>
+    </div>
+  }
+  @if (error()) {
+    <div class="feedback-banner is-error" role="alert">
+      <svg class="feedback-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+      </svg>
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <!-- Header: Tabs & Export -->
+  <header class="channels-top-bar">
+    <nav class="channel-tabs" aria-label="Lọc kênh theo trạng thái">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'all'"
+        (click)="selectTab('all')"
+      >
+        Tất cả kênh ({{ formatNumber(channelCounts().all) }})
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'active'"
+        (click)="selectTab('active')"
+      >
+        Đang hoạt động ({{ formatNumber(channelCounts().active) }})
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'restricted'"
+        (click)="selectTab('restricted')"
+      >
+        Hạn chế ({{ formatNumber(channelCounts().restricted) }})
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'banned'"
+        (click)="selectTab('banned')"
+      >
+        Bị khóa ({{ formatNumber(channelCounts().banned) }})
+      </button>
+    </nav>
+
+    <div class="header-actions">
+      <button type="button" class="btn-export" (click)="exportData()">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Xuất danh sách
+      </button>
+    </div>
+  </header>
+
+  <!-- Filter Bar -->
+  <section class="filter-strip" aria-label="Bộ lọc kênh">
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input
+        type="search"
+        placeholder="Tìm kiếm kênh..."
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+        (keyup.enter)="applyFilters()"
+      />
+    </div>
+
+    <app-custom-select
+      prefix="Trạng thái"
+      [options]="statusOptions"
+      [value]="statusFilter()"
+      (valueChange)="setStatus($event)"
+    ></app-custom-select>
+
+    <app-custom-select
+      prefix="Thời gian tạo"
+      [options]="timeOptions"
+      [value]="timeFilter()"
+      (valueChange)="setTime($event)"
+    ></app-custom-select>
+
+    <div class="filter-actions-group">
+      <button type="button" class="btn-filter" (click)="applyFilters()">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+        </svg>
+        Lọc
+      </button>
+
+      <button type="button" class="btn-reset" (click)="resetFilters()">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
+        </svg>
+        Đặt lại
+      </button>
+    </div>
+  </section>
+
+  <!-- Table Container Card -->
+  <section class="table-card">
+    @if (loading()) {
+      <div class="table-loading-overlay">
+        <div class="loader-spinner"></div>
+        <span>Đang tải danh sách kênh...</span>
+      </div>
+    }
+
+    <div class="table-responsive">
+      <table class="channel-table">
+        <thead>
+          <tr>
+            <th class="col-sortable" (click)="toggleSort('name')">
+              <div class="th-content">
+                <span>Kênh</span>
+                <span class="sort-icon-box" [class.is-active]="sortColumn() === 'name'">
+                  @if (sortColumn() === 'name') {
+                    <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                  } @else {
+                    <svg class="sort-neutral" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 8l5-5 5 5H5zm10 4l-5 5-5-5h10z"/>
+                    </svg>
+                  }
+                </span>
+              </div>
+            </th>
+            <th class="col-sortable" (click)="toggleSort('owner')">
+              <div class="th-content">
+                <span>Chủ sở hữu</span>
+                <span class="sort-icon-box" [class.is-active]="sortColumn() === 'owner'">
+                  @if (sortColumn() === 'owner') {
+                    <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                  } @else {
+                    <svg class="sort-neutral" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 8l5-5 5 5H5zm10 4l-5 5-5-5h10z"/>
+                    </svg>
+                  }
+                </span>
+              </div>
+            </th>
+            <th class="col-sortable text-center" (click)="toggleSort('videoCount')">
+              <div class="th-content justify-center">
+                <span>Số video</span>
+                <span class="sort-icon-box" [class.is-active]="sortColumn() === 'videoCount'">
+                  @if (sortColumn() === 'videoCount') {
+                    <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                  } @else {
+                    <svg class="sort-neutral" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 8l5-5 5 5H5zm10 4l-5 5-5-5h10z"/>
+                    </svg>
+                  }
+                </span>
+              </div>
+            </th>
+            <th class="col-sortable text-center" (click)="toggleSort('subscriberCount')">
+              <div class="th-content justify-center">
+                <span>Người đăng ký</span>
+                <span class="sort-icon-box" [class.is-active]="sortColumn() === 'subscriberCount'">
+                  @if (sortColumn() === 'subscriberCount') {
+                    <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                  } @else {
+                    <svg class="sort-neutral" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 8l5-5 5 5H5zm10 4l-5 5-5-5h10z"/>
+                    </svg>
+                  }
+                </span>
+              </div>
+            </th>
+            <th class="col-sortable text-center" (click)="toggleSort('views')">
+              <div class="th-content justify-center">
+                <span>Lượt xem</span>
+                <span class="sort-icon-box" [class.is-active]="sortColumn() === 'views'">
+                  @if (sortColumn() === 'views') {
+                    <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                  } @else {
+                    <svg class="sort-neutral" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 8l5-5 5 5H5zm10 4l-5 5-5-5h10z"/>
+                    </svg>
+                  }
+                </span>
+              </div>
+            </th>
+            <th class="col-sortable text-center" (click)="toggleSort('status')">
+              <div class="th-content justify-center">
+                <span>Trạng thái</span>
+                <span class="sort-icon-box" [class.is-active]="sortColumn() === 'status'">
+                  @if (sortColumn() === 'status') {
+                    <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                  } @else {
+                    <svg class="sort-neutral" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 8l5-5 5 5H5zm10 4l-5 5-5-5h10z"/>
+                    </svg>
+                  }
+                </span>
+              </div>
+            </th>
+            <th class="col-sortable text-center" (click)="toggleSort('createdAt')">
+              <div class="th-content justify-center">
+                <span>Ngày tạo</span>
+                <span class="sort-icon-box" [class.is-active]="sortColumn() === 'createdAt'">
+                  @if (sortColumn() === 'createdAt') {
+                    <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                    </svg>
+                  } @else {
+                    <svg class="sort-neutral" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 8l5-5 5 5H5zm10 4l-5 5-5-5h10z"/>
+                    </svg>
+                  }
+                </span>
+              </div>
+            </th>
+            <th class="col-actions text-center">
+              <span>Thao tác</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (channel of channels(); track channel.channelId; let idx = $index) {
+            <tr
+              class="channel-row"
+              (click)="openDetail(channel)"
+            >
+              <!-- Kênh -->
+              <td class="col-channel" data-label="Kênh">
+                <div class="channel-cell">
+                  <div class="avatar-ring">
+                    @if (channel.avatarUrl) {
+                      <img [src]="channel.avatarUrl" [alt]="channel.name" class="avatar-img" />
+                    } @else {
+                      <div class="avatar-initials avatar-gradient-1">
+                        {{ getInitials(channel.name) }}
+                      </div>
+                    }
+                  </div>
+                  <div class="channel-info">
+                    <strong class="channel-name">{{ channel.name }}</strong>
+                    <span class="channel-handle">&#64;{{ channel.handle }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Chủ sở hữu -->
+              <td class="col-owner" data-label="Chủ sở hữu">
+                <div class="owner-cell">
+                  <div class="owner-avatar">
+                    @if (channel.ownerAvatarUrl) {
+                      <img [src]="channel.ownerAvatarUrl" [alt]="channel.ownerName" class="avatar-img" />
+                    } @else {
+                      <div class="avatar-initials avatar-gradient-2">
+                        {{ getInitials(channel.ownerName) }}
+                      </div>
+                    }
+                  </div>
+                  <div class="owner-info">
+                    <span class="owner-name">{{ channel.ownerName }}</span>
+                    <span class="owner-email">{{ channel.ownerEmail }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Số video -->
+              <td class="col-stat text-center" data-label="Số video">
+                <span class="stat-number">{{ channel.videoCount | number }}</span>
+              </td>
+
+              <!-- Người đăng ký -->
+              <td class="col-stat text-center" data-label="Người đăng ký">
+                <span class="stat-number">{{ formatShort(channel.subscriberCount) }}</span>
+              </td>
+
+              <!-- Lượt xem -->
+              <td class="col-stat text-center" data-label="Lượt xem">
+                <span class="stat-number">{{ formatShort(channel.viewCount || 0) }}</span>
+              </td>
+
+              <!-- Trạng thái -->
+              <td class="col-status text-center" data-label="Trạng thái">
+                <span class="status-badge" [ngClass]="statusBadge(channel.status).cls">
+                  {{ statusBadge(channel.status).label }}
+                </span>
+              </td>
+
+              <!-- Ngày tạo -->
+              <td class="col-date text-center" data-label="Ngày tạo">
+                <span class="date-text">{{ channel.createdAt | date:'dd/MM/yyyy' }}</span>
+              </td>
+
+              <!-- Thao tác -->
+              <td class="col-actions text-center" data-label="Thao tác" (click)="$event.stopPropagation()">
+                <div class="action-menu-anchor">
+                  <button
+                    type="button"
+                    class="btn-dots"
+                    aria-label="Thao tác kênh"
+                    (click)="toggleActionMenu(channel.channelId, $event)"
+                  >
+                    •••
+                  </button>
+
+                  <!-- Popup Dropdown Menu -->
+                  @if (activeMenuId() === channel.channelId) {
+                    <div class="dropdown-menu" [class.open-upwards]="idx >= channels().length - 2">
+                      <button type="button" class="menu-item" (click)="openDetail(channel)">
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                          <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Xem chi tiết kênh
+                      </button>
+
+                      @if (channel.status === 'active') {
+                        <button type="button" class="menu-item text-amber" (click)="openActionModal('suspend', channel)">
+                          <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                          </svg>
+                          Hạn chế / Tạm ngưng
+                        </button>
+                      }
+
+                      @if (channel.status !== 'banned') {
+                        <button type="button" class="menu-item text-red" (click)="openActionModal('ban', channel)">
+                          <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd"/>
+                          </svg>
+                          Khóa / Cấm kênh
+                        </button>
+                      }
+
+                      @if (channel.status === 'suspended' || channel.status === 'banned') {
+                        <button type="button" class="menu-item text-green" (click)="openActionModal('unban', channel)">
+                          <svg viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                          </svg>
+                          Mở khóa / Khôi phục
+                        </button>
+                      }
+
+                      <div class="menu-divider"></div>
+
+                      <button type="button" class="menu-item text-red" (click)="openActionModal('delete', channel)">
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        Xóa kênh
+                      </button>
+                    </div>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="8" class="empty-table-cell" style="text-align: center; padding: 2.5rem; color: #6c757d;">
+                Không tìm thấy kênh nào phù hợp với bộ lọc.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Table Footer / Pagination -->
+    <footer class="table-pagination-footer">
+      <div class="footer-left">
+        Hiển thị {{ showingStart() }} - {{ showingEnd() }} trong tổng {{ formatNumber(total()) }} kênh
+      </div>
+
+      <div class="footer-center">
+        <div class="pagination-controls">
+          <button
+            type="button"
+            class="page-arrow"
+            [disabled]="page() <= 1"
+            (click)="prevPage()"
+            aria-label="Trang trước"
+          >
+            ‹
+          </button>
+
+          @for (p of visiblePages(); track $index) {
+            @if (p === '...') {
+              <span class="page-ellipsis">...</span>
+            } @else {
+              <button
+                type="button"
+                class="page-btn"
+                [class.is-active]="page() === p"
+                (click)="setPage(p)"
+              >
+                {{ p }}
+              </button>
+            }
+          }
+
+          <button
+            type="button"
+            class="page-arrow"
+            [disabled]="page() >= pageCount()"
+            (click)="nextPage()"
+            aria-label="Trang tiếp"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      <div class="footer-right">
+        <span>Hiển thị</span>
+        <div class="page-size-select-wrap">
+          <select [value]="pageSize()" (change)="onPageSizeChange($event)">
+            <option [value]="8">8</option>
+            <option [value]="10">10</option>
+            <option [value]="20">20</option>
+            <option [value]="50">50</option>
+          </select>
+          <svg class="select-chevron" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <span>kênh/trang</span>
+      </div>
+    </footer>
+  </section>
+
+  <!-- Channel Detail Slide Drawer / Modal -->
+  @if (showDetailDrawer()) {
+    <div class="drawer-backdrop" (click)="closeDetail()">
+      <div class="drawer-card" (click)="$event.stopPropagation()">
+        <header class="drawer-header">
+          <div>
+            <span class="drawer-sub">CHI TIẾT KÊNH</span>
+            <h2>{{ selectedChannel()?.channel?.name || 'Chi tiết kênh' }}</h2>
+            <span class="drawer-handle">&#64;{{ selectedChannel()?.channel?.handle }}</span>
+          </div>
+          <button type="button" class="drawer-close" (click)="closeDetail()">✕</button>
+        </header>
+
+        <div class="drawer-body">
+          @if (detailLoading()) {
+            <div class="drawer-loading">
+              <div class="loader-spinner"></div>
+              <p>Đang tải thông tin chi tiết kênh...</p>
+            </div>
+          } @else if (selectedChannel(); as detail) {
+            <!-- Channel Header Banner / Avatar Card -->
+            <div class="channel-overview-box">
+              <div class="overview-avatar">
+                @if (detail.avatarUrl) {
+                  <img [src]="detail.avatarUrl" alt="" />
+                } @else {
+                  <div class="avatar-initials avatar-gradient-1 large">
+                    {{ getInitials(detail.channel.name) }}
+                  </div>
+                }
+              </div>
+              <div class="overview-meta">
+                <h3>{{ detail.channel.name }}</h3>
+                <p class="overview-desc">{{ detail.description || 'Kênh chưa có mô tả.' }}</p>
+                <div class="overview-badges">
+                  <span class="status-badge" [ngClass]="statusBadge(detail.channel.status).cls">
+                    {{ statusBadge(detail.channel.status).label }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="detail-stats-grid">
+              <div class="stat-box">
+                <span class="stat-label">Chủ sở hữu</span>
+                <strong class="stat-val">{{ detail.channel.ownerName }}</strong>
+                <small class="stat-sub">{{ detail.contactEmail || detail.channel.ownerEmail }}</small>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Người đăng ký</span>
+                <strong class="stat-val">{{ formatShort(detail.channel.subscriberCount) }}</strong>
+                <small class="stat-sub">Người theo dõi</small>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Tổng video</span>
+                <strong class="stat-val">{{ detail.channel.videoCount | number }}</strong>
+                <small class="stat-sub">Đã tải lên</small>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Lượt xem</span>
+                <strong class="stat-val">{{ formatShort(detail.channel.viewCount || 0) }}</strong>
+                <small class="stat-sub">Toàn thời gian</small>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Gậy vi phạm</span>
+                <strong class="stat-val text-red">{{ detail.channel.activeStrikeCount }}</strong>
+                <small class="stat-sub">Đang hiệu lực</small>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Ngày thành lập</span>
+                <strong class="stat-val">{{ detail.channel.createdAt | date:'dd/MM/yyyy' }}</strong>
+                <small class="stat-sub">Tham gia HuTube</small>
+              </div>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="drawer-actions">
+              @if (detail.channel.status === 'active') {
+                <button type="button" class="btn-action-amber" (click)="openActionModal('suspend', detail.channel)">
+                  Tạm ngưng kênh
+                </button>
+              }
+              @if (detail.channel.status !== 'banned') {
+                <button type="button" class="btn-action-red" (click)="openActionModal('ban', detail.channel)">
+                  Cấm / Khóa kênh
+                </button>
+              }
+              @if (detail.channel.status === 'suspended' || detail.channel.status === 'banned') {
+                <button type="button" class="btn-action-green" (click)="openActionModal('unban', detail.channel)">
+                  Khôi phục hoạt động
+                </button>
+              }
+              <button type="button" class="btn-action-outline-danger" (click)="openActionModal('delete', detail.channel)">
+                Xóa kênh
+              </button>
+            </div>
+
+            <!-- Recent Videos -->
+            <section class="drawer-sub-section">
+              <h4>Video gần đây</h4>
+              @if (detail.videos && detail.videos.length > 0) {
+                <div class="recent-videos-list">
+                  @for (vid of detail.videos; track vid.videoId) {
+                    <div class="recent-vid-item">
+                      <div class="vid-thumb-placeholder">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                      </div>
+                      <div class="vid-meta">
+                        <strong>{{ vid.title }}</strong>
+                        <span>{{ formatShort(vid.views) }} lượt xem · {{ vid.status }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p class="empty-sub-msg">Chưa có video công khai nào.</p>
+              }
+            </section>
+
+            <!-- Audit History -->
+            <section class="drawer-sub-section">
+              <h4>Lịch sử quản trị</h4>
+              @if (detail.history && detail.history.length > 0) {
+                <div class="history-timeline">
+                  @for (log of detail.history; track log.auditLogId) {
+                    <div class="history-item">
+                      <span class="history-action">{{ log.action }}</span>
+                      <p class="history-reason">{{ log.reason || 'Không ghi nhận lý do' }}</p>
+                      <small class="history-actor">{{ log.actorName || 'Hệ thống' }} · {{ log.createdAt | date:'dd/MM/yyyy HH:mm' }}</small>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p class="empty-sub-msg">Chưa có lịch sử can thiệp quản trị.</p>
+              }
+            </section>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Action Modal -->
+  @if (showActionModal()) {
+    <div class="modal-backdrop" (click)="closeActionModal()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <h3>{{ actionLabel(actionModalType() || '') }}</h3>
+          <button type="button" class="modal-close" (click)="closeActionModal()">✕</button>
+        </header>
+
+        <div class="modal-body">
+          <p class="modal-lead">
+            Bạn đang thực hiện thao tác <strong>{{ actionLabel(actionModalType() || '') }}</strong> trên kênh
+            <span class="text-pink">“{{ actionModalChannel()?.name }}”</span> (&#64;{{ actionModalChannel()?.handle }}).
+          </p>
+
+          <label class="modal-form-label">
+            <span>Lý do thực hiện (tối thiểu 3 ký tự) <strong class="text-red">*</strong>:</span>
+            <textarea
+              class="modal-textarea"
+              rows="3"
+              placeholder="Nhập chi tiết lý do quản trị..."
+              [ngModel]="actionModalReason()"
+              (ngModelChange)="actionModalReason.set($event)"
+            ></textarea>
+          </label>
+
+          <label class="modal-checkbox-label">
+            <input
+              type="checkbox"
+              class="custom-check"
+              [ngModel]="notifyOwner()"
+              (ngModelChange)="notifyOwner.set($event)"
+            />
+            <span>Gửi email và thông báo cho chủ kênh</span>
+          </label>
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn-modal-cancel" (click)="closeActionModal()" [disabled]="busy()">
+            Hủy bỏ
+          </button>
+          <button
+            type="button"
+            class="btn-modal-confirm"
+            [disabled]="busy() || actionModalReason().trim().length < 3"
+            (click)="submitAction()"
+          >
+            {{ busy() ? 'Đang xử lý...' : 'Xác nhận thực hiện' }}
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+</main>

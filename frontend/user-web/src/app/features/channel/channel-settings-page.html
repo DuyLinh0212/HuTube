@@ -1,6 +1,6 @@
 <main id="main-content" class="settings-page-container">
   @if (channel(); as ch) {
-    @if (ch.status === 'suspended') {
+    @if (ch.status === 'suspended' || ch.status === 'banned') {
       <div class="channel-suspended-banner" role="alert">
         <div class="banner-icon-wrap">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -10,8 +10,8 @@
           </svg>
         </div>
         <div class="banner-body">
-          <h3 class="banner-title">Kênh đang bị tạm dừng hoạt động (Suspended)</h3>
-          <p class="banner-desc">Kênh của bạn hiện bị tạm khóa do vi phạm Điều khoản & Nguyên tắc Cộng đồng hoặc tích lũy đủ 3 gậy cảnh cáo. Các thao tác tải lên, chỉnh sửa và quản lý bị hạn chế. Bạn có thể gửi đơn khiếu nại (Appeal) để đội ngũ kiểm duyệt xem xét gỡ bỏ trạng thái đình chỉ.</p>
+          <h3 class="banner-title">{{ ch.status === 'banned' ? 'Kênh đang bị cấm hoạt động' : 'Kênh đang bị tạm dừng hoạt động (Suspended)' }}</h3>
+          <p class="banner-desc">{{ ch.statusReason || 'Kênh của bạn hiện bị tạm khóa do vi phạm Điều khoản & Nguyên tắc Cộng đồng.' }} Các thao tác tải lên, chỉnh sửa và quản lý bị hạn chế. Bạn có thể gửi đơn khiếu nại (Appeal) để đội ngũ kiểm duyệt xem xét gỡ bỏ trạng thái đình chỉ.</p>
           <div class="banner-actions">
             <button type="button" class="btn-appeal-action" (click)="openAppealModal()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -173,11 +173,14 @@
             <div class="branding-text">
               <h3>{{ 'channel.watermarkTitle' | translate }}</h3>
               <p>{{ 'channel.watermarkDesc' | translate }}</p>
+              <button type="button" class="btn-secondary" (click)="watermarkInput.click()" [disabled]="busy()">Tải watermark lên</button>
+              <input #watermarkInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onWatermarkSelected($event)" hidden />
               <input type="text" class="text-input" [(ngModel)]="watermarkUrl" placeholder="https://example.com/watermark.png" [disabled]="busy()" />
               <div class="watermark-action">
                 <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">{{ 'channel.saveWatermark' | translate }}</button>
               </div>
             </div>
+            @if (ch.watermarkUrl) { <div class="branding-preview watermark-preview"><img [src]="ch.watermarkUrl" alt="Xem trước watermark" /></div> }
           </div>
         </div>
       }
@@ -333,8 +336,9 @@
               <textarea id="appealReasonText" class="textarea-input" [(ngModel)]="appealReason" rows="4" placeholder="Trình bày lý do hoặc bằng chứng giải trình..."></textarea>
             </div>
             <div class="form-group">
-              <label for="appealEvidenceInput" class="input-label">Đường dẫn bằng chứng (URL / Drive / Cloud tài liệu)</label>
-              <input id="appealEvidenceInput" type="url" class="text-input" [(ngModel)]="appealEvidenceUrl" placeholder="https://..." />
+              <label for="appealEvidenceInput" class="input-label">Tệp bằng chứng riêng tư (PNG, JPEG, WEBP hoặc PDF, tối đa 10 MiB)</label>
+              <input id="appealEvidenceInput" type="file" class="text-input" accept="image/png,image/jpeg,image/webp,application/pdf" (change)="onAppealEvidenceSelected($event)" />
+              @if (appealEvidenceFile) { <small>Đã chọn: {{ appealEvidenceFile.name }}</small> }
             </div>
             <div class="modal-actions">
               <button type="button" class="btn-secondary" (click)="closeAppealModal()" [disabled]="appealSubmitting()">Hủy</button>

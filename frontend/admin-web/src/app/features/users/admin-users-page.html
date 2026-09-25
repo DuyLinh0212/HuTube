@@ -48,7 +48,7 @@
         } @else {
           <div class="table-scroll">
             <table class="users-table">
-              <thead><tr><th class="check-column"><span class="checkbox-placeholder" aria-hidden="true"></span></th><th>Người dùng</th><th>Vai trò</th><th>Kênh</th><th>Cảnh báo</th><th>Gói</th><th>Hoạt động cuối</th><th>Trạng thái</th><th class="actions-column">Thao tác</th></tr></thead>
+              <thead><tr><th class="check-column"><span class="checkbox-placeholder" aria-hidden="true"></span></th><th>Người dùng</th><th>Vai trò</th><th>Kênh</th><th>Cảnh báo</th><th>Gói</th><th>Hoạt động cuối</th><th>Trạng thái</th></tr></thead>
               <tbody>
                 @for (user of filteredUsers(); track user.userId) {
                   <tr class="user-row" [class.is-selected]="selectedUserId() === user.userId" [attr.aria-selected]="selectedUserId() === user.userId" tabindex="0" (click)="selectUser(user)" (keydown.enter)="selectUser(user)" (keydown.space)="selectUser(user); $event.preventDefault()">
@@ -60,10 +60,9 @@
                     <td><span class="plan-text" [class.is-pro]="user.planCode?.toLowerCase()?.includes('pro')">{{ user.planName || user.planCode || '—' }}</span></td>
                     <td><span class="date-text">{{ formatDate(user.lastLoginAt) }}</span></td>
                     <td><span class="status-pill" [class.is-active]="user.status === 'active'" [class.is-blocked]="isBlocked(user)" [class.is-pending]="user.status === 'pending'"><i></i>{{ statusLabel(user.status) }}</span></td>
-                    <td class="actions-column"><button type="button" class="row-action" (click)="openAction(isBlocked(user) ? 'unlock' : 'lock', user); $event.stopPropagation()" [disabled]="!canBan()" [attr.aria-label]="isBlocked(user) ? 'Mở khóa tài khoản' : 'Khóa tài khoản'">⋮</button></td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="9" class="empty-cell"><strong>Không tìm thấy tài khoản</strong><span>Thử đổi từ khóa hoặc bộ lọc.</span></td></tr>
+                  <tr><td colspan="8" class="empty-cell"><strong>Không tìm thấy tài khoản</strong><span>Thử đổi từ khóa hoặc bộ lọc.</span></td></tr>
                 }
               </tbody>
             </table>

@@ -55,6 +55,11 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         public Task PublishInvitationAsync(Guid userId, InvitationSignal invitation, CancellationToken ct = default) => Task.CompletedTask;
     }
 
+    private sealed class FakeEmailSender : IAuthEmailSender
+    {
+        public Task SendAsync(string email, string subject, string body, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
     public ModerationStrikeAndAppealTests()
     {
         var options = new DbContextOptionsBuilder<HuTubeDbContext>()
@@ -67,8 +72,8 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         var rbacService = new RbacService(rbacStore, authStore);
 
         _strikeService = new StrikeService(_db, rbacService, _notifications);
-        _reportService = new ReportService(_db, rbacService, _notifications, _strikeService);
-        _appealService = new AppealService(_db, rbacService, _notifications);
+        _reportService = new ReportService(_db, rbacService, _notifications, _strikeService, new FakeEmailSender(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ReportService>.Instance);
+        _appealService = new AppealService(_db, rbacService, _notifications, new FakeObjectStorage(), new Microsoft.AspNetCore.Http.HttpContextAccessor());
         _moderationService = new ModerationService(_db, rbacService, _notifications, new FakeObjectStorage());
     }
 

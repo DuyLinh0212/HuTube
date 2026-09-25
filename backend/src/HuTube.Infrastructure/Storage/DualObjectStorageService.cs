@@ -17,12 +17,17 @@ public sealed class DualObjectStorageService(
         videoStorage.SaveVideoAsync(folder, fileName, content, contentType, ct);
 
     public Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default) =>
-        IsR2Path(storedPath)
+        IsVideoStoragePath(storedPath)
             ? videoStorage.GetReadUrlAsync(storedPath, lifetime, ct)
             : imageStorage.GetReadUrlAsync(storedPath, lifetime, ct);
 
+    public Task<Stream> OpenReadAsync(string storedPath, CancellationToken ct = default) =>
+        IsVideoStoragePath(storedPath)
+            ? videoStorage.OpenReadAsync(storedPath, ct)
+            : imageStorage.OpenReadAsync(storedPath, ct);
+
     public Task DeleteFileAsync(string relativePath, CancellationToken ct = default) =>
-        IsR2Path(relativePath)
+        IsVideoStoragePath(relativePath)
             ? videoStorage.DeleteFileAsync(relativePath, ct)
             : imageStorage.DeleteFileAsync(relativePath, ct);
 
@@ -33,4 +38,6 @@ public sealed class DualObjectStorageService(
     }
 
     private static bool IsR2Path(string path) => path.StartsWith("r2://", StringComparison.OrdinalIgnoreCase);
+    private static bool IsVideoStoragePath(string path) => IsR2Path(path)
+        || path.StartsWith("local-private://", StringComparison.OrdinalIgnoreCase);
 }

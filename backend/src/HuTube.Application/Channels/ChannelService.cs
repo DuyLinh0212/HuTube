@@ -513,7 +513,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         new(channel.ChannelId, channel.OwnerUserId, channel.Name, channel.Handle, channel.Description,
             channel.AvatarUrl, channel.BannerUrl, channel.ContactEmail, channel.WatermarkUrl, channel.Settings,
             channel.Status, subscriberCount, videoCount, roleCode == ChannelRoles.Owner, roleCode,
-            ChannelPermissions.ForRole(roleCode), channel.CreatedAt);
+            ChannelPermissions.ForRole(roleCode), channel.CreatedAt, roleCode == ChannelRoles.Owner ? channel.StatusReason : null);
 
     private static ChannelMemberResponse ToMemberResponse(ChannelMember member, string username, string email, string displayName, string? avatarUrl) =>
         new(member.ChannelMemberId, member.ChannelId, member.UserId, username, email, displayName, avatarUrl,

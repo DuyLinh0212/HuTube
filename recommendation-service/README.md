@@ -1,286 +1,194 @@
-# HuTube Recommendation Service — Pure Collaborative Filtering
+# HuTube Recommendation Service
 
-Service này là benchmark thuần Collaborative Filtering viết trực tiếp bằng
-NumPy, không dùng neural network, embedding, thư viện recommender có sẵn hoặc
-genre/title để tạo điểm đề xuất.
+Service FastAPI cho hai biến thể Collaborative Filtering thuần:
 
-Có sáu biến thể được train và so sánh trong cùng một lần chạy:
+- User-Based CF: tìm user có lịch sử tương tác tương tự.
+- Item-Based CF: tìm video tương tự với các video user đã tương tác.
 
-| Nhóm | Cosine | Jaccard | Pearson |
-|---|---:|---:|---:|
-| User-Based CF | Có | Có | Có |
-| Item-Based CF | Có | Có | Có |
+Pipeline hiện tại tập trung vào việc xây dựng ma trận tương đồng, tính điểm Top-K
+và đo chi phí chạy. Không sinh chỉ số offline để kết luận video có phù hợp hoặc
+được user yêu thích hay không, vì dữ liệu benchmark chưa có nhãn phù hợp độc lập.
 
-Mục tiêu của benchmark là trả lời câu hỏi: **với cùng dữ liệu tương tác, cách
-nhìn theo user hay theo item và cách đo similarity nào tạo ra danh sách có bằng
-chứng cộng tác mạnh hơn?**
-
-## 1. Luồng xử lý
+## Pipeline
 
 ```text
-MovieLens u.data
-      |
-      v
-validate + UnifiedInteraction + interaction matrix X
-      |
-      +--> User-Based: similarity giữa các hàng user-user
-      |        +--> score item chưa xem --> Top-K
-      |
-      +--> Item-Based: similarity giữa các cột item-item
-               +--> score item chưa xem --> Top-K
-      |
-      v
-Collaborative Support@10/@20/@30 + diagnostics
-      |
-      v
-artifact sáu model + report.html + bảng so sánh
+MovieLens / UnifiedInteraction
+          |
+          v
+Ma trận user-item X
+          |
+          +--> similarity giữa user-user  --> User-Based CF
+          |
+          +--> similarity giữa item-item  --> Item-Based CF
+                                      |
+                                      v
+                             score item chưa xem
+                                      |
+                                      v
+                                  Top-K
+                                      |
+                                      v
+                       runtime + complexity report
 ```
 
-`train` là rebuild offline. Nó tính lại similarity và ghi artifact. Khi FastAPI
-được gọi, service load một artifact đã rebuild rồi xếp hạng trên ma trận đó; nó
-không train lại tại request.
+`train` là bước rebuild offline: tính similarity, lưu artifact và ghi lại thời
+gian fit của từng biến thể. Request FastAPI chỉ load artifact và ranking.
 
-## 2. Ma trận tương tác
+## Công thức chính
 
-Gọi `X[u, i]` là rating của user `u` cho item `i`.
+### Cosine similarity
 
-- MovieLens dùng rating 1–5 làm tín hiệu duy nhất.
-- Ô chưa quan sát được giữ bằng 0 trong ma trận tính toán, nhưng không được
-  hiểu là rating 0.
-- `like`, `dislike`, `comment`, `share`, `watch_ratio` vẫn có trong
-  `UnifiedInteraction` nhưng là `NULL` và missing mask bằng 0.
-- Jaccard chỉ nhìn item có/không có tương tác; nó không dùng độ lớn rating.
-- Không dùng `u.user` hoặc demographic làm feature.
-
-## 3. Ba công thức similarity
-
-### 3.1 Cosine
-
-Với hai vector `a` và `b`:
-
-\[
-sim_{cos}(a,b)=
-\frac{\sum_t a_t b_t}
-{\sqrt{\sum_t a_t^2}\sqrt{\sum_t b_t^2}}
-\]
-
-Cosine đo góc giữa hai vector. Trong benchmark rating, rating càng lớn thì
-đóng góp càng lớn; với mode binary, mọi tương tác có giá trị 1.
-
-### 3.2 Jaccard
-
-Jaccard dùng tập item đã tương tác:
-
-\[
-sim_{jac}(A,B)=\frac{|A\cap B|}{|A\cup B|}
-\]
-
-Ví dụ A đã xem `{1, 2, 3}`, B đã xem `{2, 3, 5}` thì:
-
-\[
-J(A,B)=\frac{2}{4}=0.5
-\]
-
-Jaccard phù hợp khi điều quan trọng là **có cùng xem hay không**, không quan
-tâm user chấm 3 hay 5 điểm.
-
-### 3.3 Pearson
-
-Pearson đo mức tương quan sau khi trừ trung bình rating:
-
-\[
-sim_{pearson}(a,b)=
-\frac{\sum_t(a_t-\bar a)(b_t-\bar b)}
-{\sqrt{\sum_t(a_t-\bar a)^2}
- \sqrt{\sum_t(b_t-\bar b)^2}}
-\]
-
-Chỉ các vị trí mà cả hai phía đều có quan sát mới được dùng. Vì vậy user có
-thói quen chấm cao và user hay chấm thấp vẫn có thể tương quan dương nếu thứ tự
-sở thích giống nhau. Pearson có thể âm; similarity âm được xem là
-counter-evidence và không được dùng để cộng điểm đề xuất.
-
-## 4. User-Based CF
-
-User-Based xem mỗi user là một vector item. Từ user cần đề xuất `u`, hệ thống:
-
-1. Tính `sim(u, v)` với các user khác bằng Cosine, Jaccard hoặc Pearson.
-2. Chọn tối đa `neighbor_count` user có similarity dương cao nhất.
-3. Với mỗi item chưa xem, cộng bằng chứng từ các user hàng xóm đã tương tác item đó.
-4. Sắp xếp điểm item giảm dần và lấy Top-K.
-
-Điểm item:
-
-\[
-score_U(u,i)=
-\frac{\sum_{v\in N(u)}sim^+(u,v)\,X[v,i]\,1[X[v,i]>0]}
-{\sum_{v\in N(u)}sim^+(u,v)\,1[X[v,i]>0]}
-\]
-
-Trong đó `sim+ = max(sim, 0)`. Nếu không có hàng xóm biết item, model dùng
-item mean trên dữ liệu đã build làm fallback xếp hạng.
-
-Ví dụ:
+Với hai vector tương tác `a` và `b`:
 
 ```text
-User A: 1, 2, 5
-User B: 1, 2, 3, 6
-User C: 1, 2, 3
-
-sim(C, A) = 0.80
-sim(C, B) = 0.60
+sim_cos(a,b) = (sum_t a_t*b_t)
+               / (sqrt(sum_t a_t^2) * sqrt(sum_t b_t^2))
 ```
 
-User C chưa xem 5 và 6. Video 5 nhận bằng chứng `0.80`, video 6 nhận bằng
-chứng `0.60`; video có tổng điểm cao hơn được đưa lên trước.
-
-## 5. Item-Based CF
-
-Item-Based xem mỗi item là vector theo user. Với user `u` đã có lịch sử `H(u)`:
-
-1. Tính similarity giữa item ứng viên `i` và từng item `j` user đã xem.
-2. Cộng similarity của item ứng viên với lịch sử user.
-3. Loại item đã xem/exclude.
-4. Sắp xếp các item còn lại và lấy Top-K.
-
-Điểm item:
-
-\[
-score_I(u,i)=
-\frac{\sum_{j\in H(u)\cap N(i)}sim^+(i,j)\,X[u,j]}
-{\sum_{j\in H(u)\cap N(i)}sim^+(i,j)}
-\]
-
-`N(i)` là tối đa `neighbor_count` item gần nhất của item ứng viên `i`. Nếu không
-có hàng xóm item dương, item mean được dùng làm fallback. Hai công
-thức score trên dùng rating để xếp hạng khi `interaction_mode=rating`; phần
-Collaborative Support bên dưới chỉ đo **có bằng chứng cộng tác**, không biến nó
-thành một nhãn thích/chắc chắn thích.
-
-## 6. Lấy Top-K thực sự là so sánh gì?
-
-Similarity chưa phải kết quả cuối cùng. Nó chỉ là trọng số để tính điểm của
-từng item ứng viên:
+Item-Based dùng `X.T` để mỗi item trở thành một vector theo user:
 
 ```text
-similarity
-    -> chọn hàng xóm user/item
-    -> tính score(user, candidate_item)
-    -> loại item đã xem
-    -> so sánh score giữa các candidate item
-    -> sort giảm dần
-    -> lấy K item đầu tiên
+S_item = similarity(X.T, X.T)
 ```
 
-`neighbor_count` là số hàng xóm dùng trong bước tính toán; `K` là số item trả
-về. Hai con số này không phải một.
+User-Based dùng trực tiếp các hàng của `X`:
 
-## 7. Vì sao dùng Collaborative Support@K?
+```text
+S_user = similarity(X, X)
+```
 
-### 7.1 Định nghĩa
+### Jaccard và Pearson
 
-Metric này đo **tỷ lệ đề xuất có ít nhất một bằng chứng cộng tác hợp lệ**. Nó
-không nói rằng user chắc chắn sẽ thích video.
+```text
+sim_jaccard(A,B) = |A ∩ B| / |A ∪ B|
+```
 
-Trước hết tính điểm bằng chứng liên tục. Với User-Based CF, bằng chứng của item
-`i` cho user `u` là tỷ lệ tổng similarity của các neighbor đã tương tác item đó:
+Jaccard chỉ nhìn việc có hoặc không có tương tác. Pearson đo tương quan giữa các
+rating cùng được quan sát sau khi trừ trung bình rating. Sáu biến thể được train
+là ba similarity cho mỗi family User-Based và Item-Based.
 
-\[
-evidence_U(u,i)=
-\frac{\sum_{v\in N(u)}sim^+(u,v)\,1[X[v,i]>0]}
-{\sum_{v\in N(u)}sim^+(u,v)}
-\]
+### Điểm xếp hạng User-Based
 
-Với Item-Based CF, bằng chứng là similarity trung bình giữa item đề xuất và các
-item trong lịch sử user:
+Gọi `N(u)` là các user gần nhất và `s_uv` là similarity giữa user `u`, `v`:
 
-\[
-evidence_I(u,i)=
-\frac{1}{|H(u)|}\sum_{j\in H(u)}sim^+(i,j)
-\]
+```text
+score_U(u,i) =
+  sum_v s_uv * X[v,i] * 1[X[v,i] > 0]
+  ------------------------------------------------
+  sum_v s_uv * 1[X[v,i] > 0]
+```
 
-Một item được tính là **có collaborative support** nếu `evidence(u,i) > 0`.
-Sau khi có danh sách `R_K(u)`:
+Chỉ các neighbor có tương tác với item ứng viên mới đóng góp vào mẫu số. Nếu
+mẫu số bằng 0, code dùng item mean làm fallback.
 
-\[
-Collaborative\ Support@K=
-\frac{1}{|U_e|}\sum_{u\in U_e}
-\left(\frac{1}{|R_K(u)|}
-\sum_{i\in R_K(u)}1[evidence(u,i)>0]\right)
-\]
+### Điểm xếp hạng Item-Based
 
-Giá trị nằm trong `[0, 1]`; ví dụ `0.95` nghĩa là trung bình 95% vị trí trong
-Top-K có ít nhất một đường User-Based hoặc Item-Based chống đỡ. Report ghi thêm
-`Collaborative Evidence Strength@K`, là trung bình của `evidence(u,i)` để biết
-bằng chứng mạnh hay chỉ vừa đủ dương.
+Gọi `H(u)` là lịch sử video của user `u`, `N(i)` là các item gần item ứng viên:
 
-Lần này report bắt buộc có:
+```text
+score_I(u,i) =
+  sum_j sim(i,j) * X[u,j]
+  ------------------------
+  sum_j sim(i,j)
+```
 
-- `Collaborative Support@10`
-- `Collaborative Support@20`
-- `Collaborative Support@30`
+Trong đó `j` thuộc phần giao giữa lịch sử `H(u)` và neighbor list của `i`.
+Video đã xem hoặc nằm trong `excludeItemIds` được loại khỏi danh sách cuối.
 
-### 7.2 Vì sao không lấy NDCG@K, Recall@K, Precision@K làm metric chính?
+## Luồng tính Top-K
 
-Precision, Recall và NDCG cần một nhãn đánh giá hoặc một tập positive làm
-ground-truth. Cách phổ biến là che một số item trong lịch sử rồi bắt model đoán
-lại đúng item bị che. Cách đó trả lời câu hỏi **“model có đoán lại đúng item ID
-đã ẩn không?”**, không hoàn toàn trả lời câu hỏi **“đề xuất này có bằng chứng
-cộng tác hợp lý không?”**.
+```text
+X
+  -> tính similarity
+  -> giữ tối đa neighbor_count neighbor
+  -> tính score cho từng video chưa xem
+  -> loại video đã xem/exclude
+  -> sort giảm dần
+  -> lấy K video đầu tiên
+```
 
-Trong ngữ cảnh đề tài, user C đã xem các video 1, 2, 3; nếu video 5 có cùng
-mẫu người xem hoặc rất giống các item C đã xem thì video 5 là đề xuất hợp lý,
-dù nó không phải một item ID bị holdout. Precision/Recall/NDCG sẽ chấm nó là
-không đúng nếu tập ground-truth không chứa video 5.
+`neighbor_count` là số hàng xóm dùng trong công thức. `K` là số video trả về.
+Hai tham số này khác nhau.
 
-Vì vậy benchmark này không tạo “đáp án duy nhất” giả định cho user. Nó dùng
-Collaborative Support@K để kiểm tra tính nhất quán của bằng chứng CF. Đây là
-**intrinsic metric**, không phải phép đo hài lòng cuối cùng. Khi HuTube có traffic
-thật, cần bổ sung online signal như click, watch ratio, thời gian xem, dislike và
-retention để biết user thực sự phản hồi thế nào.
+## Report runtime
 
-Genre chỉ có thể xuất hiện dưới dạng diagnostic phụ để đọc dữ liệu MovieLens;
-genre không đi vào similarity hoặc score CF.
+Report chỉ giữ các thông tin kỹ thuật:
 
-## 8. Cấu trúc thư mục gọn
+- `fit_seconds`: thời gian train từng biến thể User-Based/Item-Based.
+- `total_fit_seconds`: tổng thời gian train các biến thể.
+- thời gian dựng ma trận;
+- thời gian tính similarity;
+- thời gian chọn neighbor;
+- tổng wall-clock time;
+- peak memory ước tính;
+- speedup so với baseline dense.
+
+Các file được tạo trong `reports/<model-version>/`:
+
+- `report.html`: report HTML tự chứa;
+- `summary.md`: bản Markdown để đọc nhanh;
+- `training_history.csv`: thời gian fit từng model;
+- `cf_comparison.csv` và `cf_comparison.html`: so sánh runtime;
+- `complexity_benchmark.csv` và `complexity_benchmark.json`;
+- `complexity_cost.png`: biểu đồ thời gian và bộ nhớ.
+
+Không dùng report runtime để kết luận model nào đề xuất phù hợp hơn. Khi HuTube
+có dữ liệu thật, mức độ phù hợp cần được đo bằng phản hồi hoặc hành vi người dùng
+được thu thập riêng.
+
+## Benchmark tối ưu Item-Based
+
+Benchmark hiện tại so sánh hai cách dựng similarity Cosine trên cùng dataset:
+
+| Chiến lược | Pair slots | Tổng thời gian | Peak ước tính | Speedup |
+|---|---:|---:|---:|---:|
+| Baseline dense | 1,413,721 | 4.500 s | 17.81 MiB | 1.00× |
+| Genre-blocked matrices | 523,189 | 5.129 s | 5.03 MiB | 0.88× |
+
+Kết quả benchmark cho thấy cách chia block giảm khoảng 63.0% số cặp cần xử lý và
+giảm khoảng 71.8% peak memory. Ở lần chạy hiện tại, tổng thời gian tăng do chi
+phí tạo và hợp nhất nhiều block; khi áp dụng HuTube cần đo lại với dữ liệu thực.
+
+Các tối ưu đang có:
+
+1. Dùng NumPy và `float32` cho phép nhân ma trận vector hóa.
+2. Chỉ giữ tối đa `neighbor_count` neighbor sau khi tính similarity.
+3. Pearson tính theo block để giảm tensor trung gian.
+4. Training chạy offline; request online chỉ load artifact và ranking.
+
+Hướng tối ưu tiếp theo:
+
+1. Sparse co-occurrence hoặc inverted index để bỏ qua cặp không giao nhau.
+2. Min-overlap threshold để loại similarity sinh từ quá ít quan sát.
+3. Lưu top-neighbor sparse thay vì full similarity khi quy mô catalog tăng.
+4. Cache score hoặc candidate set cho user hoạt động thường xuyên.
+
+## Cấu trúc chính
 
 ```text
 recommendation-service/
 ├── app/
-│   ├── api.py                    # health, ready, internal recommendations
-│   ├── config.py                 # environment và model_type được phục vụ
-│   ├── inference.py              # map ID và trả Top-K
-│   ├── main.py                   # FastAPI lifespan
-│   ├── model_registry.py         # load một trong sáu artifact model
-│   ├── schemas.py
-│   ├── data/
-│   │   ├── models.py             # UnifiedInteraction + nullable masks
-│   │   ├── movielens.py          # loader/validator ML-100K
-│   │   └── mapping.py            # ID mapping + seen items
+│   ├── api.py
+│   ├── inference.py
+│   ├── model_registry.py
 │   └── recommenders/
-│       ├── similarity.py         # Cosine/Jaccard/Pearson từ đầu
-│       ├── user_cf.py            # User-Based score/rank
-│       └── item_cf.py            # Item-Based score/rank
+│       ├── similarity.py
+│       ├── user_cf.py
+│       └── item_cf.py
 ├── training/
-│   ├── cli.py                    # validate/train/evaluate/report/compare/cohort-report
-│   ├── config.py                 # YAML config
-│   ├── trainer.py                # train sáu biến thể
-│   ├── evaluate.py               # Support@K + diagnostics
-│   ├── artifacts.py              # save/load inputs cho deployment
-│   ├── comparison.py             # bảng sáu model
-│   ├── complexity.py             # benchmark dense/genre construction
-│   ├── cohorts.py                # temporal split + bảng cohort Support@K
-│   ├── reports.py                # HTML/Markdown/CSV/PNG
+│   ├── cli.py
+│   ├── trainer.py
+│   ├── complexity.py
+│   ├── reports.py
+│   ├── comparison.py
 │   └── quality_gate.py
 ├── configs/
-│   ├── movielens-100k.yaml
-│   └── movielens-100k-smoke.yaml
-├── data/                         # raw/processed/artifacts, không commit
-├── reports/                      # report sinh tự động, không commit
+├── data/
+├── reports/
 └── tests/
 ```
 
-## 9. Chạy bằng terminal
+## Chạy
 
 Mở PowerShell tại service:
 
@@ -291,62 +199,30 @@ cd F:\NgDuyLinh\Khoa_Luan_Tot_Nghiep\HuTube\recommendation-service
 Kiểm tra dataset:
 
 ```powershell
-py -3.11 -m training.cli validate-data `
+.\.venv\Scripts\python.exe -m training.cli validate-data `
   --data-dir data/raw/movielens/ml-100k
 ```
 
-Smoke train:
-
-```powershell
-.\.venv\Scripts\python.exe -m training.cli train `
-  --config configs/movielens-100k-smoke.yaml
-```
-
-Train đầy đủ cả sáu biến thể:
+Train đầy đủ sáu biến thể:
 
 ```powershell
 .\.venv\Scripts\python.exe -m training.cli train `
   --config configs/movielens-100k.yaml
 ```
 
-Lệnh `train` đồng thời benchmark hai cách xây dựng Item-Based bằng Cosine:
-
-1. `Baseline dense`: ma trận user-item dense và ma trận item-item đầy đủ;
-2. `Genre-blocked matrices`: tạo block similarity riêng cho từng genre, bỏ qua
-   cặp khác genre;
-
-Benchmark đo thời gian dựng ma trận, tính similarity, chọn Top-N, số vị trí cặp
-similarity, ước tính bộ nhớ và speedup so với baseline. Có thể tắt bằng:
-
-```yaml
-benchmark:
-  enabled: false
-```
-
-Kết quả terminal trả về `modelVersion`, `artifact` và đường dẫn `report`. Có thể
-chạy lại report/evaluation:
+Sinh lại report runtime từ artifact:
 
 ```powershell
-.\.venv\Scripts\python.exe -m training.cli evaluate `
-  --artifact data/artifacts/<model-version>
-
-.\.venv\Scripts\python.exe -m training.cli compare `
-  --artifact data/artifacts/<model-version>
-
 .\.venv\Scripts\python.exe -m training.cli report `
   --artifact data/artifacts/<model-version>
 ```
 
-Đánh giá ảnh hưởng của lượng lịch sử user bằng temporal cohort:
+Xem runtime đã lưu:
 
 ```powershell
-.\.venv\Scripts\python.exe -m training.cli cohort-report `
-  --config configs/movielens-100k.yaml
+.\.venv\Scripts\python.exe -m training.cli evaluate `
+  --artifact data/artifacts/<model-version>
 ```
-
-Lệnh này chia mỗi user thành 2/3 tương tác sớm để train và 1/3 tương tác muộn
-để test, sau đó tạo các cohort `>=20`, `>=30`, `>=40`, `>=50`, `>=60`, `>=70`,
-`>=80`, `>=100` tương tác.
 
 Chạy kiểm thử:
 
@@ -355,78 +231,21 @@ Chạy kiểm thử:
 .\.venv\Scripts\python.exe -m ruff check app training tests
 ```
 
-## 10. Artifact và report
+## Artifact
 
-Artifact mới gồm:
+Mỗi artifact chứa các file model, mapping, cấu hình, metadata, `metrics.json` với
+runtime payload và `training_history.json`. Artifact MovieLens có
+`source=MOVIELENS` và `deployable=false`, không được promote trực tiếp vào
+production.
 
-```text
-data/artifacts/<model-version>/
-├── user_based_cosine.npz
-├── user_based_jaccard.npz
-├── user_based_pearson.npz
-├── item_based_cosine.npz
-├── item_based_jaccard.npz
-├── item_based_pearson.npz
-├── user_based.npz             # alias cosine cho cấu hình cũ
-├── item_based.npz             # alias cosine cho cấu hình cũ
-├── config.yaml
-├── metrics.json
-├── training_history.json
-├── metadata.json
-├── user_index.json
-├── item_index.json
-├── item_metadata.json
-└── seen_items.npz
-```
+FastAPI nhận `userId`, `limit`, `excludeItemIds` và trả về `itemId`, `score`,
+`modelVersion`, `source`. Backend .NET chịu trách nhiệm hydrate metadata, kiểm tra
+quyền và lọc video private/deleted/blocked.
 
-`reports/<model-version>/report.html` là HTML tự chứa, không cần CDN/Internet.
-Trong đó có bảng sáu biến thể theo các cột:
+## Giới hạn hiện tại
 
-- `collaborative_support@10`, `@20`, `@30`;
-- `collaborative_evidence_strength@10`, `@20`, `@30`;
-- catalog coverage, diversity, novelty;
-- winner của từng metric.
-
-Report cũng có mục `Computational cost benchmark` và các file:
-
-- `complexity_benchmark.json`;
-- `complexity_benchmark.csv`;
-- `complexity_cost.png`.
-
-Số liệu benchmark là wall-clock trên máy chạy lệnh. `Genre-blocked matrices`
-giảm working set bằng cách tính từng block genre, nhưng có đánh đổi: các cặp
-item khác genre bị bỏ qua và item thuộc nhiều genre có thể xuất hiện ở nhiều
-block. Đây là benchmark chi phí của hai cách dựng similarity còn được giữ lại.
-
-`cf_comparison.html`, `cf_comparison.csv` và `cf_comparison.md` là các bản tách
-riêng của cùng bảng. Artifact MovieLens có `source=MOVIELENS` và
-`deployable=false`; không được promote thẳng vào production.
-
-`reports/cohort_<version>/cohort_report.html` là bảng riêng để so sánh Support@K
-theo số lượng tương tác tối thiểu của user. `heldout_item_overlap@K` chỉ là
-diagnostic tham khảo, không thay thế Collaborative Support và không dùng để
-chọn model thắng.
-
-## 11. FastAPI local
-
-Chọn một trong sáu biến thể bằng `MODEL_TYPE`; alias `item_based` và
-`user_based` tương ứng với Cosine:
-
-```powershell
-$env:ALLOW_BENCHMARK_MODEL = "true"
-$env:RECOMMENDER_SERVICE_TOKEN = "local-token"
-$env:MODEL_TYPE = "item_based_pearson"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8091
-```
-
-Endpoint `POST /internal/recommendations` nhận `userId`, `limit` và
-`excludeItemIds`, trả `itemId + source`; API không train lại khi request đến.
-
-## 12. Phạm vi và giới hạn
-
-- V1 chỉ benchmark MovieLens 100K.
-- MovieLens chỉ có rating; behavior còn lại không được suy diễn giả.
-- Collaborative Support đo bằng chứng nội tại, không thay thế A/B test hoặc
-  satisfaction/engagement thật.
+- V1 benchmark trên MovieLens 100K.
+- MovieLens chỉ có rating; các hành vi khác chưa được suy diễn giả.
+- Chưa có nhãn hoặc phản hồi người dùng để đánh giá mức độ phù hợp.
 - Chưa tích hợp HttpClient với Backend .NET.
-- Chưa dùng genre/content feature để tạo recommendation score.
+- Chưa dùng feature nội dung để tạo recommendation score.
