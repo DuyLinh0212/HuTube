@@ -33,9 +33,17 @@ public interface ICfSeederService
         CancellationToken ct = default);
     Task<CfSeedProvisionResponse> CreateAccountsAsync(Guid adminActorId, CreateCfSeedAccountsRequest request,
         CancellationToken ct = default);
+    Task<IReadOnlyList<CfSeedViewerAccountResponse>> CreateViewerAccountsAsync(CreateCfSeedViewersRequest request,
+        CancellationToken ct = default);
+    Task<IReadOnlyList<CfSeedViewerAccountResponse>> GetViewerAccountsAsync(string? search,
+        int limit = 100, CancellationToken ct = default);
     Task<CfSeedVideoResponse> UploadVideoAsync(Guid adminActorId, UploadCfSeedVideoCommand command,
         CancellationToken ct = default);
     Task<CfSeedRenditionResponse> UploadRenditionAsync(Guid adminActorId,
         UploadCfSeedRenditionCommand command, CancellationToken ct = default);
     Task<CfSeedVideoProcessingResponse> GetVideoProcessingAsync(Guid videoId, CancellationToken ct = default);
 }
+
+public sealed record CfSeedViewerAccountRequest(string Username, string DisplayName, string? Email, string Password);
+public sealed record CreateCfSeedViewersRequest(IReadOnlyList<CfSeedViewerAccountRequest> Accounts);
+public sealed record CfSeedViewerAccountResponse(Guid UserId, string Username, string DisplayName, string Email);

@@ -25,6 +25,8 @@ using HuTube.Infrastructure.Notifications;
 using HuTube.Infrastructure.Payments;
 using HuTube.Infrastructure.Policies;
 using HuTube.Application.Payments;
+using HuTube.Application.Recommendations;
+using HuTube.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
@@ -44,6 +46,7 @@ var r2Options = builder.Configuration.GetSection("Storage:R2").Get<R2Options>() 
 var featureOptions = builder.Configuration.GetSection("Features").Get<FeatureOptions>() ?? new();
 var videoProcessingOptions = builder.Configuration.GetSection("VideoProcessing").Get<VideoProcessingOptions>() ?? new();
 var sepayOptions = builder.Configuration.GetSection("SePay").Get<SepayOptions>() ?? new();
+var recommendationOptions = builder.Configuration.GetSection("Recommendation").Get<RecommendationOptions>() ?? new();
 if (builder.Environment.IsDevelopment())
     R2OptionsLoader.LoadDevelopmentFile(r2Options, builder.Environment.ContentRootPath, builder.Configuration["Storage:R2:CredentialsFile"]);
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
@@ -72,7 +75,7 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
     || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
     throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(recommendationOptions);
 builder.Services.AddSingleton<SepaySignatureVerifier>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024);
@@ -127,6 +130,7 @@ builder.Services.AddSingleton<IVideoTranscoder, FfmpegVideoTranscoder>();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, NotificationUserIdProvider>();
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<IRecommendationClient, RecommendationClient>();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
     var problem = ApiErrors.Create(context.HttpContext, 400, "VALIDATION_ERROR", "Vui lòng kiểm tra các trường dữ liệu.");

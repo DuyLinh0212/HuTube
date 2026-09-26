@@ -73,7 +73,7 @@ export class WatchPage {
 
   commentText = '';
   replyText = '';
-  private readonly videoId: string;
+  private videoId = '';
   private lastSaved = 0;
   private pendingSeek: number | null = null;
   private resumeApplied = false;
@@ -95,6 +95,16 @@ export class WatchPage {
         error: () => this.playlistQueue = []
       });
     }
+
+    this.route.paramMap.subscribe(params => {
+      const id = params.get('id') ?? '';
+      if (id && id !== this.videoId) {
+        this.videoId = id;
+        this.resetPlayerState();
+        this.loadPageData();
+      }
+    });
+
     // Restore the refresh-cookie session before loading the detail/comments.
     // Otherwise a hard refresh sends these public requests anonymously and the
     // API cannot include the current user's reaction, rating, or comment votes.
@@ -104,6 +114,28 @@ export class WatchPage {
     });
   }
 
+  private resetPlayerState() {
+    this.loading.set(true);
+    this.error.set('');
+    this.video.set(null);
+    this.playback.set(null);
+    this.activeRendition.set(null);
+    this.comments.set([]);
+    this.subscribed.set(false);
+    this.currentTime.set(0);
+    this.totalDuration.set(0);
+    this.isPlaying.set(false);
+    this.lastSaved = 0;
+    this.pendingSeek = null;
+    this.resumeApplied = false;
+    this.continuePlaying = false;
+    this.autoPlayAttempted = false;
+    if (this.playerRef?.nativeElement) {
+      this.playerRef.nativeElement.pause();
+      this.playerRef.nativeElement.currentTime = 0;
+    }
+  }
+
   private loadPageData() {
     this.channels.getMyChannel().subscribe({ next: channel => this.myChannelId.set(channel.channelId), error: () => {} });
     this.content.violationTypes().subscribe({ next: types => this.violationTypes.set(types), error: () => {} });
@@ -111,6 +143,7 @@ export class WatchPage {
     this.content.detail(this.videoId).subscribe({
       next: video => {
         this.video.set(video);
+        this.loadRecommendations();
         if (video.videoUrl) {
           this.setAutoplayRendition({ quality: this.i18n.t('watch.sourceQuality'), width: 0, height: 0, fileSize: video.fileSize, url: video.videoUrl });
         }
@@ -164,10 +197,6 @@ export class WatchPage {
       },
       error: () => this.comments.set([])
     });
-    this.content.feed('home', 1, 12).subscribe({
-      next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 8)),
-      error: () => this.relatedVideos.set([])
-    });
   }
 
   changeQuality(value: string) {
@@ -190,7 +219,9 @@ export class WatchPage {
       player.currentTime = Math.min(this.pendingSeek, player.duration || this.pendingSeek);
       this.pendingSeek = null;
     } else if (!this.resumeApplied && (this.playback()?.resumeAtSeconds ?? 0) > 0) {
-      player.currentTime = this.playback()!.resumeAtSeconds;
+      const resume = this.playback()!.resumeAtSeconds;
+      const duration = Number.isFinite(player.duration) ? player.duration : this.playback()?.duration ?? 0;
+      player.currentTime = (duration > 0 && resume >= duration - 3) ? 0 : resume;
       this.resumeApplied = true;
     }
     player.playbackRate = this.speed();
@@ -291,7 +322,7 @@ export class WatchPage {
     }
     if (this.route.snapshot.queryParamMap.has('playlist')) return;
     const following = this.visibleRelatedVideos()[0];
-    if (following) window.location.assign(this.router.serializeUrl(this.router.createUrlTree(['/watch', following.videoId])));
+    if (following && following.videoId !== this.videoId) window.location.assign(this.router.serializeUrl(this.router.createUrlTree(['/watch', following.videoId])));
   }
 
   toggleMute() {
@@ -696,20 +727,46 @@ export class WatchPage {
 
   setRecommendationFilter(filter: 'all' | 'related' | 'channel' | 'category') {
     this.recommendationFilter.set(filter);
+    this.loadRecommendations();
+  }
+
+  private loadRecommendations() {
+    const filter = this.recommendationFilter();
     const current = this.video();
-    if ((filter === 'channel' || filter === 'category') && current) {
+    if (filter === 'channel' && current) {
       this.content.search({
-        channelId: filter === 'channel' ? current.channelId : undefined,
-        categoryId: filter === 'category' ? current.categoryId ?? undefined : undefined,
-        sort: 'newest', page: 1, pageSize: 12
+        channelId: current.channelId,
+        sort: 'newest', page: 1, pageSize: 20
       }).subscribe({
-        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== current.videoId).slice(0, 8)),
+        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
         error: () => this.relatedVideos.set([])
       });
       return;
     }
-    this.content.feed('home', 1, 12).subscribe({
-      next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 8)),
+    if (filter === 'category' && current) {
+      this.content.search({
+        categoryId: current.categoryId ?? undefined,
+        sort: 'popular', page: 1, pageSize: 20
+      }).subscribe({
+        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
+        error: () => this.relatedVideos.set([])
+      });
+      return;
+    }
+    if (filter === 'related' && current) {
+      const tag = current.tags && current.tags.length > 0 ? current.tags[0] : undefined;
+      this.content.search({
+        categoryId: current.categoryId ?? undefined,
+        tag: tag,
+        sort: 'popular', page: 1, pageSize: 20
+      }).subscribe({
+        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
+        error: () => this.relatedVideos.set([])
+      });
+      return;
+    }
+    this.content.feed('home', 1, 20).subscribe({
+      next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
       error: () => this.relatedVideos.set([])
     });
   }

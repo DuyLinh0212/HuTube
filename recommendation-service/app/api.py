@@ -102,3 +102,16 @@ async def recommendations(
         source=str(metadata["source"]),
         items=items,
     )
+
+
+@router.post("/internal/reload")
+async def reload_model(request: Request):
+    registry = request.app.state.registry
+    registry.load()
+    version = (
+        str(registry.loaded.metadata.get("modelVersion"))
+        if registry.loaded is not None
+        else None
+    )
+    return {"status": "ok", "modelVersion": version}
+

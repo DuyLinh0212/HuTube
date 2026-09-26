@@ -17,8 +17,20 @@ public sealed class CategoriesController(IContentService content) : ControllerBa
 public sealed class FeedController(IContentService content) : ControllerBase
 {
     [HttpGet("home")]
-    public Task<PageResult<VideoCardResponse>> HomeAsync([FromQuery] string sort = "popular", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        content.GetFeedAsync("home", sort, null, null, page, pageSize, ct);
+    public Task<PageResult<VideoCardResponse>> HomeAsync([FromQuery] string sort = "popular", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+    {
+        var subject = User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var currentUserId = Guid.TryParse(subject, out var uid) ? uid : (Guid?)null;
+        return content.GetFeedAsync("home", sort, null, null, page, pageSize, currentUserId, ct);
+    }
+
+    [HttpGet("recommended")]
+    public Task<PageResult<VideoCardResponse>> RecommendedAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+    {
+        var subject = User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var currentUserId = Guid.TryParse(subject, out var uid) ? uid : (Guid?)null;
+        return content.GetFeedAsync("home", "recommended", null, null, page, pageSize, currentUserId, ct);
+    }
 
     [HttpGet("explore-hub")]
     public Task<ExploreHubResponse> ExploreHubAsync(CancellationToken ct = default) =>

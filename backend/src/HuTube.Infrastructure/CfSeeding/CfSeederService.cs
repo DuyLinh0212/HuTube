@@ -59,6 +59,82 @@ public sealed class CfSeederService(
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<CfSeedViewerAccountResponse>> CreateViewerAccountsAsync(
+        CreateCfSeedViewersRequest request, CancellationToken ct = default)
+    {
+        if (request.Accounts is not { Count: >= 1 and <= 200 })
+            throw Error(400, "CF_SEED_VIEWER_COUNT", "Mỗi lượt chỉ được tạo từ 1 đến 200 tài khoản người xem.");
+
+        var now = Now;
+        var results = new List<CfSeedViewerAccountResponse>();
+        var newUsers = new List<User>();
+
+        var usernames = request.Accounts.Select(x => x.Username.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var existingUsers = await db.Users.Where(x => usernames.Contains(x.Username)).ToDictionaryAsync(x => x.Username, StringComparer.OrdinalIgnoreCase, ct);
+
+        foreach (var account in request.Accounts)
+        {
+            var username = account.Username.Trim();
+            var displayName = string.IsNullOrWhiteSpace(account.DisplayName) ? username : account.DisplayName.Trim();
+            var email = string.IsNullOrWhiteSpace(account.Email)
+                ? $"{username.ToLowerInvariant()}@viewer.hutube.invalid"
+                : account.Email.Trim().ToLowerInvariant();
+            var password = string.IsNullOrWhiteSpace(account.Password) ? "HuTube@123456" : account.Password;
+
+            if (existingUsers.TryGetValue(username, out var existing))
+            {
+                existing.PasswordHash = passwords.Hash(password);
+                existing.Status = "active";
+                existing.EmailVerifiedAt ??= now;
+                existing.UpdatedAt = now;
+                results.Add(new CfSeedViewerAccountResponse(existing.UserId, existing.Username, existing.DisplayName, existing.Email));
+            }
+            else
+            {
+                var user = new User
+                {
+                    UserId = Guid.NewGuid(),
+                    Username = username,
+                    DisplayName = displayName,
+                    Email = email,
+                    PasswordHash = passwords.Hash(password),
+                    RoleId = UserRoles.User,
+                    Status = "active",
+                    EmailVerifiedAt = now,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                newUsers.Add(user);
+                results.Add(new CfSeedViewerAccountResponse(user.UserId, user.Username, user.DisplayName, user.Email));
+            }
+        }
+
+        if (newUsers.Count > 0)
+        {
+            db.Users.AddRange(newUsers);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return results;
+    }
+
+    public async Task<IReadOnlyList<CfSeedViewerAccountResponse>> GetViewerAccountsAsync(
+        string? search, int limit = 100, CancellationToken ct = default)
+    {
+        var query = db.Users.AsNoTracking().Where(u => u.Status == "active");
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim();
+            query = query.Where(u => u.Username.Contains(s) || u.DisplayName.Contains(s));
+        }
+
+        return await query
+            .OrderByDescending(u => u.CreatedAt)
+            .Take(Math.Clamp(limit, 1, 200))
+            .Select(u => new CfSeedViewerAccountResponse(u.UserId, u.Username, u.DisplayName, u.Email))
+            .ToListAsync(ct);
+    }
+
     public async Task<CfSeedProvisionResponse> CreateAccountsAsync(Guid adminActorId,
         CreateCfSeedAccountsRequest request, CancellationToken ct = default)
     {

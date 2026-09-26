@@ -242,10 +242,35 @@ FastAPI nhận `userId`, `limit`, `excludeItemIds` và trả về `itemId`, `sco
 `modelVersion`, `source`. Backend .NET chịu trách nhiệm hydrate metadata, kiểm tra
 quyền và lọc video private/deleted/blocked.
 
-## Giới hạn hiện tại
+## Tích hợp HuTube & Huấn luyện dữ liệu thực tế
 
-- V1 benchmark trên MovieLens 100K.
-- MovieLens chỉ có rating; các hành vi khác chưa được suy diễn giả.
-- Chưa có nhãn hoặc phản hồi người dùng để đánh giá mức độ phù hợp.
-- Chưa tích hợp HttpClient với Backend .NET.
-- Chưa dùng feature nội dung để tạo recommendation score.
+Recommendation Service hiện đã được kết nối trực tiếp với HuTube Backend (.NET 10) và hệ thống Bot Simulator:
+
+1. **Huấn luyện mô hình từ dữ liệu tương tác HuTube**:
+   ```powershell
+   python -m training.train_hutube
+   ```
+   Script sẽ tự động:
+   - Đọc dữ liệu ma trận từ Web Simulator (`http://localhost:5050/api/matrix`) hoặc file `user_video_matrix.csv`.
+   - Quy đổi các tín hiệu hành vi (`watch_ratio`, `like`, `dislike`, `rating`, `comment`, `subscribed`) thành điểm tương tác chuẩn 1.0 – 5.0.
+   - Huấn luyện 6 biến thể CF (Item-Based và User-Based qua Cosine, Jaccard, Pearson).
+   - Xuất Model Artifact vào `data/artifacts/` và cập nhật con trỏ `benchmark-latest.json`.
+
+2. **Khởi chạy Service**:
+   ```powershell
+   ./scripts/run-recommender.ps1
+   # hoặc:
+   ./scripts/run-local.ps1 -Component recommender
+   ```
+   Service lắng nghe tại `http://localhost:8000`.
+
+3. **Kết nối Backend .NET**:
+   - `HuTube.Infrastructure.Recommendations.RecommendationClient` gọi `POST http://127.0.0.1:8000/internal/recommendations`.
+   - Bảo mật qua Header `X-Service-Token: hutube-cf-internal-secret-key`.
+   - Tự động fallback về video thịnh hành nếu service offline hoặc user chưa có trong mô hình.
+
+## Giới hạn và Hướng phát triển tiếp theo
+
+- Đã tích hợp hoàn tất HttpClient với Backend .NET và bảng tin Trang chủ.
+- Hiện hỗ trợ cả tập dữ liệu MovieLens 100K benchmark lẫn dữ liệu tương tác thực tế / mô phỏng của HuTube.
+- Hướng phát triển tiếp theo: Hybrid Recommendation kết hợp giữa Collaborative Filtering (CF) và Content-Based Filtering (dựa trên thể loại, tag, mô tả video).

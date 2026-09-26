@@ -58,6 +58,11 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
         [FromBody] CreateCfSeedAccountsRequest request, CancellationToken ct) =>
         seeder.CreateAccountsAsync(UserId, request, ct);
 
+    [HttpPost("viewers")]
+    public Task<IReadOnlyList<CfSeedViewerAccountResponse>> CreateViewersAsync(
+        [FromBody] CreateCfSeedViewersRequest request, CancellationToken ct) =>
+        seeder.CreateViewerAccountsAsync(request, ct);
+
     [HttpGet("users")]
     public Task<IReadOnlyList<CfSeedAccountResponse>> GetExistingAccountsAsync(
         [FromQuery] string? search, CancellationToken ct) => seeder.GetExistingAccountsAsync(search, ct);

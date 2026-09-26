@@ -1,10 +1,13 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('api', 'user', 'admin', 'mobile')][string]$Component,
+    [Parameter(Mandatory)][ValidateSet('api', 'recommender', 'user', 'admin', 'mobile')][string]$Component,
     [string]$Device,
-    [string]$EnvironmentFile = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env.local')
+    [string]$EnvironmentFile
 )
 . (Join-Path $PSScriptRoot 'common.ps1')
+if (-not $EnvironmentFile) {
+    $EnvironmentFile = Join-Path $script:RepositoryRoot '.env.local'
+}
 Import-LocalEnvironment -Path $EnvironmentFile
 Push-Location $script:RepositoryRoot
 try {
@@ -12,7 +15,17 @@ try {
         'api' {
             Assert-EnvironmentValue 'ConnectionStrings__Database'
             Assert-EnvironmentValue 'Jwt__SigningKey'
+            $existing = Get-NetTCPConnection -LocalPort 5080 -State Listen -ErrorAction SilentlyContinue
+            if ($existing) {
+                $pids = $existing | Select-Object -ExpandProperty OwningProcess -Unique
+                Write-Host "[!] Cong 5080 dang duoc su dung boi PID: $($pids -join ', '). Dang giai phong cong..." -ForegroundColor Yellow
+                $pids | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+                Start-Sleep -Seconds 1
+            }
             Invoke-CheckedCommand dotnet @('run', '--project', 'backend/src/HuTube.Api', '--no-launch-profile')
+        }
+        'recommender' {
+            & (Join-Path $PSScriptRoot 'run-recommender.ps1')
         }
         { $_ -in @('user', 'admin') } {
             Push-Location "frontend/$Component-web"
