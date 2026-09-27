@@ -1863,7 +1863,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'report.sample.abusiveComment': 'Bình luận xúc phạm, bôi nhọ danh dự',
     'report.sample.copyright': 'Vi phạm bản quyền hình ảnh / âm thanh',
     'report.sample.dangerousConduct': 'Hành vi nguy hiểm hoặc kích động thù hận',
-     ,'channel.reportSuccess': 'Cảm ơn bạn đã gửi báo cáo. Chúng tôi sẽ xem xét nội dung này theo Nguyên tắc cộng đồng HuTube.'
+    'channel.reportSuccess': 'Cảm ơn bạn đã gửi báo cáo. Chúng tôi sẽ xem xét nội dung này theo Nguyên tắc cộng đồng HuTube.'
      ,'notification.channelInviteToast': 'Bạn có lời mời tham gia kênh{channel}.'
      ,'studio.accessibleChannelsError': 'Không thể tải danh sách kênh bạn có quyền truy cập.'
      ,'studio.channelDataError': 'Không thể tải dữ liệu Studio cho kênh này.'
@@ -3737,7 +3737,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'report.sample.abusiveComment': 'Insulting or defamatory comment',
     'report.sample.copyright': 'Copyright infringement in image or audio',
     'report.sample.dangerousConduct': 'Dangerous conduct or incitement to hatred',
-     ,'channel.reportSuccess': 'Thanks for your report. We will review it under HuTube Community Guidelines.'
+    'channel.reportSuccess': 'Thanks for your report. We will review it under HuTube Community Guidelines.'
      ,'notification.channelInviteToast': 'You have an invitation to join channel{channel}.'
      ,'studio.accessibleChannelsError': 'Unable to load channels you can access.'
      ,'studio.channelDataError': 'Unable to load Studio data for this channel.'

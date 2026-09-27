@@ -136,18 +136,13 @@ Không dùng report runtime để kết luận model nào đề xuất phù hợ
 có dữ liệu thật, mức độ phù hợp cần được đo bằng phản hồi hoặc hành vi người dùng
 được thu thập riêng.
 
-## Benchmark tối ưu Item-Based
+## Benchmark chi phí Item-Based
 
-Benchmark hiện tại so sánh hai cách dựng similarity Cosine trên cùng dataset:
+Benchmark hiện tại đo chi phí dựng similarity Cosine dense trên cùng dataset:
 
 | Chiến lược | Pair slots | Tổng thời gian | Peak ước tính | Speedup |
 |---|---:|---:|---:|---:|
 | Baseline dense | 1,413,721 | 4.500 s | 17.81 MiB | 1.00× |
-| Genre-blocked matrices | 523,189 | 5.129 s | 5.03 MiB | 0.88× |
-
-Kết quả benchmark cho thấy cách chia block giảm khoảng 63.0% số cặp cần xử lý và
-giảm khoảng 71.8% peak memory. Ở lần chạy hiện tại, tổng thời gian tăng do chi
-phí tạo và hợp nhất nhiều block; khi áp dụng HuTube cần đo lại với dữ liệu thực.
 
 Các tối ưu đang có:
 
@@ -254,7 +249,7 @@ Super Admin dùng `/recommendations` trên admin web. Backend .NET tạo một d
 python -m training.train_hutube --matrix-csv interactions_current.csv
 ```
 
-File cần có `user_id`, `video_id`, `score`, tối thiểu 2 user, 2 video và 3 cặp. Không có dữ liệu giả hoặc tự nạp dữ liệu từ simulator cũ.
+File cần có `user_id`, `video_id`, `score`, tối thiểu 2 user, 2 video và 3 cặp. `score` phải là giá trị chuẩn hóa trong `[0,1]`; production nhận thêm `scoreAggregation` với `mode` là `average` (mặc định) hoặc `weighted` và map trọng số cho `rating`, `like`, `dislike`, `watch`, `comment`, `subscribe`. Không có dữ liệu giả hoặc tự nạp dữ liệu từ simulator cũ.
 
 Local: cấu hình hai token riêng và các biến `R2_*` trong `.env` (xem `.env.example`), đặt `Recommendation__ServiceUrl`, `Recommendation__ServiceToken`, `Recommendation__AdminToken` cùng thông tin `Storage__R2__*` cho API .NET. Chạy `./scripts/run-recommender.ps1`; script chỉ bind `127.0.0.1`. Trên Render, cấu hình các biến trong `render.yaml`; web miễn phí có thể ngủ và request đầu có thể rơi về feed mặc định.
 

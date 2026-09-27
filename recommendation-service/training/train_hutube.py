@@ -10,9 +10,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import math
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import pandas as pd
@@ -27,12 +29,43 @@ from training.config import TrainConfig  # noqa: E402
 from training.trainer import fit_model  # noqa: E402
 
 REQUIRED_COLUMNS = {"user_id", "video_id", "score"}
+SCORE_FEATURES = ("rating", "like", "dislike", "watch", "comment", "subscribe")
+
+
+def normalize_score_aggregation(value: dict[str, Any] | None) -> dict[str, Any]:
+    payload = value or {}
+    mode = str(payload.get("mode") or "average").strip().lower()
+    if mode not in {"average", "weighted"}:
+        raise ValueError("Score aggregation mode must be 'average' or 'weighted'.")
+    if mode == "average":
+        return {"mode": mode, "weights": {feature: 1.0 for feature in SCORE_FEATURES}}
+
+    raw_weights = payload.get("weights") or {}
+    if not isinstance(raw_weights, dict):
+        raise ValueError("Score aggregation weights must be an object.")
+    unknown = sorted(set(raw_weights) - set(SCORE_FEATURES))
+    if unknown:
+        raise ValueError(f"Unknown score aggregation features: {', '.join(unknown)}.")
+    weights: dict[str, float] = {}
+    for feature in SCORE_FEATURES:
+        try:
+            weight = float(raw_weights.get(feature, 0.0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Weight for {feature} must be numeric.") from exc
+        if not math.isfinite(weight) or weight < 0:
+            raise ValueError("Score aggregation weights must be finite and non-negative.")
+        weights[feature] = weight
+    if not any(weight > 0 for weight in weights.values()):
+        raise ValueError("At least one score aggregation weight must be greater than zero.")
+    return {"mode": mode, "weights": weights}
 
 
 def train_csv_bytes(csv_bytes: bytes, artifact_root: Path, *, csv_key: str,
-                    csv_sha256: str) -> Path:
+                    csv_sha256: str,
+                    score_aggregation: dict[str, Any] | None = None) -> Path:
     if hashlib.sha256(csv_bytes).hexdigest() != csv_sha256:
         raise ValueError("CSV SHA-256 does not match the requested snapshot.")
+    score_config = normalize_score_aggregation(score_aggregation)
     df = pd.read_csv(io.BytesIO(csv_bytes), dtype={"user_id": str, "video_id": str})
     if not REQUIRED_COLUMNS.issubset(df.columns):
         raise ValueError("CSV requires user_id, video_id and score columns.")
@@ -41,8 +74,8 @@ def train_csv_bytes(csv_bytes: bytes, artifact_root: Path, *, csv_key: str,
     if df.duplicated(["user_id", "video_id"]).any():
         raise ValueError("Interaction matrix contains duplicate user-video pairs.")
     df["rating"] = pd.to_numeric(df["score"], errors="raise")
-    if not df["rating"].between(1.0, 5.0).all():
-        raise ValueError("Interaction scores must be between 1 and 5.")
+    if not df["rating"].between(0.0, 1.0).all():
+        raise ValueError("Normalized interaction scores must be between 0 and 1.")
     df["item_id"] = df["video_id"]
     users = df["user_id"].nunique()
     items = df["item_id"].nunique()
@@ -69,9 +102,10 @@ def train_csv_bytes(csv_bytes: bytes, artifact_root: Path, *, csv_key: str,
     items_frame = pd.DataFrame({"item_id": list(mappings.item_to_index),
                                 "title": list(mappings.item_to_index)})
     metadata = {"modelVersion": version, "source": "HUTUBE", "deployable": True,
-                "trainedAt": datetime.now(UTC).isoformat(), "usersCount": users,
-                "itemsCount": items, "interactionsCount": len(df),
-                "csvKey": csv_key, "csvSha256": csv_sha256}
+                 "trainedAt": datetime.now(UTC).isoformat(), "usersCount": users,
+                 "itemsCount": items, "interactionsCount": len(df),
+                 "csvKey": csv_key, "csvSha256": csv_sha256,
+                 "scoreAggregation": score_config}
     return save_artifact(
         artifact_root=artifact_root, model_version=version,
         models={"item_based_cosine": fitted.model}, config=config,

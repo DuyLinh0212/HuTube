@@ -33,6 +33,7 @@ class ItemBasedCF:
     neighbor_indices: np.ndarray
     neighbor_similarities: np.ndarray
     item_means: np.ndarray
+    observed: np.ndarray | None = None
 
     @classmethod
     def fit(
@@ -51,6 +52,10 @@ class ItemBasedCF:
             item_count=item_count,
             mode=interaction_mode,
         )
+        users = interactions["user_index"].to_numpy(dtype=np.int64)
+        items = interactions["item_index"].to_numpy(dtype=np.int64)
+        observed = np.zeros((user_count, item_count), dtype=bool)
+        observed[users, items] = True
         if not np.any(matrix > 0):
             raise ValueError("Item-Based CF requires at least one observed interaction.")
         similarities = compute_similarity(matrix.T, similarity)
@@ -68,12 +73,14 @@ class ItemBasedCF:
             similarities=similarities,
             neighbor_indices=neighbor_indices,
             neighbor_similarities=neighbor_similarities,
-            item_means=item_means(matrix),
+            item_means=item_means(matrix, observed),
+            observed=observed,
         )
 
     def seen_items(self, user_index: int) -> np.ndarray:
         self._validate_user(user_index)
-        return np.flatnonzero(self.interactions[user_index] > 0).astype(np.int64)
+        observed = self.observed if self.observed is not None else self.interactions > 0
+        return np.flatnonzero(observed[user_index]).astype(np.int64)
 
     def score_all_items(self, user_index: int) -> np.ndarray:
         self._validate_user(user_index)
@@ -82,7 +89,8 @@ class ItemBasedCF:
             return self.item_means.copy()
         safe_neighbors = np.maximum(neighbors, 0)
         neighbor_values = self.interactions[user_index][safe_neighbors]
-        observed = (neighbors >= 0) & (neighbor_values > 0)
+        observed_mask = self.observed if self.observed is not None else self.interactions > 0
+        observed = (neighbors >= 0) & observed_mask[user_index][safe_neighbors]
         weighted = neighbor_values * self.neighbor_similarities * observed
         numerator = weighted.sum(axis=1)
         denominator = (self.neighbor_similarities * observed).sum(axis=1)
@@ -131,6 +139,7 @@ class ItemBasedCF:
             neighbor_indices=self.neighbor_indices,
             neighbor_similarities=self.neighbor_similarities,
             item_means=self.item_means,
+            observed=self.observed if self.observed is not None else self.interactions > 0,
             neighbor_count=np.asarray(self.neighbor_count),
             interaction_mode=np.asarray(self.interaction_mode),
             similarity_name=np.asarray(self.similarity_name),
@@ -155,6 +164,10 @@ class ItemBasedCF:
                     dtype=np.float32,
                 ),
                 item_means=np.asarray(payload["item_means"], dtype=np.float32),
+                observed=np.asarray(
+                    payload["observed"] if "observed" in payload else interactions > 0,
+                    dtype=bool,
+                ),
             )
 
     def _validate_user(self, user_index: int) -> None:

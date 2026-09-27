@@ -135,6 +135,8 @@ export function errorMessage(error: unknown, i18n: I18nService): string {
     USERNAME_EXISTS: 'auth.error.usernameExists',
     INVALID_TOKEN: 'auth.error.invalidToken',
     TOKEN_EXPIRED: 'auth.error.tokenExpired',
+    INVALID_STATISTICS_RANGE: 'users.statistics.invalidRange',
+    STATISTICS_RANGE_TOO_LARGE: 'users.statistics.rangeTooLarge',
   };
   if (error.status === 0) return i18n.t('auth.error.serverUnavailable');
   if (error.status === 429) return i18n.t('auth.error.rateLimited');

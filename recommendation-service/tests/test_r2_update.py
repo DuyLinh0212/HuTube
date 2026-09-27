@@ -42,7 +42,7 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
                         r2_secret_access_key="test", r2_bucket_name="test")
     csv_key = "collaborative_cf/2026/09/26/interactions_test.csv"
     csv = (b"user_id,video_id,score\n"
-           b"u1,v1,5\nu1,v2,4\nu2,v1,4\nu2,v3,5\nu3,v2,5\nu3,v3,4\n")
+           b"u1,v1,1\nu1,v2,0.8\nu2,v1,0.8\nu2,v3,1\nu3,v2,1\nu3,v3,0.8\n")
     store.write(csv_key, csv, "text/csv")
     digest = hashlib.sha256(csv).hexdigest()
     registry = ModelRegistry(settings)

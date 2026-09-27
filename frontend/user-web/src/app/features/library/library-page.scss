@@ -92,6 +92,14 @@
   padding-top: 24px;
 }
 
+.library-history-sentinel {
+  min-height: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: .85rem;
+}
+
 .library-card {
   display: grid;
   grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);

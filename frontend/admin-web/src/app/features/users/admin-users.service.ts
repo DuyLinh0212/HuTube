@@ -59,6 +59,52 @@ export interface AdminUserDetail extends AdminUserItem {
   channels: AdminUserChannel[];
 }
 
+export interface AdminUserStatisticsSummary {
+  totalWatchSeconds: number;
+  videosWatched: number;
+  completionRate: number;
+  likes: number;
+  dislikes: number;
+  comments: number;
+  averageRating: number | null;
+  ratings: number;
+}
+
+export interface AdminUserCategoryStatistic {
+  categoryId: string | null;
+  categoryName: string | null;
+  interactionCount: number;
+  percentage: number;
+}
+
+export interface AdminUserRecommendationComparison {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  categoryName: string | null;
+  rank: number;
+  score: number;
+  source: string;
+  modelVersion: string;
+  watched: boolean;
+  latestProgress: number | null;
+  reaction: string | null;
+  rating: number | null;
+  categoryInteractionCount: number;
+  categoryInteractionPercentage: number;
+}
+
+export interface AdminUserStatistics {
+  userId: string;
+  from: string;
+  to: string;
+  summary: AdminUserStatisticsSummary;
+  categories: AdminUserCategoryStatistic[];
+  recommendations: AdminUserRecommendationComparison[];
+  recommendationsAvailable: boolean;
+  recommendationModelVersion: string | null;
+}
+
 export interface AdminUserActionRequest {
   reason: string;
   notify: boolean;
@@ -83,16 +129,22 @@ export class AdminUsersService {
   private readonly config = inject(RuntimeConfig);
   private readonly baseUrl = `${this.config.apiBaseUrl}/admin/users`;
 
-  getUsers(page = 1, pageSize = 10, search = '', role = 'ALL', status = 'ALL'): Observable<AdminUsersResponse> {
+  getUsers(page = 1, pageSize = 10, search = '', role = 'ALL', status = 'ALL', refreshToken?: number): Observable<AdminUsersResponse> {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
     if (search.trim()) params = params.set('search', search.trim());
     if (role !== 'ALL') params = params.set('role', role);
     if (status !== 'ALL') params = params.set('status', status);
+    if (refreshToken !== undefined) params = params.set('_refresh', refreshToken);
     return this.http.get<AdminUsersResponse>(this.baseUrl, { params });
   }
 
   getUser(userId: string): Observable<AdminUserDetail> {
     return this.http.get<AdminUserDetail>(`${this.baseUrl}/${encodeURIComponent(userId)}`);
+  }
+
+  getStatistics(userId: string, from: string, to: string): Observable<AdminUserStatistics> {
+    const params = new HttpParams().set('from', from).set('to', to);
+    return this.http.get<AdminUserStatistics>(`${this.baseUrl}/${encodeURIComponent(userId)}/statistics`, { params });
   }
 
   getRoles(): Observable<AdminRoleOption[]> {

@@ -130,7 +130,11 @@ export class ContentService {
     if (opts.duration) params = params.set('duration', opts.duration);
     return this.http.get<PageResult<VideoCard>>(`${this.base}/videos/search`, { params });
   }
-  history(page = 1, pageSize = 20) { return this.http.get<PageResult<WatchHistoryItem>>(`${this.base}/library/history`, { params: { page, pageSize } }); }
+  history(page = 1, pageSize = 20, before?: string | null) {
+    const params: Record<string, string | number> = { page, pageSize };
+    if (before) params['before'] = before;
+    return this.http.get<PageResult<WatchHistoryItem>>(`${this.base}/library/history`, { params });
+  }
   liked(rating: number | null = null, page = 1, pageSize = 20) {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
     if (rating !== null) params = params.set('rating', rating);

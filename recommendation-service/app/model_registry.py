@@ -8,7 +8,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -196,12 +196,18 @@ class ModelRegistry:
         if (loaded.metadata.get("modelVersion") != manifest["modelVersion"]
                 or loaded.metadata.get("csvKey") != manifest["csvKey"]
                 or loaded.metadata.get("csvSha256") != manifest["csvSha256"]
+                or loaded.metadata.get("scoreAggregation") != manifest.get("scoreAggregation")
                 or loaded.metadata.get("deployable") is not True
                 or loaded.metadata.get("source") != "HUTUBE"):
             raise ValueError("Active artifact metadata does not match the manifest.")
         return loaded
 
-    def train_from_r2(self, csv_key: str, csv_sha256: str) -> dict:
+    def train_from_r2(
+        self,
+        csv_key: str,
+        csv_sha256: str,
+        score_aggregation: dict[str, Any] | None = None,
+    ) -> dict:
         from datetime import UTC, datetime
 
         from training.train_hutube import train_csv_bytes
@@ -219,7 +225,8 @@ class ModelRegistry:
                 raise ValueError("CSV exceeds the 32 MiB training limit.")
             with TemporaryDirectory() as folder:
                 artifact_dir = train_csv_bytes(csv, Path(folder), csv_key=csv_key,
-                                               csv_sha256=csv_sha256)
+                                               csv_sha256=csv_sha256,
+                                               score_aggregation=score_aggregation)
                 packed = io.BytesIO()
                 with zipfile.ZipFile(packed, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                     for file in artifact_dir.iterdir():
@@ -235,6 +242,7 @@ class ModelRegistry:
                     "artifactKey": f"collaborative_cf/artifacts/{metadata['modelVersion']}.zip",
                     "artifactSha256": hashlib.sha256(archive).hexdigest(),
                     "updatedAt": datetime.now(UTC).isoformat(),
+                    "scoreAggregation": metadata.get("scoreAggregation"),
                 }
                 store.write(manifest["artifactKey"], archive, "application/zip")
                 preview = self._load_archive(store, manifest)

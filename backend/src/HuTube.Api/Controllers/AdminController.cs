@@ -1,6 +1,7 @@
 using HuTube.Api.Authorization;
 using HuTube.Application.Plans;
 using HuTube.Application.Policies;
+using HuTube.Application.Recommendations;
 using HuTube.Application.Rbac;
 using HuTube.Application.Storage;
 using HuTube.Application.Taxonomy;
@@ -78,6 +79,14 @@ public sealed class AdminController(
     [HttpGet("users/{userId:guid}"), RequirePermission(AdminPermissions.UserView)]
     public Task<AdminUserDetailResponse> GetUserAsync(Guid userId, CancellationToken ct) =>
         users.GetUserAsync(userId, ct);
+
+    [HttpGet("users/{userId:guid}/statistics"), RequirePermission(AdminPermissions.UserView)]
+    public Task<AdminUserStatisticsResponse> GetUserStatisticsAsync(
+        Guid userId,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        CancellationToken ct) =>
+        users.GetStatisticsAsync(userId, from, to, ct);
 
     [HttpPost("users/{userId:guid}/lock"), RequirePermission(AdminPermissions.UserBan)]
     public Task<AdminUserDetailResponse> LockUserAsync(Guid userId, [FromBody] AdminUserActionRequest request, CancellationToken ct) =>

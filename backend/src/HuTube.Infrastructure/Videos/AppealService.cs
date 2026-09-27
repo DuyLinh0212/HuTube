@@ -182,6 +182,7 @@ public sealed class AppealService(
         var appeals = await db.Appeals.AsNoTracking()
             .Where(a => a.UserId == userId)
             .OrderByDescending(a => a.CreatedAt)
+            .Take(200)
             .ToListAsync(ct);
 
         if (appeals.Count == 0) return [];

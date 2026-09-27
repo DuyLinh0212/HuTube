@@ -926,6 +926,32 @@ CREATE INDEX IF NOT EXISTS ix_reports_status_time ON reports(status, created_at)
 CREATE INDEX IF NOT EXISTS ix_moderation_cases_queue ON moderation_cases(status, submitted_at);
 CREATE INDEX IF NOT EXISTS ix_audit_logs_resource ON audit_logs(resource_type, resource_id, created_at DESC);
 
+-- Query-performance indexes used by explore/search/history and moderation lists.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS ix_viewing_histories_video_time ON viewing_histories(video_id, viewed_at DESC);
+CREATE INDEX IF NOT EXISTS ix_viewing_histories_user_video_time ON viewing_histories(user_id, video_id, viewed_at DESC, viewing_history_id DESC);
+CREATE INDEX IF NOT EXISTS ix_videos_public_category_published ON videos(category_id, published_at DESC)
+    WHERE status = 'published' AND moderation_status = 'approved' AND visibility = 'public';
+CREATE INDEX IF NOT EXISTS ix_videos_public_published ON videos(published_at DESC)
+    WHERE status = 'published' AND moderation_status = 'approved' AND visibility = 'public';
+CREATE INDEX IF NOT EXISTS ix_video_reactions_video_type ON video_reactions(video_id, type);
+CREATE INDEX IF NOT EXISTS ix_video_ratings_video_score ON video_ratings(video_id, score);
+CREATE INDEX IF NOT EXISTS ix_share_histories_video_time ON share_histories(video_id, shared_at DESC);
+CREATE INDEX IF NOT EXISTS ix_comments_video_status_time ON comments(video_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_comments_parent_status_time ON comments(parent_comment_id, status, created_at);
+CREATE INDEX IF NOT EXISTS ix_comment_reactions_comment_type ON comment_reactions(comment_id, type);
+CREATE INDEX IF NOT EXISTS ix_video_tags_tag_video ON video_tags(tag_id, video_id);
+CREATE INDEX IF NOT EXISTS ix_subscriptions_channel_active ON subscriptions(channel_id, user_id) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS ix_reports_video ON reports(video_id, created_at DESC) WHERE video_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_moderation_cases_video_status ON moderation_cases(video_id, status, submitted_at DESC) WHERE video_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_videos_title_trgm ON videos USING gin (title gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS ix_videos_description_trgm ON videos USING gin (description gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS ix_channels_name_trgm ON channels USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS ix_tags_name_trgm ON tags USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS ix_users_username_trgm ON users USING gin (username gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS ix_users_display_name_trgm ON users USING gin (display_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS ix_users_email_trgm ON users USING gin (email gin_trgm_ops);
+
 
 /*=============================================================================
   Verification: should return 43 for this HuTube schema in a clean database.

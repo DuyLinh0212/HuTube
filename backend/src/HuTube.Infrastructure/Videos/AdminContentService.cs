@@ -18,14 +18,39 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         string? sortBy, bool? sortDescending, int page, int pageSize, CancellationToken ct)
     {
         page = Math.Max(page, 1); pageSize = Math.Clamp(pageSize, 1, 100);
+        var nowUtc = DateTimeOffset.UtcNow;
+        var videoCounts = db.Videos.AsNoTracking().GroupBy(video => video.ChannelId)
+            .Select(group => new { ChannelId = group.Key, Count = group.Count() });
+        var subscriberCounts = db.Subscriptions.AsNoTracking().Where(subscription => subscription.Status == "active")
+            .GroupBy(subscription => subscription.ChannelId)
+            .Select(group => new { ChannelId = group.Key, Count = group.Count() });
+        var strikeCounts = db.ChannelStrikes.AsNoTracking()
+            .Where(strike => strike.StrikeNumber > 0 && strike.Status == "active" && strike.ExpiresAt > nowUtc)
+            .GroupBy(strike => strike.ChannelId)
+            .Select(group => new { ChannelId = group.Key, Count = group.Count() });
         var query = from channel in db.Channels.IgnoreQueryFilters().AsNoTracking()
                     join owner in db.Users.IgnoreQueryFilters().AsNoTracking() on channel.OwnerUserId equals owner.UserId
-                    select new { channel, owner };
+                    join videos in videoCounts on channel.ChannelId equals videos.ChannelId into videoRows
+                    from videos in videoRows.DefaultIfEmpty()
+                    join subscribers in subscriberCounts on channel.ChannelId equals subscribers.ChannelId into subscriberRows
+                    from subscribers in subscriberRows.DefaultIfEmpty()
+                    join strikes in strikeCounts on channel.ChannelId equals strikes.ChannelId into strikeRows
+                    from strikes in strikeRows.DefaultIfEmpty()
+                    select new
+                    {
+                        channel,
+                        owner,
+                        VideoCount = (int?)videos.Count,
+                        SubscriberCount = (int?)subscribers.Count,
+                        ActiveStrikeCount = (int?)strikes.Count
+                    };
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLowerInvariant();
-            query = query.Where(x => x.channel.Name.ToLower().Contains(term) || x.channel.Handle.ToLower().Contains(term)
-                || x.owner.Email.ToLower().Contains(term) || x.owner.Username.ToLower().Contains(term));
+            var term = search.Trim();
+            query = query.Where(x => EF.Functions.ILike(x.channel.Name, $"%{term}%")
+                || EF.Functions.ILike(x.channel.Handle, $"%{term}%")
+                || EF.Functions.ILike(x.owner.Email, $"%{term}%")
+                || EF.Functions.ILike(x.owner.Username, $"%{term}%"));
         }
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.channel.Status == status.Trim().ToLowerInvariant());
         var total = await query.CountAsync(ct);
@@ -35,8 +60,8 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         {
             "name" => isDesc ? query.OrderByDescending(x => x.channel.Name) : query.OrderBy(x => x.channel.Name),
             "owner" => isDesc ? query.OrderByDescending(x => x.owner.DisplayName) : query.OrderBy(x => x.owner.DisplayName),
-            "videocount" or "videos" => isDesc ? query.OrderByDescending(x => db.Videos.Count(v => v.ChannelId == x.channel.ChannelId)) : query.OrderBy(x => db.Videos.Count(v => v.ChannelId == x.channel.ChannelId)),
-            "subscribercount" or "subscribers" => isDesc ? query.OrderByDescending(x => db.Subscriptions.Count(s => s.ChannelId == x.channel.ChannelId && s.Status == "active")) : query.OrderBy(x => db.Subscriptions.Count(s => s.ChannelId == x.channel.ChannelId && s.Status == "active")),
+            "videocount" or "videos" => isDesc ? query.OrderByDescending(x => x.VideoCount ?? 0) : query.OrderBy(x => x.VideoCount ?? 0),
+            "subscribercount" or "subscribers" => isDesc ? query.OrderByDescending(x => x.SubscriberCount ?? 0) : query.OrderBy(x => x.SubscriberCount ?? 0),
             "status" => isDesc ? query.OrderByDescending(x => x.channel.Status) : query.OrderBy(x => x.channel.Status),
             "createdat" or "date" => isDesc ? query.OrderByDescending(x => x.channel.CreatedAt) : query.OrderBy(x => x.channel.CreatedAt),
             _ => isDesc ? query.OrderByDescending(x => x.channel.CreatedAt) : query.OrderBy(x => x.channel.CreatedAt)
@@ -47,9 +72,9 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             {
                 x.channel.ChannelId, x.channel.Name, x.channel.Handle, x.channel.OwnerUserId,
                 OwnerName = x.owner.DisplayName, OwnerEmail = x.owner.Email, x.channel.Status, x.channel.CreatedAt,
-                VideoCount = db.Videos.Count(v => v.ChannelId == x.channel.ChannelId),
-                SubscriberCount = db.Subscriptions.Count(s => s.ChannelId == x.channel.ChannelId && s.Status == "active"),
-                ActiveStrikeCount = db.ChannelStrikes.Count(s => s.ChannelId == x.channel.ChannelId && s.StrikeNumber > 0 && s.Status == "active" && s.ExpiresAt > DateTimeOffset.UtcNow),
+                 VideoCount = x.VideoCount ?? 0,
+                 SubscriberCount = x.SubscriberCount ?? 0,
+                 ActiveStrikeCount = x.ActiveStrikeCount ?? 0,
                 x.channel.StatusReason
             }).ToListAsync(ct);
 
@@ -122,8 +147,10 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         var query = AdminVideoQuery(includePrivate);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLowerInvariant();
-            query = query.Where(x => x.Title.ToLower().Contains(term) || x.ChannelName.ToLower().Contains(term) || x.ChannelHandle.ToLower().Contains(term));
+            var term = search.Trim();
+            query = query.Where(x => EF.Functions.ILike(x.Title, $"%{term}%")
+                || EF.Functions.ILike(x.ChannelName, $"%{term}%")
+                || EF.Functions.ILike(x.ChannelHandle, $"%{term}%"));
         }
         if (!string.IsNullOrWhiteSpace(status) && status != "all")
         {
@@ -198,8 +225,8 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             "category" or "categoryname" => isDesc ? query.OrderByDescending(x => x.CategoryName) : query.OrderBy(x => x.CategoryName),
             "status" => isDesc ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
             "visibility" => isDesc ? query.OrderByDescending(x => x.Visibility) : query.OrderBy(x => x.Visibility),
-            "views" => isDesc ? query.OrderByDescending(x => db.ViewingHistories.Count(h => h.VideoId == x.VideoId)) : query.OrderBy(x => db.ViewingHistories.Count(h => h.VideoId == x.VideoId)),
-            "reports" or "reportcount" => isDesc ? query.OrderByDescending(x => db.Reports.Count(r => r.VideoId == x.VideoId)) : query.OrderBy(x => db.Reports.Count(r => r.VideoId == x.VideoId)),
+            "views" => isDesc ? query.OrderByDescending(x => x.Views ?? 0L) : query.OrderBy(x => x.Views ?? 0L),
+            "reports" or "reportcount" => isDesc ? query.OrderByDescending(x => x.ReportCount ?? 0) : query.OrderBy(x => x.ReportCount ?? 0),
             "createdat" or "date" => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
             _ => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt)
         };
@@ -310,9 +337,10 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         var sevenDaysAgo = new DateTimeOffset(nowUtc.Year, nowUtc.Month, nowUtc.Day, 0, 0, 0, TimeSpan.Zero).AddDays(-6);
         var fourteenDaysAgo = sevenDaysAgo.AddDays(-7);
 
-        var recentVideos = await db.Videos.AsNoTracking()
+        var recentDaily = await db.Videos.AsNoTracking()
             .Where(v => v.CreatedAt >= sevenDaysAgo)
-            .Select(v => new { v.CreatedAt, v.FileSize })
+            .GroupBy(v => v.CreatedAt.Date)
+            .Select(group => new { Day = group.Key, Count = group.Count(), Bytes = group.Sum(v => v.FileSize) })
             .ToListAsync(ct);
 
         var prevWeekCount = await db.Videos.AsNoTracking()
@@ -323,11 +351,11 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         var dayLabels = new[] { "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật" };
         var dayCounts = new int[7];
 
-        foreach (var v in recentVideos)
+        foreach (var daily in recentDaily)
         {
-            var dayOfWeek = v.CreatedAt.DayOfWeek;
+            var dayOfWeek = daily.Day.DayOfWeek;
             var index = dayOfWeek == DayOfWeek.Sunday ? 6 : ((int)dayOfWeek - 1);
-            dayCounts[index]++;
+            dayCounts[index] += daily.Count;
         }
 
         var maxCount = dayCounts.Max();
@@ -341,7 +369,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             days.Add(new VideoDailyUploadStat(dayCodes[i], dayLabels[i], dayCounts[i], pct));
         }
 
-        var totalWeekly = recentVideos.Count;
+        var totalWeekly = recentDaily.Sum(item => item.Count);
         double growthPct = 0;
         if (prevWeekCount > 0)
         {
@@ -356,7 +384,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
 
         var totalVideos = await db.Videos.CountAsync(ct);
         var totalStorageUsed = await db.Videos.SumAsync(v => (long?)v.FileSize, ct) ?? 0;
-        var weeklyAddedStorage = recentVideos.Sum(v => v.FileSize);
+        var weeklyAddedStorage = recentDaily.Sum(item => item.Bytes);
 
         long totalCapacity = 5L * 1024 * 1024 * 1024 * 1024; // 5 TB
         var storagePercent = totalCapacity > 0 ? (int)Math.Clamp((totalStorageUsed * 100.0) / totalCapacity, 0, 100) : 0;
@@ -499,11 +527,23 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
     }
 
-    private IQueryable<AdminVideoProjection> AdminVideoQuery(bool includePrivate) =>
-        from video in db.Videos.AsNoTracking()
+    private IQueryable<AdminVideoProjection> AdminVideoQuery(bool includePrivate)
+    {
+        var viewCounts = db.ViewingHistories.AsNoTracking().GroupBy(history => history.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
+        var reportCounts = db.Reports.AsNoTracking().Where(report => report.VideoId.HasValue)
+            .GroupBy(report => report.VideoId!.Value)
+            .Select(group => new { VideoId = group.Key, Count = group.Count() });
+        return from video in db.Videos.AsNoTracking()
         join channel in db.Channels.IgnoreQueryFilters().AsNoTracking() on video.ChannelId equals channel.ChannelId
         join cat in db.Categories.AsNoTracking() on video.CategoryId equals cat.CategoryId into catJoin
         from category in catJoin.DefaultIfEmpty()
+        join viewRow in viewCounts
+            on video.VideoId equals viewRow.VideoId into viewRows
+        from viewRow in viewRows.DefaultIfEmpty()
+        join reportRow in reportCounts
+            on video.VideoId equals reportRow.VideoId into reportRows
+        from reportRow in reportRows.DefaultIfEmpty()
         where includePrivate || video.Visibility == "public"
         select new AdminVideoProjection
         {
@@ -525,8 +565,11 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             CategoryName = category != null ? category.Name : null,
             VideoUrl = video.VideoUrl,
             FileSize = video.FileSize,
-            Duration = video.Duration
+            Duration = video.Duration,
+            Views = (long?)viewRow.Count,
+            ReportCount = (int?)reportRow.Count
         };
+    }
 
     private async Task<IReadOnlyList<AdminAuditItem>> GetHistoryAsync(string resourceType, Guid resourceId, CancellationToken ct)
     {
@@ -566,5 +609,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         public string VideoUrl { get; init; } = "";
         public long FileSize { get; init; }
         public int Duration { get; init; }
+        public long? Views { get; init; }
+        public int? ReportCount { get; init; }
     }
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
+using HuTube.Application.Recommendations;
 using HuTube.Application.Serialization;
 using HuTube.Application.Users;
 using HuTube.Domain.Rbac;
@@ -13,7 +14,8 @@ namespace HuTube.Infrastructure.Users;
 public sealed class AdminUserService(
     HuTubeDbContext db,
     TimeProvider clock,
-    INotificationService notifications)
+    INotificationService notifications,
+    IRecommendationClient recommendationClient)
 {
     private DateTimeOffset Now => clock.GetUtcNow();
 
@@ -38,9 +40,9 @@ public sealed class AdminUserService(
                     select new { user, roleRow, planRow };
 
         if (normalizedSearch != null)
-            query = query.Where(row => row.user.DisplayName.Contains(normalizedSearch)
-                || row.user.Username.Contains(normalizedSearch)
-                || row.user.Email.Contains(normalizedSearch));
+            query = query.Where(row => EF.Functions.ILike(row.user.DisplayName, $"%{normalizedSearch}%")
+                || EF.Functions.ILike(row.user.Username, $"%{normalizedSearch}%")
+                || EF.Functions.ILike(row.user.Email, $"%{normalizedSearch}%"));
         if (normalizedRole != null && normalizedRole != "all")
             query = query.Where(row => row.roleRow.Code == normalizedRole);
         if (normalizedStatus != null && normalizedStatus != "all")
@@ -108,17 +110,18 @@ public sealed class AdminUserService(
             row.EmailVerified,
             row.LockedUntil)).ToList();
 
-        var statsRows = await db.Users.AsNoTracking()
-            .Join(db.Plans.AsNoTracking(), user => user.PlanId, plan => plan.PlanId, (user, plan) => new { user.Status, PlanCode = plan.Code })
-            .ToListAsync(ct);
-        var allUsers = await db.Users.AsNoTracking().Select(user => new { user.Status, user.PlanId }).ToListAsync(ct);
-        var proPlanCodes = statsRows.Where(row => row.PlanCode.Contains("pro", StringComparison.OrdinalIgnoreCase))
-            .Select(row => row.PlanCode).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var totalUserCount = await db.Users.AsNoTracking().CountAsync(ct);
+        var activeUserCount = await db.Users.AsNoTracking().CountAsync(user => user.Status == "active", ct);
+        var restrictedUserCount = await db.Users.AsNoTracking().CountAsync(user => user.Status == "banned" || user.Status == "suspended", ct);
+        var proUserCount = await (from user in db.Users.AsNoTracking()
+                                  join plan in db.Plans.AsNoTracking() on user.PlanId equals plan.PlanId
+                                  where user.Status == "active" && EF.Functions.ILike(plan.Code, "%pro%")
+                                  select user.UserId).CountAsync(ct);
         var stats = new AdminUserStats(
-            allUsers.Count,
-            allUsers.Count(row => row.Status == "active"),
-            allUsers.Count(row => row.Status is "banned" or "suspended"),
-            statsRows.Count(row => proPlanCodes.Contains(row.PlanCode) && row.Status == "active"));
+            totalUserCount,
+            activeUserCount,
+            restrictedUserCount,
+            proUserCount);
 
         return new AdminUserListResponse(items, page, pageSize, total, page * pageSize < total, stats);
     }
@@ -200,6 +203,194 @@ public sealed class AdminUserService(
             channels);
     }
 
+    public async Task<AdminUserStatisticsResponse> GetStatisticsAsync(
+        Guid userId,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        CancellationToken ct = default)
+    {
+        if (!await db.Users.AsNoTracking().AnyAsync(user => user.UserId == userId, ct))
+            throw new AuthException(404, "USER_NOT_FOUND", "Không tìm thấy tài khoản.");
+
+        var (fromUtc, toUtc) = NormalizeStatisticsRange(from, to);
+        // Reduce each interaction stream in PostgreSQL first. Statistics pages
+        // can span months, so returning one row per view/reaction to the app is
+        // much more expensive than returning one row per affected video.
+        var viewRows = await db.ViewingHistories.AsNoTracking()
+            .Where(item => item.UserId == userId && item.ViewedAt >= fromUtc && item.ViewedAt < toUtc)
+            .GroupBy(item => item.VideoId)
+            .Select(group => new
+            {
+                VideoId = group.Key,
+                WatchSeconds = group.Sum(item => (long)item.WatchDuration),
+                ViewCount = group.Count(),
+                CompletedCount = group.Count(item => item.Progress >= 95m)
+            }).ToListAsync(ct);
+        var reactionRows = await db.VideoReactions.AsNoTracking()
+            .Where(item => item.UserId == userId && item.UpdatedAt >= fromUtc && item.UpdatedAt < toUtc)
+            .GroupBy(item => new { item.VideoId, item.Type })
+            .Select(group => new { group.Key.VideoId, group.Key.Type, Count = group.Count() })
+            .ToListAsync(ct);
+        var commentRows = await db.Comments.AsNoTracking()
+            .Where(item => item.UserId == userId && item.CreatedAt >= fromUtc && item.CreatedAt < toUtc)
+            .GroupBy(item => item.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.Count() })
+            .ToListAsync(ct);
+        var ratingRows = await db.VideoRatings.AsNoTracking()
+            .Where(item => item.UserId == userId && item.UpdatedAt >= fromUtc && item.UpdatedAt < toUtc)
+            .GroupBy(item => item.VideoId)
+            .Select(group => new { VideoId = group.Key, Sum = group.Sum(item => (int)item.Score), Count = group.Count() })
+            .ToListAsync(ct);
+
+        var behaviorVideoIds = viewRows.Select(row => row.VideoId)
+            .Concat(reactionRows.Select(row => row.VideoId))
+            .Concat(ratingRows.Select(row => row.VideoId))
+            .Concat(commentRows.Select(row => row.VideoId))
+            .Distinct()
+            .ToArray();
+        var behaviorVideoCategories = await (from video in db.Videos.AsNoTracking()
+                                             join categoryRow in db.Categories.AsNoTracking() on video.CategoryId equals categoryRow.CategoryId into categoryRows
+                                             from categoryRow in categoryRows.DefaultIfEmpty()
+                                             where behaviorVideoIds.Contains(video.VideoId)
+                                             select new
+                                             {
+                                                 video.VideoId,
+                                                 CategoryId = video.CategoryId,
+                                                 CategoryName = categoryRow == null ? null : categoryRow.Name
+                                             }).ToListAsync(ct);
+        var categoryByVideo = behaviorVideoCategories.ToDictionary(
+            row => row.VideoId,
+            row => (row.CategoryId, row.CategoryName));
+        var categoryCounts = new Dictionary<(Guid? CategoryId, string? CategoryName), int>();
+        void AddCategoryInteraction(Guid videoId, int count = 1)
+        {
+            if (!categoryByVideo.TryGetValue(videoId, out var category)) return;
+            var key = (category.CategoryId, category.CategoryName);
+            categoryCounts[key] = categoryCounts.GetValueOrDefault(key) + count;
+        }
+        foreach (var row in viewRows) AddCategoryInteraction(row.VideoId, row.ViewCount);
+        foreach (var row in reactionRows) AddCategoryInteraction(row.VideoId, row.Count);
+        foreach (var row in ratingRows) AddCategoryInteraction(row.VideoId, row.Count);
+        foreach (var row in commentRows) AddCategoryInteraction(row.VideoId, row.Count);
+
+        var totalInteractions = categoryCounts.Values.Sum();
+        var totalViews = viewRows.Sum(row => row.ViewCount);
+        var categoryStats = categoryCounts
+            .OrderByDescending(item => item.Value)
+            .ThenBy(item => item.Key.CategoryName)
+            .Select(item => new AdminUserCategoryStatistic(
+                item.Key.CategoryId,
+                item.Key.CategoryName,
+                item.Value,
+                totalInteractions == 0 ? 0 : Math.Round(item.Value * 100m / totalInteractions, 1)))
+            .ToList();
+
+        var summary = new AdminUserStatisticsSummary(
+            TotalWatchSeconds: viewRows.Sum(row => row.WatchSeconds),
+            VideosWatched: viewRows.Count,
+            CompletionRate: totalViews == 0
+                ? 0
+                : Math.Round(viewRows.Sum(row => row.CompletedCount) * 100m / totalViews, 1),
+            Likes: reactionRows.Where(row => row.Type == "like").Sum(row => row.Count),
+            Dislikes: reactionRows.Where(row => row.Type == "dislike").Sum(row => row.Count),
+            Comments: commentRows.Sum(row => row.Count),
+            AverageRating: ratingRows.Sum(row => row.Count) == 0 ? null
+                : Math.Round((decimal)ratingRows.Sum(row => row.Sum) / ratingRows.Sum(row => row.Count), 2),
+            Ratings: ratingRows.Sum(row => row.Count));
+
+        var viewedVideoIds = await db.ViewingHistories.AsNoTracking()
+            .Where(item => item.UserId == userId)
+            .Select(item => item.VideoId)
+            .Distinct()
+            .Take(5000)
+            .ToListAsync(ct);
+        IReadOnlyList<RecommendedItem>? modelItems = await recommendationClient.GetRecommendationsAsync(
+            userId,
+            limit: 10,
+            excludeVideoIds: viewedVideoIds,
+            ct);
+        var recommendationItems = modelItems?.ToList() ?? [];
+        var recommendationIds = recommendationItems
+            .Select(item => item.VideoId)
+            .Distinct()
+            .ToArray();
+
+        var recommendationVideos = await (from video in db.Videos.AsNoTracking()
+                                           join categoryRow in db.Categories.AsNoTracking() on video.CategoryId equals categoryRow.CategoryId into categoryRows
+                                           from categoryRow in categoryRows.DefaultIfEmpty()
+                                           where recommendationIds.Contains(video.VideoId)
+                                           select new
+                                           {
+                                               video.VideoId,
+                                               video.Title,
+                                               video.ThumbnailUrl,
+                                               CategoryId = video.CategoryId,
+                                               CategoryName = categoryRow == null ? null : categoryRow.Name
+                                           }).ToListAsync(ct);
+        var recommendationVideoById = recommendationVideos.ToDictionary(video => video.VideoId);
+
+        var latestRecommendationViews = await db.ViewingHistories.AsNoTracking()
+            .Where(item => item.UserId == userId && recommendationIds.Contains(item.VideoId))
+            .Where(item => !db.ViewingHistories.Any(other => other.UserId == userId && other.VideoId == item.VideoId
+                && (other.ViewedAt > item.ViewedAt
+                    || (other.ViewedAt == item.ViewedAt && other.ViewingHistoryId > item.ViewingHistoryId))))
+            .Select(item => new { item.VideoId, item.Progress, item.ViewedAt })
+            .ToListAsync(ct);
+        var latestViewByVideo = latestRecommendationViews.ToDictionary(item => item.VideoId);
+
+        var recommendationReactions = await db.VideoReactions.AsNoTracking()
+            .Where(item => item.UserId == userId && recommendationIds.Contains(item.VideoId))
+            .Select(item => new { item.VideoId, item.Type, item.UpdatedAt })
+            .ToListAsync(ct);
+        var reactionByVideo = recommendationReactions.ToDictionary(item => item.VideoId, item => item.Type);
+
+        var recommendationRatings = await db.VideoRatings.AsNoTracking()
+            .Where(item => item.UserId == userId && recommendationIds.Contains(item.VideoId))
+            .Select(item => new { item.VideoId, item.Score, item.UpdatedAt })
+            .ToListAsync(ct);
+        var ratingByVideo = recommendationRatings.ToDictionary(item => item.VideoId, item => item.Score);
+
+        var comparison = recommendationItems
+            .Select((item, index) =>
+            {
+                if (!recommendationVideoById.TryGetValue(item.VideoId, out var video)) return null;
+                var category = categoryStats.FirstOrDefault(stat => stat.CategoryId == video.CategoryId);
+                latestViewByVideo.TryGetValue(item.VideoId, out var latestView);
+                return new AdminUserRecommendationComparison(
+                    item.VideoId,
+                    video.Title,
+                    video.ThumbnailUrl,
+                    video.CategoryName,
+                    index + 1,
+                    Convert.ToDecimal(item.Score),
+                    item.Source,
+                    item.ModelVersion,
+                    latestView != null,
+                    latestView?.Progress,
+                    reactionByVideo.GetValueOrDefault(item.VideoId),
+                    ratingByVideo.GetValueOrDefault(item.VideoId),
+                    category?.InteractionCount ?? 0,
+                    category?.Percentage ?? 0);
+            })
+            .Where(item => item != null)
+            .Select(item => item!)
+            .ToList();
+
+        var modelVersion = recommendationItems
+            .Select(item => item.ModelVersion)
+            .FirstOrDefault(version => !string.IsNullOrWhiteSpace(version));
+
+        return new AdminUserStatisticsResponse(
+            userId,
+            fromUtc,
+            toUtc.AddTicks(-1),
+            summary,
+            categoryStats,
+            comparison,
+            modelItems is not null,
+            modelVersion);
+    }
+
     public Task<AdminUserDetailResponse> LockAsync(Guid actorUserId, Guid targetUserId, AdminUserActionRequest request, CancellationToken ct = default) =>
         ChangeStatusAsync(actorUserId, targetUserId, request, "banned", "admin.user_locked", "Tài khoản của bạn đã bị khóa bởi quản trị viên.", ct);
 
@@ -268,6 +459,22 @@ public sealed class AdminUserService(
         if (request.Notify)
             await notifications.PublishInAppAsync(targetUserId, "account_status_changed", "Cập nhật tài khoản", notificationMessage, "/account", "user", targetUserId, ct);
         return await GetUserAsync(targetUserId, ct);
+    }
+
+    private (DateTimeOffset From, DateTimeOffset To) NormalizeStatisticsRange(DateTimeOffset? from, DateTimeOffset? to)
+    {
+        var now = Now.ToUniversalTime();
+        var fromValue = from?.ToUniversalTime() ?? now.AddDays(-29);
+        var toValue = to?.ToUniversalTime() ?? now;
+        var fromUtc = new DateTimeOffset(fromValue.UtcDateTime.Date, TimeSpan.Zero);
+        var toUtc = new DateTimeOffset(toValue.UtcDateTime.Date.AddDays(1), TimeSpan.Zero);
+
+        if (toUtc <= fromUtc)
+            throw new AuthException(400, "INVALID_STATISTICS_RANGE", "Khoảng thời gian thống kê không hợp lệ.");
+        if (toUtc - fromUtc > TimeSpan.FromDays(366))
+            throw new AuthException(400, "STATISTICS_RANGE_TOO_LARGE", "Khoảng thời gian thống kê tối đa là 366 ngày.");
+
+        return (fromUtc, toUtc);
     }
 
     private async Task<Dictionary<Guid, int>> GetAuditCountsAsync(Guid[] userIds, CancellationToken ct)

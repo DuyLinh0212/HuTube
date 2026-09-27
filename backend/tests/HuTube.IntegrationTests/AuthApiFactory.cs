@@ -46,6 +46,14 @@ public sealed class TestRecommendationSnapshots : IRecommendationSnapshotStore
         Task.FromResult(Objects.TryGetValue(key, out var value) ? value : null);
     public Task WriteAsync(string key, byte[] bytes, string contentType, CancellationToken ct)
     { Objects[key] = bytes; return Task.CompletedTask; }
+    public Task DeleteCsvExceptAsync(string keepKey, CancellationToken ct)
+    {
+        foreach (var key in Objects.Keys.Where(key => key.StartsWith("collaborative_cf/", StringComparison.Ordinal)
+                     && key.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
+                     && !string.Equals(key, keepKey, StringComparison.Ordinal)))
+            Objects.TryRemove(key, out _);
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class TestVideoTranscoder : IVideoTranscoder

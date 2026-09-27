@@ -150,15 +150,15 @@
       <!-- Category Filter Pills Bar -->
       <nav class="category-tabs-bar" [attr.aria-label]="'explore.topics' | translate">
         <div class="category-tabs-track">
-          @for (tab of categoryTabs; track tab.id) {
+          @for (tab of categoryTabs(); track tab.id) {
             <button
               type="button"
               class="category-tab-pill"
               [class.is-active]="activeCategoryTab() === tab.id"
-              [class.is-bxh-tong]="tab.id === 'bxh_tong'"
+              [class.is-bxh-tong]="tab.id === overallTabId"
               (click)="selectCategoryTab(tab.id)"
             >
-              {{ tab.labelKey | translate }}
+              {{ tab.id === overallTabId ? ('explore.category.overall' | translate) : tab.name }}
             </button>
           }
         </div>
@@ -182,7 +182,7 @@
       <section class="ranking-grid-section" [attr.aria-label]="'explore.categoryRankings' | translate">
 
         <!-- A: BXH tổng → global top 12 -->
-        @if (activeCategoryTab() === 'bxh_tong') {
+        @if (activeCategoryTab() === overallTabId) {
           <div class="category-top-header">
             <h2 class="category-top-title">{{ 'explore.overallTop12' | translate }}</h2>
             <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ sort: 'views' }">
@@ -218,10 +218,10 @@
         }
 
         <!-- B: Single category selected → top 12 grid -->
-        @if (activeCategoryTab() !== 'bxh_tong') {
+        @if (activeCategoryTab() !== overallTabId) {
           <div class="category-top-header">
             <h2 class="category-top-title">{{ 'explore.top12Category' | translate:{ category: selectedGroupName() } }}</h2>
-            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ q: selectedGroupName(), sort: 'views' }">
+            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ categoryId: activeCategoryTab(), sort: 'views' }">
               <span>{{ 'profile.viewAll' | translate }}</span>
               <span class="arrow" aria-hidden="true">→</span>
             </a>

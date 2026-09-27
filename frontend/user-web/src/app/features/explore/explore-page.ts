@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { forkJoin, of, Subject } from 'rxjs';
+import { catchError, takeUntil } from 'rxjs/operators';
 import { ChannelService } from '../../core/channel.service';
 import { CategoryRankingGroup, ContentService, FeaturedCreator, VideoCard } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
@@ -56,21 +57,9 @@ export class ExplorePage implements OnInit, OnDestroy {
   private readonly subscribedMap = new Map<string, boolean>();
 
   // Active Category Tab in Showcase
-  readonly activeCategoryTab = signal('bxh_tong');
-
-  readonly categoryTabs = [
-    { id: 'bxh_tong', labelKey: 'explore.category.overall' },
-    { id: 'cong-nghe', labelKey: 'explore.category.technology' },
-    { id: 'du-lich', labelKey: 'explore.category.travel' },
-    { id: 'am-nhac', labelKey: 'explore.category.music' },
-    { id: 'am-thuc', labelKey: 'explore.category.food' },
-    { id: 'giao-duc', labelKey: 'explore.category.education' },
-    { id: 'podcast', labelKey: 'explore.category.podcast' },
-    { id: 'the-thao', labelKey: 'explore.category.sports' },
-    { id: 'doi-song', labelKey: 'explore.category.lifestyle' },
-    { id: 'phim-anh', labelKey: 'explore.category.films' },
-    { id: 'lam-dep', labelKey: 'explore.category.beauty' },
-  ];
+  readonly overallTabId = '__overall__';
+  readonly activeCategoryTab = signal(this.overallTabId);
+  readonly categoryTabs = signal<Array<{ id: string; slug: string; name: string }>>([]);
 
   readonly sortOptions = [
     { value: 'relevance', labelKey: 'explore.sortRelevance' },
@@ -136,7 +125,7 @@ export class ExplorePage implements OnInit, OnDestroy {
       if (categoryId) {
         this.activeCategoryTab.set(categoryId);
       } else if (!q) {
-        this.activeCategoryTab.set('bxh_tong');
+        this.activeCategoryTab.set(this.overallTabId);
       }
 
       if (this.isSearchMode) {
@@ -155,9 +144,37 @@ export class ExplorePage implements OnInit, OnDestroy {
   loadHub() {
     this.hubLoading.set(true);
     this.hubError.set('');
-    this.content.exploreHub().pipe(takeUntil(this.destroy$)).subscribe({
-      next: hub => {
-        this.rankingGroups.set(hub.rankings ?? []);
+    forkJoin({
+      hub: this.content.exploreHub(),
+      // The tabs are driven by the active category records in the database.
+      // Keep the hub usable if a transient categories request fails.
+      categories: this.content.categories().pipe(catchError(() => of([]))),
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: ({ hub, categories }) => {
+        const rankingGroups = hub.rankings ?? [];
+        const databaseCategories = categories ?? [];
+        const databaseTabs = databaseCategories.length > 0
+          ? databaseCategories.map(category => ({
+            id: category.categoryId,
+            slug: category.slug,
+            name: category.name,
+          }))
+          : rankingGroups.map(group => ({
+            id: group.categoryId,
+            slug: group.slug,
+            name: group.categoryName,
+          }));
+        const tabs = [{ id: this.overallTabId, slug: '', name: '' }, ...databaseTabs];
+        this.categoryTabs.set(tabs);
+        const requestedTab = this.activeCategoryTab();
+        const matchedTab = tabs.find(tab => tab.id === requestedTab || tab.slug === requestedTab);
+        if (matchedTab) {
+          this.activeCategoryTab.set(matchedTab.id);
+          if (this.selectedCategoryId() === requestedTab && requestedTab !== matchedTab.id) {
+            this.selectedCategoryId.set(matchedTab.id);
+          }
+        }
+        this.rankingGroups.set(rankingGroups);
         this.featuredCreators.set(hub.creators ?? []);
         this.trendingVideos.set(hub.trending ?? []);
 
@@ -189,16 +206,19 @@ export class ExplorePage implements OnInit, OnDestroy {
   }
 
   selectCategoryTab(tabId: string) {
-    this.activeCategoryTab.set(tabId);
-    if (tabId === 'bxh_tong') {
+    const tab = this.categoryTabs().find(item => item.id === tabId || item.slug === tabId);
+    const resolvedTabId = tab?.id ?? tabId;
+    this.activeCategoryTab.set(resolvedTabId);
+    if (resolvedTabId === this.overallTabId) {
       this.categoryVideos.set([]);
       this.selectedGroupName.set('');
     } else {
-      const group = this.rankingGroups().find(g => g.slug === tabId);
-      this.selectedGroupName.set(group?.categoryName ?? tabId);
+      const categoryId = resolvedTabId;
+      const group = this.rankingGroups().find(g => g.categoryId === categoryId || g.slug === tab?.slug);
+      this.selectedGroupName.set(tab?.name ?? group?.categoryName ?? resolvedTabId);
       this.categoryLoading.set(true);
       this.content.search({
-        categoryId: group?.categoryId,
+        categoryId,
         sort: 'views',
         pageSize: 12,
       }).pipe(takeUntil(this.destroy$)).subscribe({
@@ -279,7 +299,7 @@ export class ExplorePage implements OnInit, OnDestroy {
     this.selectedDuration.set('');
     this.selectedDateRange.set('');
     this.currentPage.set(1);
-    this.activeCategoryTab.set('bxh_tong');
+    this.activeCategoryTab.set(this.overallTabId);
     void this.router.navigate(['/explore'], { queryParams: {} });
   }
 

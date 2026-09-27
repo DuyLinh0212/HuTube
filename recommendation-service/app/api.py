@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import secrets
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -15,9 +16,18 @@ from app.schemas import HealthResponse, RecommendationRequest, RecommendationRes
 router = APIRouter()
 
 
+class ScoreAggregationRequest(BaseModel):
+    mode: Literal["average", "weighted"] = "average"
+    weights: dict[str, float] = Field(default_factory=dict)
+
+
 class TrainRequest(BaseModel):
     csv_key: str = Field(alias="csvKey", min_length=1)
     csv_sha256: str = Field(alias="csvSha256", min_length=64, max_length=64)
+    score_aggregation: ScoreAggregationRequest = Field(
+        default_factory=ScoreAggregationRequest,
+        alias="scoreAggregation",
+    )
 
 
 def _require_admin(request: Request, token: str | None) -> None:
@@ -145,12 +155,14 @@ async def train_model(payload: TrainRequest, request: Request,
         raise _error(409, "TRAINING_UNAVAILABLE", "A model update is already running.", True)
     job_id = str(uuid4())
     registry.update_jobs = {job_id: {"jobId": job_id, "status": "running",
-                                     "csvKey": payload.csv_key, "csvSha256": payload.csv_sha256}}
+                                      "csvKey": payload.csv_key, "csvSha256": payload.csv_sha256,
+                                      "scoreAggregation": payload.score_aggregation.model_dump()}}
 
     async def work() -> None:
         try:
             manifest = await run_in_threadpool(registry.train_from_r2,
-                                               payload.csv_key, payload.csv_sha256)
+                                               payload.csv_key, payload.csv_sha256,
+                                               payload.score_aggregation.model_dump())
             registry.update_jobs[job_id] = {"jobId": job_id, "status": "completed",
                                             "manifest": manifest}
         except Exception as exc:

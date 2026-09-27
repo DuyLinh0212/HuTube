@@ -18,7 +18,7 @@ from training.artifacts import (
     update_benchmark_pointer,
 )
 from training.comparison import generate_comparison_report
-from training.complexity import benchmark_item_based_strategies
+from training.complexity import benchmark_item_based
 from training.config import TrainConfig, load_train_config
 from training.quality_gate import run_quality_gate, write_quality_gate
 from training.reports import generate_reports
@@ -101,10 +101,8 @@ def command_train(args: argparse.Namespace) -> int:
     ]
     metrics = _runtime_payload(history)
     if config.benchmark.enabled:
-        metrics["complexity_benchmark"] = benchmark_item_based_strategies(
+        metrics["complexity_benchmark"] = benchmark_item_based(
             interactions,
-            items=dataset.items,
-            genre_names=dataset.genre_names,
             mappings=mappings,
             similarity=config.benchmark.similarity,
             interaction_mode=config.model.interaction_mode,

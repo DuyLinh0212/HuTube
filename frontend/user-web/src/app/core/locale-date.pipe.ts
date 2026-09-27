@@ -1,9 +1,6 @@
-import { DatePipe, registerLocaleData } from '@angular/common';
-import localeVi from '@angular/common/locales/vi';
+import { DatePipe } from '@angular/common';
 import { Pipe, PipeTransform, inject } from '@angular/core';
 import { I18nService } from './i18n.service';
-
-registerLocaleData(localeVi, 'vi-VN');
 
 @Pipe({
   name: 'localeDate',

@@ -43,7 +43,7 @@
             </div>
           </div>
           @if ((runner.qualityScan().duplicateFormatCount ?? 0) > 0) {
-            <p class="hint">{{ 'seeder.duplicateQualities' | translate:{count: runner.qualityScan().duplicateFormatCount} }}</p>
+            <p class="hint">{{ 'seeder.duplicateQualities' | translate:{count: runner.qualityScan().duplicateFormatCount ?? 0} }}</p>
           }
         } @else if (runner.qualityScan().status === 'error') {
           <p class="inline-warning">{{ runner.qualityScan().error }}</p>

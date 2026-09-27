@@ -9,6 +9,8 @@ import {
   AdminRoleOption,
   AdminUserDetail,
   AdminUserItem,
+  AdminUserCategoryStatistic,
+  AdminUserStatistics,
   AdminUsersService,
   AdminUserStatus,
 } from './admin-users.service';
@@ -49,6 +51,14 @@ export class AdminUsersPage implements OnInit {
   readonly actionReason = signal('');
   readonly notifyUser = signal(true);
   readonly actionRole = signal('');
+  readonly statisticsModal = signal(false);
+  readonly statisticsUser = signal<AdminUserItem | AdminUserDetail | null>(null);
+  readonly statistics = signal<AdminUserStatistics | null>(null);
+  readonly statisticsLoading = signal(false);
+  readonly statisticsError = signal('');
+  readonly statisticsFrom = signal(this.toDateInput(-29));
+  readonly statisticsTo = signal(this.toDateInput(0));
+  readonly topicColors = ['#2563eb', '#0f9f8f', '#8b5cf6', '#f59e0b', '#e11d48', '#64748b'];
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly filteredUsers = computed(() => {
@@ -78,11 +88,12 @@ export class AdminUsersPage implements OnInit {
     });
   }
 
-  load(page = this.page()): void {
+  load(page = this.page(), forceDetailRefresh = false): void {
     this.page.set(Math.max(1, page));
     this.loading.set(true);
     this.error.set('');
-    this.service.getUsers(this.page(), this.pageSize, this.searchQuery(), this.selectedRole(), this.selectedStatus()).subscribe({
+    const refreshToken = forceDetailRefresh ? Date.now() : undefined;
+    this.service.getUsers(this.page(), this.pageSize, this.searchQuery(), this.selectedRole(), this.selectedStatus(), refreshToken).subscribe({
       next: response => {
         this.users.set(response.items);
         this.stats.set(response.stats);
@@ -99,7 +110,7 @@ export class AdminUsersPage implements OnInit {
           }
         } else {
           const current = response.items.find(user => user.userId === selected);
-          if (current) this.selectUser(current);
+          if (current) this.selectUser(current, forceDetailRefresh);
         }
       },
       error: error => {
@@ -107,6 +118,11 @@ export class AdminUsersPage implements OnInit {
         this.error.set(errorMessage(error, this.i18n));
       },
     });
+  }
+
+  refresh(): void {
+    if (this.loading()) return;
+    this.load(this.page(), true);
   }
 
   onSearchChanged(value: string): void {
@@ -133,8 +149,8 @@ export class AdminUsersPage implements OnInit {
     return Math.min(this.page() * this.pageSize, this.resultTotal());
   }
 
-  selectUser(user: AdminUserItem): void {
-    if (this.selectedUserId() === user.userId && this.selectedUser()) return;
+  selectUser(user: AdminUserItem, force = false): void {
+    if (!force && this.selectedUserId() === user.userId && this.selectedUser()) return;
     this.selectedUserId.set(user.userId);
     this.selectedUser.set(null);
     this.detailLoading.set(true);
@@ -166,6 +182,107 @@ export class AdminUsersPage implements OnInit {
       this.actionModal.set(null);
       this.actionTarget.set(null);
     }
+  }
+
+  openStatistics(user: AdminUserItem | AdminUserDetail | null = this.selectedUser()): void {
+    if (!user) return;
+    this.statisticsUser.set(user);
+    this.statisticsModal.set(true);
+    this.loadStatistics();
+  }
+
+  closeStatistics(): void {
+    this.statisticsModal.set(false);
+  }
+
+  loadStatistics(): void {
+    const user = this.statisticsUser();
+    const from = this.statisticsFrom();
+    const to = this.statisticsTo();
+    if (!user || !from || !to || from > to) {
+      this.statisticsError.set(this.i18n.t('users.statistics.invalidRange'));
+      return;
+    }
+    this.statisticsLoading.set(true);
+    this.statisticsError.set('');
+    this.statistics.set(null);
+    this.service.getStatistics(user.userId, from, to).subscribe({
+      next: result => {
+        this.statistics.set(result);
+        this.statisticsLoading.set(false);
+      },
+      error: error => {
+        this.statisticsLoading.set(false);
+        this.statistics.set(null);
+        this.statisticsError.set(errorMessage(error, this.i18n));
+      },
+    });
+  }
+
+  setStatisticsPreset(days: number): void {
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - Math.max(0, days - 1));
+    this.statisticsFrom.set(this.toDateInputFor(start));
+    this.statisticsTo.set(this.toDateInputFor(end));
+    this.loadStatistics();
+  }
+
+  topicGradient(): string {
+    const categories = this.topicCategories();
+    if (!categories.length) return 'conic-gradient(#edf1f7 0 100%)';
+    const total = categories.reduce((sum, category) => sum + Math.max(0, category.percentage), 0) || 100;
+    let offset = 0;
+    const stops = categories.map((category, index) => {
+      const start = offset;
+      offset += Math.max(0, category.percentage) * 100 / total;
+      return `${this.topicColors[index % this.topicColors.length]} ${start}% ${offset}%`;
+    });
+    return `conic-gradient(${stops.join(', ')})`;
+  }
+
+  topicColor(index: number): string {
+    return this.topicColors[index % this.topicColors.length];
+  }
+
+  topicCategories(): AdminUserCategoryStatistic[] {
+    const categories = this.statistics()?.categories ?? [];
+    if (categories.length <= 5) return categories;
+    const top = categories.slice(0, 5);
+    const other = categories.slice(5);
+    const interactionCount = other.reduce((total, category) => total + category.interactionCount, 0);
+    const percentage = other.reduce((total, category) => total + category.percentage, 0);
+    return [...top, {
+      categoryId: 'other',
+      categoryName: this.i18n.t('users.statistics.otherTopics'),
+      interactionCount,
+      percentage: Math.round(percentage * 10) / 10,
+    }];
+  }
+
+  topicLabel(category: { categoryName: string | null }): string {
+    return category.categoryName?.trim() || this.i18n.t('users.statistics.uncategorized');
+  }
+
+  formatWatchTime(seconds: number): string {
+    const safeSeconds = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const remaining = safeSeconds % 60;
+    if (hours > 0) return this.i18n.t('users.statistics.watchTimeHours', { hours, minutes });
+    if (minutes > 0) return this.i18n.t('users.statistics.watchTimeMinutes', { minutes, seconds: remaining });
+    return this.i18n.t('users.statistics.watchTimeSeconds', { seconds: remaining });
+  }
+
+  recommendationMatchKey(item: { watched: boolean; categoryInteractionPercentage: number }): string {
+    if (item.watched) return 'users.statistics.matchWatched';
+    if (item.categoryInteractionPercentage > 0) return 'users.statistics.matchCategory';
+    return 'users.statistics.matchNew';
+  }
+
+  reactionLabel(reaction: string | null): string {
+    if (!reaction) return this.i18n.t('users.statistics.noReaction');
+    return this.i18n.t(reaction.toLowerCase() === 'like' ? 'users.statistics.like' : 'users.statistics.dislike');
   }
 
   submitAction(): void {
@@ -240,6 +357,19 @@ export class AdminUsersPage implements OnInit {
     };
     const key = keys[action];
     return key ? this.i18n.t(key) : action;
+  }
+
+  private toDateInput(daysFromToday: number): string {
+    const date = new Date();
+    date.setDate(date.getDate() + daysFromToday);
+    return this.toDateInputFor(date);
+  }
+
+  private toDateInputFor(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private showSuccess(message: string): void {

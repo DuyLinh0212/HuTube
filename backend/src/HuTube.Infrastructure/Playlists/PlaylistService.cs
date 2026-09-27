@@ -12,6 +12,7 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
     public async Task<IReadOnlyList<PlaylistSummaryResponse>> GetMineAsync(Guid userId, CancellationToken ct = default) =>
         await db.Playlists.AsNoTracking().Where(x => x.UserId == userId)
             .OrderByDescending(x => x.UpdatedAt)
+            .Take(200)
             .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
                 db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
             .ToListAsync(ct);
@@ -27,6 +28,7 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         return await db.Playlists.AsNoTracking()
             .Where(x => x.UserId == ownerUserId && x.Visibility == "public")
             .OrderByDescending(x => x.UpdatedAt)
+            .Take(200)
             .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
                 db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
             .ToListAsync(ct);
@@ -39,6 +41,7 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         return await db.Playlists.AsNoTracking()
             .Where(x => x.UserId == userId)
             .OrderByDescending(x => x.UpdatedAt)
+            .Take(200)
             .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
                 db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
             .ToListAsync(ct);
@@ -56,7 +59,8 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
                           from video in videos.DefaultIfEmpty()
                           where item.PlaylistId == playlistId
                           orderby item.Position
-                          select new { Item = item, Video = video }).ToListAsync(ct);
+                          select new { Item = item, Video = video }).Take(1000)
+                          .ToListAsync(ct);
         var items = new List<PlaylistItemResponse>(rows.Count);
         foreach (var row in rows)
         {

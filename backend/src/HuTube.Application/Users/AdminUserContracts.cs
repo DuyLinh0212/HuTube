@@ -65,3 +65,45 @@ public sealed record AdminUserDetailResponse(
 public sealed record AdminUserActionRequest(string Reason, bool Notify = true);
 
 public sealed record UpdateAdminUserRoleRequest(string RoleCode, string Reason);
+
+public sealed record AdminUserStatisticsSummary(
+    long TotalWatchSeconds,
+    int VideosWatched,
+    decimal CompletionRate,
+    int Likes,
+    int Dislikes,
+    int Comments,
+    decimal? AverageRating,
+    int Ratings);
+
+public sealed record AdminUserCategoryStatistic(
+    Guid? CategoryId,
+    string? CategoryName,
+    int InteractionCount,
+    decimal Percentage);
+
+public sealed record AdminUserRecommendationComparison(
+    Guid VideoId,
+    string Title,
+    string? ThumbnailUrl,
+    string? CategoryName,
+    int Rank,
+    decimal Score,
+    string Source,
+    string ModelVersion,
+    bool Watched,
+    decimal? LatestProgress,
+    string? Reaction,
+    short? Rating,
+    int CategoryInteractionCount,
+    decimal CategoryInteractionPercentage);
+
+public sealed record AdminUserStatisticsResponse(
+    Guid UserId,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    AdminUserStatisticsSummary Summary,
+    IReadOnlyList<AdminUserCategoryStatistic> Categories,
+    IReadOnlyList<AdminUserRecommendationComparison> Recommendations,
+    bool RecommendationsAvailable,
+    string? RecommendationModelVersion);

@@ -27,98 +27,136 @@ public sealed class ContentService(
     VideoRenditionProcessingQueue renditionQueue,
     IRecommendationClient recommendationClient) : IContentService
 {
+    private sealed record ViewerHistoryRow(int WatchDuration, decimal Progress);
+    private sealed class ExploreCategoryRow
+    {
+        public Guid VideoId { get; init; }
+        public Guid ChannelId { get; init; }
+        public string ChannelName { get; init; } = "";
+        public string ChannelHandle { get; init; } = "";
+        public Guid? CategoryId { get; init; }
+        public string Title { get; init; } = "";
+        public string? ThumbnailUrl { get; init; }
+        public int Duration { get; init; }
+        public string Visibility { get; init; } = "public";
+        public DateTimeOffset? PublishedAt { get; init; }
+        public long Views { get; init; }
+        public int CategoryRank { get; init; }
+        public int GlobalRank { get; init; }
+    }
+    private sealed class FeaturedChannelRow
+    {
+        public Guid ChannelId { get; init; }
+        public string Name { get; init; } = "";
+        public string Handle { get; init; } = "";
+        public string? AvatarUrl { get; init; }
+        public long SubscriberCount { get; init; }
+    }
     private static readonly TimeSpan ViewSessionCooldown = TimeSpan.FromMinutes(30);
     private DateTimeOffset Now => clock.GetUtcNow();
 
     public async Task<ExploreHubResponse> GetExploreHubAsync(CancellationToken ct = default)
     {
-        // 1. Categories & Top 3 Videos per Category
+        // Keep both category top-3 and global top-12 in one SQL window query.
+        // PostgreSQL executes ROW_NUMBER() OVER (PARTITION BY category_id ...)
+        // server-side; EF Core cannot translate the equivalent LINQ shape.
+        var exploreRows = await db.Database.SqlQuery<ExploreCategoryRow>($"""
+            WITH view_counts AS (
+                SELECT video_id, COUNT(*)::bigint AS views
+                FROM public.viewing_histories
+                GROUP BY video_id
+            ), public_rows AS (
+                SELECT
+                    video.video_id AS "VideoId",
+                    video.channel_id AS "ChannelId",
+                    channel.name AS "ChannelName",
+                    channel.handle AS "ChannelHandle",
+                    video.category_id AS "CategoryId",
+                    video.title AS "Title",
+                    video.thumbnail_url AS "ThumbnailUrl",
+                    video.duration AS "Duration",
+                    video.visibility AS "Visibility",
+                    video.published_at AS "PublishedAt",
+                    COALESCE(view_counts.views, 0)::bigint AS "Views"
+                FROM public.videos AS video
+                INNER JOIN public.channels AS channel ON channel.channel_id = video.channel_id
+                LEFT JOIN view_counts ON view_counts.video_id = video.video_id
+                WHERE video.status = 'published'
+                  AND video.moderation_status = 'approved'
+                  AND video.visibility = 'public'
+            ), ranked AS (
+                SELECT public_rows.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY "CategoryId"
+                           ORDER BY "Views" DESC, "PublishedAt" DESC NULLS LAST, "VideoId"
+                       )::int AS "CategoryRank",
+                       ROW_NUMBER() OVER (
+                           ORDER BY "Views" DESC, "PublishedAt" DESC NULLS LAST, "VideoId"
+                       )::int AS "GlobalRank"
+                FROM public_rows
+            )
+            SELECT "VideoId", "ChannelId", "ChannelName", "ChannelHandle", "CategoryId",
+                   "Title", "ThumbnailUrl", "Duration", "Visibility", "PublishedAt", "Views",
+                   "CategoryRank", "GlobalRank"
+            FROM ranked
+            WHERE ("CategoryId" IS NOT NULL AND "CategoryRank" <= 3) OR "GlobalRank" <= 12
+            """).ToListAsync(ct);
+        var categoryRows = exploreRows.Where(row => row.CategoryId.HasValue && row.CategoryRank <= 3).ToList();
+        var exploreUrls = await ResolveReadUrlsAsync(categoryRows.Select(row => row.ThumbnailUrl), ct);
+        var categoryIds = categoryRows.Select(row => row.CategoryId!.Value).Distinct().ToArray();
         var categories = await db.Categories.AsNoTracking()
-            .Where(x => x.Status == "active")
-            .OrderBy(x => x.Name)
+            .Where(category => categoryIds.Contains(category.CategoryId) && category.Status == "active")
+            .ToDictionaryAsync(category => category.CategoryId, ct);
+        var rankings = categoryRows
+            .Where(row => categories.ContainsKey(row.CategoryId!.Value))
+            .GroupBy(row => row.CategoryId!.Value)
+            .OrderBy(group => categories[group.Key].Name)
             .Take(8)
-            .ToListAsync(ct);
+            .Select(group => new CategoryRankingGroup(group.Key, categories[group.Key].Name, categories[group.Key].Slug,
+                group.Select(row => new VideoCardResponse(row.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
+                    row.Title, row.ThumbnailUrl == null ? null : exploreUrls.GetValueOrDefault(row.ThumbnailUrl),
+                    row.Duration, row.Visibility, row.PublishedAt, row.Views)).ToList()))
+            .ToList();
 
-        var rankings = new List<CategoryRankingGroup>();
-        foreach (var cat in categories)
-        {
-            var catVideosQuery = from video in db.Videos.AsNoTracking()
-                                 join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                                 where video.CategoryId == cat.CategoryId && video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public"
-                                 orderby db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId) descending, video.PublishedAt descending
-                                 select new
-                                 {
-                                     video.VideoId,
-                                     video.ChannelId,
-                                     ChannelName = channel.Name,
-                                     ChannelHandle = channel.Handle,
-                                     video.Title,
-                                     video.ThumbnailUrl,
-                                     video.Duration,
-                                     video.Visibility,
-                                     video.PublishedAt,
-                                     Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId)
-                                 };
+        // Use one global top-12 result for both the ranking block and trending.
+        var topRows = exploreRows.Where(row => row.GlobalRank <= 12)
+            .OrderBy(row => row.GlobalRank).ToList();
+        foreach (var path in topRows.Select(row => row.ThumbnailUrl).Where(path => path != null && !exploreUrls.ContainsKey(path!)))
+            exploreUrls[path!] = await ReadUrlAsync(path!, ct);
+        var topCards = topRows.Select(row => new VideoCardResponse(row.VideoId, row.ChannelId, row.ChannelName,
+            row.ChannelHandle, row.Title, row.ThumbnailUrl == null ? null : exploreUrls.GetValueOrDefault(row.ThumbnailUrl),
+            row.Duration, row.Visibility, row.PublishedAt, row.Views)).ToList();
 
-            var catPageRows = await catVideosQuery.Take(3).ToListAsync(ct);
-            var videoCards = new List<VideoCardResponse>();
-            foreach (var r in catPageRows)
-            {
-                videoCards.Add(new(r.VideoId, r.ChannelId, r.ChannelName, r.ChannelHandle,
-                    r.Title, r.ThumbnailUrl == null ? null : await ReadUrlAsync(r.ThumbnailUrl, ct),
-                    r.Duration, r.Visibility, r.PublishedAt, r.Views));
-            }
-
-            if (videoCards.Count > 0)
-            {
-                rankings.Add(new(cat.CategoryId, cat.Name, cat.Slug, videoCards));
-            }
-        }
-
-        // The aggregate BXH needs its own global ranking.  Deriving it from
-        // the per-category top-three lists can omit videos that rank below a
-        // category leader, so query the published catalogue directly.
-        var topRankingRows = await (from video in db.Videos.AsNoTracking()
-                                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                                    where video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public"
-                                    orderby db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId) descending, video.PublishedAt descending
-                                    select new
-                                    {
-                                        video.VideoId,
-                                        video.ChannelId,
-                                        ChannelName = channel.Name,
-                                        ChannelHandle = channel.Handle,
-                                        video.Title,
-                                        video.ThumbnailUrl,
-                                        video.Duration,
-                                        video.Visibility,
-                                        video.PublishedAt,
-                                        Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId)
-                                    }).Take(12).ToListAsync(ct);
-
-        var topRankingCards = new List<VideoCardResponse>();
-        foreach (var r in topRankingRows)
-        {
-            topRankingCards.Add(new(r.VideoId, r.ChannelId, r.ChannelName, r.ChannelHandle,
-                r.Title, r.ThumbnailUrl == null ? null : await ReadUrlAsync(r.ThumbnailUrl, ct),
-                r.Duration, r.Visibility, r.PublishedAt, r.Views));
-        }
-
-        // 2. Featured Creators
-        var topChannels = await (from c in db.Channels.AsNoTracking()
-                                 where c.Status == "active"
-                                 let subCount = db.Subscriptions.LongCount(s => s.ChannelId == c.ChannelId && s.Status == "active")
-                                 let vidCount = db.Videos.LongCount(v => v.ChannelId == c.ChannelId && v.Status == "published" && v.ModerationStatus == "approved")
-                                 where vidCount > 0 || subCount > 0
-                                 orderby subCount descending, vidCount descending, c.CreatedAt descending
-                                 select new
-                                 {
-                                     c.ChannelId,
-                                     c.Name,
-                                     c.Handle,
-                                     c.AvatarUrl,
-                                     SubscriberCount = subCount
-                                 }).Take(5).ToListAsync(ct);
+        // Featured creators use the same pre-aggregated counts without relying on
+        // an EF left-join null conditional in ORDER BY/WHERE (unsupported by the
+        // provider version used by this project).
+        var topChannels = await db.Database.SqlQuery<FeaturedChannelRow>($"""
+            WITH subscriber_counts AS (
+                SELECT channel_id, COUNT(*)::bigint AS count
+                FROM public.subscriptions
+                WHERE status = 'active'
+                GROUP BY channel_id
+            ), video_counts AS (
+                SELECT channel_id, COUNT(*)::bigint AS count
+                FROM public.videos
+                WHERE status = 'published' AND moderation_status = 'approved'
+                GROUP BY channel_id
+            )
+            SELECT channel.channel_id AS "ChannelId",
+                   channel.name AS "Name",
+                   channel.handle AS "Handle",
+                   channel.avatar_url AS "AvatarUrl",
+                   COALESCE(subscriber_counts.count, 0)::bigint AS "SubscriberCount"
+            FROM public.channels AS channel
+            LEFT JOIN subscriber_counts ON subscriber_counts.channel_id = channel.channel_id
+            LEFT JOIN video_counts ON video_counts.channel_id = channel.channel_id
+            WHERE channel.status = 'active'
+              AND (COALESCE(subscriber_counts.count, 0) > 0 OR COALESCE(video_counts.count, 0) > 0)
+            ORDER BY COALESCE(subscriber_counts.count, 0) DESC,
+                     COALESCE(video_counts.count, 0) DESC,
+                     channel.created_at DESC
+            LIMIT 5
+            """).ToListAsync(ct);
 
         var creators = new List<FeaturedCreatorResponse>();
         foreach (var ch in topChannels)
@@ -127,34 +165,8 @@ public sealed class ContentService(
             creators.Add(new(ch.ChannelId, ch.Name, ch.Handle, avatar, ch.SubscriberCount, true));
         }
 
-        // 3. Trending Videos
-        var trendingRows = await (from video in db.Videos.AsNoTracking()
-                                  join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                                  where video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public"
-                                  orderby db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId) descending, video.PublishedAt descending
-                                  select new
-                                  {
-                                      video.VideoId,
-                                      video.ChannelId,
-                                      ChannelName = channel.Name,
-                                      ChannelHandle = channel.Handle,
-                                      video.Title,
-                                      video.ThumbnailUrl,
-                                      video.Duration,
-                                      video.Visibility,
-                                      video.PublishedAt,
-                                      Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId)
-                                  }).Take(10).ToListAsync(ct);
-
-        var trendingCards = new List<VideoCardResponse>();
-        foreach (var r in trendingRows)
-        {
-            trendingCards.Add(new(r.VideoId, r.ChannelId, r.ChannelName, r.ChannelHandle,
-                r.Title, r.ThumbnailUrl == null ? null : await ReadUrlAsync(r.ThumbnailUrl, ct),
-                r.Duration, r.Visibility, r.PublishedAt, r.Views));
-        }
-
-        return new ExploreHubResponse(rankings, creators, trendingCards, topRankingCards);
+        var trendingCards = topCards.Take(10).ToList();
+        return new ExploreHubResponse(rankings, creators, trendingCards, topCards);
     }
 
     public async Task<IReadOnlyList<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default) =>
@@ -177,7 +189,10 @@ public sealed class ContentService(
         var hideViewed = currentUserId.HasValue && string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase);
         var viewedIds = hideViewed
             ? await db.ViewingHistories.AsNoTracking().Where(x => x.UserId == currentUserId!.Value)
-                .Select(x => x.VideoId).Distinct().ToListAsync(ct)
+                .GroupBy(x => x.VideoId)
+                .Select(group => new { VideoId = group.Key, LastViewedAt = group.Max(x => x.ViewedAt) })
+                .OrderByDescending(x => x.LastViewedAt).Take(5000)
+                .Select(x => x.VideoId).ToListAsync(ct)
             : [];
 
         // Use the model across every home/recommended page, with live exclusions.
@@ -193,9 +208,16 @@ public sealed class ContentService(
                 if (recommended != null && recommended.Count > 0)
                 {
                     var recIds = recommended.Select(r => r.VideoId).Where(id => !viewedIds.Contains(id)).ToList();
+                    var recViewCounts = db.ViewingHistories.AsNoTracking()
+                        .Where(history => recIds.Contains(history.VideoId))
+                        .GroupBy(history => history.VideoId)
+                        .Select(group => new { VideoId = group.Key, Views = group.LongCount() });
                     var recVideos = await (from video in db.Videos.AsNoTracking()
                                            join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                                           join views in recViewCounts on video.VideoId equals views.VideoId into viewRows
+                                           from views in viewRows.DefaultIfEmpty()
                                            where recIds.Contains(video.VideoId)
+                                                 && !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == video.VideoId)
                                                  && video.Status == "published"
                                                  && video.ModerationStatus == "approved"
                                                  && video.Visibility == "public"
@@ -210,7 +232,7 @@ public sealed class ContentService(
                                                video.Duration,
                                                video.Visibility,
                                                video.PublishedAt,
-                                               Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId)
+                                               Views = (long?)views.Views
                                            }).ToListAsync(ct);
 
                     // Sắp xếp các video theo đúng thứ tự điểm ranking mà Model đề xuất
@@ -228,27 +250,34 @@ public sealed class ContentService(
                             var existingIds = orderedVideos.Select(v => v!.VideoId).ToHashSet();
                             var fallbackCount = pageSize - pageVideos.Count;
                             var fallbackSkip = (int)Math.Min(Math.Max(0L, (long)(page - 1) * pageSize - orderedVideos.Count), int.MaxValue);
-                            var fallbackVideos = await (from video in db.Videos.AsNoTracking()
-                                                        join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                                                        where !existingIds.Contains(video.VideoId)
-                                                              && !viewedIds.Contains(video.VideoId)
-                                                              && video.Status == "published"
-                                                              && video.ModerationStatus == "approved"
-                                                              && video.Visibility == "public"
-                                                        orderby db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId) descending, video.PublishedAt descending
-                                                        select new
-                                                        {
-                                                            video.VideoId,
-                                                            video.ChannelId,
-                                                            ChannelName = channel.Name,
-                                                            ChannelHandle = channel.Handle,
-                                                            video.Title,
-                                                            video.ThumbnailUrl,
-                                                            video.Duration,
-                                                            video.Visibility,
-                                                            video.PublishedAt,
-                                                            Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId)
-                                                        }).Skip(fallbackSkip).Take(fallbackCount).ToListAsync(ct);
+                            var fallbackViewCounts = db.ViewingHistories.AsNoTracking()
+                                .GroupBy(history => history.VideoId)
+                                .Select(group => new { VideoId = group.Key, Views = group.LongCount() });
+                            var fallbackQuery = from video in db.Videos.AsNoTracking()
+                                                join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                                                join views in fallbackViewCounts on video.VideoId equals views.VideoId into viewRows
+                                                from views in viewRows.DefaultIfEmpty()
+                                                where !existingIds.Contains(video.VideoId)
+                                                      && !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == video.VideoId)
+                                                      && video.Status == "published"
+                                                      && video.ModerationStatus == "approved"
+                                                      && video.Visibility == "public"
+                                                select new
+                                                {
+                                                    video.VideoId,
+                                                    video.ChannelId,
+                                                    ChannelName = channel.Name,
+                                                    ChannelHandle = channel.Handle,
+                                                    video.Title,
+                                                    video.ThumbnailUrl,
+                                                    video.Duration,
+                                                    video.Visibility,
+                                                    video.PublishedAt,
+                                                    Views = (long?)views.Views
+                                                };
+                            var fallbackVideos = await fallbackQuery
+                                .OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt)
+                                .Skip(fallbackSkip).Take(fallbackCount).ToListAsync(ct);
 
                             pageVideos.AddRange(fallbackVideos);
                         }
@@ -258,10 +287,13 @@ public sealed class ContentService(
                         {
                             cardsList.Add(new(row!.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
                                 row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct),
-                                row.Duration, row.Visibility, row.PublishedAt, row.Views));
+                                row.Duration, row.Visibility, row.PublishedAt, row.Views ?? 0L));
                         }
 
-                        var totalCount = await db.Videos.AsNoTracking().CountAsync(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public" && !viewedIds.Contains(x.VideoId), ct);
+                        var totalCount = await db.Videos.AsNoTracking()
+                            .Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public")
+                            .Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId))
+                            .CountAsync(ct);
                         return new(cardsList, page, pageSize, totalCount);
                     }
                 }
@@ -273,13 +305,14 @@ public sealed class ContentService(
         }
 
         var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
-        if (hideViewed) query = query.Where(x => !viewedIds.Contains(x.VideoId));
+        if (hideViewed)
+            query = query.Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId));
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId);
         if (!string.IsNullOrWhiteSpace(tag))
         {
-            var normalizedTag = tag.Trim().ToLowerInvariant();
+            var normalizedTag = tag.Trim();
             query = query.Where(x => db.VideoTags.Any(videoTag => videoTag.VideoId == x.VideoId &&
-                db.Tags.Any(tagRow => tagRow.TagId == videoTag.TagId && tagRow.Name.ToLower() == normalizedTag)));
+                db.Tags.Any(tagRow => tagRow.TagId == videoTag.TagId && EF.Functions.ILike(tagRow.Name, normalizedTag))));
         }
         var filteredTotal = await query.CountAsync(ct);
         var hasColdStartFilter = categoryId.HasValue || !string.IsNullOrWhiteSpace(tag);
@@ -289,37 +322,42 @@ public sealed class ContentService(
         {
             // Guest cold-start falls back from Category/Tag to the public newest/popular catalogue.
             query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
-            if (hideViewed) query = query.Where(x => !viewedIds.Contains(x.VideoId));
+            if (hideViewed)
+                query = query.Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId));
             total = await query.CountAsync(ct);
         }
+        var feedViewCounts = db.ViewingHistories.AsNoTracking().GroupBy(x => x.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
         var rows = from video in query
                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                   join view in feedViewCounts on video.VideoId equals view.VideoId into viewRows
+                   from view in viewRows.DefaultIfEmpty()
                    select new { video.VideoId, video.ChannelId, ChannelName = channel.Name, ChannelHandle = channel.Handle,
                        video.Title, video.ThumbnailUrl, video.Duration, video.Visibility, video.PublishedAt,
-                       Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId) };
+                       Views = (long?)view.Count };
         rows = (feed.ToLowerInvariant(), sort?.ToLowerInvariant()) switch
         {
-            ("home", _) => rows.OrderByDescending(x => x.Views).ThenByDescending(x => x.PublishedAt),
-            (_, "popular") => rows.OrderByDescending(x => x.Views).ThenByDescending(x => x.PublishedAt),
-            (_, "trending") => rows.OrderByDescending(x => x.Views).ThenByDescending(x => x.PublishedAt),
+            ("home", _) => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
+            (_, "popular") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
+            (_, "trending") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
             _ => rows.OrderByDescending(x => x.PublishedAt)
         };
         var pageRows = await rows.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         var cards = new List<VideoCardResponse>();
         foreach (var row in pageRows) cards.Add(new(row.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
-            row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration, row.Visibility, row.PublishedAt, row.Views));
+            row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration, row.Visibility, row.PublishedAt, row.Views ?? 0L));
         return new(cards, page, pageSize, total);
     }
 
     public async Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)
     {
         var (p, size) = Page(page, pageSize);
-        var subscribedChannelIds = await db.Subscriptions.AsNoTracking()
+        var subscribedChannelIds = db.Subscriptions.AsNoTracking()
             .Where(s => s.UserId == userId && s.Status == "active")
             .Select(s => s.ChannelId)
-            .ToListAsync(ct);
+            .Distinct();
 
-        if (subscribedChannelIds.Count == 0)
+        if (!await subscribedChannelIds.AnyAsync(ct))
         {
             return new([], p, size, 0);
         }
@@ -328,8 +366,12 @@ public sealed class ContentService(
             .Where(x => subscribedChannelIds.Contains(x.ChannelId) && x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
 
         var total = await query.CountAsync(ct);
+        var subscriptionViewCounts = db.ViewingHistories.AsNoTracking().GroupBy(history => history.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
         var rows = from video in query
                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                   join view in subscriptionViewCounts on video.VideoId equals view.VideoId into viewRows
+                   from view in viewRows.DefaultIfEmpty()
                    orderby video.PublishedAt descending
                    select new
                    {
@@ -342,7 +384,7 @@ public sealed class ContentService(
                        video.Duration,
                        video.Visibility,
                        video.PublishedAt,
-                       Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId)
+                        Views = (long?)view.Count
                    };
 
         var pageRows = await rows.Skip((p - 1) * size).Take(size).ToListAsync(ct);
@@ -350,7 +392,7 @@ public sealed class ContentService(
         foreach (var row in pageRows)
         {
             cards.Add(new(row.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
-                row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration, row.Visibility, row.PublishedAt, row.Views));
+                row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration, row.Visibility, row.PublishedAt, row.Views ?? 0L));
         }
         return new(cards, p, size, total);
     }
@@ -360,14 +402,14 @@ public sealed class ContentService(
         var (page, pageSize) = Page(search.Page, search.PageSize);
         var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
 
-        var term = search.Query?.Trim().ToLowerInvariant();
+        var term = search.Query?.Trim();
         if (!string.IsNullOrWhiteSpace(term))
         {
             query = query.Where(x =>
-                x.Title.ToLower().Contains(term) ||
-                (x.Description != null && x.Description.ToLower().Contains(term)) ||
-                db.Channels.Any(c => c.ChannelId == x.ChannelId && c.Name.ToLower().Contains(term)) ||
-                db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && t.Name.ToLower().Contains(term)))
+                EF.Functions.ILike(x.Title, $"%{term}%") ||
+                (x.Description != null && EF.Functions.ILike(x.Description, $"%{term}%")) ||
+                db.Channels.Any(c => c.ChannelId == x.ChannelId && EF.Functions.ILike(c.Name, $"%{term}%")) ||
+                db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && EF.Functions.ILike(t.Name, $"%{term}%")))
             );
         }
 
@@ -378,9 +420,9 @@ public sealed class ContentService(
 
         if (!string.IsNullOrWhiteSpace(search.Tag))
         {
-            var normalizedTag = search.Tag.Trim().TrimStart('#').ToLowerInvariant();
+            var normalizedTag = search.Tag.Trim().TrimStart('#');
             query = query.Where(x => db.VideoTags.Any(vt => vt.VideoId == x.VideoId &&
-                db.Tags.Any(t => t.TagId == vt.TagId && t.Name.ToLower() == normalizedTag)));
+                db.Tags.Any(t => t.TagId == vt.TagId && EF.Functions.ILike(t.Name, normalizedTag))));
         }
 
         if (search.ChannelId.HasValue)
@@ -419,8 +461,20 @@ public sealed class ContentService(
 
         var total = await query.CountAsync(ct);
 
+        var viewCounts = db.ViewingHistories.AsNoTracking().GroupBy(x => x.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
+        var likeCounts = db.VideoReactions.AsNoTracking().Where(x => x.Type == "like").GroupBy(x => x.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
+        var commentCounts = db.Comments.AsNoTracking().Where(x => x.Status == "visible").GroupBy(x => x.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
         var rows = from video in query
                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                   join view in viewCounts on video.VideoId equals view.VideoId into viewRows
+                   from view in viewRows.DefaultIfEmpty()
+                   join like in likeCounts on video.VideoId equals like.VideoId into likeRows
+                   from like in likeRows.DefaultIfEmpty()
+                   join comment in commentCounts on video.VideoId equals comment.VideoId into commentRows
+                   from comment in commentRows.DefaultIfEmpty()
                    select new
                    {
                        video.VideoId,
@@ -432,23 +486,23 @@ public sealed class ContentService(
                        video.Duration,
                        video.Visibility,
                        video.PublishedAt,
-                       Views = db.ViewingHistories.LongCount(h => h.VideoId == video.VideoId),
-                       Likes = db.VideoReactions.LongCount(r => r.VideoId == video.VideoId && r.Type == "like"),
-                       Comments = db.Comments.LongCount(c => c.VideoId == video.VideoId && c.Status == "visible")
+                       Views = (long?)view.Count,
+                       Likes = (long?)like.Count,
+                       Comments = (long?)comment.Count
                    };
 
         var sort = search.Sort?.Trim().ToLowerInvariant() ?? "relevance";
         rows = sort switch
         {
             "newest" => rows.OrderByDescending(x => x.PublishedAt),
-            "views" or "popular" => rows.OrderByDescending(x => x.Views).ThenByDescending(x => x.PublishedAt),
-            "engagement" => rows.OrderByDescending(x => x.Likes + x.Comments).ThenByDescending(x => x.Views),
+            "views" or "popular" => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
+            "engagement" => rows.OrderByDescending(x => (x.Likes ?? 0L) + (x.Comments ?? 0L)).ThenByDescending(x => x.Views ?? 0L),
             _ when !string.IsNullOrWhiteSpace(term) =>
-                rows.OrderByDescending(x => x.Title.ToLower().StartsWith(term))
-                    .ThenByDescending(x => x.Title.ToLower().Contains(term))
-                    .ThenByDescending(x => x.Views)
+                rows.OrderByDescending(x => EF.Functions.ILike(x.Title, $"{term}%"))
+                    .ThenByDescending(x => EF.Functions.ILike(x.Title, $"%{term}%"))
+                    .ThenByDescending(x => x.Views ?? 0L)
                     .ThenByDescending(x => x.PublishedAt),
-            _ => rows.OrderByDescending(x => x.Views).ThenByDescending(x => x.PublishedAt)
+            _ => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt)
         };
 
         var pageRows = await rows.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
@@ -465,15 +519,18 @@ public sealed class ContentService(
                 row.Duration,
                 row.Visibility,
                 row.PublishedAt,
-                row.Views));
+                row.Views ?? 0L));
         }
 
         return new(cards, page, pageSize, total);
     }
 
-    public async Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize,
+        DateTimeOffset? before = null, CancellationToken ct = default)
     {
         (page, pageSize) = Page(page, pageSize);
+        var windowEnd = before.HasValue && before.Value < Now ? before.Value : Now;
+        var windowStart = windowEnd.AddDays(-30);
         // Keep only the newest row for each video. A correlated NOT EXISTS is
         // translated reliably by PostgreSQL, unlike joining a GroupBy/First
         // projection to the video query.
@@ -482,8 +539,9 @@ public sealed class ContentService(
             .Where(history => !db.ViewingHistories.Any(other =>
                 other.UserId == userId &&
                 other.VideoId == history.VideoId &&
-                (other.ViewedAt > history.ViewedAt ||
-                 (other.ViewedAt == history.ViewedAt && other.ViewingHistoryId > history.ViewingHistoryId))));
+                  (other.ViewedAt > history.ViewedAt ||
+                  (other.ViewedAt == history.ViewedAt && other.ViewingHistoryId > history.ViewingHistoryId))));
+        latest = latest.Where(history => history.ViewedAt >= windowStart && history.ViewedAt < windowEnd);
         var query = from history in latest
                     join video in LibraryVisibleVideos(userId) on history.VideoId equals video.VideoId
                     join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
@@ -524,10 +582,12 @@ public sealed class ContentService(
 
         var total = await query.CountAsync(ct);
         var rows = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var details = await ToResponsesAsync(rows.Select(row => row.Video).ToList(), userId, ct);
+        var detailById = details.ToDictionary(detail => detail.VideoId);
         var items = new List<LibraryVideoResponse>(rows.Count);
         foreach (var row in rows)
         {
-            var detail = await ToResponseAsync(row.Video, userId, ct);
+            var detail = detailById[row.Video.VideoId];
             var state = detail.ViewerState;
             items.Add(ToLibraryResponse(detail, state?.ResumeAtSeconds ?? 0, state?.Progress ?? 0, row.UpdatedAt));
         }
@@ -788,17 +848,16 @@ public sealed class ContentService(
         var query = db.Videos.AsNoTracking().Where(x => x.ChannelId == channelId && x.Status != "deleted");
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status);
         if (!string.IsNullOrWhiteSpace(visibility)) query = query.Where(x => x.Visibility == visibility);
-        if (!string.IsNullOrWhiteSpace(search)) { var term = search.Trim().ToLower(); query = query.Where(x => x.Title.ToLower().Contains(term)); }
+        if (!string.IsNullOrWhiteSpace(search)) { var term = search.Trim(); query = query.Where(x => EF.Functions.ILike(x.Title, $"%{term}%")); }
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId);
         if (!string.IsNullOrWhiteSpace(tag))
         {
-            var normalizedTag = tag.Trim().TrimStart('#').ToLower();
-            query = query.Where(x => db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && t.Name.ToLower() == normalizedTag)));
+            var normalizedTag = tag.Trim().TrimStart('#');
+            query = query.Where(x => db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && EF.Functions.ILike(t.Name, normalizedTag))));
         }
         var total = await query.CountAsync(ct);
         var videos = await query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        var items = new List<VideoResponse>();
-        foreach (var video in videos) items.Add(await ToResponseAsync(video, actorId, ct));
+        var items = await ToResponsesAsync(videos, actorId, ct);
         return new(items, page, pageSize, total);
     }
 
@@ -1098,7 +1157,10 @@ public sealed class ContentService(
             await PublishInteractionNotificationAsync(ownerId, userId, "video_dislike", "Video của bạn có lượt không thích mới",
                 video.Title, $"/watch/{videoId}", "video", videoId, ct);
         }
-        return new(normalizedReaction, await db.VideoReactions.LongCountAsync(x => x.VideoId == videoId && x.Type == "like", ct), await db.VideoReactions.LongCountAsync(x => x.VideoId == videoId && x.Type == "dislike", ct));
+        var reactionCounts = await db.VideoReactions.AsNoTracking().Where(x => x.VideoId == videoId)
+            .GroupBy(x => x.Type).Select(group => new { group.Key, Count = group.LongCount() })
+            .ToDictionaryAsync(row => row.Key, row => row.Count, ct);
+        return new(normalizedReaction, reactionCounts.GetValueOrDefault("like"), reactionCounts.GetValueOrDefault("dislike"));
     }
 
     public async Task<RatingResponse> SetRatingAsync(Guid userId, Guid videoId, int? score, CancellationToken ct = default)
@@ -1113,8 +1175,11 @@ public sealed class ContentService(
             item.Score = (short)score.Value; item.UpdatedAt = Now;
         }
         await db.SaveChangesAsync(ct);
-        var values = await db.VideoRatings.AsNoTracking().Where(x => x.VideoId == videoId).Select(x => (int)x.Score).ToListAsync(ct);
-        return new(score, values.Count == 0 ? null : Math.Round((decimal)values.Average(), 2), values.Count);
+        var aggregate = await db.VideoRatings.AsNoTracking().Where(x => x.VideoId == videoId)
+            .GroupBy(_ => 1)
+            .Select(group => new { Count = group.Count(), Average = group.Average(row => (double)row.Score) })
+            .SingleOrDefaultAsync(ct);
+        return new(score, aggregate == null ? null : Math.Round((decimal)aggregate.Average, 2), aggregate?.Count ?? 0);
     }
 
     public async Task<ShareResponse> ShareAsync(Guid userId, Guid videoId, string? method, CancellationToken ct = default)
@@ -1130,10 +1195,26 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(videoId, ct); await EnsureCanViewAsync(video, viewerId, ct); (page, pageSize) = Page(page, pageSize);
         var query = db.Comments.AsNoTracking().Where(x => x.VideoId == videoId && x.ParentCommentId == null && x.Status == "visible");
         var total = await query.CountAsync(ct);
-        var comments = await (sort.Equals("top", StringComparison.OrdinalIgnoreCase)
-            ? query.OrderByDescending(x => db.CommentReactions.Count(r => r.CommentId == x.CommentId && r.Type == "like")).ThenByDescending(x => x.CreatedAt)
-            : query.OrderByDescending(x => x.CreatedAt)).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        var items = new List<CommentResponse>(); foreach (var comment in comments) items.Add(await ToCommentAsync(comment, viewerId, ct));
+        List<Comment> comments;
+        if (sort.Equals("top", StringComparison.OrdinalIgnoreCase))
+        {
+            var likeCounts = db.CommentReactions.AsNoTracking().Where(reaction => reaction.Type == "like")
+                .GroupBy(reaction => reaction.CommentId)
+                .Select(group => new { CommentId = group.Key, Count = group.LongCount() });
+            comments = await (from comment in query
+                              join likes in likeCounts on comment.CommentId equals likes.CommentId into likeRows
+                              from likes in likeRows.DefaultIfEmpty()
+                              let likeCount = (long?)likes.Count
+                              orderby (likeCount ?? 0L) descending, comment.CreatedAt descending
+                              select comment)
+                .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        }
+        else
+        {
+            comments = await query.OrderByDescending(x => x.CreatedAt)
+                .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        }
+        var items = await ToCommentsAsync(comments, viewerId, ct);
         return new(items, page, pageSize, total);
     }
 
@@ -1143,7 +1224,7 @@ public sealed class ContentService(
         await EnsureCanViewAsync(video, viewerId, ct); (page, pageSize) = Page(page, pageSize);
         var query = db.Comments.AsNoTracking().Where(x => x.ParentCommentId == commentId && x.Status == "visible");
         var total = await query.CountAsync(ct); var replies = await query.OrderBy(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        var items = new List<CommentResponse>(); foreach (var reply in replies) items.Add(await ToCommentAsync(reply, viewerId, ct));
+        var items = await ToCommentsAsync(replies, viewerId, ct);
         return new(items, page, pageSize, total);
     }
 
@@ -1155,7 +1236,7 @@ public sealed class ContentService(
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.ToLowerInvariant());
         var total = await query.CountAsync(ct);
         var rows = await query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        var items = new List<CommentResponse>(); foreach (var row in rows) items.Add(await ToCommentAsync(row, actorId, ct));
+        var items = await ToCommentsAsync(rows, actorId, ct);
         return new(items, page, pageSize, total);
     }
 
@@ -1303,9 +1384,10 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(videoId, ct); await EnsureCanViewAsync(video, userId, ct);
         await EnsureDownloadAllowedAsync(userId, ct);
         if (string.IsNullOrWhiteSpace(quality)) throw Error(400, "INVALID_DOWNLOAD_QUALITY", "Vui lòng chọn chất lượng tải xuống.");
+        var normalizedQuality = quality.Trim().ToLowerInvariant();
         var maxHeight = await MaxDownloadHeightAsync(userId, ct);
         var selected = await db.VideoRenditions.AsNoTracking().SingleOrDefaultAsync(x => x.VideoId == videoId && x.Status == "ready"
-            && x.QualityLabel.ToLower() == quality.ToLower() && x.Height <= maxHeight, ct)
+            && x.QualityLabel == normalizedQuality && x.Height <= maxHeight, ct)
             ?? throw Error(403, "DOWNLOAD_QUALITY_DENIED", "Gói hiện tại không hỗ trợ chất lượng tải xuống này.");
         var item = await db.VideoDownloads.SingleOrDefaultAsync(x => x.UserId == userId && x.VideoId == videoId && x.QualityLabel == selected.QualityLabel, ct);
         if (item == null)
@@ -1319,7 +1401,8 @@ public sealed class ContentService(
     public async Task<IReadOnlyList<DownloadResponse>> GetDownloadsAsync(Guid userId, CancellationToken ct = default)
     {
         var rows = await (from item in db.VideoDownloads.AsNoTracking() join video in db.Videos.AsNoTracking() on item.VideoId equals video.VideoId
-                          where item.UserId == userId orderby item.CreatedAt descending select new { item, video.Title }).ToListAsync(ct);
+                          where item.UserId == userId orderby item.CreatedAt descending select new { item, video.Title })
+            .Take(200).ToListAsync(ct);
         var result = new List<DownloadResponse>();
         foreach (var row in rows) result.Add(new(row.item.VideoDownloadId, row.item.VideoId, row.Title, row.item.QualityLabel,
             await ReadUrlAsync(row.item.FileUrl, ct), row.item.FileSize, row.item.Status, row.item.CreatedAt));
@@ -1365,7 +1448,10 @@ public sealed class ContentService(
         var dislikes = await db.VideoReactions.LongCountAsync(x => x.VideoId == video.VideoId && x.Type == "dislike", ct);
         var views = await db.ViewingHistories.LongCountAsync(x => x.VideoId == video.VideoId, ct);
         var comments = await db.Comments.CountAsync(x => x.VideoId == video.VideoId && x.Status == "visible", ct);
-        var ratings = await db.VideoRatings.AsNoTracking().Where(x => x.VideoId == video.VideoId).Select(x => (int)x.Score).ToListAsync(ct);
+        var ratingAggregate = await db.VideoRatings.AsNoTracking().Where(x => x.VideoId == video.VideoId)
+            .GroupBy(_ => 1)
+            .Select(group => new { Count = group.Count(), Average = group.Average(row => (double)row.Score) })
+            .SingleOrDefaultAsync(ct);
         var shares = await db.ShareHistories.LongCountAsync(x => x.VideoId == video.VideoId, ct);
         VideoViewerStateResponse? state = null;
         if (viewerId.HasValue)
@@ -1378,8 +1464,106 @@ public sealed class ContentService(
         return new(video.VideoId, video.ChannelId, channel.Name, channel.Handle, video.CategoryId, video.Title, video.Description,
             await ReadUrlAsync(video.VideoUrl, ct), video.ThumbnailUrl == null ? null : await ReadUrlAsync(video.ThumbnailUrl, ct), video.Duration, video.FileSize, video.Visibility, video.Status, video.ModerationStatus,
             video.LanguageCode, video.AgeRestricted, video.PublishedAt, video.CreatedAt, tags, chapters,
-            new(views, likes, dislikes, comments, ratings.Count == 0 ? null : Math.Round((decimal)ratings.Average(), 2), ratings.Count, shares), state,
-            viewerId == channel.OwnerUserId ? video.ModerationReason : null, channel.WatermarkUrl);
+            new(views, likes, dislikes, comments, ratingAggregate == null ? null : Math.Round((decimal)ratingAggregate.Average, 2),
+                ratingAggregate?.Count ?? 0, shares), state,
+             viewerId == channel.OwnerUserId ? video.ModerationReason : null, channel.WatermarkUrl);
+    }
+
+    private async Task<IReadOnlyList<VideoResponse>> ToResponsesAsync(IReadOnlyList<Video> videos, Guid? viewerId, CancellationToken ct)
+    {
+        if (videos.Count == 0) return [];
+        var videoIds = videos.Select(video => video.VideoId).Distinct().ToArray();
+        var channelIds = videos.Select(video => video.ChannelId).Distinct().ToArray();
+        var channels = await db.Channels.AsNoTracking()
+            .Where(channel => channelIds.Contains(channel.ChannelId))
+            .ToDictionaryAsync(channel => channel.ChannelId, ct);
+        var tagRows = await (from videoTag in db.VideoTags.AsNoTracking()
+                             join tag in db.Tags.AsNoTracking() on videoTag.TagId equals tag.TagId
+                             where videoIds.Contains(videoTag.VideoId)
+                             select new { videoTag.VideoId, TagName = tag.Name }).ToListAsync(ct);
+        var tagsByVideo = tagRows.GroupBy(row => row.VideoId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)group.Select(row => row.TagName).OrderBy(name => name).ToList());
+
+        var reactionRows = await db.VideoReactions.AsNoTracking().Where(row => videoIds.Contains(row.VideoId))
+            .GroupBy(row => new { row.VideoId, row.Type })
+            .Select(group => new { group.Key.VideoId, group.Key.Type, Count = group.LongCount() }).ToListAsync(ct);
+        var reactionStats = reactionRows.GroupBy(row => row.VideoId)
+            .ToDictionary(group => group.Key, group => (
+                Likes: group.Where(row => row.Type == "like").Select(row => row.Count).FirstOrDefault(),
+                Dislikes: group.Where(row => row.Type == "dislike").Select(row => row.Count).FirstOrDefault()));
+        var viewStats = await db.ViewingHistories.AsNoTracking().Where(row => videoIds.Contains(row.VideoId))
+            .GroupBy(row => row.VideoId).Select(group => new { VideoId = group.Key, Count = group.LongCount() })
+            .ToDictionaryAsync(row => row.VideoId, row => row.Count, ct);
+        var commentStats = await db.Comments.AsNoTracking().Where(row => videoIds.Contains(row.VideoId) && row.Status == "visible")
+            .GroupBy(row => row.VideoId).Select(group => new { VideoId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.VideoId, row => row.Count, ct);
+        var ratingRows = await db.VideoRatings.AsNoTracking().Where(row => videoIds.Contains(row.VideoId))
+            .GroupBy(row => row.VideoId)
+            .Select(group => new { VideoId = group.Key, Count = group.Count(), Average = group.Average(row => (double)row.Score) })
+            .ToDictionaryAsync(row => row.VideoId, row => (row.Count, Average: (decimal?)row.Average), ct);
+        var shareStats = await db.ShareHistories.AsNoTracking().Where(row => videoIds.Contains(row.VideoId))
+            .GroupBy(row => row.VideoId).Select(group => new { VideoId = group.Key, Count = group.LongCount() })
+            .ToDictionaryAsync(row => row.VideoId, row => row.Count, ct);
+
+        var viewerReactions = viewerId.HasValue
+            ? await db.VideoReactions.AsNoTracking().Where(row => row.UserId == viewerId && videoIds.Contains(row.VideoId))
+                .ToDictionaryAsync(row => row.VideoId, row => row.Type, ct)
+            : new Dictionary<Guid, string>();
+        var viewerRatings = viewerId.HasValue
+            ? await db.VideoRatings.AsNoTracking().Where(row => row.UserId == viewerId && videoIds.Contains(row.VideoId))
+                .ToDictionaryAsync(row => row.VideoId, row => (int?)row.Score, ct)
+            : new Dictionary<Guid, int?>();
+        Dictionary<Guid, ViewerHistoryRow> viewerHistory;
+        if (viewerId.HasValue)
+        {
+            var historyRows = await db.ViewingHistories.AsNoTracking()
+                .Where(row => row.UserId == viewerId && videoIds.Contains(row.VideoId))
+                .OrderByDescending(row => row.ViewedAt).ThenByDescending(row => row.ViewingHistoryId)
+                .Select(row => new { row.VideoId, row.WatchDuration, row.Progress })
+                .ToListAsync(ct);
+            viewerHistory = historyRows.GroupBy(row => row.VideoId)
+                .ToDictionary(group => group.Key, group => new ViewerHistoryRow(group.First().WatchDuration, group.First().Progress));
+        }
+        else
+        {
+            viewerHistory = [];
+        }
+
+        var urlPaths = videos.SelectMany(video => new[] { video.VideoUrl, video.ThumbnailUrl,
+            channels.GetValueOrDefault(video.ChannelId)?.WatermarkUrl });
+        var urls = await ResolveReadUrlsAsync(urlPaths, ct);
+        return videos.Select(video =>
+        {
+            var channel = channels[video.ChannelId];
+            reactionStats.TryGetValue(video.VideoId, out var reactions);
+            ratingRows.TryGetValue(video.VideoId, out var rating);
+            viewerHistory.TryGetValue(video.VideoId, out var history);
+            viewerReactions.TryGetValue(video.VideoId, out var myReaction);
+            viewerRatings.TryGetValue(video.VideoId, out var myRating);
+            var stats = new VideoStatsResponse(viewStats.GetValueOrDefault(video.VideoId), reactions.Likes,
+                reactions.Dislikes, commentStats.GetValueOrDefault(video.VideoId), rating.Average,
+                rating.Count, shareStats.GetValueOrDefault(video.VideoId));
+            var state = viewerId.HasValue
+                ? new VideoViewerStateResponse(myReaction, myRating, history?.WatchDuration ?? 0, history?.Progress ?? 0)
+                : null;
+            return new VideoResponse(video.VideoId, video.ChannelId, channel.Name, channel.Handle, video.CategoryId,
+                video.Title, video.Description, urls[video.VideoUrl], video.ThumbnailUrl == null ? null : urls.GetValueOrDefault(video.ThumbnailUrl),
+                video.Duration, video.FileSize, video.Visibility, video.Status, video.ModerationStatus, video.LanguageCode,
+                video.AgeRestricted, video.PublishedAt, video.CreatedAt, tagsByVideo.GetValueOrDefault(video.VideoId, []),
+                ReadChapters(video.Metadata), stats, state, viewerId == channel.OwnerUserId ? video.ModerationReason : null,
+                channel.WatermarkUrl == null ? null : urls.GetValueOrDefault(channel.WatermarkUrl));
+        }).ToList();
+    }
+
+    private async Task<Dictionary<string, string>> ResolveReadUrlsAsync(IEnumerable<string?> paths, CancellationToken ct)
+    {
+        var unique = paths.Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var resolved = await Task.WhenAll(unique.Select(async path =>
+            (Path: path, Url: await ReadUrlAsync(path, ct))));
+        return resolved.ToDictionary(item => item.Path, item => item.Url, StringComparer.Ordinal);
     }
 
     private async Task PublishInteractionNotificationAsync(Guid recipientId, Guid actorId, string type, string title,
@@ -1412,6 +1596,40 @@ public sealed class ContentService(
         var mine = viewerId.HasValue ? await db.CommentReactions.AsNoTracking().SingleOrDefaultAsync(x => x.CommentId == comment.CommentId && x.UserId == viewerId, ct) : null;
         var replies = await db.Comments.CountAsync(x => x.ParentCommentId == comment.CommentId && x.Status == "visible", ct);
         return new(comment.CommentId, comment.VideoId, comment.UserId, user.DisplayName, comment.ParentCommentId, comment.Content, comment.Status, comment.CreatedAt, comment.UpdatedAt, likes, dislikes, mine?.Type, replies);
+    }
+
+    private async Task<IReadOnlyList<CommentResponse>> ToCommentsAsync(IReadOnlyList<Comment> comments, Guid? viewerId, CancellationToken ct)
+    {
+        if (comments.Count == 0) return [];
+        var commentIds = comments.Select(comment => comment.CommentId).ToArray();
+        var userIds = comments.Select(comment => comment.UserId).Distinct().ToArray();
+        var users = await db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Where(user => userIds.Contains(user.UserId))
+            .ToDictionaryAsync(user => user.UserId, user => user.DisplayName, ct);
+        var reactionRows = await db.CommentReactions.AsNoTracking().Where(reaction => commentIds.Contains(reaction.CommentId))
+            .GroupBy(reaction => new { reaction.CommentId, reaction.Type })
+            .Select(group => new { group.Key.CommentId, group.Key.Type, Count = group.LongCount() }).ToListAsync(ct);
+        var reactionStats = reactionRows.GroupBy(row => row.CommentId).ToDictionary(group => group.Key, group => (
+            Likes: group.Where(row => row.Type == "like").Select(row => row.Count).FirstOrDefault(),
+            Dislikes: group.Where(row => row.Type == "dislike").Select(row => row.Count).FirstOrDefault()));
+        var replies = await db.Comments.AsNoTracking().Where(row => row.ParentCommentId.HasValue
+                && commentIds.Contains(row.ParentCommentId.Value) && row.Status == "visible")
+            .GroupBy(row => row.ParentCommentId!.Value)
+            .Select(group => new { CommentId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.CommentId, row => row.Count, ct);
+        var mine = viewerId.HasValue
+            ? await db.CommentReactions.AsNoTracking().Where(reaction => reaction.UserId == viewerId && commentIds.Contains(reaction.CommentId))
+                .ToDictionaryAsync(reaction => reaction.CommentId, reaction => reaction.Type, ct)
+            : new Dictionary<Guid, string>();
+        return comments.Select(comment =>
+        {
+            reactionStats.TryGetValue(comment.CommentId, out var stats);
+            mine.TryGetValue(comment.CommentId, out var myReaction);
+            return new CommentResponse(comment.CommentId, comment.VideoId, comment.UserId,
+                users.GetValueOrDefault(comment.UserId, "Người dùng"), comment.ParentCommentId, comment.Content,
+                comment.Status, comment.CreatedAt, comment.UpdatedAt, stats.Likes, stats.Dislikes, myReaction,
+                replies.GetValueOrDefault(comment.CommentId));
+        }).ToList();
     }
 
     private async Task<Video> RequireVideoAsync(Guid id, CancellationToken ct) => await db.Videos.SingleOrDefaultAsync(x => x.VideoId == id && x.Status != "deleted", ct) ?? throw Error(404, "VIDEO_NOT_FOUND", "Không tìm thấy video.");
@@ -1460,13 +1678,21 @@ public sealed class ContentService(
 
     private async Task ReplaceTagsAsync(Guid videoId, IReadOnlyList<string> names, CancellationToken ct)
     {
-        var old = await db.VideoTags.Where(x => x.VideoId == videoId).ToListAsync(ct); db.VideoTags.RemoveRange(old); await db.SaveChangesAsync(ct);
+        var old = await db.VideoTags.Where(x => x.VideoId == videoId).ToListAsync(ct);
+        db.VideoTags.RemoveRange(old);
+        if (names.Count == 0) return;
+        var existing = await db.Tags.AsNoTracking().Where(tag => names.Contains(tag.Name)).ToListAsync(ct);
+        var tagsByName = existing.ToDictionary(tag => tag.Name, StringComparer.OrdinalIgnoreCase);
+        var now = Now;
         foreach (var name in names)
         {
-            var lower = name.ToLowerInvariant();
-            var tag = await db.Tags.FirstOrDefaultAsync(x => x.Name.ToLower() == lower, ct);
-            if (tag == null) { tag = new Tag { Name = name, CreatedAt = Now }; db.Tags.Add(tag); await db.SaveChangesAsync(ct); }
-            db.VideoTags.Add(new VideoTag { VideoId = videoId, TagId = tag.TagId, CreatedAt = Now });
+            if (!tagsByName.TryGetValue(name, out var tag))
+            {
+                tag = new Tag { Name = name, CreatedAt = now };
+                db.Tags.Add(tag);
+                tagsByName[name] = tag;
+            }
+            db.VideoTags.Add(new VideoTag { VideoId = videoId, TagId = tag.TagId, CreatedAt = now });
         }
     }
 

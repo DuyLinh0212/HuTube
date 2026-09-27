@@ -22,9 +22,9 @@ public sealed class RecommendationAdminController(RecommendationAdminService adm
     public Task<MatrixPreviewResponse> MatrixPreviewAsync(CancellationToken ct) => admin.PreviewMatrixAsync(ct);
 
     [HttpPost("model-jobs")]
-    public async Task<IActionResult> UpdateModelAsync(CancellationToken ct)
+    public async Task<IActionResult> UpdateModelAsync([FromBody] ModelUpdateRequest? request, CancellationToken ct)
     {
-        var job = await admin.QueueModelAsync(ActorId, ct);
+        var job = await admin.QueueModelAsync(ActorId, request, ct);
         return Accepted($"/api/v1/admin/recommendations/jobs/{job.JobId}", new { jobId = job.JobId });
     }
 
@@ -34,8 +34,13 @@ public sealed class RecommendationAdminController(RecommendationAdminService adm
     [HttpGet("users")]
     public Task<IReadOnlyList<AdminUserOption>> UsersAsync([FromQuery] string? search, CancellationToken ct) => admin.UsersAsync(search, ct);
 
+    [HttpGet("categories")]
+    public Task<IReadOnlyList<AdminCategoryOption>> CategoriesAsync(CancellationToken ct) => admin.CategoriesAsync(ct);
+
     [HttpGet("videos")]
-    public Task<IReadOnlyList<AdminVideoOption>> VideosAsync([FromQuery] string? search, CancellationToken ct) => admin.VideosAsync(search, ct);
+    public Task<IReadOnlyList<AdminVideoOption>> VideosAsync([FromQuery] string? search,
+        [FromQuery] Guid? categoryId, [FromQuery] string? categoryIds, CancellationToken ct) =>
+        admin.VideosAsync(search, categoryId, categoryIds, ct);
 
     [HttpPost("bots")]
     public Task<IReadOnlyList<AdminUserOption>> BotsAsync([FromBody] CreateBotsRequest request, CancellationToken ct) => admin.CreateBotsAsync(ActorId, request, ct);

@@ -71,8 +71,9 @@ public sealed class LibraryController(IContentService content) : ControllerBase
         : throw new ContentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
 
     [HttpGet("history")]
-    public Task<PageResult<WatchHistoryResponse>> HistoryAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
-        content.GetWatchHistoryAsync(UserId, page, pageSize, ct);
+    public Task<PageResult<WatchHistoryResponse>> HistoryAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] DateTimeOffset? before = null, CancellationToken ct = default) =>
+        content.GetWatchHistoryAsync(UserId, page, pageSize, before, ct);
 
     [HttpGet("liked")]
     public Task<PageResult<LibraryVideoResponse>> LikedAsync([FromQuery] int? rating = null, [FromQuery] int page = 1,

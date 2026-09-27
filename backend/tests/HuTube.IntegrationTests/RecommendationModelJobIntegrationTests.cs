@@ -36,6 +36,7 @@ public sealed class RecommendationModelFactory : AuthApiFactory
 public sealed class FakeModelHttpFactory(TestRecommendationSnapshots snapshots) : IHttpClientFactory
 {
     public bool FailTraining { get; set; }
+    public string? LastScoreMode { get; private set; }
     public HttpClient CreateClient(string name) => new(new Handler(this, snapshots));
 
     private sealed class Handler(FakeModelHttpFactory parent, TestRecommendationSnapshots snapshots) : HttpMessageHandler
@@ -52,6 +53,8 @@ public sealed class FakeModelHttpFactory(TestRecommendationSnapshots snapshots) 
                 using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
                 var csvKey = json.RootElement.GetProperty("csvKey").GetString()!;
                 var hash = json.RootElement.GetProperty("csvSha256").GetString()!;
+                parent.LastScoreMode = json.RootElement.GetProperty("scoreAggregation")
+                    .GetProperty("mode").GetString();
                 var active = new ModelManifest("fake-model-v1", csvKey, hash,
                     "collaborative_cf/artifacts/fake-model-v1.zip", "fake-artifact-hash", DateTimeOffset.UtcNow);
                 snapshots.Objects["collaborative_cf/active.json"] =
@@ -128,6 +131,7 @@ public sealed class RecommendationModelJobIntegrationTests(RecommendationModelFa
         var jobId = (await queued.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetGuid();
         var completed = await AwaitJob(client, jobId);
         Assert.Equal("completed", completed.Status);
+        Assert.Equal("average", factory.ModelHttp.LastScoreMode);
         var manifest = JsonSerializer.Deserialize<ModelManifest>(
             factory.Snapshots.Objects["collaborative_cf/active.json"],
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;

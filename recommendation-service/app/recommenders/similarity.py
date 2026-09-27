@@ -166,8 +166,17 @@ def select_positive_neighbors(
     return indices, values
 
 
-def item_means(interaction_matrix: np.ndarray) -> np.ndarray:
-    observed = interaction_matrix > 0
+def item_means(
+    interaction_matrix: np.ndarray,
+    observed_mask: np.ndarray | None = None,
+) -> np.ndarray:
+    observed = (
+        np.asarray(observed_mask, dtype=bool)
+        if observed_mask is not None
+        else interaction_matrix > 0
+    )
+    if observed.shape != interaction_matrix.shape:
+        raise ValueError("observed_mask must have the same shape as interaction_matrix.")
     totals = interaction_matrix.sum(axis=0)
     counts = observed.sum(axis=0)
     means = np.zeros(interaction_matrix.shape[1], dtype=np.float32)

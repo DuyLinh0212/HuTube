@@ -1,21 +1,27 @@
 <main class="recommendations-page">
-  <header class="page-head">
-    <div>
-      <p class="eyebrow">{{ 'recommendations.eyebrow' | translate }}</p>
-      <h1>{{ 'recommendations.title' | translate }}</h1>
-      <p>{{ 'recommendations.subtitle' | translate }}</p>
-    </div>
-    <span class="access-mark">{{ 'recommendations.superAdmin' | translate }}</span>
-  </header>
-
   @if (error()) { <div class="message error" role="alert">{{ error() }}</div> }
   @if (notice()) { <div class="message success" role="status">{{ notice() }}</div> }
 
+  <nav class="page-tabs" role="tablist" [attr.aria-label]="'recommendations.pageTabs' | translate">
+    <button id="recommendations-model-tab" type="button" role="tab" class="page-tab" [class.active]="activePageTab() === 'model'" [attr.aria-selected]="activePageTab() === 'model'" aria-controls="recommendation-model-panel" (click)="setPageTab('model')">
+      <span class="page-tab-icon"><img class="icon-img" src="/assets/icons/ai-model.png" alt="" aria-hidden="true" /></span>
+      <span><strong>{{ 'recommendations.modelTab' | translate }}</strong><small>{{ 'recommendations.modelTabDescription' | translate }}</small></span>
+    </button>
+    <button id="recommendations-simulation-tab" type="button" role="tab" class="page-tab" [class.active]="activePageTab() === 'simulation'" [attr.aria-selected]="activePageTab() === 'simulation'" aria-controls="recommendation-simulation-panel" (click)="setPageTab('simulation')">
+      <span class="page-tab-icon"><img class="icon-img" src="/assets/icons/simulation.png" alt="" aria-hidden="true" /></span>
+      <span><strong>{{ 'recommendations.simulationTab' | translate }}</strong><small>{{ 'recommendations.simulationTabDescription' | translate }}</small></span>
+    </button>
+  </nav>
+
+  @if (activePageTab() === 'model') {
+  <div id="recommendation-model-panel" class="page-tab-panel" role="tabpanel" aria-labelledby="recommendations-model-tab">
   <section class="panel status-panel" aria-labelledby="matrix-title">
     <div class="section-head">
-      <div><span class="section-kicker">{{ 'recommendations.data' | translate }}</span><h2 id="matrix-title">{{ 'recommendations.dataTitle' | translate }}</h2></div>
+      <div>
+        <span class="section-kicker">{{ 'recommendations.data' | translate }}</span>
+        <h2 id="matrix-title">{{ 'recommendations.dataTitle' | translate }}</h2>
+      </div>
       <div class="actions">
-        <button type="button" class="secondary" [attr.aria-expanded]="preview() !== null" (click)="viewMatrix()">{{ (preview() ? 'recommendations.hideMatrix' : 'recommendations.showMatrix') | translate }}</button>
         <button type="button" class="secondary" (click)="exportCsv()">{{ 'recommendations.exportCsv' | translate }}</button>
         <button type="button" class="primary" [disabled]="busy()" (click)="check()">{{ 'recommendations.checkData' | translate }}</button>
       </div>
@@ -47,82 +53,301 @@
         <span>{{ 'recommendations.csvFileLabel' | translate }} <code>{{ status.csvKey || '—' }}</code></span>
         <span>{{ 'recommendations.hashLabel' | translate }} <code>{{ status.csvSha256 || '—' }}</code></span>
       </div>
-      @if (preview(); as matrix) {
-        <div class="matrix-preview" role="region" [attr.aria-label]="'recommendations.previewRowsAria' | translate" tabindex="0">
-          <p>{{ 'recommendations.previewCount' | translate:{ shown: matrix.rows.length, total: (matrix.total | number) } }}</p>
-          <table><thead><tr>@for (column of matrix.columns; track column) { <th scope="col">{{ column }}</th> }</tr></thead>
-            <tbody>@for (row of matrix.rows; track $index) { <tr>@for (cell of row; track $index) { <td>{{ cell || '—' }}</td> }</tr> }</tbody></table>
-        </div>
+      <div class="model-preview-toggle">
+        <button type="button" class="secondary" [attr.aria-expanded]="modelPreviewVisible()" (click)="toggleModelPreview()">{{ (modelPreviewVisible() ? 'recommendations.hideMatrix' : 'recommendations.showMatrix') | translate }}</button>
+      </div>
+      @if (modelPreviewVisible()) {
+        @if (preview(); as matrix) {
+          <div class="matrix-table-wrap model-preview" role="region" [attr.aria-label]="'recommendations.previewRowsAria' | translate" tabindex="0">
+            <p class="model-preview-caption">{{ 'recommendations.previewCount' | translate:{ shown: matrix.rows.length, total: matrix.total } }}</p>
+            <table class="interaction-table">
+              <thead><tr>@for (column of matrix.columns; track column) { <th scope="col">{{ matrixColumn(column) }}</th> }</tr></thead>
+              <tbody>
+                @for (row of matrix.rows; track $index) {
+                  <tr>@for (cell of row; track $index) { <td>{{ matrixCell(matrix.columns[$index], cell) }}</td> }</tr>
+                } @empty { <tr><td [attr.colspan]="matrix.columns.length" class="table-empty">{{ 'recommendations.emptyMatrix' | translate }}</td></tr> }
+              </tbody>
+            </table>
+          </div>
+        }
       }
     } @else { <p class="subtle">{{ 'recommendations.loadingMatrix' | translate }}</p> }
   </section>
 
   <section class="panel update-panel" aria-labelledby="update-title">
     <div class="section-head">
-      <div><span class="section-kicker">{{ 'recommendations.model' | translate }}</span><h2 id="update-title">{{ 'recommendations.modelKind' | translate }}</h2></div>
+      <div>
+        <span class="section-kicker">{{ 'recommendations.model' | translate }}</span>
+        <h2 id="update-title">{{ 'recommendations.modelKind' | translate }}</h2>
+      </div>
       <button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="updateModel()">{{ 'recommendations.updateModel' | translate }}</button>
     </div>
     <p>{{ 'recommendations.updateDescription' | translate }}</p>
-    @if (job(); as currentJob) {
-      <div class="job-card" role="status" aria-live="polite">
-        <div><strong>{{ (currentJob.kind === 'model_update' ? 'recommendations.modelKind' : 'recommendations.simulationKind') | translate }}</strong><span>{{ jobStatus(currentJob.status) }} · {{ jobStep(currentJob.step) }}</span></div>
-        <span>{{ currentJob.completed }}/{{ currentJob.total }}</span>
-        <div class="progress-track"><div [style.width.%]="progress()"></div></div>
-        @if (currentJob.error) { <p class="job-error">{{ currentJob.error }}</p> }
+    <div class="score-config">
+      <div class="score-config-head">
+        <div>
+          <span class="section-kicker">{{ 'recommendations.scoreAggregation' | translate }}</span>
+          <h3>{{ 'recommendations.scoreAggregationMode' | translate }}</h3>
+        </div>
+        <label class="score-mode-field">
+          <span>{{ 'recommendations.scoreAggregationMode' | translate }}</span>
+          <select [(ngModel)]="scoreMode">
+            <option value="average">{{ 'recommendations.scoreAverage' | translate }}</option>
+            <option value="weighted">{{ 'recommendations.scoreWeighted' | translate }}</option>
+          </select>
+        </label>
       </div>
+      <p class="score-hint">{{ (scoreMode === 'average' ? 'recommendations.scoreAverageHint' : 'recommendations.scoreWeightedHint') | translate }}</p>
+      @if (scoreMode === 'weighted') {
+        <div class="score-weights">
+          @for (feature of scoreFeatures; track feature) {
+            <label class="score-weight">
+              <span>{{ scoreFeatureLabel(feature) }}</span>
+              <input type="number" min="0" step="0.01" [ngModel]="scoreWeights[feature]" (ngModelChange)="setScoreWeight(feature, $event)" />
+            </label>
+          }
+        </div>
+      }
+    </div>
+    @if (job(); as currentJob) {
+      @if (currentJob.kind === 'model_update') {
+        <div class="job-card" role="status" aria-live="polite">
+          <div><strong>{{ 'recommendations.modelKind' | translate }}</strong><span>{{ jobStatus(currentJob.status) }} · {{ jobStep(currentJob.step) }}</span></div>
+          <span>{{ currentJob.completed }}/{{ currentJob.total }}</span>
+          <div class="progress-track"><div [style.width.%]="progress()"></div></div>
+          @if (currentJob.error) { <p class="job-error">{{ currentJob.error }}</p> }
+        </div>
+      }
     }
   </section>
+  </div>
+  }
 
-  <section class="panel simulator-panel" aria-labelledby="sim-title">
-    <div class="section-head">
-      <div><span class="section-kicker">{{ 'recommendations.test' | translate }}</span><h2 id="sim-title">{{ 'recommendations.simulationTitle' | translate }}</h2></div>
-      <p>{{ 'recommendations.simulationDescription' | translate }}</p>
-    </div>
-    <div class="selection-grid">
-      <div class="selection-column">
-        <div class="selection-heading"><label for="user-search">{{ 'recommendations.users' | translate }} <em>{{ selectedUsers.size }} {{ 'recommendations.selected' | translate }}</em></label></div>
-        <div class="search-row"><input id="user-search" [(ngModel)]="userSearch" [placeholder]="'recommendations.searchUser' | translate" (keyup.enter)="loadUsers()" /><button type="button" class="secondary" (click)="loadUsers()">{{ 'recommendations.search' | translate }}</button></div>
-        <div class="option-list" role="group" [attr.aria-label]="'recommendations.chooseUser' | translate">
-          @for (user of users(); track user.userId) {
-            <label class="option-row"><input type="checkbox" [checked]="selectedUsers.has(user.userId)" (change)="toggleUser(user)" />
-              <span><strong>{{ user.displayName }}</strong><small>&#64;{{ user.username }}</small></span><em [class.real]="!user.isBot">{{ user.isBot ? 'Bot' : ('recommendations.realAccount' | translate) }}</em>
-            </label>
-          } @empty { <p class="list-empty">{{ 'recommendations.noUsers' | translate }}</p> }
-        </div>
-        <div class="bot-row"><label for="bot-prefix">{{ 'recommendations.createBot' | translate }}</label><input id="bot-prefix" [(ngModel)]="botPrefix" [attr.aria-label]="'recommendations.botPrefix' | translate" /><input type="number" min="1" max="100" [(ngModel)]="botCount" [attr.aria-label]="'recommendations.botCount' | translate" /><button type="button" class="secondary" [disabled]="busy()" (click)="createBots()">{{ 'recommendations.createBots' | translate }}</button></div>
+  @if (activePageTab() === 'simulation') {
+  <div id="recommendation-simulation-panel" class="page-tab-panel" role="tabpanel" aria-labelledby="recommendations-simulation-tab">
+  <section class="simulator-panel" aria-labelledby="sim-title">
+    <header class="simulator-head">
+      <div>
+        <p class="sim-kicker">{{ 'recommendations.simulatorEyebrow' | translate }}</p>
+        <h2 id="sim-title">{{ 'recommendations.simulationTitle' | translate }}</h2>
+        <p>{{ 'recommendations.simulationDescription' | translate }}</p>
       </div>
-      <div class="selection-column">
-        <div class="selection-heading"><label for="video-search">{{ 'recommendations.videos' | translate }} <em>{{ selectedVideos.size }} {{ 'recommendations.selected' | translate }}</em></label></div>
-        <div class="search-row"><input id="video-search" [(ngModel)]="videoSearch" [placeholder]="'recommendations.searchVideo' | translate" (keyup.enter)="loadVideos()" /><button type="button" class="secondary" (click)="loadVideos()">{{ 'recommendations.search' | translate }}</button></div>
-        <div class="option-list" role="group" [attr.aria-label]="'recommendations.chooseVideo' | translate">
-          @for (video of videos(); track video.videoId) {
-            <label class="option-row"><input type="checkbox" [checked]="selectedVideos.has(video.videoId)" (change)="toggleVideo(video.videoId)" />
-              <span><strong>{{ video.title }}</strong><small>{{ video.videoId }}</small></span>
-            </label>
-          } @empty { <p class="list-empty">{{ 'recommendations.noVideos' | translate }}</p> }
+      <div class="sim-live" [class.is-live]="isSimulationLive()" role="status">
+        <span class="live-dot"></span>
+        {{ (isSimulationLive() ? 'recommendations.live' : 'recommendations.idle') | translate }}
+      </div>
+    </header>
+
+    <div class="sim-stats" aria-label="{{ 'recommendations.simulatorStats' | translate }}">
+      <article class="stat-card stat-total"><span>{{ 'recommendations.metric.total' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/total-interactions.png" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().total | number }}</strong></article>
+      <article class="stat-card stat-like"><span>{{ 'recommendations.metric.likes' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/stat-like.png" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().likes | number }}</strong></article>
+      <article class="stat-card stat-comments"><span>{{ 'recommendations.metric.comments' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/stat-comment.png" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().comments | number }}</strong></article>
+      <article class="stat-card stat-rating"><span>{{ 'recommendations.metric.ratingSubs' | translate }} <b class="stat-icon stat-icon-pair"><img class="icon-img" src="/assets/icons/stat-rating.png" alt="" aria-hidden="true" /><i aria-hidden="true">/</i><img class="icon-img" src="/assets/icons/stat-subscribe.png" alt="" aria-hidden="true" /></b></span><strong><i>{{ metrics().ratings | number }}</i><small>{{ 'recommendations.metric.ratings' | translate }}</small><em>{{ metrics().subscriptions | number }}</em><small>{{ 'recommendations.metric.subs' | translate }}</small></strong></article>
+    </div>
+
+    @if (job(); as currentJob) {
+      @if (currentJob.kind === 'simulation') {
+        <div class="sim-progress" role="status" aria-live="polite">
+          <div class="sim-progress-copy"><strong>{{ jobStatus(currentJob.status) }}</strong><span>{{ jobStep(currentJob.step) }} · {{ currentJob.completed }}/{{ currentJob.total }}</span>
+            @if (isSimulationLive()) { <button type="button" class="stop-button" [disabled]="currentJob.status === 'cancelling'" (click)="stop()">⏹ {{ 'recommendations.stopSimulation' | translate }}</button> }
+          </div>
+          <div class="sim-progress-track"><div [style.width.%]="progress()"></div></div>
+          @if (currentJob.error) { <p>{{ currentJob.error }}</p> }
         </div>
+      }
+    }
+
+    <div class="sim-layout">
+      <div class="sim-controls">
+        <section class="sim-card user-card" aria-labelledby="user-picker-title">
+          <div class="card-heading">
+            <div><span class="card-icon"><img class="icon-img" src="/assets/icons/target-user.png" alt="" aria-hidden="true" /></span><h3 id="user-picker-title">{{ 'recommendations.userPickerTitle' | translate }}</h3></div>
+            <div class="selection-tools">
+              <button type="button" (click)="selectAllUsers()" [attr.aria-label]="'recommendations.selectAll' | translate">☑ {{ 'recommendations.selectAll' | translate }}</button>
+              <button type="button" (click)="clearSelectedUsers()" [attr.aria-label]="'recommendations.clearSelection' | translate">× {{ 'recommendations.clearSelection' | translate }}</button>
+              <button type="button" (click)="loadUsers()" [attr.aria-label]="'recommendations.refreshUsers' | translate">↻</button>
+            </div>
+          </div>
+          <div class="selection-caption"><span>{{ 'recommendations.activeAccountCount' | translate:{ count: users().length } }}</span><strong>{{ 'recommendations.selectedCount' | translate:{ count: selectedUsers.size } }}</strong></div>
+          <div class="user-search-row">
+            <input id="user-search" [(ngModel)]="userSearch" [placeholder]="'recommendations.searchUser' | translate" (keyup.enter)="loadUsers()" />
+            <button type="button" class="blue-button" (click)="loadUsers()">{{ 'recommendations.search' | translate }}</button>
+          </div>
+          <div class="user-list" role="group" [attr.aria-label]="'recommendations.chooseUser' | translate">
+            @for (user of users(); track user.userId) {
+              <label class="user-option">
+                <input type="checkbox" [checked]="selectedUsers.has(user.userId)" (change)="toggleUser(user)" />
+                <span class="avatar-chip">{{ (user.displayName || user.username).slice(0, 1).toUpperCase() }}</span>
+                <span class="user-identity"><strong>{{ user.displayName }}</strong><small>&#64;{{ user.username }}</small></span>
+                <em [class.real-account]="!user.isBot">{{ user.isBot ? 'Bot' : ('recommendations.realAccount' | translate) }}</em>
+              </label>
+            } @empty { <p class="list-empty">{{ 'recommendations.noUsers' | translate }}</p> }
+          </div>
+          <div class="quick-create">
+            <label for="quick-bot-name">{{ 'recommendations.quickCreateBot' | translate }}</label>
+            <div><input id="quick-bot-name" [(ngModel)]="quickBotName" [placeholder]="'recommendations.quickBotPlaceholder' | translate" (keyup.enter)="createQuickBot()" /><button type="button" class="blue-button" [disabled]="busy()" (click)="createQuickBot()">＋ {{ 'recommendations.createAndSelect' | translate }}</button></div>
+          </div>
+        </section>
+
+        <section class="sim-card scenario-card" aria-labelledby="scenario-title">
+          <nav class="scenario-tabs" [attr.aria-label]="'recommendations.scenarioTabs' | translate">
+            <button type="button" [class.active]="activeSimulatorTab() === 'target'" [attr.aria-pressed]="activeSimulatorTab() === 'target'" (click)="toggleSimulatorTab('target')"><img class="scenario-tab-icon icon-img" src="/assets/icons/target-user.png" alt="" aria-hidden="true" />{{ 'recommendations.targetTab' | translate }}</button>
+            <button type="button" [class.active]="activeSimulatorTab() === 'cluster'" [attr.aria-pressed]="activeSimulatorTab() === 'cluster'" (click)="toggleSimulatorTab('cluster')"><img class="scenario-tab-icon icon-img" src="/assets/icons/personal_cluster.png" alt="" aria-hidden="true" />{{ 'recommendations.clusterTab' | translate }}</button>
+            <button type="button" [class.active]="activeSimulatorTab() === 'comments'" [attr.aria-pressed]="activeSimulatorTab() === 'comments'" (click)="toggleSimulatorTab('comments')"><img class="scenario-tab-icon icon-img" src="/assets/icons/comment.png" alt="" aria-hidden="true" />{{ 'recommendations.commentPoolTab' | translate }}</button>
+          </nav>
+
+          @if (activeSimulatorTab() !== 'comments') {
+            <section class="category-config" aria-labelledby="category-config-title">
+              <div class="category-config-head">
+                <div><span class="field-label">{{ 'recommendations.category' | translate }}</span><strong id="category-config-title">{{ 'recommendations.categoryProfile' | translate }}</strong></div>
+                <span class="selected-count">{{ selectedCategoryIds.size }} {{ 'recommendations.categoriesSelected' | translate }}</span>
+              </div>
+              <div class="category-picker" [class.is-open]="categoryPickerOpen">
+                <button type="button" class="category-picker-trigger" [attr.aria-expanded]="categoryPickerOpen" (click)="categoryPickerOpen = !categoryPickerOpen">
+                  <span>{{ selectedCategoryNames() || ('recommendations.chooseCategories' | translate) }}</span><span aria-hidden="true">⌄</span>
+                </button>
+                @if (categoryPickerOpen) {
+                  <div class="category-menu" role="dialog" [attr.aria-label]="'recommendations.chooseCategories' | translate">
+                    <div class="category-menu-actions"><button type="button" (click)="selectAllCategories()">{{ 'recommendations.selectAll' | translate }}</button><button type="button" (click)="clearCategories()">{{ 'recommendations.clearSelection' | translate }}</button></div>
+                    <input class="category-search" [(ngModel)]="categorySearch" [placeholder]="'recommendations.searchCategory' | translate" />
+                    <div class="category-options" role="group">
+                      @for (category of filteredCategories(); track category.categoryId) {
+                        <label class="category-option"><input type="checkbox" [checked]="isCategorySelected(category.categoryId)" (change)="toggleCategory(category.categoryId)" /><span>{{ category.name }}</span><small>{{ category.slug }}</small></label>
+                      } @empty { <p class="list-empty">{{ 'recommendations.noCategories' | translate }}</p> }
+                    </div>
+                  </div>
+                }
+              </div>
+              <p class="category-rate-hint">{{ 'recommendations.categoryRateHint' | translate }}</p>
+              <div class="category-rate-list">
+                @for (category of categories(); track category.categoryId) {
+                  @if (isCategorySelected(category.categoryId)) {
+                    <label class="category-rate">
+                      <span><span>{{ category.name }}</span><output>{{ categoryRate(category.categoryId) }}× · {{ categoryPercent(category.categoryId) }}%</output></span>
+                      <input type="range" min="1" max="10" step="1" [ngModel]="categoryRate(category.categoryId)" (ngModelChange)="setCategoryRate(category.categoryId, $event)" [attr.aria-label]="category.name" />
+                    </label>
+                  }
+                }
+              </div>
+            </section>
+          }
+
+          @if (activeSimulatorTab() === 'target') {
+            <div class="scenario-content">
+              <h3 id="scenario-title">{{ 'recommendations.targetScenarioTitle' | translate }}</h3>
+              <div class="field-grid two-fields">
+                <label>{{ 'recommendations.actionsPerUser' | translate }}
+                  <input type="number" min="1" max="1000" [(ngModel)]="actionsPerUser" />
+                </label>
+              </div>
+              <div class="video-picker-head"><label class="search-label">{{ 'recommendations.targetVideos' | translate }} <span class="selected-count">{{ selectedVideos.size }} {{ 'recommendations.selected' | translate }}</span></label><button type="button" class="text-button" (click)="toggleAllVideos()">{{ (allVisibleVideosSelected() ? 'recommendations.clearVisibleVideos' : 'recommendations.selectAllVideos') | translate }}</button></div>
+              <div class="video-search-row"><input [(ngModel)]="videoSearch" [placeholder]="'recommendations.searchVideo' | translate" (keyup.enter)="loadVideos()" /><button type="button" (click)="loadVideos()">{{ 'recommendations.search' | translate }}</button></div>
+              <div class="video-list" role="group" [attr.aria-label]="'recommendations.chooseVideo' | translate">
+                @for (video of videos(); track video.videoId) {
+                  <label class="video-option"><input type="checkbox" [checked]="selectedVideos.has(video.videoId)" (change)="toggleVideo(video.videoId)" /><span><strong>{{ video.title }}</strong><small>{{ categoryName(video) || ('recommendations.uncategorized' | translate) }} · {{ video.duration }}s</small></span></label>
+                } @empty { <p class="list-empty">{{ 'recommendations.noVideos' | translate }}</p> }
+              </div>
+              <div class="rates-block">
+                <h4>{{ 'recommendations.behaviorRates' | translate }}</h4>
+                <div class="rate-grid">
+                  <div class="watch-distribution" role="group" [attr.aria-label]="'recommendations.watchDistributionLabel' | translate">
+                    <div class="watch-distribution-head"><span>{{ 'recommendations.watchDuration' | translate }}</span><strong>{{ 'recommendations.watchRandomRange' | translate }}</strong></div>
+                    <div class="watch-distribution-track" aria-hidden="true"><span></span></div>
+                    <div class="watch-distribution-scale" aria-hidden="true"><span>1%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+                    <small>{{ 'recommendations.watchDurationHint' | translate }}</small>
+                  </div>
+                  <label><span>{{ 'recommendations.like' | translate }} <output>{{ likeRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="likeRate" (ngModelChange)="onLikeRateChange()" /></label>
+                  <label><span>{{ 'recommendations.dislike' | translate }} <output>{{ dislikeRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="dislikeRate" (ngModelChange)="onDislikeRateChange()" /></label>
+                  <label><span>{{ 'recommendations.rating' | translate }} <output>{{ ratingRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="ratingRate" /></label>
+                   <label><span>{{ 'recommendations.comment' | translate }} <output>{{ commentRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="commentRate" /></label>
+                   <label><span>{{ 'recommendations.subscribe' | translate }} <output>{{ subscribeRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="subscribeRate" /></label>
+                 </div>
+                 <div class="skip-rate-config">
+                   <label><span>{{ 'recommendations.videoSkip' | translate }} <output>{{ videoSkipRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="videoSkipRate" /></label>
+                   <small>{{ 'recommendations.videoSkipHint' | translate }}</small>
+                 </div>
+               </div>
+              @if (hasRealUsers()) { <label class="confirmation"><input type="checkbox" [(ngModel)]="confirmRealUsers" /><span>{{ 'recommendations.confirmRealUsers' | translate }}</span></label> }
+              <button type="button" class="run-button" [disabled]="busy() || loadingVideos() || isSimulationLive()" (click)="simulate()"><img class="button-icon icon-img" src="/assets/icons/simulation.png" alt="" aria-hidden="true" />{{ 'recommendations.runTarget' | translate }}</button>
+            </div>
+          }
+
+          @if (activeSimulatorTab() === 'cluster') {
+            <div class="scenario-content">
+              <h3 id="scenario-title">{{ 'recommendations.clusterScenarioTitle' | translate }}</h3>
+              <div class="field-grid two-fields">
+                <label>{{ 'recommendations.botCount' | translate }}<input type="number" min="1" max="100" [(ngModel)]="botCount" /></label>
+                <label>{{ 'recommendations.videosPerBot' | translate }}<input type="number" min="1" max="1000" [(ngModel)]="videosPerBot" /></label>
+              </div>
+              <div class="rates-block persona-rates">
+                <h4>{{ 'recommendations.behaviorRates' | translate }}</h4>
+                <div class="rate-grid">
+                  <div class="watch-distribution" role="group" [attr.aria-label]="'recommendations.watchDistributionLabel' | translate">
+                    <div class="watch-distribution-head"><span>{{ 'recommendations.watchDuration' | translate }}</span><strong>{{ 'recommendations.watchRandomRange' | translate }}</strong></div>
+                    <div class="watch-distribution-track" aria-hidden="true"><span></span></div>
+                    <div class="watch-distribution-scale" aria-hidden="true"><span>1%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+                    <small>{{ 'recommendations.watchDurationHint' | translate }}</small>
+                  </div>
+                  <label><span>{{ 'recommendations.like' | translate }} <output>{{ likeRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="likeRate" (ngModelChange)="onLikeRateChange()" /></label>
+                  <label><span>{{ 'recommendations.dislike' | translate }} <output>{{ dislikeRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="dislikeRate" (ngModelChange)="onDislikeRateChange()" /></label>
+                  <label><span>{{ 'recommendations.rating' | translate }} <output>{{ ratingRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="ratingRate" /></label>
+                   <label><span>{{ 'recommendations.comment' | translate }} <output>{{ commentRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="commentRate" /></label>
+                   <label><span>{{ 'recommendations.subscribe' | translate }} <output>{{ subscribeRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="subscribeRate" /></label>
+                 </div>
+                 <div class="skip-rate-config">
+                   <label><span>{{ 'recommendations.videoSkip' | translate }} <output>{{ videoSkipRate }}%</output></span><input type="range" min="0" max="100" [(ngModel)]="videoSkipRate" /></label>
+                   <small>{{ 'recommendations.videoSkipHint' | translate }}</small>
+                 </div>
+               </div>
+              <p class="persona-note">{{ 'recommendations.personaPoolNote' | translate:{ category: selectedCategoryNames(), count: videos().length, categoryPreference: 100 } }}</p>
+              <button type="button" class="run-button" [disabled]="busy() || loadingVideos() || isSimulationLive()" (click)="simulate()"><img class="button-icon icon-img" src="/assets/icons/simulation.png" alt="" aria-hidden="true" />{{ 'recommendations.runCluster' | translate }}</button>
+            </div>
+          }
+
+          @if (activeSimulatorTab() === 'comments') {
+            <div class="scenario-content comment-pool-content">
+              <h3 id="scenario-title">{{ 'recommendations.commentPoolTitle' | translate }}</h3>
+              <label class="field-label">{{ 'recommendations.category' | translate }}
+                <select [(ngModel)]="commentCategory">
+                  @for (category of categories(); track category.categoryId) { <option [value]="category.slug">{{ category.name }}</option> }
+                  @if (!categories().length) { <option value="default">{{ 'recommendations.defaultCategory' | translate }}</option> }
+                </select>
+              </label>
+              <p class="pool-caption">{{ 'recommendations.commentPoolDescription' | translate }}</p>
+              <div class="comment-list" role="list">
+                @for (comment of commentsForActiveCategory(); track $index) {
+                  <div class="comment-option" role="listitem"><span>{{ comment }}</span><button type="button" [attr.aria-label]="'recommendations.removeComment' | translate" (click)="removeCommentTemplate($index)">×</button></div>
+                } @empty { <p class="list-empty">{{ 'recommendations.noComments' | translate }}</p> }
+              </div>
+              <label class="field-label" for="new-comment">{{ 'recommendations.addComment' | translate }}</label>
+              <div class="add-comment-row"><input id="new-comment" [(ngModel)]="newCommentTemplate" [placeholder]="'recommendations.commentPlaceholder' | translate" (keyup.enter)="addCommentTemplate()" /><button type="button" class="green-button" (click)="addCommentTemplate()">＋ {{ 'recommendations.add' | translate }}</button></div>
+              <p class="pool-footnote">{{ 'recommendations.commentLocalStorage' | translate }}</p>
+            </div>
+          }
+        </section>
+      </div>
+
+      <div class="sim-output">
+        <section class="sim-card console-card" aria-labelledby="console-title">
+          <header class="output-heading">
+            <div class="console-title"><span class="traffic-lights"><i></i><i></i><i></i></span><h3 id="console-title">{{ 'recommendations.liveConsole' | translate }}</h3></div>
+            <div class="output-actions"><button type="button" (click)="clearLogs()">{{ 'recommendations.clearLogs' | translate }}</button><button type="button" (click)="exportCsv()">▣ {{ 'recommendations.downloadCsv' | translate }}</button></div>
+          </header>
+          <div id="recommendation-live-console" class="console-stream" role="log" aria-live="polite" aria-relevant="additions text">
+            @for (entry of consoleEntries(); track $index) {
+              <article class="console-line" [class.console-error]="entry.error">
+                <time>{{ entry.timestamp || '—' }}</time>
+                <span class="event-tag" [class.tag-view]="entry.behavior === 'view'" [class.tag-reaction]="entry.behavior === 'like' || entry.behavior === 'dislike'" [class.tag-rating]="entry.behavior === 'rating'" [class.tag-comment]="entry.behavior === 'comment'" [class.tag-subscribe]="entry.behavior === 'subscribe'" [class.tag-skip]="entry.behavior === 'skip'" [class.tag-error]="!!entry.error">{{ consoleType(entry) }}</span>
+                <strong>{{ consoleUser(entry) }}</strong>
+                <span class="console-detail">{{ consoleDetail(entry) }}</span>
+              </article>
+            } @empty { <p class="console-empty"><span class="prompt-mark">›</span> {{ 'recommendations.noLogs' | translate }}</p> }
+          </div>
+        </section>
+
       </div>
     </div>
-    <div class="config-grid">
-      <label>{{ 'recommendations.scenario' | translate }}<select [(ngModel)]="mode"><option value="target">{{ 'recommendations.targetScenario' | translate }}</option><option value="cluster">{{ 'recommendations.clusterScenario' | translate }}</option></select></label>
-      <label>{{ 'recommendations.actionsPerUser' | translate }}<input type="number" min="1" max="1000" [(ngModel)]="actionsPerUser" /></label>
-      <label>{{ 'recommendations.delay' | translate }}<input type="number" min="0" max="5000" [(ngModel)]="delayMs" /></label>
-    </div>
-    <div class="rates" [attr.aria-label]="'recommendations.behaviorRates' | translate">
-      <label>{{ 'recommendations.watch' | translate }} <input type="number" min="0" max="100" [(ngModel)]="viewRate" />%</label>
-      <label>{{ 'recommendations.watchDuration' | translate }} <input type="number" min="1" max="100" [(ngModel)]="watchPercent" />%</label>
-      <label>{{ 'recommendations.like' | translate }} <input type="number" min="0" max="100" [(ngModel)]="likeRate" />%</label>
-      <label>{{ 'recommendations.dislike' | translate }} <input type="number" min="0" max="100" [(ngModel)]="dislikeRate" />%</label>
-      <label>{{ 'recommendations.rating' | translate }} <input type="number" min="0" max="100" [(ngModel)]="ratingRate" />%</label>
-      <label>{{ 'recommendations.comment' | translate }} <input type="number" min="0" max="100" [(ngModel)]="commentRate" />%</label>
-      <label>{{ 'recommendations.subscribe' | translate }} <input type="number" min="0" max="100" [(ngModel)]="subscribeRate" />%</label>
-    </div>
-    <label class="comment-label" for="comments">{{ 'recommendations.commentTemplates' | translate }}</label>
-    <textarea id="comments" rows="3" [(ngModel)]="commentTemplates"></textarea>
-    @if (hasRealUsers()) { <label class="confirmation"><input type="checkbox" [(ngModel)]="confirmRealUsers" /><span>{{ 'recommendations.confirmRealUsers' | translate }}</span></label> }
-    <div class="footer-actions"><button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="simulate()">{{ 'recommendations.runSimulation' | translate }}</button>
-      @if (job()?.kind === 'simulation' && (job()?.status === 'running' || job()?.status === 'queued')) { <button type="button" class="secondary" (click)="stop()">{{ 'recommendations.stopJob' | translate }}</button> }
-    </div>
-    <div class="log-area"><h3>{{ 'recommendations.jobLog' | translate }}</h3><div class="log-lines" aria-live="polite">@for (line of lines(); track $index) { <p>{{ line }}</p> } @empty { <p class="subtle">{{ 'recommendations.noLogs' | translate }}</p> }</div></div>
   </section>
+  </div>
+  }
 </main>

@@ -65,7 +65,7 @@
         }
       </section>
 
-      @if (pageCount() > 1) {
+      @if (isLiked && pageCount() > 1) {
         <nav class="library-pagination" [attr.aria-label]="'library.pagination' | translate">
           <button type="button" (click)="goToPage(page() - 1)" [disabled]="page() === 1">{{ 'library.previous' | translate }}</button>
           <span>{{ 'library.page' | translate:{ page: i18n.formatNumber(page(), { useGrouping: false }), total: i18n.formatNumber(pageCount(), { useGrouping: false }) } }}</span>
@@ -81,6 +81,12 @@
         <p>{{ (isLiked && ratingFilter() !== null ? 'library.matchingHint' : (isLiked ? 'library.likedHint' : 'library.historyHint')) | translate }}</p>
         @if (isLiked && ratingFilter() !== null) { <button type="button" class="library-empty__action" (click)="setRatingFilter(null)">{{ 'library.seeAllLiked' | translate }}</button> }
       </section>
+    }
+
+    @if (!isLiked) {
+      <div #historySentinel class="library-history-sentinel" aria-hidden="true">
+        @if (historyLoadingMore()) { <span>{{ 'library.loading' | translate }}</span> }
+      </div>
     }
   }
 </main>

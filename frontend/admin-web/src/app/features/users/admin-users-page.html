@@ -29,7 +29,7 @@
       <section class="filter-panel" [attr.aria-label]="'users.filterStatus' | translate">
         <label class="search-field">
           <span class="search-glyph" aria-hidden="true"></span>
-          <input type="search" [placeholder]="'users.searchPlaceholder' | translate" [ngModel]="searchQuery()" (ngModelChange)="onSearchChanged($event)" />
+          <input type="search" [placeholder]="'users.searchPlaceholder' | translate" [attr.aria-label]="'users.searchLabel' | translate" [ngModel]="searchQuery()" (ngModelChange)="onSearchChanged($event)" />
         </label>
         <label class="filter-field"><span>{{ 'users.colStatus' | translate }}</span><select [ngModel]="selectedStatus()" (ngModelChange)="onStatusChanged($event)">
           <option value="ALL">{{ 'common.all' | translate }}</option><option value="active">{{ 'common.active' | translate }}</option><option value="banned">{{ 'users.locked' | translate }}</option><option value="suspended">{{ 'users.suspended' | translate }}</option><option value="pending">{{ 'users.pending' | translate }}</option>
@@ -38,11 +38,13 @@
           <option value="ALL">{{ 'common.all' | translate }}</option>
           @for (role of roles(); track role.roleId) { <option [value]="role.code">{{ roleLabel({ roleCode: role.code, roleName: role.name }) }}</option> }
         </select></label>
-        <button type="button" class="refresh-button" (click)="load()" [disabled]="loading()" [attr.aria-label]="'users.refreshList' | translate">↻</button>
+        <button type="button" class="refresh-button" (click)="refresh()" [disabled]="loading()" [attr.aria-busy]="loading()" [attr.aria-label]="'users.refreshList' | translate" [title]="'users.refreshList' | translate">
+          <svg class="refresh-icon" [class.is-spinning]="loading()" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4.1L3 9m0 0V4m0 5h5M4 13a8 8 0 0 0 14.8 4.1L21 15m0 0v5m0-5h-5" /></svg>
+        </button>
       </section>
 
       <section class="table-card">
-        <div class="table-toolbar"><div><h2>{{ 'users.accountsList' | translate }}</h2><span>{{ 'users.resultRange' | translate:{ start: rangeStart(), end: rangeEnd(), total: (resultTotal() | number) } }}</span></div><span class="selection-hint">{{ 'users.selectRowHint' | translate }}</span></div>
+        <div class="table-toolbar"><div><h2>{{ 'users.accountsList' | translate }}</h2><span>{{ 'users.resultRange' | translate:{ start: rangeStart(), end: rangeEnd(), total: resultTotal() } }}</span></div><span class="selection-hint">{{ 'users.selectRowHint' | translate }}</span></div>
         @if (loading()) {
           <div class="loading-state"><span class="spinner"></span><p>{{ 'users.loadingList' | translate }}</p></div>
         } @else {
@@ -67,7 +69,7 @@
               </tbody>
             </table>
           </div>
-          <footer class="table-footer"><span>{{ 'users.showingRange' | translate:{ start: rangeStart(), end: rangeEnd(), total: (resultTotal() | number) } }}</span><div class="pagination"><button type="button" [attr.aria-label]="'users.previousPage' | translate" [disabled]="loading() || page() === 1" (click)="load(page() - 1)">‹</button><strong>{{ page() }}</strong><button type="button" [attr.aria-label]="'users.nextPage' | translate" [disabled]="loading() || !hasMore()" (click)="load(page() + 1)">›</button></div><span class="footer-note">{{ 'users.localData' | translate }}</span></footer>
+          <footer class="table-footer"><span>{{ 'users.showingRange' | translate:{ start: rangeStart(), end: rangeEnd(), total: resultTotal() } }}</span><div class="pagination"><button type="button" [attr.aria-label]="'users.previousPage' | translate" [disabled]="loading() || page() === 1" (click)="load(page() - 1)">‹</button><strong>{{ page() }}</strong><button type="button" [attr.aria-label]="'users.nextPage' | translate" [disabled]="loading() || !hasMore()" (click)="load(page() + 1)">›</button></div><span class="footer-note">{{ 'users.localData' | translate }}</span></footer>
         }
       </section>
     </div>
@@ -84,7 +86,7 @@
         <section class="detail-section"><div class="section-heading"><h3>{{ 'users.auditHistory' | translate }}</h3><span>{{ user.auditHistory.length }}</span></div>@if (user.auditHistory.length) { <ul class="audit-list">@for (item of user.auditHistory; track item.createdAt + item.action) { <li><i></i><div><strong>{{ auditLabel(item.action) }}</strong><span>{{ item.reason || ('users.noReason' | translate) }}</span></div><time>{{ formatDate(item.createdAt) }}</time></li> }</ul> } @else { <p class="empty-detail">{{ 'users.noAudit' | translate }}</p> }</section>
         <section class="detail-section compact-info"><div><h3>{{ 'users.lastLogin' | translate }}</h3><p>{{ formatDate(user.lastLoginAt) }}</p></div><div><h3>{{ 'users.createdAt' | translate }}</h3><p>{{ formatDate(user.createdAt) }}</p></div></section>
         <section class="detail-section"><h3>{{ 'users.linkedChannels' | translate }}</h3>@if (user.channels.length) { <ul class="channel-list">@for (channel of user.channels; track channel.channelId) { <li><span class="channel-mark">▶</span><div class="channel-meta-wrap"><div class="channel-name-line"><strong>{{ channel.name }}</strong><span class="channel-status-pill" [class.suspended]="channel.status === 'suspended'" [class.active]="channel.status === 'active'">{{ (channel.status === 'suspended' ? 'users.channelLocked' : 'users.channelActive') | translate }}</span></div><span>&#64;{{ channel.handle }} &bull; <small>ID: {{ channel.channelId }}</small></span></div></li> }</ul> } @else { <p class="empty-detail">{{ 'users.noChannels' | translate }}</p> }</section>
-        <section class="detail-actions"><h3>{{ 'common.actions' | translate }}</h3>@if (canEdit()) { <button type="button" class="link-action" (click)="openAction('role')">{{ 'users.editRole' | translate }} <span>→</span></button> } @if (canBan()) { <button type="button" class="link-action" [class.danger]="!isBlocked(user)" [class.success]="isBlocked(user)" (click)="openAction(isBlocked(user) ? 'unlock' : 'lock')">{{ (isBlocked(user) ? 'users.unlock' : 'users.lock') | translate }} <span>→</span></button> }</section>
+        <section class="detail-actions"><h3>{{ 'common.actions' | translate }}</h3><button type="button" class="link-action statistics-action" (click)="openStatistics(user)">{{ 'users.viewStatistics' | translate }} <span aria-hidden="true">→</span></button>@if (canEdit()) { <button type="button" class="link-action" (click)="openAction('role')">{{ 'users.editRole' | translate }} <span aria-hidden="true">→</span></button> } @if (canBan()) { <button type="button" class="link-action" [class.danger]="!isBlocked(user)" [class.success]="isBlocked(user)" (click)="openAction(isBlocked(user) ? 'unlock' : 'lock')">{{ (isBlocked(user) ? 'users.unlock' : 'users.lock') | translate }} <span aria-hidden="true">→</span></button> }</section>
       } @else {
         <div class="detail-empty"><span class="empty-detail-icon">♙</span><h2>{{ 'users.chooseAccount' | translate }}</h2><p>{{ 'users.detailEmpty' | translate }}</p></div>
       }
@@ -103,6 +105,59 @@
         </div>
         <footer><button type="button" class="secondary-button" [disabled]="savingAction()" (click)="closeAction()">{{ 'common.cancel' | translate }}</button><button type="submit" class="confirm-button" [class.danger]="action === 'lock'" [disabled]="savingAction() || actionReason().trim().length < 3">{{ (savingAction() ? 'users.saving' : action === 'lock' ? 'users.confirmLockAction' : action === 'unlock' ? 'users.confirmUnlockAction' : 'users.saveRole') | translate }}</button></footer>
       </form>
+    </div>
+  }
+
+  @if (statisticsModal()) {
+    <div class="modal-backdrop statistics-backdrop" role="presentation" (click)="closeStatistics()">
+      <section class="statistics-modal" role="dialog" aria-modal="true" aria-labelledby="user-statistics-title" tabindex="-1" (click)="$event.stopPropagation()">
+        <header class="statistics-header">
+          <div>
+            <span class="modal-kicker">{{ 'users.statistics.eyebrow' | translate }}</span>
+            <h2 id="user-statistics-title">{{ 'users.statistics.title' | translate }}</h2>
+            @if (statisticsUser(); as user) { <p>{{ 'users.statistics.subtitle' | translate:{ name: user.displayName } }}</p> }
+          </div>
+          <button type="button" class="close-button" [attr.aria-label]="'common.close' | translate" (click)="closeStatistics()">×</button>
+        </header>
+
+        <div class="statistics-body">
+          <form class="statistics-range" (ngSubmit)="loadStatistics()">
+            <div class="range-heading"><div><strong>{{ 'users.statistics.dateRange' | translate }}</strong><span>{{ 'users.statistics.dateRangeHint' | translate }}</span></div><div class="range-presets"><button type="button" (click)="setStatisticsPreset(7)">{{ 'users.statistics.last7' | translate }}</button><button type="button" (click)="setStatisticsPreset(30)">{{ 'users.statistics.last30' | translate }}</button><button type="button" (click)="setStatisticsPreset(90)">{{ 'users.statistics.last90' | translate }}</button></div></div>
+            <div class="range-fields"><label><span>{{ 'users.statistics.from' | translate }}</span><input type="date" name="statisticsFrom" [ngModel]="statisticsFrom()" (ngModelChange)="statisticsFrom.set($event)" /></label><span class="range-arrow" aria-hidden="true">→</span><label><span>{{ 'users.statistics.to' | translate }}</span><input type="date" name="statisticsTo" [ngModel]="statisticsTo()" (ngModelChange)="statisticsTo.set($event)" /></label><button type="submit" class="confirm-button" [disabled]="statisticsLoading()">{{ 'users.statistics.apply' | translate }}</button></div>
+          </form>
+
+          @if (statisticsError()) { <div class="statistics-alert" role="alert">{{ statisticsError() }}</div> }
+          @if (statisticsLoading()) {
+            <div class="statistics-loading"><span class="spinner"></span><p>{{ 'users.statistics.loading' | translate }}</p></div>
+          } @else if (statistics(); as report) {
+            <section class="summary-grid" [attr.aria-label]="'users.statistics.summaryAria' | translate">
+              <article><span>{{ 'users.statistics.totalWatchTime' | translate }}</span><strong>{{ formatWatchTime(report.summary.totalWatchSeconds) }}</strong></article>
+              <article><span>{{ 'users.statistics.videosWatched' | translate }}</span><strong>{{ report.summary.videosWatched | number }}</strong></article>
+              <article><span>{{ 'users.statistics.completionRate' | translate }}</span><strong>{{ report.summary.completionRate | number:'1.0-1' }}%</strong></article>
+              <article><span>{{ 'users.statistics.likes' | translate }}</span><strong>{{ report.summary.likes | number }}</strong><small>{{ 'users.statistics.dislikes' | translate }}: {{ report.summary.dislikes | number }}</small></article>
+              <article><span>{{ 'users.statistics.comments' | translate }}</span><strong>{{ report.summary.comments | number }}</strong></article>
+              <article><span>{{ 'users.statistics.averageRating' | translate }}</span><strong>{{ report.summary.averageRating === null ? ('users.statistics.noRating' | translate) : (report.summary.averageRating | number:'1.1-2') }}</strong><small>{{ report.summary.ratings | number }} {{ 'users.statistics.ratingCount' | translate }}</small></article>
+            </section>
+
+            <div class="statistics-columns">
+              <section class="statistics-card topic-card">
+                <div class="statistics-card-heading"><div><span class="card-kicker">{{ 'users.statistics.behavior' | translate }}</span><h3>{{ 'users.statistics.interactionTopics' | translate }}</h3></div><span class="card-count">{{ report.categories.length | number }}</span></div>
+                @if (report.categories.length) {
+                  <div class="topic-visual"><div class="topic-donut" [style.background]="topicGradient()" role="img" [attr.aria-label]="'users.statistics.chartAria' | translate"></div><div class="topic-legend">@for (category of topicCategories(); track category.categoryId || $index) { <div class="topic-row"><i [style.background]="topicColor($index)" aria-hidden="true"></i><span>{{ topicLabel(category) }}</span><strong>{{ category.percentage | number:'1.0-1' }}%</strong></div> }</div></div>
+                  <div class="accessible-table-wrap"><table class="stats-table" [attr.aria-label]="'users.statistics.tableAria' | translate"><thead><tr><th>{{ 'users.statistics.topic' | translate }}</th><th>{{ 'users.statistics.interactions' | translate }}</th><th>{{ 'users.statistics.share' | translate }}</th></tr></thead><tbody>@for (category of topicCategories(); track category.categoryId || $index) { <tr><td>{{ topicLabel(category) }}</td><td>{{ category.interactionCount | number }}</td><td>{{ category.percentage | number:'1.0-1' }}%</td></tr> }</tbody></table></div>
+                } @else { <p class="statistics-empty">{{ 'users.statistics.noInteractions' | translate }}</p> }
+              </section>
+
+              <section class="statistics-card comparison-card">
+                <div class="statistics-card-heading"><div><span class="card-kicker">{{ 'users.statistics.recommendation' | translate }}</span><h3>{{ 'users.statistics.cfComparison' | translate }}</h3></div>@if (report.recommendationModelVersion) { <span class="model-badge">{{ report.recommendationModelVersion }}</span> }</div>
+                @if (!report.recommendationsAvailable) { <p class="statistics-empty">{{ 'users.statistics.recommendationUnavailable' | translate }}</p> } @else if (!report.recommendations.length) { <p class="statistics-empty">{{ 'users.statistics.noRecommendations' | translate }}</p> } @else {
+                  <div class="comparison-table-wrap"><table class="stats-table comparison-table"><thead><tr><th>{{ 'users.statistics.rank' | translate }}</th><th>{{ 'users.statistics.video' | translate }}</th><th>{{ 'users.statistics.score' | translate }}</th><th>{{ 'users.statistics.behaviorMatch' | translate }}</th></tr></thead><tbody>@for (item of report.recommendations; track item.videoId) { <tr><td><span class="rank-chip">{{ item.rank }}</span></td><td><div class="recommendation-video">@if (item.thumbnailUrl) { <img [src]="item.thumbnailUrl" alt="" /> } @else { <span class="video-placeholder" aria-hidden="true"></span> }<span><strong>{{ item.title }}</strong><small>{{ item.categoryName || ('users.statistics.uncategorized' | translate) }}</small></span></div></td><td><strong>{{ item.score | number:'1.2-3' }}</strong></td><td><div class="match-cell"><span class="match-pill" [class.is-watched]="item.watched">{{ recommendationMatchKey(item) | translate }}</span><small>@if (item.watched && item.latestProgress !== null) { {{ item.latestProgress | number:'1.0-1' }}% · } @if (item.reaction) { {{ reactionLabel(item.reaction) }} · } @if (item.rating !== null) { {{ item.rating }}/5 · } {{ item.categoryInteractionPercentage | number:'1.0-1' }}% {{ 'users.statistics.categoryShare' | translate }}</small></div></td></tr> }</tbody></table></div>
+                }
+              </section>
+            </div>
+          }
+        </div>
+      </section>
     </div>
   }
 </main>

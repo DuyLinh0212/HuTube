@@ -28,18 +28,23 @@ public sealed class TaxonomyService(
         if (normalizedStatus != null)
             query = query.Where(topic => topic.Status == normalizedStatus);
 
-        return await query
-            .OrderBy(topic => topic.Name)
-            .Select(topic => new AdminTopicResponse(
-                topic.CategoryId,
-                topic.Name,
-                topic.Slug,
-                topic.Description,
-                topic.Status,
-                db.Videos.Count(video => video.CategoryId == topic.CategoryId),
-                topic.CreatedAt,
-                topic.UpdatedAt))
-            .ToListAsync(ct);
+        // Materialize the topic rows and aggregate usage separately. A left join to a
+        // grouped query makes PostgreSQL return nullable count columns that EF can
+        // incorrectly materialize as non-nullable ints for topics with no videos.
+        var topics = await query.OrderBy(topic => topic.Name).ToListAsync(ct);
+        var categoryIds = topics.Select(topic => topic.CategoryId).ToList();
+        var videoCounts = categoryIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : await db.Videos.AsNoTracking()
+                .Where(video => video.CategoryId.HasValue && categoryIds.Contains(video.CategoryId.Value))
+                .GroupBy(video => video.CategoryId!.Value)
+                .Select(group => new { CategoryId = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(row => row.CategoryId, row => row.Count, ct);
+
+        return topics.Select(topic => new AdminTopicResponse(
+                topic.CategoryId, topic.Name, topic.Slug, topic.Description, topic.Status,
+                videoCounts.GetValueOrDefault(topic.CategoryId), topic.CreatedAt, topic.UpdatedAt))
+            .ToList();
     }
 
     public async Task<AdminTopicResponse> CreateTopicAsync(
@@ -123,18 +128,22 @@ public sealed class TaxonomyService(
         CancellationToken ct = default)
     {
         var query = db.Tags.AsNoTracking();
-        var normalizedSearch = search?.Trim().ToLowerInvariant();
+        var normalizedSearch = search?.Trim();
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
-            query = query.Where(tag => tag.Name.ToLower().Contains(normalizedSearch));
+            query = query.Where(tag => EF.Functions.ILike(tag.Name, $"%{normalizedSearch}%"));
+        var tags = await query.OrderBy(tag => tag.Name).ToListAsync(ct);
+        var tagIds = tags.Select(tag => tag.TagId).ToList();
+        var usageCounts = tagIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : await db.VideoTags.AsNoTracking()
+                .Where(videoTag => tagIds.Contains(videoTag.TagId))
+                .GroupBy(videoTag => videoTag.TagId)
+                .Select(group => new { TagId = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(row => row.TagId, row => row.Count, ct);
 
-        return await query
-            .OrderBy(tag => tag.Name)
-            .Select(tag => new AdminTagResponse(
-                tag.TagId,
-                tag.Name,
-                db.VideoTags.Count(videoTag => videoTag.TagId == tag.TagId),
-                tag.CreatedAt))
-            .ToListAsync(ct);
+        return tags.Select(tag => new AdminTagResponse(
+                tag.TagId, tag.Name, usageCounts.GetValueOrDefault(tag.TagId), tag.CreatedAt))
+            .ToList();
     }
 
     public async Task<AdminTagResponse> CreateTagAsync(
@@ -143,7 +152,7 @@ public sealed class TaxonomyService(
         CancellationToken ct = default)
     {
         var name = NormalizeTagName(request.Name);
-        if (await db.Tags.AnyAsync(tag => tag.Name.ToLower() == name, ct))
+        if (await db.Tags.AnyAsync(tag => tag.Name == name, ct))
             throw new AuthException(409, "TAG_EXISTS", "Tag đã tồn tại.");
 
         var tag = new Tag { TagId = Guid.NewGuid(), Name = name, CreatedAt = Now };
@@ -164,7 +173,7 @@ public sealed class TaxonomyService(
             ?? throw new AuthException(404, "TAG_NOT_FOUND", "Không tìm thấy tag.");
 
         var name = NormalizeTagName(request.Name);
-        if (await db.Tags.AnyAsync(item => item.TagId != tagId && item.Name.ToLower() == name, ct))
+        if (await db.Tags.AnyAsync(item => item.TagId != tagId && item.Name == name, ct))
             throw new AuthException(409, "TAG_EXISTS", "Tag đã tồn tại.");
 
         var old = new AdminTagResponse(tag.TagId, tag.Name, await CountTagUsageAsync(tagId, ct), tag.CreatedAt);
