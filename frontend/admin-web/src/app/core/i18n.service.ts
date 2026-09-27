@@ -144,7 +144,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.langLabel': 'Ngôn ngữ quản trị',
 
     // Forbidden Page
-    'forbidden.title': 'Truy cập bị từ chối (403)',
+    'forbidden.title': 'Không có quyền truy cập',
     'forbidden.desc': 'Tài khoản của bạn không có đủ quyền hạn để truy cập vào khu vực này.',
     'forbidden.back': 'Quay về trang quản trị',
 
@@ -491,7 +491,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.langLabel': 'Admin Language',
 
     // Forbidden Page
-    'forbidden.title': 'Access Denied (403)',
+    'forbidden.title': 'Access denied',
     'forbidden.desc': 'Your account lacks sufficient permissions to access this administrative section.',
     'forbidden.back': 'Back to Admin Portal',
 
