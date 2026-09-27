@@ -9,6 +9,12 @@ import { TranslatePipe } from '../../core/translate.pipe';
 
 type LibraryMode = 'history' | 'liked';
 
+type LibraryGroup = {
+  key: string;
+  label: string;
+  items: Array<LibraryVideo | WatchHistoryItem>;
+};
+
 @Component({
   selector: 'app-library-page',
   imports: [LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
@@ -29,6 +35,27 @@ export class LibraryPage implements AfterViewInit, OnDestroy {
   readonly total = signal(0);
   readonly ratingFilter = signal<number | null>(null);
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+  readonly groups = computed<LibraryGroup[]>(() => {
+    const items = this.items();
+    if (this.isLiked) return items.length ? [{ key: 'liked', label: '', items }] : [];
+
+    const grouped = new Map<string, Array<LibraryVideo | WatchHistoryItem>>();
+    for (const item of items) {
+      const date = new Date(item.activityAt);
+      if (!Number.isFinite(date.getTime())) continue;
+      const key = this.historyDayKey(date);
+      const dayItems = grouped.get(key) ?? [];
+      dayItems.push(item);
+      grouped.set(key, dayItems);
+    }
+
+    const locale = this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
+    return [...grouped.entries()].map(([key, dayItems]) => ({
+      key,
+      label: this.historyDayLabel(key, locale),
+      items: dayItems
+    }));
+  });
   readonly historyLoadingMore = signal(false);
   readonly historyWindowBefore = signal<string | null>(null);
   readonly historyWindowLoaded = signal(0);
@@ -162,6 +189,26 @@ export class LibraryPage implements AfterViewInit, OnDestroy {
 
   progressLabel(item: LibraryVideo | WatchHistoryItem) {
     return `${Math.round(item.progress || 0)}%`;
+  }
+
+  hasVisibilityChip(item: LibraryVideo | WatchHistoryItem) {
+    const visibility = String(item.visibility ?? '').trim().toLowerCase();
+    return visibility.length > 0 && visibility !== 'public' && visibility !== 'undefined' && visibility !== 'null';
+  }
+
+  private historyDayKey(date: Date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  private historyDayLabel(key: string, locale: string) {
+    const [year, month, day] = key.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return new Intl.DateTimeFormat(locale, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    }).format(date);
   }
 
   ratingLabel(item: LibraryVideo | WatchHistoryItem) {

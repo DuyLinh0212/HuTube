@@ -874,8 +874,17 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'ui.actions': 'Thao tác',
 
     'home.loading': 'Đang tải video…',
+    'home.loadingMore': 'Đang tải thêm video…',
     'home.error': 'Không thể tải danh sách video.',
     'home.empty': 'Chưa có video nào.',
+    'home.forYouTitle': 'Dành cho bạn',
+    'home.followingKicker': 'Mới từ các kênh bạn theo dõi',
+    'home.followingTitle': 'Kênh bạn đăng ký',
+    'home.popularKicker': 'Đang được xem nhiều',
+    'home.popularTitle': 'Phổ biến',
+    'home.randomKicker': 'Mở rộng lựa chọn',
+    'home.randomTitle': 'Có thể bạn chưa xem',
+    'home.noMore': 'Bạn đã xem hết danh sách hiện có.',
     'home.videoList': 'Danh sách video',
     'home.views': 'lượt xem',
     'explore.filters': 'Bộ lọc khám phá',
@@ -1273,8 +1282,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.quality': 'Chất lượng',
     'watch.videoQuality': 'Chất lượng video',
     'watch.speed': 'Tốc độ',
-    'watch.restoreSize': 'Khôi phục kích thước video',
-    'watch.minimize': 'Thu nhỏ video',
     'watch.pictureInPicture': 'Phát trong cửa sổ nổi',
     'watch.exitPictureInPicture': 'Đóng cửa sổ nổi',
     'watch.fullscreen': 'Toàn màn hình',
@@ -1289,7 +1296,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.rating': 'Đánh giá',
     'watch.ratingStar': 'Đánh giá {star} sao',
     'watch.clearRating': 'Bỏ đánh giá',
-    'watch.shortcut': 'K / Space phát · J/L ±10s · F toàn màn hình · M tắt tiếng · I thu nhỏ',
     'watch.shareVideo': 'Chia sẻ video',
     'watch.shareDesc': 'Sao chép liên kết để gửi cho người khác.',
     'watch.videoLink': 'Liên kết video',
@@ -1493,6 +1499,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'ui.account': 'Tài khoản'
     ,'ui.accountStats': 'Thống kê tài khoản'
     ,'ui.accountActions': 'Tác vụ tài khoản'
+    ,'ui.shortcuts': 'Phím tắt'
+    ,'ui.shortcutPlayPause': 'Phát / tạm dừng'
+    ,'ui.shortcutSeek': 'Tua ±10 giây'
+    ,'ui.shortcutFullscreen': 'Toàn màn hình'
+    ,'ui.shortcutMute': 'Tắt tiếng'
     ,'ui.signIn': 'Đăng nhập'
     ,'ui.collaborationChannel': 'Kênh cộng tác'
     ,'ui.openCollaborationChannel': 'Mở kênh đang cộng tác'
@@ -1628,7 +1639,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.recommendationFilters': 'Bộ lọc video đề xuất'
     ,'watch.relatedVideos': 'Video liên quan'
     ,'watch.sameChannel': 'Cùng của kênh'
-    ,'watch.categoryVietnam': 'Du lịch Việt Nam'
     ,'watch.recommendedTitle': 'Đề xuất cho bạn'
     ,'watch.recommendedDesc': 'Tiếp tục khám phá trên HuTube'
     ,'watch.autoplay': 'Tự động phát'
@@ -2748,8 +2758,17 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'ui.actions': 'Actions',
 
     'home.loading': 'Loading videos…',
+    'home.loadingMore': 'Loading more videos…',
     'home.error': 'Unable to load the video list.',
     'home.empty': 'No videos yet.',
+    'home.forYouTitle': 'For you',
+    'home.followingKicker': 'New from channels you follow',
+    'home.followingTitle': 'Your subscriptions',
+    'home.popularKicker': 'Watched by the community',
+    'home.popularTitle': 'Popular',
+    'home.randomKicker': 'Broaden your watchlist',
+    'home.randomTitle': 'You may have missed',
+    'home.noMore': 'You have reached the end of the available feed.',
     'home.videoList': 'Video list',
     'home.views': 'views',
     'explore.filters': 'Explore filters',
@@ -3147,8 +3166,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.quality': 'Quality',
     'watch.videoQuality': 'Video quality',
     'watch.speed': 'Speed',
-    'watch.restoreSize': 'Restore video size',
-    'watch.minimize': 'Minimize video',
     'watch.pictureInPicture': 'Play in a floating window',
     'watch.exitPictureInPicture': 'Close floating window',
     'watch.fullscreen': 'Fullscreen',
@@ -3163,7 +3180,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.rating': 'Rating',
     'watch.ratingStar': 'Rate {star} stars',
     'watch.clearRating': 'Clear rating',
-    'watch.shortcut': 'K / Space play · J/L ±10s · F fullscreen · M mute · I minimize',
     'watch.shareVideo': 'Share video',
     'watch.shareDesc': 'Copy the link to send it to someone else.',
     'watch.videoLink': 'Video link',
@@ -3367,6 +3383,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'ui.account': 'Account'
     ,'ui.accountStats': 'Account statistics'
     ,'ui.accountActions': 'Account actions'
+    ,'ui.shortcuts': 'Keyboard shortcuts'
+    ,'ui.shortcutPlayPause': 'Play / pause'
+    ,'ui.shortcutSeek': 'Seek ±10 seconds'
+    ,'ui.shortcutFullscreen': 'Fullscreen'
+    ,'ui.shortcutMute': 'Mute'
     ,'ui.signIn': 'Sign in'
     ,'ui.collaborationChannel': 'Collaborating channel'
     ,'ui.openCollaborationChannel': 'Open collaborating channel'
@@ -3502,7 +3523,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.recommendationFilters': 'Recommended video filters'
     ,'watch.relatedVideos': 'Related videos'
     ,'watch.sameChannel': 'From this channel'
-    ,'watch.categoryVietnam': 'Vietnam travel'
     ,'watch.recommendedTitle': 'Recommended for you'
     ,'watch.recommendedDesc': 'Keep exploring on HuTube'
     ,'watch.autoplay': 'Autoplay'

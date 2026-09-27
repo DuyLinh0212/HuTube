@@ -10,6 +10,7 @@ import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
+import { PictureInPictureService } from '../../core/picture-in-picture.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 
 @Component({
@@ -24,6 +25,7 @@ export class WatchPage {
   private readonly content = inject(ContentService);
   private readonly channels = inject(ChannelService);
   private readonly playlists = inject(PlaylistService);
+  private readonly pictureInPicture = inject(PictureInPictureService);
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
 
@@ -45,14 +47,18 @@ export class WatchPage {
   readonly violationTypes = signal<ViolationType[]>([]);
   readonly actionMessage = signal('');
   readonly autoplay = signal(true);
-  readonly recommendationFilter = signal<'all' | 'related' | 'channel' | 'category'>('all');
+  readonly recommendationFilter = signal<'all' | 'related' | 'channel'>('all');
   readonly isPlaying = signal(false);
   readonly muted = signal(false);
   readonly volume = signal(1);
   readonly currentTime = signal(0);
   readonly totalDuration = signal(0);
-  readonly miniPlayer = signal(false);
-  readonly pipActive = signal(false);
+  readonly progressPercent = computed(() => {
+    const duration = this.totalDuration();
+    if (duration <= 0) return 0;
+    return Math.min(100, Math.max(0, (this.currentTime() / duration) * 100));
+  });
+  readonly pipActive = this.pictureInPicture.active;
   readonly shareOpen = signal(false);
   readonly shareUrl = signal('');
   readonly downloadOptions = signal<Rendition[]>([]);
@@ -233,6 +239,7 @@ export class WatchPage {
       this.autoPlayAttempted = true;
       this.tryAutoplay(player);
     }
+    this.pictureInPicture.prepare(player);
     this.currentTime.set(player.currentTime);
   }
 
@@ -310,19 +317,21 @@ export class WatchPage {
   onEnded() {
     this.isPlaying.set(false);
     this.currentTime.set(this.totalDuration());
-    if (!this.autoplay()) return;
+    // A PiP window may keep playing while the user is viewing another tab.
+    // Do not silently replace the original watch page when that window ends.
+    if (!this.autoplay() || this.pipActive() || document.pictureInPictureElement === this.playerRef?.nativeElement) return;
     const next = this.playlistQueue.slice(this.playlistIndex + 1).find(item => item.available);
     if (next) {
       const nextIndex = this.playlistQueue.findIndex(item => item.playlistVideoId === next.playlistVideoId);
       const tree = this.router.createUrlTree(['/watch', next.videoId], {
         queryParams: { playlist: this.route.snapshot.queryParamMap.get('playlist'), index: nextIndex }
       });
-      window.location.assign(this.router.serializeUrl(tree));
+      void this.router.navigateByUrl(tree);
       return;
     }
     if (this.route.snapshot.queryParamMap.has('playlist')) return;
     const following = this.visibleRelatedVideos()[0];
-    if (following && following.videoId !== this.videoId) window.location.assign(this.router.serializeUrl(this.router.createUrlTree(['/watch', following.videoId])));
+    if (following && following.videoId !== this.videoId) void this.router.navigateByUrl(this.router.createUrlTree(['/watch', following.videoId]));
   }
 
   toggleMute() {
@@ -370,14 +379,9 @@ export class WatchPage {
     }
   }
 
-  toggleMiniPlayer() {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    this.miniPlayer.update(value => !value);
-  }
-
   supportsPictureInPicture(): boolean {
     const player = this.playerRef?.nativeElement;
-    return !!document.pictureInPictureEnabled && !!player && typeof player.requestPictureInPicture === 'function';
+    return this.pictureInPicture.supports(player);
   }
 
   async togglePictureInPicture(): Promise<void> {
@@ -388,8 +392,8 @@ export class WatchPage {
     }
 
     try {
-      if (document.pictureInPictureElement === player) await document.exitPictureInPicture();
-      else await player.requestPictureInPicture();
+      if (this.pipActive()) await this.pictureInPicture.exit();
+      else await this.pictureInPicture.enter(player);
     } catch {
       this.actionMessage.set(this.i18n.t('watch.pictureInPictureFailed'));
     }
@@ -725,7 +729,7 @@ export class WatchPage {
     });
   }
 
-  setRecommendationFilter(filter: 'all' | 'related' | 'channel' | 'category') {
+  setRecommendationFilter(filter: 'all' | 'related' | 'channel') {
     this.recommendationFilter.set(filter);
     this.loadRecommendations();
   }
@@ -737,16 +741,6 @@ export class WatchPage {
       this.content.search({
         channelId: current.channelId,
         sort: 'newest', page: 1, pageSize: 20
-      }).subscribe({
-        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
-        error: () => this.relatedVideos.set([])
-      });
-      return;
-    }
-    if (filter === 'category' && current) {
-      this.content.search({
-        categoryId: current.categoryId ?? undefined,
-        sort: 'popular', page: 1, pageSize: 20
       }).subscribe({
         next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
         error: () => this.relatedVideos.set([])
@@ -864,7 +858,6 @@ export class WatchPage {
     else if (key === 'l' || event.key === 'ArrowRight') this.seekBy(10);
     else if (key === 'm') this.toggleMute();
     else if (key === 'f') this.toggleFullscreen();
-    else if (key === 'i') this.toggleMiniPlayer();
     else return;
     event.preventDefault();
     event.stopPropagation();

@@ -785,6 +785,59 @@
   color: var(--primary);
 }
 
+.drawer-shortcuts {
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--canvas), var(--primary-soft));
+}
+
+.drawer-shortcuts .drawer-section-label {
+  margin-bottom: 12px;
+}
+
+.drawer-shortcut-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.drawer-shortcut-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: .68rem;
+  line-height: 1.25;
+}
+
+.drawer-shortcut-list kbd {
+  display: inline-grid;
+  min-width: 31px;
+  height: 27px;
+  flex: none;
+  place-items: center;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface);
+  font: 800 .64rem/1 var(--font-main);
+  white-space: nowrap;
+}
+
+.drawer-shortcut-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .drawer-socials {
   padding-top: 20px;
 }
@@ -903,6 +956,8 @@
 
   .account-drawer__header { padding: 20px 18px 17px; }
   .account-drawer__body { padding: 20px 18px calc(28px + env(safe-area-inset-bottom)); }
+
+  .drawer-shortcut-list { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

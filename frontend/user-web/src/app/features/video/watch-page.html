@@ -24,10 +24,10 @@
   } @else if (video(); as item) {
     <div class="watch-layout">
       <section class="watch-main">
-        <div class="player-shell" [class.is-mini-player]="miniPlayer()">
+        <div class="player-shell">
           <div #playerStage class="player-stage">
             @if (activeRendition(); as source) {
-              <video #player class="video-player" playsinline autoplay preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()" (enterpictureinpicture)="pipActive.set(true)" (leavepictureinpicture)="pipActive.set(false)"></video>
+              <video #player class="video-player" playsinline autoplay preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()"></video>
             } @else {
               <div class="player-empty"><span aria-hidden="true">▶</span><p>{{ 'watch.notReady' | translate }}</p></div>
             }
@@ -43,7 +43,7 @@
                 </button>
               }
               <div class="player-controls" [class.player-controls--visible]="!isPlaying()">
-                <input class="player-progress" type="range" min="0" [max]="totalDuration() || 1" step="0.1" [value]="currentTime()" (input)="seekFromSlider($any($event.target).value)" [attr.aria-label]="'watch.progress' | translate" />
+                <input class="player-progress" type="range" min="0" [max]="totalDuration() || 1" step="0.1" [value]="currentTime()" [style.--progress]="progressPercent() + '%'" (input)="seekFromSlider($any($event.target).value)" [attr.aria-label]="'watch.progress' | translate" />
                 <div class="player-control-row">
                   <div class="player-control-group">
                     <button type="button" class="player-icon-button" (click)="togglePlayback()" [attr.aria-label]="(isPlaying() ? 'watch.pause' : 'watch.play') | translate">
@@ -66,7 +66,6 @@
                     <label class="player-option"><span>{{ 'watch.speed' | translate }}</span><select [ngModel]="speed()" (ngModelChange)="changeSpeed($event)" [attr.aria-label]="'watch.speed' | translate">
                       @for (value of speeds; track value) { <option [ngValue]="value">{{ value }}×</option> }
                     </select></label>
-                    <button type="button" class="player-icon-button player-mini-button" (click)="toggleMiniPlayer()" [attr.aria-pressed]="miniPlayer()" [attr.aria-label]="(miniPlayer() ? 'watch.restoreSize' : 'watch.minimize') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="miniPlayer() ? 'M5 5h14v14H5z' : 'M4 5h16v10H4zM11 13h9v6h-9z'" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
                     <button type="button" class="player-icon-button" (click)="togglePictureInPicture()" [disabled]="!supportsPictureInPicture()" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
                      <button type="button" class="player-icon-button" (click)="toggleFullscreen()" [attr.aria-label]="'watch.fullscreen' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                   </div>
@@ -118,7 +117,6 @@
             }
           </div>
           }
-          <span class="shortcut-hint">{{ 'watch.shortcut' | translate }}</span>
         </div>
 
         @if (shareOpen()) {
@@ -296,7 +294,6 @@
           <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'all'" [class.is-active]="recommendationFilter() === 'all'" (click)="setRecommendationFilter('all')">{{ 'common.all' | translate }}</button>
           <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'related'" [class.is-active]="recommendationFilter() === 'related'" (click)="setRecommendationFilter('related')">{{ 'watch.relatedVideos' | translate }}</button>
           <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'channel'" [class.is-active]="recommendationFilter() === 'channel'" (click)="setRecommendationFilter('channel')">{{ 'watch.sameChannel' | translate }}</button>
-          <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'category'" [class.is-active]="recommendationFilter() === 'category'" (click)="setRecommendationFilter('category')">{{ 'watch.categoryVietnam' | translate }}</button>
         </div>
         <div class="recommendations-header"><div><h2>{{ 'watch.recommendedTitle' | translate }}</h2><p>{{ 'watch.recommendedDesc' | translate }}</p></div><button type="button" class="autoplay-toggle" [class.is-on]="autoplay()" [attr.aria-pressed]="autoplay()" (click)="toggleAutoplay()"><span class="autoplay-toggle__dot"></span><span>{{ 'watch.autoplay' | translate }}</span></button></div>
         @if (visibleRelatedVideos().length) {

@@ -4,26 +4,92 @@
   } @else if (error()) {
     <p class="state error">{{ error() }}</p>
   } @else {
-    <section class="grid" [attr.aria-label]="'home.videoList' | translate">
-      @for (video of videos(); track video.videoId) {
-        <a class="card" [routerLink]="['/watch', video.videoId]">
-          <div class="thumb">
-            @if (video.thumbnailUrl) {
-              <img [src]="video.thumbnailUrl" alt="" />
-            } @else {
-              <span>▶</span>
-            }
-            <time>{{ duration(video.duration) }}</time>
+    @if (recommendations().length > 0) {
+      <section class="feed-section feed-section--for-you" [attr.aria-label]="'home.forYouTitle' | translate">
+        <header class="section-heading">
+          <h1>{{ 'home.forYouTitle' | translate }}</h1>
+        </header>
+        <div class="grid">
+          @for (video of recommendations(); track video.videoId) {
+            <a class="card" [routerLink]="['/watch', video.videoId]"><ng-container *ngTemplateOutlet="videoCard; context: { $implicit: video }"></ng-container></a>
+          }
+        </div>
+      </section>
+    }
+
+    @if (subscriptionVideos().length > 0) {
+      <section class="feed-section" [attr.aria-label]="'home.followingTitle' | translate">
+        <header class="section-heading section-heading--compact">
+          <div>
+            <span class="section-kicker section-kicker--quiet">{{ 'home.followingKicker' | translate }}</span>
+            <h2>{{ 'home.followingTitle' | translate }}</h2>
           </div>
-          <div class="copy">
-            <h2>{{ video.title }}</h2>
-            <p>{{ video.channelName }}</p>
-            <small>{{ video.views | localeNumber }} {{ 'home.views' | translate }} · {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</small>
+        </header>
+        <div class="grid">
+          @for (video of subscriptionVideos(); track video.videoId) {
+            <a class="card" [routerLink]="['/watch', video.videoId]"><ng-container *ngTemplateOutlet="videoCard; context: { $implicit: video }"></ng-container></a>
+          }
+        </div>
+      </section>
+    }
+
+    @if (popularVideos().length > 0) {
+      <section class="feed-section" [attr.aria-label]="'home.popularTitle' | translate">
+        <header class="section-heading section-heading--compact">
+          <div>
+            <span class="section-kicker section-kicker--quiet">{{ 'home.popularKicker' | translate }}</span>
+            <h2>{{ 'home.popularTitle' | translate }}</h2>
           </div>
-        </a>
-      } @empty {
-        <p class="state">{{ 'home.empty' | translate }}</p>
-      }
-    </section>
+        </header>
+        <div class="grid">
+          @for (video of popularVideos(); track video.videoId) {
+            <a class="card" [routerLink]="['/watch', video.videoId]"><ng-container *ngTemplateOutlet="videoCard; context: { $implicit: video }"></ng-container></a>
+          }
+        </div>
+      </section>
+    }
+
+    @if (randomVideos().length > 0) {
+      <section class="feed-section feed-section--random" [attr.aria-label]="'home.randomTitle' | translate">
+        <header class="section-heading section-heading--compact">
+          <div>
+            <span class="section-kicker section-kicker--quiet">{{ 'home.randomKicker' | translate }}</span>
+            <h2>{{ 'home.randomTitle' | translate }}</h2>
+          </div>
+        </header>
+        <div class="grid">
+          @for (video of randomVideos(); track video.videoId) {
+            <a class="card" [routerLink]="['/watch', video.videoId]"><ng-container *ngTemplateOutlet="videoCard; context: { $implicit: video }"></ng-container></a>
+          }
+        </div>
+      </section>
+    }
+
+    @if (recommendations().length === 0 && subscriptionVideos().length === 0 && popularVideos().length === 0 && randomVideos().length === 0 && !loadingMore()) {
+      <p class="state">{{ 'home.empty' | translate }}</p>
+    }
+
+    <div #loadMoreSentinel class="feed-sentinel" aria-hidden="true"></div>
+    @if (loadingMore()) {
+      <p class="feed-status" role="status">{{ 'home.loadingMore' | translate }}</p>
+    } @else if (!hasMore() && (recommendations().length > 0 || subscriptionVideos().length > 0 || popularVideos().length > 0 || randomVideos().length > 0)) {
+      <p class="feed-status">{{ 'home.noMore' | translate }}</p>
+    }
   }
 </main>
+
+<ng-template #videoCard let-video>
+  <div class="thumb">
+    @if (video.thumbnailUrl) {
+      <img [src]="video.thumbnailUrl" alt="" />
+    } @else {
+      <span>▶</span>
+    }
+    <time>{{ duration(video.duration) }}</time>
+  </div>
+  <div class="copy">
+    <h2>{{ video.title }}</h2>
+    <p>{{ video.channelName }}</p>
+    <small>{{ video.views | localeNumber }} {{ 'home.views' | translate }} · {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</small>
+  </div>
+</ng-template>

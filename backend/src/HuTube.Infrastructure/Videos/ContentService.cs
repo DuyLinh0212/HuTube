@@ -497,6 +497,7 @@ public sealed class ContentService(
             "newest" => rows.OrderByDescending(x => x.PublishedAt),
             "views" or "popular" => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
             "engagement" => rows.OrderByDescending(x => (x.Likes ?? 0L) + (x.Comments ?? 0L)).ThenByDescending(x => x.Views ?? 0L),
+            "random" => rows.OrderBy(_ => EF.Functions.Random()),
             _ when !string.IsNullOrWhiteSpace(term) =>
                 rows.OrderByDescending(x => EF.Functions.ILike(x.Title, $"{term}%"))
                     .ThenByDescending(x => EF.Functions.ILike(x.Title, $"%{term}%"))

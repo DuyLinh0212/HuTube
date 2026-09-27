@@ -29,41 +29,52 @@
     </section>
   } @else if (!error()) {
     @if (items().length) {
-      <section class="library-list" [attr.aria-label]="title">
-        @for (item of items(); track item.videoId) {
-          <article class="library-card">
-            <a class="library-thumb" [routerLink]="['/watch', item.videoId]" [attr.aria-label]="('library.watch' | translate:{ title: item.title })">
-              @if (item.thumbnailUrl) {
-                <img [src]="item.thumbnailUrl" alt="" />
-              } @else {
-                <span class="library-thumb__fallback" aria-hidden="true">▶</span>
-              }
-              <time>{{ duration(item.duration) }}</time>
-              @if (!isLiked && item.progress > 0) { <span class="watch-progress" [style.width.%]="item.progress"></span> }
-            </a>
-            <div class="library-card__body">
-              <div class="library-card__heading">
-                <h2><a [routerLink]="['/watch', item.videoId]">{{ item.title }}</a></h2>
-                @if (item.visibility !== 'public') { <span class="visibility-chip">{{ ('ui.' + item.visibility) | translate }}</span> }
-              </div>
-              <a class="library-channel" [routerLink]="['/channel', item.channelHandle]">{{ item.channelName }} <span>&#64;{{ item.channelHandle }}</span></a>
-              <div class="library-meta">
-                @if (isLiked) {
-                  <span class="your-rating"><span aria-hidden="true">★</span> {{ 'library.yourRating' | translate:{ rating: ratingLabel(item) } }}</span>
-                  @if (item.averageRating !== null) { <span>{{ 'library.overallRating' | translate:{ rating: ((item.averageRating | localeNumber:'1.1-2') ?? ''), count: i18n.formatNumber(item.ratingCount) } }}</span> }
-                } @else {
-                  <span>{{ 'library.watched' | translate:{ progress: progressLabel(item) } }}</span>
-                  <span>{{ item.watchedSeconds | localeNumber }} {{ 'ui.seconds' | translate }}</span>
-                }
-                  <span>{{ item.activityAt | localeDate:'d MMM y, HH:mm' }}</span>
-              </div>
-              @if (!isLiked && item.progress > 0 && item.progress < 100) {
-                <p class="resume-hint">{{ 'library.resume' | translate }}</p>
+      <div class="library-groups" [attr.aria-label]="title">
+        @for (group of groups(); track group.key) {
+          <section class="history-day" [class.history-day--liked]="isLiked" [attr.aria-labelledby]="isLiked ? null : 'history-day-' + group.key">
+            @if (!isLiked) {
+              <header class="history-day__heading">
+                <h2 [id]="'history-day-' + group.key">{{ group.label }}</h2>
+              </header>
+            }
+            <div class="library-list">
+              @for (item of group.items; track item.videoId) {
+                <article class="library-card">
+                  <a class="library-thumb" [routerLink]="['/watch', item.videoId]" [attr.aria-label]="('library.watch' | translate:{ title: item.title })">
+                    @if (item.thumbnailUrl) {
+                      <img [src]="item.thumbnailUrl" alt="" />
+                    } @else {
+                      <span class="library-thumb__fallback" aria-hidden="true">▶</span>
+                    }
+                    <time>{{ duration(item.duration) }}</time>
+                    @if (!isLiked && item.progress > 0) { <span class="watch-progress" [style.width.%]="item.progress"></span> }
+                  </a>
+                  <div class="library-card__body">
+                    <div class="library-card__heading">
+                      <h3><a [routerLink]="['/watch', item.videoId]">{{ item.title }}</a></h3>
+                      @if (hasVisibilityChip(item)) { <span class="visibility-chip">{{ ('ui.' + item.visibility) | translate }}</span> }
+                    </div>
+                    <a class="library-channel" [routerLink]="['/channel', item.channelHandle]">{{ item.channelName }} <span>&#64;{{ item.channelHandle }}</span></a>
+                    <div class="library-meta">
+                      @if (isLiked) {
+                        <span class="your-rating"><span aria-hidden="true">★</span> {{ 'library.yourRating' | translate:{ rating: ratingLabel(item) } }}</span>
+                        @if (item.averageRating !== null) { <span>{{ 'library.overallRating' | translate:{ rating: ((item.averageRating | localeNumber:'1.1-2') ?? ''), count: i18n.formatNumber(item.ratingCount) } }}</span> }
+                      } @else {
+                        <span>{{ 'library.watched' | translate:{ progress: progressLabel(item) } }}</span>
+                        <span>{{ item.watchedSeconds | localeNumber }} {{ 'ui.seconds' | translate }}</span>
+                      }
+                      <span>{{ item.activityAt | localeDate:'d MMM y, HH:mm' }}</span>
+                    </div>
+                    @if (!isLiked && item.progress > 0 && item.progress < 100) {
+                      <p class="resume-hint">{{ 'library.resume' | translate }}</p>
+                    }
+                  </div>
+                </article>
               }
             </div>
-          </article>
+          </section>
         }
-      </section>
+      </div>
 
       @if (isLiked && pageCount() > 1) {
         <nav class="library-pagination" [attr.aria-label]="'library.pagination' | translate">

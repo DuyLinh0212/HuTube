@@ -207,6 +207,16 @@
                 </button>
               </nav>
 
+              <section class="drawer-shortcuts" aria-labelledby="drawer-shortcuts-title">
+                <h2 id="drawer-shortcuts-title" class="drawer-section-label">{{ 'ui.shortcuts' | translate }}</h2>
+                <ul class="drawer-shortcut-list">
+                  <li><kbd>K</kbd><span>{{ 'ui.shortcutPlayPause' | translate }}</span></li>
+                  <li><kbd>J / L</kbd><span>{{ 'ui.shortcutSeek' | translate }}</span></li>
+                  <li><kbd>F</kbd><span>{{ 'ui.shortcutFullscreen' | translate }}</span></li>
+                  <li><kbd>M</kbd><span>{{ 'ui.shortcutMute' | translate }}</span></li>
+                </ul>
+              </section>
+
               <section class="drawer-socials" [attr.aria-label]="'ui.myLinks' | translate">
                 <div class="drawer-section-heading"><strong>{{ 'ui.myLinks' | translate }}</strong><a [routerLink]="myChannel() ? ['/channel', myChannel()!.handle, 'customize'] : ['/channel/create']" (click)="closeAccountDrawer()">{{ 'common.edit' | translate }}</a></div>
                 @if (socialLinks().length) {

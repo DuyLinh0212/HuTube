@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -20,7 +19,7 @@ type UserAction = 'lock' | 'unlock' | 'role';
 @Component({
   selector: 'app-admin-users-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-users-page.html',
   styleUrl: './admin-users-page.scss',
 })

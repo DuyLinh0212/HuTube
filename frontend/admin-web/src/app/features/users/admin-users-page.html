@@ -1,15 +1,4 @@
 <main id="main-content" class="users-page">
-  <header class="page-heading">
-    <div>
-      <p class="eyebrow">{{ 'users.title' | translate }}</p>
-      <h1>{{ 'users.title' | translate }}</h1>
-      <p class="muted">{{ 'users.accessSummary' | translate }}</p>
-    </div>
-    <button type="button" class="outline-button" routerLink="/roles" [attr.aria-label]="'users.roleAndAccess' | translate">
-      <span aria-hidden="true">♙</span> {{ 'users.roleAndAccess' | translate }}
-    </button>
-  </header>
-
   @if (success()) {
     <div class="alert success" role="status"><span aria-hidden="true">✓</span>{{ success() }}</div>
   }

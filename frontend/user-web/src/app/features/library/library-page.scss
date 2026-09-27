@@ -92,6 +92,45 @@
   padding-top: 24px;
 }
 
+.library-groups {
+  display: grid;
+  gap: 28px;
+}
+
+.history-day {
+  min-width: 0;
+}
+
+.history-day__heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.history-day__heading::after {
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+  content: '';
+}
+
+.history-day__heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: .95rem;
+  font-weight: 850;
+  letter-spacing: -.015em;
+  white-space: nowrap;
+}
+
+.history-day .library-list {
+  padding-top: 12px;
+}
+
+.history-day--liked .library-list {
+  padding-top: 24px;
+}
+
 .library-history-sentinel {
   min-height: 32px;
   display: grid;
@@ -171,19 +210,22 @@
   gap: 9px;
 }
 
-.library-card h2 {
+.library-card h2,
+.library-card h3 {
   min-width: 0;
   margin: 0;
   font-size: 1rem;
   line-height: 1.35;
 }
 
-.library-card h2 a {
+.library-card h2 a,
+.library-card h3 a {
   color: var(--ink);
   text-decoration: none;
 }
 
-.library-card h2 a:hover {
+.library-card h2 a:hover,
+.library-card h3 a:hover {
   color: var(--primary);
 }
 
@@ -351,8 +393,13 @@
     padding: 2px 3px 2px 0;
   }
 
-  .library-card h2 {
+  .library-card h2,
+  .library-card h3 {
     font-size: .82rem;
+  }
+
+  .history-day__heading h2 {
+    font-size: .84rem;
   }
 
   .visibility-chip {
