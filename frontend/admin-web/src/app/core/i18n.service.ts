@@ -150,7 +150,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Auth
     'auth.loginTitle': 'Đăng nhập HuTube Quản trị',
-    'auth.email': 'Email quản trị',
+    'auth.email': 'Email',
     'auth.password': 'Mật khẩu',
     'auth.loginBtn': 'Đăng nhập vào hệ thống',
     'auth.logout': 'Đăng xuất',
@@ -497,7 +497,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Auth
     'auth.loginTitle': 'Sign in to HuTube Admin',
-    'auth.email': 'Admin Email',
+    'auth.email': 'Email',
     'auth.password': 'Password',
     'auth.loginBtn': 'Sign In to Portal',
     'auth.logout': 'Sign Out',
