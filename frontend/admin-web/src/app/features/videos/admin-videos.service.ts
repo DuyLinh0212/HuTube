@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
+import { I18nService } from '../../core/i18n.service';
 import { RuntimeConfig } from '../../core/runtime-config';
 
 export interface AdminPage<T> {
@@ -115,6 +116,7 @@ export interface AdminVideoStatisticsResponse {
 export class AdminVideosService {
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
+  private readonly i18n = inject(I18nService);
 
   private get base() {
     return `${this.config.apiBaseUrl}/admin`;
@@ -192,12 +194,12 @@ export class AdminVideosService {
     return this.http.get<AdminCategory[]>(`${this.config.apiBaseUrl}/categories`).pipe(
       catchError(() =>
         of([
-          { categoryId: '1', name: 'Công nghệ', slug: 'cong-nghe', description: null },
-          { categoryId: '2', name: 'Du lịch', slug: 'du-lich', description: null },
-          { categoryId: '3', name: 'Âm nhạc', slug: 'am-nhac', description: null },
-          { categoryId: '4', name: 'Ẩm thực', slug: 'am-thuc', description: null },
-          { categoryId: '5', name: 'Giáo dục', slug: 'giao-duc', description: null },
-          { categoryId: '6', name: 'Giải trí', slug: 'giai-tri', description: null }
+          { categoryId: '1', name: this.i18n.t('videos.categoryFallback.tech'), slug: 'cong-nghe', description: null },
+          { categoryId: '2', name: this.i18n.t('videos.categoryFallback.travel'), slug: 'du-lich', description: null },
+          { categoryId: '3', name: this.i18n.t('videos.categoryFallback.music'), slug: 'am-nhac', description: null },
+          { categoryId: '4', name: this.i18n.t('videos.categoryFallback.food'), slug: 'am-thuc', description: null },
+          { categoryId: '5', name: this.i18n.t('videos.categoryFallback.education'), slug: 'giao-duc', description: null },
+          { categoryId: '6', name: this.i18n.t('videos.categoryFallback.entertainment'), slug: 'giai-tri', description: null }
         ])
       )
     );
@@ -211,13 +213,13 @@ export class AdminVideosService {
             total: 0,
             growthPercentage: 0,
             days: [
-              { day: 'T2', label: 'Thứ 2', count: 0, heightPercent: 10 },
-              { day: 'T3', label: 'Thứ 3', count: 0, heightPercent: 10 },
-              { day: 'T4', label: 'Thứ 4', count: 0, heightPercent: 10 },
-              { day: 'T5', label: 'Thứ 5', count: 0, heightPercent: 10 },
-              { day: 'T6', label: 'Thứ 6', count: 0, heightPercent: 10 },
-              { day: 'T7', label: 'Thứ 7', count: 0, heightPercent: 10 },
-              { day: 'CN', label: 'Chủ nhật', count: 0, heightPercent: 10 }
+              { day: 'T2', label: this.i18n.t('videos.weekday.mon'), count: 0, heightPercent: 10 },
+              { day: 'T3', label: this.i18n.t('videos.weekday.tue'), count: 0, heightPercent: 10 },
+              { day: 'T4', label: this.i18n.t('videos.weekday.wed'), count: 0, heightPercent: 10 },
+              { day: 'T5', label: this.i18n.t('videos.weekday.thu'), count: 0, heightPercent: 10 },
+              { day: 'T6', label: this.i18n.t('videos.weekday.fri'), count: 0, heightPercent: 10 },
+              { day: 'T7', label: this.i18n.t('videos.weekday.sat'), count: 0, heightPercent: 10 },
+              { day: 'CN', label: this.i18n.t('videos.weekday.sun'), count: 0, heightPercent: 10 }
             ]
           },
           storage: {
@@ -240,18 +242,18 @@ export class AdminVideosService {
     return this.getVideoStatistics().pipe(map(s => s.storage));
   }
 
-  exportCsv(videos: AdminVideo[], filename = 'danh-sach-video.csv'): void {
+  exportCsv(videos: AdminVideo[], filename?: string): void {
     const headers = [
-      'ID Video',
-      'Tiêu Đề',
-      'Kênh',
-      'Handle Kênh',
-      'Danh Mục',
-      'Trạng Thái',
-      'Quyền Riêng Tư',
-      'Lượt Xem',
-      'Số Báo Cáo',
-      'Ngày Tải Lên'
+      this.i18n.t('videos.csv.id'),
+      this.i18n.t('videos.csv.title'),
+      this.i18n.t('videos.csv.channel'),
+      this.i18n.t('videos.csv.channelHandle'),
+      this.i18n.t('videos.csv.category'),
+      this.i18n.t('videos.csv.status'),
+      this.i18n.t('videos.csv.visibility'),
+      this.i18n.t('videos.csv.views'),
+      this.i18n.t('videos.csv.reports'),
+      this.i18n.t('videos.csv.uploadedAt')
     ];
 
     const rows = videos.map(v => [
@@ -259,7 +261,7 @@ export class AdminVideosService {
       `"${v.title.replace(/"/g, '""')}"`,
       `"${v.channelName.replace(/"/g, '""')}"`,
       `"@${v.channelHandle}"`,
-      `"${v.categoryName ?? 'Chưa phân loại'}"`,
+      `"${v.categoryName ?? this.i18n.t('videos.uncategorized')}"`,
       `"${v.status}"`,
       `"${v.visibility}"`,
       v.views,
@@ -272,7 +274,7 @@ export class AdminVideosService {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', filename);
+    link.setAttribute('download', filename ?? this.i18n.t('videos.csv.filename'));
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

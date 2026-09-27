@@ -21,7 +21,7 @@ function stableDeviceId(): string {
   return generated;
 }
 
-function browserDeviceName(google = false, mobileLabel = 'Điện thoại', desktopLabel = 'Máy tính'): string {
+function browserDeviceName(google = false, mobileLabel: string, desktopLabel: string): string {
   const mobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
   const kind = mobile ? mobileLabel : desktopLabel;
   if (ADMIN_APP) return `HuTube Admin · ${kind}`;
@@ -55,7 +55,7 @@ export class AuthService {
   login(email: string, password: string): Observable<User> {
     const generation = ++this.generation;
     return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: browserDeviceName(false, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')), deviceId: stableDeviceId() }).pipe(
-      tap(response => { if (generation !== this.generation) throw new Error('Yêu cầu đăng nhập đã bị hủy.'); this.accept(response); }),
+      tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.loginCancelled')); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
     );
@@ -63,7 +63,7 @@ export class AuthService {
   google(credential: string): Observable<User> {
     const generation = ++this.generation;
     return this.post<LoginResponse>('/auth/google', { credential, platform: 'web', deviceName: browserDeviceName(true, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')), deviceId: stableDeviceId() }).pipe(
-      tap(response => { if (generation !== this.generation) throw new Error('Yêu cầu đăng nhập đã bị hủy.'); this.accept(response); }),
+      tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.loginCancelled')); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
     );
@@ -76,7 +76,7 @@ export class AuthService {
       this.refreshFlight = defer(async () => typeof navigator !== 'undefined' && navigator.locks
         ? await navigator.locks.request('hutube-refresh-' + (ADMIN_APP ? 'admin' : 'web'), request)
         : await request()).pipe(
-        tap(response => { if (generation !== this.generation) throw new Error('Phiên đã kết thúc.'); this.accept(response); }),
+        tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.sessionEnded')); this.accept(response); }),
         catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); }),
         finalize(() => { this.refreshFlight = undefined; }),
         shareReplay({ bufferSize: 1, refCount: false })
@@ -103,7 +103,7 @@ export class AuthService {
   me(): Observable<User> {
     const generation = this.generation;
     return this.http.get<User>(this.config.apiBaseUrl + (ADMIN_APP ? '/admin/me' : '/auth/me')).pipe(tap(user => {
-      if (generation !== this.generation) throw new Error('Phiên đã thay đổi.');
+      if (generation !== this.generation) throw new Error(this.i18n.t('auth.sessionChanged'));
       this.user.set(user);
     }));
   }

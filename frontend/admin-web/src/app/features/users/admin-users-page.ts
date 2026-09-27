@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminRoleOption,
   AdminUserDetail,
@@ -17,7 +18,7 @@ type UserAction = 'lock' | 'unlock' | 'role';
 @Component({
   selector: 'app-admin-users-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './admin-users-page.html',
   styleUrl: './admin-users-page.scss',
 })
@@ -68,11 +69,11 @@ export class AdminUsersPage implements OnInit {
     this.service.getRoles().subscribe({
       next: roles => this.roles.set(roles),
       error: () => this.roles.set([
-        { roleId: 'user', code: 'user', name: 'Viewer' },
-        { roleId: 'creator', code: 'creator', name: 'Creator' },
-        { roleId: 'moderator', code: 'moderator', name: 'Moderator' },
-        { roleId: 'admin', code: 'admin', name: 'Administrator' },
-        { roleId: 'super-admin', code: 'super_admin', name: 'Super Administrator' },
+        { roleId: 'user', code: 'user', name: this.i18n.t('users.role.user') },
+        { roleId: 'creator', code: 'creator', name: this.i18n.t('users.role.creator') },
+        { roleId: 'moderator', code: 'moderator', name: this.i18n.t('users.role.moderator') },
+        { roleId: 'admin', code: 'admin', name: this.i18n.t('users.role.admin') },
+        { roleId: 'super-admin', code: 'super_admin', name: this.i18n.t('users.role.super_admin') },
       ]),
     });
   }
@@ -103,7 +104,7 @@ export class AdminUsersPage implements OnInit {
       },
       error: error => {
         this.loading.set(false);
-        this.error.set(errorMessage(error));
+        this.error.set(errorMessage(error, this.i18n));
       },
     });
   }
@@ -144,7 +145,7 @@ export class AdminUsersPage implements OnInit {
       },
       error: error => {
         this.detailLoading.set(false);
-        this.error.set(errorMessage(error));
+        this.error.set(errorMessage(error, this.i18n));
       },
     });
   }
@@ -187,27 +188,32 @@ export class AdminUsersPage implements OnInit {
         this.actionModal.set(null);
         this.actionTarget.set(null);
         this.selectedUser.set(detail);
-        this.showSuccess(action === 'role' ? 'Đã cập nhật vai trò.' : action === 'lock' ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.');
+        this.showSuccess(this.i18n.t(action === 'role' ? 'users.success.roleUpdated' : action === 'lock' ? 'users.success.locked' : 'users.success.unlocked'));
         this.load();
       },
       error: error => {
         this.savingAction.set(false);
-        this.error.set(errorMessage(error));
+        this.error.set(errorMessage(error, this.i18n));
       },
     });
   }
 
   statusLabel(status: AdminUserStatus | string): string {
-    return ({ active: 'Hoạt động', banned: 'Đã khóa', suspended: 'Tạm khóa', pending: 'Chờ xác minh', deleted: 'Đã xóa' } as Record<string, string>)[status] ?? status;
+    const key = `users.status.${status}`;
+    const translated = this.i18n.t(key);
+    return translated === key ? status : translated;
   }
 
   roleLabel(user: Pick<AdminUserItem, 'roleCode' | 'roleName'>): string {
-    return user.roleName || ({ super_admin: 'Super Administrator', admin: 'Administrator', moderator: 'Moderator', creator: 'Creator', user: 'Viewer' } as Record<string, string>)[user.roleCode] || user.roleCode;
+    const key = `users.role.${user.roleCode}`;
+    const translated = this.i18n.t(key);
+    return translated === key ? user.roleName || user.roleCode : translated;
   }
 
   formatDate(value: string | null): string {
-    if (!value) return 'Chưa có dữ liệu';
-    return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+    if (!value) return this.i18n.t('users.dateUnavailable');
+    const locale = this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
   }
 
   getInitials(name: string): string {
@@ -222,16 +228,18 @@ export class AdminUsersPage implements OnInit {
   }
 
   auditLabel(action: string): string {
-    return ({
-      'admin.user_locked': 'Khóa tài khoản',
-      'admin.user_unlocked': 'Mở khóa tài khoản',
-      'admin.user_role_updated': 'Cập nhật vai trò',
-      'strike.issued': 'Gậy vi phạm',
-      'strike.revoked': 'Thu hồi gậy',
-      'moderation.warned': 'Cảnh cáo vi phạm',
-      'channel.suspended': 'Khóa kênh',
-      'channel.unlocked': 'Mở khóa kênh',
-    } as Record<string, string>)[action] ?? action;
+    const keys: Record<string, string> = {
+      'admin.user_locked': 'users.audit.userLocked',
+      'admin.user_unlocked': 'users.audit.userUnlocked',
+      'admin.user_role_updated': 'users.audit.roleUpdated',
+      'strike.issued': 'users.audit.strikeIssued',
+      'strike.revoked': 'users.audit.strikeRevoked',
+      'moderation.warned': 'users.audit.warned',
+      'channel.suspended': 'users.audit.channelSuspended',
+      'channel.unlocked': 'users.audit.channelUnlocked',
+    };
+    const key = keys[action];
+    return key ? this.i18n.t(key) : action;
   }
 
   private showSuccess(message: string): void {

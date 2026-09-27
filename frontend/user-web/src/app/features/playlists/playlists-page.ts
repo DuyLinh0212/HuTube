@@ -5,11 +5,13 @@ import { catchError, forkJoin, of, switchMap } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ChannelService } from '../../core/channel.service';
 import { ContentService, VideoCard, VideoDetail } from '../../core/content.service';
+import { I18nService } from '../../core/i18n.service';
 import { Playlist, PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-playlists-page',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TranslatePipe],
   templateUrl: './playlists-page.html',
   styleUrl: './playlists-page.scss'
 })
@@ -18,6 +20,7 @@ export class PlaylistsPage {
   private readonly content = inject(ContentService);
   private readonly channels = inject(ChannelService);
   readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -65,7 +68,7 @@ export class PlaylistsPage {
         this.loading.set(false);
         this.loadPreviews(value);
       },
-      error: () => { this.error.set('Không thể tải danh sách phát.'); this.loading.set(false); }
+      error: () => { this.error.set(this.i18n.t('playlists.loadError')); this.loading.set(false); }
     });
   }
 
@@ -91,7 +94,7 @@ export class PlaylistsPage {
         this.visibility = value.visibility;
         this.loading.set(false);
       },
-      error: () => { this.error.set('Không thể tải danh sách phát hoặc danh sách phát không khả dụng.'); this.loading.set(false); }
+      error: () => { this.error.set(this.i18n.t('playlists.detailError')); this.loading.set(false); }
     });
   }
 
@@ -115,7 +118,7 @@ export class PlaylistsPage {
       error: () => {
         this.videoOptions.set([]);
         this.videoLoading.set(false);
-        this.error.set(this.channelHandle ? 'Không thể tải video của kênh.' : 'Không thể tải danh sách video công khai.');
+        this.error.set(this.i18n.t(this.channelHandle ? 'playlists.channelVideosError' : 'playlists.publicVideosError'));
       }
     });
   }
@@ -125,7 +128,7 @@ export class PlaylistsPage {
     this.busy = true;
     this.service.create(this.name, this.description, this.visibility).subscribe({
       next: value => { this.busy = false; void this.router.navigate(['/playlists', value.playlistId]); },
-      error: () => { this.busy = false; this.error.set('Không thể tạo danh sách phát.'); }
+      error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.createError')); }
     });
   }
 
@@ -135,7 +138,7 @@ export class PlaylistsPage {
     this.busy = true;
     this.service.update(value.playlistId, this.name, this.description, this.visibility).subscribe({
       next: updated => { this.playlist.set(updated); this.busy = false; this.editOpen.set(false); },
-      error: () => { this.busy = false; this.error.set('Không thể lưu danh sách phát.'); }
+      error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.saveError')); }
     });
   }
 
@@ -165,11 +168,11 @@ export class PlaylistsPage {
 
   deletePlaylist() {
     const value = this.playlist();
-    if (!value || !this.canManage() || this.busy || !confirm('Xóa danh sách phát này?')) return;
+    if (!value || !this.canManage() || this.busy || !confirm(this.i18n.t('playlists.deleteConfirm'))) return;
     this.busy = true;
     this.service.remove(value.playlistId).subscribe({
       next: () => void this.router.navigate(['/playlists']),
-      error: () => { this.busy = false; this.error.set('Không thể xóa danh sách phát.'); }
+      error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.deleteError')); }
     });
   }
 
@@ -179,7 +182,7 @@ export class PlaylistsPage {
     this.busy = true;
     this.service.addVideo(value.playlistId, videoId).subscribe({
       next: updated => { this.playlist.set(updated); this.busy = false; this.searchVideos(); },
-      error: () => { this.busy = false; this.error.set('Video không hợp lệ hoặc đã có trong danh sách phát.'); }
+      error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.addVideoError')); }
     });
   }
 
@@ -187,7 +190,7 @@ export class PlaylistsPage {
     const value = this.playlist();
     if (!value) return;
     const index = value.items.findIndex(item => item.available);
-    if (index < 0) { this.error.set('Danh sách phát chưa có video khả dụng để phát.'); return; }
+    if (index < 0) { this.error.set(this.i18n.t('playlists.noPlayableVideo')); return; }
     void this.router.navigate(['/watch', value.items[index].videoId], { queryParams: { playlist: value.playlistId, index } });
   }
 
@@ -197,7 +200,7 @@ export class PlaylistsPage {
     const available = value.items
       .map((item, index) => ({ item, index }))
       .filter(entry => entry.item.available);
-    if (!available.length) { this.error.set('Danh sách phát chưa có video khả dụng để phát.'); return; }
+    if (!available.length) { this.error.set(this.i18n.t('playlists.noPlayableVideo')); return; }
     const selected = available[Math.floor(Math.random() * available.length)];
     void this.router.navigate(['/watch', selected.item.videoId], {
       queryParams: { playlist: value.playlistId, index: selected.index, shuffle: true }
@@ -206,11 +209,11 @@ export class PlaylistsPage {
 
   removeVideo(videoId: string) {
     const value = this.playlist();
-    if (!value || !this.canManage() || this.busy || !confirm('Xóa video này khỏi danh sách phát?')) return;
+    if (!value || !this.canManage() || this.busy || !confirm(this.i18n.t('playlists.removeVideoConfirm'))) return;
     this.busy = true;
     this.service.removeVideo(value.playlistId, videoId).subscribe({
       next: () => this.loadDetail(value.playlistId),
-      error: () => { this.busy = false; this.error.set('Không thể xóa video khỏi danh sách phát.'); }
+      error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.removeVideoError')); }
     });
   }
 
@@ -224,16 +227,16 @@ export class PlaylistsPage {
     this.busy = true;
     this.service.reorder(value.playlistId, items.map(item => item.videoId)).subscribe({
       next: updated => { this.playlist.set(updated); this.busy = false; },
-      error: () => { this.busy = false; this.error.set('Không thể lưu thứ tự video.'); }
+      error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.reorderError')); }
     });
   }
 
   previewItems(list: PlaylistSummary): PlaylistItem[] { return this.previewById()[list.playlistId]?.items.slice(0, 4) ?? []; }
   heroItems(value: Playlist): PlaylistItem[] { return value.items.slice(0, 4); }
   totalDuration(items: PlaylistItem[]) { return items.reduce((total, item) => total + (item.duration || 0), 0); }
-  formatDuration(seconds: number) { const total = Math.max(0, Math.round(seconds)); const hours = Math.floor(total / 3600); const minutes = Math.floor((total % 3600) / 60); const remainder = total % 60; return hours ? `${hours} giờ ${minutes} phút` : `${minutes} phút ${remainder} giây`; }
-  formatUpdatedAt(value: string) { return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value)); }
-  visibilityLabel(value: string) { return value === 'public' ? 'Công khai' : value === 'unlisted' ? 'Không công khai' : 'Riêng tư'; }
+  formatDuration(seconds: number) { const total = Math.max(0, Math.round(seconds)); const hours = Math.floor(total / 3600); const minutes = Math.floor((total % 3600) / 60); const remainder = total % 60; return hours ? this.i18n.t('playlists.durationHoursMinutes', { hours, minutes }) : this.i18n.t('playlists.durationMinutesSeconds', { minutes, seconds: remainder }); }
+  formatUpdatedAt(value: string) { return new Intl.DateTimeFormat(this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value)); }
+  visibilityLabel(value: string) { return this.i18n.t(value === 'public' ? 'studio.public' : value === 'unlisted' ? 'playlists.unlisted' : 'playlists.private'); }
   share() {
     void navigator.clipboard?.writeText(location.href).then(() => {
       this.copied.set(true);

@@ -12,7 +12,7 @@
     <a class="topbar-brand" routerLink="/home" [attr.aria-label]="'HuTube'">
       <img src="/assets/logo-mark.png" alt="HuTube" />
       <span class="brand-text"><strong>Hu</strong><em>Tube</em></span>
-      <span class="country-badge">VN</span>
+      <span class="country-badge">{{ i18n.currentLang().toUpperCase() }}</span>
     </a>
   </div>
 

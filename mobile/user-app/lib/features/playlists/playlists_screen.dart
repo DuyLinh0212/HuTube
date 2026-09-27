@@ -91,7 +91,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                playlist == null ? 'Tạo playlist' : 'Chỉnh sửa playlist',
+                AppStrings.t(playlist == null ? 'playlists.create' : 'playlists.edit'),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
@@ -101,24 +101,24 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 controller: name,
                 autofocus: true,
                 maxLength: 150,
-                decoration: const InputDecoration(labelText: 'Tên playlist'),
+                decoration: InputDecoration(labelText: AppStrings.t('playlists.name')),
               ),
               TextField(
                 controller: description,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Mô tả'),
+                decoration: InputDecoration(labelText: AppStrings.t('playlists.descriptionField')),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: visibility,
-                decoration: const InputDecoration(labelText: 'Quyền riêng tư'),
-                items: const [
-                  DropdownMenuItem(value: 'private', child: Text('Riêng tư')),
-                  DropdownMenuItem(value: 'public', child: Text('Công khai')),
+                decoration: InputDecoration(labelText: AppStrings.t('playlists.privacy')),
+                items: [
+                  DropdownMenuItem(value: 'private', child: Text(AppStrings.t('playlists.private'))),
+                  DropdownMenuItem(value: 'public', child: Text(AppStrings.t('playlists.public'))),
                   DropdownMenuItem(
                     value: 'unlisted',
-                    child: Text('Không công khai'),
+                    child: Text(AppStrings.t('playlists.unlisted')),
                   ),
                 ],
                 onChanged: (value) =>
@@ -131,7 +131,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                   description.text.trim(),
                   visibility,
                 )),
-                child: Text(playlist == null ? 'Tạo playlist' : 'Lưu thay đổi'),
+                child: Text(AppStrings.t(playlist == null ? 'playlists.create' : 'playlists.save')),
               ),
             ],
           ),
@@ -167,8 +167,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xóa playlist?'),
-        content: Text('“${playlist.name}” sẽ bị xóa khỏi thư viện của bạn.'),
+        title: Text(AppStrings.t('playlists.deleteTitle')),
+        content: Text(AppStrings.format('playlists.deleteDescription', {'name': playlist.name})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -258,18 +258,18 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
           HuTubeSectionHeader(
-            title: 'Playlist của bạn',
-            subtitle: 'Lưu và sắp xếp video để xem lại bất cứ lúc nào.',
-            action: widget.auth.authenticated ? 'Tạo mới' : null,
+            title: AppStrings.t('playlists.title'),
+            subtitle: AppStrings.t('playlists.subtitle'),
+            action: widget.auth.authenticated ? AppStrings.t('playlists.createAction') : null,
             onAction: _edit,
           ),
           const SizedBox(height: 18),
           if (_playlists.isEmpty)
             HuTubeStateView(
               icon: Icons.playlist_add_rounded,
-              title: 'Thư viện playlist đang trống',
-              message: 'Tạo playlist đầu tiên hoặc lưu video từ màn hình xem.',
-              actionLabel: 'Tạo playlist',
+              title: AppStrings.t('playlists.emptyTitle'),
+              message: AppStrings.t('playlists.createFirst'),
+              actionLabel: AppStrings.t('playlists.create'),
               onAction: _edit,
               compact: true,
               accent: AppColors.primary,
@@ -310,9 +310,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         if (value == 'edit') _edit(playlist: playlist);
                         if (value == 'delete') _delete(playlist);
                       },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
-                        PopupMenuItem(value: 'delete', child: Text('Xóa')),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: 'edit', child: Text(AppStrings.t('common.edit'))),
+                        PopupMenuItem(value: 'delete', child: Text(AppStrings.t('common.delete'))),
                       ],
                     ),
                   ),
@@ -361,9 +361,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         child: detail.items.isEmpty
             ? HuTubeStateView(
                 icon: Icons.playlist_add_rounded,
-                title: 'Playlist chưa có video',
-                message:
-                    'Mở một video rồi chọn “Lưu playlist” để thêm vào đây.',
+                title: AppStrings.t('playlists.noVideosTitle'),
+                message: AppStrings.t('playlists.noVideosDescription'),
                 accent: AppColors.primary,
               )
             : ReorderableListView.builder(
@@ -396,13 +395,13 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       ),
                     ),
                     title: Text(
-                      item.title ?? 'Video không khả dụng',
+                      item.title ?? AppStrings.t('playlists.videoUnavailable'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: item.available
                         ? null
-                        : const Text('Video hiện không phát được'),
+                        : Text(AppStrings.t('playlists.videoCannotPlay')),
                     onTap: item.available
                         ? () => context.push('/watch/${item.videoId}')
                         : null,
@@ -410,10 +409,10 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       onSelected: (choice) {
                         if (choice == 'remove') _removeVideo(item);
                       },
-                      itemBuilder: (_) => const [
+                      itemBuilder: (_) => [
                         PopupMenuItem(
                           value: 'remove',
-                          child: Text('Xóa khỏi playlist'),
+                          child: Text(AppStrings.t('playlists.removeVideo')),
                         ),
                       ],
                     ),
@@ -425,8 +424,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   );
 
   String _visibility(String value) => switch (value.toLowerCase()) {
-    'public' => 'Công khai',
-    'unlisted' => 'Không công khai',
-    _ => 'Riêng tư',
+    'public' => AppStrings.t('playlists.visibility.public'),
+    'unlisted' => AppStrings.t('playlists.visibility.unlisted'),
+    _ => AppStrings.t('playlists.visibility.private'),
   };
 }

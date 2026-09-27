@@ -487,7 +487,7 @@ class _AppShellState extends State<AppShell> {
                     ),
                     SizedBox(height: compact ? 18 : 38),
                     Text(
-                      'XEM ĐIỀU BẠN YÊU',
+                      AppStrings.t('app.guest.heroEyebrow'),
                       style: TextStyle(
                         color: AppColors.primaryHover,
                         fontSize: 11,
@@ -497,9 +497,7 @@ class _AppShellState extends State<AppShell> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      compact
-                          ? 'Một nơi cho\nmọi câu chuyện.'
-                          : 'Một không gian\ncho mọi câu chuyện.',
+                      AppStrings.t(compact ? 'app.guest.storyPrimary' : 'app.guest.storySecondary'),
                       style: TextStyle(
                         color: Colors.white,
                         fontFamily: 'Plus Jakarta Sans',
@@ -512,7 +510,7 @@ class _AppShellState extends State<AppShell> {
                     if (!compact) ...[
                       const SizedBox(height: 12),
                       Text(
-                        'Khám phá video mới, lưu lại khoảnh khắc yêu thích và chia sẻ điều bạn tạo ra.',
+                        AppStrings.t('app.guest.description'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: .68),
                           height: 1.45,

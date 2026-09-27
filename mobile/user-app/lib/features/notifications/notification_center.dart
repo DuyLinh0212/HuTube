@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 
 class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
   NotificationCenter(this.auth);
@@ -83,10 +84,10 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
               AndroidFlutterLocalNotificationsPlugin
             >()
             ?.createNotificationChannel(
-              const AndroidNotificationChannel(
+              AndroidNotificationChannel(
                 'hutube_notifications',
-                'Thông báo HuTube',
-                description: 'Thông báo về kênh, video và tài khoản HuTube.',
+                AppStrings.t('notifications.appName'),
+                description: AppStrings.t('notifications.appDescription'),
                 importance: Importance.high,
               ),
             );
@@ -318,13 +319,13 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await _local.show(
         id: notificationId,
-        title: title.isEmpty ? 'HuTube' : title,
+        title: title.isEmpty ? AppStrings.t('notifications.appName') : title,
         body: body,
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             'hutube_notifications',
-            'Thông báo HuTube',
-            channelDescription: 'Thông báo về kênh, video và tài khoản HuTube.',
+            AppStrings.t('notifications.appName'),
+            channelDescription: AppStrings.t('notifications.appDescription'),
             importance: Importance.high,
             priority: Priority.high,
           ),

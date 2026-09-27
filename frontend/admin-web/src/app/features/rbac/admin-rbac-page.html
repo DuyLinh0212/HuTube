@@ -1,23 +1,23 @@
 <main id="main-content" class="rbac-page">
   <header class="page-heading">
     <div>
-      <p class="eyebrow">Quản trị truy cập</p>
-      <h1>Nhóm quyền & vai trò</h1>
-      <p class="muted">Xem các quyền được backend cấp cho từng vai trò quản trị.</p>
+      <p class="eyebrow">{{ 'rbac.pageEyebrow' | translate }}</p>
+      <h1>{{ 'rbac.title' | translate }}</h1>
+      <p class="muted">{{ 'rbac.subtitle' | translate }}</p>
     </div>
     <div class="heading-actions">
-      <span class="read-only-badge">Dữ liệu từ API</span>
+      <span class="read-only-badge">{{ 'rbac.apiData' | translate }}</span>
       @if (canEdit()) {
-        <button class="primary-action" type="button" (click)="openCreate()">＋ Tạo nhóm quyền</button>
+        <button class="primary-action" type="button" (click)="openCreate()">＋ {{ 'rbac.createGroup' | translate }}</button>
       }
       @if (selectedRole(); as role) {
         @if (canDelete() && !role.isSystemRole && role.status !== 'deleted') {
           <button class="secondary-action danger-action" type="button" (click)="deleteSelectedRole()"
-            [disabled]="role.assignedUserCount > 0" [title]="role.assignedUserCount > 0 ? 'Hãy chuyển người dùng khỏi vai trò này trước' : 'Xóa mềm vai trò'"><span aria-hidden="true">⌫</span> Xóa vai trò</button>
+            [disabled]="role.assignedUserCount > 0" [title]="role.assignedUserCount > 0 ? ('rbac.deleteDisabled' | translate) : ('rbac.softDelete' | translate)"><span aria-hidden="true">⌫</span> {{ 'rbac.deleteRole' | translate }}</button>
         }
       }
       <button class="secondary-action" type="button" (click)="load()" [disabled]="loading()">
-        <span aria-hidden="true">↻</span> Làm mới
+        <span aria-hidden="true">↻</span> {{ 'policies.refresh' | translate }}
       </button>
     </div>
   </header>
@@ -25,13 +25,13 @@
   @if (error()) {
     <section class="state-card error-state" role="alert">
       <div>
-        <h2>Không tải được quyền quản trị</h2>
+        <h2>{{ 'rbac.loadFailed' | translate }}</h2>
         <p>{{ error() }}</p>
       </div>
-      <button class="primary-action" type="button" (click)="load()">Thử lại</button>
+      <button class="primary-action" type="button" (click)="load()">{{ 'rbac.retry' | translate }}</button>
     </section>
   } @else if (loading()) {
-    <section class="rbac-grid skeleton-grid" aria-busy="true" aria-label="Đang tải quyền quản trị">
+    <section class="rbac-grid skeleton-grid" aria-busy="true" [attr.aria-label]="'rbac.loading' | translate">
       <div class="skeleton-panel"></div>
       <div class="skeleton-panel skeleton-panel--wide"></div>
       <div class="skeleton-panel"></div>
@@ -39,27 +39,27 @@
   } @else if (!roles().length) {
     <section class="state-card">
       <div class="state-mark" aria-hidden="true">⌘</div>
-      <h2>Chưa có vai trò quản trị</h2>
-      <p>Backend chưa trả về role nào. Hãy kiểm tra seed RBAC và quyền role.view của tài khoản đang đăng nhập.</p>
+      <h2>{{ 'rbac.emptyTitle' | translate }}</h2>
+      <p>{{ 'rbac.emptyDescription' | translate }}</p>
     </section>
   } @else {
     <section class="rbac-grid">
-      <aside class="role-browser" aria-label="Danh sách vai trò">
+      <aside class="role-browser" [attr.aria-label]="'rbac.rolesTitle' | translate">
         <div class="panel-heading">
           <div>
-            <p class="panel-kicker">Role</p>
-            <h2>Nhóm quyền</h2>
+            <p class="panel-kicker">{{ 'rbac.roleCode' | translate }}</p>
+            <h2>{{ 'rbac.roleGroup' | translate }}</h2>
           </div>
           <span>{{ filteredRoles().length }}</span>
         </div>
 
         <label class="search-field">
           <span class="search-field__icon" aria-hidden="true"></span>
-          <span class="sr-only">Tìm nhóm quyền</span>
-          <input type="search" [value]="roleSearch()" (input)="roleSearch.set($any($event.target).value)" placeholder="Tìm nhóm quyền…" />
+          <span class="sr-only">{{ 'rbac.searchRoles' | translate }}</span>
+          <input type="search" [value]="roleSearch()" (input)="roleSearch.set($any($event.target).value)" [placeholder]="'rbac.searchRoles' | translate" />
         </label>
 
-        <div class="role-list" role="listbox" aria-label="Các vai trò">
+        <div class="role-list" role="listbox" [attr.aria-label]="'rbac.roles' | translate">
           @for (role of filteredRoles(); track role.roleId) {
             <button class="role-card" type="button" role="option" [class.is-selected]="role.roleId === selectedRole().roleId"
               [attr.aria-selected]="role.roleId === selectedRole().roleId" (click)="selectRole(role)">
@@ -67,44 +67,44 @@
               <span class="role-card__body">
                 <strong>{{ role.name }}</strong>
                 <small>{{ role.code }}</small>
-                <span>{{ permissionCount(role) }} quyền · {{ role.assignedUserCount }} người dùng @if (role.status === 'deleted') { · Đã xóa }</span>
+                <span>{{ 'rbac.permissionCount' | translate:{ count: permissionCount(role) } }} · {{ 'rbac.assignedUsers' | translate:{ count: role.assignedUserCount } }} @if (role.status === 'deleted') { · {{ 'rbac.roleDeleted' | translate }} }</span>
               </span>
               <span class="role-card__more" aria-hidden="true">⋮</span>
             </button>
           } @empty {
-            <p class="no-results">Không tìm thấy nhóm quyền phù hợp.</p>
+            <p class="no-results">{{ 'rbac.noMatchingRoles' | translate }}</p>
           }
         </div>
 
-        <p class="results-note">Hiển thị {{ filteredRoles().length }} trong {{ roles().length }} vai trò từ API.</p>
+        <p class="results-note">{{ 'rbac.resultsFromApi' | translate:{ visible: filteredRoles().length, total: roles().length } }}</p>
       </aside>
 
-      <section class="permission-workspace" aria-label="Chi tiết quyền của vai trò">
+      <section class="permission-workspace" [attr.aria-label]="'rbac.roleDetails' | translate">
         @if (selectedRole(); as role) {
           <header class="role-summary">
             <div class="role-summary__identity">
               <span class="role-summary__icon" aria-hidden="true">⌘</span>
               <div>
-                <p class="panel-kicker">Vai trò đang chọn</p>
+                <p class="panel-kicker">{{ 'rbac.selectedRole' | translate }}</p>
                 <h2>{{ role.name }}</h2>
-                <p>{{ role.description || 'Vai trò quản trị được cấu hình và enforce bởi backend HuTube.' }}</p>
+                <p>{{ role.description || ('rbac.defaultDescription' | translate) }}</p>
               </div>
             </div>
             <dl class="role-summary__metrics">
               <div>
-                <dt>Permission cấp</dt>
+                <dt>{{ 'rbac.grantedPermissions' | translate }}</dt>
                 <dd>{{ permissionCount(role) }}<small>/{{ permissions().length }}</small></dd>
               </div>
               <div>
-                <dt>Phạm vi</dt>
-                <dd>Toàn hệ thống</dd>
+                <dt>{{ 'rbac.scope' | translate }}</dt>
+                <dd>{{ 'rbac.globalScope' | translate }}</dd>
               </div>
               <div>
-                <dt>Mã role</dt>
+                <dt>{{ 'rbac.roleCodeLabel' | translate }}</dt>
                 <dd>{{ role.code }}</dd>
               </div>
               <div>
-                <dt>Người dùng đang gán</dt>
+                <dt>{{ 'rbac.assignedUsersLabel' | translate }}</dt>
                 <dd>{{ role.assignedUserCount }}</dd>
               </div>
             </dl>
@@ -112,34 +112,34 @@
 
           <div class="matrix-toolbar">
             <div class="matrix-toolbar__copy">
-              <p class="panel-kicker">Permission catalog</p>
-              <h3>Quyền theo module</h3>
-              <p>@if (editing()) { Chạm vào từng permission để cấp hoặc thu hồi, sau đó lưu kèm lý do. } @else { Các module được gom gọn trong khung cuộn để admin xem và thao tác nhanh. }</p>
+              <p class="panel-kicker">{{ 'rbac.permissionCatalog' | translate }}</p>
+              <h3>{{ 'rbac.modulePermissions' | translate }}</h3>
+              <p>@if (editing()) { {{ 'rbac.editHelp' | translate }} } @else { {{ 'rbac.viewHelp' | translate }} }</p>
             </div>
             <div class="matrix-actions">
               @if (canEdit()) {
                 @if (editing()) {
-                  <span class="edit-mode-badge"><span aria-hidden="true">●</span> Đang chỉnh sửa</span>
-                  <button class="secondary-action" type="button" (click)="cancelEdit()" [disabled]="saving()">Hủy</button>
+                  <span class="edit-mode-badge"><span aria-hidden="true">●</span> {{ 'rbac.editing' | translate }}</span>
+                  <button class="secondary-action" type="button" (click)="cancelEdit()" [disabled]="saving()">{{ 'common.cancel' | translate }}</button>
                 } @else {
-                  <button class="secondary-action" type="button" (click)="beginEdit()">Chỉnh sửa quyền</button>
+                  <button class="secondary-action" type="button" (click)="beginEdit()">{{ 'rbac.editPermissions' | translate }}</button>
                 }
               }
               <label class="search-field search-field--compact">
                 <span class="search-field__icon" aria-hidden="true"></span>
-                <span class="sr-only">Lọc quyền</span>
-                <input type="search" [value]="permissionSearch()" (input)="permissionSearch.set($any($event.target).value)" placeholder="Lọc permission…" />
+                <span class="sr-only">{{ 'rbac.filterPermissions' | translate }}</span>
+                <input type="search" [value]="permissionSearch()" (input)="permissionSearch.set($any($event.target).value)" [placeholder]="'rbac.filterPermissions' | translate" />
               </label>
             </div>
           </div>
 
-          <section class="permission-catalog" aria-label="Danh sách permission theo module">
+          <section class="permission-catalog" [attr.aria-label]="'rbac.permissionCatalog' | translate">
             <div class="permission-catalog__head">
               <div>
-                <strong>{{ groups().length }} module</strong>
-                <span>· {{ permissions().length }} permission khả dụng</span>
+                <strong>{{ groups().length }} {{ (groups().length === 1 ? 'rbac.moduleSingular' : 'rbac.modulePlural') | translate }}</strong>
+                <span>· {{ 'rbac.availablePermissions' | translate:{ count: permissions().length } }}</span>
               </div>
-              <span class="scroll-hint"><span aria-hidden="true">↕</span> Cuộn trong khung</span>
+              <span class="scroll-hint"><span aria-hidden="true">↕</span> {{ 'rbac.scrollWithinPanel' | translate }}</span>
             </div>
 
             <div class="permission-groups">
@@ -157,7 +157,7 @@
                     @for (permission of group.permissions; track permission.permissionId) {
                       <button class="permission-row" type="button" [class.is-granted]="roleHas(permission)"
                         [disabled]="!editing() || !canEdit()" (click)="togglePermission(permission)"
-                        [attr.aria-label]="editing() ? 'Bật hoặc tắt quyền ' + permission.name : 'Xem trạng thái ' + permission.name"
+                        [attr.aria-label]="editing() ? ('rbac.togglePermission' | translate:{ name: permission.name }) : ('rbac.viewPermissionState' | translate:{ name: permission.name })"
                         [title]="permission.description || permission.name">
                         <span class="permission-row__state" aria-hidden="true">{{ roleHas(permission) ? '✓' : '·' }}</span>
                         <span class="permission-row__copy">
@@ -168,81 +168,81 @@
                           [class.is-view]="roleHas(permission) && accessLevel(permission) === 'view'"
                           [class.is-action]="roleHas(permission) && accessLevel(permission) === 'action'"
                           [class.is-admin]="roleHas(permission) && accessLevel(permission) === 'admin'">
-                          {{ roleHas(permission) ? levelLabel(accessLevel(permission)) : 'Chưa cấp' }}
+                          {{ roleHas(permission) ? levelLabel(accessLevel(permission)) : ('rbac.notGranted' | translate) }}
                         </span>
                       </button>
                     }
                   </div>
                 </section>
               } @empty {
-                <p class="no-permission-results">Không tìm thấy permission phù hợp với bộ lọc hiện tại.</p>
+                <p class="no-permission-results">{{ 'rbac.noMatchingPermissions' | translate }}</p>
               }
             </div>
           </section>
 
-          <footer class="matrix-legend" aria-label="Chú thích trạng thái permission">
-            <span><i class="permission-dot is-selected"></i>Đã cấp</span>
-            <span><i class="permission-dot is-view"></i>Chỉ xem</span>
-            <span><i class="permission-dot is-action"></i>Thao tác</span>
-            <span><i class="permission-dot is-admin"></i>Quản trị</span>
-            <em>@if (canEdit()) { Chọn “Chỉnh sửa quyền” để thay đổi; API sẽ kiểm tra role.edit. } @else { Chỉ đọc: tài khoản chưa có quyền role.edit. }</em>
+          <footer class="matrix-legend" [attr.aria-label]="'rbac.legend' | translate">
+            <span><i class="permission-dot is-selected"></i>{{ 'rbac.granted' | translate }}</span>
+            <span><i class="permission-dot is-view"></i>{{ 'rbac.viewOnly' | translate }}</span>
+            <span><i class="permission-dot is-action"></i>{{ 'common.actions' | translate }}</span>
+            <span><i class="permission-dot is-admin"></i>{{ 'rbac.admin' | translate }}</span>
+            <em>@if (canEdit()) { {{ 'rbac.editHint' | translate }} } @else { {{ 'rbac.readOnlyHint' | translate }} }</em>
           </footer>
         }
       </section>
 
-      <aside class="role-scope" aria-label="Phạm vi và quyền được cấp">
+      <aside class="role-scope" [attr.aria-label]="'rbac.scopeAndPermissions' | translate">
         @if (selectedRole(); as role) {
           <div class="panel-heading">
             <div>
-              <p class="panel-kicker">Backend enforced</p>
-              <h2>Phạm vi & quyền</h2>
+              <p class="panel-kicker">{{ 'rbac.backendEnforced' | translate }}</p>
+              <h2>{{ 'rbac.scopeAndPermissions' | translate }}</h2>
             </div>
             <span class="shield" aria-hidden="true">◈</span>
           </div>
 
           <section class="scope-block">
-            <p>Phạm vi</p>
-            <strong><span aria-hidden="true">◎</span> Toàn hệ thống</strong>
-            <small>Permission được kiểm tra bởi API trước khi thực hiện nghiệp vụ.</small>
+            <p>{{ 'rbac.scope' | translate }}</p>
+            <strong><span aria-hidden="true">◎</span> {{ 'rbac.globalScope' | translate }}</strong>
+            <small>{{ 'rbac.permissionCheckedByApi' | translate }}</small>
           </section>
 
           <section class="scope-block">
             <div class="scope-block__heading">
-              <p>Quyền đang cấp</p>
+              <p>{{ 'rbac.currentlyGranted' | translate }}</p>
               <strong>{{ permissionCount(role) }}</strong>
             </div>
             <ul class="assigned-list">
               @for (permission of assignedPermissions(); track permission.permissionId) {
                 <li><span aria-hidden="true">✓</span><div><strong>{{ permission.name }}</strong><small>{{ permission.code }}</small></div></li>
               } @empty {
-                <li class="assigned-list__empty">Vai trò này chưa được gán permission nào.</li>
+                <li class="assigned-list__empty">{{ 'rbac.noPermissionsAssigned' | translate }}</li>
               }
             </ul>
           </section>
 
           <section class="enforcement-note">
             <span aria-hidden="true">i</span>
-            <p>Ẩn menu chỉ giúp điều hướng. API vẫn trả 403 nếu session không có permission yêu cầu.</p>
+            <p>{{ 'rbac.apiAuthorizationNote' | translate }}</p>
           </section>
         }
       </aside>
     </section>
 
     @if (editing() && isDirty()) {
-      <section class="save-drawer" aria-label="Lưu thay đổi nhóm quyền">
+      <section class="save-drawer" [attr.aria-label]="'rbac.saveChangesAria' | translate">
         <div>
-          <p class="panel-kicker">Thay đổi chưa lưu</p>
-          <h2>Lưu thay đổi {{ selectedRole().name }}?</h2>
-          <p>{{ draftPermissionCodes().length }} quyền sẽ được áp dụng. Mọi thay đổi được ghi vào nhật ký quản trị.</p>
+          <p class="panel-kicker">{{ 'rbac.unsavedChanges' | translate }}</p>
+          <h2>{{ 'rbac.saveRoleTitle' | translate:{ name: selectedRole().name } }}</h2>
+          <p>{{ 'rbac.permissionsWillApply' | translate:{ count: draftPermissionCodes().length } }}</p>
         </div>
         <label>
-          <span>Lý do thay đổi <b>*</b></span>
-          <input [ngModel]="saveReason()" (ngModelChange)="saveReason.set($event)" maxlength="300" placeholder="Ví dụ: Cấp quyền xử lý hàng đợi kiểm duyệt" />
+          <span>{{ 'rbac.changeReason' | translate }} <b>*</b></span>
+          <input [ngModel]="saveReason()" (ngModelChange)="saveReason.set($event)" maxlength="300" [placeholder]="'rbac.reasonPlaceholder' | translate" />
         </label>
         <div class="save-drawer__actions">
-          <button class="secondary-action" type="button" (click)="cancelEdit()" [disabled]="saving()">Hủy</button>
+          <button class="secondary-action" type="button" (click)="cancelEdit()" [disabled]="saving()">{{ 'common.cancel' | translate }}</button>
           <button class="primary-action" type="button" (click)="saveRole()" [disabled]="saving() || saveReason().trim().length < 3">
-            {{ saving() ? 'Đang lưu…' : 'Lưu thay đổi' }}
+            {{ saving() ? ('common.saving' | translate) : ('rbac.save' | translate) }}
           </button>
         </div>
       </section>
@@ -256,28 +256,28 @@
       <div class="dialog-backdrop" (click)="closeCreate()">
         <section class="role-dialog" role="dialog" aria-modal="true" aria-labelledby="create-role-title" (click)="$event.stopPropagation()">
           <header>
-            <div><p class="panel-kicker">RBAC foundation</p><h2 id="create-role-title">Tạo nhóm quyền</h2></div>
-            <button class="dialog-close" type="button" (click)="closeCreate()" [disabled]="creating()" aria-label="Đóng">×</button>
+            <div><p class="panel-kicker">{{ 'rbac.createDialogEyebrow' | translate }}</p><h2 id="create-role-title">{{ 'rbac.createRoleTitle' | translate }}</h2></div>
+            <button class="dialog-close" type="button" (click)="closeCreate()" [disabled]="creating()" [attr.aria-label]="'common.close' | translate">×</button>
           </header>
-          <p class="dialog-intro">Role mới là role quản trị. Permission chỉ có hiệu lực sau khi backend xác nhận và ghi audit log.</p>
+          <p class="dialog-intro">{{ 'rbac.createDialogDescription' | translate }}</p>
           <div class="role-form">
-            <label><span>Tên vai trò <b>*</b></span><input [ngModel]="createName()" (ngModelChange)="createName.set($event)" maxlength="80" placeholder="Ví dụ: Content reviewer" /></label>
-            <label><span>Mã vai trò <b>*</b></span><input [ngModel]="createCode()" (ngModelChange)="createCode.set($event)" maxlength="48" placeholder="content_reviewer" /></label>
-            <label class="role-form__wide"><span>Mô tả</span><textarea [ngModel]="createDescription()" (ngModelChange)="createDescription.set($event)" maxlength="500" placeholder="Phạm vi và trách nhiệm của vai trò"></textarea></label>
+            <label><span>{{ 'rbac.roleName' | translate }} <b>*</b></span><input [ngModel]="createName()" (ngModelChange)="createName.set($event)" maxlength="80" [placeholder]="'rbac.roleNamePlaceholder' | translate" /></label>
+            <label><span>{{ 'rbac.roleCode' | translate }} <b>*</b></span><input [ngModel]="createCode()" (ngModelChange)="createCode.set($event)" maxlength="48" [placeholder]="'rbac.roleCodePlaceholder' | translate" /></label>
+            <label class="role-form__wide"><span>{{ 'rbac.roleDescription' | translate }}</span><textarea [ngModel]="createDescription()" (ngModelChange)="createDescription.set($event)" maxlength="500" [placeholder]="'rbac.roleDescriptionPlaceholder' | translate"></textarea></label>
             <fieldset class="role-form__wide">
-              <legend>Permission được cấp</legend>
+              <legend>{{ 'rbac.permissionsToGrant' | translate }}</legend>
               <div class="permission-picker">
                 @for (permission of permissions(); track permission.permissionId) {
                   <label><input type="checkbox" [checked]="createPermissionCodes().includes(permission.code)" (change)="toggleCreatePermission(permission)" /><span>{{ permission.name }}<small>{{ permission.code }}</small></span></label>
                 }
               </div>
             </fieldset>
-            <label class="role-form__wide"><span>Lý do tạo <b>*</b></span><input [ngModel]="createReason()" (ngModelChange)="createReason.set($event)" maxlength="300" placeholder="Ví dụ: Bổ sung nhóm kiểm duyệt nội dung" /></label>
+            <label class="role-form__wide"><span>{{ 'rbac.createReason' | translate }} <b>*</b></span><input [ngModel]="createReason()" (ngModelChange)="createReason.set($event)" maxlength="300" [placeholder]="'rbac.createReasonPlaceholder' | translate" /></label>
           </div>
           <footer>
-            <button class="secondary-action" type="button" (click)="closeCreate()" [disabled]="creating()">Hủy</button>
+            <button class="secondary-action" type="button" (click)="closeCreate()" [disabled]="creating()">{{ 'common.cancel' | translate }}</button>
             <button class="primary-action" type="button" (click)="createRole()" [disabled]="creating() || createName().trim().length < 2 || createCode().trim().length < 3 || createReason().trim().length < 3">
-              {{ creating() ? 'Đang tạo…' : 'Tạo nhóm quyền' }}
+              {{ creating() ? ('rbac.creating' | translate) : ('rbac.createGroup' | translate) }}
             </button>
           </footer>
         </section>

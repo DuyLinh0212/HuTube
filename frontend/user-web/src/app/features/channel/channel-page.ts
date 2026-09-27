@@ -230,7 +230,7 @@ export class ChannelPage {
 
   hideUserFromMyChannel() {
     this.reportMenuOpen.set(false);
-    alert('Đã ẩn người dùng khỏi kênh của bạn.');
+    alert(this.i18n.t('channel.userHiddenFromChannel'));
   }
 
   openChannelReportModal(actionType: string = 'user') {

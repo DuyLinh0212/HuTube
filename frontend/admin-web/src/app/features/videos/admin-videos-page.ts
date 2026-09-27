@@ -2,6 +2,8 @@ import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal, OnInit, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminCategory,
   AdminVideo,
@@ -16,13 +18,14 @@ import {
 @Component({
   selector: 'app-admin-videos-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
   templateUrl: './admin-videos-page.html',
   styleUrl: './admin-videos-page.scss'
 })
 export class AdminVideosPage implements OnInit {
   private readonly service = inject(AdminVideosService);
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
 
   // Data signals
   readonly videos = signal<AdminVideo[]>([]);
@@ -49,33 +52,33 @@ export class AdminVideosPage implements OnInit {
 
   // Filter Options for CustomSelect
   readonly categoryOptions = computed<CustomSelectOption[]>(() => [
-    { value: 'all', label: 'Tất cả' },
+    { value: 'all', label: this.i18n.t('common.all') },
     ...this.categories().map(cat => ({ value: cat.categoryId, label: cat.name }))
   ]);
 
-  readonly statusOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'Tất cả' },
-    { value: 'published', label: 'Đã duyệt' },
-    { value: 'pending', label: 'Chờ duyệt' },
-    { value: 'processing', label: 'Đang xử lý' },
-    { value: 'blocked', label: 'Vi phạm / Bị khóa' },
-    { value: 'hidden', label: 'Đã ẩn' }
-  ];
+  readonly statusOptions = computed<CustomSelectOption[]>(() => [
+    { value: 'all', label: this.i18n.t('common.all') },
+    { value: 'published', label: this.i18n.t('videos.badge.approved') },
+    { value: 'pending', label: this.i18n.t('videos.badge.pending') },
+    { value: 'processing', label: this.i18n.t('videos.badge.processing') },
+    { value: 'blocked', label: `${this.i18n.t('videos.badge.violation')} / ${this.i18n.t('videos.badge.hidden')}` },
+    { value: 'hidden', label: this.i18n.t('videos.badge.hidden') }
+  ]);
 
-  readonly visibilityOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'Tất cả' },
-    { value: 'public', label: 'Công khai' },
-    { value: 'unlisted', label: 'Không công khai' },
-    { value: 'private', label: 'Riêng tư' }
-  ];
+  readonly visibilityOptions = computed<CustomSelectOption[]>(() => [
+    { value: 'all', label: this.i18n.t('common.all') },
+    { value: 'public', label: this.i18n.t('videos.public') },
+    { value: 'unlisted', label: this.i18n.t('videos.unlisted') },
+    { value: 'private', label: this.i18n.t('videos.private') }
+  ]);
 
-  readonly timeOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'Tất cả' },
-    { value: 'today', label: 'Hôm nay' },
-    { value: '7days', label: '7 ngày qua' },
-    { value: '30days', label: '30 ngày qua' },
-    { value: 'thisYear', label: 'Năm nay' }
-  ];
+  readonly timeOptions = computed<CustomSelectOption[]>(() => [
+    { value: 'all', label: this.i18n.t('common.all') },
+    { value: 'today', label: this.i18n.t('videos.today') },
+    { value: '7days', label: this.i18n.t('videos.last7Days') },
+    { value: '30days', label: this.i18n.t('videos.last30Days') },
+    { value: 'thisYear', label: this.i18n.t('videos.thisYear') }
+  ]);
 
   // Pagination
   readonly page = signal(1);
@@ -230,7 +233,7 @@ export class AdminVideosPage implements OnInit {
         error: err => {
           this.videos.set([]);
           this.total.set(0);
-          this.error.set('Không thể tải danh sách video: ' + (err?.error?.detail || err?.message || 'Lỗi kết nối'));
+          this.error.set(`${this.i18n.t('videos.loadError')}: ${err?.error?.detail || err?.message || this.i18n.t('common.connectionError')}`);
           this.loading.set(false);
         }
       });
@@ -284,9 +287,9 @@ export class AdminVideosPage implements OnInit {
         // Fallback detail
         this.previewDetail.set({
           video,
-          description: `Video chi tiết: ${video.title}. Được tải lên bởi kênh ${video.channelName}.`,
+          description: this.i18n.format('videos.fallbackDescription', { title: video.title, channel: video.channelName }),
           categoryId: video.categoryId ?? '1',
-          categoryName: video.categoryName ?? 'Công nghệ',
+          categoryName: video.categoryName ?? this.i18n.t('videos.defaultCategory'),
           videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
           fileSize: 48500000,
           duration: 754,
@@ -294,7 +297,7 @@ export class AdminVideosPage implements OnInit {
             {
               auditLogId: 'h1',
               action: 'admin.video.review',
-              reason: 'Đã kiểm duyệt và phê duyệt tự động',
+              reason: this.i18n.t('videos.fallbackModerationReason'),
               actorName: 'AI Moderation Bot',
               createdAt: video.createdAt
             }
@@ -303,10 +306,10 @@ export class AdminVideosPage implements OnInit {
             {
               reportId: 'rep-1',
               reporterId: 'usr-1',
-              reporterName: 'Người dùng HuTube',
+              reporterName: this.i18n.t('videos.fallbackReporter'),
               reporterEmail: 'user1@hutube.local',
-              reason: 'Nội dung gây hiểu lầm hoặc spam',
-              description: 'Video có chứa quảng cáo liên kết ngoài không phù hợp tiêu chuẩn cộng đồng.',
+              reason: this.i18n.t('videos.fallbackReportReason'),
+              description: this.i18n.t('videos.fallbackReportDescription'),
               status: 'pending',
               createdAt: video.createdAt
             }
@@ -380,13 +383,13 @@ export class AdminVideosPage implements OnInit {
         next: () => {
           this.busy.set(false);
           this.closeEdit();
-          this.notice.set('Đã cập nhật metadata video thành công.');
+          this.notice.set(this.i18n.t('videos.updateSuccess'));
           setTimeout(() => this.notice.set(''), 4000);
           this.load();
         },
         error: err => {
           this.busy.set(false);
-          this.error.set(err?.error?.message || 'Không thể cập nhật metadata video.');
+          this.error.set(err?.error?.message || this.i18n.t('videos.updateError'));
         }
       });
   }
@@ -426,13 +429,13 @@ export class AdminVideosPage implements OnInit {
         next: () => {
           this.busy.set(false);
           this.closeAction();
-          this.notice.set(`Đã thực hiện thao tác "${this.actionLabel(action)}" trên video.`);
+          this.notice.set(this.i18n.format('videos.actionSuccess', { action: this.actionLabel(action) }));
           setTimeout(() => this.notice.set(''), 4000);
           this.load();
         },
         error: err => {
           this.busy.set(false);
-          this.error.set(err?.error?.message || 'Không thể thực hiện thao tác.');
+          this.error.set(err?.error?.message || this.i18n.t('videos.actionError'));
         }
       });
   }
@@ -449,7 +452,7 @@ export class AdminVideosPage implements OnInit {
   }
 
   submitAddVideo(): void {
-    this.notice.set(`Đã ghi nhận yêu cầu thêm video “${this.newVideoTitle()}”.`);
+    this.notice.set(this.i18n.format('videos.addSuccess', { title: this.newVideoTitle() }));
     setTimeout(() => this.notice.set(''), 4000);
     this.closeAddVideo();
   }
@@ -477,35 +480,48 @@ export class AdminVideosPage implements OnInit {
 
   // Helpers
   formatNumber(val: number): string {
-    return new Intl.NumberFormat('vi-VN').format(val || 0);
+    return new Intl.NumberFormat(this.dateLocale()).format(val || 0);
   }
 
   formatShort(num: number): string {
     if (!num) return '0';
-    if (num >= 1_000_000) {
-      return (num / 1_000_000).toFixed(1).replace('.0', '') + 'M';
-    }
-    if (num >= 1_000) {
-      return (num / 1_000).toFixed(1).replace('.0', '') + 'K';
-    }
-    return num.toString();
+    return new Intl.NumberFormat(this.dateLocale(), { notation: 'compact', maximumFractionDigits: 1 }).format(num);
   }
 
   actionLabel(action: string): string {
     const map: Record<string, string> = {
-      hide: 'Ẩn video',
-      unhide: 'Bỏ ẩn video',
-      remove: 'Gỡ video vi phạm',
-      restore: 'Khôi phục video'
+      hide: this.i18n.t('videos.hide'),
+      unhide: this.i18n.t('videos.unhide'),
+      remove: this.i18n.t('videos.remove'),
+      restore: this.i18n.t('videos.restore')
     };
     return map[action] ?? action;
   }
 
+  auditActionLabel(action: string): string {
+    const keyByAction: Record<string, string> = {
+      'admin.video.hide': 'videos.audit.hide',
+      'admin.video.unhide': 'videos.audit.unhide',
+      'admin.video.remove': 'videos.audit.remove',
+      'admin.video.restore': 'videos.audit.restore',
+      'admin.video.edit_metadata': 'videos.audit.editMetadata',
+    };
+    const key = keyByAction[action];
+    return key ? this.i18n.t(key) : action;
+  }
+
+  statsStatusLabel(): string {
+    const video = this.statsVideo();
+    return video
+      ? this.statusBadge(video.status, video.moderationStatus).label
+      : this.i18n.t('common.unknown');
+  }
+
   formatSubscriberCount(count?: number): string {
-    if (!count || count <= 0) return '0 người đăng ký';
-    if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1).replace('.0', '')} Tr người đăng ký`;
-    if (count >= 1_000) return `${(count / 1_000).toFixed(1).replace('.0', '')} N người đăng ký`;
-    return `${count} người đăng ký`;
+    if (!count || count <= 0) return this.i18n.t('videos.noSubscribers');
+    if (count >= 1_000_000) return this.i18n.format('videos.subscriberCountShort', { count: (count / 1_000_000).toFixed(1).replace('.0', ''), unit: this.i18n.t('videos.millionShort') });
+    if (count >= 1_000) return this.i18n.format('videos.subscriberCountShort', { count: (count / 1_000).toFixed(1).replace('.0', ''), unit: this.i18n.t('videos.thousandShort') });
+    return this.i18n.format('videos.subscriberCount', { count });
   }
 
   formatDuration(seconds?: number): string {
@@ -538,34 +554,44 @@ export class AdminVideosPage implements OnInit {
 
   statusBadge(status: string, moderationStatus?: string): { label: string; cls: string; icon: string } {
     if (moderationStatus === 'rejected') {
-      return { label: 'Vi phạm', cls: 'status-violation', icon: 'alert' };
+      return { label: this.i18n.t('videos.badge.violation'), cls: 'status-violation', icon: 'alert' };
     }
     if (status === 'blocked') {
-      return { label: 'Đã ẩn', cls: 'status-hidden', icon: 'eye-off' };
+      return { label: this.i18n.t('videos.badge.hidden'), cls: 'status-hidden', icon: 'eye-off' };
     }
     if (status === 'processing') {
-      return { label: 'Đang xử lý', cls: 'status-processing', icon: 'sync' };
+      return { label: this.i18n.t('videos.badge.processing'), cls: 'status-processing', icon: 'sync' };
+    }
+    if (status === 'deleted') {
+      return { label: this.i18n.t('videos.badge.deleted'), cls: 'status-hidden', icon: 'eye-off' };
+    }
+    if (status === 'failed') {
+      return { label: this.i18n.t('videos.badge.failed'), cls: 'status-pending', icon: 'alert' };
     }
     if (moderationStatus === 'pending') {
-      return { label: 'Chờ duyệt', cls: 'status-pending', icon: 'clock' };
+      return { label: this.i18n.t('videos.badge.pending'), cls: 'status-pending', icon: 'clock' };
     }
     if (moderationStatus === 'approved' || status === 'published') {
-      return { label: 'Đã duyệt', cls: 'status-approved', icon: 'check' };
+      return { label: this.i18n.t('videos.badge.approved'), cls: 'status-approved', icon: 'check' };
     }
-    return { label: 'Đang hoạt động', cls: 'status-approved', icon: 'check' };
+    return { label: this.i18n.t('videos.badge.active'), cls: 'status-approved', icon: 'check' };
   }
 
   visibilityBadge(visibility: string): { label: string; cls: string; icon: string } {
     switch (visibility?.toLowerCase()) {
       case 'public':
-        return { label: 'Công khai', cls: 'vis-public', icon: 'globe' };
+        return { label: this.i18n.t('videos.public'), cls: 'vis-public', icon: 'globe' };
       case 'unlisted':
-        return { label: 'Không công khai', cls: 'vis-unlisted', icon: 'link' };
+        return { label: this.i18n.t('videos.unlisted'), cls: 'vis-unlisted', icon: 'link' };
       case 'private':
-        return { label: 'Riêng tư', cls: 'vis-private', icon: 'lock' };
+        return { label: this.i18n.t('videos.private'), cls: 'vis-private', icon: 'lock' };
       default:
-        return { label: 'Công khai', cls: 'vis-public', icon: 'globe' };
+        return { label: this.i18n.t('videos.public'), cls: 'vis-public', icon: 'globe' };
     }
+  }
+
+  dateLocale(): string {
+    return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
   }
 
   getInitials(name: string): string {

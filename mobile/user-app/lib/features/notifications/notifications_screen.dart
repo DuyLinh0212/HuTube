@@ -187,7 +187,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             HuTubeStateView(
               icon: Icons.notifications_off_outlined,
               title: AppStrings.t('notifications.empty'),
-              message: 'Khi có hoạt động mới, bạn sẽ thấy cập nhật ở đây.',
+              message: AppStrings.t('notifications.emptyDescription'),
               compact: true,
             ),
           ..._items.map(

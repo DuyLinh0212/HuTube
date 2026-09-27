@@ -78,23 +78,11 @@ class ApiClient {
     } on AppError {
       rethrow;
     } on TimeoutException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Tải ảnh quá thời gian. Vui lòng kiểm tra mạng và thử lại.',
-      );
+      throw ApiFailure.timeoutError;
     } on SocketException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
+      throw ApiFailure.network;
     } on http.ClientException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
+      throw ApiFailure.network;
     }
   }
 
@@ -133,23 +121,11 @@ class ApiClient {
     } on AppError {
       rethrow;
     } on TimeoutException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Tải video quá thời gian. Vui lòng kiểm tra mạng và thử lại.',
-      );
+      throw ApiFailure.timeoutError;
     } on SocketException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
+      throw ApiFailure.network;
     } on http.ClientException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
+      throw ApiFailure.network;
     }
   }
 
@@ -207,23 +183,11 @@ class ApiClient {
     } on AppError {
       rethrow;
     } on TimeoutException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Kết nối quá thời gian. Vui lòng thử lại.',
-      );
+      throw ApiFailure.timeoutError;
     } on SocketException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
+      throw ApiFailure.network;
     } on http.ClientException {
-      throw const ApiFailure(
-        0,
-        'NETWORK_ERROR',
-        'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
-      );
+      throw ApiFailure.network;
     }
   }
 

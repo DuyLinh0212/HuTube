@@ -44,7 +44,7 @@
             <div class="library-card__body">
               <div class="library-card__heading">
                 <h2><a [routerLink]="['/watch', item.videoId]">{{ item.title }}</a></h2>
-                @if (item.visibility !== 'public') { <span class="visibility-chip">{{ item.visibility }}</span> }
+                @if (item.visibility !== 'public') { <span class="visibility-chip">{{ ('ui.' + item.visibility) | translate }}</span> }
               </div>
               <a class="library-channel" [routerLink]="['/channel', item.channelHandle]">{{ item.channelName }} <span>&#64;{{ item.channelHandle }}</span></a>
               <div class="library-meta">

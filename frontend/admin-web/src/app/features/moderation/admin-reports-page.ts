@@ -2,7 +2,9 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
 import { AdminModerationService, ReportCaseDetail, ReportCaseReportDetail, ReportCaseSummary } from './admin-moderation.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 type QueueStatus = 'ALL' | 'pending' | 'reviewing' | 'resolved' | 'escalated';
 type ReportDecision = 'dismiss' | 'warn' | 'age_restrict' | 'recommendation_restricted' | 'hide' | 'remove' | 'upload_restriction' | 'strike' | 'lock_channel' | 'escalate';
@@ -10,13 +12,14 @@ type ReportDecision = 'dismiss' | 'warn' | 'age_restrict' | 'recommendation_rest
 @Component({
   selector: 'app-admin-reports-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-reports-page.html',
   styleUrl: './admin-reports-page.scss'
 })
 export class AdminReportsPage implements OnInit {
   private readonly moderation = inject(AdminModerationService);
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
   readonly loading = signal(true);
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
@@ -41,25 +44,27 @@ export class AdminReportsPage implements OnInit {
   readonly canLockChannels = computed(() => this.auth.hasPermission('channel.lock'));
   readonly availableDecisions = computed(() => {
     const targetType = this.activeCase()?.case.targetType;
-    const hideLabel = targetType === 'channel' ? 'Tạm ngưng kênh' : targetType === 'comment' ? 'Ẩn bình luận' : 'Ẩn khỏi bề mặt công khai';
-    const removeLabel = targetType === 'channel' ? 'Cấm kênh' : targetType === 'comment' ? 'Gỡ bình luận' : 'Gỡ nội dung';
+    const hideLabelKey = targetType === 'channel' ? 'reports.decisions.hideChannel' : targetType === 'comment' ? 'reports.decisions.hideComment' : 'reports.decisions.hideOther';
+    const removeLabelKey = targetType === 'channel' ? 'reports.decisions.removeChannel' : targetType === 'comment' ? 'reports.decisions.removeComment' : 'reports.decisions.removeOther';
+    const hideLabel = this.i18n.t(hideLabelKey);
+    const removeLabel = this.i18n.t(removeLabelKey);
     const options: Array<{ value: ReportDecision; label: string; hint: string }> = [
-      { value: 'dismiss', label: 'Không vi phạm', hint: 'Bác bỏ báo cáo và giữ nguyên đối tượng.' },
-      { value: 'warn', label: 'Cảnh cáo', hint: 'Gửi cảnh cáo cho chủ sở hữu nội dung.' },
-      { value: 'hide', label: hideLabel, hint: targetType === 'channel' ? 'Tạm ngưng kênh và lưu lý do quản trị.' : 'Ẩn đối tượng khỏi người xem.' },
-      { value: 'remove', label: removeLabel, hint: targetType === 'channel' ? 'Cấm kênh và lưu lý do quản trị.' : 'Gỡ đối tượng theo lý do đã nhập.' },
-      { value: 'escalate', label: 'Chuyển cấp', hint: 'Chuyển hồ sơ lên cấp cao hơn để xem xét.' }
+      { value: 'dismiss', label: this.i18n.t('reports.decisions.dismiss'), hint: this.i18n.t('reports.decisions.dismissHint') },
+      { value: 'warn', label: this.i18n.t('reports.decisions.warn'), hint: this.i18n.t('reports.decisions.warnHint') },
+      { value: 'hide', label: hideLabel, hint: this.i18n.t(targetType === 'channel' ? 'reports.decisions.hideChannelHint' : 'reports.decisions.hideHint') },
+      { value: 'remove', label: removeLabel, hint: this.i18n.t(targetType === 'channel' ? 'reports.decisions.removeChannelHint' : 'reports.decisions.removeHint') },
+      { value: 'escalate', label: this.i18n.t('reports.decisions.escalate'), hint: this.i18n.t('reports.decisions.escalateHint') }
     ];
     if (targetType === 'video') {
       options.splice(2, 0,
-        { value: 'age_restrict', label: 'Giới hạn độ tuổi', hint: 'Gắn nhãn 18+ cho video.' },
-        { value: 'recommendation_restricted', label: 'Hạn chế đề xuất', hint: 'Giữ video công khai nhưng không đưa vào gợi ý.' });
+        { value: 'age_restrict', label: this.i18n.t('reports.decisions.ageRestrict'), hint: this.i18n.t('reports.decisions.ageRestrictHint') },
+        { value: 'recommendation_restricted', label: this.i18n.t('reports.decisions.recommendationRestricted'), hint: this.i18n.t('reports.decisions.recommendationRestrictedHint') });
     }
     if (targetType === 'video' || targetType === 'channel') {
       const insertAt = Math.max(2, options.length - 1);
-      if (this.canManageStrikes()) options.splice(insertAt, 0, { value: 'upload_restriction', label: 'Hạn chế tải lên', hint: 'Tạm dừng quyền tải video của kênh theo số ngày.' });
-      if (this.canManageStrikes()) options.splice(insertAt, 0, { value: 'strike', label: 'Áp dụng gậy phạt', hint: 'Ghi một gậy phạt mức cao cho kênh sở hữu.' });
-      if (this.canLockChannels()) options.splice(insertAt, 0, { value: 'lock_channel', label: 'Khóa kênh', hint: 'Tạm ngưng toàn bộ hoạt động của kênh.' });
+      if (this.canManageStrikes()) options.splice(insertAt, 0, { value: 'upload_restriction', label: this.i18n.t('reports.decisions.uploadRestriction'), hint: this.i18n.t('reports.decisions.uploadRestrictionHint') });
+      if (this.canManageStrikes()) options.splice(insertAt, 0, { value: 'strike', label: this.i18n.t('reports.decisions.strike'), hint: this.i18n.t('reports.decisions.strikeHint') });
+      if (this.canLockChannels()) options.splice(insertAt, 0, { value: 'lock_channel', label: this.i18n.t('reports.decisions.lockChannel'), hint: this.i18n.t('reports.decisions.lockChannelHint') });
     }
     return options;
   });
@@ -93,7 +98,7 @@ export class AdminReportsPage implements OnInit {
     this.error.set(null);
     this.moderation.getReportCases(this.selectedTargetType(), this.selectedStatus(), 1, 100).subscribe({
       next: result => { this.cases.set(result.items ?? []); this.total.set(result.total ?? 0); this.loading.set(false); },
-      error: err => { this.error.set(err?.error?.message || 'Không thể tải danh sách hồ sơ báo cáo.'); this.loading.set(false); }
+      error: err => { this.error.set(err?.error?.message || this.i18n.t('reports.loadError')); this.loading.set(false); }
     });
   }
 
@@ -113,7 +118,7 @@ export class AdminReportsPage implements OnInit {
         this.decisionReason.set('');
         this.policyCode.set(value.reports.find(report => report.violationTypeCode)?.violationTypeCode ?? '');
       },
-      error: err => this.error.set(err?.error?.message || 'Không thể tải chi tiết hồ sơ.')
+      error: err => this.error.set(err?.error?.message || this.i18n.t('reports.detailError'))
     });
   }
 
@@ -124,8 +129,8 @@ export class AdminReportsPage implements OnInit {
     if (!this.canClaim()) return;
     this.submitting.set(true);
     this.moderation.claimReportCase(item.caseId).subscribe({
-      next: () => { this.submitting.set(false); this.successMessage.set('Đã nhận hồ sơ báo cáo.'); this.loadData(); if (this.activeCase()?.case.caseId === item.caseId) this.openCase(item); },
-      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || 'Không thể nhận hồ sơ.'); }
+      next: () => { this.submitting.set(false); this.successMessage.set(this.i18n.t('reports.claimSuccess')); this.loadData(); if (this.activeCase()?.case.caseId === item.caseId) this.openCase(item); },
+      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.claimError')); }
     });
   }
 
@@ -133,8 +138,8 @@ export class AdminReportsPage implements OnInit {
     if (!this.canClaim()) return;
     this.submitting.set(true);
     this.moderation.releaseReportCase(item.caseId).subscribe({
-      next: () => { this.submitting.set(false); this.successMessage.set('Đã trả hồ sơ về hàng đợi.'); this.loadData(); this.closeCase(); },
-      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || 'Không thể trả hồ sơ.'); }
+      next: () => { this.submitting.set(false); this.successMessage.set(this.i18n.t('reports.returnSuccess')); this.loadData(); this.closeCase(); },
+      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.returnError')); }
     });
   }
 
@@ -146,11 +151,11 @@ export class AdminReportsPage implements OnInit {
     this.moderation.updateReportDispositions(current.case.caseId, { reportIds, disposition, reason: this.dispositionReason().trim() }).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.successMessage.set(`Đã phân loại ${reportIds.length} báo cáo.`);
+        this.successMessage.set(this.i18n.format('reports.classifySuccess', { count: reportIds.length }));
         this.openCase(current.case);
         this.loadData();
       },
-      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || 'Không thể cập nhật kết quả báo cáo.'); }
+      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.classifyError')); }
     });
   }
 
@@ -166,11 +171,32 @@ export class AdminReportsPage implements OnInit {
     }).subscribe({
       next: result => {
         this.submitting.set(false);
-        this.successMessage.set(result.message || 'Đã đóng hồ sơ.');
+        this.successMessage.set(result.message || this.i18n.t('reports.closedSuccess'));
         this.activeCase.set(null);
         this.loadData();
       },
-      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || 'Không thể đóng hồ sơ.'); }
+      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.closeError')); }
     });
+  }
+
+  targetTypeLabel(targetType: string): string {
+    const key = targetType === 'video' ? 'moderation.colVideo'
+      : targetType === 'channel' ? 'nav.channels'
+        : targetType === 'comment' ? 'reports.comment' : '';
+    return key ? this.i18n.t(key) : targetType;
+  }
+
+  statusLabel(status: string): string {
+    const keys: Record<string, string> = {
+      pending: 'reports.pending',
+      reviewing: 'reports.statusReviewing',
+      escalated: 'reports.statusEscalated',
+      resolved: 'reports.statusResolved',
+    };
+    return keys[status] ? this.i18n.t(keys[status]) : status;
+  }
+
+  dateLocale(): string {
+    return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
   }
 }

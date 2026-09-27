@@ -3,6 +3,8 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { AuthService, errorMessage } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminTag,
   AdminTopic,
@@ -23,13 +25,14 @@ const emptyTopicDraft = (): TopicRequest => ({
 @Component({
   selector: 'app-admin-topics-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-topics-page.html',
   styleUrl: './admin-topics-page.scss',
 })
 export class AdminTopicsPage implements OnInit {
   private readonly service = inject(AdminTopicsService);
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
 
   readonly topics = signal<AdminTopic[]>([]);
   readonly tags = signal<AdminTag[]>([]);
@@ -86,7 +89,7 @@ export class AdminTopicsPage implements OnInit {
         this.loading.set(false);
       },
       error: err => {
-        this.error.set(errorMessage(err));
+        this.error.set(errorMessage(err, this.i18n));
         this.loading.set(false);
       },
     });
@@ -124,7 +127,7 @@ export class AdminTopicsPage implements OnInit {
       status: this.topicDraft.status,
     };
     if (!request.name) {
-      this.error.set('Tên danh mục không được để trống.');
+      this.error.set(this.i18n.t('topics.nameRequired'));
       return;
     }
 
@@ -138,25 +141,25 @@ export class AdminTopicsPage implements OnInit {
       next: () => {
         this.saving.set(false);
         this.topicEditorOpen.set(false);
-        this.showSuccess(topic ? 'Đã cập nhật danh mục.' : 'Đã tạo danh mục.');
+        this.showSuccess(this.i18n.t(topic ? 'topics.updatedCategory' : 'topics.createdCategory'));
         this.load();
       },
       error: err => {
         this.saving.set(false);
-        this.error.set(errorMessage(err));
+        this.error.set(errorMessage(err, this.i18n));
       },
     });
   }
 
   archiveTopic(topic: AdminTopic): void {
     if (!this.canEdit() || topic.status === 'inactive') return;
-    if (!confirm(`Lưu trữ danh mục “${topic.name}”? Video hiện có vẫn giữ nguyên danh mục.`)) return;
+    if (!confirm(this.i18n.format('topics.archiveConfirm', { name: topic.name }))) return;
     this.service.archiveTopic(topic.categoryId).subscribe({
       next: () => {
-        this.showSuccess('Đã lưu trữ danh mục.');
+        this.showSuccess(this.i18n.t('topics.archivedCategory'));
         this.load();
       },
-      error: err => this.error.set(errorMessage(err)),
+      error: err => this.error.set(errorMessage(err, this.i18n)),
     });
   }
 
@@ -182,7 +185,7 @@ export class AdminTopicsPage implements OnInit {
     if (this.saving()) return;
     const name = this.tagDraft.trim();
     if (!name) {
-      this.error.set('Tên tag không được để trống.');
+      this.error.set(this.i18n.t('topics.tagNameRequired'));
       return;
     }
 
@@ -196,30 +199,34 @@ export class AdminTopicsPage implements OnInit {
       next: () => {
         this.saving.set(false);
         this.tagEditorOpen.set(false);
-        this.showSuccess(tag ? 'Đã cập nhật tag.' : 'Đã tạo tag.');
+        this.showSuccess(this.i18n.t(tag ? 'topics.updatedTag' : 'topics.createdTag'));
         this.load();
       },
       error: err => {
         this.saving.set(false);
-        this.error.set(errorMessage(err));
+        this.error.set(errorMessage(err, this.i18n));
       },
     });
   }
 
   deleteTag(tag: AdminTag): void {
     if (!this.canEdit() || tag.videoCount > 0) return;
-    if (!confirm(`Xóa tag “#${tag.name}”?`)) return;
+    if (!confirm(this.i18n.format('topics.deleteConfirm', { name: tag.name }))) return;
     this.service.deleteTag(tag.tagId).subscribe({
       next: () => {
-        this.showSuccess('Đã xóa tag.');
+        this.showSuccess(this.i18n.t('topics.deletedTag'));
         this.load();
       },
-      error: err => this.error.set(errorMessage(err)),
+      error: err => this.error.set(errorMessage(err, this.i18n)),
     });
   }
 
   private showSuccess(message: string): void {
     this.success.set(message);
     window.setTimeout(() => this.success.set(''), 3500);
+  }
+
+  dateLocale(): string {
+    return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
   }
 }

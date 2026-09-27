@@ -1,9 +1,40 @@
 import { Injectable, signal } from '@angular/core';
+import { USER_UI_TRANSLATIONS } from './ui-cleanup-translations';
 
 export type AppLang = 'vi' | 'en';
+type TranslationParams = Readonly<Record<string, string | number>>;
+
+function readStoredLanguage(...keys: string[]): AppLang | null {
+  try {
+    for (const key of keys) {
+      const value = localStorage.getItem(key);
+      if (value === 'vi' || value === 'en') return value;
+    }
+  } catch {
+    // Use the default language when browser storage is unavailable.
+  }
+  return null;
+}
+
+function writeStoredLanguage(lang: AppLang, ...keys: string[]): void {
+  try {
+    for (const key of keys) localStorage.setItem(key, lang);
+  } catch {
+    // Language switching remains available for the current session.
+  }
+}
+
+function interpolate(message: string, params?: TranslationParams): string {
+  if (!params) return message;
+  return Object.entries(params).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    message,
+  );
+}
 
 export const DICTIONARY: Record<AppLang, Record<string, string>> = {
   vi: {
+    ...USER_UI_TRANSLATIONS.vi,
     // Common
     'common.save': 'Lưu thay đổi',
     'common.saving': 'Đang lưu...',
@@ -25,6 +56,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.confirm': 'Xác nhận',
     'common.all': 'Tất cả',
     'common.open': 'Mở liên kết',
+    'common.unknown': 'Không rõ',
+    'common.discardChanges': 'Hủy thay đổi',
     'common.skipToContent': 'Bỏ qua để đến nội dung chính',
 
     // Navigation & Topbar / Sidebar
@@ -35,6 +68,78 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.history': 'Lịch sử xem',
     'nav.likedVideos': 'Video đã thích',
     'nav.playlists': 'Danh sách phát',
+    'playlists.loading': 'Đang tải danh sách phát…',
+    'playlists.yourPlaylists': 'Danh sách phát của bạn',
+    'playlists.saved': 'Đã lưu',
+    'playlists.playlistCount': 'danh sách phát',
+    'playlists.discoveryFallback': 'Một tuyển tập đang chờ được khám phá.',
+    'playlists.updatedAt': 'Cập nhật',
+    'playlists.firstCollection': 'BẮT ĐẦU BỘ SƯU TẬP ĐẦU TIÊN',
+    'playlists.emptyTitle': 'Mọi hành trình xem đều bắt đầu từ một video.',
+    'playlists.emptyDescription': 'Tạo playlist để lưu, sắp xếp và phát liên tục những nội dung bạn quan tâm.',
+    'playlists.createNow': 'Tạo ngay',
+    'playlists.new': 'PLAYLIST MỚI',
+    'playlists.createTitle': 'Tạo danh sách phát',
+    'playlists.createDescription': 'Đặt tên và chọn ai có thể xem danh sách này.',
+    'playlists.name': 'Tên danh sách',
+    'playlists.namePlaceholder': 'Ví dụ: Những ngày ở Việt Nam',
+    'playlists.optional': 'Không bắt buộc',
+    'playlists.descriptionPlaceholder': 'Danh sách này có gì đặc biệt?',
+    'playlists.private': 'Riêng tư',
+    'playlists.unlisted': 'Không công khai',
+    'playlists.creating': 'Đang tạo…',
+    'playlists.backToChannel': 'Về kênh',
+    'playlists.backToPlaylists': 'Về danh sách phát',
+    'playlists.playlistLabel': 'DANH SÁCH PHÁT',
+    'playlists.editInfo': 'Chỉnh sửa thông tin',
+    'playlists.descriptionFallback': 'Một tuyển tập video được sắp xếp để xem liền mạch.',
+    'playlists.yours': 'Danh sách của bạn',
+    'playlists.hutubeCreator': 'Nhà sáng tạo HuTube',
+    'playlists.playAll': 'Phát tất cả',
+    'playlists.shuffle': 'Trộn',
+    'playlists.addVideo': 'Thêm video',
+    'playlists.share': 'Chia sẻ danh sách phát',
+    'playlists.overview': 'Tổng quan danh sách phát',
+    'playlists.lastUpdated': 'Cập nhật gần nhất',
+    'playlists.playInOrder': 'Phát theo thứ tự từ trên xuống dưới',
+    'playlists.reorderHint': 'Dùng mũi tên để sắp xếp',
+    'playlists.video': 'Video',
+    'playlists.untitledVideo': 'Video không có tiêu đề',
+    'playlists.unavailableVideo': 'Video không khả dụng',
+    'playlists.readyToPlay': 'Sẵn sàng phát',
+    'playlists.moveUp': 'Đưa video lên',
+    'playlists.moveDown': 'Đưa video xuống',
+    'playlists.removeVideo': 'Xóa video khỏi danh sách',
+    'playlists.emptyItemsTitle': 'Playlist này chưa có video',
+    'playlists.emptyItemsManage': 'Mở hộp Thêm video để chọn nội dung đầu tiên.',
+    'playlists.emptyItemsVisitor': 'Hãy quay lại sau khi chủ playlist cập nhật nội dung.',
+    'playlists.expandWatching': 'MỞ RỘNG MẠCH XEM',
+    'playlists.addVideoToPlaylist': 'Thêm video vào playlist',
+    'playlists.addVideoDescription': 'Chọn nội dung công khai để đặt tiếp vào danh sách này.',
+    'playlists.searchVideoToAdd': 'Tìm video để thêm',
+    'playlists.searchVideoPlaceholder': 'Tìm theo tên video…',
+    'playlists.searchingVideos': 'Đang tìm video…',
+    'playlists.add': 'Thêm',
+    'playlists.noMatchingVideos': 'Không có video phù hợp',
+    'playlists.tryAnotherKeyword': 'Thử một từ khóa khác để tìm nội dung công khai.',
+    'playlists.playlistInfo': 'THÔNG TIN PLAYLIST',
+    'playlists.editDescription': 'Cập nhật nội dung hiển thị mà không rời khỏi playlist.',
+    'playlists.delete': 'Xóa danh sách phát',
+    'playlists.loadError': 'Không thể tải danh sách phát.',
+    'playlists.detailError': 'Không thể tải danh sách phát hoặc danh sách phát không khả dụng.',
+    'playlists.channelVideosError': 'Không thể tải video của kênh.',
+    'playlists.publicVideosError': 'Không thể tải danh sách video công khai.',
+    'playlists.createError': 'Không thể tạo danh sách phát.',
+    'playlists.saveError': 'Không thể lưu danh sách phát.',
+    'playlists.deleteConfirm': 'Xóa danh sách phát này?',
+    'playlists.deleteError': 'Không thể xóa danh sách phát.',
+    'playlists.addVideoError': 'Video không hợp lệ hoặc đã có trong danh sách phát.',
+    'playlists.noPlayableVideo': 'Danh sách phát chưa có video khả dụng để phát.',
+    'playlists.removeVideoConfirm': 'Xóa video này khỏi danh sách phát?',
+    'playlists.removeVideoError': 'Không thể xóa video khỏi danh sách phát.',
+    'playlists.reorderError': 'Không thể lưu thứ tự video.',
+    'playlists.durationHoursMinutes': '{hours} giờ {minutes} phút',
+    'playlists.durationMinutesSeconds': '{minutes} phút {seconds} giây',
     'nav.yourChannel': 'Kênh của bạn',
     'nav.createChannel': 'Tạo kênh mới',
     'nav.channelInvitations': 'Lời mời tham gia',
@@ -498,6 +603,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio
     'studio.title': 'HuTube Creator Studio',
+    'studio.appealSubmitted': 'Đơn khiếu nại đã được gửi thành công! Quản trị viên sẽ xem xét đơn của bạn.',
     'studio.overview': 'Tổng quan',
     'studio.content': 'Nội dung',
     'studio.uploadVideo': 'Upload video',
@@ -812,6 +918,35 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.noResultsDesc': 'Thử thay đổi từ khóa hoặc đặt lại bộ lọc để xem thêm video.',
     'explore.tryDifferentKeywords': 'Thử từ khóa khác',
     'explore.searchLabel': 'Tìm kiếm trong trang khám phá',
+    'explore.featured': 'Khám phá nổi bật',
+    'explore.rankingTitle': 'Bảng xếp hạng video theo chủ đề',
+    'explore.categoryRankings': 'Bảng xếp hạng theo chuyên mục',
+    'explore.loadingHub': 'Đang tải dữ liệu khám phá…',
+    'explore.overallTop12': 'Top 12 · BXH tổng',
+    'explore.top12Category': 'Top 12 · {category}',
+    'explore.noRankedVideos': 'Chưa có video nào đủ điều kiện xếp hạng.',
+    'explore.noCategoryVideos': 'Chưa có video nào trong danh mục này.',
+    'explore.featuredCreators': 'Nhà sáng tạo nổi bật',
+    'explore.featuredCreatorsSubtitle': 'Những gương mặt nổi bật đang được yêu thích trên HuTube',
+    'explore.subscribers': 'người đăng ký',
+    'explore.subscribed': 'Đã đăng ký',
+    'explore.subscribe': 'Đăng ký',
+    'explore.trendingVideos': 'Video xu hướng',
+    'explore.trendingSubtitle': 'Những video đang được quan tâm nhiều nhất hiện nay',
+    'explore.previousVideo': 'Xem video trước',
+    'explore.nextVideo': 'Xem video tiếp theo',
+    'explore.hubError': 'Không thể tải dữ liệu khám phá. Vui lòng thử lại.',
+    'explore.category.overall': 'BXH tổng',
+    'explore.category.technology': 'Công nghệ',
+    'explore.category.travel': 'Du lịch',
+    'explore.category.music': 'Âm nhạc',
+    'explore.category.food': 'Ẩm thực',
+    'explore.category.education': 'Giáo dục',
+    'explore.category.podcast': 'Podcast',
+    'explore.category.sports': 'Thể thao',
+    'explore.category.lifestyle': 'Đời sống',
+    'explore.category.films': 'Phim ảnh',
+    'explore.category.beauty': 'Làm đẹp',
 
     'library.ratingFilter': 'Lọc video theo đánh giá của bạn',
     'library.ratingLabel': 'Lọc theo đánh giá',
@@ -969,6 +1104,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noBanner': 'Chưa có banner',
     'channel.watermarkTitle': 'Hình mờ video (Watermark)',
     'channel.watermarkDesc': 'Hình mờ sẽ xuất hiện ở góc dưới bên phải trình phát video của bạn.',
+    'channel.watermarkSaved': 'Đã tải watermark lên thành công.',
+    'channel.submitAppeal': 'Gửi đơn khiếu nại',
+    'channel.uploadWatermark': 'Tải watermark lên',
+    'channel.appealAccepted': 'Đơn khiếu nại đã được tiếp nhận thành công. Ban quản trị độc lập sẽ thẩm định và phản hồi sớm nhất!',
+    'channel.appealHelp': 'Hãy nêu rõ lý do bạn cho rằng quyết định khóa kênh là nhầm lẫn hoặc cung cấp thêm bằng chứng giải trình.',
+    'channel.appealReason': 'Lý do khiếu nại',
+    'channel.appealEvidence': 'Tệp bằng chứng riêng tư (PNG, JPEG, WEBP hoặc PDF, tối đa 10 MiB)',
+    'channel.createChannelPlaylist': 'Tạo playlist cho kênh',
+    'channel.hideUserFromChannel': 'Ẩn người dùng khỏi kênh của tôi',
+    'channel.reportChannelImage': 'Báo cáo hình ảnh kênh',
+    'channel.reportProfileImage': 'Báo cáo ảnh hồ sơ',
+    'channel.userHiddenFromChannel': 'Đã ẩn người dùng khỏi kênh của bạn.',
     'channel.saveWatermark': 'Lưu watermark',
     'channel.rolesDesc': 'Mỗi vai trò có một tập quyền cố định và luôn được kiểm tra lại tại API.',
     'channel.memberEmailPlaceholder': 'member@example.com',
@@ -1177,6 +1324,125 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio pages
     'studio.loading': 'Đang tải…',
+    'studioEdit.eyebrow': 'HUTUBE STUDIO / CHỈNH SỬA VIDEO',
+    'studioEdit.subtitle': 'Chỉnh sửa thông tin, hình thu nhỏ và vị trí hiển thị của video.',
+    'studioEdit.loadingVideo': 'Đang tải chi tiết video…',
+    'studioEdit.basicInfo': 'Thông tin chính',
+    'studioEdit.required': '* Bắt buộc',
+    'studioEdit.titleHint': 'Khán giả sẽ nhìn thấy tiêu đề này trước tiên.',
+    'studioEdit.descriptionPlaceholder': 'Chia sẻ thêm bối cảnh cho video của bạn…',
+    'studioEdit.descriptionHint': 'Thêm ngữ cảnh, liên kết hoặc mốc thời gian.',
+    'studioEdit.noCategory': 'Không chọn danh mục',
+    'studioEdit.categoryHint': 'Chọn danh mục phù hợp để người xem dễ khám phá video.',
+    'studioEdit.thumbnail': 'Hình thu nhỏ',
+    'studioEdit.ffmpegReady': 'FFmpeg sẵn sàng',
+    'studioEdit.thumbnailDescription': 'Hình thu nhỏ được tạo tự động từ video nguồn trên máy chủ, không phụ thuộc vào trình duyệt.',
+    'studioEdit.noThumbnail': 'Chưa có hình thu nhỏ',
+    'studioEdit.autoThumbnail': 'Tạo tự động bằng FFmpeg',
+    'studioEdit.autoThumbnailHint': 'Lấy khung hình nổi bật từ video nguồn.',
+    'studioEdit.keepThumbnail': 'Giữ hình hiện tại',
+    'studioEdit.keepThumbnailHint': 'Không thay đổi hình thu nhỏ đang dùng.',
+    'studioEdit.uploadThumbnail': 'Tải hình của bạn lên',
+    'studioEdit.thumbnailFormats': 'JPG, PNG hoặc WEBP · tối đa 5 MB.',
+    'studioEdit.chooseImage': 'Chọn tệp hình',
+    'studioEdit.publicHint': 'Mọi người đều có thể tìm và xem video.',
+    'studioEdit.unlistedHint': 'Chỉ người có liên kết mới xem được.',
+    'studioEdit.privateHint': 'Chỉ bạn và người được cấp quyền mới xem được.',
+    'studioEdit.publicModerationNote': 'Video công khai sẽ được kiểm duyệt trước khi xuất bản.',
+    'studioEdit.playlistDescription': 'Chọn một hoặc nhiều danh sách phát. Video đã có trong danh sách sẽ được bỏ qua.',
+    'studioEdit.noPlaylists': 'Bạn chưa có danh sách phát cá nhân.',
+    'studioEdit.openWatchPage': 'Mở trang xem',
+    'studioEdit.editingNote': 'Lưu ý khi chỉnh sửa',
+    'studioEdit.editingNoteDescription': 'Chuyển video sang công khai có thể kích hoạt lại quy trình kiểm duyệt. Hình thu nhỏ mới sẽ thay hình cũ sau khi lưu thành công.',
+    'studioEdit.videoNotFound': 'Không tìm thấy video cần chỉnh sửa.',
+    'studioEdit.loadError': 'Không thể tải chi tiết video.',
+    'studioEdit.thumbnailTypeError': 'Hình thu nhỏ chỉ hỗ trợ JPG, PNG hoặc WEBP.',
+    'studioEdit.thumbnailSizeError': 'Hình thu nhỏ không được vượt quá 5 MB.',
+    'studioEdit.titleRequired': 'Tiêu đề không được để trống.',
+    'studioEdit.saved': 'Đã lưu thay đổi video.',
+    'studioEdit.saveError': 'Không thể lưu thay đổi video.',
+    'studio.channelBanned': 'Kênh của bạn đang bị cấm hoạt động',
+    'studio.channelSuspended': 'Kênh của bạn đang bị tạm ngưng hoạt động',
+    'studio.submitAppeal': 'Nộp đơn khiếu nại',
+    'studio.sendAppeal': 'Gửi khiếu nại',
+    'studio.activeStrikes': 'Kênh đang có {count} gậy phạt vi phạm cộng đồng',
+    'studio.strikesCount': '{count}/3 gậy phạt',
+    'studio.uploadSuspendedUntil': 'Quyền đăng tải video của kênh bị tạm ngưng đến',
+    'studio.uploadTemporarilyUnavailable': 'Tạm thời không thể tải video lên',
+    'studio.uploadRestricted': 'Quyền tải video đang bị hạn chế',
+    'studio.until': 'đến',
+    'studio.policyWarning': 'Cảnh báo vi phạm chính sách',
+    'studio.policyWarningDescription': 'Kênh đã nhận 1 cảnh báo vi phạm. Lần vi phạm kế tiếp sẽ dẫn đến gậy phạt chính thức và cấm đăng tải trong 7 ngày.',
+    'studio.rejectionReason': 'Lý do từ chối:',
+    'studio.complianceCenter': 'Trung tâm cảnh cáo & khiếu nại',
+    'studio.complianceCenterDescription': 'Theo dõi tình trạng tuân thủ nguyên tắc cộng đồng, lịch sử gậy phạt và tiến độ khiếu nại của kênh.',
+    'studio.strikeHistory': 'Cảnh cáo vi phạm',
+    'studio.strikeNumber': 'Gậy',
+    'studio.severity': 'Mức độ',
+    'studio.reason': 'Lý do',
+    'studio.issuedAt': 'Ngày phạt',
+    'studio.expiresAt': 'Hết hạn',
+    'studio.warning': 'Cảnh báo',
+    'studio.strike': 'Gậy phạt',
+    'studio.channelInGoodStanding': 'Kênh tuân thủ tốt',
+    'studio.noActiveStrikes': 'Không có cảnh cáo hay gậy vi phạm nguyên tắc cộng đồng nào đang hoạt động.',
+    'studio.appealHistory': 'Lịch sử khiếu nại',
+    'studio.appealCountUnit': 'đơn',
+    'studio.loadingAppeals': 'Đang tải lịch sử khiếu nại…',
+    'studio.target': 'Đối tượng',
+    'studio.appealReason': 'Lý do khiếu nại',
+    'studio.submittedAt': 'Ngày gửi',
+    'studio.evidence': 'Bằng chứng',
+    'studio.response': 'Phản hồi:',
+    'studio.finalResult': 'Kết quả cuối:',
+    'studio.viewDetails': 'Xem chi tiết',
+    'studio.viewEvidence': 'Xem bằng chứng',
+    'studio.none': 'Không có',
+    'studio.noAppeals': 'Chưa có đơn khiếu nại',
+    'studio.noAppealsDescription': 'Khi bạn gửi đơn khiếu nại quyết định kiểm duyệt, tiến độ thẩm định sẽ hiển thị tại đây.',
+    'studio.submitChannelAppeal': 'Nộp đơn khiếu nại kiểm duyệt kênh',
+    'studio.appealReviewDescription': 'Đơn khiếu nại sẽ được xem xét bởi kiểm duyệt viên độc lập theo nguyên tắc Separation of Duties.',
+    'studio.privateEvidenceFile': 'Tệp bằng chứng riêng tư',
+    'studio.evidenceFileHint': 'Không bắt buộc · PNG, JPEG, WEBP hoặc PDF · tối đa 10 MiB',
+    'studio.privateFile': 'Tệp riêng tư',
+    'studio.removeEvidenceFile': 'Xóa tệp bằng chứng',
+    'studio.chooseOrDropEvidence': 'Chọn tệp hoặc kéo thả vào đây',
+    'studio.evidenceTypesHint': 'Ảnh chụp, tài liệu hoặc PDF · tối đa 10 MiB',
+    'studio.browseFiles': 'Duyệt tệp',
+    'studio.additionalNotes': 'Ghi chú bổ sung',
+    'studio.additionalNotesPlaceholder': 'Bổ sung thêm thông tin…',
+    'studio.submittingAppeal': 'Đang gửi…',
+    'studio.appealDetails': 'Chi tiết khiếu nại',
+    'studio.closeDetails': 'Đóng chi tiết',
+    'studio.sentAt': 'Gửi lúc',
+    'studio.appealTimeline': 'Tiến độ xử lý khiếu nại',
+    'studio.appealSubmittedStep': 'Đã gửi đơn',
+    'studio.awaitingAcceptance': 'Chờ tiếp nhận',
+    'studio.reviewingHigherLevel': 'Đang xem xét ở cấp cao hơn',
+    'studio.underReview': 'Đang thẩm định',
+    'studio.reviewer': 'Người xử lý:',
+    'studio.finalOutcome': 'Kết quả cuối cùng',
+    'studio.responseAndOutcome': 'Phản hồi và kết quả',
+    'studio.evidenceNotes': 'Ghi chú bằng chứng',
+    'studio.openPrivateEvidence': 'Mở tệp bằng chứng riêng tư',
+    'studio.appealStatus.pending': 'Chờ xử lý',
+    'studio.appealStatus.reviewing': 'Đang thẩm định',
+    'studio.appealStatus.escalated': 'Đã chuyển cấp cao hơn',
+    'studio.appealStatus.approved': 'Chấp thuận (gỡ phạt)',
+    'studio.appealStatus.rejected': 'Bác bỏ (giữ nguyên phạt)',
+    'studio.appealStatus.cancelled': 'Đã rút đơn',
+    'studio.targetChannel': 'Kênh',
+    'studio.targetStrike': 'Gậy phạt',
+    'studio.targetComment': 'Bình luận',
+    'studio.targetContent': 'Nội dung',
+    'studio.evidencePopupBlocked': 'Trình duyệt đã chặn cửa sổ bằng chứng. Hãy cho phép mở tab mới rồi thử lại.',
+    'studio.evidenceOpenError': 'Không thể mở tệp bằng chứng của đơn này.',
+    'studio.appealNotEligible': 'Kênh hiện không có cảnh báo hoặc quyết định kiểm duyệt để gửi khiếu nại.',
+    'studio.appealReasonRequired': 'Vui lòng nhập lý do khiếu nại.',
+    'studio.appealSubmitError': 'Không thể gửi đơn khiếu nại.',
+    'studio.evidenceTypeError': 'Tệp không đúng định dạng. Chỉ nhận PNG, JPEG, WEBP hoặc PDF.',
+    'studio.evidenceEmptyError': 'Tệp rỗng. Hãy chọn một tệp bằng chứng khác.',
+    'studio.evidenceSizeError': 'Tệp quá lớn. Kích thước tối đa là 10 MiB.',
     'studio.channelOverview': 'Tổng quan kênh',
     'studio.recentVideo': 'Video gần nhất',
     'studio.seeAll': 'Xem tất cả',
@@ -1488,6 +1754,33 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'auth.slideInspireAlt': 'Cộng đồng truyền cảm hứng'
      ,'auth.layoutTagline': 'Nền tảng video mở, sáng tạo và tử tế hơn.'
      ,'auth.layoutFooter': '© 2026 HuTube LLC. Bảo lưu mọi quyền.'
+     ,'auth.layoutBrand': 'HuTube Orbit'
+     ,'watch.yourLibrary': 'THƯ VIỆN CỦA BẠN'
+     ,'watch.choosePlaylistToSave': 'Chọn một playlist để lưu video này đúng chỗ.'
+     ,'watchPlaylist.loginRequired': 'Vui lòng đăng nhập để thêm video vào danh sách phát.'
+     ,'watch.commentBy': 'Bình luận của {name}'
+     ,'watchPlaylist.loadError': 'Không thể tải danh sách phát của bạn.'
+     ,'watchPlaylist.added': 'Đã thêm video vào “{name}”.'
+     ,'watchPlaylist.addError': 'Không thể thêm video vào “{name}”. Có thể video đã có trong danh sách.'
+     ,'watchPlaylist.loginReport': 'Vui lòng đăng nhập để báo cáo video.'
+     ,'watchPlaylist.subscribeFirst': 'Hãy đăng ký kênh trước khi bật thông báo.'
+     ,'watchPlaylist.notificationsError': 'Không thể cập nhật thông báo cho kênh này.'
+     ,'watchPlaylist.addedLabel': 'Đã thêm'
+     ,'watchPlaylist.addingLabel': 'Đang thêm…'
+     ,'watchPlaylist.addLabel': 'Thêm'
+     ,'watchPlaylist.emptyTitle': 'Bạn chưa có playlist'
+     ,'watchPlaylist.emptyDescription': 'Tạo một danh sách phát rồi quay lại để thêm video.'
+     ,'watchPlaylist.create': 'Tạo playlist'
+     ,'channel.status.banned': 'Kênh đang bị cấm hoạt động'
+     ,'channel.status.suspended': 'Kênh đang bị tạm dừng hoạt động'
+     ,'channel.status.defaultReason': 'Kênh của bạn hiện bị tạm khóa do vi phạm Điều khoản & Nguyên tắc Cộng đồng.'
+     ,'channel.status.restrictedActions': 'Các thao tác tải lên, chỉnh sửa và quản lý bị hạn chế. Bạn có thể gửi đơn khiếu nại để đội ngũ kiểm duyệt xem xét gỡ bỏ trạng thái đình chỉ.'
+     ,'channel.appealFor': 'Gửi khiếu nại cho kênh @{handle}'
+     ,'channel.fileSelected': 'Đã chọn: {name}'
+     ,'channel.sending': 'Đang gửi...'
+     ,'channel.sendAppeal': 'Gửi khiếu nại'
+     ,'channel.appealSubmitFallback': 'Không thể gửi đơn khiếu nại. Vui lòng thử lại sau.'
+     ,'studio.videoUnavailable': 'Video không còn hiển thị'
      ,'auth.deviceMobile': 'Điện thoại'
      ,'auth.deviceDesktop': 'Máy tính'
      ,'auth.requestError': 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.'
@@ -1512,6 +1805,64 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'account.apiUnavailable': 'Chưa kết nối được máy chủ'
      ,'account.locationVietnam': 'Việt Nam'
      ,'account.passwordChanged': 'Mật khẩu đã được thay đổi.'
+     ,'report.title': 'Báo cáo',
+    'report.userTitle': 'Báo cáo người dùng',
+    'report.channelQuestion': 'Vấn đề là gì?',
+    'report.contentQuestion': 'Nội dung có vấn đề gì?',
+    'report.guidelineReassurance': 'Chúng tôi sẽ kiểm tra theo Nguyên tắc cộng đồng. Bạn không cần lo lắng về việc chọn chính xác nhất.',
+    'report.reasonList': 'Lý do báo cáo',
+    'report.details': 'Thông tin chi tiết',
+    'report.additionalDetailsTitle': 'Bạn có muốn chia sẻ thêm gì không? (Không bắt buộc)',
+    'report.additionalDetailsDescription': 'Thông tin bổ sung giúp chúng tôi hiểu rõ vấn đề. Vui lòng không gửi thông tin cá nhân hoặc câu hỏi.',
+    'report.detailsPlaceholder': 'Thêm chi tiết…',
+    'report.quickSuggestions': 'Gợi ý nhanh:',
+    'report.submitting': 'Đang gửi…',
+    'report.submit': 'Báo vi phạm',
+    'report.loginRequired': 'Vui lòng đăng nhập để gửi báo cáo.',
+    'report.reasonRequired': 'Vui lòng chọn loại vi phạm.',
+    'report.sentSuccessfully': 'Cảm ơn bạn! Báo cáo đã được gửi đến ban kiểm duyệt.',
+    'report.sendError': 'Không thể gửi báo cáo. Vui lòng thử lại.',
+    'report.submission': 'Báo cáo vi phạm: {reason}',
+    'report.submissionWithDetails': '[{reason}] {detail}',
+    'report.reason.harassment': 'Quấy rối và bắt nạt qua mạng',
+    'report.reason.privacy': 'Quyền riêng tư',
+    'report.reason.impersonation': 'Mạo danh',
+    'report.reason.violenceThreat': 'Đe dọa sử dụng bạo lực',
+    'report.reason.childSafety': 'Gây nguy hiểm cho trẻ em',
+    'report.reason.hateSpeech': 'Lời nói căm thù nhắm đến nhóm người được bảo vệ',
+    'report.reason.fraud': 'Nội dung vi phạm hoặc lừa đảo',
+    'report.reason.other': 'Vấn đề của tôi không có trong danh sách trên',
+    'report.reason.sexual': 'Nội dung khiêu dâm',
+    'report.reason.violent': 'Nội dung bạo lực hoặc phản cảm',
+    'report.reason.hate': 'Nội dung lăng mạ hoặc kích động thù hận',
+    'report.reason.harassmentContent': 'Nội dung quấy rối hoặc bắt nạt',
+    'report.reason.harmful': 'Hành động gây hại hoặc nguy hiểm',
+    'report.reason.selfHarm': 'Tự tử, tự gây hại hoặc rối loạn ăn uống',
+    'report.reason.spam': 'Spam hoặc thông tin sai lệch',
+    'report.reason.copyright': 'Vi phạm bản quyền',
+    'report.reasonTip.harassment': 'Bao gồm bắt nạt, đe dọa, rình rập hoặc quấy rối người khác trên mạng.',
+    'report.reasonTip.privacy': 'Tiết lộ thông tin nhận dạng cá nhân hoặc hình ảnh riêng tư khi chưa được đồng ý.',
+    'report.reasonTip.impersonation': 'Giả danh kênh, cá nhân hoặc tổ chức khác để gây hiểu lầm hoặc lừa đảo.',
+    'report.reasonTip.violenceThreat': 'Nội dung chứa lời đe dọa thực tế nhằm gây hại hoặc tấn công người khác.',
+    'report.reasonTip.childSafety': 'Nội dung bóc lột, lạm dụng hoặc gây nguy hiểm cho trẻ vị thành niên.',
+    'report.reasonTip.hateSpeech': 'Kích động thù hận hoặc phân biệt đối xử dựa trên đặc điểm được bảo vệ.',
+    'report.reasonTip.fraud': 'Lừa đảo tài chính, phát tán phần mềm độc hại hoặc vi phạm pháp luật.',
+    'report.reasonTip.otherChannel': 'Các vấn đề vi phạm khác chưa được liệt kê ở trên.',
+    'report.reasonTip.sexual': 'Hình ảnh hoặc video đồi trụy hay khiêu dâm.',
+    'report.reasonTip.violent': 'Cảnh máu me, bạo lực tàn bạo hoặc gây sốc.',
+    'report.reasonTip.hate': 'Xúc phạm danh dự hoặc kích động thù địch.',
+    'report.reasonTip.harassmentContent': 'Hành vi xúc phạm, quấy rối hoặc đe dọa.',
+    'report.reasonTip.harmful': 'Thực hiện hoặc khuyến khích thử thách nguy hiểm có thể gây thương tích.',
+    'report.reasonTip.selfHarm': 'Khuyến khích hoặc hướng dẫn hành vi tự tử hay tự làm hại bản thân.',
+    'report.reasonTip.spam': 'Spam liên kết, lừa đảo hoặc lan truyền tin giả.',
+    'report.reasonTip.copyright': 'Sử dụng tác phẩm hoặc nội dung không có quyền sử dụng.',
+    'report.reasonTip.otherContent': 'Lý do vi phạm khác.',
+    'report.sample.inappropriate': 'Nội dung phản cảm, không phù hợp',
+    'report.sample.spam': 'Spam liên kết lừa đảo / quảng cáo rác',
+    'report.sample.impersonation': 'Mạo danh cá nhân hoặc tổ chức',
+    'report.sample.abusiveComment': 'Bình luận xúc phạm, bôi nhọ danh dự',
+    'report.sample.copyright': 'Vi phạm bản quyền hình ảnh / âm thanh',
+    'report.sample.dangerousConduct': 'Hành vi nguy hiểm hoặc kích động thù hận',
      ,'channel.reportSuccess': 'Cảm ơn bạn đã gửi báo cáo. Chúng tôi sẽ xem xét nội dung này theo Nguyên tắc cộng đồng HuTube.'
      ,'notification.channelInviteToast': 'Bạn có lời mời tham gia kênh{channel}.'
      ,'studio.accessibleChannelsError': 'Không thể tải danh sách kênh bạn có quyền truy cập.'
@@ -1557,6 +1908,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
   },
 
   en: {
+    ...USER_UI_TRANSLATIONS.en,
     // Common
     'common.save': 'Save changes',
     'common.saving': 'Saving...',
@@ -1578,6 +1930,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.confirm': 'Confirm',
     'common.all': 'All',
     'common.open': 'Open link',
+    'common.unknown': 'Unknown',
+    'common.discardChanges': 'Discard changes',
     'common.skipToContent': 'Skip to main content',
 
     // Navigation & Topbar / Sidebar
@@ -1588,6 +1942,78 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.history': 'Watch history',
     'nav.likedVideos': 'Liked videos',
     'nav.playlists': 'Playlists',
+    'playlists.loading': 'Loading playlists…',
+    'playlists.yourPlaylists': 'Your playlists',
+    'playlists.saved': 'Saved',
+    'playlists.playlistCount': 'playlists',
+    'playlists.discoveryFallback': 'A collection waiting to be discovered.',
+    'playlists.updatedAt': 'Updated',
+    'playlists.firstCollection': 'START YOUR FIRST COLLECTION',
+    'playlists.emptyTitle': 'Every viewing journey starts with a video.',
+    'playlists.emptyDescription': 'Create a playlist to save, organize, and continuously play the content you care about.',
+    'playlists.createNow': 'Create now',
+    'playlists.new': 'NEW PLAYLIST',
+    'playlists.createTitle': 'Create playlist',
+    'playlists.createDescription': 'Name your playlist and choose who can view it.',
+    'playlists.name': 'Playlist name',
+    'playlists.namePlaceholder': 'For example: Days in Vietnam',
+    'playlists.optional': 'Optional',
+    'playlists.descriptionPlaceholder': 'What makes this playlist special?',
+    'playlists.private': 'Private',
+    'playlists.unlisted': 'Unlisted',
+    'playlists.creating': 'Creating…',
+    'playlists.backToChannel': 'Back to channel',
+    'playlists.backToPlaylists': 'Back to playlists',
+    'playlists.playlistLabel': 'PLAYLIST',
+    'playlists.editInfo': 'Edit details',
+    'playlists.descriptionFallback': 'A collection of videos arranged for continuous viewing.',
+    'playlists.yours': 'Your playlist',
+    'playlists.hutubeCreator': 'HuTube creator',
+    'playlists.playAll': 'Play all',
+    'playlists.shuffle': 'Shuffle',
+    'playlists.addVideo': 'Add video',
+    'playlists.share': 'Share playlist',
+    'playlists.overview': 'Playlist overview',
+    'playlists.lastUpdated': 'Last updated',
+    'playlists.playInOrder': 'Play from top to bottom',
+    'playlists.reorderHint': 'Use the arrows to reorder',
+    'playlists.video': 'Video',
+    'playlists.untitledVideo': 'Untitled video',
+    'playlists.unavailableVideo': 'Video unavailable',
+    'playlists.readyToPlay': 'Ready to play',
+    'playlists.moveUp': 'Move video up',
+    'playlists.moveDown': 'Move video down',
+    'playlists.removeVideo': 'Remove video from playlist',
+    'playlists.emptyItemsTitle': 'This playlist has no videos yet',
+    'playlists.emptyItemsManage': 'Open Add video to choose the first item.',
+    'playlists.emptyItemsVisitor': 'Check back after the playlist owner adds content.',
+    'playlists.expandWatching': 'KEEP WATCHING',
+    'playlists.addVideoToPlaylist': 'Add videos to playlist',
+    'playlists.addVideoDescription': 'Choose public content to add to this playlist.',
+    'playlists.searchVideoToAdd': 'Find videos to add',
+    'playlists.searchVideoPlaceholder': 'Search by video title…',
+    'playlists.searchingVideos': 'Searching videos…',
+    'playlists.add': 'Add',
+    'playlists.noMatchingVideos': 'No matching videos',
+    'playlists.tryAnotherKeyword': 'Try another keyword to find public content.',
+    'playlists.playlistInfo': 'PLAYLIST DETAILS',
+    'playlists.editDescription': 'Update what viewers see without leaving the playlist.',
+    'playlists.delete': 'Delete playlist',
+    'playlists.loadError': 'Unable to load playlists.',
+    'playlists.detailError': 'Unable to load this playlist or it is unavailable.',
+    'playlists.channelVideosError': 'Unable to load channel videos.',
+    'playlists.publicVideosError': 'Unable to load public videos.',
+    'playlists.createError': 'Unable to create the playlist.',
+    'playlists.saveError': 'Unable to save the playlist.',
+    'playlists.deleteConfirm': 'Delete this playlist?',
+    'playlists.deleteError': 'Unable to delete the playlist.',
+    'playlists.addVideoError': 'This video is invalid or is already in the playlist.',
+    'playlists.noPlayableVideo': 'This playlist has no available videos to play.',
+    'playlists.removeVideoConfirm': 'Remove this video from the playlist?',
+    'playlists.removeVideoError': 'Unable to remove the video from the playlist.',
+    'playlists.reorderError': 'Unable to save the video order.',
+    'playlists.durationHoursMinutes': '{hours} hr {minutes} min',
+    'playlists.durationMinutesSeconds': '{minutes} min {seconds} sec',
     'nav.yourChannel': 'Your channel',
     'nav.createChannel': 'Create new channel',
     'nav.channelInvitations': 'Channel invitations',
@@ -2051,6 +2477,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio
     'studio.title': 'HuTube Creator Studio',
+    'studio.appealSubmitted': 'Your appeal was submitted successfully. An administrator will review it.',
     'studio.overview': 'Dashboard',
     'studio.content': 'Content',
     'studio.uploadVideo': 'Upload video',
@@ -2365,6 +2792,35 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.noResultsDesc': 'Try different keywords or clear your filters to see more videos.',
     'explore.tryDifferentKeywords': 'Try different keywords',
     'explore.searchLabel': 'Search in explore page',
+    'explore.featured': 'Featured discovery',
+    'explore.rankingTitle': 'Video rankings by topic',
+    'explore.categoryRankings': 'Rankings by category',
+    'explore.loadingHub': 'Loading discovery data…',
+    'explore.overallTop12': 'Top 12 · Overall',
+    'explore.top12Category': 'Top 12 · {category}',
+    'explore.noRankedVideos': 'No videos qualify for ranking yet.',
+    'explore.noCategoryVideos': 'There are no videos in this category yet.',
+    'explore.featuredCreators': 'Featured creators',
+    'explore.featuredCreatorsSubtitle': 'Creators viewers are enjoying on HuTube',
+    'explore.subscribers': 'subscribers',
+    'explore.subscribed': 'Subscribed',
+    'explore.subscribe': 'Subscribe',
+    'explore.trendingVideos': 'Trending videos',
+    'explore.trendingSubtitle': 'Videos receiving the most attention right now',
+    'explore.previousVideo': 'View previous video',
+    'explore.nextVideo': 'View next video',
+    'explore.hubError': 'Unable to load discovery data. Please try again.',
+    'explore.category.overall': 'Overall',
+    'explore.category.technology': 'Technology',
+    'explore.category.travel': 'Travel',
+    'explore.category.music': 'Music',
+    'explore.category.food': 'Food',
+    'explore.category.education': 'Education',
+    'explore.category.podcast': 'Podcast',
+    'explore.category.sports': 'Sports',
+    'explore.category.lifestyle': 'Lifestyle',
+    'explore.category.films': 'Films',
+    'explore.category.beauty': 'Beauty',
 
     'library.ratingFilter': 'Filter videos by your rating',
     'library.ratingLabel': 'Filter by rating',
@@ -2522,6 +2978,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noBanner': 'No banner yet',
     'channel.watermarkTitle': 'Video watermark',
     'channel.watermarkDesc': 'The watermark appears in the bottom-right corner of your video player.',
+    'channel.watermarkSaved': 'Watermark uploaded successfully.',
+    'channel.submitAppeal': 'Submit an appeal',
+    'channel.uploadWatermark': 'Upload watermark',
+    'channel.appealAccepted': 'Your appeal was received. An independent administrator will review it and respond as soon as possible.',
+    'channel.appealHelp': 'Explain why you believe the channel suspension was a mistake or provide supporting evidence.',
+    'channel.appealReason': 'Appeal reason',
+    'channel.appealEvidence': 'Private evidence file (PNG, JPEG, WEBP, or PDF, up to 10 MiB)',
+    'channel.createChannelPlaylist': 'Create a channel playlist',
+    'channel.hideUserFromChannel': 'Hide user from my channel',
+    'channel.reportChannelImage': 'Report channel image',
+    'channel.reportProfileImage': 'Report profile image',
+    'channel.userHiddenFromChannel': 'The user was hidden from your channel.',
     'channel.saveWatermark': 'Save watermark',
     'channel.rolesDesc': 'Each role has a fixed permission set that is always checked by the API.',
     'channel.memberEmailPlaceholder': 'member@example.com',
@@ -2730,6 +3198,125 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio pages
     'studio.loading': 'Loading…',
+    'studioEdit.eyebrow': 'HUTUBE STUDIO / VIDEO EDITOR',
+    'studioEdit.subtitle': 'Update the video details, thumbnail, and where it appears.',
+    'studioEdit.loadingVideo': 'Loading video details…',
+    'studioEdit.basicInfo': 'Basic details',
+    'studioEdit.required': '* Required',
+    'studioEdit.titleHint': 'Viewers will see this title first.',
+    'studioEdit.descriptionPlaceholder': 'Add context for your video…',
+    'studioEdit.descriptionHint': 'Add context, links, or timestamps.',
+    'studioEdit.noCategory': 'No category selected',
+    'studioEdit.categoryHint': 'Choose a category to help viewers discover your video.',
+    'studioEdit.thumbnail': 'Thumbnail',
+    'studioEdit.ffmpegReady': 'FFmpeg ready',
+    'studioEdit.thumbnailDescription': 'The server generates thumbnails from the source video, so generation does not depend on the browser.',
+    'studioEdit.noThumbnail': 'No thumbnail yet',
+    'studioEdit.autoThumbnail': 'Generate with FFmpeg',
+    'studioEdit.autoThumbnailHint': 'Choose a representative frame from the source video.',
+    'studioEdit.keepThumbnail': 'Keep current image',
+    'studioEdit.keepThumbnailHint': 'Keep the thumbnail currently in use.',
+    'studioEdit.uploadThumbnail': 'Upload your image',
+    'studioEdit.thumbnailFormats': 'JPG, PNG, or WEBP · up to 5 MB.',
+    'studioEdit.chooseImage': 'Choose image file',
+    'studioEdit.publicHint': 'Anyone can find and watch this video.',
+    'studioEdit.unlistedHint': 'Only people with the link can watch it.',
+    'studioEdit.privateHint': 'Only you and people with access can watch it.',
+    'studioEdit.publicModerationNote': 'Public videos are reviewed before publication.',
+    'studioEdit.playlistDescription': 'Choose one or more playlists. Videos already in a playlist will be skipped.',
+    'studioEdit.noPlaylists': 'You do not have a personal playlist yet.',
+    'studioEdit.openWatchPage': 'Open watch page',
+    'studioEdit.editingNote': 'Editing note',
+    'studioEdit.editingNoteDescription': 'Changing visibility to public may restart moderation. The new thumbnail replaces the current one after the save succeeds.',
+    'studioEdit.videoNotFound': 'The video to edit could not be found.',
+    'studioEdit.loadError': 'Unable to load video details.',
+    'studioEdit.thumbnailTypeError': 'Thumbnails must be JPG, PNG, or WEBP.',
+    'studioEdit.thumbnailSizeError': 'The thumbnail must be 5 MB or smaller.',
+    'studioEdit.titleRequired': 'The title cannot be empty.',
+    'studioEdit.saved': 'Video changes saved.',
+    'studioEdit.saveError': 'Unable to save video changes.',
+    'studio.channelBanned': 'Your channel is banned',
+    'studio.channelSuspended': 'Your channel is suspended',
+    'studio.submitAppeal': 'Submit an appeal',
+    'studio.sendAppeal': 'Send appeal',
+    'studio.activeStrikes': 'Your channel has {count} active community guideline strikes',
+    'studio.strikesCount': '{count}/3 strikes',
+    'studio.uploadSuspendedUntil': 'Video uploads are suspended until',
+    'studio.uploadTemporarilyUnavailable': 'Video uploads are temporarily unavailable',
+    'studio.uploadRestricted': 'Video uploads are restricted',
+    'studio.until': 'until',
+    'studio.policyWarning': 'Community guidelines warning',
+    'studio.policyWarningDescription': 'Your channel received a warning. Another violation may result in a formal strike and a 7-day upload restriction.',
+    'studio.rejectionReason': 'Rejection reason:',
+    'studio.complianceCenter': 'Warnings and appeals center',
+    'studio.complianceCenterDescription': 'Track your channel’s community guideline standing, strike history, and appeal progress.',
+    'studio.strikeHistory': 'Community guideline strikes',
+    'studio.strikeNumber': 'Strike',
+    'studio.severity': 'Severity',
+    'studio.reason': 'Reason',
+    'studio.issuedAt': 'Issued',
+    'studio.expiresAt': 'Expires',
+    'studio.warning': 'Warning',
+    'studio.strike': 'Strike',
+    'studio.channelInGoodStanding': 'Your channel is in good standing',
+    'studio.noActiveStrikes': 'There are no active community guideline warnings or strikes.',
+    'studio.appealHistory': 'Appeal history',
+    'studio.appealCountUnit': 'appeals',
+    'studio.loadingAppeals': 'Loading appeal history…',
+    'studio.target': 'Target',
+    'studio.appealReason': 'Appeal reason',
+    'studio.submittedAt': 'Submitted',
+    'studio.evidence': 'Evidence',
+    'studio.response': 'Response:',
+    'studio.finalResult': 'Final result:',
+    'studio.viewDetails': 'View details',
+    'studio.viewEvidence': 'View evidence',
+    'studio.none': 'None',
+    'studio.noAppeals': 'No appeals yet',
+    'studio.noAppealsDescription': 'After you appeal a moderation decision, its review progress will appear here.',
+    'studio.submitChannelAppeal': 'Appeal a channel moderation decision',
+    'studio.appealReviewDescription': 'An independent moderator will review your appeal under the Separation of Duties principle.',
+    'studio.privateEvidenceFile': 'Private evidence file',
+    'studio.evidenceFileHint': 'Optional · PNG, JPEG, WEBP, or PDF · up to 10 MiB',
+    'studio.privateFile': 'Private file',
+    'studio.removeEvidenceFile': 'Remove evidence file',
+    'studio.chooseOrDropEvidence': 'Choose a file or drag it here',
+    'studio.evidenceTypesHint': 'Screenshot, document, or PDF · up to 10 MiB',
+    'studio.browseFiles': 'Browse files',
+    'studio.additionalNotes': 'Additional notes',
+    'studio.additionalNotesPlaceholder': 'Add more information…',
+    'studio.submittingAppeal': 'Submitting…',
+    'studio.appealDetails': 'Appeal details',
+    'studio.closeDetails': 'Close details',
+    'studio.sentAt': 'Submitted',
+    'studio.appealTimeline': 'Appeal review progress',
+    'studio.appealSubmittedStep': 'Appeal submitted',
+    'studio.awaitingAcceptance': 'Awaiting assignment',
+    'studio.reviewingHigherLevel': 'Under higher-level review',
+    'studio.underReview': 'Under review',
+    'studio.reviewer': 'Reviewer:',
+    'studio.finalOutcome': 'Final outcome',
+    'studio.responseAndOutcome': 'Response and outcome',
+    'studio.evidenceNotes': 'Evidence notes',
+    'studio.openPrivateEvidence': 'Open private evidence file',
+    'studio.appealStatus.pending': 'Pending',
+    'studio.appealStatus.reviewing': 'Under review',
+    'studio.appealStatus.escalated': 'Escalated',
+    'studio.appealStatus.approved': 'Approved (strike removed)',
+    'studio.appealStatus.rejected': 'Rejected (decision upheld)',
+    'studio.appealStatus.cancelled': 'Withdrawn',
+    'studio.targetChannel': 'Channel',
+    'studio.targetStrike': 'Strike',
+    'studio.targetComment': 'Comment',
+    'studio.targetContent': 'Content',
+    'studio.evidencePopupBlocked': 'Your browser blocked the evidence window. Allow a new tab and try again.',
+    'studio.evidenceOpenError': 'Unable to open the evidence file for this appeal.',
+    'studio.appealNotEligible': 'This channel has no active warning or moderation decision to appeal.',
+    'studio.appealReasonRequired': 'Enter a reason for your appeal.',
+    'studio.appealSubmitError': 'Unable to submit the appeal.',
+    'studio.evidenceTypeError': 'Unsupported file type. Use PNG, JPEG, WEBP, or PDF.',
+    'studio.evidenceEmptyError': 'The file is empty. Choose another evidence file.',
+    'studio.evidenceSizeError': 'The file is too large. The maximum size is 10 MiB.',
     'studio.channelOverview': 'Channel overview',
     'studio.recentVideo': 'Latest video',
     'studio.seeAll': 'View all',
@@ -3041,6 +3628,33 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'auth.slideInspireAlt': 'An inspiring community'
      ,'auth.layoutTagline': 'A more open, creative, kinder video platform.'
      ,'auth.layoutFooter': '© 2026 HuTube LLC. All rights reserved.'
+     ,'auth.layoutBrand': 'HuTube Orbit'
+     ,'watch.yourLibrary': 'YOUR LIBRARY'
+     ,'watch.choosePlaylistToSave': 'Choose a playlist to save this video to.'
+     ,'watchPlaylist.loginRequired': 'Sign in to add videos to a playlist.'
+     ,'watch.commentBy': 'Comment by {name}'
+     ,'watchPlaylist.loadError': 'Unable to load your playlists.'
+     ,'watchPlaylist.added': 'Added the video to “{name}”.'
+     ,'watchPlaylist.addError': 'Unable to add the video to “{name}”. It may already be in the playlist.'
+     ,'watchPlaylist.loginReport': 'Sign in to report this video.'
+     ,'watchPlaylist.subscribeFirst': 'Subscribe to the channel before enabling notifications.'
+     ,'watchPlaylist.notificationsError': 'Unable to update notifications for this channel.'
+     ,'watchPlaylist.addedLabel': 'Added'
+     ,'watchPlaylist.addingLabel': 'Adding…'
+     ,'watchPlaylist.addLabel': 'Add'
+     ,'watchPlaylist.emptyTitle': 'You do not have any playlists yet'
+     ,'watchPlaylist.emptyDescription': 'Create a playlist, then return here to add this video.'
+     ,'watchPlaylist.create': 'Create playlist'
+     ,'channel.status.banned': 'This channel is banned'
+     ,'channel.status.suspended': 'This channel is suspended'
+     ,'channel.status.defaultReason': 'Your channel is temporarily suspended for violating the Terms of Service and Community Guidelines.'
+     ,'channel.status.restrictedActions': 'Uploads, editing, and management are restricted. You can submit an appeal for the moderation team to review the suspension.'
+     ,'channel.appealFor': 'Appeal for channel @{handle}'
+     ,'channel.fileSelected': 'Selected: {name}'
+     ,'channel.sending': 'Sending…'
+     ,'channel.sendAppeal': 'Submit appeal'
+     ,'channel.appealSubmitFallback': 'Unable to submit the appeal. Please try again later.'
+     ,'studio.videoUnavailable': 'Video is no longer available'
      ,'auth.deviceMobile': 'Mobile'
      ,'auth.deviceDesktop': 'Desktop'
      ,'auth.requestError': 'Unable to complete the request. Please try again.'
@@ -3065,6 +3679,64 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'account.apiUnavailable': 'The server is unavailable'
      ,'account.locationVietnam': 'Vietnam'
      ,'account.passwordChanged': 'Your password was changed.'
+     ,'report.title': 'Report',
+    'report.userTitle': 'Report a user',
+    'report.channelQuestion': 'What is the issue?',
+    'report.contentQuestion': 'What is wrong with this content?',
+    'report.guidelineReassurance': 'We will review the report under our Community Guidelines. You do not need to choose the perfect category.',
+    'report.reasonList': 'Report reasons',
+    'report.details': 'More information',
+    'report.additionalDetailsTitle': 'Would you like to share more? (Optional)',
+    'report.additionalDetailsDescription': 'Additional details can help us understand the issue. Please do not include personal information or questions.',
+    'report.detailsPlaceholder': 'Add details…',
+    'report.quickSuggestions': 'Quick suggestions:',
+    'report.submitting': 'Sending…',
+    'report.submit': 'Submit report',
+    'report.loginRequired': 'Sign in to submit a report.',
+    'report.reasonRequired': 'Choose a violation type.',
+    'report.sentSuccessfully': 'Thanks! Your report was sent to the moderation team.',
+    'report.sendError': 'Unable to send the report. Please try again.',
+    'report.submission': 'Violation report: {reason}',
+    'report.submissionWithDetails': '[{reason}] {detail}',
+    'report.reason.harassment': 'Online harassment and bullying',
+    'report.reason.privacy': 'Privacy',
+    'report.reason.impersonation': 'Impersonation',
+    'report.reason.violenceThreat': 'Threats of violence',
+    'report.reason.childSafety': 'Endangering children',
+    'report.reason.hateSpeech': 'Hateful content targeting a protected group',
+    'report.reason.fraud': 'Illegal or fraudulent content',
+    'report.reason.other': 'My issue is not listed above',
+    'report.reason.sexual': 'Sexual content',
+    'report.reason.violent': 'Violent or disturbing content',
+    'report.reason.hate': 'Insults or hateful content',
+    'report.reason.harassmentContent': 'Harassment or bullying',
+    'report.reason.harmful': 'Harmful or dangerous acts',
+    'report.reason.selfHarm': 'Suicide, self-harm, or eating disorders',
+    'report.reason.spam': 'Spam or misleading information',
+    'report.reason.copyright': 'Copyright infringement',
+    'report.reasonTip.harassment': 'Includes online bullying, threats, stalking, or harassment.',
+    'report.reasonTip.privacy': 'Sharing personal identifying information or private images without consent.',
+    'report.reasonTip.impersonation': 'Pretending to be another channel, person, or organization to mislead or defraud.',
+    'report.reasonTip.violenceThreat': 'Content with a credible threat to harm or physically attack someone.',
+    'report.reasonTip.childSafety': 'Content that exploits, abuses, or endangers a minor.',
+    'report.reasonTip.hateSpeech': 'Promoting hatred or discrimination based on a protected characteristic.',
+    'report.reasonTip.fraud': 'Financial scams, malware distribution, or illegal activity.',
+    'report.reasonTip.otherChannel': 'Other violations not listed above.',
+    'report.reasonTip.sexual': 'Pornographic or sexually explicit images or videos.',
+    'report.reasonTip.violent': 'Graphic, brutal, or shocking violence.',
+    'report.reasonTip.hate': 'Insults or promotion of hostility.',
+    'report.reasonTip.harassmentContent': 'Insulting, harassing, or threatening behavior.',
+    'report.reasonTip.harmful': 'Performing or encouraging dangerous challenges that may cause injury.',
+    'report.reasonTip.selfHarm': 'Encouraging or instructing suicide or self-harm.',
+    'report.reasonTip.spam': 'Spam links, scams, or false information.',
+    'report.reasonTip.copyright': 'Using work or content without permission.',
+    'report.reasonTip.otherContent': 'Other violation.',
+    'report.sample.inappropriate': 'Inappropriate or disturbing content',
+    'report.sample.spam': 'Scam links or spam advertising',
+    'report.sample.impersonation': 'Impersonating a person or organization',
+    'report.sample.abusiveComment': 'Insulting or defamatory comment',
+    'report.sample.copyright': 'Copyright infringement in image or audio',
+    'report.sample.dangerousConduct': 'Dangerous conduct or incitement to hatred',
      ,'channel.reportSuccess': 'Thanks for your report. We will review it under HuTube Community Guidelines.'
      ,'notification.channelInviteToast': 'You have an invitation to join channel{channel}.'
      ,'studio.accessibleChannelsError': 'Unable to load channels you can access.'
@@ -3119,16 +3791,14 @@ export class I18nService {
   readonly lang = this.currentLang;
 
   constructor() {
-    const saved = localStorage.getItem(this.STORAGE_KEY) as AppLang | null;
-    if (saved === 'vi' || saved === 'en') {
-      this.currentLang.set(saved);
-    }
+    const saved = readStoredLanguage(this.STORAGE_KEY, 'hutube_admin_lang');
+    if (saved) this.currentLang.set(saved);
   }
 
   setLang(lang: AppLang): void {
     if (lang === 'vi' || lang === 'en') {
       this.currentLang.set(lang);
-      localStorage.setItem(this.STORAGE_KEY, lang);
+      writeStoredLanguage(lang, this.STORAGE_KEY, 'hutube_admin_lang');
     }
   }
 
@@ -3138,14 +3808,12 @@ export class I18nService {
       .format(Number.isFinite(numericValue) ? numericValue : 0);
   }
 
-  t(key: string, params?: Record<string, string>): string {
+  t(key: string, params?: TranslationParams): string {
     const lang = this.currentLang();
-    let text = DICTIONARY[lang]?.[key] ?? DICTIONARY['vi']?.[key] ?? key;
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        text = text.replace(new RegExp(`{${k}}`, 'g'), v);
-      }
-    }
-    return text;
+    return interpolate(DICTIONARY[lang]?.[key] ?? DICTIONARY['vi']?.[key] ?? key, params);
+  }
+
+  format(key: string, params: TranslationParams): string {
+    return this.t(key, params);
   }
 }

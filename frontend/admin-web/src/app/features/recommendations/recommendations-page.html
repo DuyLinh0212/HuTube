@@ -1,11 +1,11 @@
 <main class="recommendations-page">
   <header class="page-head">
     <div>
-      <p class="eyebrow">SUPER ADMIN · COLLABORATIVE FILTERING</p>
-      <h1>Thuật toán đề xuất</h1>
-      <p>Kiểm tra tín hiệu tương tác, cập nhật mô hình và chạy kịch bản mô phỏng từ cùng một nơi.</p>
+      <p class="eyebrow">{{ 'recommendations.eyebrow' | translate }}</p>
+      <h1>{{ 'recommendations.title' | translate }}</h1>
+      <p>{{ 'recommendations.subtitle' | translate }}</p>
     </div>
-    <span class="access-mark">Quyền Super Admin</span>
+    <span class="access-mark">{{ 'recommendations.superAdmin' | translate }}</span>
   </header>
 
   @if (error()) { <div class="message error" role="alert">{{ error() }}</div> }
@@ -13,59 +13,59 @@
 
   <section class="panel status-panel" aria-labelledby="matrix-title">
     <div class="section-head">
-      <div><span class="section-kicker">DỮ LIỆU</span><h2 id="matrix-title">Trạng thái & thay đổi dữ liệu</h2></div>
+      <div><span class="section-kicker">{{ 'recommendations.data' | translate }}</span><h2 id="matrix-title">{{ 'recommendations.dataTitle' | translate }}</h2></div>
       <div class="actions">
-        <button type="button" class="secondary" [attr.aria-expanded]="preview() !== null" (click)="viewMatrix()">{{ preview() ? 'Ẩn ma trận' : 'Xem ma trận' }}</button>
-        <button type="button" class="secondary" (click)="exportCsv()">Xuất CSV hiện tại</button>
-        <button type="button" class="primary" [disabled]="busy()" (click)="check()">Kiểm tra dữ liệu</button>
+        <button type="button" class="secondary" [attr.aria-expanded]="preview() !== null" (click)="viewMatrix()">{{ (preview() ? 'recommendations.hideMatrix' : 'recommendations.showMatrix') | translate }}</button>
+        <button type="button" class="secondary" (click)="exportCsv()">{{ 'recommendations.exportCsv' | translate }}</button>
+        <button type="button" class="primary" [disabled]="busy()" (click)="check()">{{ 'recommendations.checkData' | translate }}</button>
       </div>
     </div>
     @if (diff(); as status) {
       @if (status.state === 'uninitialized') {
-        <div class="empty-state">Chưa có model đang hoạt động. Ma trận hiện tại có {{ status.current.pairs }} cặp tương tác. Cập nhật mô hình khi có ít nhất 2 user, 2 video và 3 cặp.</div>
+        <div class="empty-state">{{ 'recommendations.uninitialized' | translate:{ pairs: status.current.pairs } }}</div>
       }
-      <div class="matrix-strip" aria-label="So sánh ma trận model với dữ liệu hiện tại">
+      <div class="matrix-strip" [attr.aria-label]="'recommendations.previewAria' | translate">
         <div class="matrix-side">
-          <span>MODEL ĐANG HOẠT ĐỘNG</span>
-          <strong>{{ status.active.pairs | number }} <small>cặp</small></strong>
-          <p>{{ status.active.users | number }} user · {{ status.active.videos | number }} video</p>
+          <span>{{ 'recommendations.activeModel' | translate }}</span>
+          <strong>{{ status.active.pairs | number }} <small>{{ 'recommendations.pairs' | translate }}</small></strong>
+          <p>{{ status.active.users | number }} {{ 'recommendations.userUnit' | translate }} · {{ status.active.videos | number }} {{ 'recommendations.videoUnit' | translate }}</p>
         </div>
         <div class="matrix-change">
-          <span>THAY ĐỔI</span>
+          <span>{{ 'recommendations.changes' | translate }}</span>
           <strong>{{ status.changeRate * 100 | number:'1.1-1' }}%</strong>
-          <div class="delta-row"><b>+{{ status.added | number }}</b> mới <b>~{{ status.changed | number }}</b> sửa <b>−{{ status.removed | number }}</b> mất</div>
+          <div class="delta-row"><b>+{{ status.added | number }}</b> {{ 'recommendations.added' | translate }} <b>~{{ status.changed | number }}</b> {{ 'recommendations.changed' | translate }} <b>−{{ status.removed | number }}</b> {{ 'recommendations.removed' | translate }}</div>
         </div>
         <div class="matrix-side current">
-          <span>DỮ LIỆU HIỆN TẠI</span>
-          <strong>{{ status.current.pairs | number }} <small>cặp</small></strong>
-          <p>{{ status.current.users | number }} user · {{ status.current.videos | number }} video</p>
+          <span>{{ 'recommendations.currentData' | translate }}</span>
+          <strong>{{ status.current.pairs | number }} <small>{{ 'recommendations.pairs' | translate }}</small></strong>
+          <p>{{ status.current.users | number }} {{ 'recommendations.userUnit' | translate }} · {{ status.current.videos | number }} {{ 'recommendations.videoUnit' | translate }}</p>
         </div>
       </div>
       <div class="model-meta">
-        <span>Phiên bản <strong>{{ status.modelVersion || 'Chưa khởi tạo' }}</strong></span>
-        <span>Cập nhật <strong>{{ status.updatedAt ? (status.updatedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</strong></span>
-        <span>CSV <code>{{ status.csvKey || '—' }}</code></span>
-        <span>SHA-256 <code>{{ status.csvSha256 || '—' }}</code></span>
+        <span>{{ 'recommendations.version' | translate }} <strong>{{ status.modelVersion || ('recommendations.notInitialized' | translate) }}</strong></span>
+        <span>{{ 'recommendations.lastUpdated' | translate }} <strong>{{ status.updatedAt ? (status.updatedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</strong></span>
+        <span>{{ 'recommendations.csvFileLabel' | translate }} <code>{{ status.csvKey || '—' }}</code></span>
+        <span>{{ 'recommendations.hashLabel' | translate }} <code>{{ status.csvSha256 || '—' }}</code></span>
       </div>
       @if (preview(); as matrix) {
-        <div class="matrix-preview" role="region" aria-label="20 cặp tương tác đầu tiên" tabindex="0">
-          <p>Hiển thị {{ matrix.rows.length }} / {{ matrix.total | number }} cặp · CSV chỉ chứa ID và tín hiệu huấn luyện.</p>
+        <div class="matrix-preview" role="region" [attr.aria-label]="'recommendations.previewRowsAria' | translate" tabindex="0">
+          <p>{{ 'recommendations.previewCount' | translate:{ shown: matrix.rows.length, total: (matrix.total | number) } }}</p>
           <table><thead><tr>@for (column of matrix.columns; track column) { <th scope="col">{{ column }}</th> }</tr></thead>
             <tbody>@for (row of matrix.rows; track $index) { <tr>@for (cell of row; track $index) { <td>{{ cell || '—' }}</td> }</tr> }</tbody></table>
         </div>
       }
-    } @else { <p class="subtle">Đang đọc trạng thái ma trận…</p> }
+    } @else { <p class="subtle">{{ 'recommendations.loadingMatrix' | translate }}</p> }
   </section>
 
   <section class="panel update-panel" aria-labelledby="update-title">
     <div class="section-head">
-      <div><span class="section-kicker">MÔ HÌNH</span><h2 id="update-title">Cập nhật model</h2></div>
-      <button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="updateModel()">Cập nhật mô hình</button>
+      <div><span class="section-kicker">{{ 'recommendations.model' | translate }}</span><h2 id="update-title">{{ 'recommendations.modelKind' | translate }}</h2></div>
+      <button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="updateModel()">{{ 'recommendations.updateModel' | translate }}</button>
     </div>
-    <p>Xuất ảnh chụp tương tác lên R2, huấn luyện Item-Based Cosine và chỉ chuyển sang phiên bản mới sau khi artifact đã được lưu và nạp thành công.</p>
+    <p>{{ 'recommendations.updateDescription' | translate }}</p>
     @if (job(); as currentJob) {
       <div class="job-card" role="status" aria-live="polite">
-        <div><strong>{{ currentJob.kind === 'model_update' ? 'Cập nhật model' : 'Mô phỏng tương tác' }}</strong><span>{{ currentJob.status }} · {{ currentJob.step }}</span></div>
+        <div><strong>{{ (currentJob.kind === 'model_update' ? 'recommendations.modelKind' : 'recommendations.simulationKind') | translate }}</strong><span>{{ jobStatus(currentJob.status) }} · {{ jobStep(currentJob.step) }}</span></div>
         <span>{{ currentJob.completed }}/{{ currentJob.total }}</span>
         <div class="progress-track"><div [style.width.%]="progress()"></div></div>
         @if (currentJob.error) { <p class="job-error">{{ currentJob.error }}</p> }
@@ -75,54 +75,54 @@
 
   <section class="panel simulator-panel" aria-labelledby="sim-title">
     <div class="section-head">
-      <div><span class="section-kicker">THỬ NGHIỆM</span><h2 id="sim-title">Mô phỏng tương tác</h2></div>
-      <p>Hành vi chạy bằng service của backend và được ghi audit theo người khởi chạy.</p>
+      <div><span class="section-kicker">{{ 'recommendations.test' | translate }}</span><h2 id="sim-title">{{ 'recommendations.simulationTitle' | translate }}</h2></div>
+      <p>{{ 'recommendations.simulationDescription' | translate }}</p>
     </div>
     <div class="selection-grid">
       <div class="selection-column">
-        <div class="selection-heading"><label for="user-search">Người dùng <em>{{ selectedUsers.size }} đã chọn</em></label></div>
-        <div class="search-row"><input id="user-search" [(ngModel)]="userSearch" placeholder="Tìm username hoặc tên" (keyup.enter)="loadUsers()" /><button type="button" class="secondary" (click)="loadUsers()">Tìm</button></div>
-        <div class="option-list" role="group" aria-label="Chọn người dùng">
+        <div class="selection-heading"><label for="user-search">{{ 'recommendations.users' | translate }} <em>{{ selectedUsers.size }} {{ 'recommendations.selected' | translate }}</em></label></div>
+        <div class="search-row"><input id="user-search" [(ngModel)]="userSearch" [placeholder]="'recommendations.searchUser' | translate" (keyup.enter)="loadUsers()" /><button type="button" class="secondary" (click)="loadUsers()">{{ 'recommendations.search' | translate }}</button></div>
+        <div class="option-list" role="group" [attr.aria-label]="'recommendations.chooseUser' | translate">
           @for (user of users(); track user.userId) {
             <label class="option-row"><input type="checkbox" [checked]="selectedUsers.has(user.userId)" (change)="toggleUser(user)" />
-              <span><strong>{{ user.displayName }}</strong><small>&#64;{{ user.username }}</small></span><em [class.real]="!user.isBot">{{ user.isBot ? 'Bot' : 'Tài khoản thật' }}</em>
+              <span><strong>{{ user.displayName }}</strong><small>&#64;{{ user.username }}</small></span><em [class.real]="!user.isBot">{{ user.isBot ? 'Bot' : ('recommendations.realAccount' | translate) }}</em>
             </label>
-          } @empty { <p class="list-empty">Không tìm thấy user đang hoạt động.</p> }
+          } @empty { <p class="list-empty">{{ 'recommendations.noUsers' | translate }}</p> }
         </div>
-        <div class="bot-row"><label for="bot-prefix">Tạo bot mới</label><input id="bot-prefix" [(ngModel)]="botPrefix" aria-label="Tiền tố tên bot" /><input type="number" min="1" max="100" [(ngModel)]="botCount" aria-label="Số bot" /><button type="button" class="secondary" [disabled]="busy()" (click)="createBots()">Tạo bot</button></div>
+        <div class="bot-row"><label for="bot-prefix">{{ 'recommendations.createBot' | translate }}</label><input id="bot-prefix" [(ngModel)]="botPrefix" [attr.aria-label]="'recommendations.botPrefix' | translate" /><input type="number" min="1" max="100" [(ngModel)]="botCount" [attr.aria-label]="'recommendations.botCount' | translate" /><button type="button" class="secondary" [disabled]="busy()" (click)="createBots()">{{ 'recommendations.createBots' | translate }}</button></div>
       </div>
       <div class="selection-column">
-        <div class="selection-heading"><label for="video-search">Video <em>{{ selectedVideos.size }} đã chọn</em></label></div>
-        <div class="search-row"><input id="video-search" [(ngModel)]="videoSearch" placeholder="Tìm video công khai" (keyup.enter)="loadVideos()" /><button type="button" class="secondary" (click)="loadVideos()">Tìm</button></div>
-        <div class="option-list" role="group" aria-label="Chọn video">
+        <div class="selection-heading"><label for="video-search">{{ 'recommendations.videos' | translate }} <em>{{ selectedVideos.size }} {{ 'recommendations.selected' | translate }}</em></label></div>
+        <div class="search-row"><input id="video-search" [(ngModel)]="videoSearch" [placeholder]="'recommendations.searchVideo' | translate" (keyup.enter)="loadVideos()" /><button type="button" class="secondary" (click)="loadVideos()">{{ 'recommendations.search' | translate }}</button></div>
+        <div class="option-list" role="group" [attr.aria-label]="'recommendations.chooseVideo' | translate">
           @for (video of videos(); track video.videoId) {
             <label class="option-row"><input type="checkbox" [checked]="selectedVideos.has(video.videoId)" (change)="toggleVideo(video.videoId)" />
               <span><strong>{{ video.title }}</strong><small>{{ video.videoId }}</small></span>
             </label>
-          } @empty { <p class="list-empty">Không tìm thấy video công khai.</p> }
+          } @empty { <p class="list-empty">{{ 'recommendations.noVideos' | translate }}</p> }
         </div>
       </div>
     </div>
     <div class="config-grid">
-      <label>Kịch bản<select [(ngModel)]="mode"><option value="target">User mục tiêu · lần lượt xem video đã chọn</option><option value="cluster">Cụm bot / user · video ngẫu nhiên</option></select></label>
-      <label>Lượt mỗi user<input type="number" min="1" max="1000" [(ngModel)]="actionsPerUser" /></label>
-      <label>Giãn cách (ms)<input type="number" min="0" max="5000" [(ngModel)]="delayMs" /></label>
+      <label>{{ 'recommendations.scenario' | translate }}<select [(ngModel)]="mode"><option value="target">{{ 'recommendations.targetScenario' | translate }}</option><option value="cluster">{{ 'recommendations.clusterScenario' | translate }}</option></select></label>
+      <label>{{ 'recommendations.actionsPerUser' | translate }}<input type="number" min="1" max="1000" [(ngModel)]="actionsPerUser" /></label>
+      <label>{{ 'recommendations.delay' | translate }}<input type="number" min="0" max="5000" [(ngModel)]="delayMs" /></label>
     </div>
-    <div class="rates" aria-label="Tỷ lệ hành vi">
-      <label>Xem <input type="number" min="0" max="100" [(ngModel)]="viewRate" />%</label>
-      <label>Thời lượng xem <input type="number" min="1" max="100" [(ngModel)]="watchPercent" />%</label>
-      <label>Thích <input type="number" min="0" max="100" [(ngModel)]="likeRate" />%</label>
-      <label>Không thích <input type="number" min="0" max="100" [(ngModel)]="dislikeRate" />%</label>
-      <label>Đánh giá <input type="number" min="0" max="100" [(ngModel)]="ratingRate" />%</label>
-      <label>Bình luận <input type="number" min="0" max="100" [(ngModel)]="commentRate" />%</label>
-      <label>Đăng ký <input type="number" min="0" max="100" [(ngModel)]="subscribeRate" />%</label>
+    <div class="rates" [attr.aria-label]="'recommendations.behaviorRates' | translate">
+      <label>{{ 'recommendations.watch' | translate }} <input type="number" min="0" max="100" [(ngModel)]="viewRate" />%</label>
+      <label>{{ 'recommendations.watchDuration' | translate }} <input type="number" min="1" max="100" [(ngModel)]="watchPercent" />%</label>
+      <label>{{ 'recommendations.like' | translate }} <input type="number" min="0" max="100" [(ngModel)]="likeRate" />%</label>
+      <label>{{ 'recommendations.dislike' | translate }} <input type="number" min="0" max="100" [(ngModel)]="dislikeRate" />%</label>
+      <label>{{ 'recommendations.rating' | translate }} <input type="number" min="0" max="100" [(ngModel)]="ratingRate" />%</label>
+      <label>{{ 'recommendations.comment' | translate }} <input type="number" min="0" max="100" [(ngModel)]="commentRate" />%</label>
+      <label>{{ 'recommendations.subscribe' | translate }} <input type="number" min="0" max="100" [(ngModel)]="subscribeRate" />%</label>
     </div>
-    <label class="comment-label" for="comments">Mẫu bình luận · mỗi dòng một mẫu</label>
+    <label class="comment-label" for="comments">{{ 'recommendations.commentTemplates' | translate }}</label>
     <textarea id="comments" rows="3" [(ngModel)]="commentTemplates"></textarea>
-    @if (hasRealUsers()) { <label class="confirmation"><input type="checkbox" [(ngModel)]="confirmRealUsers" /><span>Tôi xác nhận các hành vi này sẽ ghi vào tài khoản thật đã chọn và được lưu audit.</span></label> }
-    <div class="footer-actions"><button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="simulate()">Chạy mô phỏng</button>
-      @if (job()?.kind === 'simulation' && (job()?.status === 'running' || job()?.status === 'queued')) { <button type="button" class="secondary" (click)="stop()">Dừng job</button> }
+    @if (hasRealUsers()) { <label class="confirmation"><input type="checkbox" [(ngModel)]="confirmRealUsers" /><span>{{ 'recommendations.confirmRealUsers' | translate }}</span></label> }
+    <div class="footer-actions"><button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="simulate()">{{ 'recommendations.runSimulation' | translate }}</button>
+      @if (job()?.kind === 'simulation' && (job()?.status === 'running' || job()?.status === 'queued')) { <button type="button" class="secondary" (click)="stop()">{{ 'recommendations.stopJob' | translate }}</button> }
     </div>
-    <div class="log-area"><h3>Log job</h3><div class="log-lines" aria-live="polite">@for (line of lines(); track $index) { <p>{{ line }}</p> } @empty { <p class="subtle">Chưa có log.</p> }</div></div>
+    <div class="log-area"><h3>{{ 'recommendations.jobLog' | translate }}</h3><div class="log-lines" aria-live="polite">@for (line of lines(); track $index) { <p>{{ line }}</p> } @empty { <p class="subtle">{{ 'recommendations.noLogs' | translate }}</p> }</div></div>
   </section>
 </main>

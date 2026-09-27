@@ -19,14 +19,14 @@
 
   <!-- Header: Tabs & Export -->
   <header class="channels-top-bar">
-    <nav class="channel-tabs" aria-label="Lọc kênh theo trạng thái">
+    <nav class="channel-tabs" [attr.aria-label]="'channels.filterTabs' | translate">
       <button
         type="button"
         class="tab-btn"
         [class.active]="activeTab() === 'all'"
         (click)="selectTab('all')"
       >
-        Tất cả kênh ({{ formatNumber(channelCounts().all) }})
+        {{ 'channels.all' | translate:{ count: formatNumber(channelCounts().all) } }}
       </button>
       <button
         type="button"
@@ -34,7 +34,7 @@
         [class.active]="activeTab() === 'active'"
         (click)="selectTab('active')"
       >
-        Đang hoạt động ({{ formatNumber(channelCounts().active) }})
+        {{ 'channels.active' | translate:{ count: formatNumber(channelCounts().active) } }}
       </button>
       <button
         type="button"
@@ -42,7 +42,7 @@
         [class.active]="activeTab() === 'restricted'"
         (click)="selectTab('restricted')"
       >
-        Hạn chế ({{ formatNumber(channelCounts().restricted) }})
+        {{ 'channels.restricted' | translate:{ count: formatNumber(channelCounts().restricted) } }}
       </button>
       <button
         type="button"
@@ -50,7 +50,7 @@
         [class.active]="activeTab() === 'banned'"
         (click)="selectTab('banned')"
       >
-        Bị khóa ({{ formatNumber(channelCounts().banned) }})
+        {{ 'channels.blocked' | translate:{ count: formatNumber(channelCounts().banned) } }}
       </button>
     </nav>
 
@@ -59,13 +59,13 @@
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
         </svg>
-        Xuất danh sách
+        {{ 'channels.export' | translate }}
       </button>
     </div>
   </header>
 
   <!-- Filter Bar -->
-  <section class="filter-strip" aria-label="Bộ lọc kênh">
+  <section class="filter-strip" [attr.aria-label]="'channels.filterAria' | translate">
     <div class="search-box">
       <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/>
@@ -73,7 +73,7 @@
       </svg>
       <input
         type="search"
-        placeholder="Tìm kiếm kênh..."
+        [placeholder]="'channels.searchPlaceholder' | translate"
         [ngModel]="search()"
         (ngModelChange)="search.set($event)"
         (keyup.enter)="applyFilters()"
@@ -81,15 +81,15 @@
     </div>
 
     <app-custom-select
-      prefix="Trạng thái"
-      [options]="statusOptions"
+      [prefix]="'channels.status' | translate"
+      [options]="statusOptions()"
       [value]="statusFilter()"
       (valueChange)="setStatus($event)"
     ></app-custom-select>
 
     <app-custom-select
-      prefix="Thời gian tạo"
-      [options]="timeOptions"
+      [prefix]="'channels.createdRange' | translate"
+      [options]="timeOptions()"
       [value]="timeFilter()"
       (valueChange)="setTime($event)"
     ></app-custom-select>
@@ -99,7 +99,7 @@
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
         </svg>
-        Lọc
+        {{ 'channels.filter' | translate }}
       </button>
 
       <button type="button" class="btn-reset" (click)="resetFilters()">
@@ -109,7 +109,7 @@
           <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
           <path d="M3 21v-5h5"/>
         </svg>
-        Đặt lại
+        {{ 'channels.reset' | translate }}
       </button>
     </div>
   </section>
@@ -119,7 +119,7 @@
     @if (loading()) {
       <div class="table-loading-overlay">
         <div class="loader-spinner"></div>
-        <span>Đang tải danh sách kênh...</span>
+        <span>{{ 'channels.loading' | translate }}</span>
       </div>
     }
 
@@ -129,7 +129,7 @@
           <tr>
             <th class="col-sortable" (click)="toggleSort('name')">
               <div class="th-content">
-                <span>Kênh</span>
+                <span>{{ 'nav.channels' | translate }}</span>
                 <span class="sort-icon-box" [class.is-active]="sortColumn() === 'name'">
                   @if (sortColumn() === 'name') {
                     <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
@@ -145,7 +145,7 @@
             </th>
             <th class="col-sortable" (click)="toggleSort('owner')">
               <div class="th-content">
-                <span>Chủ sở hữu</span>
+                <span>{{ 'channels.owner' | translate }}</span>
                 <span class="sort-icon-box" [class.is-active]="sortColumn() === 'owner'">
                   @if (sortColumn() === 'owner') {
                     <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
@@ -161,7 +161,7 @@
             </th>
             <th class="col-sortable text-center" (click)="toggleSort('videoCount')">
               <div class="th-content justify-center">
-                <span>Số video</span>
+                <span>{{ 'channels.videoCount' | translate }}</span>
                 <span class="sort-icon-box" [class.is-active]="sortColumn() === 'videoCount'">
                   @if (sortColumn() === 'videoCount') {
                     <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
@@ -177,7 +177,7 @@
             </th>
             <th class="col-sortable text-center" (click)="toggleSort('subscriberCount')">
               <div class="th-content justify-center">
-                <span>Người đăng ký</span>
+                <span>{{ 'channels.subscribers' | translate }}</span>
                 <span class="sort-icon-box" [class.is-active]="sortColumn() === 'subscriberCount'">
                   @if (sortColumn() === 'subscriberCount') {
                     <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
@@ -193,7 +193,7 @@
             </th>
             <th class="col-sortable text-center" (click)="toggleSort('views')">
               <div class="th-content justify-center">
-                <span>Lượt xem</span>
+                <span>{{ 'channels.views' | translate }}</span>
                 <span class="sort-icon-box" [class.is-active]="sortColumn() === 'views'">
                   @if (sortColumn() === 'views') {
                     <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
@@ -209,7 +209,7 @@
             </th>
             <th class="col-sortable text-center" (click)="toggleSort('status')">
               <div class="th-content justify-center">
-                <span>Trạng thái</span>
+                <span>{{ 'common.status' | translate }}</span>
                 <span class="sort-icon-box" [class.is-active]="sortColumn() === 'status'">
                   @if (sortColumn() === 'status') {
                     <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
@@ -225,7 +225,7 @@
             </th>
             <th class="col-sortable text-center" (click)="toggleSort('createdAt')">
               <div class="th-content justify-center">
-                <span>Ngày tạo</span>
+                <span>{{ 'channels.createdAt' | translate }}</span>
                 <span class="sort-icon-box" [class.is-active]="sortColumn() === 'createdAt'">
                   @if (sortColumn() === 'createdAt') {
                     <svg class="sort-arrow" [class.is-asc]="sortDirection() === 'asc'" viewBox="0 0 20 20" fill="currentColor">
@@ -240,7 +240,7 @@
               </div>
             </th>
             <th class="col-actions text-center">
-              <span>Thao tác</span>
+              <span>{{ 'common.actions' | translate }}</span>
             </th>
           </tr>
         </thead>
@@ -251,7 +251,7 @@
               (click)="openDetail(channel)"
             >
               <!-- Kênh -->
-              <td class="col-channel" data-label="Kênh">
+              <td class="col-channel" [attr.data-label]="'nav.channels' | translate">
                 <div class="channel-cell">
                   <div class="avatar-ring">
                     @if (channel.avatarUrl) {
@@ -270,7 +270,7 @@
               </td>
 
               <!-- Chủ sở hữu -->
-              <td class="col-owner" data-label="Chủ sở hữu">
+              <td class="col-owner" [attr.data-label]="'channels.owner' | translate">
                 <div class="owner-cell">
                   <div class="owner-avatar">
                     @if (channel.ownerAvatarUrl) {
@@ -289,39 +289,39 @@
               </td>
 
               <!-- Số video -->
-              <td class="col-stat text-center" data-label="Số video">
+              <td class="col-stat text-center" [attr.data-label]="'channels.videoCount' | translate">
                 <span class="stat-number">{{ channel.videoCount | number }}</span>
               </td>
 
               <!-- Người đăng ký -->
-              <td class="col-stat text-center" data-label="Người đăng ký">
+              <td class="col-stat text-center" [attr.data-label]="'channels.subscribers' | translate">
                 <span class="stat-number">{{ formatShort(channel.subscriberCount) }}</span>
               </td>
 
               <!-- Lượt xem -->
-              <td class="col-stat text-center" data-label="Lượt xem">
+              <td class="col-stat text-center" [attr.data-label]="'channels.views' | translate">
                 <span class="stat-number">{{ formatShort(channel.viewCount || 0) }}</span>
               </td>
 
               <!-- Trạng thái -->
-              <td class="col-status text-center" data-label="Trạng thái">
+              <td class="col-status text-center" [attr.data-label]="'channels.status' | translate">
                 <span class="status-badge" [ngClass]="statusBadge(channel.status).cls">
                   {{ statusBadge(channel.status).label }}
                 </span>
               </td>
 
               <!-- Ngày tạo -->
-              <td class="col-date text-center" data-label="Ngày tạo">
-                <span class="date-text">{{ channel.createdAt | date:'dd/MM/yyyy' }}</span>
+              <td class="col-date text-center" [attr.data-label]="'channels.createdAt' | translate">
+                <span class="date-text">{{ channel.createdAt | date:'shortDate':undefined:dateLocale() }}</span>
               </td>
 
               <!-- Thao tác -->
-              <td class="col-actions text-center" data-label="Thao tác" (click)="$event.stopPropagation()">
+              <td class="col-actions text-center" [attr.data-label]="'channels.actions' | translate" (click)="$event.stopPropagation()">
                 <div class="action-menu-anchor">
                   <button
                     type="button"
                     class="btn-dots"
-                    aria-label="Thao tác kênh"
+                    [attr.aria-label]="'channels.actionAria' | translate"
                     (click)="toggleActionMenu(channel.channelId, $event)"
                   >
                     •••
@@ -335,7 +335,7 @@
                           <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
                           <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
                         </svg>
-                        Xem chi tiết kênh
+                        {{ 'channels.details' | translate }}
                       </button>
 
                       @if (channel.status === 'active') {
@@ -343,7 +343,7 @@
                           <svg viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                           </svg>
-                          Hạn chế / Tạm ngưng
+                          {{ 'channels.suspend' | translate }}
                         </button>
                       }
 
@@ -352,7 +352,7 @@
                           <svg viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd"/>
                           </svg>
-                          Khóa / Cấm kênh
+                          {{ 'channels.ban' | translate }}
                         </button>
                       }
 
@@ -361,7 +361,7 @@
                           <svg viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                           </svg>
-                          Mở khóa / Khôi phục
+                          {{ 'channels.restore' | translate }}
                         </button>
                       }
 
@@ -371,7 +371,7 @@
                         <svg viewBox="0 0 20 20" fill="currentColor">
                           <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
                         </svg>
-                        Xóa kênh
+                        {{ 'channels.delete' | translate }}
                       </button>
                     </div>
                   }
@@ -381,7 +381,7 @@
           } @empty {
             <tr>
               <td colspan="8" class="empty-table-cell" style="text-align: center; padding: 2.5rem; color: #6c757d;">
-                Không tìm thấy kênh nào phù hợp với bộ lọc.
+                {{ 'channels.empty' | translate }}
               </td>
             </tr>
           }
@@ -392,7 +392,7 @@
     <!-- Table Footer / Pagination -->
     <footer class="table-pagination-footer">
       <div class="footer-left">
-        Hiển thị {{ showingStart() }} - {{ showingEnd() }} trong tổng {{ formatNumber(total()) }} kênh
+        {{ 'channels.showing' | translate:{ start: showingStart(), end: showingEnd(), total: formatNumber(total()) } }}
       </div>
 
       <div class="footer-center">
@@ -402,7 +402,7 @@
             class="page-arrow"
             [disabled]="page() <= 1"
             (click)="prevPage()"
-            aria-label="Trang trước"
+            [attr.aria-label]="'channels.previousPage' | translate"
           >
             ‹
           </button>
@@ -427,7 +427,7 @@
             class="page-arrow"
             [disabled]="page() >= pageCount()"
             (click)="nextPage()"
-            aria-label="Trang tiếp"
+            [attr.aria-label]="'channels.nextPage' | translate"
           >
             ›
           </button>
@@ -435,7 +435,7 @@
       </div>
 
       <div class="footer-right">
-        <span>Hiển thị</span>
+        <span>{{ 'channels.pageSize' | translate }}</span>
         <div class="page-size-select-wrap">
           <select [value]="pageSize()" (change)="onPageSizeChange($event)">
             <option [value]="8">8</option>
@@ -447,7 +447,7 @@
             <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
           </svg>
         </div>
-        <span>kênh/trang</span>
+        <span>{{ 'channels.perPage' | translate }}</span>
       </div>
     </footer>
   </section>
@@ -458,8 +458,8 @@
       <div class="drawer-card" (click)="$event.stopPropagation()">
         <header class="drawer-header">
           <div>
-            <span class="drawer-sub">CHI TIẾT KÊNH</span>
-            <h2>{{ selectedChannel()?.channel?.name || 'Chi tiết kênh' }}</h2>
+            <span class="drawer-sub">{{ 'channels.detailTitle' | translate }}</span>
+            <h2>{{ selectedChannel()?.channel?.name || ('channels.detailTitleFallback' | translate) }}</h2>
             <span class="drawer-handle">&#64;{{ selectedChannel()?.channel?.handle }}</span>
           </div>
           <button type="button" class="drawer-close" (click)="closeDetail()">✕</button>
@@ -469,7 +469,7 @@
           @if (detailLoading()) {
             <div class="drawer-loading">
               <div class="loader-spinner"></div>
-              <p>Đang tải thông tin chi tiết kênh...</p>
+              <p>{{ 'channels.loadingDetails' | translate }}</p>
             </div>
           } @else if (selectedChannel(); as detail) {
             <!-- Channel Header Banner / Avatar Card -->
@@ -485,7 +485,7 @@
               </div>
               <div class="overview-meta">
                 <h3>{{ detail.channel.name }}</h3>
-                <p class="overview-desc">{{ detail.description || 'Kênh chưa có mô tả.' }}</p>
+                <p class="overview-desc">{{ detail.description || ('channels.noDescription' | translate) }}</p>
                 <div class="overview-badges">
                   <span class="status-badge" [ngClass]="statusBadge(detail.channel.status).cls">
                     {{ statusBadge(detail.channel.status).label }}
@@ -497,34 +497,34 @@
             <!-- Stats Grid -->
             <div class="detail-stats-grid">
               <div class="stat-box">
-                <span class="stat-label">Chủ sở hữu</span>
+                <span class="stat-label">{{ 'channels.owner' | translate }}</span>
                 <strong class="stat-val">{{ detail.channel.ownerName }}</strong>
                 <small class="stat-sub">{{ detail.contactEmail || detail.channel.ownerEmail }}</small>
               </div>
               <div class="stat-box">
-                <span class="stat-label">Người đăng ký</span>
+                <span class="stat-label">{{ 'channels.subscribers' | translate }}</span>
                 <strong class="stat-val">{{ formatShort(detail.channel.subscriberCount) }}</strong>
-                <small class="stat-sub">Người theo dõi</small>
+                <small class="stat-sub">{{ 'channels.followers' | translate }}</small>
               </div>
               <div class="stat-box">
-                <span class="stat-label">Tổng video</span>
+                <span class="stat-label">{{ 'channels.totalVideos' | translate }}</span>
                 <strong class="stat-val">{{ detail.channel.videoCount | number }}</strong>
-                <small class="stat-sub">Đã tải lên</small>
+                <small class="stat-sub">{{ 'channels.uploaded' | translate }}</small>
               </div>
               <div class="stat-box">
-                <span class="stat-label">Lượt xem</span>
+                <span class="stat-label">{{ 'channels.views' | translate }}</span>
                 <strong class="stat-val">{{ formatShort(detail.channel.viewCount || 0) }}</strong>
-                <small class="stat-sub">Toàn thời gian</small>
+                <small class="stat-sub">{{ 'channels.allTime' | translate }}</small>
               </div>
               <div class="stat-box">
-                <span class="stat-label">Gậy vi phạm</span>
+                <span class="stat-label">{{ 'channels.strikes' | translate }}</span>
                 <strong class="stat-val text-red">{{ detail.channel.activeStrikeCount }}</strong>
-                <small class="stat-sub">Đang hiệu lực</small>
+                <small class="stat-sub">{{ 'channels.inEffect' | translate }}</small>
               </div>
               <div class="stat-box">
-                <span class="stat-label">Ngày thành lập</span>
-                <strong class="stat-val">{{ detail.channel.createdAt | date:'dd/MM/yyyy' }}</strong>
-                <small class="stat-sub">Tham gia HuTube</small>
+                <span class="stat-label">{{ 'channels.founded' | translate }}</span>
+                <strong class="stat-val">{{ detail.channel.createdAt | date:'shortDate':undefined:dateLocale() }}</strong>
+                <small class="stat-sub">{{ 'channels.joined' | translate }}</small>
               </div>
             </div>
 
@@ -532,27 +532,27 @@
             <div class="drawer-actions">
               @if (detail.channel.status === 'active') {
                 <button type="button" class="btn-action-amber" (click)="openActionModal('suspend', detail.channel)">
-                  Tạm ngưng kênh
+                  {{ 'channels.suspendAction' | translate }}
                 </button>
               }
               @if (detail.channel.status !== 'banned') {
                 <button type="button" class="btn-action-red" (click)="openActionModal('ban', detail.channel)">
-                  Cấm / Khóa kênh
+                  {{ 'channels.banAction' | translate }}
                 </button>
               }
               @if (detail.channel.status === 'suspended' || detail.channel.status === 'banned') {
                 <button type="button" class="btn-action-green" (click)="openActionModal('unban', detail.channel)">
-                  Khôi phục hoạt động
+                  {{ 'channels.restoreAction' | translate }}
                 </button>
               }
               <button type="button" class="btn-action-outline-danger" (click)="openActionModal('delete', detail.channel)">
-                Xóa kênh
+                {{ 'channels.delete' | translate }}
               </button>
             </div>
 
             <!-- Recent Videos -->
             <section class="drawer-sub-section">
-              <h4>Video gần đây</h4>
+              <h4>{{ 'channels.recentVideos' | translate }}</h4>
               @if (detail.videos && detail.videos.length > 0) {
                 <div class="recent-videos-list">
                   @for (vid of detail.videos; track vid.videoId) {
@@ -562,31 +562,31 @@
                       </div>
                       <div class="vid-meta">
                         <strong>{{ vid.title }}</strong>
-                        <span>{{ formatShort(vid.views) }} lượt xem · {{ vid.status }}</span>
+                        <span>{{ 'channels.viewsSuffix' | translate:{ count: formatShort(vid.views) } }} · {{ videoStatusLabel(vid.status) }}</span>
                       </div>
                     </div>
                   }
                 </div>
               } @else {
-                <p class="empty-sub-msg">Chưa có video công khai nào.</p>
+                <p class="empty-sub-msg">{{ 'channels.noPublicVideos' | translate }}</p>
               }
             </section>
 
             <!-- Audit History -->
             <section class="drawer-sub-section">
-              <h4>Lịch sử quản trị</h4>
+              <h4>{{ 'channels.history' | translate }}</h4>
               @if (detail.history && detail.history.length > 0) {
                 <div class="history-timeline">
                   @for (log of detail.history; track log.auditLogId) {
                     <div class="history-item">
-                      <span class="history-action">{{ log.action }}</span>
-                      <p class="history-reason">{{ log.reason || 'Không ghi nhận lý do' }}</p>
-                      <small class="history-actor">{{ log.actorName || 'Hệ thống' }} · {{ log.createdAt | date:'dd/MM/yyyy HH:mm' }}</small>
+                      <span class="history-action">{{ auditActionLabel(log.action) }}</span>
+                      <p class="history-reason">{{ log.reason || ('channels.noRecordedReason' | translate) }}</p>
+                      <small class="history-actor">{{ log.actorName || ('channels.system' | translate) }} · {{ log.createdAt | date:'short':undefined:dateLocale() }}</small>
                     </div>
                   }
                 </div>
               } @else {
-                <p class="empty-sub-msg">Chưa có lịch sử can thiệp quản trị.</p>
+                <p class="empty-sub-msg">{{ 'channels.noHistory' | translate }}</p>
               }
             </section>
           }
@@ -606,16 +606,15 @@
 
         <div class="modal-body">
           <p class="modal-lead">
-            Bạn đang thực hiện thao tác <strong>{{ actionLabel(actionModalType() || '') }}</strong> trên kênh
-            <span class="text-pink">“{{ actionModalChannel()?.name }}”</span> (&#64;{{ actionModalChannel()?.handle }}).
+            {{ 'channels.confirmAction' | translate:{ action: actionLabel(actionModalType() || ''), name: actionModalChannel()?.name || '', handle: actionModalChannel()?.handle || '' } }}
           </p>
 
           <label class="modal-form-label">
-            <span>Lý do thực hiện (tối thiểu 3 ký tự) <strong class="text-red">*</strong>:</span>
+            <span>{{ 'channels.reason' | translate }} <strong class="text-red">*</strong>:</span>
             <textarea
               class="modal-textarea"
               rows="3"
-              placeholder="Nhập chi tiết lý do quản trị..."
+              [placeholder]="'channels.reasonPlaceholder' | translate"
               [ngModel]="actionModalReason()"
               (ngModelChange)="actionModalReason.set($event)"
             ></textarea>
@@ -628,13 +627,13 @@
               [ngModel]="notifyOwner()"
               (ngModelChange)="notifyOwner.set($event)"
             />
-            <span>Gửi email và thông báo cho chủ kênh</span>
+            <span>{{ 'channels.notifyOwner' | translate }}</span>
           </label>
         </div>
 
         <footer class="modal-footer">
           <button type="button" class="btn-modal-cancel" (click)="closeActionModal()" [disabled]="busy()">
-            Hủy bỏ
+            {{ 'common.cancel' | translate }}
           </button>
           <button
             type="button"
@@ -642,7 +641,7 @@
             [disabled]="busy() || actionModalReason().trim().length < 3"
             (click)="submitAction()"
           >
-            {{ busy() ? 'Đang xử lý...' : 'Xác nhận thực hiện' }}
+            {{ busy() ? ('channels.processing' | translate) : ('channels.confirm' | translate) }}
           </button>
         </footer>
       </div>

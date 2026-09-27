@@ -6,12 +6,12 @@
   </div>
 
   <section>
-    @if (loading()) { <p class="empty">Đang tải bình luận…</p> }
+    @if (loading()) { <p class="empty">{{ 'common.loading' | translate }}</p> }
     @for (row of filtered(); track row.comment.commentId) {
       <article>
         <div class="avatar">{{ row.comment.displayName.slice(0, 1) }}</div>
         <div class="body">
-          <p><strong>{{ row.comment.displayName }}</strong> {{ 'studio.onVideo' | translate }} <b>{{ row.video?.title || 'Video không còn hiển thị' }}</b></p>
+          <p><strong>{{ row.comment.displayName }}</strong> {{ 'studio.onVideo' | translate }} <b>{{ row.video?.title || ('studio.videoUnavailable' | translate) }}</b></p>
           <span>{{ row.comment.content }}</span>
           <div>
             @if (data.hasPermission('comment.manage')) {

@@ -99,11 +99,11 @@ export class ChannelSettingsPage {
         this.appealSuccess.set(true);
         setTimeout(() => {
           this.closeAppealModal();
-          this.message.set(this.i18n.t('studio.appealSubmitted') || 'Đơn khiếu nại đã được gửi thành công! Quản trị viên sẽ xem xét đơn của bạn.');
+          this.message.set(this.i18n.t('studio.appealSubmitted'));
         }, 1500);
       },
       error: err => {
-        this.error.set(errorMessage(err, this.i18n) || 'Không thể gửi đơn khiếu nại. Vui lòng thử lại sau.');
+        this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.appealSubmitFallback'));
       }
     });
   }

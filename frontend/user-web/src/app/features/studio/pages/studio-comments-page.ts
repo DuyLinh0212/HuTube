@@ -66,7 +66,7 @@ export class StudioCommentsPage {
       },
       error: () => {
         this.rows.set([]);
-        this.error.set('Không thể tải bình luận của kênh.');
+        this.error.set(this.i18n.t('studio.commentsLoadError'));
         this.loading.set(false);
       }
     });

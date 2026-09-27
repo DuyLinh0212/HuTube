@@ -59,17 +59,17 @@ export class ExplorePage implements OnInit, OnDestroy {
   readonly activeCategoryTab = signal('bxh_tong');
 
   readonly categoryTabs = [
-    { id: 'bxh_tong', label: 'BXH tổng' },
-    { id: 'cong-nghe', label: 'Công nghệ' },
-    { id: 'du-lich', label: 'Du lịch' },
-    { id: 'am-nhac', label: 'Âm nhạc' },
-    { id: 'am-thuc', label: 'Ẩm thực' },
-    { id: 'giao-duc', label: 'Giáo dục' },
-    { id: 'podcast', label: 'Podcast' },
-    { id: 'the-thao', label: 'Thể thao' },
-    { id: 'doi-song', label: 'Đời sống' },
-    { id: 'phim-anh', label: 'Phim ảnh' },
-    { id: 'lam-dep', label: 'Làm đẹp' },
+    { id: 'bxh_tong', labelKey: 'explore.category.overall' },
+    { id: 'cong-nghe', labelKey: 'explore.category.technology' },
+    { id: 'du-lich', labelKey: 'explore.category.travel' },
+    { id: 'am-nhac', labelKey: 'explore.category.music' },
+    { id: 'am-thuc', labelKey: 'explore.category.food' },
+    { id: 'giao-duc', labelKey: 'explore.category.education' },
+    { id: 'podcast', labelKey: 'explore.category.podcast' },
+    { id: 'the-thao', labelKey: 'explore.category.sports' },
+    { id: 'doi-song', labelKey: 'explore.category.lifestyle' },
+    { id: 'phim-anh', labelKey: 'explore.category.films' },
+    { id: 'lam-dep', labelKey: 'explore.category.beauty' },
   ];
 
   readonly sortOptions = [
@@ -118,7 +118,7 @@ export class ExplorePage implements OnInit, OnDestroy {
     return Math.ceil(this.total() / this.pageSize);
   }
   get resultsLabel(): string {
-    return this.i18n.t('explore.resultsCount').replace('{count}', this.total().toString());
+    return this.i18n.format('explore.resultsCount', { count: this.total() });
   }
 
   ngOnInit() {
@@ -182,7 +182,7 @@ export class ExplorePage implements OnInit, OnDestroy {
         });
       },
       error: () => {
-        this.hubError.set('Không thể tải dữ liệu khám phá. Vui lòng thử lại.');
+        this.hubError.set(this.i18n.t('explore.hubError'));
         this.hubLoading.set(false);
       },
     });

@@ -10,12 +10,12 @@
           </svg>
         </div>
         <div class="banner-body">
-          <h3 class="banner-title">{{ ch.status === 'banned' ? 'Kênh đang bị cấm hoạt động' : 'Kênh đang bị tạm dừng hoạt động (Suspended)' }}</h3>
-          <p class="banner-desc">{{ ch.statusReason || 'Kênh của bạn hiện bị tạm khóa do vi phạm Điều khoản & Nguyên tắc Cộng đồng.' }} Các thao tác tải lên, chỉnh sửa và quản lý bị hạn chế. Bạn có thể gửi đơn khiếu nại (Appeal) để đội ngũ kiểm duyệt xem xét gỡ bỏ trạng thái đình chỉ.</p>
+          <h3 class="banner-title">{{ (ch.status === 'banned' ? 'channel.status.banned' : 'channel.status.suspended') | translate }}</h3>
+          <p class="banner-desc">{{ ch.statusReason || ('channel.status.defaultReason' | translate) }} {{ 'channel.status.restrictedActions' | translate }}</p>
           <div class="banner-actions">
             <button type="button" class="btn-appeal-action" (click)="openAppealModal()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              Gửi đơn khiếu nại (Appeal)
+              {{ 'channel.submitAppeal' | translate }}
             </button>
           </div>
         </div>
@@ -173,14 +173,14 @@
             <div class="branding-text">
               <h3>{{ 'channel.watermarkTitle' | translate }}</h3>
               <p>{{ 'channel.watermarkDesc' | translate }}</p>
-              <button type="button" class="btn-secondary" (click)="watermarkInput.click()" [disabled]="busy()">Tải watermark lên</button>
+              <button type="button" class="btn-secondary" (click)="watermarkInput.click()" [disabled]="busy()">{{ 'channel.uploadWatermark' | translate }}</button>
               <input #watermarkInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onWatermarkSelected($event)" hidden />
               <input type="text" class="text-input" [(ngModel)]="watermarkUrl" placeholder="https://example.com/watermark.png" [disabled]="busy()" />
               <div class="watermark-action">
                 <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">{{ 'channel.saveWatermark' | translate }}</button>
               </div>
             </div>
-            @if (ch.watermarkUrl) { <div class="branding-preview watermark-preview"><img [src]="ch.watermarkUrl" alt="Xem trước watermark" /></div> }
+            @if (ch.watermarkUrl) { <div class="branding-preview watermark-preview"><img [src]="ch.watermarkUrl" [alt]="'channel.previewWatermark' | translate" /></div> }
           </div>
         </div>
       }
@@ -321,29 +321,29 @@
       <div class="modal-backdrop" (click)="closeAppealModal()">
         <div class="modal-dialog modal-appeal-dialog" (click)="$event.stopPropagation()">
           <div class="modal-header-row">
-            <h2>Gửi khiếu nại cho kênh &#64;{{ ch.handle }}</h2>
+            <h2>{{ 'channel.appealFor' | translate:{ handle: ch.handle } }}</h2>
             <button type="button" class="btn-close-modal" (click)="closeAppealModal()">✕</button>
           </div>
           @if (appealSuccess()) {
             <div class="appeal-success-box">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <p>Đơn khiếu nại đã được tiếp nhận thành công. Ban quản trị độc lập sẽ thẩm định và phản hồi sớm nhất!</p>
+              <p>{{ 'channel.appealAccepted' | translate }}</p>
             </div>
           } @else {
-            <p class="modal-warning">Hãy nêu rõ lý do bạn cho rằng quyết định khóa kênh là nhầm lẫn hoặc cung cấp thêm bằng chứng giải trình.</p>
+            <p class="modal-warning">{{ 'channel.appealHelp' | translate }}</p>
             <div class="form-group">
-              <label for="appealReasonText" class="input-label">Lý do khiếu nại <span class="required">*</span></label>
-              <textarea id="appealReasonText" class="textarea-input" [(ngModel)]="appealReason" rows="4" placeholder="Trình bày lý do hoặc bằng chứng giải trình..."></textarea>
+              <label for="appealReasonText" class="input-label">{{ 'channel.appealReason' | translate }} <span class="required">*</span></label>
+              <textarea id="appealReasonText" class="textarea-input" [(ngModel)]="appealReason" rows="4" [placeholder]="'channel.appealReasonPlaceholder' | translate"></textarea>
             </div>
             <div class="form-group">
-              <label for="appealEvidenceInput" class="input-label">Tệp bằng chứng riêng tư (PNG, JPEG, WEBP hoặc PDF, tối đa 10 MiB)</label>
+              <label for="appealEvidenceInput" class="input-label">{{ 'channel.appealEvidence' | translate }}</label>
               <input id="appealEvidenceInput" type="file" class="text-input" accept="image/png,image/jpeg,image/webp,application/pdf" (change)="onAppealEvidenceSelected($event)" />
-              @if (appealEvidenceFile) { <small>Đã chọn: {{ appealEvidenceFile.name }}</small> }
+              @if (appealEvidenceFile) { <small>{{ 'channel.fileSelected' | translate:{ name: appealEvidenceFile.name } }}</small> }
             </div>
             <div class="modal-actions">
-              <button type="button" class="btn-secondary" (click)="closeAppealModal()" [disabled]="appealSubmitting()">Hủy</button>
+              <button type="button" class="btn-secondary" (click)="closeAppealModal()" [disabled]="appealSubmitting()">{{ 'common.cancel' | translate }}</button>
               <button type="button" class="btn-primary" (click)="submitAppeal()" [disabled]="appealSubmitting() || !appealReason.trim()">
-                {{ appealSubmitting() ? 'Đang gửi...' : 'Gửi khiếu nại' }}
+                {{ (appealSubmitting() ? 'channel.sending' : 'channel.sendAppeal') | translate }}
               </button>
             </div>
           }

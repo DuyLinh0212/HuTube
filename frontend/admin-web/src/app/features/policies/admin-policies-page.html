@@ -136,7 +136,7 @@
               </td>
               <td style="text-align: right;">
                 <button class="btn btn-sm btn-secondary" (click)="openDetailModal(policy)">
-                  {{ canEdit() ? ('policies.detailUpdate' | translate) : 'Xem chi tiết' }}
+                  {{ canEdit() ? ('policies.detailUpdate' | translate) : ('policies.viewDetails' | translate) }}
                 </button>
               </td>
             </tr>
@@ -166,7 +166,7 @@
           <div class="form-grid">
             <div class="form-group">
               <label>{{ 'policies.codeLabel' | translate }}</label>
-              <input type="text" placeholder="VD: CHILD_SAFETY, HATE_SPEECH" [ngModel]="newCode()" (ngModelChange)="newCode.set($event)" />
+              <input type="text" [placeholder]="'policies.codePlaceholder' | translate" [ngModel]="newCode()" (ngModelChange)="newCode.set($event)" />
               <small>{{ 'policies.codeHint' | translate }}</small>
             </div>
 

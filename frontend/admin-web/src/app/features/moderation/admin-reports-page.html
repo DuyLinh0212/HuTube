@@ -1,68 +1,68 @@
 <main class="moderation-container report-cases-page">
   <header class="page-header">
     <div class="header-titles">
-      <p class="eyebrow">KIỂM DUYỆT BÁO CÁO</p>
-      <h1>Hồ sơ báo cáo vi phạm</h1>
-      <p class="subtitle">Mỗi đối tượng có một hồ sơ; từng báo cáo được phân loại riêng trước khi áp dụng biện pháp.</p>
+      <p class="eyebrow">{{ 'reports.eyebrow' | translate }}</p>
+      <h1>{{ 'reports.title' | translate }}</h1>
+      <p class="subtitle">{{ 'reports.subtitle' | translate }}</p>
     </div>
     <div class="header-actions">
-      <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">Làm mới</button>
+      <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">{{ 'moderation.refresh' | translate }}</button>
     </div>
   </header>
 
   @if (error()) { <div class="alert alert-danger" role="alert">{{ error() }}</div> }
   @if (successMessage()) { <div class="alert alert-success" role="status">{{ successMessage() }}</div> }
 
-  <nav class="status-tabs" aria-label="Lọc hồ sơ theo trạng thái">
-    <button type="button" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">Chờ nhận</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'reviewing'" (click)="setStatus('reviewing')">Đang xử lý</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'resolved'" (click)="setStatus('resolved')">Đã đóng</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'escalated'" (click)="setStatus('escalated')">Đã chuyển cấp</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'ALL'" (click)="setStatus('ALL')">Tất cả</button>
+  <nav class="status-tabs" [attr.aria-label]="'reports.statusTabs' | translate">
+    <button type="button" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">{{ 'moderation.statusPending' | translate }}</button>
+    <button type="button" [class.is-active]="selectedStatus() === 'reviewing'" (click)="setStatus('reviewing')">{{ 'reports.processing' | translate }}</button>
+    <button type="button" [class.is-active]="selectedStatus() === 'resolved'" (click)="setStatus('resolved')">{{ 'reports.closed' | translate }}</button>
+    <button type="button" [class.is-active]="selectedStatus() === 'escalated'" (click)="setStatus('escalated')">{{ 'reports.escalated' | translate }}</button>
+    <button type="button" [class.is-active]="selectedStatus() === 'ALL'" (click)="setStatus('ALL')">{{ 'moderation.statusAll' | translate }}</button>
   </nav>
 
   <section class="toolbar report-case-toolbar">
-    <label class="filter-group"><span>Đối tượng</span>
+    <label class="filter-group"><span>{{ 'reports.target' | translate }}</span>
       <select [ngModel]="selectedTargetType()" (ngModelChange)="setTargetType($event)">
-        <option value="ALL">Tất cả</option><option value="video">Video</option><option value="comment">Bình luận</option><option value="channel">Kênh</option>
+        <option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="video">{{ 'moderation.colVideo' | translate }}</option><option value="comment">{{ 'reports.comment' | translate }}</option><option value="channel">{{ 'nav.channels' | translate }}</option>
       </select>
     </label>
-    <input type="search" aria-label="Tìm hồ sơ" placeholder="Tìm theo nội dung, kênh hoặc loại vi phạm…" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+    <input type="search" [attr.aria-label]="'reports.searchLabel' | translate" [placeholder]="'reports.searchPlaceholder' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
   </section>
 
   <section class="table-card">
-    <div class="table-heading"><div><h2>Hồ sơ theo đối tượng</h2><p>{{ total() }} hồ sơ · {{ filteredCases().length }} đang hiển thị</p></div></div>
+    <div class="table-heading"><div><h2>{{ 'reports.casesTitle' | translate }}</h2><p>{{ 'reports.caseCount' | translate:{ total: total(), visible: filteredCases().length } }}</p></div></div>
     @if (loading()) {
-      <div class="loading-state" aria-busy="true"><div class="spinner"></div><p>Đang tải hồ sơ…</p></div>
+      <div class="loading-state" aria-busy="true"><div class="spinner"></div><p>{{ 'reports.loading' | translate }}</p></div>
     } @else if (!filteredCases().length) {
-      <div class="empty-state"><h3>Không có hồ sơ phù hợp</h3><p>Thử đổi trạng thái, loại đối tượng hoặc từ khóa tìm kiếm.</p></div>
+      <div class="empty-state"><h3>{{ 'reports.emptyTitle' | translate }}</h3><p>{{ 'reports.emptyHint' | translate }}</p></div>
     } @else {
       <div class="table-responsive">
         <table class="data-table">
-          <thead><tr><th>Đối tượng</th><th>Nội dung</th><th>Báo cáo</th><th>Loại vi phạm</th><th>Trạng thái</th><th>Người xử lý</th><th>Thời gian</th><th>Thao tác</th></tr></thead>
+          <thead><tr><th>{{ 'reports.target' | translate }}</th><th>{{ 'nav.groupContent' | translate }}</th><th>{{ 'reports.reportsHeader' | translate }}</th><th>{{ 'reports.violationType' | translate }}</th><th>{{ 'moderation.colStatus' | translate }}</th><th>{{ 'reports.handler' | translate }}</th><th>{{ 'reports.time' | translate }}</th><th>{{ 'moderation.colActions' | translate }}</th></tr></thead>
           <tbody>
             @for (item of filteredCases(); track item.caseId) {
               <tr>
-                <td><span class="badge" [class.badge-video]="item.targetType === 'video'" [class.badge-comment]="item.targetType === 'comment'" [class.badge-channel]="item.targetType === 'channel'">{{ item.targetType | uppercase }}</span></td>
+                <td><span class="badge" [class.badge-video]="item.targetType === 'video'" [class.badge-comment]="item.targetType === 'comment'" [class.badge-channel]="item.targetType === 'channel'">{{ targetTypeLabel(item.targetType) }}</span></td>
                 <td class="target-title-col">
                   <div class="target-cell-preview">
                     @if (item.targetThumbnailUrl) { <div class="thumb-mini"><img [src]="item.targetThumbnailUrl" alt="" /></div> }
-                    <div class="target-info"><strong class="target-title">{{ item.targetTitle || 'Đối tượng không khả dụng' }}</strong>
+                    <div class="target-info"><strong class="target-title">{{ item.targetTitle || ('reports.targetUnavailable' | translate) }}</strong>
                       @if (item.targetChannelName) { <span class="channel-tag">{{ item.targetChannelName }} · &#64;{{ item.targetChannelHandle }}</span> }
-                      @if (item.targetUrl) { <a class="link-view-target" [href]="targetHref(item)" target="_blank" rel="noopener">Mở nội dung ↗</a> }
+                      @if (item.targetUrl) { <a class="link-view-target" [href]="targetHref(item)" target="_blank" rel="noopener">{{ 'reports.openTarget' | translate }} ↗</a> }
                     </div>
                   </div>
                 </td>
-                <td><strong>{{ item.reportCount }}</strong><small class="case-subtext">{{ item.reporterCount }} người gửi · {{ item.unclassifiedCount }} chưa phân loại</small></td>
-                <td><div class="violation-counts">@for (violation of item.violationCounts; track violation.code) { <span>{{ violation.name || violation.code || 'Khác' }} <b>{{ violation.count }}</b></span> }</div></td>
-                <td><span class="status-pill" [class.status-pending]="item.status === 'pending'" [class.status-reviewing]="item.status === 'reviewing'" [class.status-resolved]="item.status === 'resolved'">{{ item.status === 'pending' ? 'Chờ nhận' : item.status === 'reviewing' ? 'Đang xử lý' : item.status === 'escalated' ? 'Chuyển cấp' : 'Đã đóng' }}</span></td>
+                <td><strong>{{ item.reportCount }}</strong><small class="case-subtext">{{ 'reports.reporterCount' | translate:{ count: item.reporterCount } }} · {{ 'reports.unclassified' | translate }}: {{ item.unclassifiedCount }}</small></td>
+                <td><div class="violation-counts">@for (violation of item.violationCounts; track violation.code) { <span>{{ violation.name || violation.code || ('reports.other' | translate) }} <b>{{ violation.count }}</b></span> }</div></td>
+                <td><span class="status-pill" [class.status-pending]="item.status === 'pending'" [class.status-reviewing]="item.status === 'reviewing'" [class.status-resolved]="item.status === 'resolved'">{{ statusLabel(item.status) }}</span></td>
                 <td>{{ item.reviewerName || '—' }}</td>
-                <td>{{ item.submittedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ item.submittedAt | date:'short':undefined:dateLocale() }}</td>
                 <td class="actions-col">
                   <div class="action-buttons">
-                    <button type="button" class="btn-action btn-resolve" (click)="openCase(item)">Chi tiết</button>
-                    @if (canClaim() && item.status === 'pending') { <button type="button" class="btn-action btn-claim" [disabled]="submitting()" (click)="claim(item)">Nhận</button> }
-                    @if (canClaim() && item.status === 'reviewing' && item.reviewerId === auth.user()?.userId) { <button type="button" class="btn-action btn-release" [disabled]="submitting()" (click)="release(item)">Trả lại</button> }
+                    <button type="button" class="btn-action btn-resolve" (click)="openCase(item)">{{ 'reports.details' | translate }}</button>
+                    @if (canClaim() && item.status === 'pending') { <button type="button" class="btn-action btn-claim" [disabled]="submitting()" (click)="claim(item)">{{ 'reports.claim' | translate }}</button> }
+                    @if (canClaim() && item.status === 'reviewing' && item.reviewerId === auth.user()?.userId) { <button type="button" class="btn-action btn-release" [disabled]="submitting()" (click)="release(item)">{{ 'reports.return' | translate }}</button> }
                   </div>
                 </td>
               </tr>
@@ -77,48 +77,48 @@
     <div class="modal-backdrop" (click)="closeCase()">
       <section class="modal-card report-case-dialog" role="dialog" aria-modal="true" aria-labelledby="case-title" (click)="$event.stopPropagation()">
         <header class="modal-header">
-          <div><p class="eyebrow">HỒ SƠ {{ detail.case.caseId.slice(0, 8) }}</p><h2 id="case-title">{{ detail.case.targetTitle || 'Đối tượng báo cáo' }}</h2></div>
-          <button type="button" class="close-btn" aria-label="Đóng" (click)="closeCase()">×</button>
+          <div><p class="eyebrow">{{ 'reports.caseHeading' | translate:{ id: detail.case.caseId.slice(0, 8) } }}</p><h2 id="case-title">{{ detail.case.targetTitle || ('reports.targetUnavailable' | translate) }}</h2></div>
+          <button type="button" class="close-btn" [attr.aria-label]="'moderation.close' | translate" (click)="closeCase()">×</button>
         </header>
 
         <div class="case-summary-line">
-          <span>{{ detail.case.reportCount }} báo cáo</span><span>{{ detail.case.reporterCount }} người gửi</span>
-          <span>{{ unclassifiedCount() }} chưa phân loại</span>
-          <span class="case-status" [class.is-reviewing]="detail.case.status === 'reviewing'">{{ detail.case.status === 'reviewing' ? 'Đang xử lý' : detail.case.status === 'pending' ? 'Chờ nhận' : detail.case.status === 'resolved' ? 'Đã đóng' : detail.case.status === 'escalated' ? 'Chuyển cấp' : detail.case.status }}</span>
+          <span>{{ 'reports.reportCount' | translate:{ count: detail.case.reportCount } }}</span><span>{{ 'reports.reporterCount' | translate:{ count: detail.case.reporterCount } }}</span>
+          <span>{{ 'reports.unclassifiedCount' | translate:{ count: unclassifiedCount() } }}</span>
+          <span class="case-status" [class.is-reviewing]="detail.case.status === 'reviewing'">{{ statusLabel(detail.case.status) }}</span>
         </div>
 
         @if (detail.case.status === 'pending' && canClaim()) {
-          <div class="case-owner-toolbar case-owner-toolbar--pending"><div><strong>Hồ sơ đang chờ nhận</strong><span>Nhận hồ sơ để bắt đầu phân loại từng báo cáo.</span></div><button type="button" class="btn btn-primary" [disabled]="submitting()" (click)="claim(detail.case)">Nhận hồ sơ</button></div>
+          <div class="case-owner-toolbar case-owner-toolbar--pending"><div><strong>{{ 'reports.pendingOwnerTitle' | translate }}</strong><span>{{ 'reports.pendingOwnerHint' | translate }}</span></div><button type="button" class="btn btn-primary" [disabled]="submitting()" (click)="claim(detail.case)">{{ 'reports.claimCase' | translate }}</button></div>
         }
         @if (detail.case.status === 'reviewing' && canClaim() && isCaseOwner()) {
-          <div class="case-owner-toolbar"><div><strong>Bạn đang xử lý hồ sơ này</strong><span>Có thể trả hồ sơ về hàng đợi nếu chưa sẵn sàng tiếp tục.</span></div><button type="button" class="btn btn-secondary" [disabled]="submitting()" (click)="release(detail.case)">Trả hồ sơ</button></div>
+          <div class="case-owner-toolbar"><div><strong>{{ 'reports.workingTitle' | translate }}</strong><span>{{ 'reports.workingHint' | translate }}</span></div><button type="button" class="btn btn-secondary" [disabled]="submitting()" (click)="release(detail.case)">{{ 'reports.returnCase' | translate }}</button></div>
         }
 
         @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') {
-          <div class="case-workflow" aria-label="Quy trình xử lý hồ sơ">
-            <div class="workflow-step is-active"><span class="workflow-step__number">1</span><div><strong>Phân loại báo cáo</strong><small>Đánh giá từng báo cáo</small></div></div>
+          <div class="case-workflow" [attr.aria-label]="'reports.workflow' | translate">
+            <div class="workflow-step is-active"><span class="workflow-step__number">1</span><div><strong>{{ 'reports.classify' | translate }}</strong><small>{{ 'reports.reviewEach' | translate }}</small></div></div>
             <span class="workflow-connector" aria-hidden="true"></span>
-            <div class="workflow-step" [class.is-active]="allClassified()" [class.is-locked]="!allClassified()"><span class="workflow-step__number">2</span><div><strong>Quyết định cho đối tượng</strong><small>{{ allClassified() ? 'Sẵn sàng thực hiện' : 'Mở sau khi phân loại đủ' }}</small></div></div>
+            <div class="workflow-step" [class.is-active]="allClassified()" [class.is-locked]="!allClassified()"><span class="workflow-step__number">2</span><div><strong>{{ 'reports.decideTarget' | translate }}</strong><small>{{ allClassified() ? ('reports.readyToResolve' | translate) : ('reports.unlockAfterClassify' | translate) }}</small></div></div>
           </div>
         }
 
         <section class="case-stage case-stage--classification">
           <header class="case-stage__header">
-            <div><span class="stage-kicker">BƯỚC 1</span><h3>Phân loại từng báo cáo</h3><p>Chọn một hoặc nhiều báo cáo có cùng kết luận, nhập căn cứ rồi áp dụng kết quả.</p></div>
-            <span class="stage-progress">{{ classifiedCount() }}/{{ detail.reports.length }} đã phân loại</span>
+            <div><span class="stage-kicker">{{ 'reports.stepOne' | translate }}</span><h3>{{ 'reports.classifyTitle' | translate }}</h3><p>{{ 'reports.classifyHint' | translate }}</p></div>
+            <span class="stage-progress">{{ 'reports.classifiedProgress' | translate:{ done: classifiedCount(), total: detail.reports.length } }}</span>
           </header>
           @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') {
             <div class="batch-classification">
-              <label><span>Căn cứ phân loại nhóm đã chọn</span><textarea rows="2" [ngModel]="dispositionReason()" (ngModelChange)="dispositionReason.set($event)" placeholder="Ví dụ: Nội dung trong báo cáo khớp với bằng chứng kiểm duyệt..."></textarea></label>
-              <div class="classification-actions"><span class="selection-count">{{ selectedReportIds().length }} báo cáo được chọn</span><button type="button" class="btn-action btn-claim" [disabled]="submitting() || !selectedReportIds().length || dispositionReason().trim().length < 3" (click)="classify('accepted')">Chấp nhận đã chọn</button><button type="button" class="btn-action btn-release" [disabled]="submitting() || !selectedReportIds().length || dispositionReason().trim().length < 3" (click)="classify('rejected')">Bác bỏ đã chọn</button></div>
+              <label><span>{{ 'reports.groupReason' | translate }}</span><textarea rows="2" [ngModel]="dispositionReason()" (ngModelChange)="dispositionReason.set($event)" [placeholder]="'reports.groupReasonPlaceholder' | translate"></textarea></label>
+              <div class="classification-actions"><span class="selection-count">{{ 'reports.selectedReports' | translate:{ count: selectedReportIds().length } }}</span><button type="button" class="btn-action btn-claim" [disabled]="submitting() || !selectedReportIds().length || dispositionReason().trim().length < 3" (click)="classify('accepted')">{{ 'reports.acceptSelected' | translate }}</button><button type="button" class="btn-action btn-release" [disabled]="submitting() || !selectedReportIds().length || dispositionReason().trim().length < 3" (click)="classify('rejected')">{{ 'reports.rejectSelected' | translate }}</button></div>
             </div>
           }
           <div class="case-report-list">
             @for (report of detail.reports; track trackReport($index, report)) {
               <article class="case-report-row" [class.is-selected]="selectedReports()[report.reportId]">
-                @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') { <input type="checkbox" [checked]="selectedReports()[report.reportId] || false" (change)="toggleReport(report.reportId, $any($event.target).checked)" [attr.aria-label]="'Chọn báo cáo của ' + (report.reporterName || 'người dùng')" /> }
-                <div class="case-report-content"><header><strong>{{ report.violationTypeName || report.violationTypeCode || 'Vi phạm khác' }}</strong><span>{{ report.reporterName || 'Ẩn danh' }}</span><time>{{ report.createdAt | date:'dd/MM/yyyy HH:mm' }}</time></header><p>{{ report.description }}</p>
-                  <div class="report-result" [class.result-accepted]="report.disposition === 'accepted'" [class.result-rejected]="report.disposition === 'rejected'">{{ report.disposition === 'accepted' ? 'Báo cáo được chấp nhận' : report.disposition === 'rejected' ? 'Báo cáo bị bác bỏ' : 'Chưa phân loại' }} @if (report.abuseFlag) { <b>Đánh dấu lạm dụng</b> }</div>
+                @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') { <input type="checkbox" [checked]="selectedReports()[report.reportId] || false" (change)="toggleReport(report.reportId, $any($event.target).checked)" [attr.aria-label]="'reports.selectReporterReport' | translate:{ name: report.reporterName || ('reports.user' | translate) }" /> }
+                <div class="case-report-content"><header><strong>{{ report.violationTypeName || report.violationTypeCode || ('reports.other' | translate) }}</strong><span>{{ report.reporterName || ('reports.anonymous' | translate) }}</span><time>{{ report.createdAt | date:'short':undefined:dateLocale() }}</time></header><p>{{ report.description }}</p>
+                  <div class="report-result" [class.result-accepted]="report.disposition === 'accepted'" [class.result-rejected]="report.disposition === 'rejected'">{{ report.disposition === 'accepted' ? ('reports.acceptedResult' | translate) : report.disposition === 'rejected' ? ('reports.rejectedResult' | translate) : ('reports.unclassifiedResult' | translate) }} @if (report.abuseFlag) { <b>{{ 'reports.abuseFlag' | translate }}</b> }</div>
                   @if (report.dispositionReason) { <small>{{ report.dispositionReason }}</small> }
                 </div>
               </article>
@@ -129,17 +129,17 @@
         @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') {
           <section class="case-stage case-resolution case-resolution-stage" [class.is-ready]="allClassified()" [class.is-locked]="!allClassified()">
             @if (!allClassified()) {
-              <div class="stage-locked"><span class="stage-locked__number">2</span><div><span class="stage-kicker">BƯỚC 2</span><h3>Quyết định cho đối tượng</h3><p>Còn {{ unclassifiedCount() }} báo cáo chưa phân loại. Hoàn tất Bước 1 để chọn một biện pháp áp dụng cho toàn bộ đối tượng.</p></div></div>
+              <div class="stage-locked"><span class="stage-locked__number">2</span><div><span class="stage-kicker">{{ 'reports.stepTwo' | translate }}</span><h3>{{ 'reports.decideTarget' | translate }}</h3><p>{{ 'reports.unclassifiedWarning' | translate:{ count: unclassifiedCount() } }}</p></div></div>
             } @else {
-              <header class="case-stage__header"><div><span class="stage-kicker">BƯỚC 2</span><h3>Quyết định cho đối tượng</h3><p>Tất cả báo cáo đã có kết quả. Quyết định dưới đây chỉ áp dụng một lần cho đối tượng.</p></div><span class="stage-progress is-ready">Sẵn sàng đóng hồ sơ</span></header>
+              <header class="case-stage__header"><div><span class="stage-kicker">{{ 'reports.stepTwo' | translate }}</span><h3>{{ 'reports.decideTarget' | translate }}</h3><p>{{ 'reports.allClassified' | translate }}</p></div><span class="stage-progress is-ready">{{ 'reports.readyToClose' | translate }}</span></header>
               <div class="case-resolution-grid">
-                <label>Biện pháp<select [ngModel]="decision()" (ngModelChange)="decision.set($event)">@for (option of availableDecisions(); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select><small class="decision-hint">{{ selectedDecisionHint() }}</small></label>
-                @if (decision() === 'upload_restriction') { <label>Số ngày (1–30)<input type="number" min="1" max="30" [ngModel]="restrictionDays()" (ngModelChange)="restrictionDays.set($event)" /></label> }
-                <label>Chính sách<input [ngModel]="policyCode()" (ngModelChange)="policyCode.set($event)" placeholder="Mã quy chuẩn, nếu có" /></label>
-                <label class="case-resolution-wide">Lý do<textarea rows="2" [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)" placeholder="Lý do gửi đến người liên quan"></textarea></label>
-                <label class="case-resolution-wide">Ghi chú nội bộ<input [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" placeholder="Không hiển thị với người dùng" /></label>
+                <label>{{ 'reports.decision' | translate }}<select [ngModel]="decision()" (ngModelChange)="decision.set($event)">@for (option of availableDecisions(); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select><small class="decision-hint">{{ selectedDecisionHint() }}</small></label>
+                @if (decision() === 'upload_restriction') { <label>{{ 'reports.days' | translate }}<input type="number" min="1" max="30" [ngModel]="restrictionDays()" (ngModelChange)="restrictionDays.set($event)" /></label> }
+                <label>{{ 'reports.policy' | translate }}<input [ngModel]="policyCode()" (ngModelChange)="policyCode.set($event)" [placeholder]="'reports.policyPlaceholder' | translate" /></label>
+                <label class="case-resolution-wide">{{ 'reports.reason' | translate }}<textarea rows="2" [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)" [placeholder]="'reports.reasonPlaceholder' | translate"></textarea></label>
+                <label class="case-resolution-wide">{{ 'reports.internalNote' | translate }}<input [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" [placeholder]="'reports.internalNotePlaceholder' | translate" /></label>
               </div>
-              <div class="modal-footer"><button type="button" class="btn btn-primary" [disabled]="submitting() || decisionReason().trim().length < 3 || !selectedDecisionAvailable()" (click)="resolveCase()">{{ submitting() ? 'Đang lưu…' : 'Đóng hồ sơ' }}</button></div>
+              <div class="modal-footer"><button type="button" class="btn btn-primary" [disabled]="submitting() || decisionReason().trim().length < 3 || !selectedDecisionAvailable()" (click)="resolveCase()">{{ submitting() ? ('reports.saving' | translate) : ('reports.closeCase' | translate) }}</button></div>
             }
           </section>
         }

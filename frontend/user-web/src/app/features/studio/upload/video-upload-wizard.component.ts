@@ -449,11 +449,11 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.playlistService.addVideo(playlistId, videoId).subscribe({
       next: () => {
         this.playlistBusy.set(false);
-        this.playlistMessage.set('Đã thêm video vào danh sách phát.');
+        this.playlistMessage.set(this.i18n.t('upload.playlistAdded'));
       },
       error: () => {
         this.playlistBusy.set(false);
-        this.playlistMessage.set('Video đã tải lên nhưng chưa thêm được vào danh sách phát.');
+        this.playlistMessage.set(this.i18n.t('upload.playlistFailed'));
       }
     });
   }

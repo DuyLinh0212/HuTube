@@ -1,4 +1,5 @@
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../models/account_models.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -36,18 +37,18 @@ class AccountService {
     final mime = image.mimeType ?? _imageMime(image.name);
     const allowed = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'};
     if (!allowed.contains(mime)) {
-      throw const ApiFailure(
+      throw ApiFailure(
         400,
         'INVALID_FILE_TYPE',
-        'Chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.',
+        AppStrings.t('common.imageTypesAvatar'),
       );
     }
     final bytes = await image.readAsBytes();
     if (bytes.length > 5 * 1024 * 1024) {
-      throw const ApiFailure(
+      throw ApiFailure(
         400,
         'FILE_TOO_LARGE',
-        'Kích thước ảnh tối đa là 5MB.',
+        AppStrings.format('common.imageMaxSize', {'size': 5}),
       );
     }
     final response = await auth.protectedUpload(

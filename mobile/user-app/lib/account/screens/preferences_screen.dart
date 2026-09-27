@@ -223,15 +223,15 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                           ),
                           const DropdownMenuItem(
                             value: '1080p',
-                            child: Text('1080p (FHD)'),
+                            child: Text(AppStrings.t('prefs.quality1080')),
                           ),
                           const DropdownMenuItem(
                             value: '720p',
-                            child: Text('720p (HD)'),
+                            child: Text(AppStrings.t('prefs.quality720')),
                           ),
                           const DropdownMenuItem(
                             value: '480p',
-                            child: Text('480p (SD)'),
+                            child: Text(AppStrings.t('prefs.quality480')),
                           ),
                         ],
                       ),

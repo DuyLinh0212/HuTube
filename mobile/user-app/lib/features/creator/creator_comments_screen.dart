@@ -148,8 +148,7 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                       HuTubeStateView(
                         icon: Icons.forum_outlined,
                         title: AppStrings.t('creator.noComments'),
-                        message:
-                            'Bình luận của người xem sẽ xuất hiện ở đây khi có hoạt động.',
+                        message: AppStrings.t('creator.commentsEmptyDescription'),
                         compact: true,
                         accent: AppColors.violet,
                       ),

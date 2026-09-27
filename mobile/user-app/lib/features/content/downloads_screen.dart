@@ -89,8 +89,8 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xóa tất cả yêu cầu tải?'),
-        content: const Text('Các yêu cầu tải khỏi tài khoản sẽ bị xóa.'),
+        title: Text(AppStrings.t('downloads.removeAllTitle')),
+        content: Text(AppStrings.t('downloads.removeAllDescription')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -129,7 +129,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
           icon: Icons.download_done_outlined,
           title: AppStrings.t('downloads.empty'),
           message:
-              'Video đã tải sẽ được lưu trên thiết bị để xem khi không có mạng.',
+          AppStrings.t('downloads.description'),
           accent: AppColors.violet,
         );
       }
@@ -138,8 +138,8 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
         children: [
           HuTubeSectionHeader(
             title: AppStrings.t('downloads.title'),
-            subtitle: 'Theo dõi yêu cầu tải và video đã lưu trên thiết bị.',
-            action: _remote.isEmpty ? null : 'Xóa tất cả',
+            subtitle: AppStrings.t('downloads.subtitle'),
+            action: _remote.isEmpty ? null : AppStrings.t('downloads.clearAll'),
             onAction: _deleteAllRemote,
           ),
           const SizedBox(height: 14),
@@ -147,7 +147,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
             const LinearProgressIndicator(minHeight: 2)
           else if (_remote.isNotEmpty) ...[
             Text(
-              'Yêu cầu tải xuống',
+              AppStrings.t('downloads.requests'),
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
@@ -161,7 +161,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                     color: AppColors.violet,
                   ),
                   title: Text(
-                    '${item['title'] ?? 'Video'}',
+                    '${item['title'] ?? AppStrings.t('downloads.videoFallback')}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -180,29 +180,29 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       final status = '${item['status'] ?? ''}'.toLowerCase();
                       return [
                         if (status.contains('pause') || status.contains('hold'))
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'resume',
-                            child: Text('Tiếp tục'),
+                            child: Text(AppStrings.t('downloads.resume')),
                           ),
                         if (status.contains('progress') ||
                             status.contains('download'))
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'pause',
-                            child: Text('Tạm dừng'),
+                            child: Text(AppStrings.t('downloads.pause')),
                           ),
                         if (status.contains('fail'))
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'retry',
-                            child: Text('Thử lại'),
+                            child: Text(AppStrings.t('downloads.retry')),
                           ),
                         if (!status.contains('complete'))
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'cancel',
-                            child: Text('Hủy tải'),
+                            child: Text(AppStrings.t('downloads.cancel')),
                           ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'delete',
-                          child: Text('Xóa yêu cầu'),
+                          child: Text(AppStrings.t('downloads.removeRequest')),
                         ),
                       ];
                     },
@@ -213,7 +213,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
           ],
           if (items.isNotEmpty) ...[
             Text(
-              'Video trên thiết bị',
+              AppStrings.t('downloads.localVideos'),
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
@@ -274,7 +274,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
-                            AppStrings.t('downloads.error'),
+                            _downloadError(item.error),
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.error,
                             ),
@@ -318,13 +318,25 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     _ => AppStrings.t('downloads.failed'),
   };
 
+  String _downloadError(String? error) {
+    if (error == null || error.isEmpty) return AppStrings.t('downloads.error');
+    const serverPrefix = 'downloads.serverError:';
+    if (error.startsWith(serverPrefix)) {
+      return AppStrings.format('downloads.serverError', {
+        'status': error.substring(serverPrefix.length),
+      });
+    }
+    final translated = AppStrings.t(error);
+    return translated == error ? AppStrings.t('downloads.error') : translated;
+  }
+
   String _remoteStatus(String status) => switch (status.toLowerCase()) {
-    'queued' || 'pending' => 'Đang chờ',
-    'downloading' || 'in_progress' => 'Đang tải',
-    'paused' => 'Đã tạm dừng',
-    'completed' || 'complete' => 'Hoàn tất',
-    'failed' || 'error' => 'Thất bại',
-    'cancelled' || 'canceled' => 'Đã hủy',
-    _ => status.isEmpty ? 'Đang xử lý' : status,
+    'queued' || 'pending' => AppStrings.t('downloads.status.waiting'),
+    'downloading' || 'in_progress' => AppStrings.t('downloads.status.loading'),
+    'paused' => AppStrings.t('downloads.status.paused'),
+    'completed' || 'complete' => AppStrings.t('downloads.status.complete'),
+    'failed' || 'error' => AppStrings.t('downloads.status.failed'),
+    'cancelled' || 'canceled' => AppStrings.t('downloads.status.cancelled'),
+    _ => status.isEmpty ? AppStrings.t('downloads.status.processing') : status,
   };
 }

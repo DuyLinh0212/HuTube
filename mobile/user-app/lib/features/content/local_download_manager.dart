@@ -129,12 +129,12 @@ class LocalDownloadManager extends ChangeNotifier {
               (item.filePath == null || !await File(item.filePath!).exists())) {
             _items[index] = item.copyWith(
               status: 'failed',
-              error: 'Không còn file trên thiết bị.',
+              error: 'downloads.localMissing',
             );
           } else if (item.active) {
             _items[index] = item.copyWith(
               status: 'paused',
-              error: 'Tải xuống bị gián đoạn khi ứng dụng đóng.',
+              error: 'downloads.interrupted',
             );
           }
         }
@@ -202,7 +202,7 @@ class LocalDownloadManager extends ChangeNotifier {
         index,
         item.copyWith(
           status: 'failed',
-          error: 'Máy chủ không trả về URL tải xuống HTTP hợp lệ.',
+          error: 'downloads.invalidUrl',
         ),
       );
       return;
@@ -222,7 +222,7 @@ class LocalDownloadManager extends ChangeNotifier {
     try {
       final response = await client.send(http.Request('GET', uri));
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException('Máy chủ trả về ${response.statusCode}.');
+        throw HttpException('downloads.serverError:${response.statusCode}');
       }
       final sink = temporary.openWrite();
       var received = 0;
@@ -264,7 +264,7 @@ class LocalDownloadManager extends ChangeNotifier {
           current,
           _items[current].copyWith(
             status: 'failed',
-            error: 'Không thể tải file. Kiểm tra kết nối hoặc thử lại.',
+            error: 'downloads.fileError',
           ),
         );
       }

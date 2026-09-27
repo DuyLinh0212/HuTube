@@ -1,14 +1,14 @@
 <main class="video-edit-page">
   <header class="edit-header">
     <div>
-      <a class="back-link" routerLink="/studio/content">← Nội dung của kênh</a>
-      <p class="eyebrow">HUTUBE STUDIO / VIDEO EDITOR</p>
-      <h1>Chi tiết video</h1>
-      <p class="subhead">Tinh chỉnh thông tin, thumbnail và nơi xuất hiện của video.</p>
+      <a class="back-link" routerLink="/studio/content">← {{ 'studio.content' | translate }}</a>
+      <p class="eyebrow">{{ 'studioEdit.eyebrow' | translate }}</p>
+      <h1>{{ 'upload.step2' | translate }}</h1>
+      <p class="subhead">{{ 'studioEdit.subtitle' | translate }}</p>
     </div>
     <div class="header-actions">
-      <button type="button" class="button button-quiet" (click)="backToContent()">Hủy thay đổi</button>
-      <button type="button" class="button button-primary" (click)="save()" [disabled]="saving() || loading()">{{ saving() ? 'Đang lưu…' : 'Lưu thay đổi' }}</button>
+      <button type="button" class="button button-quiet" (click)="backToContent()">{{ 'common.discardChanges' | translate }}</button>
+      <button type="button" class="button button-primary" (click)="save()" [disabled]="saving() || loading()">{{ (saving() ? 'common.saving' : 'common.save') | translate }}</button>
     </div>
   </header>
 
@@ -16,74 +16,74 @@
   @if (success()) { <div class="notice notice-success" role="status">{{ success() }}</div> }
 
   @if (loading()) {
-    <section class="loading-card">Đang tải chi tiết video…</section>
+    <section class="loading-card">{{ 'studioEdit.loadingVideo' | translate }}</section>
   } @else if (video(); as current) {
     <div class="editor-grid">
       <form class="editor-main" (ngSubmit)="save()">
         <section class="editor-card hero-card">
-          <div class="card-heading"><div><span class="section-number">01</span><h2>Thông tin chính</h2></div><span class="required-note">* Bắt buộc</span></div>
-          <label class="field-label" for="video-title">Tiêu đề</label>
+          <div class="card-heading"><div><span class="section-number">01</span><h2>{{ 'studioEdit.basicInfo' | translate }}</h2></div><span class="required-note">{{ 'studioEdit.required' | translate }}</span></div>
+          <label class="field-label" for="video-title">{{ 'upload.step2.videoTitle' | translate }}</label>
           <input id="video-title" name="title" class="text-field title-field" [(ngModel)]="title" maxlength="100" required />
-          <div class="field-meta"><span>Khán giả sẽ nhìn thấy tiêu đề này trước tiên.</span><strong>{{ title.length }}/100</strong></div>
-          <label class="field-label" for="video-description">Mô tả</label>
-          <textarea id="video-description" name="description" class="text-field description-field" [(ngModel)]="description" maxlength="5000" placeholder="Chia sẻ thêm bối cảnh cho video của bạn…"></textarea>
-          <div class="field-meta"><span>Thêm ngữ cảnh, liên kết hoặc mốc thời gian.</span><strong>{{ description.length }}/5000</strong></div>
-          <label class="field-label" for="video-category">Danh mục</label>
+          <div class="field-meta"><span>{{ 'studioEdit.titleHint' | translate }}</span><strong>{{ title.length }}/100</strong></div>
+          <label class="field-label" for="video-description">{{ 'upload.step2.desc' | translate }}</label>
+          <textarea id="video-description" name="description" class="text-field description-field" [(ngModel)]="description" maxlength="5000" [placeholder]="'studioEdit.descriptionPlaceholder' | translate"></textarea>
+          <div class="field-meta"><span>{{ 'studioEdit.descriptionHint' | translate }}</span><strong>{{ description.length }}/5000</strong></div>
+          <label class="field-label" for="video-category">{{ 'upload.step2.category' | translate }}</label>
           <select id="video-category" name="categoryId" class="text-field category-field" [(ngModel)]="categoryId">
-            <option value="">Không chọn danh mục</option>
+            <option value="">{{ 'studioEdit.noCategory' | translate }}</option>
             @for (category of categories(); track category.categoryId) { <option [value]="category.categoryId">{{ category.name }}</option> }
           </select>
-          <div class="field-meta"><span>Chọn danh mục phù hợp để người xem dễ khám phá video.</span></div>
+          <div class="field-meta"><span>{{ 'studioEdit.categoryHint' | translate }}</span></div>
         </section>
 
         <section class="editor-card thumbnail-card">
-          <div class="card-heading"><div><span class="section-number">02</span><h2>Hình thu nhỏ</h2></div><span class="hint-chip">FFmpeg sẵn sàng</span></div>
-          <p class="card-intro">Thumbnail tự động được tạo từ source video ở phía server, nên không phụ thuộc vào trình duyệt.</p>
+          <div class="card-heading"><div><span class="section-number">02</span><h2>{{ 'studioEdit.thumbnail' | translate }}</h2></div><span class="hint-chip">{{ 'studioEdit.ffmpegReady' | translate }}</span></div>
+          <p class="card-intro">{{ 'studioEdit.thumbnailDescription' | translate }}</p>
           <div class="thumbnail-layout">
             <div class="thumbnail-preview">
-              @if (thumbnailUrl()) { <img [src]="thumbnailUrl()" alt="Hình thu nhỏ video" /> } @else { <div class="thumbnail-placeholder">Chưa có thumbnail</div> }
+              @if (thumbnailUrl()) { <img [src]="thumbnailUrl()" [alt]="'studioEdit.thumbnail' | translate" /> } @else { <div class="thumbnail-placeholder">{{ 'studioEdit.noThumbnail' | translate }}</div> }
               <span class="duration-pill">{{ formatDuration(current.duration) }}</span>
             </div>
             <div class="thumbnail-options">
-              <label class="choice-card" [class.is-selected]="thumbnailMode() === 'auto'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'auto'" (change)="thumbnailMode.set('auto')" /><span><strong>Tạo tự động bằng FFmpeg</strong><small>Lấy frame nổi bật từ video source.</small></span></label>
-              <label class="choice-card" [class.is-selected]="thumbnailMode() === 'keep'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'keep'" (change)="thumbnailMode.set('keep')" /><span><strong>Giữ hình hiện tại</strong><small>Không thay đổi thumbnail đang dùng.</small></span></label>
-              <label class="choice-card" [class.is-selected]="thumbnailMode() === 'custom'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'custom'" (change)="thumbnailMode.set('custom')" /><span><strong>Tải hình của bạn lên</strong><small>JPG, PNG hoặc WEBP · tối đa 5MB.</small></span></label>
-              <label class="upload-thumb-button">Chọn file hình<input type="file" accept="image/jpeg,image/png,image/webp" (change)="selectThumbnail($event)" /></label>
+              <label class="choice-card" [class.is-selected]="thumbnailMode() === 'auto'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'auto'" (change)="thumbnailMode.set('auto')" /><span><strong>{{ 'studioEdit.autoThumbnail' | translate }}</strong><small>{{ 'studioEdit.autoThumbnailHint' | translate }}</small></span></label>
+              <label class="choice-card" [class.is-selected]="thumbnailMode() === 'keep'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'keep'" (change)="thumbnailMode.set('keep')" /><span><strong>{{ 'studioEdit.keepThumbnail' | translate }}</strong><small>{{ 'studioEdit.keepThumbnailHint' | translate }}</small></span></label>
+              <label class="choice-card" [class.is-selected]="thumbnailMode() === 'custom'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'custom'" (change)="thumbnailMode.set('custom')" /><span><strong>{{ 'studioEdit.uploadThumbnail' | translate }}</strong><small>{{ 'studioEdit.thumbnailFormats' | translate }}</small></span></label>
+              <label class="upload-thumb-button">{{ 'studioEdit.chooseImage' | translate }}<input type="file" accept="image/jpeg,image/png,image/webp" (change)="selectThumbnail($event)" /></label>
             </div>
           </div>
         </section>
 
         <section class="editor-card visibility-card">
-          <div class="card-heading"><div><span class="section-number">03</span><h2>Chế độ hiển thị</h2></div></div>
+          <div class="card-heading"><div><span class="section-number">03</span><h2>{{ 'upload.step5' | translate }}</h2></div></div>
           <div class="visibility-options">
-            @for (option of [{value: 'public', label: 'Công khai', note: 'Mọi người có thể tìm và xem video.'}, {value: 'unlisted', label: 'Không công khai', note: 'Chỉ người có liên kết mới xem được.'}, {value: 'private', label: 'Riêng tư', note: 'Chỉ bạn và người được cấp quyền.'}]; track option.value) {
-              <label class="visibility-option" [class.is-selected]="visibility === option.value"><input type="radio" name="visibility" [value]="option.value" [(ngModel)]="visibility" /><span class="visibility-icon">{{ option.value === 'public' ? '◉' : option.value === 'unlisted' ? '↗' : '⊙' }}</span><span><strong>{{ option.label }}</strong><small>{{ option.note }}</small></span></label>
+            @for (option of [{value: 'public', labelKey: 'studio.public', noteKey: 'studioEdit.publicHint'}, {value: 'unlisted', labelKey: 'playlists.unlisted', noteKey: 'studioEdit.unlistedHint'}, {value: 'private', labelKey: 'playlists.private', noteKey: 'studioEdit.privateHint'}]; track option.value) {
+              <label class="visibility-option" [class.is-selected]="visibility === option.value"><input type="radio" name="visibility" [value]="option.value" [(ngModel)]="visibility" /><span class="visibility-icon">{{ option.value === 'public' ? '◉' : option.value === 'unlisted' ? '↗' : '⊙' }}</span><span><strong>{{ option.labelKey | translate }}</strong><small>{{ option.noteKey | translate }}</small></span></label>
             }
           </div>
-          @if (visibility === 'public' && current.moderationStatus !== 'approved') { <p class="moderation-note">Video công khai sẽ được đưa qua bước kiểm duyệt trước khi xuất bản.</p> }
+          @if (visibility === 'public' && current.moderationStatus !== 'approved') { <p class="moderation-note">{{ 'studioEdit.publicModerationNote' | translate }}</p> }
         </section>
 
         <section class="editor-card playlist-card">
-          <div class="card-heading"><div><span class="section-number">04</span><h2>Thêm vào danh sách phát</h2></div><span class="count-chip">{{ playlists().length }} danh sách</span></div>
-          <p class="card-intro">Chọn một hoặc nhiều danh sách phát của bạn. Video đã có trong danh sách sẽ được bỏ qua.</p>
+          <div class="card-heading"><div><span class="section-number">04</span><h2>{{ 'upload.step5.addPlaylist' | translate }}</h2></div><span class="count-chip">{{ playlists().length }} {{ 'playlists.playlistCount' | translate }}</span></div>
+          <p class="card-intro">{{ 'studioEdit.playlistDescription' | translate }}</p>
           @if (playlists().length) {
             <div class="playlist-checklist">
               @for (list of playlists(); track list.playlistId) {
-                <label class="playlist-choice"><input type="checkbox" [checked]="selectedPlaylistIds.includes(list.playlistId)" (change)="togglePlaylist(list.playlistId, $event)" /><span class="playlist-art">{{ list.name.slice(0, 1).toUpperCase() }}</span><span class="playlist-copy"><strong>{{ list.name }}</strong><small>{{ list.itemCount }} video · {{ visibilityLabel(list.visibility) }}</small></span><span class="checkmark">✓</span></label>
+                <label class="playlist-choice"><input type="checkbox" [checked]="selectedPlaylistIds.includes(list.playlistId)" (change)="togglePlaylist(list.playlistId, $event)" /><span class="playlist-art">{{ list.name.slice(0, 1).toUpperCase() }}</span><span class="playlist-copy"><strong>{{ list.name }}</strong><small>{{ list.itemCount }} {{ 'playlists.video' | translate }} · {{ visibilityLabel(list.visibility) }}</small></span><span class="checkmark">✓</span></label>
               }
             </div>
-          } @else { <div class="empty-playlists">Bạn chưa có danh sách phát cá nhân. <a routerLink="/playlists">Tạo danh sách phát</a></div> }
+          } @else { <div class="empty-playlists">{{ 'studioEdit.noPlaylists' | translate }} <a routerLink="/playlists">{{ 'playlists.createTitle' | translate }}</a></div> }
         </section>
       </form>
 
       <aside class="editor-aside">
         <section class="preview-card">
-          <div class="preview-label"><span class="live-dot"></span> Xem trước video</div>
+          <div class="preview-label"><span class="live-dot"></span> {{ 'upload.sidebar.preview' | translate }}</div>
           <div class="video-preview"><video [src]="current.videoUrl" controls preload="metadata"></video></div>
           <h3>{{ title || current.title }}</h3><p>{{ visibilityLabel(visibility) }} · {{ formatDuration(current.duration) }}</p>
-          <a [routerLink]="['/watch', current.videoId]" target="_blank">Mở trang xem ↗</a>
+          <a [routerLink]="['/watch', current.videoId]" target="_blank">{{ 'studioEdit.openWatchPage' | translate }} ↗</a>
         </section>
-        <section class="aside-note"><span class="note-mark">✦</span><div><strong>Lưu ý khi chỉnh sửa</strong><p>Đổi sang công khai có thể kích hoạt lại quy trình kiểm duyệt. Thumbnail mới sẽ thay thumbnail cũ sau khi lưu thành công.</p></div></section>
+        <section class="aside-note"><span class="note-mark">✦</span><div><strong>{{ 'studioEdit.editingNote' | translate }}</strong><p>{{ 'studioEdit.editingNoteDescription' | translate }}</p></div></section>
       </aside>
     </div>
   }

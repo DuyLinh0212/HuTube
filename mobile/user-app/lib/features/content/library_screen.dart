@@ -97,8 +97,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
             child: HuTubeSectionHeader(
               title: AppStrings.t('library.title'),
-              subtitle: 'Những video bạn muốn xem lại hoặc đã đánh giá.',
-              action: 'Playlist',
+              subtitle: AppStrings.t('library.subtitle'),
+              action: AppStrings.t('library.playlists'),
               onAction: () => context.push('/playlists'),
             ),
           ),
@@ -147,8 +147,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           icon: Icons.video_library_outlined,
                           title: AppStrings.t('library.empty'),
                           message: _tab == 0
-                              ? 'Video bạn đã xem sẽ được lưu tại đây.'
-                              : 'Hãy thả tim video để tìm lại chúng nhanh hơn.',
+                              ? AppStrings.t('library.historyDescription')
+                              : AppStrings.t('library.likedDescription'),
                           compact: true,
                           accent: AppColors.violet,
                         ),

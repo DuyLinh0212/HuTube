@@ -3,23 +3,27 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { AdminPermission, AdminRbacService, AdminRole } from './admin-rbac.service';
+import { TranslatePipe } from '../../core/translate.pipe';
+import { I18nService } from '../../core/i18n.service';
 
 type AccessLevel = 'none' | 'view' | 'action' | 'admin';
 
 interface PermissionGroup {
+  key: string;
   name: string;
   permissions: AdminPermission[];
 }
 
 @Component({
   selector: 'app-admin-rbac-page',
-  imports: [FormsModule],
+  imports: [FormsModule, TranslatePipe],
   templateUrl: './admin-rbac-page.html',
   styleUrls: ['./admin-rbac-page.scss', './admin-rbac-dialog-overrides.scss'],
 })
 export class AdminRbacPage {
   private readonly rbac = inject(AdminRbacService);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18nService);
 
   readonly loading = signal(true);
   readonly error = signal('');
@@ -42,23 +46,8 @@ export class AdminRbacPage {
   readonly createReason = signal('');
   readonly createPermissionCodes = signal<string[]>([]);
   private readonly moduleOrder = [
-    'Tổng quan',
-    'Người dùng',
-    'Vai trò & phân quyền',
-    'Kênh',
-    'Video',
-    'Bình luận',
-    'Kiểm duyệt',
-    'Báo cáo',
-    'Khiếu nại',
-    'Plan & Subscription',
-    'Thanh toán & doanh thu',
-    'Điều khoản & chính sách',
-    'Danh mục & Tag',
-    'Thông báo',
-    'Thống kê & phân tích',
-    'Nhật ký hệ thống',
-    'Cấu hình hệ thống',
+    'dashboard', 'user', 'role', 'channel', 'video', 'comment', 'moderation', 'report', 'appeal',
+    'plan', 'subscription', 'payment', 'revenue', 'policy', 'taxonomy', 'notification', 'analytics', 'audit', 'system',
   ];
 
   readonly canEdit = computed(() => this.auth.hasPermission('role.edit'));
@@ -95,13 +84,13 @@ export class AdminRbacPage {
         .join(' ').toLocaleLowerCase('vi').includes(query)) {
         continue;
       }
-      const group = this.moduleName(permission.code);
+      const group = permission.code.split('.')[0];
       byGroup.set(group, [...(byGroup.get(group) ?? []), permission]);
     }
 
     return [...byGroup.entries()]
       .sort(([left], [right]) => this.moduleRank(left) - this.moduleRank(right))
-      .map(([name, permissions]) => ({ name, permissions }));
+      .map(([key, permissions]) => ({ key, name: this.moduleName(key), permissions }));
   });
 
   constructor() {
@@ -122,7 +111,7 @@ export class AdminRbacPage {
         this.loading.set(false);
       },
       error: (error) => {
-        this.error.set(errorMessage(error));
+        this.error.set(errorMessage(error, this.i18n));
         this.loading.set(false);
       },
     });
@@ -160,43 +149,21 @@ export class AdminRbacPage {
     return role.permissions.length;
   }
 
-  moduleName(code: string): string {
-    const module = code.split('.')[0];
-    const labels: Record<string, string> = {
-      dashboard: 'Tổng quan',
-      user: 'Người dùng',
-      role: 'Vai trò & phân quyền',
-      channel: 'Kênh',
-      video: 'Video',
-      comment: 'Bình luận',
-      moderation: 'Kiểm duyệt',
-      report: 'Báo cáo',
-      appeal: 'Khiếu nại',
-      plan: 'Plan & Subscription',
-      subscription: 'Plan & Subscription',
-      payment: 'Thanh toán & doanh thu',
-      revenue: 'Thanh toán & doanh thu',
-      policy: 'Điều khoản & chính sách',
-      taxonomy: 'Danh mục & Tag',
-      notification: 'Thông báo',
-      analytics: 'Thống kê & phân tích',
-      audit: 'Nhật ký hệ thống',
-      system: 'Cấu hình hệ thống',
-    };
-    return labels[module] ?? 'Khác';
+  moduleName(module: string): string {
+    return this.i18n.t(this.moduleOrder.includes(module) ? `rbac.module.${module}` : 'rbac.module.other');
   }
 
-  private moduleRank(name: string): number {
-    const rank = this.moduleOrder.indexOf(name);
+  private moduleRank(module: string): number {
+    const rank = this.moduleOrder.indexOf(module);
     return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
   }
 
   levelLabel(level: AccessLevel): string {
     const labels: Record<AccessLevel, string> = {
-      none: 'Không có',
-      view: 'Chỉ xem',
-      action: 'Thao tác',
-      admin: 'Quản trị',
+      none: this.i18n.t('rbac.none'),
+      view: this.i18n.t('rbac.viewOnly'),
+      action: this.i18n.t('rbac.action'),
+      admin: this.i18n.t('rbac.admin'),
     };
     return labels[level];
   }
@@ -238,12 +205,12 @@ export class AdminRbacPage {
       next: (updated) => {
         this.roles.update((roles) => roles.map((item) => item.roleId === updated.roleId ? updated : item));
         this.resetDraft(updated);
-        this.saveMessage.set('Đã lưu thay đổi quyền và ghi nhận vào nhật ký quản trị.');
+        this.saveMessage.set(this.i18n.t('rbac.savedSuccess'));
         this.saveFailed.set(false);
         this.saving.set(false);
       },
       error: (error) => {
-        this.saveMessage.set(errorMessage(error));
+        this.saveMessage.set(errorMessage(error, this.i18n));
         this.saveFailed.set(true);
         this.saving.set(false);
       },
@@ -287,12 +254,12 @@ export class AdminRbacPage {
         this.selectedRoleId.set(created.roleId);
         this.resetDraft(created);
         this.createOpen.set(false);
-        this.saveMessage.set('Đã tạo vai trò mới và ghi nhận vào nhật ký quản trị.');
+        this.saveMessage.set(this.i18n.t('rbac.createdSuccess'));
         this.saveFailed.set(false);
         this.creating.set(false);
       },
       error: (error) => {
-        this.saveMessage.set(errorMessage(error));
+        this.saveMessage.set(errorMessage(error, this.i18n));
         this.saveFailed.set(true);
         this.creating.set(false);
       },
@@ -302,9 +269,9 @@ export class AdminRbacPage {
   deleteSelectedRole() {
     const role = this.selectedRole();
     if (!role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
-    const reason = window.prompt(`Nhập lý do xóa vai trò “${role.name}” (3–300 ký tự):`)?.trim();
+    const reason = window.prompt(this.i18n.format('rbac.deleteReasonPrompt', { name: role.name }))?.trim();
     if (!reason || reason.length < 3 || reason.length > 300) return;
-    if (!window.confirm(`Xóa mềm vai trò “${role.name}”? Thao tác sẽ được ghi vào nhật ký quản trị.`)) return;
+    if (!window.confirm(this.i18n.format('rbac.deleteConfirm', { name: role.name }))) return;
     this.rbac.deleteRole(role.roleId, reason).subscribe({
       next: () => {
         const remaining = this.roles().filter(item => item.roleId !== role.roleId);
@@ -312,11 +279,11 @@ export class AdminRbacPage {
         const nextRole = remaining.find(item => item.roleId === this.selectedRoleId()) ?? remaining[0] ?? null;
         this.selectedRoleId.set(nextRole?.roleId ?? null);
         this.resetDraft(nextRole);
-        this.saveMessage.set(`Đã xóa mềm vai trò “${role.name}”.`);
+        this.saveMessage.set(this.i18n.format('rbac.deletedSuccess', { name: role.name }));
         this.saveFailed.set(false);
       },
       error: error => {
-        this.saveMessage.set(errorMessage(error));
+        this.saveMessage.set(errorMessage(error, this.i18n));
         this.saveFailed.set(true);
       }
     });

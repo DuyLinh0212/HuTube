@@ -2,6 +2,8 @@ import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal, OnInit, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminChannel,
   AdminChannelDetail,
@@ -16,13 +18,14 @@ import {
 @Component({
   selector: 'app-admin-channels-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent],
+  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
   templateUrl: './admin-channels-page.html',
   styleUrl: './admin-channels-page.scss'
 })
 export class AdminChannelsPage implements OnInit {
   private readonly service = inject(AdminChannelsService);
   readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
 
   // Data signals
   readonly channels = signal<AdminChannel[]>([]);
@@ -49,19 +52,19 @@ export class AdminChannelsPage implements OnInit {
   readonly timeFilter = signal('all');
 
   // Filter options for CustomSelect
-  readonly statusOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'Tất cả' },
-    { value: 'active', label: 'Đang hoạt động' },
-    { value: 'suspended', label: 'Hạn chế' },
-    { value: 'banned', label: 'Bị khóa' }
-  ];
+  readonly statusOptions = computed<CustomSelectOption[]>(() => [
+    { value: 'all', label: this.i18n.t('common.all') },
+    { value: 'active', label: this.i18n.t('channels.status.active') },
+    { value: 'suspended', label: this.i18n.t('channels.status.suspended') },
+    { value: 'banned', label: this.i18n.t('channels.status.locked') }
+  ]);
 
-  readonly timeOptions: CustomSelectOption[] = [
-    { value: 'all', label: 'Tất cả' },
-    { value: '7days', label: '7 ngày qua' },
-    { value: '30days', label: '30 ngày qua' },
-    { value: 'thisYear', label: 'Năm nay' }
-  ];
+  readonly timeOptions = computed<CustomSelectOption[]>(() => [
+    { value: 'all', label: this.i18n.t('common.all') },
+    { value: '7days', label: this.i18n.t('channels.last7Days') },
+    { value: '30days', label: this.i18n.t('channels.last30Days') },
+    { value: 'thisYear', label: this.i18n.t('channels.thisYear') }
+  ]);
 
   // Pagination
   readonly page = signal(1);
@@ -264,19 +267,13 @@ export class AdminChannelsPage implements OnInit {
         // Fallback detail
         this.selectedChannel.set({
           channel,
-          description: `Kênh chính thức của ${channel.name}. Chia sẻ video và nội dung hấp dẫn hàng tuần.`,
+          description: null,
           contactEmail: channel.ownerEmail,
           avatarUrl: channel.avatarUrl ?? null,
           bannerUrl: null,
           watermarkUrl: null,
-          videos: [
-            { videoId: 'v1', title: 'Video giới thiệu kênh mới', thumbnailUrl: null, status: 'published', views: 42500 },
-            { videoId: 'v2', title: 'Hướng dẫn chi tiết từ A-Z', thumbnailUrl: null, status: 'published', views: 18900 },
-            { videoId: 'v3', title: 'Top 10 mẹo hay mỗi ngày', thumbnailUrl: null, status: 'published', views: 98200 }
-          ],
-          history: [
-            { auditLogId: 'a1', action: 'admin.channel.verify', reason: 'Xác thực tài khoản thành công', actorName: 'System Admin', createdAt: channel.createdAt }
-          ]
+          videos: [],
+          history: []
         });
         this.detailLoading.set(false);
       }
@@ -331,14 +328,14 @@ export class AdminChannelsPage implements OnInit {
       next: () => {
         this.busy.set(false);
         this.closeActionModal();
-        this.notice.set(`Đã thực hiện thao tác "${this.actionLabel(action)}" trên kênh "${channel.name}".`);
+        this.notice.set(this.i18n.format('channels.actionSuccess', { action: this.actionLabel(action), name: channel.name }));
         setTimeout(() => this.notice.set(''), 4000);
         this.load();
         this.loadCounts();
       },
       error: err => {
         this.busy.set(false);
-        this.error.set(err?.error?.message || 'Không thể thực hiện thao tác.');
+        this.error.set(err?.error?.message || this.i18n.t('channels.actionError'));
       }
     });
   }
@@ -371,47 +368,62 @@ export class AdminChannelsPage implements OnInit {
 
   // Format Helpers
   formatNumber(val: number): string {
-    return new Intl.NumberFormat('vi-VN').format(val || 0);
+    return new Intl.NumberFormat(this.dateLocale()).format(val || 0);
   }
 
   formatShort(num: number): string {
-    if (!num) return '0';
-    if (num >= 1_000_000) {
-      return (num / 1_000_000).toFixed(1).replace('.0', '') + 'M';
-    }
-    if (num >= 1_000) {
-      return (num / 1_000).toFixed(1).replace('.0', '') + 'K';
-    }
-    return num.toString();
+    return new Intl.NumberFormat(this.dateLocale(), { notation: 'compact', maximumFractionDigits: 1 }).format(num || 0);
   }
 
   actionLabel(action: string): string {
     const map: Record<string, string> = {
-      suspend: 'Hạn chế / Tạm ngưng',
-      ban: 'Cấm kênh',
-      unban: 'Bỏ cấm / Khôi phục',
-      delete: 'Xóa kênh',
-      restore: 'Khôi phục kênh',
-      lock: 'Khóa kênh',
-      unlock: 'Mở khóa kênh'
+      suspend: this.i18n.t('channels.suspend'),
+      ban: this.i18n.t('channels.banAction'),
+      unban: this.i18n.t('channels.restore'),
+      delete: this.i18n.t('channels.delete'),
+      restore: this.i18n.t('channels.restoreAction'),
+      lock: this.i18n.t('channels.banAction'),
+      unlock: this.i18n.t('channels.restoreAction')
     };
     return map[action] ?? action;
+  }
+
+  auditActionLabel(action: string): string {
+    const status = action.startsWith('admin.channel.') ? action.slice('admin.channel.'.length) : '';
+    const key = status ? `channels.audit.status.${status}` : '';
+    const translated = key ? this.i18n.t(key) : key;
+    return translated && translated !== key ? translated : action;
+  }
+
+  videoStatusLabel(status: string): string {
+    const keys: Record<string, string> = {
+      published: 'videos.badge.approved',
+      processing: 'videos.badge.processing',
+      blocked: 'videos.badge.hidden',
+      deleted: 'videos.badge.deleted',
+      failed: 'videos.badge.failed',
+    };
+    return this.i18n.t(keys[status] ?? 'common.unknown');
   }
 
   statusBadge(status: string): { label: string; cls: string } {
     switch (status?.toLowerCase()) {
       case 'active':
-        return { label: 'Đang hoạt động', cls: 'status-active' };
+        return { label: this.i18n.t('channels.status.active'), cls: 'status-active' };
       case 'suspended':
-        return { label: 'Hạn chế', cls: 'status-restricted' };
+        return { label: this.i18n.t('channels.status.suspended'), cls: 'status-restricted' };
       case 'banned':
       case 'locked':
-        return { label: 'Bị khóa', cls: 'status-locked' };
+        return { label: this.i18n.t('channels.status.locked'), cls: 'status-locked' };
       case 'deleted':
-        return { label: 'Đã xóa', cls: 'status-deleted' };
+        return { label: this.i18n.t('channels.status.deleted'), cls: 'status-deleted' };
       default:
-        return { label: 'Đang hoạt động', cls: 'status-active' };
+        return { label: this.i18n.t('channels.status.active'), cls: 'status-active' };
     }
+  }
+
+  dateLocale(): string {
+    return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
   }
 
   getInitials(name: string): string {

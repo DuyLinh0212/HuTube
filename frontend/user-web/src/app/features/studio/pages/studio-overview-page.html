@@ -8,11 +8,11 @@
         <div class="strike-alert strike-alert-danger">
           <div class="alert-icon">🛑</div>
           <div class="alert-content">
-            <h3>{{ data.channel()?.status === 'banned' ? 'Kênh của bạn đang bị CẤM HOẠT ĐỘNG' : 'Kênh của bạn đang bị TẠM NGƯNG HOẠT ĐỘNG' }}</h3>
-            <p>{{ data.channel()?.statusReason || 'Kênh đang bị hạn chế hoạt động do vi phạm chính sách cộng đồng.' }}</p>
+            <h3>{{ (data.channel()?.status === 'banned' ? 'studio.channelBanned' : 'studio.channelSuspended') | translate }}</h3>
+            <p>{{ data.channel()?.statusReason || ('studio.statusReasonFallback' | translate) }}</p>
             @if (isAppealEligible()) {
               <div class="alert-actions">
-                <button class="btn btn-appeal" (click)="openAppealModal()">Nộp đơn khiếu nại (Appeal)</button>
+              <button class="btn btn-appeal" (click)="openAppealModal()">{{ 'studio.submitAppeal' | translate }}</button>
               </div>
             }
           </div>
@@ -21,25 +21,25 @@
         <div class="strike-alert strike-alert-warning">
           <div class="alert-icon">⚠️</div>
           <div class="alert-content">
-            <h3>Kênh đang có {{ strikes.activeStrikesCount }} gậy phạt vi phạm cộng đồng (Strikes)</h3>
+            <h3>{{ 'studio.activeStrikes' | translate:{ count: strikes.activeStrikesCount } }}</h3>
             @if (strikes.uploadRestrictedUntil) {
-              <p>Quyền đăng tải video của kênh bị tạm ngưng đến <strong>{{ strikes.uploadRestrictedUntil | localeDate:'dd/MM/yyyy HH:mm' }}</strong>.</p>
+              <p>{{ 'studio.uploadSuspendedUntil' | translate }} <strong>{{ strikes.uploadRestrictedUntil | localeDate:'dd/MM/yyyy HH:mm' }}</strong>.</p>
             }
             @if (isAppealEligible()) {
               <div class="alert-actions">
-                <button class="btn btn-appeal" (click)="openAppealModal()">Gửi đơn khiếu nại</button>
+                <button class="btn btn-appeal" (click)="openAppealModal()">{{ 'studio.submitAppeal' | translate }}</button>
               </div>
             }
           </div>
         </div>
       } @else if (strikes.uploadRestrictedUntil) {
-        <div class="strike-alert strike-alert-warning"><div class="alert-icon">⏳</div><div class="alert-content"><h3>Tạm thời không thể tải video lên</h3><p>{{ strikes.uploadRestrictionReason || 'Quyền tải video đang bị hạn chế' }} đến <strong>{{ strikes.uploadRestrictedUntil | localeDate:'dd/MM/yyyy HH:mm' }}</strong>.</p>@if (isAppealEligible()) { <div class="alert-actions"><button class="btn btn-appeal" (click)="openAppealModal()">Gửi đơn khiếu nại</button></div> }</div></div>
+        <div class="strike-alert strike-alert-warning"><div class="alert-icon">⏳</div><div class="alert-content"><h3>{{ 'studio.uploadTemporarilyUnavailable' | translate }}</h3><p>{{ strikes.uploadRestrictionReason || ('studio.uploadRestricted' | translate) }} {{ 'studio.until' | translate }} <strong>{{ strikes.uploadRestrictedUntil | localeDate:'dd/MM/yyyy HH:mm' }}</strong>.</p>@if (isAppealEligible()) { <div class="alert-actions"><button class="btn btn-appeal" (click)="openAppealModal()">{{ 'studio.submitAppeal' | translate }}</button></div> }</div></div>
       } @else if (strikes.hasWarning) {
         <div class="strike-alert strike-alert-info">
           <div class="alert-icon">ℹ️</div>
           <div class="alert-content">
-            <h3>Cảnh báo vi phạm chính sách (Warning)</h3>
-            <p>Kênh đã nhận 1 cảnh báo vi phạm. Lần vi phạm kế tiếp sẽ dẫn đến gậy phạt chính thức (cấm đăng tải 7 ngày).</p>
+            <h3>{{ 'studio.policyWarning' | translate }}</h3>
+            <p>{{ 'studio.policyWarningDescription' | translate }}</p>
           </div>
         </div>
       }
@@ -70,7 +70,7 @@
           <div>
             <h3>{{ video.title }}</h3>
             <p>{{ video.createdAt | localeDate:'dd/MM/yyyy' }} · {{ visibilityLabel(video.visibility) }} · {{ statusLabel(video.status) }}</p>
-            @if (video.moderationStatus === 'rejected' && video.moderationReason) { <p class="moderation-reason">Lý do từ chối: {{ video.moderationReason }}</p> }
+            @if (video.moderationStatus === 'rejected' && video.moderationReason) { <p class="moderation-reason">{{ 'studio.rejectionReason' | translate }} {{ video.moderationReason }}</p> }
             <span>{{ video.stats.views | localeNumber }} {{ 'ui.views' | translate }} · {{ video.stats.likes | localeNumber }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}</span>
           </div>
         </a>
@@ -83,14 +83,14 @@
     <section class="panel moderation-center-panel">
       <div class="panel-head">
         <div>
-          <h2>Trung tâm Cảnh cáo & Khiếu nại</h2>
-          <p class="panel-subtitle">Theo dõi tình trạng tuân thủ nguyên tắc cộng đồng, lịch sử gậy phạt và tiến độ khiếu nại của kênh</p>
+          <h2>{{ 'studio.complianceCenter' | translate }}</h2>
+          <p class="panel-subtitle">{{ 'studio.complianceCenterDescription' | translate }}</p>
         </div>
         @if (isAppealEligible()) {
           <div class="panel-actions">
             <button type="button" class="btn-appeal-header" (click)="openAppealModal()">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              Gửi khiếu nại (Appeal)
+              {{ 'studio.sendAppeal' | translate }}
             </button>
           </div>
         }
@@ -100,10 +100,10 @@
         <!-- Box 1: Cảnh cáo & Gậy vi phạm -->
         <div class="mod-card">
           <div class="mod-card-header">
-            <h3>Cảnh cáo vi phạm (Strikes)</h3>
+            <h3>{{ 'studio.strikeHistory' | translate }}</h3>
             @if (strikeStatus(); as st) {
               <span class="badge" [class.badge-clean]="st.activeStrikesCount === 0 && !st.hasWarning" [class.badge-warn]="st.activeStrikesCount > 0 || st.hasWarning">
-                {{ st.activeStrikesCount }}/3 Gậy phạt
+                {{ 'studio.strikesCount' | translate:{ count: st.activeStrikesCount } }}
               </span>
             }
           </div>
@@ -113,11 +113,11 @@
               <table class="mod-table">
                 <thead>
                   <tr>
-                    <th>Gậy</th>
-                    <th>Mức độ</th>
-                    <th>Lý do</th>
-                    <th>Ngày phạt</th>
-                    <th>Hết hạn</th>
+                    <th>{{ 'studio.strikeNumber' | translate }}</th>
+                    <th>{{ 'studio.severity' | translate }}</th>
+                    <th>{{ 'studio.reason' | translate }}</th>
+                    <th>{{ 'studio.issuedAt' | translate }}</th>
+                    <th>{{ 'studio.expiresAt' | translate }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -126,7 +126,7 @@
                       <td><span class="strike-number-pill">#{{ item.strikeNumber }}</span></td>
                       <td>
                         <span class="severity-tag" [class.severity-strike]="item.severity === 'strike'" [class.severity-warning]="item.severity === 'warning'">
-                          {{ item.severity === 'warning' ? 'Cảnh báo' : 'Gậy phạt' }}
+                          {{ (item.severity === 'warning' ? 'studio.warning' : 'studio.strike') | translate }}
                         </span>
                       </td>
                       <td>
@@ -145,8 +145,8 @@
           } @else {
             <div class="mod-empty-state">
               <div class="empty-icon-good">✓</div>
-              <p class="empty-title">Kênh tuân thủ tốt</p>
-              <p class="empty-desc">Không có cảnh cáo hay gậy vi phạm nguyên tắc cộng đồng nào đang hoạt động.</p>
+              <p class="empty-title">{{ 'studio.channelInGoodStanding' | translate }}</p>
+              <p class="empty-desc">{{ 'studio.noActiveStrikes' | translate }}</p>
             </div>
           }
         </div>
@@ -154,22 +154,22 @@
         <!-- Box 2: Lịch sử đơn khiếu nại -->
         <div class="mod-card">
           <div class="mod-card-header">
-            <h3>Lịch sử khiếu nại (Appeals)</h3>
-            <span class="badge badge-info">{{ appeals().length }} đơn</span>
+            <h3>{{ 'studio.appealHistory' | translate }}</h3>
+            <span class="badge badge-info">{{ appeals().length }} {{ 'studio.appealCountUnit' | translate }}</span>
           </div>
 
           @if (loadingAppeals()) {
-            <div class="mod-loading">Đang tải lịch sử khiếu nại...</div>
+            <div class="mod-loading">{{ 'studio.loadingAppeals' | translate }}</div>
           } @else if (appeals().length > 0) {
             <div class="table-responsive">
               <table class="mod-table">
                 <thead>
                   <tr>
-                    <th>Đối tượng</th>
-                    <th>Lý do khiếu nại</th>
-                    <th>Trạng thái</th>
-                    <th>Ngày gửi</th>
-                    <th>Bằng chứng</th>
+                    <th>{{ 'studio.target' | translate }}</th>
+                    <th>{{ 'studio.appealReason' | translate }}</th>
+                    <th>{{ 'ui.status' | translate }}</th>
+                    <th>{{ 'studio.submittedAt' | translate }}</th>
+                    <th>{{ 'studio.evidence' | translate }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -185,11 +185,11 @@
                         <div class="reason-text">{{ app.reason }}</div>
                         @if (app.reviewNote) {
                           <div class="reviewer-note">
-                            <strong>Phản hồi:</strong> {{ app.reviewNote }}
+                            <strong>{{ 'studio.response' | translate }}</strong> {{ app.reviewNote }}
                           </div>
                         }
-                        @if (app.resolvedAt) { <small class="reviewer-note">Kết quả cuối: {{ app.resolvedAt | localeDate:'dd/MM/yyyy HH:mm' }}</small> }
-                        <button type="button" class="appeal-detail-link" (click)="openAppealDetail(app)">Xem chi tiết</button>
+                        @if (app.resolvedAt) { <small class="reviewer-note">{{ 'studio.finalResult' | translate }} {{ app.resolvedAt | localeDate:'dd/MM/yyyy HH:mm' }}</small> }
+                        <button type="button" class="appeal-detail-link" (click)="openAppealDetail(app)">{{ 'studio.viewDetails' | translate }}</button>
                       </td>
                       <td>
                         <span class="status-pill" [ngClass]="appealStatusClass(app.status)">
@@ -197,7 +197,7 @@
                         </span>
                       </td>
                       <td class="text-nowrap">{{ app.createdAt | localeDate:'dd/MM/yyyy' }}</td>
-                      <td>@if (app.evidenceUrl) { <button type="button" class="evidence-link" (click)="openAppealEvidence(app)">Xem bằng chứng</button> } @else { <span class="mod-empty-desc">Không có</span> }</td>
+                      <td>@if (app.evidenceUrl) { <button type="button" class="evidence-link" (click)="openAppealEvidence(app)">{{ 'studio.viewEvidence' | translate }}</button> } @else { <span class="mod-empty-desc">{{ 'studio.none' | translate }}</span> }</td>
                     </tr>
                   }
                 </tbody>
@@ -206,8 +206,8 @@
           } @else {
             <div class="mod-empty-state">
               <div class="empty-icon-neutral">📋</div>
-              <p class="empty-title">Chưa có đơn khiếu nại</p>
-              <p class="empty-desc">Khi bạn gửi đơn khiếu nại quyết định kiểm duyệt, tiến độ thẩm định sẽ hiển thị tại đây.</p>
+              <p class="empty-title">{{ 'studio.noAppeals' | translate }}</p>
+              <p class="empty-desc">{{ 'studio.noAppealsDescription' | translate }}</p>
             </div>
           }
         </div>
@@ -220,7 +220,7 @@
     <div class="modal-backdrop" (click)="closeAppealModal()">
       <div class="modal-card" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h3>Nộp đơn khiếu nại kiểm duyệt kênh</h3>
+          <h3>{{ 'studio.submitChannelAppeal' | translate }}</h3>
           <button class="close-btn" (click)="closeAppealModal()">×</button>
         </div>
 
@@ -232,46 +232,46 @@
             <div class="alert-box alert-box-success">{{ appealMessage() }}</div>
           }
 
-          <p class="appeal-intro">Đơn khiếu nại sẽ được xem xét bởi kiểm duyệt viên độc lập theo nguyên tắc Separation of Duties.</p>
+          <p class="appeal-intro">{{ 'studio.appealReviewDescription' | translate }}</p>
 
           <div class="form-group">
-            <label>Lý do khiếu nại <span class="required">*</span></label>
-            <textarea rows="4" placeholder="Giải trình chi tiết lý do bạn cho rằng quyết định phạt/khóa kênh là nhầm lẫn..."
+            <label>{{ 'studio.appealReason' | translate }} <span class="required">*</span></label>
+            <textarea rows="4" [placeholder]="'studio.appealReasonPlaceholder' | translate"
               [ngModel]="appealReason()" (ngModelChange)="appealReason.set($event)"></textarea>
           </div>
 
           <div class="form-group">
-            <label for="appeal-evidence-input">Tệp bằng chứng riêng tư <span class="field-hint">Không bắt buộc · PNG, JPEG, WEBP hoặc PDF · tối đa 10 MiB</span></label>
+            <label for="appeal-evidence-input">{{ 'studio.privateEvidenceFile' | translate }} <span class="field-hint">{{ 'studio.evidenceFileHint' | translate }}</span></label>
             <input id="appeal-evidence-input" class="visually-hidden-file-input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" (change)="onAppealEvidenceSelected($event)" />
             @if (appealEvidenceFile(); as file) {
               <div class="evidence-file-card">
                 <div class="evidence-file-icon">✓</div>
                 <div class="evidence-file-meta">
                   <strong>{{ file.name }}</strong>
-                  <span>{{ formatAppealFileSize(file.size) }} · Tệp riêng tư</span>
+                  <span>{{ formatAppealFileSize(file.size) }} · {{ 'studio.privateFile' | translate }}</span>
                 </div>
-                <button type="button" class="evidence-remove" aria-label="Xóa tệp bằng chứng" (click)="clearAppealEvidence()">Xóa</button>
+                <button type="button" class="evidence-remove" [attr.aria-label]="'studio.removeEvidenceFile' | translate" (click)="clearAppealEvidence()">{{ 'common.delete' | translate }}</button>
               </div>
             } @else {
               <label class="evidence-dropzone" for="appeal-evidence-input" (dragover)="onAppealEvidenceDragOver($event)" (drop)="onAppealEvidenceDrop($event)">
                 <span class="evidence-upload-icon" aria-hidden="true">↑</span>
-                <span class="evidence-dropzone-copy"><strong>Chọn tệp hoặc kéo thả vào đây</strong><small>Ảnh chụp, tài liệu hoặc PDF · tối đa 10 MiB</small></span>
-                <span class="evidence-browse">Duyệt tệp</span>
+                <span class="evidence-dropzone-copy"><strong>{{ 'studio.chooseOrDropEvidence' | translate }}</strong><small>{{ 'studio.evidenceTypesHint' | translate }}</small></span>
+                <span class="evidence-browse">{{ 'studio.browseFiles' | translate }}</span>
               </label>
             }
           </div>
 
           <div class="form-group">
-            <label>Ghi chú bổ sung</label>
-            <input type="text" placeholder="Bổ sung thêm thông tin..."
+            <label>{{ 'studio.additionalNotes' | translate }}</label>
+            <input type="text" [placeholder]="'studio.additionalNotesPlaceholder' | translate"
               [ngModel]="appealEvidenceNote()" (ngModelChange)="appealEvidenceNote.set($event)" />
           </div>
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-secondary" (click)="closeAppealModal()" [disabled]="appealSubmitting()">Đóng</button>
+          <button class="btn btn-secondary" (click)="closeAppealModal()" [disabled]="appealSubmitting()">{{ 'common.close' | translate }}</button>
           <button class="btn btn-primary" (click)="submitAppeal()" [disabled]="appealSubmitting() || !!appealMessage()">
-            {{ appealSubmitting() ? 'Đang gửi...' : 'Gửi đơn khiếu nại' }}
+            {{ (appealSubmitting() ? 'studio.submittingAppeal' : 'studio.submitAppeal') | translate }}
           </button>
         </div>
       </div>
@@ -283,53 +283,53 @@
       <section class="appeal-detail-modal" role="dialog" aria-modal="true" aria-labelledby="appeal-detail-title" (click)="$event.stopPropagation()">
         <header class="appeal-detail-header">
           <div>
-            <p class="appeal-detail-eyebrow">{{ appealTargetLabel(app.targetType) }} · Đơn #{{ app.appealNumber }}</p>
-            <h2 id="appeal-detail-title">Chi tiết khiếu nại</h2>
+            <p class="appeal-detail-eyebrow">{{ appealTargetLabel(app.targetType) }} · {{ 'studio.appealNumber' | translate }} #{{ app.appealNumber }}</p>
+            <h2 id="appeal-detail-title">{{ 'studio.appealDetails' | translate }}</h2>
             @if (app.targetTitle) { <p class="appeal-detail-target">{{ app.targetTitle }}</p> }
           </div>
-          <button type="button" class="appeal-detail-close" aria-label="Đóng chi tiết" (click)="closeAppealDetail()">×</button>
+          <button type="button" class="appeal-detail-close" [attr.aria-label]="'studio.closeDetails' | translate" (click)="closeAppealDetail()">×</button>
         </header>
 
         <div class="appeal-detail-status">
           <span class="status-pill" [ngClass]="appealStatusClass(app.status)">{{ appealStatusLabel(app.status) }}</span>
-          <span>Gửi {{ app.createdAt | localeDate:'dd/MM/yyyy HH:mm' }}</span>
+          <span>{{ 'studio.sentAt' | translate }} {{ app.createdAt | localeDate:'dd/MM/yyyy HH:mm' }}</span>
         </div>
 
-        <ol class="appeal-timeline" aria-label="Tiến độ xử lý khiếu nại">
+        <ol class="appeal-timeline" [attr.aria-label]="'studio.appealTimeline' | translate">
           <li class="is-complete">
             <span class="timeline-dot">✓</span>
-            <div><strong>Đã gửi đơn</strong><time>{{ app.createdAt | localeDate:'dd/MM/yyyy HH:mm' }}</time></div>
+            <div><strong>{{ 'studio.appealSubmittedStep' | translate }}</strong><time>{{ app.createdAt | localeDate:'dd/MM/yyyy HH:mm' }}</time></div>
           </li>
           <li [class.is-complete]="app.status !== 'pending'" [class.is-current]="app.status === 'pending' || app.status === 'reviewing' || app.status === 'escalated'">
             <span class="timeline-dot">2</span>
-            <div><strong>{{ app.status === 'pending' ? 'Chờ tiếp nhận' : app.status === 'escalated' ? 'Đang xem xét ở cấp cao hơn' : 'Đang thẩm định' }}</strong>
-              @if (app.reviewerName) { <time>Người xử lý: {{ app.reviewerName }}</time> }
+            <div><strong>{{ (app.status === 'pending' ? 'studio.awaitingAcceptance' : app.status === 'escalated' ? 'studio.reviewingHigherLevel' : 'studio.underReview') | translate }}</strong>
+              @if (app.reviewerName) { <time>{{ 'studio.reviewer' | translate }} {{ app.reviewerName }}</time> }
             </div>
           </li>
           <li [class.is-complete]="appealIsFinal(app.status)" [class.is-current]="!appealIsFinal(app.status)">
             <span class="timeline-dot">{{ appealIsFinal(app.status) ? '✓' : '3' }}</span>
-            <div><strong>{{ appealIsFinal(app.status) ? appealStatusLabel(app.status) : 'Kết quả cuối cùng' }}</strong>
+            <div><strong>{{ appealIsFinal(app.status) ? appealStatusLabel(app.status) : ('studio.finalOutcome' | translate) }}</strong>
               @if (app.resolvedAt) { <time>{{ app.resolvedAt | localeDate:'dd/MM/yyyy HH:mm' }}</time> }
             </div>
           </li>
         </ol>
 
         <section class="appeal-detail-section">
-          <h3>Lý do khiếu nại</h3>
+          <h3>{{ 'studio.appealReason' | translate }}</h3>
           <p>{{ app.reason }}</p>
         </section>
         @if (app.reviewNote) {
           <section class="appeal-detail-section appeal-result-note">
-            <h3>Phản hồi và kết quả</h3>
+            <h3>{{ 'studio.responseAndOutcome' | translate }}</h3>
             <p>{{ app.reviewNote }}</p>
           </section>
         }
         @if (app.evidenceNote) {
-          <section class="appeal-detail-section"><h3>Ghi chú bằng chứng</h3><p>{{ app.evidenceNote }}</p></section>
+          <section class="appeal-detail-section"><h3>{{ 'studio.evidenceNotes' | translate }}</h3><p>{{ app.evidenceNote }}</p></section>
         }
         <footer class="appeal-detail-footer">
-          @if (app.evidenceUrl) { <button type="button" class="evidence-link" (click)="openAppealEvidence(app)">Mở tệp bằng chứng riêng tư</button> }
-          <button type="button" class="btn btn-secondary" (click)="closeAppealDetail()">Đóng</button>
+          @if (app.evidenceUrl) { <button type="button" class="evidence-link" (click)="openAppealEvidence(app)">{{ 'studio.openPrivateEvidence' | translate }}</button> }
+          <button type="button" class="btn btn-secondary" (click)="closeAppealDetail()">{{ 'common.close' | translate }}</button>
         </footer>
       </section>
     </div>

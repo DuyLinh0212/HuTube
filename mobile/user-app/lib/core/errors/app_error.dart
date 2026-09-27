@@ -1,3 +1,5 @@
+import '../localization/app_strings.dart';
+
 enum AppErrorKind {
   networkUnavailable,
   timeout,
@@ -11,7 +13,7 @@ enum AppErrorKind {
   unknown,
 }
 
-class ApiFailure implements Exception {
+class ApiFailure implements Exception, LocalizedApiFailure {
   const ApiFailure(
     this.status,
     this.code,
@@ -53,23 +55,19 @@ class ApiFailure implements Exception {
       kind = AppErrorKind.unknown;
     }
 
-    final message = switch (code) {
-      'INVALID_CREDENTIALS' => 'Email hoặc mật khẩu chưa đúng.',
-      'EMAIL_NOT_VERIFIED' => 'Bạn cần xác minh email trước khi đăng nhập.',
-      'ACCOUNT_SUSPENDED' || 'USER_SUSPENDED' =>
-        'Tài khoản đang bị tạm khóa. Vui lòng liên hệ hỗ trợ.',
-      'ACCOUNT_BANNED' ||
-      'USER_BANNED' => 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.',
-      'RATE_LIMITED' || 'RATE_LIMIT_EXCEEDED' =>
-        'Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc rồi thử lại.',
-      'STORAGE_UPLOAD_FAILED' =>
-        'Không thể tải ảnh lên kho lưu trữ. Vui lòng thử lại.',
-      'ONE_CHANNEL_LIMIT_EXCEEDED' =>
-        'Mỗi tài khoản chỉ được phép sở hữu tối đa một kênh.',
-      'CHANNEL_HANDLE_ALREADY_EXISTS' =>
-        'Định danh kênh này đã có người sử dụng. Vui lòng chọn tên khác.',
-      _ => detail ?? 'Không thể thực hiện yêu cầu. Vui lòng thử lại.',
+    final messageKey = switch (code) {
+      'INVALID_CREDENTIALS' => 'auth.invalidCredentials',
+      'EMAIL_NOT_VERIFIED' || 'EMAIL_UNVERIFIED' => 'auth.emailNotVerified',
+      'ACCOUNT_SUSPENDED' || 'USER_SUSPENDED' || 'ACCOUNT_BLOCKED' =>
+        'auth.accountSuspended',
+      'ACCOUNT_BANNED' || 'USER_BANNED' => 'auth.accountBanned',
+      'RATE_LIMITED' || 'RATE_LIMIT_EXCEEDED' => 'common.rateLimited',
+      'STORAGE_UPLOAD_FAILED' => 'common.imageUploadError',
+      'ONE_CHANNEL_LIMIT_EXCEEDED' => 'common.oneChannelLimit',
+      'CHANNEL_HANDLE_ALREADY_EXISTS' => 'common.handleTaken',
+      _ => 'common.requestError',
     };
+    final message = AppStrings.t(messageKey);
 
     return ApiFailure(
       status,
@@ -81,17 +79,17 @@ class ApiFailure implements Exception {
     );
   }
 
-  static const network = ApiFailure(
+  static ApiFailure get network => ApiFailure(
     0,
     'NETWORK_ERROR',
-    'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
+    AppStrings.t('common.networkError'),
     kind: AppErrorKind.networkUnavailable,
   );
 
-  static const timeoutError = ApiFailure(
+  static ApiFailure get timeoutError => ApiFailure(
     0,
-    'NETWORK_ERROR',
-    'Kết nối quá thời gian. Vui lòng thử lại.',
+    'NETWORK_TIMEOUT',
+    AppStrings.t('common.timeoutError'),
     kind: AppErrorKind.timeout,
   );
 }

@@ -63,22 +63,22 @@ class MobileScaffold extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Tạo nội dung',
+                AppStrings.t('app.create.title'),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 5),
               Text(
-                'Chọn cách bạn muốn bắt đầu trên HuTube.',
+                AppStrings.t('app.create.description'),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
               _CreateAction(
                 icon: Icons.cloud_upload_outlined,
                 color: AppColors.primary,
-                title: 'Đăng video',
-                description: 'Chia sẻ video mới với cộng đồng.',
+                title: AppStrings.t('app.create.videoTitle'),
+                description: AppStrings.t('app.create.videoDescription'),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.go('/creator');
@@ -87,8 +87,8 @@ class MobileScaffold extends StatelessWidget {
               _CreateAction(
                 icon: Icons.playlist_add_rounded,
                 color: AppColors.violet,
-                title: 'Tạo playlist',
-                description: 'Gom video vào bộ sưu tập riêng của bạn.',
+                title: AppStrings.t('app.create.playlistTitle'),
+                description: AppStrings.t('app.create.playlistDescription'),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.go('/playlists');
@@ -97,8 +97,8 @@ class MobileScaffold extends StatelessWidget {
               _CreateAction(
                 icon: Icons.storefront_outlined,
                 color: AppColors.success,
-                title: 'Tạo kênh',
-                description: 'Thiết lập không gian riêng cho nội dung của bạn.',
+                title: AppStrings.t('app.create.channelTitle'),
+                description: AppStrings.t('app.create.channelDescription'),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.go('/account');
@@ -141,7 +141,7 @@ class MobileScaffold extends StatelessWidget {
             ),
           if (!isDetail)
             IconButton(
-              tooltip: 'HuAI',
+              tooltip: AppStrings.t('huai.title'),
               onPressed: () => context.push('/huai'),
               icon: const Icon(Icons.auto_awesome_rounded),
             ),
@@ -154,7 +154,7 @@ class MobileScaffold extends StatelessWidget {
                 icon: Semantics(
                   label: notifications.unreadCount == 0
                       ? AppStrings.t('common.notifications')
-                      : '${AppStrings.t('common.notifications')}, ${notifications.unreadCount} chưa đọc',
+                      : '${AppStrings.t('common.notifications')}, ${AppStrings.format('notifications.unreadCount', {'count': AppStrings.number(notifications.unreadCount)})}',
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -240,7 +240,7 @@ class MobileScaffold extends StatelessWidget {
                 const NavigationDestination(
                   icon: _CreateNavIcon(),
                   selectedIcon: _CreateNavIcon(selected: true),
-                  label: 'Tạo',
+                  label: AppStrings.t('app.createButton'),
                 ),
                 NavigationDestination(
                   icon: const Icon(Icons.subscriptions_outlined),
@@ -340,11 +340,11 @@ class _Drawer extends StatelessWidget {
             AppStrings.t('nav.subscriptions'),
             '/subscriptions',
           ),
-          _item(context, Icons.auto_awesome_outlined, 'HuAI', '/huai'),
+          _item(context, Icons.auto_awesome_outlined, AppStrings.t('huai.title'), '/huai'),
           _item(
             context,
             Icons.playlist_play_outlined,
-            'Playlist',
+            AppStrings.t('nav.playlists'),
             '/playlists',
             protected: true,
           ),
@@ -379,7 +379,7 @@ class _Drawer extends StatelessWidget {
           _item(
             context,
             Icons.report_gmailerrorred_outlined,
-            'Báo cáo & kháng nghị',
+            AppStrings.t('moderation.navLabel'),
             '/moderation',
             protected: true,
           ),

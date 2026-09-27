@@ -4,7 +4,7 @@
       <span></span><span></span><span></span>
     </button>
 
-    <a class="topbar-brand" routerLink="/account" aria-label="HuTube Quản trị">
+    <a class="topbar-brand" routerLink="/account" [attr.aria-label]="'auth.adminBrand' | translate">
       <img src="/assets/logo-mark.png" alt="" />
       <span class="brand-text"><strong>Hu</strong><em>Tube</em></span>
       <span class="admin-label">{{ 'topbar.adminRole' | translate }}</span>
@@ -16,7 +16,7 @@
     <input type="search" [placeholder]="'topbar.searchPlaceholder' | translate" [attr.aria-label]="'topbar.searchPlaceholder' | translate" />
   </label>
 
-  <div class="top-actions" aria-label="Thông tin quản trị">
+  <div class="top-actions" [attr.aria-label]="'topbar.adminInfo' | translate">
     <span class="date-range">{{ 'topbar.dateRange' | translate }}</span>
 
     <!-- Theme Toggle -->

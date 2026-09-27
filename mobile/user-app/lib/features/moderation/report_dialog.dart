@@ -13,7 +13,7 @@ Future<void> showContentReportDialog(
   if (!auth.authenticated) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Đăng nhập để gửi báo cáo.')));
+    ).showSnackBar(SnackBar(content: Text(AppStrings.t('report.loginRequired'))));
     return;
   }
   final service = ModerationService(auth);
@@ -22,7 +22,7 @@ Future<void> showContentReportDialog(
     if (!context.mounted) return;
     if (types.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hiện chưa có lý do báo cáo khả dụng.')),
+        SnackBar(content: Text(AppStrings.t('report.noReasons'))),
       );
       return;
     }
@@ -44,22 +44,22 @@ Future<void> showContentReportDialog(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Báo cáo ${_targetLabel(targetType)}',
+                AppStrings.format('report.title', {'target': _targetLabel(targetType)}),
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 6),
-              const Text('Chọn lý do phù hợp và mô tả ngắn gọn sự việc.'),
+              Text(AppStrings.t('report.instruction')),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: selected,
-                decoration: const InputDecoration(labelText: 'Lý do'),
+                decoration: InputDecoration(labelText: AppStrings.t('report.reason')),
                 items: [
                   for (final type in types)
                     DropdownMenuItem(
                       value: '${type['violationTypeId'] ?? ''}',
-                      child: Text('${type['name'] ?? type['code'] ?? 'Khác'}'),
+                      child: Text('${type['name'] ?? type['code'] ?? AppStrings.t('report.other')}'),
                     ),
                 ],
                 onChanged: (value) => refresh(() => selected = value),
@@ -71,9 +71,9 @@ Future<void> showContentReportDialog(
                 maxLines: 5,
                 maxLength: 1000,
                 onChanged: (_) => refresh(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Mô tả',
-                  hintText: 'Cho chúng tôi biết nội dung vi phạm ở đâu…',
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('report.description'),
+                  hintText: AppStrings.t('report.descriptionHint'),
                 ),
               ),
               const SizedBox(height: 10),
@@ -81,7 +81,7 @@ Future<void> showContentReportDialog(
                 onPressed: selected == null || description.text.trim().isEmpty
                     ? null
                     : () => Navigator.pop(sheetContext, true),
-                child: const Text('Gửi báo cáo'),
+                child: Text(AppStrings.t('report.submit')),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(sheetContext, false),
@@ -127,9 +127,7 @@ Future<void> showContentReportDialog(
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã gửi báo cáo. Cảm ơn bạn đã phản hồi.'),
-          ),
+          SnackBar(content: Text(AppStrings.t('report.success'))),
         );
       }
     } on ApiFailure catch (error) {
@@ -151,8 +149,8 @@ Future<void> showContentReportDialog(
 }
 
 String _targetLabel(String targetType) => switch (targetType) {
-  'video' => 'video',
-  'channel' => 'kênh',
-  'comment' => 'bình luận',
-  _ => 'nội dung',
+  'video' => AppStrings.t('report.target.video'),
+  'channel' => AppStrings.t('report.target.channel'),
+  'comment' => AppStrings.t('report.target.comment'),
+  _ => AppStrings.t('report.target.content'),
 };

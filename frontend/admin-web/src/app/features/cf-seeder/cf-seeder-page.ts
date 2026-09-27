@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { errorMessage } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
 import { AdminTopic, AdminTopicsService } from '../topics/admin-topics.service';
 import { CfSeederApiService } from './cf-seeder-api.service';
 import {
@@ -12,11 +13,12 @@ import {
   CfSeedVisibility,
 } from './cf-seeder.models';
 import { CfSeederRunnerService } from './cf-seeder-runner.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-cf-seeder-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './cf-seeder-page.html',
   styleUrl: './cf-seeder-page.scss',
 })
@@ -24,6 +26,7 @@ export class CfSeederPage implements OnInit {
   private readonly topicsService = inject(AdminTopicsService);
   private readonly seederApi = inject(CfSeederApiService);
   readonly runner = inject(CfSeederRunnerService);
+  readonly i18n = inject(I18nService);
   readonly topics = signal<AdminTopic[]>([]);
   readonly existingAccounts = signal<CfSeedAccount[]>([]);
   readonly selectedExistingAccounts = signal<CfSeedAccount[]>([]);
@@ -48,16 +51,25 @@ export class CfSeederPage implements OnInit {
     const videos = this.selectedVideoCount();
     const capacity = this.capacity();
     const accountCount = this.effectiveAccountCount();
-    if (!videos || !capacity) return { level: 'info', text: 'Chọn thư mục và cấu hình số kênh để kiểm tra tính khả thi.' };
+    if (!videos || !capacity) return { level: 'info', text: this.i18n.t('seeder.chooseInputs') };
     if (capacity < videos) return {
       level: 'warning',
-      text: `Tổng sức chứa là ${capacity} video, thấp hơn ${videos} video trong thư mục. ${videos - capacity} video sẽ không được upload.`,
+      text: this.i18n.format('seeder.capacityTooSmall', { capacity, videos, remaining: videos - capacity }),
     };
     if (capacity > videos) return {
       level: 'warning',
-      text: `${this.accountMode === 'existing' ? 'Bạn đã chọn' : 'Bạn tạo'} ${accountCount} kênh với tối đa ${this.safeVideoLimit()} video/kênh (${capacity} chỗ), nhưng chỉ có ${videos} video. Một số kênh sẽ có ít video hơn giới hạn.`,
+      text: this.i18n.format('seeder.capacityUnused', {
+        accountChoice: this.i18n.t(this.accountMode === 'existing' ? 'seeder.selectedAccountChoice' : 'seeder.createdAccountChoice'),
+        accounts: accountCount,
+        limit: this.safeVideoLimit(),
+        capacity,
+        videos,
+      }),
     };
-    return { level: 'success', text: `Cấu hình vừa đủ cho ${videos} video: ${accountCount} kênh, mỗi kênh tối đa ${this.safeVideoLimit()} video.` };
+    return {
+      level: 'success',
+      text: this.i18n.format('seeder.capacityExact', { videos, accounts: accountCount, limit: this.safeVideoLimit() }),
+    };
   }
   canStart(): boolean {
     const qualityScan = this.runner.qualityScan();
@@ -74,7 +86,16 @@ export class CfSeederPage implements OnInit {
     && hasRequiredAccounts
     && qualityScan.status === 'ready';
   }
-  readonly stateLabel = computed(() => stateLabel(this.runner.state()));
+  readonly stateLabel = computed(() => {
+    const state = this.runner.state();
+    return this.i18n.t(`seeder.state.${state === 'completed_with_errors' ? 'completedWithErrors' : state}`);
+  });
+
+  statusLabel(state: CfSeedRunState): string {
+    const suffix = state === 'completed_with_errors' ? 'partial' : state;
+    const key = `seeder.status.${suffix}`;
+    return this.i18n.t(key);
+  }
 
   ngOnInit(): void {
     this.topicsService.getTopics('active').subscribe({
@@ -84,7 +105,7 @@ export class CfSeederPage implements OnInit {
         this.loadingTopics.set(false);
       },
       error: error => {
-        this.pageError.set(errorMessage(error));
+        this.pageError.set(errorMessage(error, this.i18n));
         this.loadingTopics.set(false);
       },
     });
@@ -105,7 +126,7 @@ export class CfSeederPage implements OnInit {
         this.loadingExistingAccounts.set(false);
       },
       error: error => {
-        this.pageError.set(errorMessage(error));
+        this.pageError.set(errorMessage(error, this.i18n));
         this.loadingExistingAccounts.set(false);
       },
     });
@@ -120,7 +141,7 @@ export class CfSeederPage implements OnInit {
       return;
     }
     if (selected.length >= 100) {
-      this.pageError.set('Mỗi lượt seed chỉ được chọn tối đa 100 user/kênh.');
+      this.pageError.set(this.i18n.t('seeder.maxUsers'));
       return;
     }
     this.pageError.set('');
@@ -142,7 +163,7 @@ export class CfSeederPage implements OnInit {
     }
     catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      this.pageError.set(error instanceof Error ? error.message : 'Không thể đọc thư mục đã chọn.');
+      this.pageError.set(error instanceof Error ? error.message : this.i18n.t('seeder.readFolderError'));
     }
   }
 
@@ -160,7 +181,7 @@ export class CfSeederPage implements OnInit {
     if (!file) return;
     this.pageError.set('');
     try { await this.runner.loadAccountFile(file); }
-    catch (error) { this.pageError.set(error instanceof Error ? error.message : 'File account JSON không hợp lệ.'); }
+    catch (error) { this.pageError.set(error instanceof Error ? error.message : this.i18n.t('seeder.invalidAccountFile')); }
     input.value = '';
   }
 
@@ -168,19 +189,19 @@ export class CfSeederPage implements OnInit {
     if (!this.canStart()) return;
     const folder = this.runner.folder();
     if (!folder) return;
-    if (!window.confirm(`Bắt đầu upload tối đa ${Math.min(folder.files.length, this.capacity())} video và toàn bộ rendition đã phát hiện? File dataset sẽ được giữ lại.`)) return;
+    if (!window.confirm(this.i18n.format('seeder.confirmStart', { count: Math.min(folder.files.length, this.capacity()) }))) return;
     this.pageError.set('');
     const config: CfSeedRunConfig = {
       accountMode: this.accountMode,
       categoryId: this.categoryId,
-      categoryName: this.selectedTopic()?.name ?? 'Không xác định',
+      categoryName: this.selectedTopic()?.name ?? this.i18n.t('seeder.unknownCategory'),
       userCount: this.effectiveAccountCount(),
       existingAccounts: this.selectedExistingAccounts(),
       maxVideosPerChannel: this.safeVideoLimit(),
       visibility: this.visibility,
     };
     try { await this.runner.start(config); }
-    catch (error) { this.pageError.set(error instanceof Error ? error.message : 'Không thể bắt đầu CF Data Seeder.'); }
+    catch (error) { this.pageError.set(error instanceof Error ? error.message : this.i18n.t('seeder.startError')); }
   }
 
   safeUserCount(): number { return Math.max(0, Math.trunc(Number(this.userCount) || 0)); }
@@ -191,7 +212,10 @@ export class CfSeederPage implements OnInit {
     let value = bytes / 1024;
     let unit = units[0];
     for (let index = 1; index < units.length && value >= 1024; index++) { value /= 1024; unit = units[index]; }
-    return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`;
+    const formatted = new Intl.NumberFormat(this.i18n.currentLang() === 'en' ? 'en-US' : 'vi-VN', {
+      maximumFractionDigits: value >= 10 ? 1 : 2,
+    }).format(value);
+    return `${formatted} ${unit}`;
   }
   formatDuration(seconds: number): string {
     const hours = Math.floor(seconds / 3600).toString().padStart(2, '0');
@@ -201,12 +225,8 @@ export class CfSeederPage implements OnInit {
   }
   trackLog(index: number): number { return index; }
 
-}
+  dateLocale(): string {
+    return this.i18n.currentLang() === 'en' ? 'en-US' : 'vi-VN';
+  }
 
-function stateLabel(state: CfSeedRunState): string {
-  const labels: Record<CfSeedRunState, string> = {
-    idle: 'Sẵn sàng', provisioning: 'Đang tạo tài khoản', running: 'Đang chạy',
-    completed: 'Hoàn thành', completed_with_errors: 'Xong, có lỗi', cancelled: 'Đã dừng', failed: 'Thất bại',
-  };
-  return labels[state];
 }

@@ -102,7 +102,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         ),
         const SizedBox(height: 5),
         Text(
-          'Video mới từ những kênh bạn đang theo dõi.',
+          AppStrings.t('subscriptions.description'),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
@@ -115,7 +115,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Theo dõi kênh để nhận video mới ngay tại đây.',
+                  AppStrings.t('subscriptions.followHint'),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     height: 1.4,
                     fontWeight: FontWeight.w700,
@@ -123,7 +123,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 ),
               ),
               IconButton(
-                tooltip: 'Khám phá kênh',
+                tooltip: AppStrings.t('subscriptions.exploreChannels'),
                 onPressed: () => context.go('/explore'),
                 icon: const Icon(Icons.explore_outlined),
               ),
@@ -148,9 +148,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         else if (_videos.isEmpty)
           HuTubeStateView(
             icon: Icons.subscriptions_outlined,
-            title: 'Chưa có video mới',
-            message: 'Khám phá và theo dõi kênh để xem video mới ở đây.',
-            actionLabel: 'Khám phá video',
+            title: AppStrings.t('subscriptions.noVideos'),
+            message: AppStrings.t('subscriptions.noVideosDescription'),
+            actionLabel: AppStrings.t('subscriptions.exploreVideos'),
             onAction: () => context.go('/explore'),
             compact: true,
             accent: AppColors.violet,

@@ -8,6 +8,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { I18nService } from '../../../core/i18n.service';
 
 export interface CustomSelectOption {
   value: string;
@@ -85,11 +86,14 @@ export class CustomSelectComponent {
   readonly isOpen = signal(false);
   readonly alignRight = signal(false);
 
-  constructor(private readonly elementRef: ElementRef) {}
+  constructor(
+    private readonly elementRef: ElementRef,
+    private readonly i18n: I18nService,
+  ) {}
 
   selectedLabel(): string {
     const found = this.options.find(o => o.value === this.value);
-    return found ? found.label : (this.options[0]?.label ?? 'Tất cả');
+    return found ? found.label : (this.options[0]?.label ?? this.i18n.t('common.all'));
   }
 
   toggle(event: MouseEvent): void {

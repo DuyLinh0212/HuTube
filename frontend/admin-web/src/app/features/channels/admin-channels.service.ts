@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map, of, catchError } from 'rxjs';
+import { I18nService } from '../../core/i18n.service';
 import { RuntimeConfig } from '../../core/runtime-config';
 
 export interface AdminPage<T> {
@@ -71,6 +72,7 @@ export interface ChannelCounts {
 export class AdminChannelsService {
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
+  private readonly i18n = inject(I18nService);
 
   private get base() {
     return `${this.config.apiBaseUrl}/admin`;
@@ -174,18 +176,18 @@ export class AdminChannelsService {
     return this.http.delete<void>(`${this.base}/channels/${id}`, { body: request });
   }
 
-  exportCsv(channels: AdminChannel[], filename = 'danh-sach-kenh.csv'): void {
+  exportCsv(channels: AdminChannel[], filename?: string): void {
     const headers = [
-      'ID Kênh',
-      'Tên Kênh',
-      'Handle',
-      'Chủ Sở Hữu',
-      'Email Chủ Sở Hữu',
-      'Số Video',
-      'Người Đăng Ký',
-      'Lượt Xem',
-      'Trạng Thái',
-      'Ngày Tạo'
+      this.i18n.t('channels.csv.id'),
+      this.i18n.t('channels.csv.name'),
+      this.i18n.t('channels.csv.handle'),
+      this.i18n.t('channels.csv.owner'),
+      this.i18n.t('channels.csv.ownerEmail'),
+      this.i18n.t('channels.csv.videos'),
+      this.i18n.t('channels.csv.subscribers'),
+      this.i18n.t('channels.csv.views'),
+      this.i18n.t('channels.csv.status'),
+      this.i18n.t('channels.csv.createdAt')
     ];
 
     const rows = channels.map(c => [
@@ -206,7 +208,7 @@ export class AdminChannelsService {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', filename);
+    link.setAttribute('download', filename ?? this.i18n.t('channels.csv.filename'));
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -73,13 +73,13 @@ export class StudioOverviewPage implements OnInit {
 
   appealStatusLabel(status: string): string {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'Chờ xử lý';
-      case 'reviewing': return 'Đang thẩm định';
-      case 'escalated': return 'Đã chuyển cấp cao hơn';
-      case 'approved': return 'Chấp thuận (Gỡ phạt)';
-      case 'rejected': return 'Bác bỏ (Giữ nguyên phạt)';
-      case 'cancelled': return 'Đã rút đơn';
-      default: return status || 'Không rõ';
+      case 'pending': return this.i18n.t('studio.appealStatus.pending');
+      case 'reviewing': return this.i18n.t('studio.appealStatus.reviewing');
+      case 'escalated': return this.i18n.t('studio.appealStatus.escalated');
+      case 'approved': return this.i18n.t('studio.appealStatus.approved');
+      case 'rejected': return this.i18n.t('studio.appealStatus.rejected');
+      case 'cancelled': return this.i18n.t('studio.appealStatus.cancelled');
+      default: return status || this.i18n.t('common.unknown');
     }
   }
 
@@ -98,10 +98,10 @@ export class StudioOverviewPage implements OnInit {
   appealTargetLabel(targetType: string): string {
     switch (targetType?.toLowerCase()) {
       case 'video': return 'Video';
-      case 'channel': return 'Kênh';
-      case 'strike': return 'Gậy phạt';
-      case 'comment': return 'Bình luận';
-      default: return 'Nội dung';
+      case 'channel': return this.i18n.t('studio.targetChannel');
+      case 'strike': return this.i18n.t('studio.targetStrike');
+      case 'comment': return this.i18n.t('studio.targetComment');
+      default: return this.i18n.t('studio.targetContent');
     }
   }
 
@@ -154,7 +154,7 @@ export class StudioOverviewPage implements OnInit {
   openAppealEvidence(appeal: AppealItem): void {
     if (!appeal.evidenceUrl) return;
     const tab = window.open('about:blank', '_blank');
-    if (!tab) { this.appealError.set('Trình duyệt đã chặn cửa sổ bằng chứng. Hãy cho phép mở tab mới rồi thử lại.'); return; }
+    if (!tab) { this.appealError.set(this.i18n.t('studio.evidencePopupBlocked')); return; }
     this.content.getAppealEvidence(appeal.appealId).subscribe({
       next: blob => {
         const url = URL.createObjectURL(blob);
@@ -162,7 +162,7 @@ export class StudioOverviewPage implements OnInit {
         tab.location.href = url;
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
       },
-      error: () => { tab.close(); this.appealError.set('Không thể mở tệp bằng chứng của đơn này.'); }
+      error: () => { tab.close(); this.appealError.set(this.i18n.t('studio.evidenceOpenError')); }
     });
   }
 
@@ -183,11 +183,11 @@ export class StudioOverviewPage implements OnInit {
   submitAppeal() {
     const ch = this.data.channel();
     if (!this.isAppealEligible()) {
-      this.appealError.set('Kênh hiện không có cảnh báo hoặc quyết định kiểm duyệt để gửi khiếu nại.');
+      this.appealError.set(this.i18n.t('studio.appealNotEligible'));
       return;
     }
     if (!ch || !this.appealReason().trim()) {
-      this.appealError.set('Vui lòng nhập lý do khiếu nại.');
+      this.appealError.set(this.i18n.t('studio.appealReasonRequired'));
       return;
     }
 
@@ -204,13 +204,13 @@ export class StudioOverviewPage implements OnInit {
     this.content.createAppeal(payload, this.appealEvidenceFile()).subscribe({
       next: () => {
         this.appealSubmitting.set(false);
-        this.appealMessage.set('Đơn khiếu nại của bạn đã được gửi. Ban quản trị độc lập sẽ thẩm định và phản hồi sớm nhất.');
+        this.appealMessage.set(this.i18n.t('studio.appealSubmitted'));
         this.loadAppeals();
         setTimeout(() => this.closeAppealModal(), 2500);
       },
       error: (err) => {
         this.appealSubmitting.set(false);
-        this.appealError.set(err?.error?.message || 'Không thể gửi đơn khiếu nại.');
+        this.appealError.set(err?.error?.message || this.i18n.t('studio.appealSubmitError'));
       }
     });
   }
@@ -251,17 +251,17 @@ export class StudioOverviewPage implements OnInit {
     const extension = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`;
     if (!this.appealEvidenceMimeTypes.has(file.type.toLowerCase()) && !this.appealEvidenceExtensions.has(extension)) {
       this.clearAppealEvidence();
-      this.appealError.set('Tệp không đúng định dạng. Chỉ nhận PNG, JPEG, WEBP hoặc PDF.');
+      this.appealError.set(this.i18n.t('studio.evidenceTypeError'));
       return;
     }
     if (file.size < 1) {
       this.clearAppealEvidence();
-      this.appealError.set('Tệp rỗng. Hãy chọn một tệp bằng chứng khác.');
+      this.appealError.set(this.i18n.t('studio.evidenceEmptyError'));
       return;
     }
     if (file.size > this.appealEvidenceMaxBytes) {
       this.clearAppealEvidence();
-      this.appealError.set('Tệp quá lớn. Kích thước tối đa là 10 MiB.');
+      this.appealError.set(this.i18n.t('studio.evidenceSizeError'));
       return;
     }
 

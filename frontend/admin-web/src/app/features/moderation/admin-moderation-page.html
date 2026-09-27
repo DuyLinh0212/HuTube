@@ -1,72 +1,72 @@
 <main id="main-content" class="moderation-page">
   <header class="page-heading">
     <div>
-      <p class="eyebrow">KIỂM DUYỆT NỘI DUNG</p>
-      <h1>Kiểm duyệt video</h1>
-      <p class="muted">Đánh giá nội dung trước khi công khai.</p>
+      <p class="eyebrow">{{ 'moderationPage.eyebrow' | translate }}</p>
+      <h1>{{ 'moderationPage.title' | translate }}</h1>
+      <p class="muted">{{ 'moderationPage.subtitle' | translate }}</p>
     </div>
     <div class="heading-actions">
-      <a class="outline-button" routerLink="/policies"><span aria-hidden="true">▣</span> Quy tắc kiểm duyệt</a>
-      @if (canClaim()) { <button type="button" class="primary-button" (click)="claimFirstPending()" [disabled]="loading() || !stats().pending"><span aria-hidden="true">▣</span> Nhận hồ sơ</button> }
-      <button type="button" class="refresh-button" (click)="loadData()" [disabled]="loading()" aria-label="Làm mới hàng đợi">↻</button>
+      <a class="outline-button" routerLink="/policies"><span aria-hidden="true">▣</span> {{ 'moderationPage.policies' | translate }}</a>
+      @if (canClaim()) { <button type="button" class="primary-button" (click)="claimFirstPending()" [disabled]="loading() || !stats().pending"><span aria-hidden="true">▣</span> {{ 'moderationPage.claimCases' | translate }}</button> }
+      <button type="button" class="refresh-button" (click)="loadData()" [disabled]="loading()" [attr.aria-label]="'moderationPage.refreshQueue' | translate">↻</button>
     </div>
   </header>
 
   @if (successMessage()) { <div class="alert success" role="status"><span>✓</span>{{ successMessage() }}</div> }
   @if (error()) { <div class="alert error" role="alert"><span>!</span>{{ error() }}</div> }
 
-  <div class="status-tabs" role="tablist" aria-label="Trạng thái hồ sơ">
-    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'pending'" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">Chờ duyệt <b>{{ stats().pending }}</b></button>
-    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'reviewing'" [class.is-active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">Đang xem <b>{{ stats().reviewing }}</b></button>
-    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'processed'" [class.is-active]="selectedStatus() === 'processed'" (click)="selectedStatus.set('processed')">Đã xử lý <b>{{ stats().processed }}</b></button>
-    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'escalated'" [class.is-active]="selectedStatus() === 'escalated'" (click)="selectedStatus.set('escalated')">Chuyển cấp <b>{{ stats().escalated }}</b></button>
+  <div class="status-tabs" role="tablist" [attr.aria-label]="'moderationPage.caseStatuses' | translate">
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'pending'" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">{{ 'moderationPage.pendingReview' | translate }} <b>{{ stats().pending }}</b></button>
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'reviewing'" [class.is-active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">{{ 'moderationPage.underReview' | translate }} <b>{{ stats().reviewing }}</b></button>
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'processed'" [class.is-active]="selectedStatus() === 'processed'" (click)="selectedStatus.set('processed')">{{ 'moderationPage.processed' | translate }} <b>{{ stats().processed }}</b></button>
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'escalated'" [class.is-active]="selectedStatus() === 'escalated'" (click)="selectedStatus.set('escalated')">{{ 'moderation.statusEscalated' | translate }} <b>{{ stats().escalated }}</b></button>
   </div>
 
   <section class="moderation-layout">
     <div class="queue-column">
-      <section class="filter-panel" aria-label="Bộ lọc hàng đợi">
-        <label class="search-field"><span class="search-glyph" aria-hidden="true"></span><input type="search" placeholder="Tìm tiêu đề hoặc mã video" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" /></label>
-        <label class="filter-field"><span>Danh mục</span><select [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)"><option value="ALL">Tất cả</option>@for (category of categories(); track category) { <option [value]="category">{{ category }}</option> }</select></label>
-        <label class="filter-field"><span>Thời lượng</span><select [ngModel]="selectedDuration()" (ngModelChange)="selectedDuration.set($event)"><option value="ALL">Tất cả</option><option value="short">Dưới 5 phút</option><option value="medium">5–15 phút</option><option value="long">Trên 15 phút</option></select></label>
-        <label class="filter-field"><span>Tín hiệu rủi ro</span><select [ngModel]="selectedRisk()" (ngModelChange)="selectedRisk.set($event)"><option value="ALL">Tất cả</option><option value="low">Thấp</option><option value="high">Cao</option></select></label>
+      <section class="filter-panel" [attr.aria-label]="'moderation.filterStatus' | translate">
+        <label class="search-field"><span class="search-glyph" aria-hidden="true"></span><input type="search" [placeholder]="'moderationPage.search' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" /></label>
+        <label class="filter-field"><span>{{ 'moderationPage.category' | translate }}</span><select [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)"><option value="ALL">{{ 'moderation.statusAll' | translate }}</option>@for (category of categories(); track category) { <option [value]="category">{{ category }}</option> }</select></label>
+        <label class="filter-field"><span>{{ 'moderation.videoDuration' | translate }}</span><select [ngModel]="selectedDuration()" (ngModelChange)="selectedDuration.set($event)"><option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="short">{{ 'moderationPage.durationShort' | translate }}</option><option value="medium">{{ 'moderationPage.durationMedium' | translate }}</option><option value="long">{{ 'moderationPage.durationLong' | translate }}</option></select></label>
+        <label class="filter-field"><span>{{ 'moderationPage.riskSignal' | translate }}</span><select [ngModel]="selectedRisk()" (ngModelChange)="selectedRisk.set($event)"><option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="low">{{ 'moderationPage.low' | translate }}</option><option value="high">{{ 'moderationPage.high' | translate }}</option></select></label>
       </section>
 
       <section class="table-card">
-        <div class="table-heading"><div><h2>Hồ sơ trong hàng đợi</h2><p>{{ filteredQueue().length }} kết quả phù hợp</p></div><div class="queue-count">{{ stats().highRisk }} rủi ro cao</div>
-          @if (canClaim() && selectedCaseIds().length) { <div class="bulk-actions"><span>{{ selectedCaseIds().length }} đã chọn</span><button type="button" class="table-action primary" (click)="bulkClaimSelected()" [disabled]="loading()">Nhận hồ sơ chờ</button><button type="button" class="table-action subtle" (click)="bulkReleaseSelected()" [disabled]="loading()">Trả hồ sơ của tôi</button></div> }
+        <div class="table-heading"><div><h2>{{ 'moderationPage.queueTitle' | translate }}</h2><p>{{ 'moderationPage.matchingResults' | translate:{ count: filteredQueue().length } }}</p></div><div class="queue-count">{{ 'moderationPage.highRiskCount' | translate:{ count: stats().highRisk } }}</div>
+          @if (canClaim() && selectedCaseIds().length) { <div class="bulk-actions"><span>{{ 'moderationPage.selected' | translate:{ count: selectedCaseIds().length } }}</span><button type="button" class="table-action primary" (click)="bulkClaimSelected()" [disabled]="loading()">{{ 'moderationPage.claimPending' | translate }}</button><button type="button" class="table-action subtle" (click)="bulkReleaseSelected()" [disabled]="loading()">{{ 'moderationPage.releaseMine' | translate }}</button></div> }
         </div>
         @if (loading()) {
-          <div class="loading-state"><span class="spinner"></span><p>Đang tải hàng đợi...</p></div>
+          <div class="loading-state"><span class="spinner"></span><p>{{ 'moderationPage.loadingQueue' | translate }}</p></div>
         } @else if (filteredQueue().length === 0) {
-          <div class="empty-state"><span class="empty-icon">✓</span><h3>Không có hồ sơ phù hợp</h3><p>Hàng đợi sẽ tự cập nhật khi có video cần xử lý.</p></div>
+          <div class="empty-state"><span class="empty-icon">✓</span><h3>{{ 'moderationPage.noMatchingCase' | translate }}</h3><p>{{ 'moderationPage.autoRefreshHint' | translate }}</p></div>
         } @else {
           <div class="table-scroll">
             <table class="queue-table">
-              <thead><tr><th class="check-column"><input type="checkbox" [checked]="visibleSelectionComplete()" [disabled]="!canClaim()" (change)="toggleVisibleSelection($any($event.target).checked)" aria-label="Chọn hồ sơ có thể nhận hoặc trả trong danh sách hiện tại" /></th><th>Video</th><th>Kênh</th><th>Danh mục</th><th>Thời lượng</th><th>Đã chờ</th><th>Rủi ro</th><th>Người xử lý</th><th class="actions-column">Thao tác</th></tr></thead>
+              <thead><tr><th class="check-column"><input type="checkbox" [checked]="visibleSelectionComplete()" [disabled]="!canClaim()" (change)="toggleVisibleSelection($any($event.target).checked)" [attr.aria-label]="'moderationPage.selectAvailableCases' | translate" /></th><th>{{ 'moderation.colVideo' | translate }}</th><th>{{ 'nav.channels' | translate }}</th><th>{{ 'moderationPage.category' | translate }}</th><th>{{ 'moderation.videoDuration' | translate }}</th><th>{{ 'moderationPage.waiting' | translate }}</th><th>{{ 'moderationPage.risk' | translate }}</th><th>{{ 'moderationPage.reviewer' | translate }}</th><th class="actions-column">{{ 'moderation.colActions' | translate }}</th></tr></thead>
               <tbody>
                 @for (item of filteredQueue(); track item.moderationCaseId) {
                   <tr [class.is-high-risk]="item.riskLevel === 'high'">
-                    <td class="check-column"><input type="checkbox" [checked]="isSelected(item)" [disabled]="!canSelectForBatch(item)" (change)="toggleCaseSelection(item, $any($event.target).checked)" [attr.aria-label]="'Chọn hồ sơ ' + item.title" /></td>
+                    <td class="check-column"><input type="checkbox" [checked]="isSelected(item)" [disabled]="!canSelectForBatch(item)" (change)="toggleCaseSelection(item, $any($event.target).checked)" [attr.aria-label]="'moderationPage.selectCase' | translate:{ title: item.title }" /></td>
                     <td><div class="video-cell"><div class="thumb-wrap">@if (item.thumbnailUrl) { <img [src]="item.thumbnailUrl" alt="" class="thumb" /> } @else { <div class="thumb placeholder">▶</div> }<span class="duration-badge">{{ formatDuration(item.duration) }}</span></div><div class="video-copy"><strong>{{ item.title }}</strong><a>{{ item.videoId.substring(0, 8) }}</a></div></div></td>
                     <td><div class="channel-cell">@if (item.channelAvatarUrl) { <img [src]="item.channelAvatarUrl" alt="" class="channel-avatar" /> } @else { <span class="channel-avatar fallback">{{ item.channelName.charAt(0) }}</span> }<div><strong>{{ item.channelName }}</strong><span>{{ item.channelHandle ? '&#64;' + item.channelHandle : '—' }}</span></div></div></td>
-                    <td><span class="category-text">{{ item.categoryName || 'Chưa phân loại' }}</span></td>
+                    <td><span class="category-text">{{ item.categoryName || ('moderationPage.noCategory' | translate) }}</span></td>
                     <td class="numeric-cell">{{ formatDuration(item.duration) }}</td>
                     <td><span class="waiting-text" [class.is-old]="item.riskLevel === 'high'">{{ isProcessed(item) ? '—' : waitingTime(item.submittedAt) }}</span></td>
                     <td><span class="risk-pill" [class.is-high]="item.riskLevel === 'high'"><i></i>{{ getRiskLabel(item.riskLevel) }}</span></td>
                     <td><span class="reviewer-text">{{ item.reviewerName || '—' }}</span></td>
                     <td class="actions-column"><div class="row-actions">
                       @if (isProcessed(item)) { <span class="processed-label">{{ getStatusLabel(item.status) }}</span> }
-                      @else if (item.status === 'pending' && canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">Nhận</button> }
-                      @else if (item.status === 'pending') { <button type="button" class="table-action" (click)="openReviewModal(item)">Chi tiết</button>@if (canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">Nhận</button> } }
-                      @else if (item.status === 'reviewing' || item.status === 'escalated') { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ canReview() || isClaimedByMe(item) ? 'Mở' : 'Chi tiết' }}</button>@if (isClaimedByMe(item) && canClaim()) { <button type="button" class="table-action subtle" (click)="releaseCase(item)">Trả</button> } }
-                      @else { <span class="locked-label">Đang xử lý</span> }
+                      @else if (item.status === 'pending' && canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> }
+                      @else if (item.status === 'pending') { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ 'moderationPage.details' | translate }}</button>@if (canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> } }
+                      @else if (item.status === 'reviewing' || item.status === 'escalated') { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ canReview() || isClaimedByMe(item) ? ('moderationPage.open' | translate) : ('moderationPage.details' | translate) }}</button>@if (isClaimedByMe(item) && canClaim()) { <button type="button" class="table-action subtle" (click)="releaseCase(item)">{{ 'moderationPage.release' | translate }}</button> } }
+                      @else { <span class="locked-label">{{ 'moderationPage.processing' | translate }}</span> }
                     </div></td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
-          <footer class="table-footer"><span>Hiển thị {{ filteredQueue().length }} hồ sơ</span><span>Trang 1</span></footer>
+          <footer class="table-footer"><span>{{ 'moderationPage.showingCases' | translate:{ count: filteredQueue().length } }}</span><span>{{ 'moderationPage.pageOne' | translate }}</span></footer>
         }
       </section>
     </div>
@@ -76,13 +76,13 @@
   @if (isReviewModalOpen() && activeCase(); as currentCase) {
     <div class="modal-backdrop" (click)="closeReviewModal()">
       <div class="review-modal" [class.is-theater]="isTheaterMode()" role="dialog" aria-modal="true" aria-labelledby="review-title" (click)="$event.stopPropagation()">
-        <header class="modal-header"><div><p class="eyebrow">KHÔNG GIAN THẨM ĐỊNH VIDEO</p><h2 id="review-title">{{ currentCase.title }}</h2></div><div class="modal-header-actions"><button type="button" class="expand-button" (click)="toggleTheaterMode()">{{ isTheaterMode() ? 'Thu gọn' : 'Mở rộng' }}</button><button type="button" class="close-button" (click)="closeReviewModal()" aria-label="Đóng">×</button></div></header>
-        <div class="modal-content"><div class="review-grid"><div class="preview-column"><div class="player-container">@if (currentCase.videoUrl) { <video [src]="currentCase.videoUrl" [poster]="currentCase.thumbnailUrl || undefined" controls class="main-player"></video> } @else if (currentCase.thumbnailUrl) { <img [src]="currentCase.thumbnailUrl" alt="Thumbnail" class="main-player-poster" /> } @else { <span class="player-placeholder">Không có bản xem trước</span> }</div><div class="info-card"><h3>Thông tin video</h3><div><span>Kênh</span><strong>{{ currentCase.channelName }}</strong></div><div><span>Danh mục</span><strong>{{ currentCase.categoryName || 'Chưa phân loại' }}</strong></div><div><span>Gửi lúc</span><strong>{{ formatDate(currentCase.submittedAt) }}</strong></div>@if (currentCase.description) { <p>{{ currentCase.description }}</p> }</div></div><div class="decision-column"><label class="form-field"><span>Chính sách áp dụng</span><select [ngModel]="selectedPolicyCode()" (ngModelChange)="selectedPolicyCode.set($event)"><option value="">Không có vi phạm</option>@for (policy of policies(); track policy.policyId) { <option [value]="policy.code">{{ getPolicyName(policy) }}</option> }</select></label><label class="form-field"><span>Lý do / ghi chú quyết định</span><input type="text" [ngModel]="actionReason()" (ngModelChange)="actionReason.set($event)" placeholder="Nhập lý do xử lý..." /></label><label class="form-field"><span>Ghi chú nội bộ</span><textarea rows="3" [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" placeholder="Chỉ hiển thị trong nội bộ..."></textarea></label><div class="decision-actions"><h3>Quyết định</h3>
-  @if (canApprove()) { <button type="button" class="decision-button approve" [disabled]="submitting()" (click)="submitDecision('approve')"><b>✓</b><span><strong>Phê duyệt</strong><small>Cho phép hiển thị công khai</small></span></button><button type="button" class="decision-button age" [disabled]="submitting()" (click)="submitDecision('age_restricted')"><b>18+</b><span><strong>Giới hạn độ tuổi</strong><small>Gắn nhãn nội dung 18+</small></span></button><button type="button" class="decision-button recommendation" [disabled]="submitting()" (click)="submitDecision('recommendation_restricted')"><b>⊘</b><span><strong>Hạn chế đề xuất</strong><small>Không đưa vào gợi ý</small></span></button> }
-  @if (canReject()) { <button type="button" class="decision-button reject" [disabled]="submitting()" (click)="submitDecision('reject')"><b>×</b><span><strong>Từ chối</strong><small>Chọn policy và nêu lý do</small></span></button> }
-  @if (canReview()) { <button type="button" class="decision-button escalate" [disabled]="submitting()" (click)="submitDecision('escalate')"><b>↑</b><span><strong>Chuyển cấp</strong><small>Yêu cầu quản trị cao hơn</small></span></button> }
+        <header class="modal-header"><div><p class="eyebrow">{{ 'moderationPage.reviewWorkspace' | translate }}</p><h2 id="review-title">{{ currentCase.title }}</h2></div><div class="modal-header-actions"><button type="button" class="expand-button" (click)="toggleTheaterMode()">{{ isTheaterMode() ? ('moderationPage.collapse' | translate) : ('moderationPage.expand' | translate) }}</button><button type="button" class="close-button" (click)="closeReviewModal()" [attr.aria-label]="'moderation.close' | translate">×</button></div></header>
+        <div class="modal-content"><div class="review-grid"><div class="preview-column"><div class="player-container">@if (currentCase.videoUrl) { <video [src]="currentCase.videoUrl" [poster]="currentCase.thumbnailUrl || undefined" controls class="main-player"></video> } @else if (currentCase.thumbnailUrl) { <img [src]="currentCase.thumbnailUrl" [alt]="'moderationPage.thumbnail' | translate" class="main-player-poster" /> } @else { <span class="player-placeholder">{{ 'moderationPage.noPreview' | translate }}</span> }</div><div class="info-card"><h3>{{ 'moderationPage.videoInfo' | translate }}</h3><div><span>{{ 'nav.channels' | translate }}</span><strong>{{ currentCase.channelName }}</strong></div><div><span>{{ 'moderationPage.category' | translate }}</span><strong>{{ currentCase.categoryName || ('moderationPage.noCategory' | translate) }}</strong></div><div><span>{{ 'moderationPage.sentAt' | translate }}</span><strong>{{ formatDate(currentCase.submittedAt) }}</strong></div>@if (currentCase.description) { <p>{{ currentCase.description }}</p> }</div></div><div class="decision-column"><label class="form-field"><span>{{ 'moderationPage.policy' | translate }}</span><select [ngModel]="selectedPolicyCode()" (ngModelChange)="selectedPolicyCode.set($event)"><option value="">{{ 'moderationPage.noViolation' | translate }}</option>@for (policy of policies(); track policy.policyId) { <option [value]="policy.code">{{ getPolicyName(policy) }}</option> }</select></label><label class="form-field"><span>{{ 'moderationPage.reasonNotes' | translate }}</span><input type="text" [ngModel]="actionReason()" (ngModelChange)="actionReason.set($event)" [placeholder]="'moderationPage.reasonPlaceholder' | translate" /></label><label class="form-field"><span>{{ 'moderationPage.internalNotes' | translate }}</span><textarea rows="3" [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" [placeholder]="'moderationPage.internalPlaceholder' | translate"></textarea></label><div class="decision-actions"><h3>{{ 'moderationPage.decision' | translate }}</h3>
+  @if (canApprove()) { <button type="button" class="decision-button approve" [disabled]="submitting()" (click)="submitDecision('approve')"><b>✓</b><span><strong>{{ 'moderationPage.approve' | translate }}</strong><small>{{ 'moderationPage.approveHint' | translate }}</small></span></button><button type="button" class="decision-button age" [disabled]="submitting()" (click)="submitDecision('age_restricted')"><b>18+</b><span><strong>{{ 'moderation.actionAgeRestricted' | translate }}</strong><small>{{ 'moderationPage.ageRestrictedHint' | translate }}</small></span></button><button type="button" class="decision-button recommendation" [disabled]="submitting()" (click)="submitDecision('recommendation_restricted')"><b>⊘</b><span><strong>{{ 'moderation.actionRecommendationRestricted' | translate }}</strong><small>{{ 'moderationPage.recommendationHint' | translate }}</small></span></button> }
+  @if (canReject()) { <button type="button" class="decision-button reject" [disabled]="submitting()" (click)="submitDecision('reject')"><b>×</b><span><strong>{{ 'moderationPage.reject' | translate }}</strong><small>{{ 'moderationPage.rejectHint' | translate }}</small></span></button> }
+  @if (canReview()) { <button type="button" class="decision-button escalate" [disabled]="submitting()" (click)="submitDecision('escalate')"><b>↑</b><span><strong>{{ 'moderationPage.escalate' | translate }}</strong><small>{{ 'moderationPage.escalateHint' | translate }}</small></span></button> }
 </div></div></div></div>
-        <footer class="modal-footer"><button type="button" class="outline-button" [disabled]="submitting()" (click)="closeReviewModal()">Đóng</button></footer>
+        <footer class="modal-footer"><button type="button" class="outline-button" [disabled]="submitting()" (click)="closeReviewModal()">{{ 'moderation.close' | translate }}</button></footer>
       </div>
     </div>
   }

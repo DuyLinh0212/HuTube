@@ -4,10 +4,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { AdminAuthLayoutComponent } from './layouts/auth-layout/admin-auth-layout.component';
 import { AdminShellLayoutComponent } from './layouts/shell-layout/admin-shell-layout.component';
+import { TranslatePipe } from './core/translate.pipe';
 
 @Component({
   selector: 'app-root',
-  imports: [AdminAuthLayoutComponent, AdminShellLayoutComponent],
+  imports: [AdminAuthLayoutComponent, AdminShellLayoutComponent, TranslatePipe],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

@@ -1,16 +1,16 @@
 <div class="moderation-container">
   <header class="page-header">
     <div class="header-titles">
-      <p class="eyebrow">KIỂM DUYỆT KHIẾU NẠI</p>
-      <h1>Xử lý đơn khiếu nại quyết định</h1>
-      <p class="subtitle">Xem xét và tái thẩm định các quyết định khóa kênh, gắn gậy phạt hoặc từ chối video theo nguyên tắc phân quyền độc lập (Separation of Duties).</p>
+      <p class="eyebrow">{{ 'appeals.eyebrow' | translate }}</p>
+      <h1>{{ 'appeals.title' | translate }}</h1>
+      <p class="subtitle">{{ 'appeals.subtitle' | translate }}</p>
     </div>
     <div class="header-actions">
       <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
           <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
         </svg>
-        <span>Làm mới</span>
+        <span>{{ 'moderation.refresh' | translate }}</span>
       </button>
     </div>
   </header>
@@ -39,34 +39,34 @@
   }
 
   <!-- Status Tabs -->
-  <div class="status-tabs" role="tablist" aria-label="Trạng thái khiếu nại">
+  <div class="status-tabs" role="tablist" [attr.aria-label]="'appeals.statusTabs' | translate">
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">
-      Chờ thẩm định <b>{{ countPending() }}</b>
+      {{ 'appeals.pending' | translate }} <b>{{ countPending() }}</b>
     </button>
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">
-      Đang xem xét <b>{{ countReviewing() }}</b>
+      {{ 'appeals.reviewing' | translate }} <b>{{ countReviewing() }}</b>
     </button>
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'approved'" (click)="selectedStatus.set('approved')">
-      Đã chấp thuận <b>{{ countApproved() }}</b>
+      {{ 'appeals.approved' | translate }} <b>{{ countApproved() }}</b>
     </button>
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'rejected'" (click)="selectedStatus.set('rejected')">
-      Bác khiếu nại <b>{{ countRejected() }}</b>
+      {{ 'appeals.rejected' | translate }} <b>{{ countRejected() }}</b>
     </button>
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'ALL'" (click)="selectedStatus.set('ALL')">
-      Tất cả <b>{{ appeals().length }}</b>
+      {{ 'moderation.statusAll' | translate }} <b>{{ appeals().length }}</b>
     </button>
   </div>
 
   <!-- Filters Toolbar -->
   <section class="toolbar">
     <div class="filter-group">
-      <label for="appeal-target-filter">Đối tượng:</label>
+      <label for="appeal-target-filter">{{ 'appeals.target' | translate }}:</label>
       <select id="appeal-target-filter" [ngModel]="selectedTargetType()" (ngModelChange)="selectedTargetType.set($event)">
-        <option value="ALL">Tất cả đối tượng</option>
-        <option value="video">Video</option>
-        <option value="channel">Kênh</option>
-        <option value="strike">Gậy phạt</option>
-        <option value="comment">Bình luận</option>
+        <option value="ALL">{{ 'appeals.allTargets' | translate }}</option>
+        <option value="video">{{ 'moderation.colVideo' | translate }}</option>
+        <option value="channel">{{ 'nav.channels' | translate }}</option>
+        <option value="strike">{{ 'appeals.strike' | translate }}</option>
+        <option value="comment">{{ 'moderation.colComment' | translate }}</option>
       </select>
     </div>
 
@@ -75,7 +75,7 @@
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
-      <input type="text" placeholder="Tìm kiếm đối tượng, lý do, người khiếu nại..."
+      <input type="text" [placeholder]="'appeals.search' | translate"
         [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
     </div>
   </section>
@@ -84,17 +84,17 @@
   <section class="table-card">
     <div class="table-heading">
       <div>
-        <h2>Hồ sơ khiếu nại quyết định kiểm duyệt</h2>
-        <p>{{ filteredAppeals().length }} kết quả phù hợp</p>
+        <h2>{{ 'appeals.listTitle' | translate }}</h2>
+        <p>{{ 'appeals.matching' | translate:{ count: filteredAppeals().length } }}</p>
       </div>
       @if (countPending() > 0) {
-        <span class="queue-count">{{ countPending() }} chờ thẩm định</span>
+        <span class="queue-count">{{ 'appeals.pendingCount' | translate:{ count: countPending() } }}</span>
       }
     </div>
     @if (loading()) {
       <div class="loading-state">
         <div class="spinner"></div>
-        <p>Đang tải danh sách khiếu nại...</p>
+        <p>{{ 'appeals.loading' | translate }}</p>
       </div>
     } @else if (filteredAppeals().length === 0) {
       <div class="empty-state">
@@ -105,24 +105,24 @@
             <circle cx="8" cy="12" r="2"></circle>
           </svg>
         </div>
-        <h3>Không có khiếu nại nào</h3>
-        <p>Tất cả đơn khiếu nại đã được phân xử hoặc nội dung tìm kiếm không khớp.</p>
+        <h3>{{ 'appeals.emptyTitle' | translate }}</h3>
+        <p>{{ 'appeals.emptyHint' | translate }}</p>
       </div>
     } @else {
       <div class="table-responsive">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 75px;">Lần</th>
-              <th style="width: 100px;">Đối tượng</th>
-              <th style="min-width: 180px;">Mục khiếu nại</th>
-              <th style="min-width: 220px;">Lý do từ người dùng</th>
-              <th style="width: 120px;">Bằng chứng</th>
-              <th style="width: 130px;">Người gửi</th>
-              <th style="width: 135px;">Trạng thái</th>
-              <th style="width: 120px;">Người thụ lý</th>
-              <th style="width: 135px;">Thời gian</th>
-              <th class="actions-col" style="width: 170px;">Thao tác</th>
+              <th style="width: 75px;">{{ 'appeals.index' | translate }}</th>
+              <th style="width: 100px;">{{ 'appeals.target' | translate }}</th>
+              <th style="min-width: 180px;">{{ 'appeals.item' | translate }}</th>
+              <th style="min-width: 220px;">{{ 'appeals.userReason' | translate }}</th>
+              <th style="width: 120px;">{{ 'appeals.evidence' | translate }}</th>
+              <th style="width: 130px;">{{ 'appeals.sender' | translate }}</th>
+              <th style="width: 135px;">{{ 'moderation.colStatus' | translate }}</th>
+              <th style="width: 120px;">{{ 'appeals.handler' | translate }}</th>
+              <th style="width: 135px;">{{ 'appeals.time' | translate }}</th>
+              <th class="actions-col" style="width: 170px;">{{ 'moderation.colActions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
@@ -135,7 +135,7 @@
                   <span class="badge" [class.badge-video]="item.targetType === 'video'"
                     [class.badge-channel]="item.targetType === 'channel'"
                     [class.badge-strike]="item.targetType === 'strike'">
-                    {{ item.targetType | uppercase }}
+                    {{ targetTypeLabel(item.targetType) }}
                   </span>
                 </td>
                 <td class="target-title-col">
@@ -150,7 +150,7 @@
                 <td>
                   @if (item.evidenceUrl) {
                     <button type="button" class="link-evidence" (click)="openEvidence(item)">
-                      <span>Xem đính kèm</span>
+                      <span>{{ 'appeals.viewAttachment' | translate }}</span>
                       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="link-icon">
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                         <polyline points="15 3 21 3 21 9"></polyline>
@@ -158,11 +158,11 @@
                       </svg>
                     </button>
                   } @else {
-                    <span class="text-muted">Không có</span>
+                    <span class="text-muted">{{ 'appeals.none' | translate }}</span>
                   }
                 </td>
                 <td>
-                  <span class="user-name">{{ item.userName || 'Người dùng' }}</span>
+                  <span class="user-name">{{ item.userName || ('appeals.user' | translate) }}</span>
                 </td>
                 <td>
                   <span class="status-pill" [class.status-pending]="item.status === 'pending'"
@@ -170,33 +170,33 @@
                     [class.status-approved]="item.status === 'approved'"
                     [class.status-rejected]="item.status === 'rejected'">
                     <span class="status-dot"></span>
-                    {{ item.status === 'pending' ? 'Chờ thẩm định' : item.status === 'reviewing' ? 'Đang xem xét' : item.status === 'approved' ? 'Đã chấp thuận' : 'Bác khiếu nại' }}
+                    {{ statusLabel(item.status) }}
                   </span>
                 </td>
                 <td>
                   <span class="reviewer-name">{{ item.reviewerName || '—' }}</span>
                 </td>
-                <td class="time-col">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td class="time-col">{{ item.createdAt | date:'short':undefined:dateLocale() }}</td>
                 <td class="actions-col">
                   <div class="action-buttons">
                     @if (canResolveAppeal() && item.status === 'pending') {
-                      <button type="button" class="btn-action btn-claim" (click)="claimAppeal(item)" [disabled]="submitting()" title="Nhận thẩm định hồ sơ khiếu nại này">
-                        Nhận thụ lý
+                      <button type="button" class="btn-action btn-claim" (click)="claimAppeal(item)" [disabled]="submitting()" [title]="'appeals.claimTitle' | translate">
+                        {{ 'appeals.claim' | translate }}
                       </button>
-                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Mở hộp thoại phán quyết">
-                        Phán quyết
+                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" [title]="'appeals.openResolution' | translate">
+                        {{ 'appeals.resolve' | translate }}
                       </button>
                     } @else if (canResolveAppeal() && item.status === 'reviewing') {
-                      <button type="button" class="btn-action btn-claim" (click)="releaseAppeal(item)" [disabled]="submitting()" title="Hủy nhận xử lý để chuyên viên khác tiếp quản">
-                        Bỏ nhận
+                      <button type="button" class="btn-action btn-claim" (click)="releaseAppeal(item)" [disabled]="submitting()" [title]="'appeals.releaseTitle' | translate">
+                        {{ 'appeals.release' | translate }}
                       </button>
-                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" title="Mở hộp thoại phán quyết">
-                        Phán quyết
+                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" [title]="'appeals.openResolution' | translate">
+                        {{ 'appeals.resolve' | translate }}
                       </button>
                     } @else if (item.status !== 'pending' && item.status !== 'reviewing') {
-                      <span class="done-label">Đã xử lý</span>
+                      <span class="done-label">{{ 'appeals.processed' | translate }}</span>
                     } @else {
-                      <span class="text-muted">Chờ thụ lý</span>
+                      <span class="text-muted">{{ 'appeals.waitingAssignment' | translate }}</span>
                     }
                   </div>
                 </td>
@@ -213,53 +213,53 @@
     <div class="modal-backdrop" (click)="closeResolveModal()">
       <div class="modal-card" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h3>Phán quyết đơn khiếu nại #{{ activeAppeal()!.appealNumber }}</h3>
+          <h3>{{ 'appeals.resolutionTitle' | translate:{ number: activeAppeal()!.appealNumber } }}</h3>
           <button type="button" class="close-btn" (click)="closeResolveModal()">&times;</button>
         </div>
 
         <div class="modal-body">
           <div class="context-box">
             <div class="context-row">
-              <span class="context-label">Đối tượng:</span>
+              <span class="context-label">{{ 'appeals.targetLabel' | translate }}</span>
               <span class="badge" [class.badge-video]="activeAppeal()!.targetType === 'video'"
                 [class.badge-channel]="activeAppeal()!.targetType === 'channel'"
                 [class.badge-strike]="activeAppeal()!.targetType === 'strike'">
-                {{ activeAppeal()!.targetType | uppercase }}
+                {{ targetTypeLabel(activeAppeal()!.targetType) }}
               </span>
               <strong style="margin-left: 0.35rem;">{{ activeAppeal()!.targetTitle }}</strong>
             </div>
             <div class="context-row">
-              <span class="context-label">Lý do giải trình:</span>
+              <span class="context-label">{{ 'appeals.explanation' | translate }}</span>
               <span>{{ activeAppeal()!.reason }}</span>
             </div>
             @if (activeAppeal()!.evidenceUrl) {
               <div class="context-row">
-                <span class="context-label">Bằng chứng:</span>
-                <button type="button" class="link-evidence" (click)="openEvidence(activeAppeal()!)">Mở tệp bằng chứng</button>
+                <span class="context-label">{{ 'appeals.evidenceLabel' | translate }}</span>
+                <button type="button" class="link-evidence" (click)="openEvidence(activeAppeal()!)">{{ 'appeals.openEvidence' | translate }}</button>
               </div>
             }
           </div>
 
           <div class="form-group">
-            <label>Quyết định phán quyết <span class="required">*</span></label>
+            <label>{{ 'appeals.decision' | translate }} <span class="required">*</span></label>
             <select [ngModel]="selectedDecision()" (ngModelChange)="selectedDecision.set($event)">
-              <option value="approve">Chấp thuận khiếu nại (Hủy phạt / Mở khóa / Khôi phục)</option>
-              <option value="reject">Bác đơn khiếu nại (Giữ nguyên quyết định kiểm duyệt)</option>
-              <option value="escalate">Chuyển tiếp lên cấp quản lý cao hơn</option>
+              <option value="approve">{{ 'appeals.approveDecision' | translate }}</option>
+              <option value="reject">{{ 'appeals.rejectDecision' | translate }}</option>
+              <option value="escalate">{{ 'appeals.escalateDecision' | translate }}</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label>Ghi chú kết quả phán quyết</label>
-            <textarea rows="3" placeholder="Nhập lý do kết quả phán quyết gửi đến chủ thể..."
+            <label>{{ 'appeals.outcomeNote' | translate }}</label>
+            <textarea rows="3" [placeholder]="'appeals.outcomePlaceholder' | translate"
               [ngModel]="reviewNote()" (ngModelChange)="reviewNote.set($event)"></textarea>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeResolveModal()" [disabled]="submitting()">Hủy</button>
+          <button type="button" class="btn btn-secondary" (click)="closeResolveModal()" [disabled]="submitting()">{{ 'common.cancel' | translate }}</button>
           <button type="button" class="btn btn-primary" (click)="submitResolution()" [disabled]="submitting()">
-            {{ submitting() ? 'Đang lưu...' : 'Xác nhận phán quyết' }}
+            {{ submitting() ? ('appeals.saving' | translate) : ('appeals.confirmResolution' | translate) }}
           </button>
         </div>
       </div>

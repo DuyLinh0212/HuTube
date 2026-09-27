@@ -18,7 +18,7 @@
   }
 
   <!-- Filter & Action Header Strip -->
-  <section class="video-filter-section" aria-label="Bộ lọc video">
+  <section class="video-filter-section" [attr.aria-label]="'videos.filterAria' | translate">
     <!-- Row 1: Filters -->
     <div class="filters-row-1">
       <div class="search-box">
@@ -28,7 +28,7 @@
         </svg>
         <input
           type="search"
-          placeholder="Tìm theo tiêu đề video..."
+          [placeholder]="'videos.searchPlaceholder' | translate"
           [ngModel]="search()"
           (ngModelChange)="search.set($event)"
           (keyup.enter)="applyFilters()"
@@ -36,29 +36,29 @@
       </div>
 
       <app-custom-select
-        prefix="Danh mục"
+        [prefix]="'videos.category' | translate"
         [options]="categoryOptions()"
         [value]="categoryFilter()"
         (valueChange)="setCategory($event)"
       ></app-custom-select>
 
       <app-custom-select
-        prefix="Trạng thái"
-        [options]="statusOptions"
+        [prefix]="'videos.status' | translate"
+        [options]="statusOptions()"
         [value]="statusFilter()"
         (valueChange)="setStatus($event)"
       ></app-custom-select>
 
       <app-custom-select
-        prefix="Hiển thị"
-        [options]="visibilityOptions"
+        [prefix]="'videos.visibility' | translate"
+        [options]="visibilityOptions()"
         [value]="visibilityFilter()"
         (valueChange)="setVisibility($event)"
       ></app-custom-select>
 
       <app-custom-select
-        prefix="Thời gian"
-        [options]="timeOptions"
+        [prefix]="'videos.time' | translate"
+        [options]="timeOptions()"
         [value]="timeFilter()"
         (valueChange)="setTime($event)"
       ></app-custom-select>
@@ -68,7 +68,7 @@
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
           </svg>
-          Lọc
+          {{ 'videos.filter' | translate }}
         </button>
 
         <button type="button" class="btn-reset" (click)="resetFilters()">
@@ -78,7 +78,7 @@
             <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
             <path d="M3 21v-5h5"/>
           </svg>
-          Đặt lại
+          {{ 'videos.reset' | translate }}
         </button>
       </div>
     </div>
@@ -89,14 +89,14 @@
         <svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
         </svg>
-        Thêm video
+        {{ 'videos.add' | translate }}
       </button>
 
       <button type="button" class="btn-export-data" (click)="exportData()">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
         </svg>
-        Xuất dữ liệu
+        {{ 'videos.export' | translate }}
       </button>
     </div>
   </section>
@@ -106,7 +106,7 @@
         @if (loading()) {
           <div class="table-loading-overlay">
             <div class="loader-spinner"></div>
-            <span>Đang tải danh sách video...</span>
+            <span>{{ 'videos.loading' | translate }}</span>
           </div>
         }
 
@@ -116,7 +116,7 @@
               <tr>
                 <th class="col-sortable" (click)="toggleSort('title')">
                   <div class="th-content">
-                    <span>Video</span>
+                    <span>{{ 'moderation.colVideo' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'title'">
                       @if (sortBy() === 'title') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -132,7 +132,7 @@
                 </th>
                 <th class="col-sortable" (click)="toggleSort('channel')">
                   <div class="th-content">
-                    <span>Kênh</span>
+                    <span>{{ 'nav.channels' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'channel'">
                       @if (sortBy() === 'channel') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -148,7 +148,7 @@
                 </th>
                 <th class="col-sortable" (click)="toggleSort('category')">
                   <div class="th-content">
-                    <span>Danh mục</span>
+                    <span>{{ 'videos.category' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'category'">
                       @if (sortBy() === 'category') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -164,7 +164,7 @@
                 </th>
                 <th class="col-sortable" (click)="toggleSort('status')">
                   <div class="th-content">
-                    <span>Trạng thái</span>
+                    <span>{{ 'moderation.colStatus' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'status'">
                       @if (sortBy() === 'status') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -180,7 +180,7 @@
                 </th>
                 <th class="col-sortable" (click)="toggleSort('visibility')">
                   <div class="th-content">
-                    <span>Hiển thị</span>
+                    <span>{{ 'videos.visibility' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'visibility'">
                       @if (sortBy() === 'visibility') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -196,7 +196,7 @@
                 </th>
                 <th class="col-sortable text-right" (click)="toggleSort('views')">
                   <div class="th-content justify-end">
-                    <span>Lượt xem</span>
+                    <span>{{ 'videos.views' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'views'">
                       @if (sortBy() === 'views') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -212,7 +212,7 @@
                 </th>
                 <th class="col-sortable text-center" (click)="toggleSort('reports')">
                   <div class="th-content justify-center">
-                    <span>Báo cáo</span>
+                    <span>{{ 'videos.reports' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'reports'">
                       @if (sortBy() === 'reports') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -228,7 +228,7 @@
                 </th>
                 <th class="col-sortable" (click)="toggleSort('createdAt')">
                   <div class="th-content">
-                    <span>Ngày tải lên</span>
+                    <span>{{ 'videos.uploadDate' | translate }}</span>
                     <span class="sort-icon-box" [class.is-active]="sortBy() === 'createdAt'">
                       @if (sortBy() === 'createdAt') {
                         <svg class="sort-arrow" [class.is-asc]="!sortDescending()" viewBox="0 0 20 20" fill="currentColor">
@@ -242,7 +242,7 @@
                     </span>
                   </div>
                 </th>
-                <th class="col-actions text-center">Thao tác</th>
+                <th class="col-actions text-center">{{ 'videos.actions' | translate }}</th>
               </tr>
             </thead>
             <tbody>
@@ -252,7 +252,7 @@
                   (click)="openPreview(video)"
                 >
                   <!-- Video: Thumbnail + Title -->
-                  <td class="col-video" data-label="Video">
+                  <td class="col-video" [attr.data-label]="'moderation.colVideo' | translate">
                     <div class="video-cell">
                       <div class="video-thumb-container">
                         @if (video.thumbnailUrl) {
@@ -271,7 +271,7 @@
                   </td>
 
                   <!-- Kênh: Avatar + Name + Subs -->
-                  <td class="col-channel" data-label="Kênh">
+                  <td class="col-channel" [attr.data-label]="'nav.channels' | translate">
                     <div class="channel-cell">
                       <div class="channel-avatar">
                         @if (video.channelAvatarUrl) {
@@ -284,26 +284,26 @@
                       </div>
                       <div class="channel-meta">
                         <span class="channel-name">{{ video.channelName }}</span>
-                        <span class="channel-subs">{{ video.channelSubscribers || '0 người đăng ký' }}</span>
+                        <span class="channel-subs">{{ video.channelSubscribers || ('videos.noSubscribers' | translate) }}</span>
                       </div>
                     </div>
                   </td>
 
                   <!-- Danh mục -->
-                  <td class="col-category" data-label="Danh mục">
+                  <td class="col-category" [attr.data-label]="'videos.category' | translate">
                     @if (video.categoryName) {
                       <span class="category-pill" [ngClass]="categoryClass(video.categoryName)">
                         {{ video.categoryName }}
                       </span>
                     } @else {
                       <span class="category-pill cat-default text-muted">
-                        Chưa phân loại
+                        {{ 'videos.noCategory' | translate }}
                       </span>
                     }
                   </td>
 
                   <!-- Trạng thái -->
-                  <td class="col-status" data-label="Trạng thái">
+                  <td class="col-status" [attr.data-label]="'videos.status' | translate">
                     @let sBadge = statusBadge(video.status, video.moderationStatus);
                     <span class="status-badge" [ngClass]="sBadge.cls">
                       @if (sBadge.icon === 'check') {
@@ -322,7 +322,7 @@
                   </td>
 
                   <!-- Hiển thị (Quyền riêng tư) -->
-                  <td class="col-visibility" data-label="Hiển thị">
+                  <td class="col-visibility" [attr.data-label]="'videos.visibility' | translate">
                     @let vBadge = visibilityBadge(video.visibility);
                     <span class="visibility-badge" [ngClass]="vBadge.cls">
                       @if (vBadge.icon === 'globe') {
@@ -337,33 +337,33 @@
                   </td>
 
                   <!-- Lượt xem -->
-                  <td class="col-views text-right" data-label="Lượt xem">
+                  <td class="col-views text-right" [attr.data-label]="'videos.views' | translate">
                     <span class="stat-number">{{ formatShort(video.views) }}</span>
                   </td>
 
                   <!-- Báo cáo -->
-                  <td class="col-reports text-center" data-label="Báo cáo">
+                  <td class="col-reports text-center" [attr.data-label]="'videos.reports' | translate">
                     <span class="report-number" [class.is-high]="(video.reportCount || 0) > 0">
                       {{ video.reportCount || 0 }}
                     </span>
                   </td>
 
                   <!-- Ngày tải lên -->
-                  <td class="col-date" data-label="Ngày tải lên">
+                  <td class="col-date" [attr.data-label]="'videos.uploadDate' | translate">
                     <div class="date-cell">
-                      <span>{{ video.createdAt | date:'dd/MM/yyyy' }}</span>
-                      <small>{{ video.createdAt | date:'HH:mm' }}</small>
+                      <span>{{ video.createdAt | date:'shortDate':undefined:dateLocale() }}</span>
+                      <small>{{ video.createdAt | date:'shortTime':undefined:dateLocale() }}</small>
                     </div>
                   </td>
 
                   <!-- Thao tác: Row of Action Icons -->
-                  <td class="col-actions text-center" data-label="Thao tác" (click)="$event.stopPropagation()">
+                  <td class="col-actions text-center" [attr.data-label]="'videos.actions' | translate" (click)="$event.stopPropagation()">
                     <div class="row-action-buttons">
                       <!-- Eye: View Details / Playback -->
                       <button
                         type="button"
                         class="icon-action-btn"
-                        title="Xem chi tiết"
+                        [title]="'videos.details' | translate"
                         (click)="openPreview(video)"
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -376,7 +376,7 @@
                       <button
                         type="button"
                         class="icon-action-btn"
-                        title="Thống kê video"
+                        [title]="'videos.stats' | translate"
                         (click)="openStats(video)"
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -390,7 +390,7 @@
                       <button
                         type="button"
                         class="icon-action-btn"
-                        title="Chỉnh sửa thông tin"
+                        [title]="'videos.edit' | translate"
                         (click)="openEdit(video)"
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -404,7 +404,7 @@
                         <button
                           type="button"
                           class="icon-action-btn"
-                          title="Thao tác khác"
+                          [title]="'videos.moreActions' | translate"
                           (click)="toggleActionMenu(video.videoId, $event)"
                         >
                           <svg viewBox="0 0 24 24" fill="currentColor">
@@ -419,23 +419,23 @@
                             @if (video.status !== 'blocked') {
                               <button type="button" class="menu-item text-amber" (click)="openAction('hide', video)">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd"/></svg>
-                                Ẩn video
+                                {{ 'videos.hide' | translate }}
                               </button>
                             }
                             @if (video.status === 'blocked') {
                               <button type="button" class="menu-item text-green" (click)="openAction('unhide', video)">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
-                                Bỏ ẩn video
+                                {{ 'videos.unhide' | translate }}
                               </button>
                             }
                             <button type="button" class="menu-item text-red" (click)="openAction('remove', video)">
                               <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-                              Gỡ video vi phạm
+                              {{ 'videos.remove' | translate }}
                             </button>
                             @if (video.status === 'blocked' || video.status === 'deleted') {
                               <button type="button" class="menu-item text-green" (click)="openAction('restore', video)">
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
-                                Khôi phục video
+                                {{ 'videos.restore' | translate }}
                               </button>
                             }
                           </div>
@@ -447,7 +447,7 @@
               } @empty {
                 <tr>
                   <td colspan="9" class="empty-table-cell" style="text-align: center; padding: 2.5rem; color: #6c757d;">
-                    Không tìm thấy video nào phù hợp với bộ lọc.
+                    {{ 'videos.empty' | translate }}
                   </td>
                 </tr>
               }
@@ -458,7 +458,7 @@
         <!-- Table Footer / Pagination -->
         <footer class="table-pagination-footer">
           <div class="footer-left">
-            Hiển thị {{ showingStart() }}–{{ showingEnd() }} trong tổng số {{ formatNumber(total()) }} video
+            {{ 'videos.showing' | translate:{ start: showingStart(), end: showingEnd(), total: formatNumber(total()) } }}
           </div>
 
           <div class="footer-center">
@@ -468,7 +468,7 @@
                 class="page-arrow"
                 [disabled]="page() <= 1"
                 (click)="prevPage()"
-                aria-label="Trang trước"
+                [attr.aria-label]="'videos.previousPage' | translate"
               >
                 ‹
               </button>
@@ -493,7 +493,7 @@
                 class="page-arrow"
                 [disabled]="page() >= pageCount()"
                 (click)="nextPage()"
-                aria-label="Trang tiếp"
+                [attr.aria-label]="'videos.nextPage' | translate"
               >
                 ›
               </button>
@@ -508,7 +508,7 @@
       <div class="modal-dialog modal-large" (click)="$event.stopPropagation()">
         <header class="modal-header">
           <div>
-            <span class="modal-sub">CHI TIẾT VIDEO</span>
+            <span class="modal-sub">{{ 'videos.detailTitle' | translate }}</span>
             <h3>{{ previewVideo()?.title }}</h3>
           </div>
           <button type="button" class="modal-close" (click)="closePreview()">✕</button>
@@ -518,7 +518,7 @@
           @if (detailLoading()) {
             <div class="drawer-loading">
               <div class="loader-spinner"></div>
-              <p>Đang tải thông tin video...</p>
+              <p>{{ 'videos.loadingDetails' | translate }}</p>
             </div>
           } @else if (previewDetail(); as detail) {
             <div class="preview-grid">
@@ -531,21 +531,21 @@
                       <polygon points="23 7 16 12 23 17 23 7"></polygon>
                       <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
                     </svg>
-                    <p>Không có luồng phát trực tuyến sẵn sàng (URL: {{ detail.videoUrl || 'Chưa cấu hình' }})</p>
+                    <p>{{ 'videos.noStream' | translate:{ url: detail.videoUrl || ('videos.unconfigured' | translate) } }}</p>
                   </div>
                 }
               </div>
 
               <div class="preview-info-wrap">
-                <p class="preview-desc">{{ detail.description || 'Chưa có mô tả.' }}</p>
+                <p class="preview-desc">{{ detail.description || ('videos.noDescription' | translate) }}</p>
                 <dl class="preview-meta-list">
-                  <div><dt>Kênh:</dt><dd>{{ detail.video.channelName }} (&#64;{{ detail.video.channelHandle }})</dd></div>
-                  <div><dt>Danh mục:</dt><dd>{{ detail.categoryName || 'Công nghệ' }}</dd></div>
-                  <div><dt>Trạng thái:</dt><dd>{{ statusBadge(detail.video.status, detail.video.moderationStatus).label }}</dd></div>
-                  <div><dt>Hiển thị:</dt><dd>{{ visibilityBadge(detail.video.visibility).label }}</dd></div>
-                  <div><dt>Lượt xem:</dt><dd>{{ detail.video.views | number }}</dd></div>
-                  <div><dt>Thời lượng:</dt><dd>{{ detail.duration }} giây</dd></div>
-                  <div><dt>Ngày tải:</dt><dd>{{ detail.video.createdAt | date:'dd/MM/yyyy HH:mm' }}</dd></div>
+                  <div><dt>{{ 'moderation.channelLabel' | translate }}</dt><dd>{{ detail.video.channelName }} (&#64;{{ detail.video.channelHandle }})</dd></div>
+                  <div><dt>{{ 'videos.categoryLabel' | translate }}</dt><dd>{{ detail.categoryName || ('videos.category' | translate) }}</dd></div>
+                  <div><dt>{{ 'moderation.filterStatus' | translate }}</dt><dd>{{ statusBadge(detail.video.status, detail.video.moderationStatus).label }}</dd></div>
+                  <div><dt>{{ 'videos.visibilityLabel' | translate }}</dt><dd>{{ visibilityBadge(detail.video.visibility).label }}</dd></div>
+                  <div><dt>{{ 'videos.viewsLabel' | translate }}</dt><dd>{{ detail.video.views | number }}</dd></div>
+                  <div><dt>{{ 'moderation.durationLabel' | translate }}</dt><dd>{{ 'videos.durationSeconds' | translate:{ duration: detail.duration } }}</dd></div>
+                  <div><dt>{{ 'videos.uploadedAt' | translate }}</dt><dd>{{ detail.video.createdAt | date:'short':undefined:dateLocale() }}</dd></div>
                 </dl>
               </div>
             </div>
@@ -553,9 +553,9 @@
             <!-- Reports Section -->
             <div class="preview-reports-sec">
               <div class="reports-header">
-                <h4>Thông tin báo cáo vi phạm</h4>
+                <h4>{{ 'videos.violationReports' | translate }}</h4>
                 <span class="report-badge-count" [class.has-reports]="detail.reports.length > 0">
-                  {{ detail.reports.length }} báo cáo
+                  {{ 'videos.reportCount' | translate:{ count: detail.reports.length } }}
                 </span>
               </div>
 
@@ -564,11 +564,11 @@
                   <table class="reports-table">
                     <thead>
                       <tr>
-                        <th>Người báo cáo</th>
-                        <th>Lý do vi phạm</th>
-                        <th>Nội dung mô tả</th>
-                        <th class="text-center">Trạng thái</th>
-                        <th class="text-right">Thời gian</th>
+                        <th>{{ 'videos.reporter' | translate }}</th>
+                        <th>{{ 'videos.violationReason' | translate }}</th>
+                        <th>{{ 'videos.reportDescription' | translate }}</th>
+                        <th class="text-center">{{ 'moderation.colStatus' | translate }}</th>
+                        <th class="text-right">{{ 'videos.reportTime' | translate }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -582,15 +582,15 @@
                             <span class="violation-reason-tag">{{ rep.reason }}</span>
                           </td>
                           <td class="desc-col">
-                            <span>{{ rep.description || 'Không có mô tả thêm' }}</span>
+                            <span>{{ rep.description || ('videos.noExtraDescription' | translate) }}</span>
                           </td>
                           <td class="status-col text-center">
                             <span class="report-status-pill" [class.is-pending]="rep.status === 'pending'" [class.is-resolved]="rep.status === 'resolved'" [class.is-dismissed]="rep.status === 'dismissed'">
-                              {{ rep.status === 'pending' ? 'Chờ xử lý' : rep.status === 'resolved' ? 'Đã giải quyết' : 'Đã bỏ qua' }}
+                              {{ rep.status === 'pending' ? ('videos.reportPending' | translate) : rep.status === 'resolved' ? ('videos.reportResolved' | translate) : ('videos.reportDismissed' | translate) }}
                             </span>
                           </td>
                           <td class="date-col text-right">
-                            {{ rep.createdAt | date:'dd/MM/yyyy HH:mm' }}
+                            {{ rep.createdAt | date:'short':undefined:dateLocale() }}
                           </td>
                         </tr>
                       }
@@ -603,7 +603,7 @@
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     <path d="m9 12 2 2 4-4"/>
                   </svg>
-                  <span>Chưa có báo cáo vi phạm nào cho video này.</span>
+                  <span>{{ 'videos.noReports' | translate }}</span>
                 </div>
               }
             </div>
@@ -611,13 +611,13 @@
             <!-- History Logs -->
             @if (detail.history && detail.history.length > 0) {
               <div class="preview-history-sec">
-                <h4>Lịch sử kiểm duyệt &amp; quản trị</h4>
+                <h4>{{ 'videos.history' | translate }}</h4>
                 <div class="history-list">
                   @for (log of detail.history; track log.auditLogId) {
                     <div class="hist-row">
-                      <strong>{{ log.action }}</strong>
-                      <span>{{ log.reason || 'Không có lý do' }}</span>
-                      <small>{{ log.actorName || 'Hệ thống' }} · {{ log.createdAt | date:'dd/MM/yyyy HH:mm' }}</small>
+                      <strong>{{ auditActionLabel(log.action) }}</strong>
+                      <span>{{ log.reason || ('videos.noReason' | translate) }}</span>
+                      <small>{{ log.actorName || ('videos.system' | translate) }} · {{ log.createdAt | date:'short':undefined:dateLocale() }}</small>
                     </div>
                   }
                 </div>
@@ -634,13 +634,13 @@
     <div class="modal-backdrop" (click)="closeEdit()">
       <div class="modal-dialog" (click)="$event.stopPropagation()">
         <header class="modal-header">
-          <h3>Chỉnh sửa thông tin video</h3>
+          <h3>{{ 'videos.editTitle' | translate }}</h3>
           <button type="button" class="modal-close" (click)="closeEdit()">✕</button>
         </header>
 
         <form class="modal-body" (ngSubmit)="saveEdit()">
           <label class="modal-form-label">
-            <span>Tiêu đề video <strong class="text-red">*</strong>:</span>
+            <span>{{ 'videos.videoTitle' | translate }} <strong class="text-red">*</strong>:</span>
             <input
               type="text"
               class="modal-input"
@@ -653,7 +653,7 @@
           </label>
 
           <label class="modal-form-label">
-            <span>Mô tả:</span>
+            <span>{{ 'videos.description' | translate }}:</span>
             <textarea
               class="modal-textarea"
               rows="3"
@@ -665,14 +665,14 @@
           </label>
 
           <label class="modal-form-label">
-            <span>Danh mục:</span>
+            <span>{{ 'videos.category' | translate }}:</span>
             <select
               class="modal-select"
               [ngModel]="editCategoryId()"
               (ngModelChange)="editCategoryId.set($event)"
               name="cat"
             >
-              <option value="">Chưa phân loại</option>
+              <option value="">{{ 'videos.noCategory' | translate }}</option>
               @for (cat of categories(); track cat.categoryId) {
                 <option [value]="cat.categoryId">{{ cat.name }}</option>
               }
@@ -680,13 +680,13 @@
           </label>
 
           <label class="modal-form-label">
-            <span>Lý do thay đổi metadata (tối thiểu 3 ký tự) <strong class="text-red">*</strong>:</span>
+            <span>{{ 'videos.changeMetadataReason' | translate }} <strong class="text-red">*</strong>:</span>
             <input
               type="text"
               class="modal-input"
               required
               minlength="3"
-              placeholder="VD: Cập nhật danh mục chính xác hơn theo yêu cầu"
+              [placeholder]="'videos.changeMetadataPlaceholder' | translate"
               [ngModel]="editReason()"
               (ngModelChange)="editReason.set($event)"
               name="reason"
@@ -695,14 +695,14 @@
 
           <footer class="modal-footer">
             <button type="button" class="btn-modal-cancel" (click)="closeEdit()" [disabled]="busy()">
-              Hủy
+              {{ 'common.cancel' | translate }}
             </button>
             <button
               type="submit"
               class="btn-modal-confirm"
               [disabled]="busy() || editReason().trim().length < 3 || !editTitle().trim()"
             >
-              {{ busy() ? 'Đang lưu...' : 'Lưu thông tin' }}
+              {{ busy() ? ('videos.saving' | translate) : ('videos.saveInfo' | translate) }}
             </button>
           </footer>
         </form>
@@ -721,17 +721,17 @@
 
         <div class="modal-body">
           <p class="modal-lead">
-            Xác nhận thực hiện <strong>{{ actionLabel(actionModalType() || '') }}</strong> trên video:
+            {{ 'videos.confirmAction' | translate:{ action: actionLabel(actionModalType() || '') } }}
             <br/>
             <span class="text-pink font-semibold">“{{ actionModalVideo()?.title }}”</span>
           </p>
 
           <label class="modal-form-label">
-            <span>Lý do thực hiện (tối thiểu 3 ký tự) <strong class="text-red">*</strong>:</span>
+            <span>{{ 'videos.actionReason' | translate }} <strong class="text-red">*</strong>:</span>
             <textarea
               class="modal-textarea"
               rows="3"
-              placeholder="Nhập lý do thực hiện thao tác quản trị..."
+              [placeholder]="'videos.actionReasonPlaceholder' | translate"
               [ngModel]="actionModalReason()"
               (ngModelChange)="actionModalReason.set($event)"
             ></textarea>
@@ -744,13 +744,13 @@
               [ngModel]="notifyOwner()"
               (ngModelChange)="notifyOwner.set($event)"
             />
-            <span>Gửi email và thông báo cho kênh sở hữu</span>
+            <span>{{ 'videos.notifyChannel' | translate }}</span>
           </label>
         </div>
 
         <footer class="modal-footer">
           <button type="button" class="btn-modal-cancel" (click)="closeAction()" [disabled]="busy()">
-            Hủy bỏ
+            {{ 'common.cancel' | translate }}
           </button>
           <button
             type="button"
@@ -758,7 +758,7 @@
             [disabled]="busy() || actionModalReason().trim().length < 3"
             (click)="submitAction()"
           >
-            {{ busy() ? 'Đang xử lý...' : 'Xác nhận thực hiện' }}
+            {{ busy() ? ('videos.processing' | translate) : ('videos.confirm' | translate) }}
           </button>
         </footer>
       </div>
@@ -770,7 +770,7 @@
     <div class="modal-backdrop" (click)="closeStats()">
       <div class="modal-dialog" (click)="$event.stopPropagation()">
         <header class="modal-header">
-          <h3>Thống kê chi tiết video</h3>
+          <h3>{{ 'videos.statsDetail' | translate }}</h3>
           <button type="button" class="modal-close" (click)="closeStats()">✕</button>
         </header>
 
@@ -779,29 +779,29 @@
             <h4>{{ statsVideo()?.title }}</h4>
             <div class="stats-metric-pills">
               <div class="pill-item">
-                <span>Lượt xem</span>
+                <span>{{ 'videos.views' | translate }}</span>
                 <strong>{{ formatNumber(statsVideo()?.views || 0) }}</strong>
               </div>
               <div class="pill-item">
-                <span>Báo cáo</span>
+                <span>{{ 'videos.reports' | translate }}</span>
                 <strong [class.text-red]="(statsVideo()?.reportCount || 0) > 30">
                   {{ statsVideo()?.reportCount || 0 }}
                 </strong>
               </div>
               <div class="pill-item">
-                <span>Kênh</span>
+                <span>{{ 'nav.channels' | translate }}</span>
                 <strong>{{ statsVideo()?.channelName }}</strong>
               </div>
               <div class="pill-item">
-                <span>Trạng thái</span>
-                <strong>{{ statsVideo()?.status }}</strong>
+                <span>{{ 'moderation.colStatus' | translate }}</span>
+                <strong>{{ statsStatusLabel() }}</strong>
               </div>
             </div>
           </div>
         </div>
 
         <footer class="modal-footer">
-          <button type="button" class="btn-modal-confirm" (click)="closeStats()">Đóng</button>
+          <button type="button" class="btn-modal-confirm" (click)="closeStats()">{{ 'moderation.close' | translate }}</button>
         </footer>
       </div>
     </div>
@@ -812,40 +812,40 @@
     <div class="modal-backdrop" (click)="closeAddVideo()">
       <div class="modal-dialog" (click)="$event.stopPropagation()">
         <header class="modal-header">
-          <h3>Thêm video mới</h3>
+          <h3>{{ 'videos.addTitle' | translate }}</h3>
           <button type="button" class="modal-close" (click)="closeAddVideo()">✕</button>
         </header>
 
         <div class="modal-body">
           <label class="modal-form-label">
-            <span>Tiêu đề video:</span>
+            <span>{{ 'videos.videoTitle' | translate }}:</span>
             <input
               type="text"
               class="modal-input"
-              placeholder="Nhập tiêu đề video..."
+              [placeholder]="'videos.enterTitle' | translate"
               [ngModel]="newVideoTitle()"
               (ngModelChange)="newVideoTitle.set($event)"
             />
           </label>
 
           <label class="modal-form-label">
-            <span>Quyền riêng tư:</span>
+            <span>{{ 'videos.privacy' | translate }}:</span>
             <select
               class="modal-select"
               [ngModel]="newVideoVisibility()"
               (ngModelChange)="newVideoVisibility.set($event)"
             >
-              <option value="public">Công khai</option>
-              <option value="unlisted">Không công khai</option>
-              <option value="private">Riêng tư</option>
+              <option value="public">{{ 'videos.public' | translate }}</option>
+              <option value="unlisted">{{ 'videos.unlisted' | translate }}</option>
+              <option value="private">{{ 'videos.private' | translate }}</option>
             </select>
           </label>
         </div>
 
         <footer class="modal-footer">
-          <button type="button" class="btn-modal-cancel" (click)="closeAddVideo()">Hủy</button>
+          <button type="button" class="btn-modal-cancel" (click)="closeAddVideo()">{{ 'common.cancel' | translate }}</button>
           <button type="button" class="btn-modal-confirm" (click)="submitAddVideo()" [disabled]="!newVideoTitle().trim()">
-            Lưu video
+            {{ 'videos.saveVideo' | translate }}
           </button>
         </footer>
       </div>

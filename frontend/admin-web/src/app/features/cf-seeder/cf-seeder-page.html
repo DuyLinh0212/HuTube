@@ -6,71 +6,71 @@
   <section class="workspace-grid">
     <form class="panel config-panel" (ngSubmit)="start()">
       <div class="panel-heading">
-        <div><span aria-hidden="true">⚙</span><h2>Cấu hình Seeder</h2></div>
-        <span class="step-label">01 · INPUT</span>
+        <div><span aria-hidden="true">⚙</span><h2>{{ 'seeder.config' | translate }}</h2></div>
+        <span class="step-label">{{ 'seeder.stage.input' | translate }}</span>
       </div>
 
       <div class="field-block">
-        <label>Thư mục chứa video <span>*</span></label>
+        <label>{{ 'seeder.folder' | translate }} <span>*</span></label>
         <div class="folder-row">
           <div class="folder-path" [class.has-value]="runner.folder()">
             <span aria-hidden="true">▱</span>
-            <strong>{{ runner.folder()?.name || 'Chưa chọn thư mục' }}</strong>
+            <strong>{{ runner.folder()?.name || ('seeder.noFolder' | translate) }}</strong>
           </div>
-          <button class="primary-button compact" type="button" [disabled]="runner.isRunning()" (click)="chooseFolder(fallbackFolder)">Chọn thư mục</button>
+          <button class="primary-button compact" type="button" [disabled]="runner.isRunning()" (click)="chooseFolder(fallbackFolder)">{{ 'seeder.chooseFolder' | translate }}</button>
             <input #fallbackFolder class="visually-hidden" type="file" multiple webkitdirectory accept="video/mp4,.mp4,.json,.description" (change)="onFallbackFolder($event)" />
         </div>
-        <p class="hint">Quét thư mục con, chỉ nhận MP4, nhóm theo từng video và đọc độ phân giải từ metadata hoặc tên rendition.</p>
+        <p class="hint">{{ 'seeder.folderHint' | translate }}</p>
       </div>
 
       @if (runner.folder(); as folder) {
         <div class="folder-summary">
-          <div><span class="summary-icon">▶</span><p><strong>{{ folder.files.length }} video</strong><small>Dung lượng rendition sẽ upload {{ formatBytes(folder.totalBytes) }}</small></p></div>
+          <div><span class="summary-icon">▶</span><p><strong>{{ 'seeder.videoCount' | translate:{count: folder.files.length} }}</strong><small>{{ 'seeder.renditionSize' | translate:{size: formatBytes(folder.totalBytes)} }}</small></p></div>
           <div class="permission-state">
-            <strong>Đọc và giữ nguyên file</strong>
-            <small>Seeder upload các rendition đã phát hiện</small>
+            <strong>{{ 'seeder.readKeepFiles' | translate }}</strong>
+            <small>{{ 'seeder.uploadRenditions' | translate }}</small>
           </div>
         </div>
         @if (runner.qualityScan().status === 'scanning') {
-          <p class="hint">Đang đọc metadata video {{ runner.qualityScan().processedFiles }}/{{ runner.qualityScan().totalFiles }}...</p>
+          <p class="hint">{{ 'seeder.scanningMetadata' | translate:{processed: runner.qualityScan().processedFiles, total: runner.qualityScan().totalFiles} }}</p>
         } @else if (runner.qualityScan().status === 'ready') {
-          <div class="quality-inventory" aria-label="Các chất lượng được phát hiện">
-            <strong>Rendition theo chất lượng</strong>
+          <div class="quality-inventory" [attr.aria-label]="'seeder.detectedQualities' | translate">
+            <strong>{{ 'seeder.qualityRenditions' | translate }}</strong>
             <div class="quality-chips">
               @for (item of runner.qualityScan().qualityCounts ?? []; track item.quality) {
-                <span>{{ item.quality }} · {{ item.videoCount }} video</span>
+                <span>{{ item.quality }} · {{ 'seeder.videoCount' | translate:{count: item.videoCount} }}</span>
               }
             </div>
           </div>
           @if ((runner.qualityScan().duplicateFormatCount ?? 0) > 0) {
-            <p class="hint">Bỏ qua {{ runner.qualityScan().duplicateFormatCount }} định dạng trùng độ phân giải; mỗi chất lượng chỉ upload một file tốt nhất.</p>
+            <p class="hint">{{ 'seeder.duplicateQualities' | translate:{count: runner.qualityScan().duplicateFormatCount} }}</p>
           }
         } @else if (runner.qualityScan().status === 'error') {
           <p class="inline-warning">{{ runner.qualityScan().error }}</p>
         }
         @if (folder.ignoredFileCount > 0) {
-          <p class="inline-warning">Đã bỏ qua {{ folder.ignoredFileCount }} mục không phải MP4 hoặc không đọc được độ phân giải/thời lượng cần thiết.</p>
+          <p class="inline-warning">{{ 'seeder.ignoredFiles' | translate:{count: folder.ignoredFileCount} }}</p>
         }
       }
 
       <div class="field-block">
-        <label for="seed-category">Danh mục / Chủ đề <span>*</span></label>
+        <label for="seed-category">{{ 'seeder.category' | translate }} <span>*</span></label>
         <select id="seed-category" name="category" [(ngModel)]="categoryId" [disabled]="loadingTopics() || runner.isRunning()">
-          <option value="" disabled>{{ loadingTopics() ? 'Đang tải danh mục...' : 'Chọn danh mục hiện có' }}</option>
+          <option value="" disabled>{{ loadingTopics() ? ('seeder.loadingCategories' | translate) : ('seeder.chooseCategory' | translate) }}</option>
           @for (topic of topics(); track topic.categoryId) { <option [value]="topic.categoryId">{{ topic.name }}</option> }
         </select>
       </div>
 
       <div class="field-block account-mode-block">
-        <label>Phương thức tài khoản <span>*</span></label>
-        <div class="mode-switch" role="radiogroup" aria-label="Phương thức tài khoản">
+        <label>{{ 'seeder.accountMethod' | translate }} <span>*</span></label>
+        <div class="mode-switch" role="radiogroup" [attr.aria-label]="'seeder.accountMethodAria' | translate">
           <label class="mode-option" [class.active]="accountMode === 'new'">
             <input type="radio" name="accountMode" value="new" [(ngModel)]="accountMode" (change)="onAccountModeChange()" [disabled]="runner.isRunning()" />
-            <span><strong>Tạo user mới từ JSON</strong><small>Tạo user và kênh mới cho lượt seed</small></span>
+            <span><strong>{{ 'seeder.createNewAccounts' | translate }}</strong><small>{{ 'seeder.createNewAccountsHint' | translate }}</small></span>
           </label>
           <label class="mode-option" [class.active]="accountMode === 'existing'">
             <input type="radio" name="accountMode" value="existing" [(ngModel)]="accountMode" (change)="onAccountModeChange()" [disabled]="runner.isRunning()" />
-            <span><strong>Dùng user đang có</strong><small>Chọn trực tiếp user và kênh đã tồn tại</small></span>
+            <span><strong>{{ 'seeder.useExistingAccounts' | translate }}</strong><small>{{ 'seeder.useExistingAccountsHint' | translate }}</small></span>
           </label>
         </div>
       </div>
@@ -78,58 +78,58 @@
       @if (accountMode === 'new') {
         <div class="two-columns">
           <div class="field-block">
-            <label for="seed-users">Số lượng người dùng tạo <span>*</span></label>
+            <label for="seed-users">{{ 'seeder.userCount' | translate }} <span>*</span></label>
             <input id="seed-users" name="userCount" type="number" min="1" max="100" [(ngModel)]="userCount" [disabled]="runner.isRunning()" />
           </div>
           <div class="field-block">
-            <label for="seed-channels">Số lượng kênh (tự động tạo)</label>
+            <label for="seed-channels">{{ 'seeder.channelCount' | translate }}</label>
             <input id="seed-channels" type="number" [value]="safeUserCount()" disabled />
-            <p class="hint">Mỗi người dùng sở hữu đúng 1 kênh.</p>
+            <p class="hint">{{ 'seeder.oneChannelPerUser' | translate }}</p>
           </div>
         </div>
 
         <div class="field-block">
-          <label>File danh sách account (JSON) <span>*</span></label>
+          <label>{{ 'seeder.accountJson' | translate }} <span>*</span></label>
           <div class="file-row">
             <div class="file-name" [class.has-value]="runner.accountFileName()">
               <span aria-hidden="true">&#123; &#125;</span>
-              <strong>{{ runner.accountFileName() || 'Chưa chọn file JSON' }}</strong>
-              @if (runner.accountFileName()) { <span class="valid-mark" aria-label="Hợp lệ">✓</span> }
+              <strong>{{ runner.accountFileName() || ('seeder.noAccountFile' | translate) }}</strong>
+              @if (runner.accountFileName()) { <span class="valid-mark" [attr.aria-label]="'seeder.valid' | translate">✓</span> }
             </div>
             <label class="secondary-button compact" [class.disabled]="runner.isRunning()">
-              Chọn file
+              {{ 'seeder.chooseFile' | translate }}
               <input class="visually-hidden" type="file" accept="application/json,.json" [disabled]="runner.isRunning()" (change)="onAccountFile($event)" />
             </label>
-            <button class="download-button compact" type="button" (click)="runner.downloadAccountTemplate()">↓ Tải mẫu JSON</button>
+            <button class="download-button compact" type="button" (click)="runner.downloadAccountTemplate()">↓ {{ 'seeder.downloadTemplate' | translate }}</button>
           </div>
-          <p class="hint">Đã đọc {{ runner.accounts().length }} account có mật khẩu hợp lệ. Mật khẩu cần 10–128 ký tự, gồm chữ hoa, chữ thường và số.</p>
+          <p class="hint">{{ 'seeder.validAccounts' | translate:{count: runner.accounts().length} }}</p>
           @if (runner.accountFileName() && runner.accounts().length < safeUserCount()) {
-            <p class="inline-warning">Thiếu {{ safeUserCount() - runner.accounts().length }} account; nút chạy sẽ bị khóa.</p>
+            <p class="inline-warning">{{ 'seeder.missingAccounts' | translate:{count: safeUserCount() - runner.accounts().length} }}</p>
           }
         </div>
       } @else {
         <div class="field-block existing-accounts-block">
           <div class="existing-heading">
             <div>
-              <label for="existing-account-search">Chọn user và kênh muốn dùng <span>*</span></label>
-              <p class="hint">Có thể chọn tối đa 100 user. Mỗi video sẽ được phân bổ tuần tự theo danh sách đã chọn.</p>
+              <label for="existing-account-search">{{ 'seeder.selectExisting' | translate }} <span>*</span></label>
+              <p class="hint">{{ 'seeder.selectExistingHint' | translate }}</p>
             </div>
-            <strong class="selection-count">{{ selectedExistingAccounts().length }} / 100 đã chọn</strong>
+            <strong class="selection-count">{{ 'seeder.selectedCount' | translate:{count: selectedExistingAccounts().length} }}</strong>
           </div>
           <div class="existing-search-row">
-            <input id="existing-account-search" name="existingSearch" type="search" [(ngModel)]="existingSearch" (keydown.enter)="$event.preventDefault(); loadExistingAccounts()" placeholder="Tìm username, tên hiển thị hoặc tên kênh..." [disabled]="runner.isRunning()" />
-            <button class="secondary-button compact" type="button" (click)="loadExistingAccounts()" [disabled]="loadingExistingAccounts() || runner.isRunning()">{{ loadingExistingAccounts() ? 'Đang tải...' : 'Tìm user' }}</button>
+            <input id="existing-account-search" name="existingSearch" type="search" [(ngModel)]="existingSearch" (keydown.enter)="$event.preventDefault(); loadExistingAccounts()" [placeholder]="'seeder.accountSearchPlaceholder' | translate" [disabled]="runner.isRunning()" />
+            <button class="secondary-button compact" type="button" (click)="loadExistingAccounts()" [disabled]="loadingExistingAccounts() || runner.isRunning()">{{ loadingExistingAccounts() ? ('seeder.loading' | translate) : ('seeder.findUser' | translate) }}</button>
           </div>
           <div class="existing-account-list" aria-live="polite">
             @for (account of existingAccounts(); track account.userId) {
               <button type="button" class="existing-account-card" [class.selected]="isExistingAccountSelected(account)" (click)="toggleExistingAccount(account)" [disabled]="runner.isRunning()">
                 <span class="account-check" aria-hidden="true">{{ isExistingAccountSelected(account) ? '✓' : '+' }}</span>
                 <span class="account-copy"><strong>{{ account.displayName }}</strong><small>@{{ account.username }} · {{ account.channelName }} · @{{ account.channelHandle }}</small></span>
-                <span class="account-selected-label">{{ isExistingAccountSelected(account) ? 'Đã chọn' : 'Chọn' }}</span>
+                <span class="account-selected-label">{{ isExistingAccountSelected(account) ? ('seeder.selected' | translate) : ('seeder.select' | translate) }}</span>
               </button>
             } @empty {
-              @if (loadingExistingAccounts()) { <p class="empty-accounts">Đang tải danh sách user đang hoạt động...</p> }
-              @else { <p class="empty-accounts">Không tìm thấy user thường đang hoạt động có kênh. Hãy đổi từ khóa hoặc tạo user mới từ JSON.</p> }
+              @if (loadingExistingAccounts()) { <p class="empty-accounts">{{ 'seeder.loadingActiveUsers' | translate }}</p> }
+              @else { <p class="empty-accounts">{{ 'seeder.noActiveUsers' | translate }}</p> }
             }
           </div>
         </div>
@@ -137,91 +137,91 @@
 
       <div class="two-columns">
         <div class="field-block">
-          <label for="seed-max-videos">Số video tối đa mỗi kênh <span>*</span></label>
+          <label for="seed-max-videos">{{ 'seeder.maxVideos' | translate }} <span>*</span></label>
           <input id="seed-max-videos" name="maxVideos" type="number" min="1" max="1000" [(ngModel)]="maxVideosPerChannel" [disabled]="runner.isRunning()" />
         </div>
         <div class="field-block">
-          <label for="seed-visibility">Chế độ hiển thị video <span>*</span></label>
+          <label for="seed-visibility">{{ 'seeder.visibility' | translate }} <span>*</span></label>
           <select id="seed-visibility" name="visibility" [(ngModel)]="visibility" [disabled]="runner.isRunning()">
-            <option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option>
+            <option value="public">{{ 'seeder.visibility.public' | translate }}</option><option value="unlisted">{{ 'seeder.visibility.unlisted' | translate }}</option><option value="private">{{ 'seeder.visibility.private' | translate }}</option>
           </select>
         </div>
       </div>
 
       <div class="feasibility" [class.success-state]="feasibility().level === 'success'">
         <span class="feasibility-icon" aria-hidden="true">{{ feasibility().level === 'success' ? '✓' : '!' }}</span>
-        <div><strong>{{ feasibility().level === 'success' ? 'Cấu hình khả thi' : 'Kiểm tra tính khả thi' }}</strong><p>{{ feasibility().text }}</p></div>
+        <div><strong>{{ feasibility().level === 'success' ? ('seeder.feasible' | translate) : ('seeder.checkFeasibility' | translate) }}</strong><p>{{ feasibility().text }}</p></div>
       </div>
 
       <div id="seeder-note" class="run-note">
         <span aria-hidden="true">i</span>
-        <p>Tiến trình vẫn chạy khi bạn chuyển sang trang admin khác. Không đóng, tải lại tab hoặc tắt trình duyệt trong lúc chạy.</p>
+        <p>{{ 'seeder.runningNote' | translate }}</p>
       </div>
 
       <div class="form-actions">
-        <button class="secondary-button" type="button" [disabled]="!runner.isRunning()" (click)="runner.cancel()">Hủy sau video hiện tại</button>
-        <button class="primary-button start-button" type="submit" [disabled]="!canStart()"><span aria-hidden="true">▷</span> Bắt đầu Seeder</button>
+        <button class="secondary-button" type="button" [disabled]="!runner.isRunning()" (click)="runner.cancel()">{{ 'seeder.cancelAfterVideo' | translate }}</button>
+        <button class="primary-button start-button" type="submit" [disabled]="!canStart()"><span aria-hidden="true">▷</span> {{ 'seeder.start' | translate }}</button>
       </div>
     </form>
 
     <aside class="panel progress-panel" aria-live="polite">
       <div class="panel-heading">
-        <div><span aria-hidden="true">◉</span><h2>Tiến trình thực thi</h2></div>
+        <div><span aria-hidden="true">◉</span><h2>{{ 'seeder.executionProgress' | translate }}</h2></div>
         <span class="state-badge" [attr.data-state]="runner.state()"><i></i>{{ stateLabel() }}</span>
       </div>
       <p class="current-action">
-        @if (runner.state() === 'provisioning' && accountMode === 'existing') { Đang chuẩn bị user và kênh đã chọn... }
-        @else if (runner.state() === 'provisioning') { Đang tạo người dùng và kênh... }
-        @else if (runner.state() === 'running') { Đang đưa từng rendition lên R2... }
-        @else if (runner.state() === 'completed') { Lượt seed đã hoàn thành. }
-        @else if (runner.state() === 'failed') { Lượt seed đã thất bại. }
-        @else { Chọn dữ liệu đầu vào rồi bắt đầu một lượt seed mới. }
+        @if (runner.state() === 'provisioning' && accountMode === 'existing') { {{ 'seeder.action.prepareSelected' | translate }} }
+        @else if (runner.state() === 'provisioning') { {{ 'seeder.action.provision' | translate }} }
+        @else if (runner.state() === 'running') { {{ 'seeder.action.upload' | translate }} }
+        @else if (runner.state() === 'completed') { {{ 'seeder.action.completed' | translate }} }
+        @else if (runner.state() === 'failed') { {{ 'seeder.action.failed' | translate }} }
+        @else { {{ 'seeder.action.idle' | translate }} }
       </p>
       <div class="progress-track" role="progressbar" [attr.aria-valuenow]="runner.progressPercent()" aria-valuemin="0" aria-valuemax="100">
         <span [style.width.%]="runner.progressPercent()"></span>
       </div>
-      <p class="progress-caption"><strong>{{ runner.progressPercent() }}%</strong><span>{{ runner.metrics().processedVideos }} / {{ runner.metrics().targetVideos }} video đã xử lý</span></p>
+      <p class="progress-caption"><strong>{{ runner.progressPercent() }}%</strong><span>{{ 'seeder.processedVideos' | translate:{processed: runner.metrics().processedVideos, target: runner.metrics().targetVideos} }}</span></p>
 
       <div class="metric-grid">
-        <article><span class="metric-icon users">♙</span><p>{{ accountMode === 'existing' ? 'User đã chọn' : 'Người dùng' }}<strong>{{ runner.metrics().usersCreated }} / {{ effectiveAccountCount() }}</strong></p></article>
-        <article><span class="metric-icon channels">▣</span><p>{{ accountMode === 'existing' ? 'Kênh đã chọn' : 'Kênh' }}<strong>{{ runner.metrics().channelsCreated }} / {{ effectiveAccountCount() }}</strong></p></article>
-        <article><span class="metric-icon videos">▶</span><p>Video upload<strong>{{ runner.metrics().uploadedVideos }} / {{ runner.metrics().targetVideos }}</strong></p></article>
-        <article><span class="metric-icon time">◷</span><p>Thời gian<strong>{{ formatDuration(runner.elapsedSeconds()) }}</strong></p></article>
+        <article><span class="metric-icon users">♙</span><p>{{ accountMode === 'existing' ? ('seeder.usersSelected' | translate) : ('seeder.users' | translate) }}<strong>{{ runner.metrics().usersCreated }} / {{ effectiveAccountCount() }}</strong></p></article>
+        <article><span class="metric-icon channels">▣</span><p>{{ accountMode === 'existing' ? ('seeder.channelsSelected' | translate) : ('seeder.channels' | translate) }}<strong>{{ runner.metrics().channelsCreated }} / {{ effectiveAccountCount() }}</strong></p></article>
+        <article><span class="metric-icon videos">▶</span><p>{{ 'seeder.videoUploads' | translate }}<strong>{{ runner.metrics().uploadedVideos }} / {{ runner.metrics().targetVideos }}</strong></p></article>
+        <article><span class="metric-icon time">◷</span><p>{{ 'seeder.elapsedTime' | translate }}<strong>{{ formatDuration(runner.elapsedSeconds()) }}</strong></p></article>
       </div>
 
-      <div class="log-head"><h3>Nhật ký hệ thống</h3><button type="button" (click)="runner.clearLogs()">Xóa log</button></div>
-      <div class="log-view" tabindex="0" aria-label="Nhật ký CF Data Seeder">
-        @if (runner.logs().length === 0) { <p class="empty-log">Nhật ký sẽ xuất hiện tại đây khi bắt đầu.</p> }
+      <div class="log-head"><h3>{{ 'seeder.systemLog' | translate }}</h3><button type="button" (click)="runner.clearLogs()">{{ 'seeder.clearLog' | translate }}</button></div>
+      <div class="log-view" tabindex="0" [attr.aria-label]="'seeder.logAria' | translate">
+        @if (runner.logs().length === 0) { <p class="empty-log">{{ 'seeder.emptyLog' | translate }}</p> }
         @for (line of runner.logs(); track trackLog($index)) { <p>{{ line }}</p> }
       </div>
       <div class="run-stats">
-        <span><strong>{{ runner.metrics().failedVideos }}</strong> lỗi</span>
-        <span><strong>{{ formatBytes(runner.metrics().uploadedBytes) }}</strong> đã upload</span>
-        <span><strong>{{ runner.formatUploadDuration(runner.averageUploadDurationMs()) }}</strong> trung bình/video</span>
-        <span><strong>{{ runner.formatUploadDuration(runner.metrics().lastUploadDurationMs) }}</strong> video gần nhất</span>
+        <span><strong>{{ runner.metrics().failedVideos }}</strong> {{ 'seeder.errors' | translate }}</span>
+        <span><strong>{{ formatBytes(runner.metrics().uploadedBytes) }}</strong> {{ 'seeder.uploaded' | translate }}</span>
+        <span><strong>{{ runner.formatUploadDuration(runner.averageUploadDurationMs()) }}</strong> {{ 'seeder.averagePerVideo' | translate }}</span>
+        <span><strong>{{ runner.formatUploadDuration(runner.metrics().lastUploadDurationMs) }}</strong> {{ 'seeder.lastVideo' | translate }}</span>
       </div>
     </aside>
   </section>
 
   <section class="panel history-panel">
     <div class="panel-heading">
-      <div><span aria-hidden="true">▤</span><h2>Lịch sử chạy Seeder</h2></div>
-      <small>Lưu tối đa 8 lượt gần nhất trong trình duyệt</small>
+      <div><span aria-hidden="true">▤</span><h2>{{ 'seeder.runHistory' | translate }}</h2></div>
+      <small>{{ 'seeder.historyRetention' | translate }}</small>
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>#</th><th>Thời gian chạy</th><th>Thư mục nguồn</th><th>Danh mục</th><th>Người dùng</th><th>Video</th><th>Đã upload</th><th>Trạng thái</th><th>File log</th></tr></thead>
+        <thead><tr><th>#</th><th>{{ 'seeder.startedAt' | translate }}</th><th>{{ 'seeder.sourceFolder' | translate }}</th><th>{{ 'seeder.category' | translate }}</th><th>{{ 'nav.groupUser' | translate }}</th><th>{{ 'nav.videos' | translate }}</th><th>{{ 'seeder.uploadedCount' | translate }}</th><th>{{ 'common.status' | translate }}</th><th>{{ 'seeder.logFile' | translate }}</th></tr></thead>
         <tbody>
           @for (history of runner.histories(); track history.runId; let index = $index) {
             <tr>
-              <td>{{ index + 1 }}</td><td>{{ history.startedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ index + 1 }}</td><td>{{ history.startedAt | date:'short':undefined:dateLocale() }}</td>
               <td><strong>{{ history.sourceFolder }}</strong></td><td>{{ history.categoryName }}</td>
               <td>{{ history.userCount }}</td><td>{{ history.targetVideoCount }}</td><td>{{ history.metrics.uploadedVideos }}</td>
-              <td><span class="history-status" [attr.data-status]="history.status">{{ history.status === 'completed' ? 'Hoàn thành' : history.status === 'cancelled' ? 'Đã dừng' : history.status === 'failed' ? 'Thất bại' : 'Có lỗi' }}</span></td>
-              <td><button class="json-link" type="button" (click)="runner.downloadHistory(history)">↓ JSON</button></td>
+              <td><span class="history-status" [attr.data-status]="history.status">{{ statusLabel(history.status) }}</span></td>
+              <td><button class="json-link" type="button" (click)="runner.downloadHistory(history)">↓ {{ 'seeder.downloadHistoryJson' | translate }}</button></td>
             </tr>
           } @empty {
-            <tr><td class="empty-history" colspan="9">Chưa có lượt chạy nào. File JSON sẽ tự tải xuống khi một lượt kết thúc.</td></tr>
+            <tr><td class="empty-history" colspan="9">{{ 'seeder.noHistory' | translate }}</td></tr>
           }
         </tbody>
       </table>

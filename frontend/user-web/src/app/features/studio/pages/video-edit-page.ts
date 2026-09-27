@@ -4,13 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { Category, ContentService, VideoDetail } from '../../../core/content.service';
+import { I18nService } from '../../../core/i18n.service';
 import { PlaylistService, PlaylistSummary } from '../../../core/playlist.service';
 import { StudioDataService } from '../../../core/studio-data.service';
+import { TranslatePipe } from '../../../core/translate.pipe';
 
 @Component({
   selector: 'app-video-edit-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './video-edit-page.html',
   styleUrl: './video-edit-page.scss'
 })
@@ -20,6 +22,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
   private readonly content = inject(ContentService);
   private readonly playlistService = inject(PlaylistService);
   readonly studio = inject(StudioDataService);
+  private readonly i18n = inject(I18nService);
 
   readonly video = signal<VideoDetail | null>(null);
   readonly categories = signal<Category[]>([]);
@@ -43,7 +46,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
     this.videoId = this.route.snapshot.paramMap.get('id') ?? '';
     this.studio.load();
     if (!this.videoId) {
-      this.error.set('Không tìm thấy video cần chỉnh sửa.');
+      this.error.set(this.i18n.t('studioEdit.videoNotFound'));
       this.loading.set(false);
       return;
     }
@@ -58,7 +61,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
         this.loading.set(false);
       },
       error: () => {
-        this.error.set('Không thể tải chi tiết video.');
+        this.error.set(this.i18n.t('studioEdit.loadError'));
         this.loading.set(false);
       }
     });
@@ -81,11 +84,11 @@ export class VideoEditPage implements OnInit, OnDestroy {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      this.error.set('Thumbnail chỉ hỗ trợ JPG, PNG hoặc WEBP.');
+      this.error.set(this.i18n.t('studioEdit.thumbnailTypeError'));
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      this.error.set('Thumbnail tối đa 5MB.');
+      this.error.set(this.i18n.t('studioEdit.thumbnailSizeError'));
       return;
     }
     const previous = this.customPreview();
@@ -108,7 +111,7 @@ export class VideoEditPage implements OnInit, OnDestroy {
     if (!current || this.saving()) return;
     const cleanTitle = this.title.trim();
     if (!cleanTitle) {
-      this.error.set('Tiêu đề không được để trống.');
+      this.error.set(this.i18n.t('studioEdit.titleRequired'));
       return;
     }
 
@@ -132,12 +135,12 @@ export class VideoEditPage implements OnInit, OnDestroy {
         this.categoryId = updated.categoryId ?? '';
         this.visibility = updated.visibility;
         this.saving.set(false);
-        this.success.set('Đã lưu thay đổi video.');
+        this.success.set(this.i18n.t('studioEdit.saved'));
         setTimeout(() => this.success.set(''), 4000);
       },
       error: error => {
         this.saving.set(false);
-        this.error.set(error?.error?.message || 'Không thể lưu thay đổi video.');
+        this.error.set(error?.error?.message || this.i18n.t('studioEdit.saveError'));
       }
     });
   }
@@ -157,9 +160,9 @@ export class VideoEditPage implements OnInit, OnDestroy {
   }
 
   visibilityLabel(value: string) {
-    if (value === 'public') return 'Công khai';
-    if (value === 'unlisted') return 'Không công khai';
-    return 'Riêng tư';
+    if (value === 'public') return this.i18n.t('studio.public');
+    if (value === 'unlisted') return this.i18n.t('playlists.unlisted');
+    return this.i18n.t('playlists.private');
   }
 
   formatDuration(seconds: number) {

@@ -91,7 +91,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Gửi kháng nghị',
+                  AppStrings.t('moderation.sendAppeal'),
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
@@ -99,17 +99,17 @@ class _ModerationScreenState extends State<ModerationScreen> {
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   initialValue: targetType,
-                  decoration: const InputDecoration(labelText: 'Loại nội dung'),
-                  items: const [
-                    DropdownMenuItem(value: 'video', child: Text('Video')),
-                    DropdownMenuItem(value: 'channel', child: Text('Kênh')),
+                  decoration: InputDecoration(labelText: AppStrings.t('moderation.targetType')),
+                  items: [
+                    DropdownMenuItem(value: 'video', child: Text(AppStrings.t('moderation.target.video'))),
+                    DropdownMenuItem(value: 'channel', child: Text(AppStrings.t('moderation.target.channel'))),
                     DropdownMenuItem(
                       value: 'comment',
-                      child: Text('Bình luận'),
+                      child: Text(AppStrings.t('moderation.target.comment')),
                     ),
                     DropdownMenuItem(
                       value: 'strike',
-                      child: Text('Cảnh cáo kênh'),
+                      child: Text(AppStrings.t('moderation.target.strike')),
                     ),
                   ],
                   onChanged: (value) =>
@@ -119,9 +119,9 @@ class _ModerationScreenState extends State<ModerationScreen> {
                 TextField(
                   controller: targetId,
                   onChanged: (_) => refresh(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'ID nội dung',
-                    hintText: 'UUID của video, kênh hoặc cảnh cáo',
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('moderation.targetId'),
+                    hintText: AppStrings.t('moderation.targetIdHint'),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -130,15 +130,15 @@ class _ModerationScreenState extends State<ModerationScreen> {
                   minLines: 3,
                   maxLines: 5,
                   onChanged: (_) => refresh(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Lý do kháng nghị',
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('moderation.appealReason'),
                   ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: evidenceUrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Link bằng chứng (không bắt buộc)',
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('moderation.evidenceUrl'),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -146,8 +146,8 @@ class _ModerationScreenState extends State<ModerationScreen> {
                   controller: evidenceNote,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú bằng chứng (không bắt buộc)',
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('moderation.evidenceNote'),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -156,7 +156,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                       targetId.text.trim().isEmpty || reason.text.trim().isEmpty
                       ? null
                       : () => Navigator.pop(sheetContext, true),
-                  child: const Text('Gửi kháng nghị'),
+                  child: Text(AppStrings.t('moderation.sendAppeal')),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(sheetContext, false),
@@ -186,7 +186,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Đã gửi kháng nghị.')));
+        ).showSnackBar(SnackBar(content: Text(AppStrings.t('moderation.appealSent'))));
         await _load();
       }
     } on ApiFailure catch (error) {
@@ -221,9 +221,9 @@ class _ModerationScreenState extends State<ModerationScreen> {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
           HuTubeSectionHeader(
-            title: 'Báo cáo & kháng nghị',
-            subtitle: 'Theo dõi phản hồi kiểm duyệt và gửi kháng nghị.',
-            action: 'Kháng nghị',
+            title: AppStrings.t('moderation.title'),
+            subtitle: AppStrings.t('moderation.subtitle'),
+            action: AppStrings.t('moderation.action'),
             onAction: _createAppeal,
           ),
           const SizedBox(height: 18),
@@ -238,21 +238,27 @@ class _ModerationScreenState extends State<ModerationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Trạng thái kênh',
+                    AppStrings.t('moderation.channelStatus'),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Cảnh cáo đang hiệu lực: ${_strikes!['activeStrikesCount'] ?? 0}',
+                    AppStrings.format('moderation.activeWarnings', {
+                      'count': AppStrings.number(
+                        _strikes!['activeStrikesCount'] is num
+                            ? _strikes!['activeStrikesCount'] as num
+                            : 0,
+                      ),
+                    }),
                   ),
                   Text(
                     _strikes!['isSuspended'] == true
-                        ? 'Kênh đang bị đình chỉ.'
+                        ? AppStrings.t('moderation.suspended')
                         : (_strikes!['hasWarning'] == true
-                              ? 'Kênh đang có cảnh báo.'
-                              : 'Kênh không có cảnh báo hoạt động.'),
+                              ? AppStrings.t('moderation.hasWarning')
+                              : AppStrings.t('moderation.noWarning')),
                   ),
                   if (_strikes!['strikes'] is List)
                     for (final item
@@ -260,7 +266,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                       Padding(
                         padding: const EdgeInsets.only(top: 12),
                         child: Text(
-                          '• ${item['reason'] ?? 'Cảnh cáo'} · ${item['severity'] ?? ''} · ${_date(item['createdAt'])}',
+                          '• ${item['reason'] ?? AppStrings.t('moderation.warning')} · ${item['severity'] ?? ''} · ${_date(item['createdAt'])}',
                         ),
                       ),
                 ],
@@ -271,10 +277,9 @@ class _ModerationScreenState extends State<ModerationScreen> {
           if (_appeals.isEmpty)
             HuTubeStateView(
               icon: Icons.fact_check_outlined,
-              title: 'Chưa có kháng nghị',
-              message:
-                  'Nếu bạn cho rằng quyết định kiểm duyệt chưa chính xác, hãy gửi kháng nghị để đội ngũ xem xét.',
-              actionLabel: 'Gửi kháng nghị',
+              title: AppStrings.t('moderation.noAppeals'),
+              message: AppStrings.t('moderation.noAppealsDescription'),
+              actionLabel: AppStrings.t('moderation.sendAppeal'),
               onAction: _createAppeal,
               compact: true,
               accent: AppColors.violet,
@@ -291,24 +296,24 @@ class _ModerationScreenState extends State<ModerationScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${appeal['targetTitle'] ?? appeal['targetType'] ?? 'Nội dung'}',
+                              '${appeal['targetTitle'] ?? _targetTypeLabel('${appeal['targetType'] ?? ''}')}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
-                          Chip(label: Text('${appeal['status'] ?? 'pending'}')),
+                          Chip(label: Text(_appealStatus('${appeal['status'] ?? 'pending'}'))),
                         ],
                       ),
                       Text('${appeal['reason'] ?? ''}'),
                       const SizedBox(height: 5),
                       Text(
-                        'Gửi ngày ${_date(appeal['createdAt'])}',
+                        AppStrings.format('moderation.appealDate', {'date': _date(appeal['createdAt'])}),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       if ('${appeal['reviewNote'] ?? ''}'.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        Text('Phản hồi: ${appeal['reviewNote']}'),
+                        Text(AppStrings.format('moderation.reviewNote', {'note': appeal['reviewNote']})),
                       ],
                     ],
                   ),
@@ -319,6 +324,25 @@ class _ModerationScreenState extends State<ModerationScreen> {
     );
   }
 
-  String _date(dynamic value) =>
-      DateTime.tryParse('$value')?.toLocal().toString().split('.').first ?? '—';
+  String _targetTypeLabel(String value) {
+    final key = switch (value.toLowerCase()) {
+      'video' => 'moderation.target.video',
+      'channel' => 'moderation.target.channel',
+      'comment' => 'moderation.target.comment',
+      'strike' => 'moderation.target.strike',
+      _ => 'moderation.targetFallback',
+    };
+    return AppStrings.t(key);
+  }
+
+  String _appealStatus(String value) {
+    final key = 'moderation.status.${value.toLowerCase()}';
+    final translated = AppStrings.t(key);
+    return translated == key ? value : translated;
+  }
+
+  String _date(dynamic value) {
+    final date = DateTime.tryParse('$value');
+    return date == null ? '—' : AppStrings.dateTime(date.toLocal());
+  }
 }

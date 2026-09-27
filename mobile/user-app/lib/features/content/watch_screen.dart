@@ -348,7 +348,7 @@ class _WatchScreenState extends State<WatchScreen> {
 
   Future<void> _saveToPlaylist() async {
     if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = 'Đăng nhập để lưu video vào playlist.');
+      setState(() => _actionMessage = AppStrings.t('watch.loginPlaylist'));
       return;
     }
     try {
@@ -361,22 +361,26 @@ class _WatchScreenState extends State<WatchScreen> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              const ListTile(title: Text('Lưu video')),
+              ListTile(title: Text(AppStrings.t('watch.saveVideo'))),
               ListTile(
                 leading: const Icon(Icons.bookmark_add_outlined),
-                title: const Text('Video đã lưu'),
+                title: Text(AppStrings.t('watch.savedVideo')),
                 onTap: () => Navigator.pop(context, '__saved__'),
               ),
               for (final playlist in playlists)
                 ListTile(
                   leading: const Icon(Icons.playlist_play_rounded),
                   title: Text(playlist.name),
-                  subtitle: Text('${playlist.itemCount} video'),
+                  subtitle: Text(
+                    AppStrings.format('channel.videoCount', {
+                      'count': AppStrings.number(playlist.itemCount),
+                    }),
+                  ),
                   onTap: () => Navigator.pop(context, playlist.id),
                 ),
               ListTile(
                 leading: const Icon(Icons.add_rounded),
-                title: const Text('Tạo playlist mới'),
+                title: Text(AppStrings.t('watch.createPlaylist')),
                 onTap: () {
                   Navigator.pop(context);
                   context.push('/playlists');
@@ -393,7 +397,7 @@ class _WatchScreenState extends State<WatchScreen> {
         await service.addVideo(selected, widget.videoId);
       }
       if (mounted) {
-        setState(() => _actionMessage = 'Video đã được lưu vào playlist.');
+        setState(() => _actionMessage = AppStrings.t('watch.savedToPlaylist'));
       }
     } on ApiFailure catch (error) {
       if (mounted) setState(() => _actionMessage = AppStrings.apiError(error));
@@ -409,15 +413,15 @@ class _WatchScreenState extends State<WatchScreen> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            const ListTile(
+            ListTile(
               title: Text(
-                'Chất lượng',
+                AppStrings.t('watch.quality'),
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
-              subtitle: Text('Chọn độ phân giải video'),
+              subtitle: Text(AppStrings.t('watch.chooseResolution')),
             ),
             if (_renditions.isEmpty)
-              const ListTile(title: Text('Chất lượng gốc'))
+              ListTile(title: Text(AppStrings.t('watch.originalQuality')))
             else
               for (final rendition in _renditions)
                 ListTile(
@@ -446,12 +450,12 @@ class _WatchScreenState extends State<WatchScreen> {
                   },
                 ),
             const Divider(),
-            const ListTile(
+            ListTile(
               title: Text(
-                'Tốc độ phát',
+                AppStrings.t('watch.playbackSpeed'),
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
-              subtitle: Text('Thay đổi tốc độ phát video'),
+              subtitle: Text(AppStrings.t('watch.changePlaybackSpeed')),
             ),
             for (final speed in const [
               0.25,
@@ -464,7 +468,7 @@ class _WatchScreenState extends State<WatchScreen> {
               2.0,
             ])
               ListTile(
-                title: Text(speed == 1 ? 'Bình thường' : '$speed×'),
+                title: Text(speed == 1 ? AppStrings.t('watch.normalSpeed') : '$speed×'),
                 trailing: (player.speed - speed).abs() < .01
                     ? const Icon(Icons.check_rounded, color: AppColors.primary)
                     : null,
@@ -521,7 +525,7 @@ class _WatchScreenState extends State<WatchScreen> {
       return HuTubeStateView(
         icon: Icons.play_disabled_rounded,
         title: _error ?? AppStrings.t('watch.videoUnavailable'),
-        message: 'Nguồn video có thể đã bị gỡ hoặc tạm thời chưa sẵn sàng.',
+        message: AppStrings.t('watch.sourceUnavailable'),
         actionLabel: AppStrings.t('common.retry'),
         onAction: _load,
       );
@@ -615,12 +619,12 @@ class _WatchScreenState extends State<WatchScreen> {
               ),
               _ActionChip(
                 icon: Icons.playlist_add_rounded,
-                label: 'Lưu playlist',
+                label: AppStrings.t('watch.savePlaylist'),
                 onTap: _saveToPlaylist,
               ),
               _ActionChip(
                 icon: Icons.flag_outlined,
-                label: 'Báo cáo',
+                label: AppStrings.t('watch.report'),
                 onTap: () => showContentReportDialog(
                   context,
                   auth: widget.auth,
@@ -915,8 +919,8 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                         color: Colors.white,
                         size: 31,
                       ),
-                      const Text(
-                        '10 giây',
+                      Text(
+                        AppStrings.t('watch.skipSeconds'),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -965,20 +969,20 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Thu nhỏ video',
+                            tooltip: AppStrings.t('watch.minimize'),
                             onPressed: widget.onMinimize,
                             color: Colors.white,
                             icon: const Icon(Icons.keyboard_arrow_down_rounded),
                           ),
                           IconButton(
-                            tooltip: 'Chất lượng và tốc độ',
+                            tooltip: AppStrings.t('watch.qualityAndSpeed'),
                             onPressed: widget.onSettings,
                             color: Colors.white,
                             icon: const Icon(Icons.settings_rounded, size: 20),
                           ),
                           if (widget.showPictureInPicture)
                             IconButton(
-                              tooltip: 'Phát cửa sổ nổi',
+                              tooltip: AppStrings.t('watch.pictureInPicture'),
                               onPressed: widget.onPictureInPicture,
                               color: Colors.white,
                               icon: const Icon(
@@ -991,7 +995,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                       const Spacer(),
                       if (!widget.session.isPlaying)
                         IconButton.filled(
-                          tooltip: 'Phát video',
+                          tooltip: AppStrings.t('watch.playVideo'),
                           onPressed: () {
                             unawaited(widget.session.togglePlayback());
                             _scheduleHide();
@@ -1007,7 +1011,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                         )
                       else
                         IconButton.filled(
-                          tooltip: 'Tạm dừng video',
+                          tooltip: AppStrings.t('watch.pauseVideo'),
                           onPressed: () =>
                               unawaited(widget.session.togglePlayback()),
                           style: IconButton.styleFrom(
@@ -1184,7 +1188,7 @@ class _ChannelSummaryState extends State<_ChannelSummary> {
               : null,
         ),
         child: Text(
-          _busy ? '…' : (_subscribed ? 'Đang theo dõi' : 'Theo dõi'),
+          _busy ? '…' : (_subscribed ? AppStrings.t('watch.following') : AppStrings.t('watch.follow')),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
@@ -1346,7 +1350,7 @@ class _CommentTileState extends State<_CommentTile> {
     final updatedText = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Chỉnh sửa bình luận'),
+        title: Text(AppStrings.t('watch.editComment')),
         content: TextField(controller: controller, minLines: 2, maxLines: 5),
         actions: [
           TextButton(
@@ -1378,8 +1382,8 @@ class _CommentTileState extends State<_CommentTile> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xóa bình luận?'),
-        content: const Text('Bạn có thể đăng bình luận mới sau khi xóa.'),
+        title: Text(AppStrings.t('watch.deleteCommentTitle')),
+        content: Text(AppStrings.t('watch.deleteCommentDescription')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -1401,7 +1405,7 @@ class _CommentTileState extends State<_CommentTile> {
             id: _item.id,
             videoId: _item.videoId,
             displayName: _item.displayName,
-            content: 'Bình luận đã bị xóa.',
+            content: AppStrings.t('watch.commentDeleted'),
             createdAt: _item.createdAt,
             likes: _item.likes,
             dislikes: _item.dislikes,
@@ -1462,22 +1466,22 @@ class _CommentTileState extends State<_CommentTile> {
                       ),
                       if (_item.userId == widget.auth.user?['userId'])
                         PopupMenuButton<String>(
-                          tooltip: 'Tùy chọn bình luận',
+                          tooltip: AppStrings.t('watch.commentOptions'),
                           onSelected: (choice) {
                             if (choice == 'edit') _edit();
                             if (choice == 'delete') _delete();
                           },
-                          itemBuilder: (_) => const [
+                          itemBuilder: (_) => [
                             PopupMenuItem(
                               value: 'edit',
-                              child: Text('Chỉnh sửa'),
+                              child: Text(AppStrings.t('common.edit')),
                             ),
-                            PopupMenuItem(value: 'delete', child: Text('Xóa')),
+                            PopupMenuItem(value: 'delete', child: Text(AppStrings.t('common.delete'))),
                           ],
                         )
                       else if (widget.signedIn && _item.status != 'deleted')
                         IconButton(
-                          tooltip: 'Báo cáo bình luận',
+                          tooltip: AppStrings.t('watch.reportComment'),
                           onPressed: () => showContentReportDialog(
                             context,
                             auth: widget.auth,

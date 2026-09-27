@@ -104,7 +104,7 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
       return HuTubeStateView(
         icon: Icons.video_call_outlined,
         title: AppStrings.t('creator.noChannel'),
-        message: 'Tạo một kênh để đăng video và quản lý cộng đồng của bạn.',
+        message: AppStrings.t('creator.createChannelHint'),
         actionLabel: AppStrings.t('creator.createChannel'),
         onAction: () => _open(CreateChannelScreen(auth: widget.auth)),
         accent: AppColors.violet,
@@ -200,19 +200,19 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
                 children: [
                   Expanded(
                     child: _StudioStat(
-                      label: 'Người đăng ký',
+                      label: AppStrings.t('creator.metricSubscribers'),
                       value: AppStrings.number(channel.subscriberCount),
                     ),
                   ),
                   Expanded(
                     child: _StudioStat(
-                      label: 'Video',
+                      label: AppStrings.t('creator.metricVideos'),
                       value: AppStrings.number(channel.videoCount),
                     ),
                   ),
                   Expanded(
                     child: _StudioStat(
-                      label: 'Lượt xem',
+                      label: AppStrings.t('creator.metricViews'),
                       value: AppStrings.number(channel.viewCount),
                     ),
                   ),

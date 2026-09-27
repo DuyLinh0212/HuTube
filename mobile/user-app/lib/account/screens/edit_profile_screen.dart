@@ -181,7 +181,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: TextButton.icon(
                   onPressed: _busy ? null : _pickAvatar,
                   icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                  label: const Text('Đổi ảnh đại diện'),
+                  label: Text(AppStrings.t('editProfile.changeAvatar')),
                 ),
               ),
               const SizedBox(height: 8),

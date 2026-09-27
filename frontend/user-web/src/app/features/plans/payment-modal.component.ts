@@ -3,21 +3,22 @@ import { CommonModule } from '@angular/common';
 import { CreatePaymentResponse, PaymentSummary, PlanService } from '../../core/plan.service';
 import { LocaleCurrencyPipe } from '../../core/locale-currency.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { I18nService } from '../../core/i18n.service';
 import { Subscription, interval } from 'rxjs';
 
 @Component({
   selector: 'app-payment-modal',
   standalone: true,
-  imports: [CommonModule, LocaleCurrencyPipe],
+  imports: [CommonModule, LocaleCurrencyPipe, TranslatePipe],
   template: `
     <div class="modal-backdrop" (click)="close()">
       <div class="modal-card" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <div class="title-wrap">
             <span class="badge">SePay VietQR</span>
-            <h2>Thanh toán gói {{ payment.planName }}</h2>
+            <h2>{{ 'payment.title' | translate:{ plan: payment.planName } }}</h2>
           </div>
-          <button class="close-btn" (click)="close()" aria-label="Đóng">✕</button>
+          <button class="close-btn" (click)="close()" [attr.aria-label]="'payment.close' | translate">✕</button>
         </div>
 
         <div class="modal-body">
@@ -25,32 +26,32 @@ import { Subscription, interval } from 'rxjs';
           <ng-container *ngIf="status() === 'pending'">
             <div class="qr-section">
               <div class="qr-wrapper" *ngIf="payment.qrCodeUrl; else noQr">
-                <img [src]="payment.qrCodeUrl" alt="VietQR Payment Code" class="qr-image" />
-                <div class="scan-hint">Mở App ngân hàng để quét mã QR</div>
+                <img [src]="payment.qrCodeUrl" [alt]="'payment.qrAlt' | translate" class="qr-image" />
+                <div class="scan-hint">{{ 'payment.scanHint' | translate }}</div>
               </div>
               <ng-template #noQr>
                 <div class="no-qr-box">
-                  <p>Hệ thống chưa cấu hình tài khoản nhận SePay.</p>
-                  <p class="sub-hint">Vui lòng liên hệ quản trị viên để hoàn tất cấu hình.</p>
+                  <p>{{ 'payment.notConfigured' | translate }}</p>
+                  <p class="sub-hint">{{ 'payment.contactAdmin' | translate }}</p>
                 </div>
               </ng-template>
 
               <div class="info-list">
                 <div class="info-item">
-                  <span class="label">Số tiền:</span>
+                  <span class="label">{{ 'payment.amount' | translate }}</span>
                   <span class="value amount">{{ payment.amount | localeCurrency:payment.currency }}</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">Nội dung chuyển khoản:</span>
+                  <span class="label">{{ 'payment.transferContent' | translate }}</span>
                   <div class="code-box">
                     <span class="code">{{ payment.transactionCode }}</span>
                     <button class="copy-btn" (click)="copyCode()" type="button">
-                      {{ copied() ? 'Đã chép!' : 'Sao chép' }}
+                      {{ (copied() ? 'payment.copied' : 'payment.copy') | translate }}
                     </button>
                   </div>
                 </div>
                 <div class="info-item countdown">
-                  <span class="label">Thời hạn thanh toán:</span>
+                  <span class="label">{{ 'payment.expires' | translate }}</span>
                   <span class="value timer">{{ remainingTime() }}</span>
                 </div>
               </div>
@@ -58,24 +59,24 @@ import { Subscription, interval } from 'rxjs';
 
             <div class="waiting-indicator">
               <span class="spinner"></span>
-              <span>Đang chờ hệ thống ghi nhận chuyển khoản tự động...</span>
+              <span>{{ 'payment.waiting' | translate }}</span>
             </div>
           </ng-container>
 
           <!-- Trạng thái: Thành công -->
           <div *ngIf="status() === 'paid'" class="result-box success">
             <div class="icon">✅</div>
-            <h3>Thanh toán thành công!</h3>
-            <p>Gói dịch vụ <strong>{{ payment.planName }}</strong> đã được kích hoạt ngay lập tức.</p>
-            <button class="action-btn" (click)="onSuccessDone()">Hoàn tất</button>
+            <h3>{{ 'payment.successTitle' | translate }}</h3>
+            <p>{{ 'payment.successDescription' | translate:{ plan: payment.planName } }}</p>
+            <button class="action-btn" (click)="onSuccessDone()">{{ 'payment.complete' | translate }}</button>
           </div>
 
           <!-- Trạng thái: Hết hạn / Huỷ -->
           <div *ngIf="status() === 'cancelled'" class="result-box failed">
             <div class="icon">⏰</div>
-            <h3>Đơn hàng đã hết hạn</h3>
-            <p>Đã quá thời gian chờ chuyển khoản. Vui lòng tạo yêu cầu thanh toán mới.</p>
-            <button class="action-btn" (click)="close()">Đóng</button>
+            <h3>{{ 'payment.expiredTitle' | translate }}</h3>
+            <p>{{ 'payment.expiredDescription' | translate }}</p>
+            <button class="action-btn" (click)="close()">{{ 'payment.close' | translate }}</button>
           </div>
         </div>
       </div>
@@ -159,6 +160,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   @Output() dismissed = new EventEmitter<void>();
 
   private readonly planService = inject(PlanService);
+  private readonly i18n = inject(I18nService);
 
   readonly status = signal<'pending' | 'paid' | 'cancelled'>('pending');
   readonly copied = signal(false);
@@ -199,7 +201,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       const now = Date.now();
       const diff = Math.max(0, Math.floor((expiresAt - now) / 1000));
       if (diff <= 0) {
-        this.remainingTime.set('Hết hạn');
+        this.remainingTime.set(this.i18n.t('payment.expired'));
         if (this.status() === 'pending') {
           this.status.set('cancelled');
           this.pollSub?.unsubscribe();

@@ -41,8 +41,8 @@
           </a>
         }
         @if (auth.user()?.role === 'super_admin') {
-          <a class="nav-item" routerLink="/recommendations" routerLinkActive="is-active" title="Thuật toán đề xuất" (click)="closeNavigation()">
-            <img src="/assets/icons/statistics.png" alt="" /><span>Thuật toán đề xuất</span>
+          <a class="nav-item" routerLink="/recommendations" routerLinkActive="is-active" [title]="'nav.recommendations' | translate" (click)="closeNavigation()">
+            <img src="/assets/icons/statistics.png" alt="" /><span>{{ 'nav.recommendations' | translate }}</span>
           </a>
         }
       </section>

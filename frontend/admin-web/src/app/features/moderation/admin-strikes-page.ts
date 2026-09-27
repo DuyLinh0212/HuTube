@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminModerationService,
   CreateStrikeRequest,
@@ -15,7 +16,7 @@ import {
 @Component({
   selector: 'app-admin-strikes-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-strikes-page.html',
   styleUrl: './admin-strikes-page.scss'
 })
@@ -67,19 +68,19 @@ export class AdminStrikesPage implements OnInit {
 
   readonly policyGroups = computed(() => {
     const groupsMap = new Map<string, { label: string; items: PolicyItem[] }>();
-    const groupLabelMap: Record<string, string> = {
-      community_guidelines: 'Tiêu chuẩn nội dung cộng đồng',
-      safety: 'An toàn & Bảo vệ người dùng',
-      copyright: 'Bảo vệ bản quyền & Sở hữu trí tuệ',
-      monetization: 'Chính sách kiếm tiền',
-      platform: 'Nguyên tắc nền tảng & Quy trình',
-      terms: 'Điều khoản dịch vụ'
+    const groupLabelKeys: Record<string, string> = {
+      community_guidelines: 'strikes.policyGroup.communityGuidelines',
+      safety: 'strikes.policyGroup.safety',
+      copyright: 'strikes.policyGroup.copyright',
+      monetization: 'strikes.policyGroup.monetization',
+      platform: 'strikes.policyGroup.platform',
+      terms: 'strikes.policyGroup.terms'
     };
 
     for (const p of this.policies()) {
       const grpKey = p.group || 'community_guidelines';
       if (!groupsMap.has(grpKey)) {
-        const label = groupLabelMap[grpKey] || grpKey.toUpperCase();
+        const label = groupLabelKeys[grpKey] ? this.i18n.t(groupLabelKeys[grpKey]) : grpKey.toUpperCase();
         groupsMap.set(grpKey, { label, items: [] });
       }
       groupsMap.get(grpKey)!.items.push(p);
@@ -94,7 +95,7 @@ export class AdminStrikesPage implements OnInit {
       if (s.channelId && !map.has(s.channelId)) {
         map.set(s.channelId, {
           channelId: s.channelId,
-          name: s.channelName || 'Kênh',
+          name: s.channelName || this.i18n.t('strikes.channel'),
           handle: s.channelHandle,
           status: s.channelStatus
         });
@@ -136,7 +137,7 @@ export class AdminStrikesPage implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(err?.error?.message || 'Không thể tải danh sách gậy phạt.');
+        this.error.set(err?.error?.message || this.i18n.t('strikes.loadError'));
         this.loading.set(false);
       }
     });
@@ -166,7 +167,7 @@ export class AdminStrikesPage implements OnInit {
     if (!this.canManageStrikes()) return;
 
     if (!this.createChannelId() || !this.createReason()) {
-      this.error.set('Vui lòng nhập Channel ID và lý do áp dụng gậy.');
+      this.error.set(this.i18n.t('strikes.channelReasonRequired'));
       return;
     }
 
@@ -183,12 +184,12 @@ export class AdminStrikesPage implements OnInit {
       next: (created) => {
         this.submitting.set(false);
         this.closeCreateModal();
-        this.successMessage.set(`Đã áp dụng gậy phạt #${created.strikeNumber} cho kênh.`);
+        this.successMessage.set(this.i18n.format('strikes.createdSuccess', { number: created.strikeNumber }));
         this.loadData();
       },
       error: (err) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || 'Không thể áp dụng gậy phạt.');
+        this.error.set(err?.error?.message || this.i18n.t('strikes.createError'));
       }
     });
   }
@@ -211,7 +212,7 @@ export class AdminStrikesPage implements OnInit {
 
     const strike = this.activeStrike();
     if (!strike || !this.revokeReason()) {
-      this.error.set('Vui lòng nhập lý do thu hồi gậy.');
+      this.error.set(this.i18n.t('strikes.revokeReasonRequired'));
       return;
     }
 
@@ -224,12 +225,12 @@ export class AdminStrikesPage implements OnInit {
       next: () => {
         this.submitting.set(false);
         this.closeRevokeModal();
-        this.successMessage.set(`Đã thu hồi gậy phạt #${strike.strikeNumber} thành công.`);
+        this.successMessage.set(this.i18n.format('strikes.revokedSuccess', { number: strike.strikeNumber }));
         this.loadData();
       },
       error: (err) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || 'Không thể thu hồi gậy phạt.');
+        this.error.set(err?.error?.message || this.i18n.t('strikes.revokeError'));
       }
     });
   }
@@ -262,7 +263,7 @@ export class AdminStrikesPage implements OnInit {
     if (!this.canLockChannels()) return;
 
     if (!this.lockChannelId() || !this.lockReason()) {
-      this.error.set('Vui lòng nhập Channel ID và lý do.');
+      this.error.set(this.i18n.t('strikes.lockReasonRequired'));
       return;
     }
 
@@ -276,13 +277,21 @@ export class AdminStrikesPage implements OnInit {
       next: () => {
         this.submitting.set(false);
         this.closeChannelLockModal();
-        this.successMessage.set(`Đã ${action === 'lock' ? 'khóa' : 'mở khóa'} kênh thành công.`);
+        this.successMessage.set(this.i18n.format('strikes.lockSuccess', {
+          action: this.i18n.t(action === 'lock' ? 'strikes.lockedAction' : 'strikes.unlockedAction'),
+        }));
         this.loadData();
       },
       error: (err) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || `Không thể ${action === 'lock' ? 'khóa' : 'mở khóa'} kênh.`);
+        this.error.set(err?.error?.message || this.i18n.format('strikes.lockError', {
+          action: this.i18n.t(action === 'lock' ? 'strikes.lockedAction' : 'strikes.unlockedAction'),
+        }));
       }
     });
+  }
+
+  dateLocale(): string {
+    return this.i18n.currentLang() === 'en' ? 'en-US' : 'vi-VN';
   }
 }

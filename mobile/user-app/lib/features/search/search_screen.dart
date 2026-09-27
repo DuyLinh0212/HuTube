@@ -77,8 +77,8 @@ class _SearchScreenState extends State<SearchScreen> {
     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
     children: [
       HuTubeSectionHeader(
-        title: 'Tìm video',
-        subtitle: 'Tìm kiếm video theo tên, chủ đề hoặc từ khóa.',
+        title: AppStrings.t('search.title'),
+        subtitle: AppStrings.t('search.subtitle'),
       ),
       const SizedBox(height: 18),
       TextField(
@@ -87,12 +87,12 @@ class _SearchScreenState extends State<SearchScreen> {
         textInputAction: TextInputAction.search,
         onSubmitted: (_) => _search(),
         decoration: InputDecoration(
-          hintText: 'Bạn muốn xem gì hôm nay?',
+          hintText: AppStrings.t('search.queryHint'),
           prefixIcon: const Icon(Icons.search_rounded),
           suffixIcon: _query.text.isEmpty
               ? null
               : IconButton(
-                  tooltip: 'Xóa từ khóa',
+                  tooltip: AppStrings.t('search.clear'),
                   onPressed: () => setState(() {
                     _query.clear();
                     _results = const [];
@@ -114,7 +114,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.search_rounded),
-          label: const Text('Tìm kiếm video'),
+          label: Text(AppStrings.t('search.submit')),
         ),
       ),
       const SizedBox(height: 16),
@@ -123,14 +123,14 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Row(
           children: [
             for (final item in const [
-              ('relevance', 'Phù hợp nhất'),
-              ('newest', 'Mới nhất'),
-              ('popular', 'Nhiều lượt xem'),
+              ('relevance', 'search.sort.relevance'),
+              ('newest', 'search.sort.newest'),
+              ('popular', 'search.sort.popular'),
             ])
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(item.$2),
+                  label: Text(AppStrings.t(item.$2)),
                   selected: _sort == item.$1,
                   onSelected: (_) {
                     setState(() => _sort = item.$1);
@@ -159,10 +159,10 @@ class _SearchScreenState extends State<SearchScreen> {
       else if (_results.isEmpty)
         HuTubeStateView(
           icon: Icons.manage_search_rounded,
-          title: _searched ? 'Không tìm thấy video' : 'Bắt đầu với một từ khóa',
+          title: AppStrings.t(_searched ? 'search.noResults' : 'search.startTitle'),
           message: _searched
-              ? 'Thử từ khóa khác hoặc đổi cách sắp xếp kết quả.'
-              : 'Nhập tên video, chủ đề hoặc từ khóa bạn quan tâm.',
+              ? AppStrings.t('search.tryAnother')
+              : AppStrings.t('search.enterKeyword'),
           compact: true,
           accent: AppColors.violet,
         )
@@ -176,7 +176,7 @@ class _SearchScreenState extends State<SearchScreen> {
         if (_hasMore)
           OutlinedButton(
             onPressed: _loading ? null : () => _search(more: true),
-            child: Text(_loading ? 'Đang tải…' : 'Xem thêm kết quả'),
+            child: Text(AppStrings.t(_loading ? 'search.loading' : 'search.loadMore')),
           ),
       ],
     ],

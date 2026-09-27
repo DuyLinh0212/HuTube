@@ -150,10 +150,10 @@ class AuthController extends ChangeNotifier {
 
   Future<void> loginWithGoogleCredential(String credential) async {
     if (credential.trim().isEmpty) {
-      throw const ApiFailure(
+      throw ApiFailure(
         401,
         'INVALID_GOOGLE_TOKEN',
-        'Google không trả về mã xác thực hợp lệ.',
+        AppStrings.t('auth.googleInvalid'),
       );
     }
     final generation = ++_generation;
@@ -175,10 +175,10 @@ class AuthController extends ChangeNotifier {
 
   Future<void> loginWithGoogle() async {
     if (_googleWebClientId.isEmpty) {
-      throw const ApiFailure(
+      throw ApiFailure(
         503,
         'GOOGLE_LOGIN_NOT_CONFIGURED',
-        'Đăng nhập Google chưa được cấu hình cho ứng dụng.',
+        AppStrings.t('auth.googleUnavailable'),
       );
     }
     await (_googleInitialization ??= GoogleSignIn.instance.initialize(
@@ -188,20 +188,20 @@ class AuthController extends ChangeNotifier {
       serverClientId: _googleWebClientId,
     ));
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
-      throw const ApiFailure(
+      throw ApiFailure(
         503,
         'GOOGLE_LOGIN_NOT_CONFIGURED',
-        'Thiết bị này chưa hỗ trợ đăng nhập Google.',
+        AppStrings.t('common.googleDeviceUnsupported'),
       );
     }
     try {
       final account = await GoogleSignIn.instance.authenticate();
       final credential = account.authentication.idToken;
       if (credential == null || credential.isEmpty) {
-        throw const ApiFailure(
+        throw ApiFailure(
           401,
           'INVALID_GOOGLE_TOKEN',
-          'Google không trả về mã xác thực hợp lệ.',
+          AppStrings.t('auth.googleInvalid'),
         );
       }
       await loginWithGoogleCredential(credential);
@@ -209,35 +209,34 @@ class AuthController extends ChangeNotifier {
       rethrow;
     } on GoogleSignInException catch (error) {
       throw switch (error.code) {
-        GoogleSignInExceptionCode.canceled => const ApiFailure(
+        GoogleSignInExceptionCode.canceled => ApiFailure(
           400,
           'GOOGLE_LOGIN_CANCELLED',
-          'Bạn đã hủy đăng nhập Google.',
+          AppStrings.t('auth.googleCancelled'),
         ),
         GoogleSignInExceptionCode.clientConfigurationError ||
         GoogleSignInExceptionCode.providerConfigurationError =>
-          const ApiFailure(
+          ApiFailure(
             503,
             'GOOGLE_LOGIN_NOT_CONFIGURED',
-            'Google Sign-In của ứng dụng chưa được cấu hình đúng. '
-                'Kiểm tra Web client ID, package Android và SHA chứng chỉ ký.',
+            AppStrings.t('common.googleConfigurationHint'),
           ),
-        GoogleSignInExceptionCode.uiUnavailable => const ApiFailure(
+        GoogleSignInExceptionCode.uiUnavailable => ApiFailure(
           503,
           'GOOGLE_LOGIN_NOT_CONFIGURED',
-          'Thiết bị hiện không thể mở màn hình đăng nhập Google.',
+          AppStrings.t('common.googleOpenError'),
         ),
-        _ => const ApiFailure(
+        _ => ApiFailure(
           401,
           'INVALID_GOOGLE_TOKEN',
-          'Không thể hoàn tất đăng nhập Google. Vui lòng thử lại.',
+          AppStrings.t('common.googleLoginError'),
         ),
       };
     } catch (_) {
-      throw const ApiFailure(
+      throw ApiFailure(
         401,
         'INVALID_GOOGLE_TOKEN',
-        'Không thể hoàn tất đăng nhập Google. Vui lòng thử lại.',
+        AppStrings.t('common.googleLoginError'),
       );
     }
   }
@@ -297,7 +296,7 @@ class AuthController extends ChangeNotifier {
   Future<void> _refresh() async {
     final generation = _generation;
     if (_refreshToken == null) {
-      throw const ApiFailure(401, 'SESSION_EXPIRED', 'Vui lòng đăng nhập lại.');
+      throw ApiFailure(401, 'SESSION_EXPIRED', AppStrings.t('common.loginAgain'));
     }
     try {
       final response = await api.request(
@@ -344,10 +343,10 @@ class AuthController extends ChangeNotifier {
       if (error.status != 401 || generation != _generation) rethrow;
       if (sentToken == _accessToken) await refresh();
       if (generation != _generation) {
-        throw const ApiFailure(
+        throw ApiFailure(
           401,
           'SESSION_EXPIRED',
-          'Vui lòng đăng nhập lại.',
+          AppStrings.t('common.loginAgain'),
         );
       }
       try {
@@ -375,10 +374,10 @@ class AuthController extends ChangeNotifier {
       if (error.status != 401 || generation != _generation) rethrow;
       if (sentToken == _accessToken) await refresh();
       if (generation != _generation) {
-        throw const ApiFailure(
+        throw ApiFailure(
           401,
           'SESSION_EXPIRED',
-          'Vui lòng đăng nhập lại.',
+          AppStrings.t('common.loginAgain'),
         );
       }
       try {
@@ -404,10 +403,10 @@ class AuthController extends ChangeNotifier {
       if (error.status != 401 || generation != _generation) rethrow;
       if (sentToken == _accessToken) await refresh();
       if (generation != _generation) {
-        throw const ApiFailure(
+        throw ApiFailure(
           401,
           'SESSION_EXPIRED',
-          'Vui lòng đăng nhập lại.',
+          AppStrings.t('common.loginAgain'),
         );
       }
       try {
@@ -441,10 +440,10 @@ class AuthController extends ChangeNotifier {
       if (error.status != 401 || generation != _generation) rethrow;
       if (sentToken == _accessToken) await refresh();
       if (generation != _generation) {
-        throw const ApiFailure(
+        throw ApiFailure(
           401,
           'SESSION_EXPIRED',
-          'Vui lòng đăng nhập lại.',
+          AppStrings.t('common.loginAgain'),
         );
       }
       try {

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminModerationService,
   AppealItem,
@@ -13,7 +14,7 @@ import {
 @Component({
   selector: 'app-admin-appeals-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-appeals-page.html',
   styleUrl: './admin-appeals-page.scss'
 })
@@ -26,7 +27,7 @@ export class AdminAppealsPage implements OnInit {
   openEvidence(appeal: AppealItem): void {
     if (!appeal.evidenceUrl) return;
     const tab = window.open('about:blank', '_blank');
-    if (!tab) { this.error.set('Trình duyệt đã chặn cửa sổ bằng chứng. Hãy cho phép mở tab mới rồi thử lại.'); return; }
+    if (!tab) { this.error.set(this.i18n.t('appeals.openBlocked')); return; }
     this.moderationService.getAppealEvidence(appeal.appealId).subscribe({
       next: blob => {
         const url = URL.createObjectURL(blob);
@@ -34,7 +35,7 @@ export class AdminAppealsPage implements OnInit {
         tab.location.href = url;
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
       },
-      error: () => { tab.close(); this.error.set('Không thể mở tệp bằng chứng của đơn này.'); }
+      error: () => { tab.close(); this.error.set(this.i18n.t('appeals.openError')); }
     });
   }
 
@@ -96,7 +97,7 @@ export class AdminAppealsPage implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(err?.error?.message || 'Không thể tải danh sách khiếu nại.');
+        this.error.set(err?.error?.message || this.i18n.t('appeals.loadError'));
         this.loading.set(false);
       }
     });
@@ -107,12 +108,12 @@ export class AdminAppealsPage implements OnInit {
     this.moderationService.claimAppeal(appeal.appealId).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.successMessage.set(`Đã nhận xử lý khiếu nại #${appeal.appealId.slice(0, 8)}`);
+        this.successMessage.set(this.i18n.format('appeals.claimSuccess', { id: appeal.appealId.slice(0, 8) }));
         this.loadData();
       },
       error: (err) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || 'Không thể nhận xử lý khiếu nại.');
+        this.error.set(err?.error?.message || this.i18n.t('appeals.claimError'));
       }
     });
   }
@@ -122,12 +123,12 @@ export class AdminAppealsPage implements OnInit {
     this.moderationService.releaseAppeal(appeal.appealId).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.successMessage.set(`Đã trả lại khiếu nại #${appeal.appealId.slice(0, 8)} vào hàng đợi.`);
+        this.successMessage.set(this.i18n.format('appeals.releaseSuccess', { id: appeal.appealId.slice(0, 8) }));
         this.loadData();
       },
       error: (err) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || 'Không thể trả lại khiếu nại.');
+        this.error.set(err?.error?.message || this.i18n.t('appeals.releaseError'));
       }
     });
   }
@@ -160,13 +161,36 @@ export class AdminAppealsPage implements OnInit {
       next: (res) => {
         this.submitting.set(false);
         this.closeResolveModal();
-        this.successMessage.set(res.message || 'Đã phân xử khiếu nại thành công.');
+        this.successMessage.set(res.message || this.i18n.t('appeals.resolveSuccess'));
         this.loadData();
       },
       error: (err) => {
         this.submitting.set(false);
-        this.error.set(err?.error?.message || 'Không thể xử lý khiếu nại.');
+        this.error.set(err?.error?.message || this.i18n.t('appeals.resolveError'));
       }
     });
+  }
+
+  targetTypeLabel(targetType: string): string {
+    const key = targetType === 'video' ? 'moderation.colVideo'
+      : targetType === 'channel' ? 'nav.channels'
+        : targetType === 'comment' ? 'moderation.colComment'
+          : targetType === 'strike' ? 'appeals.strike' : '';
+    return key ? this.i18n.t(key) : targetType;
+  }
+
+  statusLabel(status: string): string {
+    const keys: Record<string, string> = {
+      pending: 'appeals.pending',
+      reviewing: 'appeals.reviewing',
+      approved: 'appeals.approved',
+      rejected: 'appeals.rejected',
+      escalated: 'moderation.statusEscalated',
+    };
+    return keys[status] ? this.i18n.t(keys[status]) : status;
+  }
+
+  dateLocale(): string {
+    return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
   }
 }

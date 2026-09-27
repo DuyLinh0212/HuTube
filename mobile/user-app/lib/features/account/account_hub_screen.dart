@@ -126,7 +126,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         ),
         const SizedBox(height: 5),
         Text(
-          'Quản lý hồ sơ, nội dung và trải nghiệm HuTube của bạn.',
+          AppStrings.t('account.hubDescription'),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
@@ -212,8 +212,8 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         ),
         _Tile(
           icon: Icons.devices_outlined,
-          title: 'Phiên đăng nhập & thiết bị',
-          subtitle: 'Xem và đăng xuất thiết bị đang dùng tài khoản.',
+          title: AppStrings.t('account.sessionsHeading'),
+          subtitle: AppStrings.t('account.sessionsDescription'),
           onTap: _openSessions,
         ),
         _Tile(

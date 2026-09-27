@@ -12,7 +12,7 @@
     @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
 
     @if (auth.user(); as user) {
-      <section class="profile-summary" aria-label="Thông tin tài khoản">
+      <section class="profile-summary" [attr.aria-label]="'account.profileAria' | translate">
         <div class="avatar" aria-hidden="true">{{ user.displayName.slice(0, 1).toUpperCase() }}</div>
         <div>
           <h2>{{ user.displayName }}</h2>
@@ -27,7 +27,7 @@
       <div class="section-heading">
         <div>
           <h2 id="prefs-title">{{ 'account.tabPreferences' | translate }}</h2>
-          <p class="muted">Tùy chỉnh màu sắc giao diện và ngôn ngữ hiển thị của trang quản trị</p>
+          <p class="muted">{{ 'account.preferencesDescription' | translate }}</p>
         </div>
       </div>
 
@@ -45,8 +45,8 @@
           <label for="adminLangSelect" class="preference-label">{{ 'account.langLabel' | translate }}</label>
           <select id="adminLangSelect" class="preference-select"
                   [value]="i18n.currentLang()" (change)="onLanguageChange($event)">
-            <option value="vi">Tiếng Việt (VI)</option>
-            <option value="en">English (EN)</option>
+            <option value="vi">{{ 'account.languageVietnamese' | translate }}</option>
+            <option value="en">{{ 'account.languageEnglish' | translate }}</option>
           </select>
         </div>
       </div>
@@ -57,16 +57,16 @@
       <div class="section-heading">
         <div>
           <h2 id="sessions-title">{{ 'account.tabSessions' | translate }}</h2>
-          <p class="muted">Đăng xuất khỏi thiết bị bạn không còn sử dụng.</p>
+          <p class="muted">{{ 'account.logoutUnusedDevices' | translate }}</p>
         </div>
-        <button class="secondary" type="button" (click)="logoutOthers()" [disabled]="busy() || loading() || sessions().length < 2">Đăng xuất các thiết bị khác</button>
+        <button class="secondary" type="button" (click)="logoutOthers()" [disabled]="busy() || loading() || sessions().length < 2">{{ 'account.logoutOtherDevices' | translate }}</button>
       </div>
 
       @if (pendingRevoke(); as pending) {
-        <div class="notice confirm" role="group" aria-label="Xác nhận đăng xuất thiết bị">
-          <p>Kết thúc phiên trên <strong>{{ pending.deviceName }}</strong>?</p>
+        <div class="notice confirm" role="group" [attr.aria-label]="'account.confirmLogoutDevice' | translate">
+          <p>{{ 'account.endSessionOn' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
           <div class="actions">
-            <button class="danger" type="button" (click)="revoke()" [disabled]="busy()">Đăng xuất thiết bị</button>
+            <button class="danger" type="button" (click)="revoke()" [disabled]="busy()">{{ 'account.logoutDevice' | translate }}</button>
             <button class="secondary" type="button" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
           </div>
         </div>
@@ -80,21 +80,21 @@
             <li>
               <div class="device-icon" aria-hidden="true">{{ session.platform === 'mobile' ? '📱' : '💻' }}</div>
               <div class="session-details">
-                <h3>{{ session.deviceName }} @if (session.isCurrent) { <span class="current">Thiết bị này</span> }</h3>
-                <p>Hoạt động gần nhất: {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>
-                <p class="muted">Đăng nhập: {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }}</p>
+                <h3>{{ session.deviceName }} @if (session.isCurrent) { <span class="current">{{ 'account.thisDevice' | translate }}</span> }</h3>
+                <p>{{ 'account.lastActive' | translate }} {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>
+                <p class="muted">{{ 'account.signedInAt' | translate }} {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }}</p>
               </div>
               @if (!session.isCurrent) {
-                <button class="text-button" type="button" (click)="pendingRevoke.set(session)" [disabled]="busy()" [attr.aria-label]="'Đăng xuất ' + session.deviceName">Đăng xuất</button>
+                <button class="text-button" type="button" (click)="pendingRevoke.set(session)" [disabled]="busy()" [attr.aria-label]="('auth.logout' | translate) + ' ' + session.deviceName">{{ 'auth.logout' | translate }}</button>
               }
             </li>
           } @empty {
-            <li>Không có phiên nào để hiển thị. <button type="button" class="text-button" (click)="load()">Tải lại</button></li>
+            <li>{{ 'account.noSessions' | translate }} <button type="button" class="text-button" (click)="load()">{{ 'account.reloadSessions' | translate }}</button></li>
           }
         </ul>
       }
     </section>
 
-    <p class="connection" role="status"><span class="connection-dot" aria-hidden="true"></span> HuTube Quản trị · {{ apiState() }}</p>
+    <p class="connection" role="status"><span class="connection-dot" aria-hidden="true"></span> {{ 'account.connectionLabel' | translate }} {{ apiState() }}</p>
   </section>
 </main>

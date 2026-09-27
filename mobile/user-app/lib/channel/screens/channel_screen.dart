@@ -176,8 +176,8 @@ class _ChannelScreenState extends State<ChannelScreen>
     }
     if (_channel == null || !_isSubscribed || _subscriptionBusy) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Hãy đăng ký kênh trước khi bật thông báo.'),
+        SnackBar(
+          content: Text(AppStrings.t('channel.subscribeBeforeNotifications')),
         ),
       );
       return;
@@ -258,7 +258,7 @@ class _ChannelScreenState extends State<ChannelScreen>
         actions: [
           if (!c.isOwner)
             IconButton(
-              tooltip: 'Báo cáo kênh',
+              tooltip: AppStrings.t('channel.reportAction'),
               icon: const Icon(Icons.flag_outlined),
               onPressed: () => showContentReportDialog(
                 context,
@@ -476,8 +476,8 @@ class _ChannelScreenState extends State<ChannelScreen>
                             IconButton.filledTonal(
                               onPressed: _toggleNotifications,
                               tooltip: _notificationsEnabled
-                                  ? 'Tắt thông báo'
-                                  : 'Bật thông báo',
+                                  ? AppStrings.t('channel.notificationsOff')
+                                  : AppStrings.t('channel.notificationsOn'),
                               icon: Icon(
                                 _notificationsEnabled
                                     ? Icons.notifications_active_rounded
@@ -539,7 +539,7 @@ class _ChannelScreenState extends State<ChannelScreen>
         const SizedBox(height: 12),
         if (_videos.isEmpty)
           Text(
-            'Kênh chưa có video công khai.',
+            AppStrings.t('channel.noPublicVideos'),
             style: TextStyle(color: AppColors.textSecondaryFor(context)),
           )
         else
@@ -554,7 +554,7 @@ class _ChannelScreenState extends State<ChannelScreen>
       children: _videos.isEmpty
           ? [
               Text(
-                'Kênh chưa có video công khai.',
+                AppStrings.t('channel.noPublicVideos'),
                 style: TextStyle(color: AppColors.textSecondaryFor(context)),
               ),
             ]
@@ -580,7 +580,11 @@ class _ChannelScreenState extends State<ChannelScreen>
                 playlist.name,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              subtitle: Text('${playlist.itemCount} video'),
+              subtitle: Text(
+                AppStrings.format('channel.videoCount', {
+                  'count': AppStrings.number(playlist.itemCount),
+                }),
+              ),
               onTap: () => context.push('/playlists/${playlist.id}'),
             ),
           );

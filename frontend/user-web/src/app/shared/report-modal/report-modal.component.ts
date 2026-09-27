@@ -4,109 +4,111 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ContentService, DEFAULT_VIOLATION_TYPES, ViolationType } from '../../core/content.service';
+import { I18nService } from '../../core/i18n.service';
 import { ThemeService } from '../../core/theme.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 export interface ReportReasonOption {
   code: string;
-  name: string;
-  infoTip?: string;
+  nameKey: string;
+  infoTipKey?: string;
 }
 
 export const CHANNEL_REPORT_OPTIONS: ReportReasonOption[] = [
   {
     code: 'harassment',
-    name: 'Quấy rối và bắt nạt qua mạng',
-    infoTip: 'Bao gồm hành vi bắt nạt, đe dọa trực tuyến, rình rập hoặc quấy rối người khác.'
+    nameKey: 'report.reason.harassment',
+    infoTipKey: 'report.reasonTip.harassment'
   },
   {
     code: 'privacy',
-    name: 'Quyền riêng tư',
-    infoTip: 'Tiết lộ thông tin nhận dạng cá nhân hoặc hình ảnh riêng tư mà không có sự đồng ý.'
+    nameKey: 'report.reason.privacy',
+    infoTipKey: 'report.reasonTip.privacy'
   },
   {
     code: 'impersonation',
-    name: 'Mạo danh',
-    infoTip: 'Giả danh một kênh, cá nhân hoặc tổ chức khác nhằm gây hiểu lầm hoặc lừa đảo.'
+    nameKey: 'report.reason.impersonation',
+    infoTipKey: 'report.reasonTip.impersonation'
   },
   {
     code: 'violence_threat',
-    name: 'Đe dọa sử dụng bạo lực',
-    infoTip: 'Nội dung chứa lời đe dọa thực tế nhằm gây hại hoặc tấn công thân thể ai đó.'
+    nameKey: 'report.reason.violenceThreat',
+    infoTipKey: 'report.reasonTip.violenceThreat'
   },
   {
     code: 'child_safety',
-    name: 'Gây nguy hiểm cho trẻ em',
-    infoTip: 'Nội dung bóc lột tình dục trẻ em, lạm dụng hoặc gây nguy hiểm về thể chất/tinh thần cho trẻ vị thành niên.'
+    nameKey: 'report.reason.childSafety',
+    infoTipKey: 'report.reasonTip.childSafety'
   },
   {
     code: 'hate_speech',
-    name: 'Lời nói căm thù nhắm đến một nhóm người được bảo vệ',
-    infoTip: 'Kích động thù hận, phân biệt đối xử dựa trên chủng tộc, tôn giáo, giới tính, khuyết tật.'
+    nameKey: 'report.reason.hateSpeech',
+    infoTipKey: 'report.reasonTip.hateSpeech'
   },
   {
     code: 'fraud',
-    name: 'Nội dung vi phạm và lừa đảo',
-    infoTip: 'Nội dung lừa đảo tài chính, phát tán phần mềm độc hại hoặc vi phạm pháp luật.'
+    nameKey: 'report.reason.fraud',
+    infoTipKey: 'report.reasonTip.fraud'
   },
   {
     code: 'other',
-    name: 'Vấn đề của tôi không có trong danh sách trên',
-    infoTip: 'Các lý do vi phạm khác chưa được phân loại cụ thể ở trên.'
+    nameKey: 'report.reason.other',
+    infoTipKey: 'report.reasonTip.otherChannel'
   }
 ];
 
 export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
   {
     code: 'sexual',
-    name: 'Nội dung khiêu dâm',
-    infoTip: 'Hình ảnh, video đồi trụy hoặc khiêu dâm.'
+    nameKey: 'report.reason.sexual',
+    infoTipKey: 'report.reasonTip.sexual'
   },
   {
     code: 'violent',
-    name: 'Nội dung bạo lực hoặc phản cảm',
-    infoTip: 'Cảnh máu me, bạo lực tàn bạo hoặc gây sốc.'
+    nameKey: 'report.reason.violent',
+    infoTipKey: 'report.reasonTip.violent'
   },
   {
     code: 'hate',
-    name: 'Nội dung lăng mạ hoặc kích động thù hận',
-    infoTip: 'Xúc phạm danh dự hoặc kích động thù địch.'
+    nameKey: 'report.reason.hate',
+    infoTipKey: 'report.reasonTip.hate'
   },
   {
     code: 'harassment',
-    name: 'Nội dung quấy rối hoặc bắt nạt',
-    infoTip: 'Hành vi xúc phạm, quấy rối hoặc đe dọa.'
+    nameKey: 'report.reason.harassmentContent',
+    infoTipKey: 'report.reasonTip.harassmentContent'
   },
   {
     code: 'harmful',
-    name: 'Hành động gây hại hoặc nguy hiểm',
-    infoTip: 'Thực hiện hoặc khuyến khích các thử thách nguy hiểm có thể gây thương tích.'
+    nameKey: 'report.reason.harmful',
+    infoTipKey: 'report.reasonTip.harmful'
   },
   {
     code: 'self_harm',
-    name: 'Hành vi tự tử, tự huỷ hoại bản thân hoặc chứng rối loạn ăn uống',
-    infoTip: 'Khuyến khích hoặc hướng dẫn hành vi tự tử, tự làm hại bản thân.'
+    nameKey: 'report.reason.selfHarm',
+    infoTipKey: 'report.reasonTip.selfHarm'
   },
   {
     code: 'spam',
-    name: 'Spam hoặc thông tin sai lệch',
-    infoTip: 'Spam liên kết, lừa đảo, lan truyền tin giả.'
+    nameKey: 'report.reason.spam',
+    infoTipKey: 'report.reasonTip.spam'
   },
   {
     code: 'copyright',
-    name: 'Vi phạm bản quyền',
-    infoTip: 'Sử dụng tác phẩm hoặc nội dung không có bản quyền.'
+    nameKey: 'report.reason.copyright',
+    infoTipKey: 'report.reasonTip.copyright'
   },
   {
     code: 'other',
-    name: 'Vấn đề của tôi không có trong danh sách trên',
-    infoTip: 'Lý do vi phạm khác.'
+    nameKey: 'report.reason.other',
+    infoTipKey: 'report.reasonTip.otherContent'
   }
 ];
 
 @Component({
   selector: 'app-report-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   template: `
     @if (isOpen) {
       <div
@@ -127,9 +129,9 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
             <!-- Modal Header Step 1 -->
             <header class="modal-header">
               <div class="header-title-box">
-                <h2>{{ targetType === 'channel' ? 'Báo cáo người dùng' : 'Báo cáo' }}</h2>
+                <h2>{{ (targetType === 'channel' ? 'report.userTitle' : 'report.title') | translate }}</h2>
               </div>
-              <button type="button" class="btn-close" (click)="closeModal()" aria-label="Đóng">
+              <button type="button" class="btn-close" (click)="closeModal()" [attr.aria-label]="'common.close' | translate">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"/>
                   <line x1="6" y1="6" x2="18" y2="18"/>
@@ -148,17 +150,17 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
 
               <div class="step-intro-box">
                 <h3 class="step-title">
-                  {{ targetType === 'channel' ? 'Vấn đề là gì?' : 'Nội dung có vấn đề gì?' }}
+                  {{ (targetType === 'channel' ? 'report.channelQuestion' : 'report.contentQuestion') | translate }}
                 </h3>
                 @if (targetType !== 'channel') {
                   <p class="step-guideline">
-                    Chúng tôi sẽ kiểm tra theo tất cả Nguyên tắc cộng đồng nên bạn đừng lo lắng về việc phải lựa chọn sao cho chính xác nhất.
+                    {{ 'report.guidelineReassurance' | translate }}
                   </p>
                 }
               </div>
 
               <!-- Options List -->
-              <div class="options-list" role="radiogroup" aria-label="Lý do báo cáo">
+              <div class="options-list" role="radiogroup" [attr.aria-label]="'report.reasonList' | translate">
                 @for (opt of currentOptions(); track opt.code) {
                   <div
                     class="option-row"
@@ -167,16 +169,16 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                     <div class="radio-outer" [class.is-checked]="selectedCode() === opt.code">
                       <div class="radio-inner" [class.is-checked]="selectedCode() === opt.code"></div>
                     </div>
-                    <span class="option-label">{{ opt.name }}</span>
+                    <span class="option-label">{{ opt.nameKey | translate }}</span>
 
                     <!-- Info Icon with Tooltip (Hình 2) -->
-                    @if (opt.infoTip) {
+                    @if (opt.infoTipKey) {
                       <div
                         class="info-tooltip-wrap"
                         (click)="$event.stopPropagation(); toggleTooltip(opt.code)"
                         (mouseenter)="activeTooltipCode.set(opt.code)"
                         (mouseleave)="activeTooltipCode.set(null)">
-                        <button type="button" class="btn-info-icon" aria-label="Thông tin chi tiết">
+                        <button type="button" class="btn-info-icon" [attr.aria-label]="'report.details' | translate">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
                             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
@@ -185,7 +187,7 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                         </button>
                         @if (activeTooltipCode() === opt.code) {
                           <div class="tooltip-bubble" role="tooltip">
-                            {{ opt.infoTip }}
+                            {{ opt.infoTipKey | translate }}
                           </div>
                         }
                       </div>
@@ -202,7 +204,7 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                 class="btn-pill btn-next"
                 [disabled]="!selectedCode()"
                 (click)="goToStep2()">
-                Tiếp
+                {{ 'common.continue' | translate }}
               </button>
             </footer>
           }
@@ -212,15 +214,15 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
             <!-- Modal Header Step 2: Back Button (←), Title, Close (X) -->
             <header class="modal-header header-step2">
               <div class="header-left-group">
-                <button type="button" class="btn-back" (click)="goBackToStep1()" aria-label="Quay lại">
+                <button type="button" class="btn-back" (click)="goBackToStep1()" [attr.aria-label]="'common.back' | translate">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="19" y1="12" x2="5" y2="12"/>
                     <polyline points="12 19 5 12 12 5"/>
                   </svg>
                 </button>
-                <h2>{{ targetType === 'channel' ? 'Báo cáo' : 'Báo cáo' }}</h2>
+                <h2>{{ 'report.title' | translate }}</h2>
               </div>
-              <button type="button" class="btn-close" (click)="closeModal()" aria-label="Đóng">
+              <button type="button" class="btn-close" (click)="closeModal()" [attr.aria-label]="'common.close' | translate">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"/>
                   <line x1="6" y1="6" x2="18" y2="18"/>
@@ -238,9 +240,9 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
               }
 
               <div class="step-intro-box">
-                <h3 class="step-title">Bạn có muốn chia sẻ thêm gì không? (Không bắt buộc)</h3>
+                <h3 class="step-title">{{ 'report.additionalDetailsTitle' | translate }}</h3>
                 <p class="step-guideline">
-                  Khi chia sẻ thêm thông tin, bạn có thể giúp chúng tôi hiểu rõ vấn đề. Vui lòng không thêm thông tin cá nhân hoặc câu hỏi.
+                  {{ 'report.additionalDetailsDescription' | translate }}
                 </p>
               </div>
 
@@ -251,17 +253,17 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                   rows="6"
                   [ngModel]="description()"
                   (ngModelChange)="description.set($event)"
-                  placeholder="Thêm chi tiết...">
+                  [placeholder]="'report.detailsPlaceholder' | translate">
                 </textarea>
               </div>
 
               <!-- Quick Template Suggestions -->
               <div class="quick-chips-wrap">
-                <span class="chips-label">Gợi ý nhanh:</span>
+                <span class="chips-label">{{ 'report.quickSuggestions' | translate }}</span>
                 <div class="chips-list">
-                  @for (sample of sampleTemplates; track sample) {
-                    <button type="button" class="chip-item" (click)="applySample(sample)">
-                      + {{ sample }}
+                  @for (sampleKey of sampleTemplateKeys; track sampleKey) {
+                    <button type="button" class="chip-item" (click)="applySample(sampleKey)">
+                      + {{ sampleKey | translate }}
                     </button>
                   }
                 </div>
@@ -277,9 +279,9 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                 (click)="submitReport()">
                 @if (submitting()) {
                   <span class="spinner"></span>
-                  <span>Đang gửi...</span>
+                  <span>{{ 'report.submitting' | translate }}</span>
                 } @else {
-                  <span>Báo vi phạm</span>
+                  <span>{{ 'report.submit' | translate }}</span>
                 }
               </button>
             </footer>
@@ -296,6 +298,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly themeService = inject(ThemeService);
+  private readonly i18n = inject(I18nService);
 
   @Input() isOpen = false;
   @Input() targetType: 'video' | 'channel' | 'comment' = 'video';
@@ -326,13 +329,13 @@ export class ReportModalComponent implements OnInit, OnChanges {
     return this.currentOptions().find(o => o.code === this.selectedCode());
   });
 
-  readonly sampleTemplates = [
-    'Nội dung phản cảm, không phù hợp',
-    'Spam liên kết lừa đảo / quảng cáo rác',
-    'Mạo danh cá nhân hoặc tổ chức',
-    'Bình luận xúc phạm, bôi nhọ danh dự',
-    'Vi phạm bản quyền hình ảnh / âm thanh',
-    'Hành vi nguy hiểm hoặc kích động thù hận'
+  readonly sampleTemplateKeys = [
+    'report.sample.inappropriate',
+    'report.sample.spam',
+    'report.sample.impersonation',
+    'report.sample.abusiveComment',
+    'report.sample.copyright',
+    'report.sample.dangerousConduct'
   ];
 
   ngOnInit(): void {
@@ -386,7 +389,8 @@ export class ReportModalComponent implements OnInit, OnChanges {
     this.errorMessage.set(null);
   }
 
-  applySample(sample: string): void {
+  applySample(sampleKey: string): void {
+    const sample = this.i18n.t(sampleKey);
     const current = this.description().trim();
     if (!current) {
       this.description.set(sample);
@@ -446,7 +450,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
 
   submitReport(): void {
     if (!this.auth.user()) {
-      this.errorMessage.set('Vui lòng đăng nhập để gửi báo cáo.');
+      this.errorMessage.set(this.i18n.t('report.loginRequired'));
       const currentUrl = this.router.url;
       setTimeout(() => {
         void this.router.navigate(['/login'], { queryParams: { returnUrl: currentUrl } });
@@ -456,15 +460,16 @@ export class ReportModalComponent implements OnInit, OnChanges {
 
     const opt = this.selectedOption();
     if (!opt) {
-      this.errorMessage.set('Vui lòng chọn loại vi phạm.');
+      this.errorMessage.set(this.i18n.t('report.reasonRequired'));
       return;
     }
 
     const typeId = this.findViolationTypeId(opt.code);
     const detailText = this.description().trim();
+    const reason = this.i18n.t(opt.nameKey);
     const finalDescription = detailText
-      ? `[${opt.name}] ${detailText}`
-      : `Báo cáo vi phạm: ${opt.name}`;
+      ? this.i18n.format('report.submissionWithDetails', { reason, detail: detailText })
+      : this.i18n.format('report.submission', { reason });
 
     this.submitting.set(true);
     this.errorMessage.set(null);
@@ -472,7 +477,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
     this.contentService.reportContent(this.targetType, this.targetId, typeId, finalDescription, this.reportIdempotencyKey).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.successMessage.set('Cảm ơn bạn! Báo cáo vi phạm đã được gửi đến ban kiểm duyệt.');
+        this.successMessage.set(this.i18n.t('report.sentSuccessfully'));
         this.submitted.emit({ violationTypeId: typeId, description: finalDescription });
         setTimeout(() => {
           this.closeModal();
@@ -480,7 +485,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
       },
       error: (err: any) => {
         this.submitting.set(false);
-        const msg = err?.error?.message || err?.message || 'Không thể gửi báo cáo vi phạm. Vui lòng thử lại.';
+        const msg = err?.error?.message || err?.message || this.i18n.t('report.sendError');
         this.errorMessage.set(msg);
       }
     });

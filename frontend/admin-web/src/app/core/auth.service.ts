@@ -2,6 +2,7 @@ import { HttpBackend, HttpClient, HttpErrorResponse, HttpHeaders } from '@angula
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, defer, finalize, firstValueFrom, map, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
+import { I18nService } from './i18n.service';
 
 export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; role?: string; permissions?: string[]; }
 export interface LoginResponse { accessToken: string; expiresAt: string; user: User; }
@@ -20,9 +21,9 @@ function stableDeviceId(): string {
   return generated;
 }
 
-function browserDeviceName(): string {
+function browserDeviceName(i18n: I18nService): string {
   const mobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
-  return `HuTube Admin · ${mobile ? 'Điện thoại' : 'Máy tính'}`;
+  return `HuTube Admin · ${i18n.t(mobile ? 'auth.deviceMobile' : 'auth.deviceDesktop')}`;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -30,6 +31,7 @@ export class AuthService {
   private raw = new HttpClient(inject(HttpBackend));
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
+  private readonly i18n = inject(I18nService);
   readonly user = signal<User | null>(null);
   readonly accessToken = signal<string | null>(null);
   private refreshFlight?: Observable<LoginResponse>;
@@ -49,8 +51,8 @@ export class AuthService {
   private accept(response: LoginResponse): void { this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true; }
   login(email: string, password: string): Observable<User> {
     const generation = ++this.generation;
-    return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: browserDeviceName(), deviceId: stableDeviceId() }).pipe(
-      tap(response => { if (generation !== this.generation) throw new Error('Yêu cầu đăng nhập đã bị hủy.'); this.accept(response); }),
+    return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: browserDeviceName(this.i18n), deviceId: stableDeviceId() }).pipe(
+      tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.error.loginCancelled')); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
     );
@@ -63,7 +65,7 @@ export class AuthService {
       this.refreshFlight = defer(async () => typeof navigator !== 'undefined' && navigator.locks
         ? await navigator.locks.request('hutube-refresh-' + (ADMIN_APP ? 'admin' : 'web'), request)
         : await request()).pipe(
-        tap(response => { if (generation !== this.generation) throw new Error('Phiên đã kết thúc.'); this.accept(response); }),
+        tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.error.sessionEnded')); this.accept(response); }),
         catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); }),
         finalize(() => { this.refreshFlight = undefined; }),
         shareReplay({ bufferSize: 1, refCount: false })
@@ -90,7 +92,7 @@ export class AuthService {
   me(): Observable<User> {
     const generation = this.generation;
     return this.http.get<User>(this.config.apiBaseUrl + (ADMIN_APP ? '/admin/me' : '/auth/me')).pipe(tap(user => {
-      if (generation !== this.generation) throw new Error('Phiên đã thay đổi.');
+      if (generation !== this.generation) throw new Error(this.i18n.t('auth.error.sessionChanged'));
       this.user.set(user);
     }));
   }
@@ -119,23 +121,25 @@ export function safeReturnUrl(value: string | null): string {
   return value;
 }
 
-export function errorMessage(error: unknown): string {
-  if (!(error instanceof HttpErrorResponse)) return 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.';
-  const messages: Record<string, string> = {
-    INVALID_CREDENTIALS: 'Email hoặc mật khẩu chưa đúng.',
-    EMAIL_NOT_VERIFIED: 'Vui lòng xác minh email trước khi đăng nhập.',
-    EMAIL_UNVERIFIED: 'Vui lòng xác minh email trước khi đăng nhập.',
-    ACCOUNT_SUSPENDED: 'Tài khoản đang bị tạm khóa.', ACCOUNT_BANNED: 'Tài khoản đã bị khóa.',
-    ADMIN_ACCESS_DENIED: 'Tài khoản không có quyền quản trị hoặc quyền đã bị vô hiệu hóa.',
-    ADMIN_DISABLED: 'Quyền quản trị của tài khoản đã bị vô hiệu hóa.',
-    EMAIL_EXISTS: 'Email này đã được sử dụng.', USERNAME_EXISTS: 'Tên người dùng này đã được sử dụng.',
-    INVALID_TOKEN: 'Liên kết không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.',
-    TOKEN_EXPIRED: 'Liên kết đã hết hạn. Hãy yêu cầu liên kết mới.'
+export function errorMessage(error: unknown, i18n: I18nService): string {
+  if (!(error instanceof HttpErrorResponse)) return i18n.t('auth.error.generic');
+  const messageKeys: Record<string, string> = {
+    INVALID_CREDENTIALS: 'auth.error.invalidCredentials',
+    EMAIL_NOT_VERIFIED: 'auth.error.emailNotVerified',
+    EMAIL_UNVERIFIED: 'auth.error.emailNotVerified',
+    ACCOUNT_SUSPENDED: 'auth.error.accountSuspended',
+    ACCOUNT_BANNED: 'auth.error.accountBanned',
+    ADMIN_ACCESS_DENIED: 'auth.error.adminAccessDenied',
+    ADMIN_DISABLED: 'auth.error.adminDisabled',
+    EMAIL_EXISTS: 'auth.error.emailExists',
+    USERNAME_EXISTS: 'auth.error.usernameExists',
+    INVALID_TOKEN: 'auth.error.invalidToken',
+    TOKEN_EXPIRED: 'auth.error.tokenExpired',
   };
-  if (error.status === 0) return 'Chưa kết nối được máy chủ. Kiểm tra kết nối và thử lại.';
-  if (error.status === 429) return 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.';
-  if (messages[error.error?.code]) return messages[error.error.code];
+  if (error.status === 0) return i18n.t('auth.error.serverUnavailable');
+  if (error.status === 429) return i18n.t('auth.error.rateLimited');
+  if (messageKeys[error.error?.code]) return i18n.t(messageKeys[error.error.code]);
   if (typeof error.error?.detail === 'string') return `${error.error.detail} (${error.status})`;
-  if (error.status === 403) return 'Tài khoản không có quyền truy cập hoặc đã bị vô hiệu hóa.';
-  return `Không thể hoàn tất yêu cầu (${error.status}). Vui lòng thử lại.`;
+  if (error.status === 403) return i18n.t('auth.error.forbidden');
+  return i18n.format('auth.error.requestFailed', { status: error.status });
 }

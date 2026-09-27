@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { errorMessage } from '../../core/auth.service';
+import { I18nService } from '../../core/i18n.service';
 import { CfSeederApiService, UploadCfSeedRenditionRequest, UploadCfSeedVideoRequest } from './cf-seeder-api.service';
 import {
   CfSeedAccountInput,
@@ -32,6 +33,7 @@ type ScannedFile = { file: File; relativePath: string };
 @Injectable({ providedIn: 'root' })
 export class CfSeederRunnerService {
   private readonly api = inject(CfSeederApiService);
+  private readonly i18n = inject(I18nService);
   private cancelRequested = false;
   private startedAtMs = 0;
   private elapsedTimer?: number;
@@ -64,7 +66,7 @@ export class CfSeederRunnerService {
     const picker = (window as Window & {
       showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
     }).showDirectoryPicker;
-    if (!picker) throw new Error('Trình duyệt không hỗ trợ chọn thư mục.');
+    if (!picker) throw new Error(this.i18n.t('seeder.run.directoryPickerUnavailable'));
     const directory = await picker({ mode: 'read' });
     const scanned: ScannedFile[] = [];
     let ignoredFileCount = 0;
@@ -93,14 +95,14 @@ export class CfSeederRunnerService {
         relativePath: file.webkitRelativePath.split('/').slice(1).join('/') || file.name,
       }));
     const firstPath = allFiles[0]?.webkitRelativePath ?? '';
-    await this.loadScannedFolder(firstPath.split('/')[0] || 'Thư mục đã chọn', scanned,
+    await this.loadScannedFolder(firstPath.split('/')[0] || this.i18n.t('seeder.noFolder'), scanned,
       allFiles.length - scanned.length);
   }
 
   private async loadScannedFolder(name: string, scanned: ScannedFile[], ignoredFileCount: number): Promise<void> {
     const videoCount = scanned.filter(item => isVideoFile(item.file)).length;
     this.qualityScan.set({ status: 'scanning', processedFiles: 0, totalFiles: videoCount });
-    const discovered = await discoverVideoEntries(scanned, processedFiles => {
+    const discovered = await discoverVideoEntries(scanned, this.i18n, processedFiles => {
       this.qualityScan.update(current => ({ ...current, processedFiles }));
     });
     const files = discovered.entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath, 'vi', { numeric: true }));
@@ -109,7 +111,7 @@ export class CfSeederRunnerService {
     if (!files.length) {
       this.qualityScan.set({
         status: 'error', processedFiles: discovered.processedFiles, totalFiles: videoCount,
-        error: 'Không tìm thấy thư mục video hợp lệ có rendition và metadata chất lượng đọc được.',
+        error: this.i18n.t('seeder.run.noValidVideos'),
       });
       return;
     }
@@ -127,10 +129,10 @@ export class CfSeederRunnerService {
     const list = Array.isArray(parsed) ? parsed : isObject(parsed) && Array.isArray(parsed['accounts'])
       ? parsed['accounts']
       : null;
-    if (!list) throw new Error('JSON phải là một mảng account hoặc object có thuộc tính "accounts".');
-    const accounts = list.map((value, index) => parseAccount(value, index));
+    if (!list) throw new Error(this.i18n.t('seeder.run.invalidAccountsJson'));
+    const accounts = list.map((value, index) => parseAccount(value, index, this.i18n));
     if (accounts.length === 0 || accounts.length > 100)
-      throw new Error('File JSON phải có từ 1 đến 100 account.');
+      throw new Error(this.i18n.t('seeder.run.accountCountInvalid'));
     this.accounts.set(accounts);
     this.accountFileName.set(file.name);
   }
@@ -164,19 +166,19 @@ export class CfSeederRunnerService {
   async start(config: CfSeedRunConfig): Promise<void> {
     if (this.isRunning()) return;
     const folder = this.folder();
-    if (!folder || folder.files.length === 0) throw new Error('Hãy chọn thư mục có ít nhất một video hợp lệ.');
+    if (!folder || folder.files.length === 0) throw new Error(this.i18n.t('seeder.run.folderRequired'));
     if (config.accountMode === 'new' && this.accounts().length < config.userCount)
-      throw new Error(`File JSON chỉ có ${this.accounts().length} account, cần ít nhất ${config.userCount}.`);
+      throw new Error(this.i18n.format('seeder.run.accountsShort', { actual: this.accounts().length, required: config.userCount }));
     if (config.accountMode === 'existing' && config.existingAccounts.length === 0)
-      throw new Error('Hãy chọn ít nhất một user/kênh hiện có.');
+      throw new Error(this.i18n.t('seeder.run.existingAccountRequired'));
     if (this.qualityScan().status !== 'ready')
-      throw new Error(this.qualityScan().error || 'Chưa phân tích xong các rendition trong thư mục.');
+      throw new Error(this.qualityScan().error || this.i18n.t('seeder.run.scanIncomplete'));
 
     const runId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
     const accountCount = config.accountMode === 'existing' ? config.existingAccounts.length : config.userCount;
     if (accountCount < 1 || accountCount > 100)
-      throw new Error('Mỗi lượt seed phải có từ 1 đến 100 user/kênh.');
+      throw new Error(this.i18n.t('seeder.run.accountRange'));
     const targetFiles = folder.files.slice(0, accountCount * config.maxVideosPerChannel);
     const results: CfSeedVideoResult[] = [];
     let batchId: string | undefined;
@@ -186,22 +188,22 @@ export class CfSeederRunnerService {
     this.metrics.set({ ...EMPTY_CF_SEED_METRICS, targetVideos: targetFiles.length });
     this.state.set('provisioning');
     this.startClock();
-    this.log(`Bắt đầu lượt seed ${runId.slice(0, 8)} với ${targetFiles.length} video.`);
+    this.log(this.i18n.format('seeder.run.started', { id: runId.slice(0, 8), count: targetFiles.length }));
 
     try {
       let provision: CfSeedProvisionResponse;
       if (config.accountMode === 'existing') {
-        this.log(`Đang dùng ${config.existingAccounts.length} user/kênh hiện có...`);
+        this.log(this.i18n.format('seeder.run.usingExisting', { count: config.existingAccounts.length }));
         provision = {
           batchId: crypto.randomUUID(),
           accounts: config.existingAccounts,
         };
-        this.log(`Đã chọn ${provision.accounts.length} user/kênh hiện có. Bắt đầu upload.`);
+        this.log(this.i18n.format('seeder.run.selectedExisting', { count: provision.accounts.length }));
       } else {
         const selectedAccounts = this.accounts().slice(0, config.userCount);
-        this.log(`Đang tạo ${selectedAccounts.length} tài khoản và kênh...`);
+        this.log(this.i18n.format('seeder.run.creatingAccounts', { count: selectedAccounts.length }));
         provision = await firstValueFrom(this.api.createAccounts(selectedAccounts));
-        this.log(`Đã tạo ${provision.accounts.length} tài khoản seed. Bắt đầu upload.`);
+        this.log(this.i18n.format('seeder.run.createdAccounts', { count: provision.accounts.length }));
       }
       batchId = provision.batchId;
       this.updateMetrics({ usersCreated: provision.accounts.length, channelsCreated: provision.accounts.length });
@@ -222,7 +224,10 @@ export class CfSeederRunnerService {
           sizeBytes: entry.renditions.reduce((sum, rendition) => sum + rendition.file.size, 0),
           qualities: entry.renditions.map(rendition => rendition.quality),
         };
-        this.log(`Đang upload ${entry.name}: ${entry.renditions.map(rendition => rendition.quality).join(', ')}.`);
+        this.log(this.i18n.format('seeder.run.uploadingVideo', {
+          name: entry.name,
+          qualities: entry.renditions.map(rendition => rendition.quality).join(', '),
+        }));
         let uploadStartedAt: number | undefined;
         const recordUploadDuration = (): void => {
           if (uploadStartedAt === undefined) return;
@@ -235,13 +240,15 @@ export class CfSeederRunnerService {
             lastUploadDurationMs: durationMs,
             uploadCount: metrics.uploadCount + 1,
           });
-          this.log(`⏱ Upload ${entry.name}: ${this.formatUploadDuration(durationMs)}.`);
+          this.log(this.i18n.format('seeder.run.uploadDuration', { name: entry.name, duration: this.formatUploadDuration(durationMs) }));
         };
         try {
           const source = [...entry.renditions].sort((a, b) => b.height - a.height)[0];
-          if (!source) throw new Error('Video chưa có rendition hợp lệ.');
+          if (!source) throw new Error(this.i18n.t('seeder.run.noValidVideos'));
           const sourceQuality = source.quality;
-          this.log(`Upload ${sequence}/${targetFiles.length} vào kênh @${account.channelHandle}; rendition nguồn ${sourceQuality}...`);
+          this.log(this.i18n.format('seeder.run.uploadToChannel', {
+            sequence, total: targetFiles.length, handle: account.channelHandle, quality: sourceQuality,
+          }));
           uploadStartedAt = performance.now();
           const uploaded = await this.uploadVideoWithRetry({
             batchId: provision.batchId,
@@ -261,25 +268,25 @@ export class CfSeederRunnerService {
           });
           result.videoId = uploaded.videoId;
           this.updateMetrics({ uploadedBytes: this.metrics().uploadedBytes + source.file.size });
-          this.log(`✓ Đã upload rendition nguồn ${source.quality} lên R2.`);
+          this.log(this.i18n.format('seeder.run.sourceUploaded', { quality: source.quality }));
           for (const rendition of entry.renditions.filter(item => item.quality !== source.quality)
             .sort((a, b) => b.height - a.height)) {
-            this.log(`Đang upload ${rendition.quality} (${formatBytes(rendition.file.size)}) lên R2...`);
+            this.log(this.i18n.format('seeder.run.uploadingRendition', { quality: rendition.quality, size: formatBytes(rendition.file.size, this.i18n) }));
             await this.uploadRenditionWithRetry(uploaded.videoId, rendition);
             this.updateMetrics({ uploadedBytes: this.metrics().uploadedBytes + rendition.file.size });
-            this.log(`✓ ${rendition.quality} đã sẵn sàng trên R2.`);
+            this.log(this.i18n.format('seeder.run.renditionReady', { quality: rendition.quality }));
           }
           recordUploadDuration();
           result.uploaded = true;
           this.updateMetrics({
             uploadedVideos: this.metrics().uploadedVideos + 1,
           });
-          this.log(`✓ ${entry.name}: đã đưa ${entry.renditions.length} rendition lên R2; file dataset được giữ nguyên.`);
+          this.log(this.i18n.format('seeder.run.videoUploaded', { name: entry.name, count: entry.renditions.length }));
         } catch (uploadError) {
           recordUploadDuration();
-          result.error = displayError(uploadError);
+          result.error = displayError(uploadError, this.i18n);
           this.updateMetrics({ failedVideos: this.metrics().failedVideos + 1 });
-          this.log(`✕ Không upload được ${entry.name}: ${result.error}`);
+          this.log(this.i18n.format('seeder.run.videoFailed', { name: entry.name, error: result.error }));
         } finally {
           results.push(result);
           this.updateMetrics({ processedVideos: this.metrics().processedVideos + 1 });
@@ -288,19 +295,19 @@ export class CfSeederRunnerService {
 
       if (this.cancelRequested) {
         this.state.set('cancelled');
-        this.log('Đã dừng theo yêu cầu sau khi xử lý xong video hiện tại.');
+        this.log(this.i18n.t('seeder.run.cancelled'));
       } else if (this.metrics().failedVideos > 0) {
         this.state.set('completed_with_errors');
-        this.log(`Hoàn tất với ${this.metrics().failedVideos} video lỗi.`);
+        this.log(this.i18n.format('seeder.run.partial', { count: this.metrics().failedVideos }));
       } else {
         this.state.set('completed');
-        this.log(`Hoàn tất ${this.metrics().uploadedVideos}/${targetFiles.length} video.`);
+        this.log(this.i18n.format('seeder.run.completed', { uploaded: this.metrics().uploadedVideos, total: targetFiles.length }));
       }
     } catch (runError) {
-      const message = displayError(runError);
+      const message = displayError(runError, this.i18n);
       this.currentError.set(message);
       this.state.set('failed');
-      this.log(`Lượt seed thất bại: ${message}`);
+      this.log(this.i18n.format('seeder.run.failed', { error: message }));
     } finally {
       this.stopClock();
       const history: CfSeedRunHistory = {
@@ -335,7 +342,7 @@ export class CfSeederRunnerService {
   cancel(): void {
     if (!this.isRunning()) return;
     this.cancelRequested = true;
-    this.log('Đã nhận yêu cầu dừng; sẽ dừng sau khi hoàn tất video hiện tại.');
+    this.log(this.i18n.t('seeder.run.cancelRequested'));
   }
 
   downloadHistory(history: CfSeedRunHistory): void {
@@ -350,10 +357,13 @@ export class CfSeederRunnerService {
   formatUploadDuration(milliseconds: number): string {
     if (!Number.isFinite(milliseconds) || milliseconds <= 0) return '—';
     const seconds = milliseconds / 1000;
-    if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)} giây`;
+    if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)} ${this.i18n.t('seeder.run.seconds')}`;
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds - minutes * 60;
-    return `${minutes} phút ${remainingSeconds.toFixed(0).padStart(2, '0')} giây`;
+    return this.i18n.format('seeder.run.minutesSeconds', {
+      minutes,
+      seconds: remainingSeconds.toFixed(0).padStart(2, '0'),
+    });
   }
 
   private updateMetrics(change: Partial<CfSeedMetrics>): void {
@@ -369,12 +379,12 @@ export class CfSeederRunnerService {
     try {
       return await this.withTransientRetry(
         () => firstValueFrom(this.api.uploadVideo(request)),
-        'upload video',
+        this.i18n.t('seeder.run.uploadOperation'),
         error => isTransientUploadError(error) && !isDirectUploadSizeFailure(error, request.file.size),
       );
     } catch (error) {
       if (!isDirectUploadSizeFailure(error, request.file.size)) throw error;
-      this.log(`Upload trực tiếp bị giới hạn hoặc bị reset; chuyển ${request.file.name} sang upload từng phần.`);
+      this.log(this.i18n.format('seeder.run.directFallback', { name: request.file.name }));
       return this.uploadVideoInChunks(request);
     }
   }
@@ -391,12 +401,12 @@ export class CfSeederRunnerService {
     try {
       await this.withTransientRetry(
         () => firstValueFrom(this.api.uploadRendition(videoId, request)),
-        `upload rendition ${rendition.quality}`,
+        this.i18n.format('seeder.run.uploadRenditionOperation', { quality: rendition.quality }),
         error => isTransientUploadError(error) && !isDirectUploadSizeFailure(error, request.file.size),
       );
     } catch (error) {
       if (!isDirectUploadSizeFailure(error, request.file.size)) throw error;
-      this.log(`Rendition ${rendition.quality} bị giới hạn khi upload trực tiếp; chuyển sang upload từng phần.`);
+      this.log(this.i18n.format('seeder.run.renditionFallback', { quality: rendition.quality }));
       await this.uploadRenditionInChunks(videoId, request);
     }
   }
@@ -405,22 +415,22 @@ export class CfSeederRunnerService {
     const expectedChunks = Math.ceil(request.file.size / DEFAULT_CHUNK_SIZE);
     const session = await this.withTransientRetry(
       () => firstValueFrom(this.api.startChunkedUpload(crypto.randomUUID(), request.file, expectedChunks)),
-      'khởi tạo upload rendition',
+      this.i18n.t('seeder.run.startRenditionOperation'),
     );
     if (session.chunkSize !== DEFAULT_CHUNK_SIZE)
-      throw new Error('Kích thước chunk giữa giao diện và API không đồng nhất.');
+      throw new Error(this.i18n.t('seeder.run.chunkSizeMismatch'));
     for (let chunkIndex = 0; chunkIndex < expectedChunks; chunkIndex++) {
       const start = chunkIndex * session.chunkSize;
       const chunk = request.file.slice(start, Math.min(start + session.chunkSize, request.file.size));
       await this.withTransientRetry(
         () => firstValueFrom(this.api.uploadChunk(session.uploadId, chunkIndex, chunk)),
-        `phần ${chunkIndex + 1}/${expectedChunks} của ${request.quality}`,
+        this.i18n.format('seeder.run.chunkPartOperation', { part: chunkIndex + 1, total: expectedChunks, quality: request.quality }),
       );
     }
     const { file: _, ...completion } = request;
     await this.withTransientRetry(
       () => firstValueFrom(this.api.completeChunkedRenditionUpload(session.uploadId, videoId, completion)),
-      `hoàn tất rendition ${request.quality}`,
+      this.i18n.format('seeder.run.completeRenditionOperation', { quality: request.quality }),
     );
   }
 
@@ -429,24 +439,28 @@ export class CfSeederRunnerService {
     const clientUploadId = crypto.randomUUID();
     const session = await this.withTransientRetry(
       () => firstValueFrom(this.api.startChunkedUpload(clientUploadId, request.file, expectedChunks)),
-      'khởi tạo upload',
+      this.i18n.t('seeder.run.startVideoOperation'),
     );
     if (session.chunkSize !== DEFAULT_CHUNK_SIZE)
-      throw new Error('Kích thước chunk giữa giao diện và API không đồng nhất.');
-    this.log(`Đang upload ${request.file.name} theo ${expectedChunks} phần ${Math.round(session.chunkSize / 1024 / 1024)} MB.`);
+      throw new Error(this.i18n.t('seeder.run.chunkSizeMismatch'));
+    this.log(this.i18n.format('seeder.run.chunkUploading', {
+      name: request.file.name,
+      count: expectedChunks,
+      size: Math.round(session.chunkSize / 1024 / 1024),
+    }));
     for (let chunkIndex = 0; chunkIndex < expectedChunks; chunkIndex++) {
-      if (this.cancelRequested) throw new Error('Đã hủy trong lúc upload từng phần.');
+      if (this.cancelRequested) throw new Error(this.i18n.t('seeder.run.uploadCancelled'));
       const start = chunkIndex * session.chunkSize;
       const chunk = request.file.slice(start, Math.min(start + session.chunkSize, request.file.size));
       await this.withTransientRetry(
         () => firstValueFrom(this.api.uploadChunk(session.uploadId, chunkIndex, chunk)),
-        `phần ${chunkIndex + 1}/${expectedChunks}`,
+        this.i18n.format('seeder.run.chunkVideoPartOperation', { part: chunkIndex + 1, total: expectedChunks }),
       );
     }
     const { file: _, ...completion } = request;
     return this.withTransientRetry(
       () => firstValueFrom(this.api.completeChunkedUpload(session.uploadId, completion)),
-      'hoàn tất video',
+      this.i18n.t('seeder.run.completeVideoOperation'),
     );
   }
 
@@ -458,16 +472,22 @@ export class CfSeederRunnerService {
       catch (error) {
         if (!shouldRetry(error) || attempt === maxAttempts) throw error;
         const delayMs = retryDelayMs(error, attempt);
-        this.log(`⚠ ${operationName} tạm thời bị gián đoạn; thử lại ${attempt}/${maxAttempts - 1} sau ${Math.ceil(delayMs / 1000)} giây.`);
+        this.log(this.i18n.format('seeder.run.retryWait', {
+          operation: operationName,
+          attempt,
+          max: maxAttempts - 1,
+          seconds: Math.ceil(delayMs / 1000),
+        }));
         await delay(delayMs);
-        if (this.cancelRequested) throw new Error('Đã hủy trong lúc chờ thử lại upload.');
+        if (this.cancelRequested) throw new Error(this.i18n.t('seeder.run.retryCancelled'));
       }
     }
-    throw new Error('Không thể upload video sau nhiều lần thử.');
+    throw new Error(this.i18n.t('seeder.run.uploadFailed'));
   }
 
   private log(message: string): void {
-    const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
+    const locale = this.i18n.currentLang() === 'en' ? 'en-US' : 'vi-VN';
+    const time = new Date().toLocaleTimeString(locale, { hour12: false });
     this.logs.update(current => [...current, `[${time}] ${message}`].slice(-MAX_VISIBLE_LOGS));
   }
 
@@ -523,6 +543,7 @@ type DatasetInfo = {
 
 async function discoverVideoEntries(
   scanned: ScannedFile[],
+  i18n: I18nService,
   onProgress: (processed: number) => void,
 ): Promise<{ entries: CfSeedFileEntry[]; ignoredCount: number; duplicateFormatCount: number; processedFiles: number }> {
   const videos = scanned.filter(item => isVideoFile(item.file));
@@ -576,7 +597,7 @@ async function discoverVideoEntries(
         let width = finiteNumber(format?.width) ? format!.width! : 0;
         if (!height || !duration) {
           try {
-            const media = await readVideoMetadata(item.file);
+            const media = await readVideoMetadata(item.file, i18n);
             if (!duration) duration = media.duration;
             if (!height) height = media.height;
             if (!width) width = media.width;
@@ -677,19 +698,20 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function parseAccount(value: unknown, index: number): CfSeedAccountInput {
-  if (!isObject(value)) throw new Error(`Account #${index + 1} phải là một object.`);
+function parseAccount(value: unknown, index: number, i18n: I18nService): CfSeedAccountInput {
+  const number = index + 1;
+  if (!isObject(value)) throw new Error(i18n.format('seeder.run.accountObject', { number }));
   const username = typeof value['username'] === 'string' ? value['username'].trim() : '';
   const displayName = typeof value['displayName'] === 'string' ? value['displayName'].trim() : '';
   const channelName = typeof value['channelName'] === 'string' ? value['channelName'].trim() : undefined;
   const password = typeof value['password'] === 'string' ? value['password'] : '';
   if (!/^[A-Za-z0-9_.-]{3,50}$/.test(username))
-    throw new Error(`Account #${index + 1}: username không hợp lệ.`);
+    throw new Error(i18n.format('seeder.run.accountUsername', { number }));
   if (!displayName || displayName.length > 120)
-    throw new Error(`Account #${index + 1}: displayName không hợp lệ.`);
+    throw new Error(i18n.format('seeder.run.accountDisplayName', { number }));
   if (password.length < 10 || password.length > 128 || !/[A-Z]/.test(password)
     || !/[a-z]/.test(password) || !/[0-9]/.test(password))
-    throw new Error(`Account #${index + 1}: password cần 10–128 ký tự, gồm chữ hoa, chữ thường và số.`);
+    throw new Error(i18n.format('seeder.run.accountPassword', { number }));
   return { username, displayName, channelName, password };
 }
 
@@ -709,19 +731,19 @@ function withVideoType(file: File): File {
   return new File([file], file.name, { type: contentTypes[extension(file.name)] ?? 'video/mp4', lastModified: file.lastModified });
 }
 
-async function readVideoMetadata(file: File): Promise<CfSeedVideoMetadata> {
+async function readVideoMetadata(file: File, i18n: I18nService): Promise<CfSeedVideoMetadata> {
   const url = URL.createObjectURL(file);
   try {
     return await new Promise((resolve, reject) => {
       const video = document.createElement('video');
-      const timeout = window.setTimeout(() => reject(new Error('Không đọc được metadata video sau 30 giây.')), 30_000);
+      const timeout = window.setTimeout(() => reject(new Error(i18n.t('seeder.run.metadataTimeout'))), 30_000);
       video.preload = 'metadata';
       video.onloadedmetadata = () => {
         window.clearTimeout(timeout);
-        if (!Number.isFinite(video.duration) || video.duration <= 0) reject(new Error('Thời lượng video không hợp lệ.'));
+        if (!Number.isFinite(video.duration) || video.duration <= 0) reject(new Error(i18n.t('seeder.run.invalidDuration')));
         else resolve({ duration: Math.max(1, Math.ceil(video.duration)), width: video.videoWidth, height: video.videoHeight });
       };
-      video.onerror = () => { window.clearTimeout(timeout); reject(new Error('File video bị lỗi hoặc trình duyệt không hỗ trợ codec.')); };
+      video.onerror = () => { window.clearTimeout(timeout); reject(new Error(i18n.t('seeder.run.videoCodecError'))); };
       video.src = url;
     });
   } finally { URL.revokeObjectURL(url); }
@@ -731,17 +753,19 @@ function highestQualityForHeight(height: number): number {
   return [...QUALITY_HEIGHTS].reverse().find(value => value <= height) ?? 0;
 }
 
-function formatBytes(bytes: number): string {
+function formatBytes(bytes: number, i18n: I18nService): string {
+  const locale = i18n.currentLang() === 'en' ? 'en-US' : 'vi-VN';
+  const formatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${formatter.format(bytes / 1024 / 1024)} MB`;
 }
 
-function plainError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Lỗi không xác định.';
+function plainError(error: unknown, i18n: I18nService): string {
+  return error instanceof Error ? error.message : i18n.t('seeder.run.unknownError');
 }
 
-function displayError(error: unknown): string {
-  return error instanceof HttpErrorResponse ? errorMessage(error) : plainError(error);
+function displayError(error: unknown, i18n: I18nService): string {
+  return error instanceof HttpErrorResponse ? errorMessage(error, i18n) : plainError(error, i18n);
 }
 
 function isDirectUploadSizeFailure(error: unknown, fileSize: number): boolean {

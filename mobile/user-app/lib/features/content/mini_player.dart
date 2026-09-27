@@ -2,6 +2,7 @@ import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'playback_session.dart';
 
@@ -60,7 +61,7 @@ class MiniPlayer extends StatelessWidget {
                           top: 3,
                           right: 3,
                           child: IconButton.filledTonal(
-                            tooltip: 'Đóng trình phát thu nhỏ',
+                            tooltip: AppStrings.t('mini.close'),
                             onPressed: session.dismiss,
                             style: IconButton.styleFrom(
                               backgroundColor: Colors.black.withValues(
@@ -123,7 +124,7 @@ class MiniPlayer extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: session.isPlaying ? 'Tạm dừng' : 'Phát',
+                        tooltip: AppStrings.t(session.isPlaying ? 'mini.pause' : 'mini.play'),
                         onPressed: session.togglePlayback,
                         color: Colors.white,
                         icon: Icon(

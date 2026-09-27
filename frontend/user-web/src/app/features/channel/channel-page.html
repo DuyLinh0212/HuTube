@@ -146,7 +146,7 @@
 
       @if (activeTab() === 'playlists') {
         @if (ch.isOwner) {
-          <a class="channel-playlist-create" [routerLink]="['/channel', ch.handle, 'playlists']">+ Tạo playlist cho kênh</a>
+          <a class="channel-playlist-create" [routerLink]="['/channel', ch.handle, 'playlists']">+ {{ 'channel.createChannelPlaylist' | translate }}</a>
         }
         @if (playlists().length) {
           <div class="channel-playlist-grid">
@@ -299,7 +299,7 @@
                 <path d="m15 14 5-5-5-5"/>
                 <path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
               </svg>
-              <span>{{ (shareCopied() ? 'Đã sao chép liên kết' : 'Chia sẻ kênh') }}</span>
+              <span>{{ (shareCopied() ? 'channel.shareLinkCopied' : 'channel.share') | translate }}</span>
             </button>
             <div class="report-user-dropdown-container">
               <button type="button" class="btn-modal-action btn-report-action" (click)="toggleReportMenu($event)">
@@ -307,22 +307,22 @@
                   <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
                   <line x1="4" y1="22" x2="4" y2="15"/>
                 </svg>
-                <span>Báo cáo người dùng</span>
+                <span>{{ 'channel.report' | translate }}</span>
               </button>
 
               @if (reportMenuOpen()) {
                 <div class="report-user-menu" (click)="$event.stopPropagation()">
                   <button type="button" class="report-menu-item" (click)="hideUserFromMyChannel()">
-                    Ẩn người dùng khỏi kênh của tôi
+                    {{ 'channel.hideUserFromChannel' | translate }}
                   </button>
                   <button type="button" class="report-menu-item" (click)="openChannelReportModal('banner')">
-                    Báo cáo hình ảnh kênh
+                    {{ 'channel.reportChannelImage' | translate }}
                   </button>
                   <button type="button" class="report-menu-item" (click)="openChannelReportModal('avatar')">
-                    Báo cáo ảnh hồ sơ
+                    {{ 'channel.reportProfileImage' | translate }}
                   </button>
                   <button type="button" class="report-menu-item" (click)="openChannelReportModal('user')">
-                    Báo cáo người dùng
+                    {{ 'channel.report' | translate }}
                   </button>
                 </div>
               }

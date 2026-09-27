@@ -243,7 +243,7 @@ export class WatchPage {
       player.muted = true;
       this.muted.set(true);
       return player.play().catch(() => {
-        this.actionMessage.set('Trình duyệt đang chặn tự động phát. Hãy bấm nút phát để xem video.');
+        this.actionMessage.set(this.i18n.t('watch.autoplayBlocked'));
       });
     });
   }
@@ -468,12 +468,12 @@ export class WatchPage {
   }
 
   openPlaylistPicker() {
-    if (!this.requireAuthentication('Vui lòng đăng nhập để thêm video vào danh sách phát.')) return;
+    if (!this.requireAuthentication(this.i18n.t('watchPlaylist.loginRequired'))) return;
     this.playlistPickerOpen.set(true);
     this.playlistLoading.set(true);
     this.playlists.mine().pipe(finalize(() => this.playlistLoading.set(false))).subscribe({
       next: lists => this.playlistOptions.set(lists),
-      error: () => this.actionMessage.set('Không thể tải danh sách phát của bạn.')
+      error: () => this.actionMessage.set(this.i18n.t('watchPlaylist.loadError'))
     });
   }
 
@@ -491,10 +491,10 @@ export class WatchPage {
         this.playlistOptions.update(lists => lists.map(list => list.playlistId === playlist.playlistId
           ? { ...list, itemCount: list.itemCount + 1 }
           : list));
-        this.actionMessage.set(`Đã thêm video vào “${playlist.name}”.`);
+        this.actionMessage.set(this.i18n.format('watchPlaylist.added', { name: playlist.name }));
         this.playlistPickerOpen.set(false);
       },
-      error: () => this.actionMessage.set(`Không thể thêm video vào “${playlist.name}”. Có thể video đã có trong danh sách.`)
+      error: () => this.actionMessage.set(this.i18n.format('watchPlaylist.addError', { name: playlist.name }))
     });
   }
 
@@ -672,13 +672,13 @@ export class WatchPage {
     }
     this.reportTargetType.set('comment');
     this.reportTargetId.set(comment.commentId);
-    this.reportTargetTitle.set(`Bình luận của ${comment.displayName}`);
+    this.reportTargetTitle.set(this.i18n.format('watch.commentBy', { name: comment.displayName }));
     this.reportModalOpen.set(true);
   }
 
   reportVideo() {
     if (!this.auth.user()) {
-      this.actionMessage.set('Vui lòng đăng nhập để báo cáo video.');
+      this.actionMessage.set(this.i18n.t('watchPlaylist.loginReport'));
       return;
     }
     const currentVideo = this.video();
@@ -690,7 +690,7 @@ export class WatchPage {
   }
 
   onReportSubmitted() {
-    this.actionMessage.set('Báo cáo vi phạm đã được gửi đến ban kiểm duyệt.');
+    this.actionMessage.set(this.i18n.t('watch.reportSubmitted'));
     setTimeout(() => this.actionMessage.set(''), 4000);
   }
 
@@ -908,13 +908,13 @@ export class WatchPage {
   toggleSubscriptionNotifications() {
     const channel = this.channel();
     if (!channel || !this.subscribed()) {
-      this.actionMessage.set('Hãy đăng ký kênh trước khi bật thông báo.');
+      this.actionMessage.set(this.i18n.t('watchPlaylist.subscribeFirst'));
       return;
     }
     const enabled = !this.subscriptionNotificationsEnabled();
     this.channels.updateSubscriptionNotifications(channel.channelId, enabled).subscribe({
       next: response => this.subscriptionNotificationsEnabled.set(response.notificationsEnabled),
-      error: () => this.actionMessage.set('Không thể cập nhật thông báo cho kênh này.')
+      error: () => this.actionMessage.set(this.i18n.t('watchPlaylist.notificationsError'))
     });
   }
 }

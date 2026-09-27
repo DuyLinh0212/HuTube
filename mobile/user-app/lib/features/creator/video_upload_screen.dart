@@ -217,7 +217,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
           children: [
             HuTubeSectionHeader(
               title: AppStrings.t('upload.title'),
-              subtitle: 'Chuẩn bị video, thêm thông tin và gửi lên HuTube.',
+              subtitle: AppStrings.t('upload.subtitle'),
             ),
             const SizedBox(height: 18),
             Container(

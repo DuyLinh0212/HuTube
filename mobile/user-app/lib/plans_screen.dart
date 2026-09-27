@@ -10,6 +10,29 @@ import 'core/widgets/hutube_widgets.dart';
 import 'features/payments/payment_service.dart';
 import 'features/plans/plan_service.dart';
 
+String _localizedPlanStatus(Object? rawStatus) {
+  final raw = '${rawStatus ?? ''}'.trim();
+  if (raw.isEmpty) return '—';
+  final normalized = raw.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  final statusKey = switch (normalized) {
+    'pending' || 'pending_payment' || 'awaiting_payment' => 'pending',
+    'paid' => 'paid',
+    'completed' || 'complete' => 'completed',
+    'success' || 'successful' => 'success',
+    'failed' || 'failure' => 'failed',
+    'cancelled' || 'canceled' => 'cancelled',
+    'expired' => 'expired',
+    'refunded' => 'refunded',
+    'active' => 'active',
+    'inactive' => 'inactive',
+    'suspended' => 'suspended',
+    _ => null,
+  };
+  return statusKey == null
+      ? AppStrings.t('common.unknown')
+      : AppStrings.t('plans.status.$statusKey');
+}
+
 class PlansScreen extends StatefulWidget {
   const PlansScreen({
     super.key,
@@ -110,7 +133,7 @@ class _PlansScreenState extends State<PlansScreen> {
         if (paid == true) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Thanh toán đã được xác nhận.')),
+              SnackBar(content: Text(AppStrings.t('plans.paymentConfirmed'))),
             );
           }
         }
@@ -238,7 +261,7 @@ class _PlansScreenState extends State<PlansScreen> {
       await _planService.acceptInvitation(id, token);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã chấp nhận lời mời gói dịch vụ.')),
+          SnackBar(content: Text(AppStrings.t('plans.invitationAccepted'))),
         );
         await _load();
       }
@@ -273,12 +296,12 @@ class _PlansScreenState extends State<PlansScreen> {
     final raw = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Dung lượng thành viên'),
+        title: Text(AppStrings.t('plans.memberStorageTitle')),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Byte (để trống dùng mặc định)',
+          decoration: InputDecoration(
+            labelText: AppStrings.t('plans.byteInputHint'),
           ),
         ),
         actions: [
@@ -319,12 +342,12 @@ class _PlansScreenState extends State<PlansScreen> {
     final raw = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Dung lượng của bạn'),
+        title: Text(AppStrings.t('plans.ownerStorageTitle')),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Byte (để trống dùng mặc định)',
+          decoration: InputDecoration(
+            labelText: AppStrings.t('plans.byteInputHint'),
           ),
         ),
         actions: [
@@ -362,14 +385,19 @@ class _PlansScreenState extends State<PlansScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('${payment['planName'] ?? 'Giao dịch'}'),
+          title: Text('${payment['planName'] ?? AppStrings.t('plans.transaction')}'),
           content: Text(
-            'Mã: ${payment['transactionCode'] ?? '—'}\nTrạng thái: ${payment['status'] ?? '—'}\nSố tiền: ${payment['amount'] ?? '—'} ${payment['currency'] ?? ''}',
+            AppStrings.format('plans.transactionInfo', {
+              'code': payment['transactionCode'] ?? '—',
+              'status': _localizedPlanStatus(payment['status']),
+              'amount': payment['amount'] ?? '—',
+              'currency': payment['currency'] ?? '',
+            }),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
+              child: Text(AppStrings.t('plans.close')),
             ),
           ],
         ),
@@ -390,23 +418,24 @@ class _PlansScreenState extends State<PlansScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('${plan['name'] ?? 'Gói HuTube'}'),
+          title: Text('${plan['name'] ?? AppStrings.t('plans.planFallback')}'),
           content: SingleChildScrollView(
             child: Text(
-              '${plan['description'] ?? ''}\n\n'
-              'Giá: ${plan['price'] ?? 0}\n'
-              'Thời hạn: ${plan['durationDays'] ?? 0} ngày\n'
-              'Dung lượng: ${_formatBytes(plan['storageLimit'])}\n'
-              'Dung lượng mỗi video tối đa: ${_formatBytes(plan['maxUploadSize'])}\n'
-              'Thời lượng tối đa: ${plan['maxVideoDuration'] ?? 0} giây\n'
-              'Chất lượng video: ${plan['maxVideoQuality'] ?? '—'}\n'
-              'Thành viên: ${plan['maxMembers'] ?? 1}',
+              '${plan['description'] ?? ''}\n\n${AppStrings.format('plans.planDetailInfo', {
+                'price': plan['price'] ?? 0,
+                'days': plan['durationDays'] ?? 0,
+                'storage': _formatBytes(plan['storageLimit']),
+                'upload': _formatBytes(plan['maxUploadSize']),
+                'duration': plan['maxVideoDuration'] ?? 0,
+                'quality': plan['maxVideoQuality'] ?? '—',
+                'members': plan['maxMembers'] ?? 1,
+              })}',
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
+              child: Text(AppStrings.t('plans.close')),
             ),
           ],
         ),
@@ -566,7 +595,7 @@ class _PlansScreenState extends State<PlansScreen> {
               OutlinedButton.icon(
                 onPressed: _editOwnerStorage,
                 icon: const Icon(Icons.storage_outlined),
-                label: const Text('Điều chỉnh dung lượng của bạn'),
+                label: Text(AppStrings.t('plans.editOwnerStorage')),
               ),
               OutlinedButton.icon(
                 onPressed: _inviteMember,
@@ -577,7 +606,7 @@ class _PlansScreenState extends State<PlansScreen> {
             if (members.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                'Thành viên gói',
+                AppStrings.t('plans.membersTitle'),
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -588,14 +617,14 @@ class _PlansScreenState extends State<PlansScreen> {
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   title: Text(
-                    '${member['memberEmail'] ?? 'Thành viên'}',
+                    '${member['memberEmail'] ?? AppStrings.t('plans.memberFallback')}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   subtitle: Text(
-                    '${member['status'] ?? ''} · ${_formatBytes(member['allocatedStorage'] ?? 0)}',
+                    '${_localizedPlanStatus(member['status'])} · ${_formatBytes(member['allocatedStorage'] ?? 0)}',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: .65),
                     ),
@@ -608,14 +637,14 @@ class _PlansScreenState extends State<PlansScreen> {
                             if (choice == 'storage') _editMemberStorage(member);
                             if (choice == 'remove') _removeMember(member);
                           },
-                          itemBuilder: (_) => const [
+                          itemBuilder: (_) => [
                             PopupMenuItem(
                               value: 'storage',
-                              child: Text('Sửa dung lượng'),
+                              child: Text(AppStrings.t('plans.editStorage')),
                             ),
                             PopupMenuItem(
                               value: 'remove',
-                              child: Text('Xóa thành viên'),
+                              child: Text(AppStrings.t('plans.removeMember')),
                             ),
                           ],
                         ),
@@ -664,8 +693,8 @@ class _PlansScreenState extends State<PlansScreen> {
           _currentPlanCard(context),
           if (_payments.isNotEmpty) ...[
             HuTubeSectionHeader(
-              title: 'Lịch sử thanh toán',
-              subtitle: 'Theo dõi trạng thái các giao dịch gói dịch vụ.',
+              title: AppStrings.t('plans.paymentHistory'),
+              subtitle: AppStrings.t('plans.paymentHistoryDescription'),
             ),
             const SizedBox(height: 8),
             for (final payment in _payments.take(5))
@@ -675,9 +704,9 @@ class _PlansScreenState extends State<PlansScreen> {
                     Icons.receipt_long_outlined,
                     color: AppColors.violet,
                   ),
-                  title: Text('${payment['planName'] ?? 'Gói dịch vụ'}'),
+                  title: Text('${payment['planName'] ?? AppStrings.t('plans.planFallback')}'),
                   subtitle: Text(
-                    '${payment['transactionCode'] ?? ''} · ${payment['status'] ?? ''}',
+                    '${payment['transactionCode'] ?? ''} · ${_localizedPlanStatus(payment['status'])}',
                   ),
                   trailing: Text(
                     '${payment['amount'] ?? ''} ${payment['currency'] ?? ''}',
@@ -693,7 +722,7 @@ class _PlansScreenState extends State<PlansScreen> {
             HuTubeStateView(
               icon: Icons.auto_awesome_outlined,
               title: AppStrings.t('plans.noPlans'),
-              message: 'Danh mục gói hiện chưa có dữ liệu từ máy chủ.',
+              message: AppStrings.t('plans.serverNoPlans'),
               compact: true,
               accent: AppColors.violet,
             ),
@@ -868,7 +897,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(_paid ? 'Đã nhận thanh toán' : 'Thanh toán gói HuTube'),
+    title: Text(AppStrings.t(_paid ? 'plans.paymentReceived' : 'plans.paymentHeader')),
     content: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 360, maxHeight: 540),
       child: SingleChildScrollView(
@@ -909,7 +938,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                 ),
               ),
             Text(
-              '${_payment['planName'] ?? 'Gói dịch vụ'}',
+              '${_payment['planName'] ?? AppStrings.t('plans.planFallback')}',
               style: const TextStyle(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 5),
@@ -936,22 +965,20 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                 );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã sao chép nội dung chuyển khoản.'),
-                    ),
+                    SnackBar(content: Text(AppStrings.t('plans.paymentCopied'))),
                   );
                 }
               },
               icon: const Icon(Icons.copy_rounded, size: 17),
-              label: const Text('Sao chép nội dung'),
+              label: Text(AppStrings.t('plans.copyPayment')),
             ),
             const SizedBox(height: 8),
             Text(
               _paid
-                  ? 'Gói của bạn đã được kích hoạt.'
+                  ? AppStrings.t('plans.activated')
                   : _expired
-                  ? 'Giao dịch đã hết hạn hoặc không thành công.'
-                  : 'Quét mã để chuyển khoản. Ứng dụng tự kiểm tra kết quả mỗi vài giây.',
+                  ? AppStrings.t('plans.paymentExpired')
+                  : AppStrings.t('plans.paymentInstructions'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -965,10 +992,10 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     ),
     actions: [
       if (!_paid && !_expired)
-        TextButton(onPressed: _poll, child: const Text('Kiểm tra ngay')),
+        TextButton(onPressed: _poll, child: Text(AppStrings.t('plans.checkPayment'))),
       TextButton(
         onPressed: () => Navigator.pop(context, _paid),
-        child: Text(_paid ? 'Hoàn tất' : 'Đóng'),
+        child: Text(AppStrings.t(_paid ? 'plans.paymentDone' : 'plans.close')),
       ),
     ],
   );

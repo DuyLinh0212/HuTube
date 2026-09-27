@@ -149,7 +149,7 @@ class _FeedScreenState extends State<FeedScreen> {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
           Text(
-            widget.explore ? 'KHÁM PHÁ HU TUBE' : 'CHÀO MỪNG TRỞ LẠI',
+            AppStrings.t(widget.explore ? 'feed.exploreEyebrow' : 'feed.welcomeEyebrow'),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w900,
@@ -174,8 +174,7 @@ class _FeedScreenState extends State<FeedScreen> {
             HuTubeStateView(
               icon: Icons.video_library_outlined,
               title: AppStrings.t('feed.empty'),
-              message:
-                  'Thử chọn chủ đề khác hoặc quay lại sau để xem nội dung mới.',
+              message: AppStrings.t('feed.tryAnotherTopic'),
               compact: true,
             ),
           ..._videos.map((video) => VideoCardTile(video: video)),
@@ -274,7 +273,7 @@ class _Failure extends StatelessWidget {
     child: HuTubeStateView(
       icon: Icons.cloud_off_rounded,
       title: message,
-      message: 'Kiểm tra kết nối rồi thử lại.',
+      message: AppStrings.t('common.checkConnection'),
       actionLabel: AppStrings.t('common.retry'),
       onAction: onRetry,
     ),

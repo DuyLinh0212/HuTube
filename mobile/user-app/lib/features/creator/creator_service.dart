@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:image_picker/image_picker.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../content/content_models.dart';
 
 class UploadPreflight {
@@ -198,17 +199,17 @@ class CreatorService {
     final mime = image?.mimeType ?? (image == null ? null : _mime(image.name));
     if (image != null &&
         !(const {'image/jpeg', 'image/png', 'image/webp'}.contains(mime))) {
-      throw const ApiFailure(
+      throw ApiFailure(
         400,
         'INVALID_FILE_TYPE',
-        'Ảnh thu nhỏ chỉ hỗ trợ JPG, PNG hoặc WEBP.',
+        AppStrings.t('creator.thumbnailTypes'),
       );
     }
     if (image != null && (await image.length()) > 5 * 1024 * 1024) {
-      throw const ApiFailure(
+      throw ApiFailure(
         400,
         'FILE_TOO_LARGE',
-        'Kích thước ảnh thu nhỏ tối đa là 5MB.',
+        AppStrings.format('creator.thumbnailSize', {'size': 5}),
       );
     }
     final response = await auth.protectedMultipart(

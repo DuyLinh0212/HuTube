@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../models/channel_models.dart';
 
 class ChannelService {
@@ -96,9 +97,7 @@ class ChannelService {
       throw ApiFailure(
         400,
         'INVALID_FILE_TYPE',
-        avatar
-            ? 'Ảnh đại diện chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.'
-            : 'Ảnh bìa chỉ hỗ trợ JPG, PNG hoặc WEBP.',
+        AppStrings.t(avatar ? 'common.imageTypesAvatar' : 'common.imageTypesBanner'),
       );
     }
     final bytes = await file.readAsBytes();
@@ -107,7 +106,9 @@ class ChannelService {
       throw ApiFailure(
         400,
         'FILE_TOO_LARGE',
-        'Kích thước ảnh tối đa là ${maximumBytes ~/ 1024 ~/ 1024}MB.',
+        AppStrings.format('common.channelImageMaxSize', {
+          'size': maximumBytes ~/ 1024 ~/ 1024,
+        }),
       );
     }
     final response = await auth.protectedUpload(

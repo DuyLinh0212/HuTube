@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 
@@ -52,7 +53,7 @@ class HuAiScreen extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Trợ lý thông minh cho hành trình xem và sáng tạo của bạn.',
+              AppStrings.t('huai.subtitle'),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: .76),
                 height: 1.4,
@@ -63,33 +64,32 @@ class HuAiScreen extends StatelessWidget {
       ),
       const SizedBox(height: 22),
       HuTubeSectionHeader(
-        title: 'Bạn có thể hỏi HuAI',
-        subtitle: 'Các gợi ý sẽ sẵn sàng khi dịch vụ được kết nối.',
+        title: AppStrings.t('huai.promptTitle'),
+        subtitle: AppStrings.t('huai.promptDescription'),
       ),
       const SizedBox(height: 12),
       _Suggestion(
         icon: Icons.explore_outlined,
-        label: 'Gợi ý nội dung phù hợp với tôi',
+        label: AppStrings.t('huai.suggestion.personalized'),
         onTap: () => _notice(context),
       ),
       _Suggestion(
         icon: Icons.video_library_outlined,
-        label: 'Giải thích cách dùng HuTube',
+        label: AppStrings.t('huai.suggestion.howTo'),
         onTap: () => _notice(context),
       ),
       _Suggestion(
         icon: Icons.lightbulb_outline_rounded,
-        label: 'Gợi ý ý tưởng cho video mới',
+        label: AppStrings.t('huai.suggestion.videoIdeas'),
         onTap: () => _notice(context),
       ),
       const SizedBox(height: 18),
       HuTubeStateView(
         icon: Icons.forum_outlined,
         title: auth.authenticated
-            ? 'HuAI đang được chuẩn bị'
-            : 'Đăng nhập để dùng HuAI',
-        message:
-            'Tính năng hội thoại chưa có API trong phiên bản mobile hiện tại.',
+            ? AppStrings.t('huai.preparing')
+            : AppStrings.t('huai.signIn'),
+        message: AppStrings.t('huai.unavailable'),
         compact: true,
         accent: AppColors.violet,
       ),
@@ -97,7 +97,7 @@ class HuAiScreen extends StatelessWidget {
       TextField(
         enabled: false,
         decoration: InputDecoration(
-          hintText: 'Nhắn tin với HuAI',
+          hintText: AppStrings.t('huai.messageHint'),
           prefixIcon: const Icon(Icons.chat_bubble_outline_rounded),
           suffixIcon: IconButton(
             onPressed: null,
@@ -110,9 +110,7 @@ class HuAiScreen extends StatelessWidget {
 
   void _notice(BuildContext context) =>
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('HuAI sẽ hoạt động khi API hội thoại được kết nối.'),
-        ),
+        SnackBar(content: Text(AppStrings.t('huai.apiNotice'))),
       );
 }
 

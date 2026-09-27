@@ -26,14 +26,14 @@ export class AccountPage {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly message = signal('');
-  readonly apiState = signal('Đang kiểm tra kết nối…');
+  readonly apiState = signal(this.i18n.t('account.connectionChecking'));
   readonly pendingRevoke = signal<Session | null>(null);
 
   constructor() {
     this.load();
     this.auth.info().subscribe({
-      next: () => this.apiState.set('Đã kết nối'),
-      error: () => this.apiState.set('Chưa kết nối được máy chủ')
+      next: () => this.apiState.set(this.i18n.t('account.connectionConnected')),
+      error: () => this.apiState.set(this.i18n.t('account.connectionUnavailable'))
     });
   }
 
@@ -41,7 +41,7 @@ export class AccountPage {
     this.loading.set(true);
     this.auth.sessions().pipe(finalize(() => this.loading.set(false))).subscribe({
       next: result => this.sessions.set(result.items),
-      error: error => this.error.set(errorMessage(error))
+      error: error => this.error.set(errorMessage(error, this.i18n))
     });
   }
 
@@ -61,7 +61,7 @@ export class AccountPage {
     this.error.set('');
     this.auth.logout().pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => void this.router.navigate(['/login']),
-      error: error => this.error.set(errorMessage(error) + ' Hãy thử đăng xuất lại để kết thúc phiên trên máy chủ.')
+      error: error => this.error.set(`${errorMessage(error, this.i18n)} ${this.i18n.t('account.logoutAgainHint')}`)
     });
   }
 
@@ -71,10 +71,10 @@ export class AccountPage {
     this.error.set('');
     this.auth.logoutOthers().pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
-        this.message.set('Đã đăng xuất khỏi các thiết bị khác.');
+        this.message.set(this.i18n.t('account.logoutOthersSuccess'));
         this.load();
       },
-      error: error => this.error.set(errorMessage(error))
+      error: error => this.error.set(errorMessage(error, this.i18n))
     });
   }
 
@@ -86,10 +86,10 @@ export class AccountPage {
     this.auth.revoke(session.sessionId).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
         this.pendingRevoke.set(null);
-        this.message.set('Đã kết thúc phiên đăng nhập.');
+        this.message.set(this.i18n.t('account.sessionRevoked'));
         this.load();
       },
-      error: error => this.error.set(errorMessage(error))
+      error: error => this.error.set(errorMessage(error, this.i18n))
     });
   }
 }

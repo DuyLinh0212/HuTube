@@ -102,7 +102,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     try {
       await _service.publish(item.id);
       await _load();
-      if (mounted) _show('Video đã được xuất bản.');
+      if (mounted) _show(AppStrings.t('creator.publishSuccess'));
     } on ApiFailure catch (error) {
       if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
     }
@@ -112,7 +112,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     try {
       await _service.retryProcessing(item.id);
       await _load();
-      if (mounted) _show('Đã gửi yêu cầu xử lý lại video.');
+      if (mounted) _show(AppStrings.t('creator.reprocessSent'));
     } on ApiFailure catch (error) {
       if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
     }
@@ -122,8 +122,8 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hủy tải video?'),
-        content: Text('Bạn muốn hủy lượt tải “${item.title}”?'),
+        title: Text(AppStrings.t('creator.cancelUploadTitle')),
+        content: Text(AppStrings.format('creator.cancelUploadDescription', {'title': item.title})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -131,7 +131,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Hủy tải'),
+            child: Text(AppStrings.t('creator.cancelUpload')),
           ),
         ],
       ),
@@ -151,15 +151,15 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
-            const ListTile(title: Text('Ảnh thu nhỏ video')),
+            ListTile(title: Text(AppStrings.t('creator.thumbnailVideo'))),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Chọn ảnh từ thư viện'),
+              title: Text(AppStrings.t('creator.chooseImageLibrary')),
               onTap: () => Navigator.pop(context, 'pick'),
             ),
             ListTile(
               leading: const Icon(Icons.auto_awesome_outlined),
-              title: const Text('Tạo ảnh từ video'),
+              title: Text(AppStrings.t('creator.createThumbnail')),
               onTap: () => Navigator.pop(context, 'generate'),
             ),
           ],
@@ -180,7 +180,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         await _service.updateThumbnail(item.id, image: image);
       }
       await _load();
-      if (mounted) _show('Đã cập nhật ảnh thu nhỏ.');
+      if (mounted) _show(AppStrings.t('creator.thumbnailUpdated'));
     } on ApiFailure catch (error) {
       if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
     }
@@ -331,7 +331,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       ),
                                     ),
                                   IconButton(
-                                    tooltip: 'Ảnh thu nhỏ',
+                                    tooltip: AppStrings.t('creator.thumbnailTooltip'),
                                     onPressed: () => _updateThumbnail(video),
                                     icon: const Icon(Icons.image_outlined),
                                   ),
@@ -340,7 +340,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       video.visibility.toLowerCase() !=
                                           'public')
                                     IconButton(
-                                      tooltip: 'Xuất bản video',
+                                      tooltip: AppStrings.t('creator.publishVideo'),
                                       onPressed: () => _publish(video),
                                       icon: const Icon(Icons.publish_rounded),
                                     ),
@@ -348,7 +348,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       .toLowerCase()
                                       .contains('fail'))
                                     IconButton(
-                                      tooltip: 'Xử lý lại video',
+                                      tooltip: AppStrings.t('creator.reprocessVideo'),
                                       onPressed: () => _retryProcessing(video),
                                       icon: const Icon(Icons.refresh_rounded),
                                     ),
@@ -356,7 +356,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       .toLowerCase()
                                       .contains('upload'))
                                     IconButton(
-                                      tooltip: 'Hủy tải',
+                                      tooltip: AppStrings.t('creator.cancelUploadTooltip'),
                                       onPressed: () => _cancelUpload(video),
                                       icon: const Icon(Icons.cancel_outlined),
                                     ),

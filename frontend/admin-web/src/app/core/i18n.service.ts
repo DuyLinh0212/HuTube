@@ -1,9 +1,44 @@
 import { Injectable, signal } from '@angular/core';
+import { ADMIN_PAGE_TRANSLATIONS } from './admin-page-translations';
+import { RECOMMENDATION_TRANSLATIONS } from './recommendations-translations';
+import { CF_SEEDER_TRANSLATIONS } from './cf-seeder-translations';
 
 export type AppLang = 'vi' | 'en';
+type TranslationParams = Readonly<Record<string, string | number>>;
+
+function readStoredLanguage(...keys: string[]): AppLang | null {
+  try {
+    for (const key of keys) {
+      const value = localStorage.getItem(key);
+      if (value === 'vi' || value === 'en') return value;
+    }
+  } catch {
+    // Use the default language when browser storage is unavailable.
+  }
+  return null;
+}
+
+function writeStoredLanguage(lang: AppLang, ...keys: string[]): void {
+  try {
+    for (const key of keys) localStorage.setItem(key, lang);
+  } catch {
+    // Language switching remains available for the current session.
+  }
+}
+
+function interpolate(message: string, params?: TranslationParams): string {
+  if (!params) return message;
+  return Object.entries(params).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    message,
+  );
+}
 
 const DICTIONARY: Record<AppLang, Record<string, string>> = {
   vi: {
+    ...ADMIN_PAGE_TRANSLATIONS.vi,
+    ...RECOMMENDATION_TRANSLATIONS.vi,
+    ...CF_SEEDER_TRANSLATIONS.vi,
     // Common
     'common.save': 'Lưu thay đổi',
     'common.saving': 'Đang lưu...',
@@ -24,6 +59,8 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.success': 'Thành công',
     'common.error': 'Đã có lỗi xảy ra',
     'common.confirm': 'Xác nhận',
+    'common.description': 'Mô tả',
+    'common.unknown': 'Không rõ',
 
     // Topbar
     'topbar.searchPlaceholder': 'Tìm hồ sơ, video, người dùng, kênh…',
@@ -141,6 +178,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.colStatus': 'Trạng thái',
     'policies.colActions': 'Thao tác',
     'policies.detailUpdate': 'Chi tiết & Cập nhật',
+    'policies.viewDetails': 'Xem chi tiết',
     'policies.loading': 'Đang tải danh sách chính sách hệ thống...',
     'policies.empty': 'Chưa có chính sách nào',
     'policies.emptyDesc': 'Không tìm thấy quy tắc hoặc điều khoản nào phù hợp với bộ lọc.',
@@ -148,6 +186,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.createTitle': 'Thêm chính sách kiểm duyệt / điều khoản',
     'policies.codeLabel': 'Mã chính sách (Policy Code):',
     'policies.codeHint': 'Định dạng mã viết hoa gạch dưới (VD: CHILD_SAFETY, DOXXING_PRIVACY)',
+    'policies.codePlaceholder': 'Ví dụ: CHILD_SAFETY, HATE_SPEECH',
     'policies.nameLabel': 'Tên quy định:',
     'policies.groupLabel': 'Phân nhóm chính sách:',
     'policies.severityLabel': 'Mức độ nghiêm trọng:',
@@ -344,6 +383,9 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
   },
 
   en: {
+    ...ADMIN_PAGE_TRANSLATIONS.en,
+    ...RECOMMENDATION_TRANSLATIONS.en,
+    ...CF_SEEDER_TRANSLATIONS.en,
     // Common
     'common.save': 'Save changes',
     'common.saving': 'Saving...',
@@ -364,6 +406,8 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.success': 'Success',
     'common.error': 'An error occurred',
     'common.confirm': 'Confirm',
+    'common.description': 'Description',
+    'common.unknown': 'Unknown',
 
     // Topbar
     'topbar.searchPlaceholder': 'Search records, videos, users, channels...',
@@ -481,6 +525,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.colStatus': 'Status',
     'policies.colActions': 'Actions',
     'policies.detailUpdate': 'Details & Update',
+    'policies.viewDetails': 'View details',
     'policies.loading': 'Loading system policy catalog...',
     'policies.empty': 'No policies found',
     'policies.emptyDesc': 'No rules or terms match the selected filter.',
@@ -488,6 +533,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.createTitle': 'Add Moderation Policy / Term',
     'policies.codeLabel': 'Policy Code:',
     'policies.codeHint': 'Uppercase letters with underscores (e.g. CHILD_SAFETY, DOXXING_PRIVACY)',
+    'policies.codePlaceholder': 'e.g. CHILD_SAFETY, HATE_SPEECH',
     'policies.nameLabel': 'Rule Name:',
     'policies.groupLabel': 'Policy Group:',
     'policies.severityLabel': 'Severity Level:',
@@ -693,33 +739,23 @@ export class I18nService {
   readonly currentLang = signal<AppLang>('vi');
 
   constructor() {
-    const saved = localStorage.getItem(this.STORAGE_KEY) as AppLang | null;
-    const legacySaved = localStorage.getItem('hutube_admin_lang') as AppLang | null;
-    const initial = saved || legacySaved;
-
-    if (initial === 'vi' || initial === 'en') {
-      this.currentLang.set(initial);
-    }
+    const saved = readStoredLanguage(this.STORAGE_KEY, 'hutube_admin_lang');
+    if (saved) this.currentLang.set(saved);
   }
 
   setLang(lang: AppLang): void {
     if (lang === 'vi' || lang === 'en') {
       this.currentLang.set(lang);
-      localStorage.setItem(this.STORAGE_KEY, lang);
-      // Preserve the legacy key so an older admin bundle does not unexpectedly
-      // switch back after this shell has been updated.
-      localStorage.setItem('hutube_admin_lang', lang);
+      writeStoredLanguage(lang, this.STORAGE_KEY, 'hutube_admin_lang');
     }
   }
 
-  t(key: string, params?: Record<string, string>): string {
+  t(key: string, params?: TranslationParams): string {
     const lang = this.currentLang();
-    let text = DICTIONARY[lang]?.[key] ?? DICTIONARY['vi']?.[key] ?? key;
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        text = text.replace(new RegExp(`{${k}}`, 'g'), v);
-      }
-    }
-    return text;
+    return interpolate(DICTIONARY[lang]?.[key] ?? DICTIONARY['vi']?.[key] ?? key, params);
+  }
+
+  format(key: string, params: TranslationParams): string {
+    return this.t(key, params);
   }
 }

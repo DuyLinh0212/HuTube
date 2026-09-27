@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminModerationService,
   ModerationDecision,
@@ -16,7 +17,7 @@ import {
 @Component({
   selector: 'app-admin-moderation-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './admin-moderation-page.html',
   styleUrl: './admin-moderation-page.scss'
 })
@@ -61,7 +62,7 @@ export class AdminModerationPage implements OnInit {
     if (risk !== 'ALL') {
       items = items.filter(x => x.riskLevel === risk);
     }
-    if (category !== 'ALL') items = items.filter(x => (x.categoryName || 'Chưa phân loại') === category);
+    if (category !== 'ALL') items = items.filter(x => (x.categoryName || this.i18n.t('moderationPage.noCategory')) === category);
     if (duration !== 'ALL') {
       items = items.filter(x => duration === 'short' ? x.duration < 300 : duration === 'medium' ? x.duration >= 300 && x.duration <= 900 : x.duration > 900);
     }
@@ -87,7 +88,7 @@ export class AdminModerationPage implements OnInit {
     };
   });
 
-  readonly categories = computed(() => [...new Set(this.queue().map(item => item.categoryName || 'Chưa phân loại'))].sort((a, b) => a.localeCompare(b, 'vi')));
+  readonly categories = computed(() => [...new Set(this.queue().map(item => item.categoryName || this.i18n.t('moderationPage.noCategory')))].sort((a, b) => a.localeCompare(b, this.i18n.currentLang())));
 
   ngOnInit(): void {
     this.loadData();
@@ -182,8 +183,8 @@ export class AdminModerationPage implements OnInit {
     const eligible = this.filteredQueue().filter(item => selected.has(item.moderationCaseId)
       && (action === 'claim' ? item.status === 'pending' : item.status === 'reviewing' && this.isClaimedByMe(item)));
     if (!eligible.length) return;
-    const label = action === 'claim' ? 'nhận xử lý' : 'trả lại hàng đợi';
-    if (!window.confirm(`Xác nhận ${label} ${eligible.length} hồ sơ đã chọn?`)) return;
+    const label = this.i18n.t(action === 'claim' ? 'moderationPage.bulkClaimLabel' : 'moderationPage.bulkReleaseLabel');
+    if (!window.confirm(this.i18n.format('moderationPage.bulkConfirm', { action: label, count: eligible.length }))) return;
     this.loading.set(true);
     const requests = eligible.map(item => action === 'claim'
       ? this.moderationService.claim(item.moderationCaseId)
@@ -191,11 +192,11 @@ export class AdminModerationPage implements OnInit {
     forkJoin(requests).subscribe({
       next: () => {
         this.selectedCaseIds.update(ids => ids.filter(id => !eligible.some(item => item.moderationCaseId === id)));
-        this.showMessage(`Đã ${label} ${eligible.length} hồ sơ.`);
+        this.showMessage(this.i18n.format('moderationPage.bulkSuccess', { action: label, count: eligible.length }));
         this.loadData();
       },
       error: err => {
-        this.error.set(err?.error?.detail || `Không thể ${label} toàn bộ hồ sơ. Danh sách sẽ được làm mới để phản ánh các thay đổi đã áp dụng.`);
+        this.error.set(err?.error?.detail || this.i18n.format('moderationPage.bulkError', { action: label }));
         this.loadData();
       }
     });
@@ -280,7 +281,7 @@ export class AdminModerationPage implements OnInit {
       case 'escalated': return this.i18n.t('moderation.statusEscalated');
       case 'approved':
       case 'rejected':
-      case 'resolved': return 'Đã xử lý';
+      case 'resolved': return this.i18n.t('moderationPage.statusProcessed');
       default: return status;
     }
   }
@@ -291,13 +292,15 @@ export class AdminModerationPage implements OnInit {
 
   waitingTime(submittedAt: string): string {
     const minutes = Math.max(0, Math.floor((Date.now() - new Date(submittedAt).getTime()) / 60_000));
-    if (minutes < 60) return `${minutes} phút`;
+    if (minutes < 60) return this.i18n.format('moderationPage.minutes', { count: minutes });
     const hours = Math.floor(minutes / 60);
-    return `${hours} giờ${minutes % 60 ? ` ${minutes % 60} phút` : ''}`;
+    const remainder = minutes % 60 ? this.i18n.format('moderationPage.minuteRemainder', { count: minutes % 60 }) : '';
+    return this.i18n.format('moderationPage.hoursMinutes', { hours, remainder });
   }
 
   formatDate(value: string): string {
-    return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+    const locale = this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US';
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
   }
 
 
