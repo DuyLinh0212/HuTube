@@ -8,7 +8,8 @@ namespace HuTube.Infrastructure.Recommendations;
 public sealed class RecommendationOptions
 {
     public string ServiceUrl { get; set; } = "http://127.0.0.1:8000";
-    public string ServiceToken { get; set; } = "hutube-cf-internal-secret-key";
+    public string ServiceToken { get; set; } = "";
+    public string AdminToken { get; set; } = "";
     public int TimeoutSeconds { get; set; } = 5;
     public bool Enabled { get; set; } = true;
 }

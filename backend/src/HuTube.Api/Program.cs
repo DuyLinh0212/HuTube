@@ -131,6 +131,9 @@ builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, Noti
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<IRecommendationClient, RecommendationClient>();
+builder.Services.AddScoped<IRecommendationSnapshotStore, RecommendationSnapshotStore>();
+builder.Services.AddScoped<RecommendationAdminService>();
+builder.Services.AddHostedService<RecommendationJobWorker>();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
     var problem = ApiErrors.Create(context.HttpContext, 400, "VALIDATION_ERROR", "Vui lòng kiểm tra các trường dữ liệu.");

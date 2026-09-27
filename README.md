@@ -41,10 +41,10 @@ API: `http://localhost:5080`; Recommendation Service: `http://localhost:8000`; U
 │    PostgreSQL 18 Database   │  (viewing_histories, video_reactions, ratings, comments, subscriptions)
 │    Cloudflare R2 / Cloudinary│  (Video media, renditions & thumbnails)
 └──────────────┬──────────────┘
-               │ Nạp ma trận tương tác (user_video_matrix.csv hoặc API)
+               │ Admin xuất CSV xác định lên R2; service nạp artifact từ R2
                ▼
 ┌─────────────────────────────┐
-│   Recommendation Service    │  (Python FastAPI :8000 - Item-Based & User-Based CF)
+│   Recommendation Service    │  (Python FastAPI :8000 - Item-Based Cosine)
 └──────────────┬──────────────┘
                │ Truy vấn Top-K đề xuất cá nhân hóa (X-Service-Token)
                ▼
@@ -63,32 +63,15 @@ Dự án tích hợp hệ thống đề xuất cá nhân hóa chạy bằng Pyth
 ./scripts/run-local.ps1 -Component recommender
 ```
 
-- API suy luận: `http://localhost:8000/internal/recommendations` (kèm Header `X-Service-Token: hutube-cf-internal-secret-key`)
-- Thuật toán: **Item-Based CF** và **User-Based CF** với 3 độ đo tương đồng (**Cosine**, **Jaccard**, **Pearson**) theo chuẩn tài liệu giải thuật.
-- Tự động huấn luyện lại mô hình từ dữ liệu tương tác mới:
-  ```powershell
-  python recommendation-service/training/train_hutube.py
-  ```
+- API suy luận: `POST /internal/recommendations` với token nội bộ `Recommendation__ServiceToken`. API cập nhật dùng token riêng `Recommendation__AdminToken`.
+- Model triển khai: **Item-Based Cosine**. Sáu biến thể User-Based/Item-Based với Cosine, Jaccard và Pearson vẫn dùng cho benchmark local.
+- Super Admin truy cập `/recommendations` trên admin web để kiểm tra ma trận, cập nhật model và mô phỏng tương tác. CSV và artifact của từng phiên bản nằm trên R2; `collaborative_cf/active.json` là manifest đang hoạt động.
+- Chạy trainer local chỉ với CSV thật: `python -m training.train_hutube --matrix-csv <file.csv>`. Không có nhánh tự sinh dữ liệu.
 - Xem tài liệu kiến trúc tại: [Kiến trúc Collaborative Filtering](docs/architecture/CF_ARCHITECTURE.md) và [Recommendation Service](recommendation-service/README.md).
 
-## Công cụ giả lập tương tác (Bot Simulator & Seeder)
+## Mô phỏng tương tác trong Admin Web
 
-Dự án tích hợp công cụ giả lập hành vi người dùng (view, like/dislike, rating, comment, subscribe) nhằm sinh dữ liệu ma trận phục vụ mô hình gợi ý **Collaborative Filtering (CF)**:
-
-```powershell
-./scripts/run-simulator.ps1
-```
-
-- Web Dashboard trực quan tại: `http://localhost:5050`
-- **Kịch bản thực nghiệm mẫu (`TVH Sports`)**:
-  - Giả lập người dùng `TVH Sports` tương tác với **20 video âm nhạc**.
-  - `watch_ratio = 75%` (xem 75% thời lượng video).
-  - Có Like (`like = true`), không dislike trùng lặp.
-  - Có Bình luận (`comment = true`) theo ngữ cảnh âm nhạc tiếng Việt.
-  - Đánh giá sao (`rating = 5 sao`).
-  - Đăng ký kênh (`subscribe = true`).
-  - Toàn bộ hành vi được đẩy qua HTTP API vào PostgreSQL và nạp vào mô hình CF để kiểm thử đề xuất trên Web User.
-- Chi tiết cấu hình, tính năng chọn nhiều người dùng và logic tương tác xem tại: [Hướng dẫn Bot Simulator](tools/bot-simulator/README.md).
+Super Admin chọn nhiều user đang hoạt động, tạo bot mới, chọn video và tỷ lệ xem/thích/không thích/đánh giá/bình luận/đăng ký tại `/recommendations`. Mọi hành vi chạy qua service .NET, trạng thái job nằm trong PostgreSQL và audit ghi người khởi chạy cùng user đích. Giao diện yêu cầu xác nhận rõ trước khi chọn tài khoản thật. Không cần mật khẩu của user để mô phỏng.
 
 ## Hướng dẫn Demo Đồ án (Kịch bản 4 bước kiểm chứng Thuật toán)
 
@@ -98,7 +81,7 @@ Khi báo cáo hoặc thuyết trình đồ án, bạn thực hiện theo kịch 
 ```powershell
 ./scripts/run-local.ps1 -Component api        # HuTube Backend API (Cổng 5080)
 ./scripts/run-recommender.ps1                 # Recommendation Service AI (Cổng 8000)
-./scripts/run-simulator.ps1                   # Bot Simulator & Data Seeder (Cổng 5050)
+./scripts/run-local.ps1 -Component admin      # Admin Web (Cổng 4201)
 ./scripts/run-local.ps1 -Component user       # HuTube Web Frontend (Cổng 4200)
 ```
 
@@ -106,24 +89,21 @@ Khi báo cáo hoặc thuyết trình đồ án, bạn thực hiện theo kịch 
 - **Bước 1 (Trạng thái Chưa Đăng Nhập / Cold Start)**:
   - Mở trình duyệt vào [http://localhost:4200](http://localhost:4200) (ẩn danh hoặc chưa login).
   - *Thuyết minh*: Trang chủ hiển thị video phổ biến dựa trên lượt xem cao nhất và video mới xuất bản.
-- **Bước 2 (Giả lập hành vi người dùng bằng Bot Simulator)**:
-  - Truy cập Studio tại [http://localhost:5050](http://localhost:5050).
+- **Bước 2 (Mô phỏng hành vi trong Admin Web)**:
+  - Đăng nhập Super Admin tại [http://localhost:4201/recommendations](http://localhost:4201/recommendations).
   - Chọn tài khoản mục tiêu (ví dụ: `TVH Sports` hoặc `nguyenvanhung509`).
   - Thiết lập kịch bản hành vi:
     - Chủ đề tương tác: **Âm nhạc** (Music) hoặc **Thể thao** (Sports).
     - Số lượng: `15 - 20` video.
     - Hành vi: Xem `75%` thời lượng, Thích (Like = Có), Đánh giá (Rating = 5 sao), Bình luận (Comment = Có), Đăng ký kênh (Subscribe = Có).
-  - Bấm **"Bắt đầu tương tác"**: Hệ thống đẩy HTTP API thật vào HuTube Backend, ghi nhận vào PostgreSQL và ma trận `user_video_matrix.csv`.
+  - Bấm **"Chạy mô phỏng"**: Backend tạo tương tác qua service hiện có và lưu vào PostgreSQL.
 - **Bước 3 (Huấn luyện / Re-fit Model Collaborative Filtering)**:
-  - Trên terminal, chạy lệnh cập nhật mô hình từ dữ liệu tương tác vừa sinh:
-    ```powershell
-    python recommendation-service/training/train_hutube.py
-    ```
-  - *Thuyết minh*: Mô hình tính toán lại ma trận tương đồng User-User và Item-Item (Cosine, Jaccard, Pearson) và xuất artifact mới nhất.
+  - Trên trang admin, bấm **"Kiểm tra dữ liệu"**, xem tỷ lệ thay đổi rồi bấm **"Cập nhật mô hình"**.
+  - *Thuyết minh*: Backend xuất ma trận từ PostgreSQL lên R2; service tính Item-Based Cosine, lưu artifact và kích hoạt manifest mới.
 - **Bước 4 (Kiểm chứng kết quả cá nhân hóa trên Web)**:
-  - Quay lại [http://localhost:4200](http://localhost:4200), đăng nhập tài khoản vừa mô phỏng (`TVH Sports` hoặc `nguyenvanhung509`).
+  - Quay lại [http://localhost:4200](http://localhost:4200), đăng nhập tài khoản dùng để kiểm chứng.
   - F5 tải lại Trang chủ: Các video thuộc chủ đề Âm nhạc lập tức được đưa lên đầu trang chủ.
-  - Bấm `F12` (Network Tab): Chỉ ra request gọi ngầm sang Recommendation Service (`POST /internal/recommendations`) hoàn thành trong < 5ms.
+  - Browser chỉ gọi API .NET; .NET gọi Recommendation Service bằng token nội bộ. Video đã xem được loại khỏi cả model và video bù.
 
 ## Kiểm thử và vận hành
 
@@ -136,7 +116,7 @@ Workflow được cấu hình để build/unit/integration PostgreSQL, test/buil
 
 Đã xác minh migration/health/OpenAPI local, luồng auth User Web trên trình duyệt với API thật, 17 test unit/widget Flutter và luồng controller mobile gọi HTTP thật. Kết quả Release/backend, lượt test web cuối, APK native và GitHub Actions được ghi riêng trong [bảng nghiệm thu](docs/operations/S4_SCOPE.md); không suy từ test local thành CI/native đã đạt.
 
-- [Công cụ Bot Simulator & Seeder](tools/bot-simulator/README.md)
+- [Quản trị thuật toán đề xuất](docs/operations/RECOMMENDATIONS.md)
 - [API auth/session](docs/api/S4_AUTH.md)
 - [Local và PostgreSQL](docs/operations/LOCAL_DEVELOPMENT.md)
 - [CI/CD và Render sau này](docs/operations/CI_CD.md)

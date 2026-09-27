@@ -20,7 +20,7 @@ public sealed class PolicyModerationIntegrationTests(AuthApiFactory factory) : I
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
-    public async Task PublicPolicies_ShouldExposeSeededRows_AndAdminPolicyRequiresPermission()
+    public async Task PublicPolicies_ShouldExposeSeededRows_AndModeratorCanViewAssignedPolicyPermission()
     {
         var publicClient = factory.CreateClient();
         var publicResponse = await publicClient.GetAsync("/api/v1/policies");
@@ -33,7 +33,7 @@ public sealed class PolicyModerationIntegrationTests(AuthApiFactory factory) : I
         Assert.Contains(policies, policy => policy.Group == "enforcement");
 
         var (moderator, _) = await CreateUserAsync("policy_moderator", SystemRoles.Moderator);
-        Assert.Equal(HttpStatusCode.Forbidden, (await moderator.GetAsync("/api/v1/admin/policies")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await moderator.GetAsync("/api/v1/admin/policies")).StatusCode);
 
         var (superAdmin, _) = await CreateUserAsync("policy_super_admin", SystemRoles.SuperAdmin);
         var adminResponse = await superAdmin.GetAsync("/api/v1/admin/policies?status=published");

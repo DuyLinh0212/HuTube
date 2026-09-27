@@ -25,6 +25,11 @@ class Settings(BaseSettings):
         "item_based_pearson",
     ] = "item_based"
     recommender_service_token: str = ""
+    recommender_admin_token: str = ""
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = ""
     allow_benchmark_model: bool = False
 
     model_config = SettingsConfigDict(

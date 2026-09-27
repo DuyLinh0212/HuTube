@@ -242,32 +242,21 @@ FastAPI nhận `userId`, `limit`, `excludeItemIds` và trả về `itemId`, `sco
 `modelVersion`, `source`. Backend .NET chịu trách nhiệm hydrate metadata, kiểm tra
 quyền và lọc video private/deleted/blocked.
 
-## Tích hợp HuTube & Huấn luyện dữ liệu thực tế
+## Tích hợp HuTube và cập nhật model
 
-Recommendation Service hiện đã được kết nối trực tiếp với HuTube Backend (.NET 10) và hệ thống Bot Simulator:
+Super Admin dùng `/recommendations` trên admin web. Backend .NET tạo một dòng CSV cho mỗi cặp user–video từ PostgreSQL, ghi CSV vào `collaborative_cf/YYYY/MM/DD/` trên R2, rồi gọi `POST /internal/model/train` với `X-Model-Admin-Token`, khóa CSV và SHA-256. Endpoint chỉ huấn luyện **Item-Based Cosine**. Artifact được lưu trên R2; `collaborative_cf/active.json` công bố phiên bản đang hoạt động. Khi khởi động lại, service xác minh hash artifact và nạp model từ R2 vào bộ nhớ. Model cũ tiếp tục phục vụ nếu cập nhật thất bại.
 
-1. **Huấn luyện mô hình từ dữ liệu tương tác HuTube**:
-   ```powershell
-   python -m training.train_hutube
-   ```
-   Script sẽ tự động:
-   - Đọc dữ liệu ma trận từ Web Simulator (`http://localhost:5050/api/matrix`) hoặc file `user_video_matrix.csv`.
-   - Quy đổi các tín hiệu hành vi (`watch_ratio`, `like`, `dislike`, `rating`, `comment`, `subscribed`) thành điểm tương tác chuẩn 1.0 – 5.0.
-   - Huấn luyện 6 biến thể CF (Item-Based và User-Based qua Cosine, Jaccard, Pearson).
-   - Xuất Model Artifact vào `data/artifacts/` và cập nhật con trỏ `benchmark-latest.json`.
+`POST /internal/recommendations` yêu cầu `X-Service-Token` riêng. Browser không gọi service Python. Backend truyền lịch sử xem mới nhất trong `excludeItemIds` và lọc kết quả lần cuối, kể cả video phổ biến bù. MovieLens và sáu biến thể CF vẫn có thể benchmark local bằng pipeline benchmark riêng.
 
-2. **Khởi chạy Service**:
-   ```powershell
-   ./scripts/run-recommender.ps1
-   # hoặc:
-   ./scripts/run-local.ps1 -Component recommender
-   ```
-   Service lắng nghe tại `http://localhost:8000`.
+Để huấn luyện thủ công từ CSV đã xuất, chỉ rõ file thật:
 
-3. **Kết nối Backend .NET**:
-   - `HuTube.Infrastructure.Recommendations.RecommendationClient` gọi `POST http://127.0.0.1:8000/internal/recommendations`.
-   - Bảo mật qua Header `X-Service-Token: hutube-cf-internal-secret-key`.
-   - Tự động fallback về video thịnh hành nếu service offline hoặc user chưa có trong mô hình.
+```powershell
+python -m training.train_hutube --matrix-csv interactions_current.csv
+```
+
+File cần có `user_id`, `video_id`, `score`, tối thiểu 2 user, 2 video và 3 cặp. Không có dữ liệu giả hoặc tự nạp dữ liệu từ simulator cũ.
+
+Local: cấu hình hai token riêng và các biến `R2_*` trong `.env` (xem `.env.example`), đặt `Recommendation__ServiceUrl`, `Recommendation__ServiceToken`, `Recommendation__AdminToken` cùng thông tin `Storage__R2__*` cho API .NET. Chạy `./scripts/run-recommender.ps1`; script chỉ bind `127.0.0.1`. Trên Render, cấu hình các biến trong `render.yaml`; web miễn phí có thể ngủ và request đầu có thể rơi về feed mặc định.
 
 ## Giới hạn và Hướng phát triển tiếp theo
 

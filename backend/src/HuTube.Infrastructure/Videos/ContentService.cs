@@ -172,21 +172,27 @@ public sealed class ContentService(
         CancellationToken ct = default)
     {
         (page, pageSize) = Page(page, pageSize);
+        // Read the current viewing history for every home/recommended page. A model snapshot
+        // cannot know about views recorded after it was trained.
+        var hideViewed = currentUserId.HasValue && string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase);
+        var viewedIds = hideViewed
+            ? await db.ViewingHistories.AsNoTracking().Where(x => x.UserId == currentUserId!.Value)
+                .Select(x => x.VideoId).Distinct().ToListAsync(ct)
+            : [];
 
-        // Đề xuất cá nhân hóa (Collaborative Filtering) cho Home feed khi User đã đăng nhập, ở trang đầu tiên và không lọc chuyên mục/tag
+        // Use the model across every home/recommended page, with live exclusions.
         if (string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase)
             && currentUserId.HasValue
-            && page == 1
             && !categoryId.HasValue
             && string.IsNullOrWhiteSpace(tag)
             && recommendationClient.IsEnabled)
         {
             try
             {
-                var recommended = await recommendationClient.GetRecommendationsAsync(currentUserId.Value, pageSize, null, ct);
+                var recommended = await recommendationClient.GetRecommendationsAsync(currentUserId.Value, (int)Math.Min((long)page * pageSize, 100), viewedIds, ct);
                 if (recommended != null && recommended.Count > 0)
                 {
-                    var recIds = recommended.Select(r => r.VideoId).ToList();
+                    var recIds = recommended.Select(r => r.VideoId).Where(id => !viewedIds.Contains(id)).ToList();
                     var recVideos = await (from video in db.Videos.AsNoTracking()
                                            join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
                                            where recIds.Contains(video.VideoId)
@@ -215,14 +221,17 @@ public sealed class ContentService(
 
                     if (orderedVideos.Count > 0)
                     {
+                        var pageVideos = orderedVideos.Skip((int)Math.Min((long)(page - 1) * pageSize, int.MaxValue)).Take(pageSize).ToList();
                         // Nếu số lượng video đề xuất ít hơn pageSize, bù thêm video phổ biến chưa có trong danh sách
-                        if (orderedVideos.Count < pageSize)
+                        if (pageVideos.Count < pageSize)
                         {
                             var existingIds = orderedVideos.Select(v => v!.VideoId).ToHashSet();
-                            var fallbackCount = pageSize - orderedVideos.Count;
+                            var fallbackCount = pageSize - pageVideos.Count;
+                            var fallbackSkip = (int)Math.Min(Math.Max(0L, (long)(page - 1) * pageSize - orderedVideos.Count), int.MaxValue);
                             var fallbackVideos = await (from video in db.Videos.AsNoTracking()
                                                         join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
                                                         where !existingIds.Contains(video.VideoId)
+                                                              && !viewedIds.Contains(video.VideoId)
                                                               && video.Status == "published"
                                                               && video.ModerationStatus == "approved"
                                                               && video.Visibility == "public"
@@ -239,20 +248,20 @@ public sealed class ContentService(
                                                             video.Visibility,
                                                             video.PublishedAt,
                                                             Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId)
-                                                        }).Take(fallbackCount).ToListAsync(ct);
+                                                        }).Skip(fallbackSkip).Take(fallbackCount).ToListAsync(ct);
 
-                            orderedVideos.AddRange(fallbackVideos);
+                            pageVideos.AddRange(fallbackVideos);
                         }
 
-                        var cardsList = new List<VideoCardResponse>(orderedVideos.Count);
-                        foreach (var row in orderedVideos)
+                        var cardsList = new List<VideoCardResponse>(pageVideos.Count);
+                        foreach (var row in pageVideos)
                         {
                             cardsList.Add(new(row!.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
                                 row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct),
                                 row.Duration, row.Visibility, row.PublishedAt, row.Views));
                         }
 
-                        var totalCount = await db.Videos.AsNoTracking().CountAsync(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public", ct);
+                        var totalCount = await db.Videos.AsNoTracking().CountAsync(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public" && !viewedIds.Contains(x.VideoId), ct);
                         return new(cardsList, page, pageSize, totalCount);
                     }
                 }
@@ -264,6 +273,7 @@ public sealed class ContentService(
         }
 
         var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+        if (hideViewed) query = query.Where(x => !viewedIds.Contains(x.VideoId));
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId);
         if (!string.IsNullOrWhiteSpace(tag))
         {
@@ -279,6 +289,7 @@ public sealed class ContentService(
         {
             // Guest cold-start falls back from Category/Tag to the public newest/popular catalogue.
             query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+            if (hideViewed) query = query.Where(x => !viewedIds.Contains(x.VideoId));
             total = await query.CountAsync(ct);
         }
         var rows = from video in query

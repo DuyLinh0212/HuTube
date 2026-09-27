@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import hashlib
+import io
 import json
+import threading
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Literal
 
 import numpy as np
 
 from app.config import Settings
 from app.data.mapping import IndexMappings
+from app.r2_store import R2Store
 from app.recommenders.base import CollaborativeFilter
 from app.recommenders.item_cf import ItemBasedCF
 from app.recommenders.user_cf import UserBasedCF
@@ -126,6 +132,10 @@ class ModelRegistry:
         self.settings = settings
         self.loaded: LoadedModel | None = None
         self.load_error: str | None = None
+        self.manifest: dict | None = None
+        self.update_lock = threading.Lock()
+        self.update_task = None
+        self.update_jobs: dict[str, dict] = {}
 
     def _resolve_artifact(self) -> Path:
         root = self.settings.resolved_model_storage_path
@@ -138,6 +148,16 @@ class ModelRegistry:
 
     def load(self) -> None:
         try:
+            if self.settings.r2_account_id:
+                store = R2Store(self.settings)
+                manifest = store.read_json("collaborative_cf/active.json")
+                if manifest is None:
+                    raise FileNotFoundError("No active collaborative CF manifest exists on R2.")
+                loaded = self._load_archive(store, manifest)
+                self.loaded = loaded
+                self.manifest = manifest
+                self.load_error = None
+                return
             loaded = load_artifact_directory(
                 self._resolve_artifact(),
                 model_type=self.settings.model_type,
@@ -153,5 +173,77 @@ class ModelRegistry:
             self.loaded = loaded
             self.load_error = None
         except Exception as exc:
-            self.loaded = None
+            # A failed reload must leave the previous in-memory model serving.
             self.load_error = str(exc)
+
+    def _load_archive(self, store: R2Store, manifest: dict) -> LoadedModel:
+        archive = store.read(str(manifest["artifactKey"]))
+        if hashlib.sha256(archive).hexdigest() != manifest["artifactSha256"]:
+            raise ValueError("Active artifact SHA-256 mismatch.")
+        with TemporaryDirectory() as folder:
+            root = Path(folder)
+            with zipfile.ZipFile(io.BytesIO(archive)) as zf:
+                for name in zf.namelist():
+                    if (
+                        name.startswith("/")
+                        or ".." in Path(name).parts
+                        or "/" in name
+                        or "\\" in name
+                    ):
+                        raise ValueError("Unsafe artifact archive entry.")
+                zf.extractall(root)
+            loaded = load_artifact_directory(root, model_type="item_based_cosine")
+        if (loaded.metadata.get("modelVersion") != manifest["modelVersion"]
+                or loaded.metadata.get("csvKey") != manifest["csvKey"]
+                or loaded.metadata.get("csvSha256") != manifest["csvSha256"]
+                or loaded.metadata.get("deployable") is not True
+                or loaded.metadata.get("source") != "HUTUBE"):
+            raise ValueError("Active artifact metadata does not match the manifest.")
+        return loaded
+
+    def train_from_r2(self, csv_key: str, csv_sha256: str) -> dict:
+        from datetime import UTC, datetime
+
+        from training.train_hutube import train_csv_bytes
+
+        if not csv_key.startswith("collaborative_cf/") or not csv_key.endswith(".csv"):
+            raise ValueError("CSV key must be inside collaborative_cf/ and end in .csv.")
+        if len(csv_sha256) != 64:
+            raise ValueError("A full SHA-256 digest is required.")
+        if not self.update_lock.acquire(blocking=False):
+            raise RuntimeError("A model update is already running.")
+        try:
+            store = R2Store(self.settings)
+            csv = store.read(csv_key)
+            if len(csv) > 32 * 1024 * 1024:
+                raise ValueError("CSV exceeds the 32 MiB training limit.")
+            with TemporaryDirectory() as folder:
+                artifact_dir = train_csv_bytes(csv, Path(folder), csv_key=csv_key,
+                                               csv_sha256=csv_sha256)
+                packed = io.BytesIO()
+                with zipfile.ZipFile(packed, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                    for file in artifact_dir.iterdir():
+                        if file.is_file():
+                            zf.write(file, file.name)
+                archive = packed.getvalue()
+                if len(archive) > 64 * 1024 * 1024:
+                    raise ValueError("Artifact exceeds the 64 MiB upload limit.")
+                metadata = json.loads((artifact_dir / "metadata.json").read_text(encoding="utf-8"))
+                manifest = {
+                    "modelVersion": metadata["modelVersion"], "csvKey": csv_key,
+                    "csvSha256": csv_sha256,
+                    "artifactKey": f"collaborative_cf/artifacts/{metadata['modelVersion']}.zip",
+                    "artifactSha256": hashlib.sha256(archive).hexdigest(),
+                    "updatedAt": datetime.now(UTC).isoformat(),
+                }
+                store.write(manifest["artifactKey"], archive, "application/zip")
+                preview = self._load_archive(store, manifest)
+                # active.json is the publication point. Before this write the old
+                # model remains authoritative, including after process restarts.
+                store.write_json("collaborative_cf/active.json", manifest)
+                self.loaded = preview
+                self.manifest = manifest
+                self.load_error = None
+                return manifest
+        finally:
+            self.update_lock.release()

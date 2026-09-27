@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
 import { permissionGuard } from './core/permission.guard';
+import { superAdminGuard } from './core/super-admin.guard';
 import { ADMIN_APP } from './core/runtime-config';
 const authPage = () => import('./features/auth/auth-page').then(m => m.AuthPage);
 export const routes: Routes = [
@@ -21,6 +22,7 @@ export const routes: Routes = [
   { path: 'moderation/strikes', canActivate: [authGuard, permissionGuard], data: { permission: 'strike.view' }, loadComponent: () => import('./features/moderation/admin-strikes-page').then(m => m.AdminStrikesPage), title: 'Quản lý Gậy phạt · HuTube' },
   { path: 'topics', canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['system.view_setting', 'taxonomy.manage'] }, loadComponent: () => import('./features/topics/admin-topics-page').then(m => m.AdminTopicsPage), title: 'Danh mục & chủ đề · HuTube' },
   { path: 'cf-seeder', canActivate: [authGuard, permissionGuard], data: { permission: 'cf_seed.manage' }, loadComponent: () => import('./features/cf-seeder/cf-seeder-page').then(m => m.CfSeederPage), title: 'CF Data Seeder · HuTube' },
+  { path: 'recommendations', canActivate: [authGuard, superAdminGuard], loadComponent: () => import('./features/recommendations/recommendations-page').then(m => m.RecommendationsPage), title: 'Thuật toán đề xuất · HuTube' },
   { path: 'policies', canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['system.view_setting', 'policy.view', 'moderation.review', 'moderation.view_queue'] }, loadComponent: () => import('./features/policies/admin-policies-page').then(m => m.AdminPoliciesPage), title: 'Chính sách hệ thống · HuTube' },
   { path: 'account', canActivate: [authGuard], loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'Tài khoản · HuTube' },
   { path: '', pathMatch: 'full', redirectTo: 'account' },
