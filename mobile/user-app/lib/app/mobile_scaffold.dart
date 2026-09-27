@@ -237,7 +237,7 @@ class MobileScaffold extends StatelessWidget {
                   selectedIcon: const Icon(Icons.explore_rounded),
                   label: AppStrings.t('nav.explore'),
                 ),
-                const NavigationDestination(
+                NavigationDestination(
                   icon: _CreateNavIcon(),
                   selectedIcon: _CreateNavIcon(selected: true),
                   label: AppStrings.t('app.createButton'),

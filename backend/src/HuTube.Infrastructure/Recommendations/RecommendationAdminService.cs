@@ -15,7 +15,8 @@ using Microsoft.Extensions.Logging;
 namespace HuTube.Infrastructure.Recommendations;
 
 public sealed record MatrixCounts(int Pairs, int Users, int Videos);
-public sealed record MatrixPreviewResponse(string[] Columns, IReadOnlyList<string[]> Rows, int Total);
+public sealed record MatrixPreviewResponse(string[] Columns, IReadOnlyList<string[]> Rows, int Total,
+    string[]? DisplayColumns = null, IReadOnlyList<string[]>? DisplayRows = null);
 public sealed record MatrixDiffResponse(string State, string? ModelVersion, string? CsvKey,
     string? CsvSha256, DateTimeOffset? UpdatedAt, MatrixCounts Active, MatrixCounts Current,
     int Added, int Changed, int Removed, double ChangeRate);
@@ -259,36 +260,40 @@ public sealed class RecommendationAdminService(
     public async Task<MatrixPreviewResponse> PreviewMatrixAsync(CancellationToken ct)
     {
         var rows = await BuildMatrixAsync(ct);
-        var userIds = rows.Take(20).Select(x => x.UserId).Distinct().ToArray();
-        var videoIds = rows.Take(20).Select(x => x.VideoId).Distinct().ToArray();
+        var previewRows = rows.Take(20).ToList();
+        var userIds = previewRows.Select(x => x.UserId).Distinct().ToArray();
+        var videoIds = previewRows.Select(x => x.VideoId).Distinct().ToArray();
         var users = await db.Users.AsNoTracking().Where(x => userIds.Contains(x.UserId))
             .ToDictionaryAsync(x => x.UserId, x => new { x.DisplayName, x.Username }, ct);
         var videos = await db.Videos.AsNoTracking().Where(x => videoIds.Contains(x.VideoId))
             .Select(x => new { x.VideoId, x.Title, x.CategoryId }).ToListAsync(ct);
         var categories = await db.Categories.AsNoTracking()
             .ToDictionaryAsync(x => x.CategoryId, x => x.Name, ct);
-        return new MatrixPreviewResponse(
-            ["viewer_name", "viewer_username", "video", "category", "watch_percent",
-                "reaction", "rating", "subscription", "comments"],
-            rows.Take(20).Select(row =>
+        var displayRows = previewRows.Select(row =>
+        {
+            users.TryGetValue(row.UserId, out var user);
+            var video = videos.FirstOrDefault(x => x.VideoId == row.VideoId);
+            var categoryName = video?.CategoryId is Guid categoryId && categories.TryGetValue(categoryId, out var name)
+                ? name : "";
+            return new[]
             {
-                users.TryGetValue(row.UserId, out var user);
-                var video = videos.FirstOrDefault(x => x.VideoId == row.VideoId);
-                var categoryName = video?.CategoryId is Guid categoryId && categories.TryGetValue(categoryId, out var name)
-                    ? name : "";
-                return new[]
-                {
-                    user?.DisplayName ?? "",
-                    user?.Username ?? "",
-                    video?.Title ?? "",
-                    categoryName,
-                    (row.WatchRatio * 100m).ToString("0.#", CultureInfo.InvariantCulture),
-                    row.Like ? "like" : row.Dislike ? "dislike" : "",
-                    row.Rating?.ToString(CultureInfo.InvariantCulture) ?? "",
-                    row.Subscribed ? "yes" : "",
-                    row.Comments.ToString(CultureInfo.InvariantCulture)
-                };
-            }).ToList(), rows.Count);
+                user?.DisplayName ?? "",
+                user?.Username ?? "",
+                video?.Title ?? "",
+                categoryName,
+                (row.WatchRatio * 100m).ToString("0.#", CultureInfo.InvariantCulture),
+                row.Like ? "like" : row.Dislike ? "dislike" : "",
+                row.Rating?.ToString(CultureInfo.InvariantCulture) ?? "",
+                row.Subscribed ? "yes" : "",
+                row.Comments.ToString(CultureInfo.InvariantCulture)
+            };
+        }).ToList();
+        return new MatrixPreviewResponse(
+            ["user_id", "video_id", "watch_ratio", "like", "dislike", "rating",
+                "comment_count", "subscribed", "score"],
+            previewRows.Select(x => x.CsvLine(DefaultScoreAggregation()).Split(',')).ToList(), rows.Count,
+            ["viewer_name", "viewer_username", "video", "category", "watch_percent",
+                "reaction", "rating", "subscription", "comments"], displayRows);
     }
 
     public async Task<RecommendationJob> QueueModelAsync(Guid actorId, ModelUpdateRequest? request, CancellationToken ct)

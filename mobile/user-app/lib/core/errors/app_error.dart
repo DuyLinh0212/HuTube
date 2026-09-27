@@ -24,6 +24,7 @@ class ApiFailure implements Exception, LocalizedApiFailure {
   });
 
   final int status;
+  @override
   final String code;
   final String message;
   final AppErrorKind kind;

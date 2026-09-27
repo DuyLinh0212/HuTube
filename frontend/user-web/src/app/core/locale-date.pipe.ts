@@ -1,6 +1,11 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, registerLocaleData } from '@angular/common';
+import localeVi from '@angular/common/locales/vi';
 import { Pipe, PipeTransform, inject } from '@angular/core';
 import { I18nService } from './i18n.service';
+
+// Standalone components and unit tests can use this pipe without bootstrapping
+// app.config, so register the locale at the pipe boundary as well.
+registerLocaleData(localeVi, 'vi-VN');
 
 @Pipe({
   name: 'localeDate',

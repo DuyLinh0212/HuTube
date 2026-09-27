@@ -8,7 +8,10 @@ import { RuntimeConfig } from '../../core/runtime-config';
 import { TranslatePipe } from '../../core/translate.pipe';
 
 interface Counts { pairs: number; users: number; videos: number; }
-interface MatrixPreview { columns: string[]; rows: string[][]; total: number; }
+interface MatrixPreview {
+  columns: string[]; rows: string[][]; total: number;
+  displayColumns?: string[]; displayRows?: string[][];
+}
 interface MatrixDiff {
   state: 'ready' | 'uninitialized'; modelVersion: string | null; csvKey: string | null;
   csvSha256: string | null; updatedAt: string | null; active: Counts; current: Counts;
@@ -608,7 +611,9 @@ export class RecommendationsPage implements OnInit, OnDestroy {
 
   private loadMatrix(): void {
     this.http.get<MatrixPreview>(`${this.base()}/matrix-preview`).subscribe({
-      next: value => this.preview.set(value),
+      next: value => this.preview.set(value.displayColumns?.length && value.displayRows
+        ? { ...value, columns: value.displayColumns, rows: value.displayRows }
+        : value),
       error: err => this.error.set(errorMessage(err, this.i18n)),
     });
   }
