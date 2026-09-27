@@ -41,7 +41,7 @@ public sealed record UpdateVideoRequest(string? Title, string? Description, Guid
     string? LanguageCode, string? Visibility, bool? AgeRestricted, string? ThumbnailUrl,
     IReadOnlyList<string>? Tags, IReadOnlyList<ChapterRequest>? Chapters);
 public sealed record UpdateThumbnailRequest(Stream? Content, string? FileName, string? ContentType, bool Generate);
-public sealed record WatchProgressRequest(int WatchedSeconds, bool SaveHistory = true);
+public sealed record WatchProgressRequest(int WatchedSeconds, bool SaveHistory = true, bool NewSession = false);
 public sealed record WatchProgressResponse(int WatchedSeconds, decimal Progress, DateTimeOffset ViewedAt);
 public sealed record ReactionRequest(string Type);
 public sealed record ReactionResponse(string? MyReaction, long Likes, long Dislikes);
@@ -102,7 +102,7 @@ public interface IContentService
 {
     Task<ExploreHubResponse> GetExploreHubAsync(CancellationToken ct = default);
     Task<IReadOnlyList<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default);
-    Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default);
+    Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, Guid? currentUserId = null, CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery query, CancellationToken ct = default);
     Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);

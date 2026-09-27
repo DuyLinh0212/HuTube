@@ -140,7 +140,9 @@ public sealed class ReportService(
         await db.SaveChangesAsync(ct);
 
         var targetId = videoId ?? commentId ?? channelId!.Value;
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
+        if (db.Database.IsRelational())
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.moderation_cases
               (moderation_case_id, case_type, status, submitted_at, updated_at, target_type, target_id)
             VALUES ({Guid.NewGuid()}, 'report_case', 'pending', {now}, {now}, {targetType}, {targetId})
@@ -153,6 +155,31 @@ public sealed class ReportService(
               decision = CASE WHEN public.moderation_cases.status IN ('resolved','escalated') THEN NULL ELSE public.moderation_cases.decision END,
               updated_at = EXCLUDED.updated_at
             """, ct);
+        }
+        else
+        {
+            // The InMemory provider used by unit tests cannot execute the PostgreSQL upsert.
+            var existingCase = await db.ModerationCases.FirstOrDefaultAsync(m => m.CaseType == "report_case"
+                && m.TargetType == targetType && m.TargetId == targetId, ct);
+            if (existingCase == null)
+                db.ModerationCases.Add(new ModerationCase {
+                    CaseType = "report_case", Status = "pending", TargetType = targetType,
+                    TargetId = targetId, SubmittedAt = now, UpdatedAt = now
+                });
+            else
+            {
+                if (existingCase.Status is "resolved" or "escalated")
+                {
+                    existingCase.Status = "pending";
+                    existingCase.ReviewerId = null;
+                    existingCase.ClaimedAt = null;
+                    existingCase.ResolvedAt = null;
+                    existingCase.Decision = null;
+                }
+                existingCase.UpdatedAt = now;
+            }
+            await db.SaveChangesAsync(ct);
+        }
         var moderationCase = await db.ModerationCases.FirstAsync(m => m.CaseType == "report_case"
             && m.TargetType == targetType && m.TargetId == targetId, ct);
         report.ModerationCaseId = moderationCase.ModerationCaseId;

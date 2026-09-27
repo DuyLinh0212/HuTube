@@ -98,6 +98,18 @@ def test_invalid_limit_returns_422(tmp_path) -> None:
     assert response.status_code == 422
 
 
+def test_model_admin_routes_require_separate_token(tmp_path) -> None:
+    with _client(tmp_path) as client:
+        status = client.get("/internal/model", headers={"X-Service-Token": "test-token"})
+        train = client.post("/internal/model/train", headers={"X-Service-Token": "test-token"},
+                            json={"csvKey": "collaborative_cf/test.csv", "csvSha256": "0" * 64})
+        old_reload = client.post("/internal/reload")
+
+    assert status.status_code == 401
+    assert train.status_code == 401
+    assert old_reload.status_code == 404
+
+
 def test_no_model_returns_503(tmp_path) -> None:
     settings = Settings(
         recommender_service_token="test-token",

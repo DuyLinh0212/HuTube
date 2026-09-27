@@ -1,6 +1,7 @@
 using System.Data;
 using System.Net.Http;
 using System.Text.Json;
+using HuTube.Application.Recommendations;
 using HuTube.Application.Serialization;
 using HuTube.Application.Storage;
 using HuTube.Application.Notifications;
@@ -23,8 +24,10 @@ public sealed class ContentService(
     TimeProvider clock,
     ILogger<ContentService> logger,
     IHttpClientFactory httpClientFactory,
-    VideoRenditionProcessingQueue renditionQueue) : IContentService
+    VideoRenditionProcessingQueue renditionQueue,
+    IRecommendationClient recommendationClient) : IContentService
 {
+    private static readonly TimeSpan ViewSessionCooldown = TimeSpan.FromMinutes(30);
     private DateTimeOffset Now => clock.GetUtcNow();
 
     public async Task<ExploreHubResponse> GetExploreHubAsync(CancellationToken ct = default)
@@ -158,10 +161,119 @@ public sealed class ContentService(
         await db.Categories.AsNoTracking().Where(x => x.Status == "active").OrderBy(x => x.Name)
             .Select(x => new CategoryResponse(x.CategoryId, x.Name, x.Slug, x.Description)).ToListAsync(ct);
 
-    public async Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PageResult<VideoCardResponse>> GetFeedAsync(
+        string feed,
+        string? sort,
+        Guid? categoryId,
+        string? tag,
+        int page,
+        int pageSize,
+        Guid? currentUserId = null,
+        CancellationToken ct = default)
     {
         (page, pageSize) = Page(page, pageSize);
+        // Read the current viewing history for every home/recommended page. A model snapshot
+        // cannot know about views recorded after it was trained.
+        var hideViewed = currentUserId.HasValue && string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase);
+        var viewedIds = hideViewed
+            ? await db.ViewingHistories.AsNoTracking().Where(x => x.UserId == currentUserId!.Value)
+                .Select(x => x.VideoId).Distinct().ToListAsync(ct)
+            : [];
+
+        // Use the model across every home/recommended page, with live exclusions.
+        if (string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase)
+            && currentUserId.HasValue
+            && !categoryId.HasValue
+            && string.IsNullOrWhiteSpace(tag)
+            && recommendationClient.IsEnabled)
+        {
+            try
+            {
+                var recommended = await recommendationClient.GetRecommendationsAsync(currentUserId.Value, (int)Math.Min((long)page * pageSize, 100), viewedIds, ct);
+                if (recommended != null && recommended.Count > 0)
+                {
+                    var recIds = recommended.Select(r => r.VideoId).Where(id => !viewedIds.Contains(id)).ToList();
+                    var recVideos = await (from video in db.Videos.AsNoTracking()
+                                           join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                                           where recIds.Contains(video.VideoId)
+                                                 && video.Status == "published"
+                                                 && video.ModerationStatus == "approved"
+                                                 && video.Visibility == "public"
+                                           select new
+                                           {
+                                               video.VideoId,
+                                               video.ChannelId,
+                                               ChannelName = channel.Name,
+                                               ChannelHandle = channel.Handle,
+                                               video.Title,
+                                               video.ThumbnailUrl,
+                                               video.Duration,
+                                               video.Visibility,
+                                               video.PublishedAt,
+                                               Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId)
+                                           }).ToListAsync(ct);
+
+                    // Sắp xếp các video theo đúng thứ tự điểm ranking mà Model đề xuất
+                    var orderedVideos = recIds
+                        .Select(id => recVideos.FirstOrDefault(v => v.VideoId == id))
+                        .Where(v => v != null)
+                        .ToList();
+
+                    if (orderedVideos.Count > 0)
+                    {
+                        var pageVideos = orderedVideos.Skip((int)Math.Min((long)(page - 1) * pageSize, int.MaxValue)).Take(pageSize).ToList();
+                        // Nếu số lượng video đề xuất ít hơn pageSize, bù thêm video phổ biến chưa có trong danh sách
+                        if (pageVideos.Count < pageSize)
+                        {
+                            var existingIds = orderedVideos.Select(v => v!.VideoId).ToHashSet();
+                            var fallbackCount = pageSize - pageVideos.Count;
+                            var fallbackSkip = (int)Math.Min(Math.Max(0L, (long)(page - 1) * pageSize - orderedVideos.Count), int.MaxValue);
+                            var fallbackVideos = await (from video in db.Videos.AsNoTracking()
+                                                        join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                                                        where !existingIds.Contains(video.VideoId)
+                                                              && !viewedIds.Contains(video.VideoId)
+                                                              && video.Status == "published"
+                                                              && video.ModerationStatus == "approved"
+                                                              && video.Visibility == "public"
+                                                        orderby db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId) descending, video.PublishedAt descending
+                                                        select new
+                                                        {
+                                                            video.VideoId,
+                                                            video.ChannelId,
+                                                            ChannelName = channel.Name,
+                                                            ChannelHandle = channel.Handle,
+                                                            video.Title,
+                                                            video.ThumbnailUrl,
+                                                            video.Duration,
+                                                            video.Visibility,
+                                                            video.PublishedAt,
+                                                            Views = db.ViewingHistories.LongCount(history => history.VideoId == video.VideoId)
+                                                        }).Skip(fallbackSkip).Take(fallbackCount).ToListAsync(ct);
+
+                            pageVideos.AddRange(fallbackVideos);
+                        }
+
+                        var cardsList = new List<VideoCardResponse>(pageVideos.Count);
+                        foreach (var row in pageVideos)
+                        {
+                            cardsList.Add(new(row!.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
+                                row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct),
+                                row.Duration, row.Visibility, row.PublishedAt, row.Views));
+                        }
+
+                        var totalCount = await db.Videos.AsNoTracking().CountAsync(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public" && !viewedIds.Contains(x.VideoId), ct);
+                        return new(cardsList, page, pageSize, totalCount);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error while processing personalized feed for user {UserId}. Falling back to default feed.", currentUserId.Value);
+            }
+        }
+
         var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+        if (hideViewed) query = query.Where(x => !viewedIds.Contains(x.VideoId));
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId);
         if (!string.IsNullOrWhiteSpace(tag))
         {
@@ -177,6 +289,7 @@ public sealed class ContentService(
         {
             // Guest cold-start falls back from Category/Tag to the public newest/popular catalogue.
             query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+            if (hideViewed) query = query.Where(x => !viewedIds.Contains(x.VideoId));
             total = await query.CountAsync(ct);
         }
         var rows = from video in query
@@ -949,7 +1062,11 @@ public sealed class ContentService(
         catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
         if (!request.SaveHistory) return new(Math.Clamp(request.WatchedSeconds, 0, video.Duration), progress, Now);
         var item = await db.ViewingHistories.Where(x => x.UserId == userId && x.VideoId == videoId).OrderByDescending(x => x.ViewedAt).FirstOrDefaultAsync(ct);
-        if (item == null) { item = new ViewingHistory { UserId = userId, VideoId = videoId }; db.ViewingHistories.Add(item); }
+        if (item == null || request.NewSession || (Now - item.ViewedAt) > ViewSessionCooldown)
+        {
+            item = new ViewingHistory { UserId = userId, VideoId = videoId };
+            db.ViewingHistories.Add(item);
+        }
         item.WatchDuration = Math.Clamp(request.WatchedSeconds, 0, video.Duration); item.Progress = progress; item.ViewedAt = Now;
         await db.SaveChangesAsync(ct);
         return new(item.WatchDuration, item.Progress, item.ViewedAt);

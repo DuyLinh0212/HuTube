@@ -26,7 +26,6 @@ public sealed record CfSeedVideoProcessingResponse(Guid VideoId, int TotalRendit
     public bool IsComplete => ProcessingRenditions == 0;
     public bool IsSuccessful => IsComplete && FailedRenditions == 0 && ReadyRenditions == TotalRenditions;
 }
-
 public interface ICfSeederService
 {
     Task<IReadOnlyList<CfSeedAccountResponse>> GetExistingAccountsAsync(string? search,

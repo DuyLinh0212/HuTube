@@ -242,10 +242,24 @@ FastAPI nhận `userId`, `limit`, `excludeItemIds` và trả về `itemId`, `sco
 `modelVersion`, `source`. Backend .NET chịu trách nhiệm hydrate metadata, kiểm tra
 quyền và lọc video private/deleted/blocked.
 
-## Giới hạn hiện tại
+## Tích hợp HuTube và cập nhật model
 
-- V1 benchmark trên MovieLens 100K.
-- MovieLens chỉ có rating; các hành vi khác chưa được suy diễn giả.
-- Chưa có nhãn hoặc phản hồi người dùng để đánh giá mức độ phù hợp.
-- Chưa tích hợp HttpClient với Backend .NET.
-- Chưa dùng feature nội dung để tạo recommendation score.
+Super Admin dùng `/recommendations` trên admin web. Backend .NET tạo một dòng CSV cho mỗi cặp user–video từ PostgreSQL, ghi CSV vào `collaborative_cf/YYYY/MM/DD/` trên R2, rồi gọi `POST /internal/model/train` với `X-Model-Admin-Token`, khóa CSV và SHA-256. Endpoint chỉ huấn luyện **Item-Based Cosine**. Artifact được lưu trên R2; `collaborative_cf/active.json` công bố phiên bản đang hoạt động. Khi khởi động lại, service xác minh hash artifact và nạp model từ R2 vào bộ nhớ. Model cũ tiếp tục phục vụ nếu cập nhật thất bại.
+
+`POST /internal/recommendations` yêu cầu `X-Service-Token` riêng. Browser không gọi service Python. Backend truyền lịch sử xem mới nhất trong `excludeItemIds` và lọc kết quả lần cuối, kể cả video phổ biến bù. MovieLens và sáu biến thể CF vẫn có thể benchmark local bằng pipeline benchmark riêng.
+
+Để huấn luyện thủ công từ CSV đã xuất, chỉ rõ file thật:
+
+```powershell
+python -m training.train_hutube --matrix-csv interactions_current.csv
+```
+
+File cần có `user_id`, `video_id`, `score`, tối thiểu 2 user, 2 video và 3 cặp. Không có dữ liệu giả hoặc tự nạp dữ liệu từ simulator cũ.
+
+Local: cấu hình hai token riêng và các biến `R2_*` trong `.env` (xem `.env.example`), đặt `Recommendation__ServiceUrl`, `Recommendation__ServiceToken`, `Recommendation__AdminToken` cùng thông tin `Storage__R2__*` cho API .NET. Chạy `./scripts/run-recommender.ps1`; script chỉ bind `127.0.0.1`. Trên Render, cấu hình các biến trong `render.yaml`; web miễn phí có thể ngủ và request đầu có thể rơi về feed mặc định.
+
+## Giới hạn và Hướng phát triển tiếp theo
+
+- Đã tích hợp hoàn tất HttpClient với Backend .NET và bảng tin Trang chủ.
+- Hiện hỗ trợ cả tập dữ liệu MovieLens 100K benchmark lẫn dữ liệu tương tác thực tế / mô phỏng của HuTube.
+- Hướng phát triển tiếp theo: Hybrid Recommendation kết hợp giữa Collaborative Filtering (CF) và Content-Based Filtering (dựa trên thể loại, tag, mô tả video).

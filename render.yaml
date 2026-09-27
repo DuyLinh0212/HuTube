@@ -50,6 +50,14 @@ services:
         value: hutube
       - key: Storage__R2__ReadUrlMinutes
         value: "60"
+      - key: Recommendation__Enabled
+        value: "true"
+      - key: Recommendation__ServiceUrl
+        sync: false
+      - key: Recommendation__ServiceToken
+        sync: false
+      - key: Recommendation__AdminToken
+        sync: false
       - key: VideoProcessing__Enabled
         value: "true"
       - key: VideoProcessing__FfmpegPath
@@ -76,3 +84,30 @@ services:
         sync: false
       - key: Email__Gmail__RefreshToken
         sync: false
+  - type: web
+    name: hutube-recommendation-service
+    runtime: docker
+    region: singapore
+    plan: free
+    branch: develop
+    dockerContext: ./recommendation-service
+    dockerfilePath: ./recommendation-service/Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: MODEL_TYPE
+        value: item_based_cosine
+      - key: RECOMMENDER_SERVICE_TOKEN
+        sync: false
+      - key: RECOMMENDER_ADMIN_TOKEN
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: hutube

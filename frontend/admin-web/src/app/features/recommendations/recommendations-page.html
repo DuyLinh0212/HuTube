@@ -1,0 +1,128 @@
+<main class="recommendations-page">
+  <header class="page-head">
+    <div>
+      <p class="eyebrow">SUPER ADMIN · COLLABORATIVE FILTERING</p>
+      <h1>Thuật toán đề xuất</h1>
+      <p>Kiểm tra tín hiệu tương tác, cập nhật mô hình và chạy kịch bản mô phỏng từ cùng một nơi.</p>
+    </div>
+    <span class="access-mark">Quyền Super Admin</span>
+  </header>
+
+  @if (error()) { <div class="message error" role="alert">{{ error() }}</div> }
+  @if (notice()) { <div class="message success" role="status">{{ notice() }}</div> }
+
+  <section class="panel status-panel" aria-labelledby="matrix-title">
+    <div class="section-head">
+      <div><span class="section-kicker">DỮ LIỆU</span><h2 id="matrix-title">Trạng thái & thay đổi dữ liệu</h2></div>
+      <div class="actions">
+        <button type="button" class="secondary" [attr.aria-expanded]="preview() !== null" (click)="viewMatrix()">{{ preview() ? 'Ẩn ma trận' : 'Xem ma trận' }}</button>
+        <button type="button" class="secondary" (click)="exportCsv()">Xuất CSV hiện tại</button>
+        <button type="button" class="primary" [disabled]="busy()" (click)="check()">Kiểm tra dữ liệu</button>
+      </div>
+    </div>
+    @if (diff(); as status) {
+      @if (status.state === 'uninitialized') {
+        <div class="empty-state">Chưa có model đang hoạt động. Ma trận hiện tại có {{ status.current.pairs }} cặp tương tác. Cập nhật mô hình khi có ít nhất 2 user, 2 video và 3 cặp.</div>
+      }
+      <div class="matrix-strip" aria-label="So sánh ma trận model với dữ liệu hiện tại">
+        <div class="matrix-side">
+          <span>MODEL ĐANG HOẠT ĐỘNG</span>
+          <strong>{{ status.active.pairs | number }} <small>cặp</small></strong>
+          <p>{{ status.active.users | number }} user · {{ status.active.videos | number }} video</p>
+        </div>
+        <div class="matrix-change">
+          <span>THAY ĐỔI</span>
+          <strong>{{ status.changeRate * 100 | number:'1.1-1' }}%</strong>
+          <div class="delta-row"><b>+{{ status.added | number }}</b> mới <b>~{{ status.changed | number }}</b> sửa <b>−{{ status.removed | number }}</b> mất</div>
+        </div>
+        <div class="matrix-side current">
+          <span>DỮ LIỆU HIỆN TẠI</span>
+          <strong>{{ status.current.pairs | number }} <small>cặp</small></strong>
+          <p>{{ status.current.users | number }} user · {{ status.current.videos | number }} video</p>
+        </div>
+      </div>
+      <div class="model-meta">
+        <span>Phiên bản <strong>{{ status.modelVersion || 'Chưa khởi tạo' }}</strong></span>
+        <span>Cập nhật <strong>{{ status.updatedAt ? (status.updatedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</strong></span>
+        <span>CSV <code>{{ status.csvKey || '—' }}</code></span>
+        <span>SHA-256 <code>{{ status.csvSha256 || '—' }}</code></span>
+      </div>
+      @if (preview(); as matrix) {
+        <div class="matrix-preview" role="region" aria-label="20 cặp tương tác đầu tiên" tabindex="0">
+          <p>Hiển thị {{ matrix.rows.length }} / {{ matrix.total | number }} cặp · CSV chỉ chứa ID và tín hiệu huấn luyện.</p>
+          <table><thead><tr>@for (column of matrix.columns; track column) { <th scope="col">{{ column }}</th> }</tr></thead>
+            <tbody>@for (row of matrix.rows; track $index) { <tr>@for (cell of row; track $index) { <td>{{ cell || '—' }}</td> }</tr> }</tbody></table>
+        </div>
+      }
+    } @else { <p class="subtle">Đang đọc trạng thái ma trận…</p> }
+  </section>
+
+  <section class="panel update-panel" aria-labelledby="update-title">
+    <div class="section-head">
+      <div><span class="section-kicker">MÔ HÌNH</span><h2 id="update-title">Cập nhật model</h2></div>
+      <button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="updateModel()">Cập nhật mô hình</button>
+    </div>
+    <p>Xuất ảnh chụp tương tác lên R2, huấn luyện Item-Based Cosine và chỉ chuyển sang phiên bản mới sau khi artifact đã được lưu và nạp thành công.</p>
+    @if (job(); as currentJob) {
+      <div class="job-card" role="status" aria-live="polite">
+        <div><strong>{{ currentJob.kind === 'model_update' ? 'Cập nhật model' : 'Mô phỏng tương tác' }}</strong><span>{{ currentJob.status }} · {{ currentJob.step }}</span></div>
+        <span>{{ currentJob.completed }}/{{ currentJob.total }}</span>
+        <div class="progress-track"><div [style.width.%]="progress()"></div></div>
+        @if (currentJob.error) { <p class="job-error">{{ currentJob.error }}</p> }
+      </div>
+    }
+  </section>
+
+  <section class="panel simulator-panel" aria-labelledby="sim-title">
+    <div class="section-head">
+      <div><span class="section-kicker">THỬ NGHIỆM</span><h2 id="sim-title">Mô phỏng tương tác</h2></div>
+      <p>Hành vi chạy bằng service của backend và được ghi audit theo người khởi chạy.</p>
+    </div>
+    <div class="selection-grid">
+      <div class="selection-column">
+        <div class="selection-heading"><label for="user-search">Người dùng <em>{{ selectedUsers.size }} đã chọn</em></label></div>
+        <div class="search-row"><input id="user-search" [(ngModel)]="userSearch" placeholder="Tìm username hoặc tên" (keyup.enter)="loadUsers()" /><button type="button" class="secondary" (click)="loadUsers()">Tìm</button></div>
+        <div class="option-list" role="group" aria-label="Chọn người dùng">
+          @for (user of users(); track user.userId) {
+            <label class="option-row"><input type="checkbox" [checked]="selectedUsers.has(user.userId)" (change)="toggleUser(user)" />
+              <span><strong>{{ user.displayName }}</strong><small>&#64;{{ user.username }}</small></span><em [class.real]="!user.isBot">{{ user.isBot ? 'Bot' : 'Tài khoản thật' }}</em>
+            </label>
+          } @empty { <p class="list-empty">Không tìm thấy user đang hoạt động.</p> }
+        </div>
+        <div class="bot-row"><label for="bot-prefix">Tạo bot mới</label><input id="bot-prefix" [(ngModel)]="botPrefix" aria-label="Tiền tố tên bot" /><input type="number" min="1" max="100" [(ngModel)]="botCount" aria-label="Số bot" /><button type="button" class="secondary" [disabled]="busy()" (click)="createBots()">Tạo bot</button></div>
+      </div>
+      <div class="selection-column">
+        <div class="selection-heading"><label for="video-search">Video <em>{{ selectedVideos.size }} đã chọn</em></label></div>
+        <div class="search-row"><input id="video-search" [(ngModel)]="videoSearch" placeholder="Tìm video công khai" (keyup.enter)="loadVideos()" /><button type="button" class="secondary" (click)="loadVideos()">Tìm</button></div>
+        <div class="option-list" role="group" aria-label="Chọn video">
+          @for (video of videos(); track video.videoId) {
+            <label class="option-row"><input type="checkbox" [checked]="selectedVideos.has(video.videoId)" (change)="toggleVideo(video.videoId)" />
+              <span><strong>{{ video.title }}</strong><small>{{ video.videoId }}</small></span>
+            </label>
+          } @empty { <p class="list-empty">Không tìm thấy video công khai.</p> }
+        </div>
+      </div>
+    </div>
+    <div class="config-grid">
+      <label>Kịch bản<select [(ngModel)]="mode"><option value="target">User mục tiêu · lần lượt xem video đã chọn</option><option value="cluster">Cụm bot / user · video ngẫu nhiên</option></select></label>
+      <label>Lượt mỗi user<input type="number" min="1" max="1000" [(ngModel)]="actionsPerUser" /></label>
+      <label>Giãn cách (ms)<input type="number" min="0" max="5000" [(ngModel)]="delayMs" /></label>
+    </div>
+    <div class="rates" aria-label="Tỷ lệ hành vi">
+      <label>Xem <input type="number" min="0" max="100" [(ngModel)]="viewRate" />%</label>
+      <label>Thời lượng xem <input type="number" min="1" max="100" [(ngModel)]="watchPercent" />%</label>
+      <label>Thích <input type="number" min="0" max="100" [(ngModel)]="likeRate" />%</label>
+      <label>Không thích <input type="number" min="0" max="100" [(ngModel)]="dislikeRate" />%</label>
+      <label>Đánh giá <input type="number" min="0" max="100" [(ngModel)]="ratingRate" />%</label>
+      <label>Bình luận <input type="number" min="0" max="100" [(ngModel)]="commentRate" />%</label>
+      <label>Đăng ký <input type="number" min="0" max="100" [(ngModel)]="subscribeRate" />%</label>
+    </div>
+    <label class="comment-label" for="comments">Mẫu bình luận · mỗi dòng một mẫu</label>
+    <textarea id="comments" rows="3" [(ngModel)]="commentTemplates"></textarea>
+    @if (hasRealUsers()) { <label class="confirmation"><input type="checkbox" [(ngModel)]="confirmRealUsers" /><span>Tôi xác nhận các hành vi này sẽ ghi vào tài khoản thật đã chọn và được lưu audit.</span></label> }
+    <div class="footer-actions"><button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="simulate()">Chạy mô phỏng</button>
+      @if (job()?.kind === 'simulation' && (job()?.status === 'running' || job()?.status === 'queued')) { <button type="button" class="secondary" (click)="stop()">Dừng job</button> }
+    </div>
+    <div class="log-area"><h3>Log job</h3><div class="log-lines" aria-live="polite">@for (line of lines(); track $index) { <p>{{ line }}</p> } @empty { <p class="subtle">Chưa có log.</p> }</div></div>
+  </section>
+</main>

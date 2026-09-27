@@ -21,7 +21,7 @@
         }
       </section>
     }
-    @if (can('channel.view') || can('video.view') || can('system.view_setting') || can('taxonomy.manage') || can('cf_seed.manage')) {
+    @if (can('channel.view') || can('video.view') || can('system.view_setting') || can('taxonomy.manage') || can('cf_seed.manage') || auth.user()?.role === 'super_admin') {
       <section class="nav-group" [attr.aria-label]="'nav.groupContent' | translate">
         <p class="nav-label">{{ 'nav.groupContent' | translate }}</p>
         @if (can('channel.view')) {
@@ -38,6 +38,11 @@
         @if (can('cf_seed.manage')) {
           <a class="nav-item" routerLink="/cf-seeder" routerLinkActive="is-active" [title]="'nav.cfSeeder' | translate" (click)="closeNavigation()">
             <img src="/assets/icons/cf_seeder.png" alt="" /><span>{{ 'nav.cfSeeder' | translate }}</span>
+          </a>
+        }
+        @if (auth.user()?.role === 'super_admin') {
+          <a class="nav-item" routerLink="/recommendations" routerLinkActive="is-active" title="Thuật toán đề xuất" (click)="closeNavigation()">
+            <img src="/assets/icons/statistics.png" alt="" /><span>Thuật toán đề xuất</span>
           </a>
         }
       </section>

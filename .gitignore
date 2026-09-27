@@ -47,6 +47,8 @@ recommendation-service/data/processed/
 recommendation-service/data/snapshots/
 recommendation-service/data/artifacts/
 recommendation-service/reports/
+cf_interactions_*.csv
+tools/bot-simulator/
 
 # Local PostgreSQL exports may contain the complete application dataset.
 hutube-*.dump

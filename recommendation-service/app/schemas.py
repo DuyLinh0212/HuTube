@@ -30,4 +30,7 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     model_version: str | None = Field(default=None, alias="modelVersion")
+    csv_key: str | None = Field(default=None, alias="csvKey")
+    csv_sha256: str | None = Field(default=None, alias="csvSha256")
+    updated_at: str | None = Field(default=None, alias="updatedAt")
     detail: str | None = None

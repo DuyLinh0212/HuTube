@@ -31,6 +31,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<PlaylistVideo> PlaylistVideos => Set<PlaylistVideo>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Video> Videos => Set<Video>();
+    public DbSet<RecommendationJob> RecommendationJobs => Set<RecommendationJob>();
     public DbSet<VideoRendition> VideoRenditions => Set<VideoRendition>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<VideoTag> VideoTags => Set<VideoTag>();
@@ -81,6 +82,22 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasIndex(x => x.Email).IsUnique().HasDatabaseName("ux_users_email_ci");
             b.HasIndex(x => x.Username).IsUnique().HasDatabaseName("ux_users_username_ci");
             b.HasIndex(x => x.GoogleSubject).IsUnique().HasDatabaseName("ux_users_google_subject");
+        });
+        model.Entity<RecommendationJob>(b => {
+            b.ToTable("recommendation_jobs"); b.HasKey(x => x.JobId);
+            b.Property(x => x.JobId).HasColumnName("job_id");
+            b.Property(x => x.ActorUserId).HasColumnName("actor_user_id");
+            b.Property(x => x.Kind).HasColumnName("kind");
+            b.Property(x => x.Status).HasColumnName("status");
+            b.Property(x => x.Step).HasColumnName("step");
+            b.Property(x => x.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb");
+            b.Property(x => x.LogsJson).HasColumnName("logs_json").HasColumnType("jsonb");
+            b.Property(x => x.Error).HasColumnName("error");
+            b.Property(x => x.Completed).HasColumnName("completed");
+            b.Property(x => x.Total).HasColumnName("total");
+            b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            b.HasIndex(x => new { x.Status, x.CreatedAt });
         });
         model.Entity<Role>(b => { b.ToTable("roles"); b.HasKey(x => x.RoleId); b.Property(x => x.RoleId).HasColumnName("role_id"); b.Property(x => x.Code).HasColumnName("code"); b.Property(x => x.Status).HasColumnName("status"); });
         model.Entity<UserSession>(b => {

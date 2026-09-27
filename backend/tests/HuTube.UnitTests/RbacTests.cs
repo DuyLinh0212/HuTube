@@ -194,13 +194,13 @@ public sealed class RbacTests
         var authStore = new FakeAuthStore();
         var service = new RbacService(rbacStore, authStore);
         var actorId = Guid.NewGuid();
-        var role = new Role { RoleId = Guid.NewGuid(), Code = "moderator", Name = "Moderator", Status = "active" };
+        var role = new Role { RoleId = Guid.NewGuid(), Code = "content_reviewer", Name = "Content reviewer", Status = "active" };
         rbacStore.Roles.Add(role);
         rbacStore.UserRoles[actorId] = ("role_manager", "Role manager");
         rbacStore.UserPermissions[actorId] = [AdminPermissions.RoleEdit];
 
         var exception = await Assert.ThrowsAsync<RbacException>(() => service.UpdateRoleAsync(actorId, role.RoleId, new UpdateRoleRequest(
-            "Moderator",
+            "Content reviewer",
             "Kiểm duyệt",
             [AdminPermissions.UserBan],
             "Thử gán quyền vượt quá phạm vi")));

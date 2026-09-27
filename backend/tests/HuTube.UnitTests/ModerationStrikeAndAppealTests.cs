@@ -265,7 +265,7 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
             ChannelId = channel.ChannelId,
             Title = "Appealed Video",
             Description = "Desc",
-            Status = "published",
+            Status = "blocked",
             ModerationStatus = "rejected",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -291,7 +291,7 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
             AppealTargetTypes.Video,
             video.VideoId,
             "Video bị từ chối nhầm, xin xem xét lại",
-            "https://evidence.example.com",
+            null,
             "Note",
             mc.ModerationCaseId,
             null

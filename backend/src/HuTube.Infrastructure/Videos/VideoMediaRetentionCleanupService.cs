@@ -22,11 +22,11 @@ public sealed class VideoMediaRetentionCleanupService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await RunCleanupSafelyAsync(stoppingToken);
-
-        using var timer = new PeriodicTimer(Interval, clock);
         try
         {
+            await RunCleanupSafelyAsync(stoppingToken);
+
+            using var timer = new PeriodicTimer(Interval, clock);
             while (await timer.WaitForNextTickAsync(stoppingToken))
                 await RunCleanupSafelyAsync(stoppingToken);
         }

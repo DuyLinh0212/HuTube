@@ -3,6 +3,7 @@ using HuTube.Application.Auth;
 using HuTube.Application.Storage;
 using HuTube.Application.Videos;
 using HuTube.Infrastructure.Persistence;
+using HuTube.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,15 @@ public sealed class TestObjectStorage : IObjectStorage
     public Task DeleteFileAsync(string relativePath, CancellationToken ct = default) { Objects.TryRemove(relativePath, out _); return Task.CompletedTask; }
 }
 
+public sealed class TestRecommendationSnapshots : IRecommendationSnapshotStore
+{
+    public ConcurrentDictionary<string, byte[]> Objects { get; } = new();
+    public Task<byte[]?> ReadOptionalAsync(string key, CancellationToken ct) =>
+        Task.FromResult(Objects.TryGetValue(key, out var value) ? value : null);
+    public Task WriteAsync(string key, byte[] bytes, string contentType, CancellationToken ct)
+    { Objects[key] = bytes; return Task.CompletedTask; }
+}
+
 public sealed class TestVideoTranscoder : IVideoTranscoder
 {
     public async Task<IReadOnlyList<TranscodedVideo>> CreateLowerRenditionsAsync(string sourceFilePath, string sourceQuality, string workingDirectory, CancellationToken ct = default)
@@ -64,6 +74,7 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public string Connection { get; private set; } = "";
     public TestEmails Emails { get; } = new();
     public TestObjectStorage Storage { get; } = new();
+    public TestRecommendationSnapshots Snapshots { get; } = new();
     public async Task InitializeAsync()
     {
         await using var connection = new NpgsqlConnection(_adminConnection); await connection.OpenAsync();
@@ -91,7 +102,7 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Auth:AllowedOrigins:1", "");
         builder.UseSetting("Features:ModerationEnabled", "true");
         builder.UseSetting("Features:PlanEnforcementEnabled", "true");
-        builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.RemoveAll<IGoogleTokenVerifier>(); services.RemoveAll<IObjectStorage>(); services.RemoveAll<IVideoTranscoder>(); services.AddSingleton<IAuthEmailSender>(Emails); services.AddSingleton<IGoogleTokenVerifier, TestGoogleTokenVerifier>(); services.AddSingleton<IObjectStorage>(Storage); services.AddSingleton<IVideoTranscoder, TestVideoTranscoder>(); });
+        builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.RemoveAll<IGoogleTokenVerifier>(); services.RemoveAll<IObjectStorage>(); services.RemoveAll<IVideoTranscoder>(); services.RemoveAll<IRecommendationSnapshotStore>(); services.AddSingleton<IAuthEmailSender>(Emails); services.AddSingleton<IGoogleTokenVerifier, TestGoogleTokenVerifier>(); services.AddSingleton<IObjectStorage>(Storage); services.AddSingleton<IVideoTranscoder, TestVideoTranscoder>(); services.AddSingleton<IRecommendationSnapshotStore>(Snapshots); });
     }
     async Task IAsyncLifetime.DisposeAsync()
     {
