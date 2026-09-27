@@ -86,10 +86,10 @@
         }
       </section>
     }
-    @if (can('audit.view') || can('system.view_setting') || can('policy.view')) {
+    @if (can('audit.view') || can('system.view_setting')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupSystem' | translate">
         <p class="nav-label">{{ 'nav.groupSystem' | translate }}</p>
-        @if (can('system.view_setting') || can('policy.view')) {
+        @if (can('system.view_setting')) {
           <a class="nav-item" routerLink="/policies" routerLinkActive="is-active" [title]="'nav.policies' | translate" (click)="closeNavigation()">
             <img src="/assets/icons/topics.png" alt="" /><span>{{ 'nav.policies' | translate }}</span>
           </a>
