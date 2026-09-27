@@ -92,9 +92,9 @@ function json(route, body, status = 200) {
   assert.equal(await page.getByText(video.title, { exact: true }).count(), 1, 'Guest Home should show public fallback video');
 
   await page.goto(`${origin}/explore`);
-  await page.locator('main.feed .filter-bar').waitFor();
-  await page.locator('main.feed .card').filter({ hasText: video.title }).waitFor();
-  await page.locator('.filter-bar select').nth(1).selectOption(categoryId);
+  const categoryTab = page.getByRole('button', { name: 'Giáo dục', exact: true });
+  await categoryTab.waitFor();
+  await categoryTab.click();
   await page.getByText(video.title, { exact: true }).waitFor();
   assert.equal(latestExploreRequest.searchParams.get('categoryId'), categoryId, 'Explore category filter must reach API');
 
