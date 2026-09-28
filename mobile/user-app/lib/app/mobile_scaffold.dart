@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../auth.dart';
 import '../core/localization/app_strings.dart';
+import '../core/theme/app_icons.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_logo.dart';
 import '../core/widgets/hutube_widgets.dart';
@@ -75,7 +76,7 @@ class MobileScaffold extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _CreateAction(
-                icon: Icons.cloud_upload_outlined,
+                customIcon: AppIcons.asset(AppIcons.upload, size: 22, color: AppColors.primary),
                 color: AppColors.primary,
                 title: AppStrings.t('app.create.videoTitle'),
                 description: AppStrings.t('app.create.videoDescription'),
@@ -85,7 +86,7 @@ class MobileScaffold extends StatelessWidget {
                 },
               ),
               _CreateAction(
-                icon: Icons.playlist_add_rounded,
+                customIcon: AppIcons.asset(AppIcons.playlist, size: 22, color: AppColors.violet),
                 color: AppColors.violet,
                 title: AppStrings.t('app.create.playlistTitle'),
                 description: AppStrings.t('app.create.playlistDescription'),
@@ -137,13 +138,17 @@ class MobileScaffold extends StatelessWidget {
             IconButton(
               tooltip: AppStrings.t('common.search'),
               onPressed: () => context.push('/search'),
-              icon: const Icon(Icons.search_rounded),
+              icon: AppIcons.asset(
+                AppIcons.search,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           if (!isDetail)
             IconButton(
               tooltip: AppStrings.t('huai.title'),
               onPressed: () => context.push('/huai'),
-              icon: const Icon(Icons.auto_awesome_rounded),
+              icon: AppIcons.asset(AppIcons.huAi, size: 24),
             ),
           if (auth.authenticated)
             AnimatedBuilder(
@@ -158,7 +163,11 @@ class MobileScaffold extends StatelessWidget {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Icon(Icons.notifications_none_rounded),
+                      AppIcons.asset(
+                        AppIcons.notification,
+                        size: 22,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                       if (notifications.unreadCount > 0)
                         Positioned(
                           top: -7,
@@ -228,13 +237,29 @@ class MobileScaffold extends StatelessWidget {
               onDestinationSelected: (value) => _select(context, value),
               destinations: [
                 NavigationDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home_rounded),
+                  icon: AppIcons.asset(
+                    AppIcons.home,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  selectedIcon: AppIcons.asset(
+                    AppIcons.home,
+                    size: 22,
+                    color: AppColors.primaryPink,
+                  ),
                   label: AppStrings.t('nav.home'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.explore_outlined),
-                  selectedIcon: const Icon(Icons.explore_rounded),
+                  icon: AppIcons.asset(
+                    AppIcons.compass,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  selectedIcon: AppIcons.asset(
+                    AppIcons.compass,
+                    size: 22,
+                    color: AppColors.primaryPink,
+                  ),
                   label: AppStrings.t('nav.explore'),
                 ),
                 NavigationDestination(
@@ -243,13 +268,29 @@ class MobileScaffold extends StatelessWidget {
                   label: AppStrings.t('app.createButton'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.subscriptions_outlined),
-                  selectedIcon: const Icon(Icons.subscriptions_rounded),
+                  icon: AppIcons.asset(
+                    AppIcons.myChannel,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  selectedIcon: AppIcons.asset(
+                    AppIcons.myChannel,
+                    size: 22,
+                    color: AppColors.primaryPink,
+                  ),
                   label: AppStrings.t('nav.subscriptions'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.person_outline_rounded),
-                  selectedIcon: const Icon(Icons.person_rounded),
+                  icon: AppIcons.asset(
+                    AppIcons.user,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  selectedIcon: AppIcons.asset(
+                    AppIcons.user,
+                    size: 22,
+                    color: AppColors.primaryPink,
+                  ),
                   label: AppStrings.t('app.navYou'),
                 ),
               ],
@@ -276,13 +317,15 @@ class _CreateNavIcon extends StatelessWidget {
 
 class _CreateAction extends StatelessWidget {
   const _CreateAction({
-    required this.icon,
+    this.icon,
+    this.customIcon,
     required this.color,
     required this.title,
     required this.description,
     required this.onTap,
   });
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
   final Color color;
   final String title;
   final String description;
@@ -298,7 +341,8 @@ class _CreateAction extends StatelessWidget {
         color: color.withValues(alpha: .1),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(icon, color: color),
+      alignment: Alignment.center,
+      child: customIcon ?? Icon(icon, color: color),
     ),
     title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
     subtitle: Text(description),
@@ -324,78 +368,95 @@ class _Drawer extends StatelessWidget {
           ),
           _item(
             context,
-            Icons.home_outlined,
+            null,
             AppStrings.t('nav.home'),
             '/home',
+            customIcon: AppIcons.asset(AppIcons.home, size: 20),
           ),
           _item(
             context,
-            Icons.explore_outlined,
+            null,
             AppStrings.t('nav.explore'),
             '/explore',
+            customIcon: AppIcons.asset(AppIcons.compass, size: 20),
           ),
           _item(
             context,
-            Icons.subscriptions_outlined,
+            null,
             AppStrings.t('nav.subscriptions'),
             '/subscriptions',
+            customIcon: AppIcons.asset(AppIcons.myChannel, size: 20),
           ),
-          _item(context, Icons.auto_awesome_outlined, AppStrings.t('huai.title'), '/huai'),
           _item(
             context,
-            Icons.playlist_play_outlined,
+            null,
+            AppStrings.t('huai.title'),
+            '/huai',
+            customIcon: AppIcons.asset(AppIcons.huAi, size: 22),
+          ),
+          _item(
+            context,
+            null,
             AppStrings.t('nav.playlists'),
             '/playlists',
+            customIcon: AppIcons.asset(AppIcons.playlist, size: 20),
             protected: true,
           ),
           _SectionLabel(AppStrings.t('app.librarySection')),
           _item(
             context,
-            Icons.history_rounded,
+            null,
             '${AppStrings.t('library.history')} & ${AppStrings.t('library.liked')}',
             '/library',
+            customIcon: AppIcons.asset(AppIcons.history, size: 20),
             protected: true,
           ),
           _item(
             context,
-            Icons.download_outlined,
+            null,
             AppStrings.t('downloads.title'),
             '/downloads',
+            customIcon: AppIcons.asset(AppIcons.download, size: 20),
             protected: true,
           ),
           _SectionLabel(AppStrings.t('app.otherSection')),
           _item(
             context,
-            Icons.workspace_premium_outlined,
+            null,
             AppStrings.t('plans.title'),
             '/plans',
+            customIcon: AppIcons.asset(AppIcons.plan, size: 20),
           ),
           _item(
             context,
-            Icons.gavel_outlined,
+            null,
             AppStrings.t('policies.title'),
             '/policies',
+            customIcon: AppIcons.asset(AppIcons.appeals, size: 20),
           ),
           _item(
             context,
-            Icons.report_gmailerrorred_outlined,
+            null,
             AppStrings.t('moderation.navLabel'),
             '/moderation',
+            customIcon: AppIcons.asset(AppIcons.warningStrike, size: 20),
             protected: true,
           ),
           if (auth.authenticated) ...[
             _item(
               context,
-              Icons.dashboard_outlined,
+              null,
               AppStrings.t('creator.title'),
               '/creator',
+              customIcon: AppIcons.asset(AppIcons.dashboard, size: 20),
               protected: true,
             ),
             _item(
               context,
-              Icons.notifications_outlined,
+              null,
               AppStrings.t('common.notifications'),
               '/notifications',
+              customIcon: AppIcons.asset(AppIcons.notification, size: 20),
               protected: true,
             ),
           ],
@@ -406,12 +467,13 @@ class _Drawer extends StatelessWidget {
 
   Widget _item(
     BuildContext context,
-    IconData icon,
+    IconData? icon,
     String label,
     String route, {
+    Widget? customIcon,
     bool protected = false,
   }) => ListTile(
-    leading: Icon(icon),
+    leading: customIcon ?? (icon != null ? Icon(icon) : null),
     title: Text(label),
     minLeadingWidth: 26,
     onTap: () {

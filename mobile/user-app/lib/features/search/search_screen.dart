@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
@@ -72,6 +73,58 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  void _showFilterSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  AppIcons.asset(AppIcons.filter, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Bộ lọc tìm kiếm',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Sắp xếp theo', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final item in const [
+                    ('relevance', 'search.sort.relevance'),
+                    ('newest', 'search.sort.newest'),
+                    ('popular', 'search.sort.popular'),
+                  ])
+                    ChoiceChip(
+                      label: Text(AppStrings.t(item.$2)),
+                      selected: _sort == item.$1,
+                      onSelected: (_) {
+                        setState(() => _sort = item.$1);
+                        Navigator.pop(ctx);
+                        if (_searched) _search();
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -88,7 +141,10 @@ class _SearchScreenState extends State<SearchScreen> {
         onSubmitted: (_) => _search(),
         decoration: InputDecoration(
           hintText: AppStrings.t('search.queryHint'),
-          prefixIcon: const Icon(Icons.search_rounded),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(12),
+            child: AppIcons.asset(AppIcons.search, size: 20),
+          ),
           suffixIcon: _query.text.isEmpty
               ? null
               : IconButton(
@@ -113,7 +169,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   dimension: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.search_rounded),
+              : AppIcons.asset(AppIcons.search, size: 18, color: Colors.white),
           label: Text(AppStrings.t('search.submit')),
         ),
       ),
@@ -122,6 +178,14 @@ class _SearchScreenState extends State<SearchScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ActionChip(
+                avatar: AppIcons.asset(AppIcons.filter, size: 16),
+                label: const Text('Bộ lọc'),
+                onPressed: _showFilterSheet,
+              ),
+            ),
             for (final item in const [
               ('relevance', 'search.sort.relevance'),
               ('newest', 'search.sort.newest'),

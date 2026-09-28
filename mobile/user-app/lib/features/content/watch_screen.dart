@@ -3,11 +3,13 @@ import 'dart:io';
 
 import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../../channel/services/channel_service.dart';
@@ -162,6 +164,7 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _react(String type) async {
+    HapticFeedback.lightImpact();
     if (!widget.auth.authenticated) {
       setState(() => _actionMessage = AppStrings.t('watch.loginInteract'));
       return;
@@ -215,6 +218,7 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _rate() async {
+    HapticFeedback.lightImpact();
     if (!widget.auth.authenticated) {
       setState(() => _actionMessage = AppStrings.t('watch.loginRate'));
       return;
@@ -227,7 +231,7 @@ class _WatchScreenState extends State<WatchScreen> {
             ListTile(title: Text(AppStrings.t('watch.ratingTitle'))),
             for (var value = 1; value <= 5; value++)
               ListTile(
-                leading: Icon(Icons.star_rounded, color: Colors.amber.shade700),
+                leading: AppIcons.asset(AppIcons.star, size: 22, color: Colors.amber.shade600),
                 title: Text(
                   AppStrings.format('watch.ratingStars', {
                     'count': AppStrings.number(value),
@@ -286,6 +290,7 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _share() async {
+    HapticFeedback.lightImpact();
     final video = _video;
     if (video == null) return;
     if (widget.auth.authenticated) unawaited(_content.share(video.id));
@@ -347,6 +352,7 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _saveToPlaylist() async {
+    HapticFeedback.lightImpact();
     if (!widget.auth.authenticated) {
       setState(() => _actionMessage = AppStrings.t('watch.loginPlaylist'));
       return;
@@ -361,15 +367,20 @@ class _WatchScreenState extends State<WatchScreen> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              ListTile(title: Text(AppStrings.t('watch.saveVideo'))),
               ListTile(
-                leading: const Icon(Icons.bookmark_add_outlined),
+                title: Text(
+                  AppStrings.t('watch.saveVideo'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              ListTile(
+                leading: AppIcons.asset(AppIcons.bookmark, size: 22),
                 title: Text(AppStrings.t('watch.savedVideo')),
                 onTap: () => Navigator.pop(context, '__saved__'),
               ),
               for (final playlist in playlists)
                 ListTile(
-                  leading: const Icon(Icons.playlist_play_rounded),
+                  leading: AppIcons.asset(AppIcons.playlist, size: 22),
                   title: Text(playlist.name),
                   subtitle: Text(
                     AppStrings.format('channel.videoCount', {
@@ -381,9 +392,49 @@ class _WatchScreenState extends State<WatchScreen> {
               ListTile(
                 leading: const Icon(Icons.add_rounded),
                 title: Text(AppStrings.t('watch.createPlaylist')),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  context.push('/playlists');
+                  final nameController = TextEditingController();
+                  final created = await showDialog<String>(
+                    context: context,
+                    builder: (dialogCtx) => AlertDialog(
+                      title: Text(AppStrings.t('watch.createPlaylist')),
+                      content: TextField(
+                        controller: nameController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: AppStrings.t('playlists.namePlaceholder'),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          child: Text(AppStrings.t('common.cancel')),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(
+                            dialogCtx,
+                            nameController.text.trim(),
+                          ),
+                          child: Text(AppStrings.t('common.create')),
+                        ),
+                      ],
+                    ),
+                  );
+                  nameController.dispose();
+                  if (created != null && created.isNotEmpty) {
+                    try {
+                      final newPlaylist = await service.create(name: created);
+                      await service.addVideo(newPlaylist.id, widget.videoId);
+                      if (mounted) {
+                        setState(() => _actionMessage = AppStrings.t('watch.savedToPlaylist'));
+                      }
+                    } on ApiFailure catch (e) {
+                      if (mounted) {
+                        setState(() => _actionMessage = AppStrings.apiError(e));
+                      }
+                    }
+                  }
                 },
               ),
             ],
@@ -490,6 +541,7 @@ class _WatchScreenState extends State<WatchScreen> {
       setState(() => _actionMessage = AppStrings.t('watch.loginCommentHint'));
       return;
     }
+    HapticFeedback.lightImpact();
     setState(() => _sendingComment = true);
     try {
       final comment = await _content.createComment(widget.videoId, text);
@@ -603,27 +655,27 @@ class _WatchScreenState extends State<WatchScreen> {
                 onTap: () => _react('dislike'),
               ),
               _ActionChip(
-                icon: Icons.star_outline_rounded,
+                customIcon: AppIcons.asset(AppIcons.star, size: 18),
                 label: AppStrings.t('watch.rateAction'),
                 onTap: _rate,
               ),
               _ActionChip(
-                icon: Icons.share_outlined,
+                customIcon: AppIcons.asset(AppIcons.share, size: 18),
                 label: AppStrings.t('watch.shareAction'),
                 onTap: _share,
               ),
               _ActionChip(
-                icon: Icons.download_outlined,
+                customIcon: AppIcons.asset(AppIcons.download, size: 18),
                 label: AppStrings.t('watch.downloadAction'),
                 onTap: _download,
               ),
               _ActionChip(
-                icon: Icons.playlist_add_rounded,
+                customIcon: AppIcons.asset(AppIcons.playlist, size: 18),
                 label: AppStrings.t('watch.savePlaylist'),
                 onTap: _saveToPlaylist,
               ),
               _ActionChip(
-                icon: Icons.flag_outlined,
+                customIcon: AppIcons.asset(AppIcons.report, size: 18),
                 label: AppStrings.t('watch.report'),
                 onTap: () => showContentReportDialog(
                   context,
@@ -734,7 +786,11 @@ class _WatchScreenState extends State<WatchScreen> {
                   : AppStrings.t('watch.loginCommentHint'),
               suffixIcon: IconButton(
                 onPressed: _sendingComment ? null : _sendComment,
-                icon: const Icon(Icons.send_rounded),
+                icon: AppIcons.asset(
+                  AppIcons.send,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
             enabled: widget.auth.authenticated,
@@ -769,12 +825,14 @@ class _WatchScreenState extends State<WatchScreen> {
 
 class _ActionChip extends StatelessWidget {
   const _ActionChip({
-    required this.icon,
+    this.icon,
+    this.customIcon,
     required this.label,
     required this.onTap,
     this.active = false,
   });
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
   final String label;
   final VoidCallback onTap;
   final bool active;
@@ -782,11 +840,14 @@ class _ActionChip extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(right: 8),
     child: ActionChip(
-      avatar: Icon(
-        icon,
-        size: 18,
-        color: active ? AppColors.primaryPink : null,
-      ),
+      avatar: customIcon ??
+          (icon != null
+              ? Icon(
+                  icon,
+                  size: 18,
+                  color: active ? AppColors.primaryPink : null,
+                )
+              : null),
       label: Text(label),
       onPressed: onTap,
     ),
@@ -1286,6 +1347,7 @@ class _CommentTileState extends State<_CommentTile> {
   }
 
   Future<void> _reply() async {
+    HapticFeedback.lightImpact();
     if (!widget.signedIn) return;
     final controller = TextEditingController();
     final text = await showDialog<String>(
@@ -1308,9 +1370,10 @@ class _CommentTileState extends State<_CommentTile> {
             onPressed: () => Navigator.pop(dialogContext),
             child: Text(AppStrings.t('common.cancel')),
           ),
-          FilledButton(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: Text(AppStrings.t('common.send')),
+            icon: AppIcons.asset(AppIcons.send, size: 16, color: Colors.white),
+            label: Text(AppStrings.t('common.send')),
           ),
         ],
       ),

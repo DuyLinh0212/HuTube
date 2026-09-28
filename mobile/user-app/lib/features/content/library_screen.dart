@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import 'content_models.dart';
@@ -105,8 +106,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
           TabBar(
             onTap: (value) => setState(() => _tab = value),
             tabs: [
-              Tab(text: AppStrings.t('library.history')),
-              Tab(text: AppStrings.t('library.liked')),
+              Tab(
+                icon: AppIcons.asset(AppIcons.history, size: 20),
+                text: AppStrings.t('library.history'),
+              ),
+              Tab(
+                icon: AppIcons.asset(AppIcons.favorite, size: 20),
+                text: AppStrings.t('library.liked'),
+              ),
             ],
           ),
           if (_tab == 1)
@@ -119,6 +126,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilterChip(
+                        avatar: score == null
+                            ? null
+                            : AppIcons.asset(AppIcons.star, size: 14),
                         label: Text(
                           score == null
                               ? AppStrings.t('library.allRatings')

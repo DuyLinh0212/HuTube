@@ -7,6 +7,7 @@ import '../../channel/screens/channel_settings_screen.dart';
 import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/services/channel_service.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import 'creator_comments_screen.dart';
@@ -223,16 +224,23 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
         ),
         const SizedBox(height: 12),
         _CreatorAction(
-          icon: Icons.upload_file_outlined,
+          customIcon: AppIcons.asset(AppIcons.upload, size: 24),
           title: AppStrings.t('creator.upload'),
           detail: AppStrings.t('creator.uploadDescription'),
           onTap: () =>
               _open(VideoUploadScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          icon: Icons.video_library_outlined,
+          customIcon: AppIcons.asset(AppIcons.myVideo, size: 24),
           title: AppStrings.t('creator.content'),
           detail: AppStrings.t('creator.contentDescription'),
+          onTap: () =>
+              _open(CreatorContentScreen(auth: widget.auth, channel: channel)),
+        ),
+        _CreatorAction(
+          customIcon: AppIcons.asset(AppIcons.statistics, size: 24),
+          title: 'Analytics & Số liệu',
+          detail: 'Xem thống kê lượt xem, đăng ký và hiệu quả kênh.',
           onTap: () =>
               _open(CreatorContentScreen(auth: widget.auth, channel: channel)),
         ),
@@ -244,7 +252,7 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
               _open(CreatorCommentsScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          icon: Icons.settings_outlined,
+          customIcon: AppIcons.asset(AppIcons.setting, size: 24),
           title: AppStrings.t('creator.settings'),
           detail: AppStrings.t('creator.settingsDescription'),
           onTap: () =>
@@ -279,12 +287,14 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
 
 class _CreatorAction extends StatelessWidget {
   const _CreatorAction({
-    required this.icon,
+    this.icon,
+    this.customIcon,
     required this.title,
     required this.detail,
     this.onTap,
   });
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
   final String title;
   final String detail;
   final VoidCallback? onTap;
@@ -298,7 +308,8 @@ class _CreatorAction extends StatelessWidget {
           color: AppColors.violet.withValues(alpha: .1),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: AppColors.violet),
+        alignment: Alignment.center,
+        child: customIcon ?? Icon(icon, color: AppColors.violet),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text(detail),

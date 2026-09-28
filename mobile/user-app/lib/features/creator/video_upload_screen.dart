@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth.dart';
 import '../../channel/models/channel_models.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
@@ -76,7 +77,18 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
 
   Future<void> _pickVideo() async {
     final file = await _picker.pickVideo(source: ImageSource.gallery);
-    if (file != null && mounted) setState(() => _video = file);
+    if (file != null && mounted) {
+      setState(() {
+        _video = file;
+        if (_title.text.trim().isEmpty) {
+          final rawName = file.name.split('.').first;
+          _title.text = rawName.replaceAll('_', ' ').replaceAll('-', ' ');
+        }
+        if (_duration.text.trim().isEmpty || _duration.text.trim() == '0') {
+          _duration.text = '60';
+        }
+      });
+    }
   }
 
   Future<void> _pickThumbnail() async {
@@ -250,7 +262,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
             ),
             const SizedBox(height: 18),
             _FilePicker(
-              icon: Icons.video_file_outlined,
+              customIcon: AppIcons.asset(AppIcons.upload, size: 24),
               title: _video?.name ?? AppStrings.t('upload.chooseVideo'),
               subtitle: _video == null
                   ? AppStrings.t('upload.videoQuotaHint')
@@ -422,12 +434,14 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
 
 class _FilePicker extends StatelessWidget {
   const _FilePicker({
-    required this.icon,
+    this.icon,
+    this.customIcon,
     required this.title,
     required this.subtitle,
     this.onTap,
   });
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
@@ -448,7 +462,8 @@ class _FilePicker extends StatelessWidget {
           color: AppColors.primary.withValues(alpha: .1),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: AppColors.primary),
+        alignment: Alignment.center,
+        child: customIcon ?? Icon(icon, color: AppColors.primary),
       ),
       title: Text(
         title,
