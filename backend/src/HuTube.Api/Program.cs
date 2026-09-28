@@ -161,12 +161,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
             return Task.CompletedTask;
         },
         OnTokenValidated = async context => {
-            if (!Guid.TryParse(context.Principal?.FindFirst("sub")?.Value, out var userId)
-                || !Guid.TryParse(context.Principal?.FindFirst("sid")?.Value, out var sessionId)
-                || !Guid.TryParse(context.Principal?.FindFirst("jti")?.Value, out var jti)
-                || !await context.HttpContext.RequestServices.GetRequiredService<AuthService>().ValidateSessionAsync(
-                    userId, sessionId, jti, context.HttpContext.RequestAborted, context.HttpContext.Connection.RemoteIpAddress?.ToString()))
-                context.Fail("SESSION_EXPIRED");
+            try
+            {
+                if (!Guid.TryParse(context.Principal?.FindFirst("sub")?.Value, out var userId)
+                    || !Guid.TryParse(context.Principal?.FindFirst("sid")?.Value, out var sessionId)
+                    || !Guid.TryParse(context.Principal?.FindFirst("jti")?.Value, out var jti)
+                    || !await context.HttpContext.RequestServices.GetRequiredService<AuthService>().ValidateSessionAsync(
+                        userId, sessionId, jti, context.HttpContext.RequestAborted, context.HttpContext.Connection.RemoteIpAddress?.ToString()))
+                    context.Fail("SESSION_EXPIRED");
+            }
+            catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                // The client disconnected while session validation was in flight.
+                // Do not let an expected request cancellation become a JWT error log.
+                context.NoResult();
+            }
         },
         OnChallenge = async context => { context.HandleResponse(); await ApiErrors.WriteAsync(context.HttpContext, 401, "SESSION_EXPIRED", "Phiên đã hết hạn. Vui lòng đăng nhập lại."); },
         OnForbidden = context => ApiErrors.WriteAsync(context.HttpContext, 403, "PERMISSION_DENIED", "Bạn không có quyền thực hiện thao tác này.")
