@@ -371,6 +371,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             : ReorderableListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 itemCount: detail.items.length,
+                // ignore: deprecated_member_use
                 onReorder: _reorder,
                 itemBuilder: (context, index) {
                   final item = detail.items[index];
