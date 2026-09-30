@@ -52,6 +52,7 @@ class ChannelDetail {
     this.description,
     this.avatarUrl,
     this.bannerUrl,
+    this.settings,
     required this.subscriberCount,
     required this.videoCount,
     required this.viewCount,
@@ -68,6 +69,7 @@ class ChannelDetail {
   final String? description;
   final String? avatarUrl;
   final String? bannerUrl;
+  final String? settings;
   final int subscriberCount;
   final int videoCount;
   final int viewCount;
@@ -85,6 +87,7 @@ class ChannelDetail {
       description: json['description'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       bannerUrl: json['bannerUrl'] as String?,
+      settings: json['settings'] as String?,
       subscriberCount: json['subscriberCount'] as int? ?? 0,
       videoCount: json['videoCount'] as int? ?? 0,
       viewCount: json['viewCount'] as int? ?? 0,
@@ -105,6 +108,7 @@ class ChannelDetail {
     'description': description,
     'avatarUrl': avatarUrl,
     'bannerUrl': bannerUrl,
+    'settings': settings,
     'subscriberCount': subscriberCount,
     'videoCount': videoCount,
     'viewCount': viewCount,
@@ -120,6 +124,7 @@ class ChannelDetail {
     String? description,
     String? avatarUrl,
     String? bannerUrl,
+    String? settings,
     bool? isSubscribed,
     int? subscriberCount,
   }) {
@@ -130,6 +135,7 @@ class ChannelDetail {
       description: description ?? this.description,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       bannerUrl: bannerUrl ?? this.bannerUrl,
+      settings: settings ?? this.settings,
       subscriberCount: subscriberCount ?? this.subscriberCount,
       videoCount: videoCount,
       viewCount: viewCount,
@@ -228,5 +234,33 @@ class HandleAvailability {
         handle: json['handle'] as String? ?? '',
         isAvailable: json['isAvailable'] as bool? ?? false,
         reason: json['reason'] as String?,
+      );
+}
+
+class SubscribedChannelResponse {
+  const SubscribedChannelResponse({
+    required this.channelId,
+    required this.name,
+    required this.handle,
+    this.avatarUrl,
+    required this.subscriberCount,
+    required this.subscribedAt,
+  });
+
+  final String channelId;
+  final String name;
+  final String handle;
+  final String? avatarUrl;
+  final int subscriberCount;
+  final String subscribedAt;
+
+  factory SubscribedChannelResponse.fromJson(Map<String, dynamic> json) =>
+      SubscribedChannelResponse(
+        channelId: json['channelId'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        handle: json['handle'] as String? ?? '',
+        avatarUrl: json['avatarUrl'] as String?,
+        subscriberCount: json['subscriberCount'] as int? ?? 0,
+        subscribedAt: json['subscribedAt'] as String? ?? '',
       );
 }

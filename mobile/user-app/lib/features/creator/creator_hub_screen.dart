@@ -10,8 +10,10 @@ import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
+import 'creator_analytics_screen.dart';
 import 'creator_comments_screen.dart';
 import 'creator_content_screen.dart';
+import 'creator_subtitles_screen.dart';
 import 'video_upload_screen.dart';
 
 class CreatorHubScreen extends StatefulWidget {
@@ -224,25 +226,25 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
         ),
         const SizedBox(height: 12),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.upload, size: 24),
+          customIcon: AppIcons.asset(AppIcons.upload, size: 20, color: AppColors.primaryPink),
           title: AppStrings.t('creator.upload'),
           detail: AppStrings.t('creator.uploadDescription'),
           onTap: () =>
               _open(VideoUploadScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.myVideo, size: 24),
+          customIcon: AppIcons.asset(AppIcons.myVideo, size: 20, color: AppColors.primaryPink),
           title: AppStrings.t('creator.content'),
           detail: AppStrings.t('creator.contentDescription'),
           onTap: () =>
               _open(CreatorContentScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.statistics, size: 24),
-          title: 'Analytics & Số liệu',
-          detail: 'Xem thống kê lượt xem, đăng ký và hiệu quả kênh.',
+          customIcon: AppIcons.asset(AppIcons.statistics, size: 20, color: AppColors.primaryPink),
+          title: AppStrings.t('creator.analytics'),
+          detail: AppStrings.t('creator.analyticsDescription'),
           onTap: () =>
-              _open(CreatorContentScreen(auth: widget.auth, channel: channel)),
+              _open(CreatorAnalyticsScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
           icon: Icons.forum_outlined,
@@ -252,7 +254,7 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
               _open(CreatorCommentsScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.setting, size: 24),
+          customIcon: AppIcons.asset(AppIcons.setting, size: 20, color: AppColors.primaryPink),
           title: AppStrings.t('creator.settings'),
           detail: AppStrings.t('creator.settingsDescription'),
           onTap: () =>
@@ -268,6 +270,8 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
           icon: Icons.subtitles_outlined,
           title: AppStrings.t('creator.subtitles'),
           detail: AppStrings.t('creator.subtitlesDescription'),
+          onTap: () =>
+              _open(CreatorSubtitlesScreen(auth: widget.auth, channel: channel)),
         ),
       ],
     );
@@ -298,27 +302,53 @@ class _CreatorAction extends StatelessWidget {
   final String title;
   final String detail;
   final VoidCallback? onTap;
+
   @override
-  Widget build(BuildContext context) => Card(
-    child: ListTile(
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: AppColors.violet.withValues(alpha: .1),
-          borderRadius: BorderRadius.circular(12),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      color: isDark ? const Color(0xFF1C1824) : AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF2C2436) : AppColors.cardBorder,
         ),
-        alignment: Alignment.center,
-        child: customIcon ?? Icon(icon, color: AppColors.violet),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(detail),
-      trailing: onTap == null
-          ? const Icon(Icons.info_outline)
-          : const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
-    ),
-  );
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.primaryPink.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: customIcon ?? Icon(icon, color: AppColors.primaryPink, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        ),
+        subtitle: Text(
+          detail,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: onTap == null
+            ? const Icon(Icons.info_outline, size: 18)
+            : const Icon(Icons.chevron_right_rounded, size: 20),
+        onTap: onTap,
+      ),
+    );
+  }
 }
 
 class _StudioStat extends StatelessWidget {

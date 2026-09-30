@@ -45,6 +45,19 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   bool _loadingCategories = true;
   bool _uploading = false;
   String? _error;
+  final List<Map<String, dynamic>> _chapters = [];
+
+  void _addChapter() {
+    setState(() {
+      final lastSec = _chapters.isEmpty
+          ? 0
+          : (_chapters.last['startSeconds'] as int) + 60;
+      _chapters.add({
+        'startSeconds': lastSec,
+        'title': 'Chương ${_chapters.length + 1}',
+      });
+    });
+  }
 
   @override
   void initState() {
@@ -168,6 +181,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
         duration: duration,
         quality: '720p',
         tags: tags,
+        chapters: _chapters,
         video: MultipartFilePayload(
           field: 'Video',
           path: video.path,
@@ -346,6 +360,68 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                 helperText: AppStrings.t('upload.tagsHint'),
               ),
             ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Chương video (Chapters)',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                TextButton.icon(
+                  onPressed: _uploading ? null : _addChapter,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Thêm chương'),
+                ),
+              ],
+            ),
+            if (_chapters.isNotEmpty)
+              ..._chapters.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final ch = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 80,
+                        child: TextFormField(
+                          initialValue: '${ch['startSeconds']}',
+                          enabled: !_uploading,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Giây',
+                            isDense: true,
+                          ),
+                          onChanged: (val) {
+                            ch['startSeconds'] = int.tryParse(val) ?? 0;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: '${ch['title']}',
+                          enabled: !_uploading,
+                          decoration: const InputDecoration(
+                            labelText: 'Tiêu đề chương',
+                            isDense: true,
+                          ),
+                          onChanged: (val) {
+                            ch['title'] = val.trim();
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        onPressed: _uploading
+                            ? null
+                            : () => setState(() => _chapters.removeAt(idx)),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               initialValue: _visibility,

@@ -71,11 +71,17 @@ class ChannelService {
     String id, {
     required String name,
     String? description,
+    String? settings,
   }) async {
     final res = await auth.protected(
       'PATCH',
       '/channels/${Uri.encodeComponent(id)}',
-      body: {'name': name.trim(), 'description': description?.trim()},
+      body: {
+        'name': name.trim(),
+        'description': description?.trim(),
+        // ignore: use_null_aware_elements
+        if (settings != null) 'settings': settings,
+      },
     );
     return ChannelDetail.fromJson(res);
   }
@@ -260,5 +266,17 @@ class ChannelService {
       body: {'enabled': enabled},
     );
     return Map<String, dynamic>.from(response);
+  }
+
+  Future<List<SubscribedChannelResponse>> getSubscribedChannels() async {
+    try {
+      final items = await auth.protectedList('/subscriptions');
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(SubscribedChannelResponse.fromJson)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 }

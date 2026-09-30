@@ -7,6 +7,7 @@ import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
+import '../content/content_service.dart';
 import '../content/video_card.dart';
 import 'creator_service.dart';
 
@@ -72,7 +73,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     final result = await showModalBottomSheet<_VideoEdit>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _VideoEditor(item: item),
+      builder: (_) => _VideoEditor(item: item, auth: widget.auth),
     );
     if (result == null) return;
     try {
@@ -81,6 +82,9 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         title: result.title,
         description: result.description,
         visibility: result.visibility,
+        categoryId: result.categoryId,
+        tags: result.tags,
+        chapters: result.chapters,
       );
       await _load();
     } on ApiFailure catch (error) {
@@ -400,15 +404,25 @@ class _VideoEdit {
     required this.title,
     required this.description,
     required this.visibility,
+    this.categoryId,
+    this.tags = const [],
+    this.chapters = const [],
   });
+
   final String title;
   final String description;
   final String visibility;
+  final String? categoryId;
+  final List<String> tags;
+  final List<Map<String, dynamic>> chapters;
 }
 
 class _VideoEditor extends StatefulWidget {
-  const _VideoEditor({required this.item});
+  const _VideoEditor({required this.item, required this.auth});
+
   final VideoDetail item;
+  final AuthController auth;
+
   @override
   State<_VideoEditor> createState() => _VideoEditorState();
 }
@@ -419,10 +433,63 @@ class _VideoEditorState extends State<_VideoEditor> {
     text: widget.item.description ?? '',
   );
   late String _visibility = widget.item.visibility;
+  late String? _categoryId = widget.item.categoryId;
+  late final List<String> _tags = List<String>.from(widget.item.tags);
+  late final List<Map<String, dynamic>> _chapters = widget.item.chapters
+      .map((c) => {'startSeconds': c.startSeconds, 'title': c.title})
+      .toList();
+  final _tagInput = TextEditingController();
+
+  List<Category> _categories = const [];
+  bool _loadingCategories = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final cats = await ContentService(widget.auth).categories();
+      if (mounted) {
+        setState(() {
+          _categories = cats;
+          _loadingCategories = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingCategories = false);
+    }
+  }
+
+  void _addTag() {
+    final text = _tagInput.text.trim();
+    if (text.isNotEmpty && !_tags.contains(text)) {
+      setState(() {
+        _tags.add(text);
+        _tagInput.clear();
+      });
+    }
+  }
+
+  void _addChapter() {
+    setState(() {
+      final lastSec = _chapters.isEmpty
+          ? 0
+          : (_chapters.last['startSeconds'] as int) + 60;
+      _chapters.add({
+        'startSeconds': lastSec,
+        'title': 'Chương ${_chapters.length + 1}',
+      });
+    });
+  }
+
   @override
   void dispose() {
     _title.dispose();
     _description.dispose();
+    _tagInput.dispose();
     super.dispose();
   }
 
@@ -431,71 +498,227 @@ class _VideoEditorState extends State<_VideoEditor> {
     child: Padding(
       padding: EdgeInsets.fromLTRB(
         20,
+        16,
         20,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            AppStrings.t('creator.editTitle'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _title,
-            decoration: InputDecoration(
-              labelText: AppStrings.t('creator.titleField'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _description,
-            minLines: 2,
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: AppStrings.t('creator.descriptionField'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _visibility,
-            decoration: InputDecoration(
-              labelText: AppStrings.t('creator.visibilityField'),
-            ),
-            items: [
-              DropdownMenuItem(
-                value: 'private',
-                child: Text(AppStrings.t('creator.private')),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    AppStrings.t('creator.editTitle'),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-              DropdownMenuItem(
-                value: 'unlisted',
-                child: Text(AppStrings.t('creator.unlisted')),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _title,
+                maxLength: 150,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('creator.titleField'),
+                ),
               ),
-              DropdownMenuItem(
-                value: 'public',
-                child: Text(AppStrings.t('creator.publicModeration')),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _description,
+                minLines: 2,
+                maxLines: 4,
+                maxLength: 5000,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('creator.descriptionField'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String?>(
+                initialValue: _categoryId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('upload.topic'),
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(AppStrings.t('upload.none')),
+                  ),
+                  ..._categories.map(
+                    (category) => DropdownMenuItem<String?>(
+                      value: category.id,
+                      child: Text(category.name),
+                    ),
+                  ),
+                ],
+                onChanged: _loadingCategories
+                    ? null
+                    : (value) => setState(() => _categoryId = value),
+              ),
+              const SizedBox(height: 14),
+
+              // Tags section
+              const Text(
+                'Thẻ tags',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+              if (_tags.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _tags
+                      .map(
+                        (tag) => Chip(
+                          label: Text(tag, style: const TextStyle(fontSize: 12)),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: () => setState(() => _tags.remove(tag)),
+                        ),
+                      )
+                      .toList(),
+                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _tagInput,
+                      decoration: const InputDecoration(
+                        hintText: 'Nhập tag và bấm thêm...',
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _addTag(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonal(
+                    onPressed: _addTag,
+                    child: const Text('Thêm'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Chapters section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Chương video (Chapters)',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addChapter,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Thêm chương'),
+                  ),
+                ],
+              ),
+              if (_chapters.isEmpty)
+                Text(
+                  'Chưa có mốc chương nào.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                )
+              else
+                ..._chapters.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final ch = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 80,
+                          child: TextFormField(
+                            initialValue: '${ch['startSeconds']}',
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Giây',
+                              isDense: true,
+                            ),
+                            onChanged: (val) {
+                              ch['startSeconds'] = int.tryParse(val) ?? 0;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: '${ch['title']}',
+                            decoration: const InputDecoration(
+                              labelText: 'Tiêu đề chương',
+                              isDense: true,
+                            ),
+                            onChanged: (val) {
+                              ch['title'] = val.trim();
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          onPressed: () =>
+                              setState(() => _chapters.removeAt(idx)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              const SizedBox(height: 14),
+
+              DropdownButtonFormField<String>(
+                initialValue: _visibility,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('creator.visibilityField'),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'private',
+                    child: Text(AppStrings.t('creator.private')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'unlisted',
+                    child: Text(AppStrings.t('creator.unlisted')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'public',
+                    child: Text(AppStrings.t('creator.publicModeration')),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _visibility = value!),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  _VideoEdit(
+                    title: _title.text.trim(),
+                    description: _description.text.trim(),
+                    visibility: _visibility,
+                    categoryId: _categoryId,
+                    tags: _tags,
+                    chapters: _chapters,
+                  ),
+                ),
+                child: Text(AppStrings.t('creator.save')),
               ),
             ],
-            onChanged: (value) => setState(() => _visibility = value!),
           ),
-          const SizedBox(height: 18),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              _VideoEdit(
-                title: _title.text,
-                description: _description.text,
-                visibility: _visibility,
-              ),
-            ),
-            child: Text(AppStrings.t('creator.save')),
-          ),
-        ],
+        ),
       ),
     ),
   );

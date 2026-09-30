@@ -12,11 +12,13 @@ class VideoCardTile extends StatelessWidget {
     required this.video,
     this.progress,
     this.replaceRoute = false,
+    this.trailing,
   });
 
   final VideoCard video;
   final double? progress;
   final bool replaceRoute;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -106,7 +108,7 @@ class VideoCardTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.more_vert_rounded, size: 20),
+                  trailing ?? const Icon(Icons.more_vert_rounded, size: 20),
                 ],
               ),
             ),

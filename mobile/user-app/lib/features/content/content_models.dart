@@ -141,6 +141,7 @@ class VideoDetail extends VideoCard {
     required this.viewerState,
     required this.moderationStatus,
     this.processingStatus = '',
+    this.categoryId,
   });
 
   final String? description;
@@ -151,6 +152,7 @@ class VideoDetail extends VideoCard {
   final ViewerState viewerState;
   final String moderationStatus;
   final String processingStatus;
+  final String? categoryId;
 
   factory VideoDetail.fromJson(Map<String, dynamic> json) => VideoDetail(
     id: '${json['videoId'] ?? ''}',
@@ -158,6 +160,7 @@ class VideoDetail extends VideoCard {
     channelName: '${json['channelName'] ?? ''}',
     channelHandle: '${json['channelHandle'] ?? ''}',
     title: '${json['title'] ?? ''}',
+    categoryId: json['categoryId'] as String?,
     thumbnailUrl: json['thumbnailUrl'] as String?,
     duration: asInt(json['duration']),
     visibility: '${json['visibility'] ?? ''}',
@@ -233,6 +236,8 @@ class CommentItem {
     required this.replyCount,
     this.userId,
     this.status,
+    this.isPinned = false,
+    this.hasCreatorHeart = false,
   });
 
   final String id;
@@ -246,6 +251,40 @@ class CommentItem {
   final int replyCount;
   final String? userId;
   final String? status;
+  final bool isPinned;
+  final bool hasCreatorHeart;
+
+  CommentItem copyWith({
+    String? id,
+    String? videoId,
+    String? displayName,
+    String? content,
+    DateTime? createdAt,
+    int? likes,
+    int? dislikes,
+    String? myReaction,
+    int? replyCount,
+    String? userId,
+    String? status,
+    bool? isPinned,
+    bool? hasCreatorHeart,
+  }) {
+    return CommentItem(
+      id: id ?? this.id,
+      videoId: videoId ?? this.videoId,
+      displayName: displayName ?? this.displayName,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+      likes: likes ?? this.likes,
+      dislikes: dislikes ?? this.dislikes,
+      myReaction: myReaction ?? this.myReaction,
+      replyCount: replyCount ?? this.replyCount,
+      userId: userId ?? this.userId,
+      status: status ?? this.status,
+      isPinned: isPinned ?? this.isPinned,
+      hasCreatorHeart: hasCreatorHeart ?? this.hasCreatorHeart,
+    );
+  }
 
   factory CommentItem.fromJson(Map<String, dynamic> json) => CommentItem(
     id: '${json['commentId'] ?? ''}',
@@ -259,6 +298,8 @@ class CommentItem {
     replyCount: asInt(json['replyCount']),
     userId: json['userId'] as String?,
     status: json['status'] as String?,
+    isPinned: json['isPinned'] == true,
+    hasCreatorHeart: json['hasCreatorHeart'] == true,
   );
 }
 

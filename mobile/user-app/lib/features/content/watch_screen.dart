@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/storage/app_preferences.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
@@ -20,6 +21,7 @@ import 'local_download_manager.dart';
 import 'media_entitlements.dart';
 import 'playback_session.dart';
 import 'video_card.dart';
+import 'widgets/playlist_queue_sheet.dart';
 import '../moderation/report_dialog.dart';
 
 class WatchScreen extends StatefulWidget {
@@ -47,6 +49,9 @@ class _WatchScreenState extends State<WatchScreen> {
   List<VideoCard> _related = [];
   bool _loading = true;
   bool _sendingComment = false;
+  bool _isOwner = false;
+  String? _pinnedCommentId;
+  final Set<String> _heartedCommentIds = <String>{};
   String? _error;
   String? _actionMessage;
 
@@ -54,15 +59,18 @@ class _WatchScreenState extends State<WatchScreen> {
   void initState() {
     super.initState();
     _content = ContentService(widget.auth);
+    widget.playback.onVideoCompleted = _handleVideoCompleted;
     _load();
   }
 
   @override
   void dispose() {
     _comment.dispose();
-    if (widget.playback.videoId == widget.videoId &&
-        !widget.playback.minimized) {
-      unawaited(widget.playback.dismiss());
+    if (widget.playback.onVideoCompleted == _handleVideoCompleted) {
+      widget.playback.onVideoCompleted = null;
+    }
+    if (widget.playback.videoId == widget.videoId && widget.playback.ready) {
+      widget.playback.minimize();
     }
     super.dispose();
   }
@@ -88,9 +96,22 @@ class _WatchScreenState extends State<WatchScreen> {
         pageSize: 12,
         sort: 'popular',
       );
+      bool isOwner = false;
+      if (widget.auth.authenticated) {
+        try {
+          final myChannel = await ChannelService(widget.auth).getMyChannel();
+          if (myChannel != null &&
+              (myChannel.id == detail.channelId ||
+                  myChannel.handle == detail.channelHandle ||
+                  widget.auth.user?['userId'] == detail.channelId)) {
+            isOwner = true;
+          }
+        } catch (_) {}
+      }
       if (!mounted) return;
       setState(() {
         _video = detail;
+        _isOwner = isOwner;
         _renditions = [...playback.renditions]
           ..sort((a, b) => a.height.compareTo(b.height));
         _entitlements = entitlements;
@@ -101,35 +122,55 @@ class _WatchScreenState extends State<WatchScreen> {
             .toList();
         _loading = false;
       });
+
+      if (widget.playback.queue.isEmpty) {
+        final currentCard = VideoCard(
+          id: detail.id,
+          channelId: detail.channelId,
+          channelName: detail.channelName,
+          channelHandle: detail.channelHandle,
+          title: detail.title,
+          thumbnailUrl: detail.thumbnailUrl,
+          duration: detail.duration,
+          visibility: detail.visibility,
+          publishedAt: detail.publishedAt,
+          views: detail.views,
+        );
+        widget.playback.setQueue([currentCard, ..._related], initialIndex: 0);
+      }
       final resumeAt = playback.resumeAt > 0
           ? playback.resumeAt
           : detail.viewerState.resumeAt;
       final source = _renditions.isNotEmpty
           ? _renditions.last.url
           : detail.videoUrl;
-      await widget.playback.start(
-        auth: widget.auth,
-        video: detail,
-        videoRenditions: _renditions,
-        mediaEntitlements: entitlements,
-        sourceUrl: source,
-        resumeAt: resumeAt,
-      );
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        unawaited(
-          widget.playback.initialize(source, resumeAt: resumeAt).catchError((
-            _,
-          ) {
-            if (mounted) {
-              setState(
-                () => _actionMessage = AppStrings.t('watch.playerError'),
-              );
-            }
-          }),
+      if (widget.playback.videoId == widget.videoId && widget.playback.ready) {
+        widget.playback.restore();
+      } else {
+        await widget.playback.start(
+          auth: widget.auth,
+          video: detail,
+          videoRenditions: _renditions,
+          mediaEntitlements: entitlements,
+          sourceUrl: source,
+          resumeAt: resumeAt,
         );
-      });
+        if (!mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          unawaited(
+            widget.playback.initialize(source, resumeAt: resumeAt).catchError((
+              _,
+            ) {
+              if (mounted) {
+                setState(
+                  () => _actionMessage = AppStrings.t('watch.playerError'),
+                );
+              }
+            }),
+          );
+        });
+      }
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() {
@@ -145,6 +186,46 @@ class _WatchScreenState extends State<WatchScreen> {
         });
       }
     }
+  }
+
+  void _handleVideoCompleted() {
+    if (!mounted) return;
+    final next = widget.playback.nextVideoCard;
+    if (next != null && next.id != widget.videoId) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppStrings.format('watch.autoPlayingNext', {'seconds': '2'}),
+          ),
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: AppStrings.t('common.cancel'),
+            onPressed: () {
+              widget.playback.toggleAutoplay();
+            },
+          ),
+        ),
+      );
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted && widget.playback.autoplayNext) {
+          context.pushReplacement('/watch/${next.id}');
+        }
+      });
+    }
+  }
+
+  void _openQueueSheet() {
+    HapticFeedback.lightImpact();
+    PlaylistQueueSheet.show(
+      context,
+      playback: widget.playback,
+      onSelectVideo: (video) {
+        if (video.id != widget.videoId) {
+          context.pushReplacement('/watch/${video.id}');
+        }
+      },
+    );
   }
 
   Future<void> _enterPictureInPicture() async {
@@ -163,12 +244,82 @@ class _WatchScreenState extends State<WatchScreen> {
     }
   }
 
+  Future<bool> _requireAuth({required String action}) async {
+    if (widget.auth.authenticated) return true;
+    final proceed = await showModalBottomSheet<bool>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Icon(
+                Icons.account_circle_outlined,
+                size: 52,
+                color: AppColors.primaryPink,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Bạn muốn $action?',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Đăng nhập để tương tác với video, đăng ký kênh và lưu nội dung yêu thích của bạn.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Để sau'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.primaryPink),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Đăng nhập'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (proceed == true && mounted) {
+      context.push('/auth');
+    }
+    return false;
+  }
+
   Future<void> _react(String type) async {
     HapticFeedback.lightImpact();
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginInteract'));
-      return;
-    }
+    if (!await _requireAuth(action: 'bày tỏ cảm xúc')) return;
     final video = _video;
     if (video == null) return;
     try {
@@ -219,10 +370,8 @@ class _WatchScreenState extends State<WatchScreen> {
 
   Future<void> _rate() async {
     HapticFeedback.lightImpact();
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginRate'));
-      return;
-    }
+    if (!await _requireAuth(action: 'đánh giá video này')) return;
+    if (!mounted) return;
     final score = await showModalBottomSheet<int>(
       context: context,
       builder: (context) => SafeArea(
@@ -303,10 +452,7 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _download() async {
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginDownload'));
-      return;
-    }
+    if (!await _requireAuth(action: 'tải xuống video này')) return;
     try {
       final options = await _content.downloadOptions(widget.videoId);
       if (!mounted) return;
@@ -353,10 +499,7 @@ class _WatchScreenState extends State<WatchScreen> {
 
   Future<void> _saveToPlaylist() async {
     HapticFeedback.lightImpact();
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginPlaylist'));
-      return;
-    }
+    if (!await _requireAuth(action: 'lưu video vào danh sách phát')) return;
     try {
       final service = PlaylistService(widget.auth);
       final playlists = await service.mine();
@@ -537,10 +680,7 @@ class _WatchScreenState extends State<WatchScreen> {
   Future<void> _sendComment() async {
     final text = _comment.text.trim();
     if (text.isEmpty || _sendingComment) return;
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginCommentHint'));
-      return;
-    }
+    if (!await _requireAuth(action: 'bình luận về video này')) return;
     HapticFeedback.lightImpact();
     setState(() => _sendingComment = true);
     try {
@@ -558,6 +698,63 @@ class _WatchScreenState extends State<WatchScreen> {
           _actionMessage = AppStrings.apiError(error);
           _sendingComment = false;
         });
+      }
+    }
+  }
+
+  void _togglePinComment(CommentItem item) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      if (_pinnedCommentId == item.id || item.isPinned) {
+        _pinnedCommentId = null;
+        _comments = _comments
+            .map((c) => c.id == item.id ? c.copyWith(isPinned: false) : c)
+            .toList();
+      } else {
+        _pinnedCommentId = item.id;
+        _comments = _comments
+            .map((c) => c.copyWith(isPinned: c.id == item.id))
+            .toList();
+      }
+    });
+  }
+
+  void _toggleHeartComment(CommentItem item) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      final isHearted =
+          _heartedCommentIds.contains(item.id) || item.hasCreatorHeart;
+      if (isHearted) {
+        _heartedCommentIds.remove(item.id);
+        _comments = _comments
+            .map((c) => c.id == item.id ? c.copyWith(hasCreatorHeart: false) : c)
+            .toList();
+      } else {
+        _heartedCommentIds.add(item.id);
+        _comments = _comments
+            .map((c) => c.id == item.id ? c.copyWith(hasCreatorHeart: true) : c)
+            .toList();
+      }
+    });
+  }
+
+  Future<void> _toggleHideComment(CommentItem item) async {
+    HapticFeedback.lightImpact();
+    final isHidden = item.status == 'hidden';
+    try {
+      final updated = await _content.setCommentVisibility(item.id, !isHidden);
+      if (mounted) {
+        setState(() {
+          _comments = _comments
+              .map((c) => c.id == item.id ? updated : c)
+              .toList();
+        });
+      }
+    } on ApiFailure catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.apiError(e))),
+        );
       }
     }
   }
@@ -583,8 +780,15 @@ class _WatchScreenState extends State<WatchScreen> {
       );
     }
     final video = _video!;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (widget.playback.videoId == widget.videoId && widget.playback.ready) {
+          widget.playback.minimize();
+        }
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
       children: [
         ClipRRect(
           borderRadius: const BorderRadius.vertical(
@@ -673,6 +877,12 @@ class _WatchScreenState extends State<WatchScreen> {
                 customIcon: AppIcons.asset(AppIcons.playlist, size: 18),
                 label: AppStrings.t('watch.savePlaylist'),
                 onTap: _saveToPlaylist,
+              ),
+              _ActionChip(
+                customIcon: AppIcons.asset(AppIcons.queue, size: 18),
+                label: AppStrings.t('watch.queue'),
+                active: widget.playback.queue.isNotEmpty,
+                onTap: _openQueueSheet,
               ),
               _ActionChip(
                 customIcon: AppIcons.asset(AppIcons.report, size: 18),
@@ -777,34 +987,57 @@ class _WatchScreenState extends State<WatchScreen> {
         const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: TextField(
-            controller: _comment,
-            maxLines: 3,
-            decoration: InputDecoration(
-              hintText: widget.auth.authenticated
-                  ? AppStrings.t('watch.commentHint')
-                  : AppStrings.t('watch.loginCommentHint'),
-              suffixIcon: IconButton(
-                onPressed: _sendingComment ? null : _sendComment,
-                icon: AppIcons.asset(
-                  AppIcons.send,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.primary,
+          child: InkWell(
+            onTap: widget.auth.authenticated
+                ? null
+                : () => _requireAuth(action: 'bình luận về video này'),
+            borderRadius: BorderRadius.circular(12),
+            child: IgnorePointer(
+              ignoring: !widget.auth.authenticated,
+              child: TextField(
+                controller: _comment,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: widget.auth.authenticated
+                      ? AppStrings.t('watch.commentHint')
+                      : 'Đăng nhập để thêm bình luận...',
+                  suffixIcon: IconButton(
+                    onPressed: _sendingComment ? null : _sendComment,
+                    icon: AppIcons.asset(
+                      AppIcons.send,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
                 ),
               ),
             ),
-            enabled: widget.auth.authenticated,
           ),
         ),
         const SizedBox(height: 8),
-        ..._comments.map(
-          (item) => _CommentTile(
-            item: item,
-            content: _content,
-            signedIn: widget.auth.authenticated,
-            auth: widget.auth,
-          ),
-        ),
+        ...() {
+          final pinned = _comments
+              .where((c) => c.id == _pinnedCommentId || c.isPinned)
+              .firstOrNull;
+          final others = _comments.where((c) => c.id != pinned?.id).toList();
+          final list = [?pinned, ...others];
+          return list.map(
+            (item) => _CommentTile(
+              item: item,
+              content: _content,
+              signedIn: widget.auth.authenticated,
+              auth: widget.auth,
+              channelName: video.channelName,
+              isOwner: _isOwner,
+              isPinned: item.id == _pinnedCommentId || item.isPinned,
+              isHearted: _heartedCommentIds.contains(item.id) ||
+                  item.hasCreatorHeart,
+              onTogglePin: () => _togglePinComment(item),
+              onToggleHeart: () => _toggleHeartComment(item),
+              onToggleHide: () => _toggleHideComment(item),
+            ),
+          );
+        }(),
         const SizedBox(height: 22),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -819,7 +1052,8 @@ class _WatchScreenState extends State<WatchScreen> {
           ),
         ),
       ],
-    );
+    ),
+  );
   }
 }
 
@@ -876,14 +1110,22 @@ class _CustomVideoStage extends StatefulWidget {
 class _CustomVideoStageState extends State<_CustomVideoStage> {
   bool _controlsVisible = true;
   bool? _seekForward;
-  double _tapX = 0;
+  int _seekStep = 10;
   Timer? _controlsTimer;
   Timer? _pulseTimer;
 
   @override
   void initState() {
     super.initState();
+    _loadSeekStep();
     _scheduleHide();
+  }
+
+  Future<void> _loadSeekStep() async {
+    try {
+      final step = await const AppPreferencesStore().readDoubleTapSeek();
+      if (mounted) setState(() => _seekStep = step);
+    } catch (_) {}
   }
 
   @override
@@ -906,14 +1148,11 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
     if (_controlsVisible) _scheduleHide();
   }
 
-  void _seek() {
-    final forward = _tapX >= MediaQuery.sizeOf(context).width / 2;
-    unawaited(widget.session.seekBy(forward ? 10 : -10));
+  void _performSeek(bool forward) {
+    unawaited(widget.session.seekBy(forward ? _seekStep : -_seekStep));
     setState(() {
       _seekForward = forward;
-      _controlsVisible = true;
     });
-    _scheduleHide();
     _pulseTimer?.cancel();
     _pulseTimer = Timer(const Duration(milliseconds: 850), () {
       if (mounted) setState(() => _seekForward = null);
@@ -930,220 +1169,311 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
       final current = widget.session.position.inMilliseconds
           .clamp(0, total > 0 ? total : 1)
           .toDouble();
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          NativeVideoPlayer(controller: player),
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _toggleControls,
-              onDoubleTapDown: (details) => _tapX = details.localPosition.dx,
-              onDoubleTap: _seek,
-              onVerticalDragEnd: (details) {
-                if ((details.primaryVelocity ?? 0) > 240) widget.onMinimize();
-              },
-            ),
-          ),
-          if (!widget.session.ready)
-            const Positioned.fill(
-              child: ColoredBox(
-                color: Color(0x9917111F),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryPink,
-                  ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              NativeVideoPlayer(controller: player),
+              Positioned.fill(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _toggleControls,
+                        onDoubleTap: () => _performSeek(false),
+                        onVerticalDragEnd: (details) {
+                          if ((details.primaryVelocity ?? 0) > 240) {
+                            widget.onMinimize();
+                          }
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _toggleControls,
+                        onDoubleTap: () => _performSeek(true),
+                        onVerticalDragEnd: (details) {
+                          if ((details.primaryVelocity ?? 0) > 240) {
+                            widget.onMinimize();
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          if (_seekForward != null)
-            Align(
-              alignment: _seekForward!
-                  ? Alignment.centerRight
-                  : Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 25),
-                child: Container(
-                  width: 74,
-                  height: 74,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: .68),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _seekForward!
-                            ? Icons.forward_10_rounded
-                            : Icons.replay_10_rounded,
-                        color: Colors.white,
-                        size: 31,
+              if (!widget.session.ready)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x9917111F),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryPink,
                       ),
-                      Text(
-                        AppStrings.t('watch.skipSeconds'),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !_controlsVisible,
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xB8000000),
-                        Colors.transparent,
-                        Color(0xD9000000),
-                      ],
-                      stops: [0, .48, 1],
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Row(
+                ),
+              if (_seekForward == true)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: width * 0.42,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.elliptical(90, 200),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.fast_forward_rounded,
+                          color: Colors.white,
+                          size: 38,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '+$_seekStep giây',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(blurRadius: 4, color: Colors.black87),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (_seekForward == false)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: width * 0.42,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.elliptical(90, 200),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.fast_rewind_rounded,
+                          color: Colors.white,
+                          size: 38,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '-$_seekStep giây',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(blurRadius: 4, color: Colors.black87),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_controlsVisible,
+                  child: AnimatedOpacity(
+                    opacity: _controlsVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0xB8000000),
+                            Colors.transparent,
+                            Color(0xD9000000),
+                          ],
+                          stops: [0, .48, 1],
+                        ),
+                      ),
+                      child: Column(
                         children: [
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.session.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                          Row(
+                            children: [
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.session.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: AppStrings.t('watch.minimize'),
+                                onPressed: widget.onMinimize,
                                 color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12,
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
                               ),
+                              IconButton(
+                                tooltip: AppStrings.t('watch.qualityAndSpeed'),
+                                onPressed: widget.onSettings,
+                                color: Colors.white,
+                                icon: const Icon(Icons.settings_rounded, size: 20),
+                              ),
+                              if (widget.showPictureInPicture)
+                                IconButton(
+                                  tooltip: AppStrings.t('watch.pictureInPicture'),
+                                  onPressed: widget.onPictureInPicture,
+                                  color: Colors.white,
+                                  icon: const Icon(
+                                    Icons.picture_in_picture_alt_rounded,
+                                    size: 19,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: _toggleControls,
+                                    onDoubleTap: () => _performSeek(false),
+                                    onVerticalDragEnd: (details) {
+                                      if ((details.primaryVelocity ?? 0) > 240) {
+                                        widget.onMinimize();
+                                      }
+                                    },
+                                  ),
+                                ),
+                                if (!widget.session.isPlaying)
+                                  IconButton.filled(
+                                    tooltip: AppStrings.t('watch.playVideo'),
+                                    onPressed: () {
+                                      unawaited(widget.session.togglePlayback());
+                                      _scheduleHide();
+                                    },
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.black.withValues(
+                                        alpha: .58,
+                                      ),
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(58, 58),
+                                    ),
+                                    icon: const Icon(Icons.play_arrow_rounded, size: 36),
+                                  )
+                                else
+                                  IconButton.filled(
+                                    tooltip: AppStrings.t('watch.pauseVideo'),
+                                    onPressed: () =>
+                                        unawaited(widget.session.togglePlayback()),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.black.withValues(
+                                        alpha: .58,
+                                      ),
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(52, 52),
+                                    ),
+                                    icon: const Icon(Icons.pause_rounded, size: 30),
+                                  ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: _toggleControls,
+                                    onDoubleTap: () => _performSeek(true),
+                                    onVerticalDragEnd: (details) {
+                                      if ((details.primaryVelocity ?? 0) > 240) {
+                                        widget.onMinimize();
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          IconButton(
-                            tooltip: AppStrings.t('watch.minimize'),
-                            onPressed: widget.onMinimize,
-                            color: Colors.white,
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                          ),
-                          IconButton(
-                            tooltip: AppStrings.t('watch.qualityAndSpeed'),
-                            onPressed: widget.onSettings,
-                            color: Colors.white,
-                            icon: const Icon(Icons.settings_rounded, size: 20),
-                          ),
-                          if (widget.showPictureInPicture)
-                            IconButton(
-                              tooltip: AppStrings.t('watch.pictureInPicture'),
-                              onPressed: widget.onPictureInPicture,
-                              color: Colors.white,
-                              icon: const Icon(
-                                Icons.picture_in_picture_alt_rounded,
-                                size: 19,
-                              ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 0, 10, 5),
+                            child: Row(
+                              children: [
+                                Text(
+                                  _time(widget.session.position),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      trackHeight: 2.5,
+                                      thumbShape: const RoundSliderThumbShape(
+                                        enabledThumbRadius: 5,
+                                      ),
+                                      overlayShape: const RoundSliderOverlayShape(
+                                        overlayRadius: 13,
+                                      ),
+                                    ),
+                                    child: Slider(
+                                      min: 0,
+                                      max: total > 0 ? total.toDouble() : 1,
+                                      value: current,
+                                      activeColor: AppColors.primaryPink,
+                                      inactiveColor: Colors.white38,
+                                      onChanged: total <= 0
+                                          ? null
+                                          : (value) => unawaited(
+                                              widget.session.seekTo(
+                                                Duration(
+                                                  milliseconds: value.round(),
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  _time(widget.session.duration),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
                         ],
                       ),
-                      const Spacer(),
-                      if (!widget.session.isPlaying)
-                        IconButton.filled(
-                          tooltip: AppStrings.t('watch.playVideo'),
-                          onPressed: () {
-                            unawaited(widget.session.togglePlayback());
-                            _scheduleHide();
-                          },
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(
-                              alpha: .58,
-                            ),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(58, 58),
-                          ),
-                          icon: const Icon(Icons.play_arrow_rounded, size: 36),
-                        )
-                      else
-                        IconButton.filled(
-                          tooltip: AppStrings.t('watch.pauseVideo'),
-                          onPressed: () =>
-                              unawaited(widget.session.togglePlayback()),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(
-                              alpha: .58,
-                            ),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(52, 52),
-                          ),
-                          icon: const Icon(Icons.pause_rounded, size: 30),
-                        ),
-                      const Spacer(),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 0, 10, 5),
-                        child: Row(
-                          children: [
-                            Text(
-                              _time(widget.session.position),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Expanded(
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 2.5,
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 5,
-                                  ),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 13,
-                                  ),
-                                ),
-                                child: Slider(
-                                  min: 0,
-                                  max: total > 0 ? total.toDouble() : 1,
-                                  value: current,
-                                  activeColor: AppColors.primaryPink,
-                                  inactiveColor: Colors.white38,
-                                  onChanged: total <= 0
-                                      ? null
-                                      : (value) => unawaited(
-                                          widget.session.seekTo(
-                                            Duration(
-                                              milliseconds: value.round(),
-                                            ),
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ),
-                            Text(
-                              _time(widget.session.duration),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       );
     },
   );
@@ -1192,7 +1522,74 @@ class _ChannelSummaryState extends State<_ChannelSummary> {
 
   Future<void> _toggleSubscription() async {
     if (!widget.auth.authenticated) {
-      context.go('/auth');
+      final proceed = await showModalBottomSheet<bool>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Icon(
+                  Icons.subscriptions_outlined,
+                  size: 52,
+                  color: AppColors.primaryPink,
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Bạn muốn đăng ký kênh này?',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Đăng nhập để đăng ký kênh và nhận thông báo về video mới nhất.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Để sau'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: AppColors.primaryPink),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Đăng nhập'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (proceed == true && mounted) {
+        context.push('/auth');
+      }
       return;
     }
     if (_busy) return;
@@ -1297,11 +1694,26 @@ class _CommentTile extends StatefulWidget {
     required this.content,
     required this.signedIn,
     required this.auth,
+    required this.channelName,
+    required this.isOwner,
+    required this.isPinned,
+    required this.isHearted,
+    required this.onTogglePin,
+    required this.onToggleHeart,
+    required this.onToggleHide,
   });
   final CommentItem item;
   final ContentService content;
   final bool signedIn;
   final AuthController auth;
+  final String channelName;
+  final bool isOwner;
+  final bool isPinned;
+  final bool isHearted;
+  final VoidCallback onTogglePin;
+  final VoidCallback onToggleHeart;
+  final VoidCallback onToggleHide;
+
   @override
   State<_CommentTile> createState() => _CommentTileState();
 }
@@ -1315,6 +1727,14 @@ class _CommentTileState extends State<_CommentTile> {
   void initState() {
     super.initState();
     _item = widget.item;
+  }
+
+  @override
+  void didUpdateWidget(covariant _CommentTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item != widget.item) {
+      _item = widget.item;
+    }
   }
 
   Future<void> _react() async {
@@ -1494,6 +1914,32 @@ class _CommentTileState extends State<_CommentTile> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.isPinned || _item.isPinned)
+          Padding(
+            padding: const EdgeInsets.only(left: 43, bottom: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.push_pin_rounded,
+                  size: 14,
+                  color: AppColors.primaryPink,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  AppStrings.format('watch.pinnedBy', {
+                    'channel': widget.channelName.isEmpty
+                        ? AppStrings.t('channel.owner')
+                        : widget.channelName,
+                  }),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryPink,
+                  ),
+                ),
+              ],
+            ),
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1510,12 +1956,47 @@ class _CommentTileState extends State<_CommentTile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _item.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  Row(
+                    children: [
+                      Text(
+                        _item.displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      if (_item.status == 'hidden') ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            AppStrings.t('watch.hideComment'),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.amber,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 3),
-                  Text(_item.content),
+                  Text(
+                    _item.content,
+                    style: TextStyle(
+                      color: _item.status == 'hidden'
+                          ? Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5)
+                          : null,
+                    ),
+                  ),
                   Row(
                     children: [
                       TextButton.icon(
@@ -1527,19 +2008,142 @@ class _CommentTileState extends State<_CommentTile> {
                         onPressed: _reply,
                         child: Text(AppStrings.t('common.reply')),
                       ),
-                      if (_item.userId == widget.auth.user?['userId'])
+                      if (widget.isHearted || _item.hasCreatorHeart)
+                        Container(
+                          margin: const EdgeInsets.only(left: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.favorite_rounded,
+                                size: 13,
+                                color: Colors.redAccent,
+                              ),
+                              const SizedBox(width: 4),
+                              CircleAvatar(
+                                radius: 8,
+                                backgroundColor: AppColors.primaryPink,
+                                child: Text(
+                                  widget.channelName.isNotEmpty
+                                      ? widget.channelName[0].toUpperCase()
+                                      : 'H',
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const Spacer(),
+                      if (_item.userId == widget.auth.user?['userId'] ||
+                          widget.isOwner)
                         PopupMenuButton<String>(
                           tooltip: AppStrings.t('watch.commentOptions'),
                           onSelected: (choice) {
+                            if (choice == 'pin') widget.onTogglePin();
+                            if (choice == 'heart') widget.onToggleHeart();
+                            if (choice == 'hide') widget.onToggleHide();
                             if (choice == 'edit') _edit();
                             if (choice == 'delete') _delete();
                           },
                           itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Text(AppStrings.t('common.edit')),
-                            ),
-                            PopupMenuItem(value: 'delete', child: Text(AppStrings.t('common.delete'))),
+                            if (widget.isOwner) ...[
+                              PopupMenuItem(
+                                value: 'pin',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      widget.isPinned
+                                          ? Icons.push_pin_rounded
+                                          : Icons.push_pin_outlined,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      widget.isPinned
+                                          ? AppStrings.t('watch.unpinComment')
+                                          : AppStrings.t('watch.pinComment'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'heart',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      widget.isHearted
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 18,
+                                      color: Colors.redAccent,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      widget.isHearted
+                                          ? AppStrings.t('watch.unheartComment')
+                                          : AppStrings.t('watch.heartComment'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'hide',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _item.status == 'hidden'
+                                          ? Icons.visibility_rounded
+                                          : Icons.visibility_off_outlined,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _item.status == 'hidden'
+                                          ? AppStrings.t('watch.unhideComment')
+                                          : AppStrings.t('watch.hideComment'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (_item.userId == widget.auth.user?['userId']) ...[
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.edit_outlined, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(AppStrings.t('common.edit')),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: Colors.redAccent,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(AppStrings.t('common.delete')),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         )
                       else if (widget.signedIn && _item.status != 'deleted')
