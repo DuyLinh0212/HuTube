@@ -563,6 +563,26 @@ public sealed class ContentService(
         return new(items, page, pageSize, total);
     }
 
+    public async Task ClearWatchHistoryAsync(Guid userId, CancellationToken ct = default)
+    {
+        var items = await db.ViewingHistories.Where(x => x.UserId == userId).ToListAsync(ct);
+        if (items.Count > 0)
+        {
+            db.ViewingHistories.RemoveRange(items);
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    public async Task DeleteWatchHistoryItemAsync(Guid userId, Guid videoId, CancellationToken ct = default)
+    {
+        var items = await db.ViewingHistories.Where(x => x.UserId == userId && x.VideoId == videoId).ToListAsync(ct);
+        if (items.Count > 0)
+        {
+            db.ViewingHistories.RemoveRange(items);
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
     public async Task<PageResult<LibraryVideoResponse>> GetLikedVideosAsync(Guid userId, int? rating, int page, int pageSize, CancellationToken ct = default)
     {
         if (rating is < 1 or > 5)

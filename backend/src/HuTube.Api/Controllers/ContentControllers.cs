@@ -75,6 +75,20 @@ public sealed class LibraryController(IContentService content) : ControllerBase
         [FromQuery] DateTimeOffset? before = null, CancellationToken ct = default) =>
         content.GetWatchHistoryAsync(UserId, page, pageSize, before, ct);
 
+    [HttpDelete("history")]
+    public async Task<IActionResult> ClearHistoryAsync(CancellationToken ct = default)
+    {
+        await content.ClearWatchHistoryAsync(UserId, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("history/{videoId:guid}")]
+    public async Task<IActionResult> DeleteHistoryItemAsync(Guid videoId, CancellationToken ct = default)
+    {
+        await content.DeleteWatchHistoryItemAsync(UserId, videoId, ct);
+        return NoContent();
+    }
+
     [HttpGet("liked")]
     public Task<PageResult<LibraryVideoResponse>> LikedAsync([FromQuery] int? rating = null, [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20, CancellationToken ct = default) =>

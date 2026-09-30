@@ -107,6 +107,8 @@ public interface IContentService
     Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery query, CancellationToken ct = default);
     Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize,
         DateTimeOffset? before = null, CancellationToken ct = default);
+    Task ClearWatchHistoryAsync(Guid userId, CancellationToken ct = default);
+    Task DeleteWatchHistoryItemAsync(Guid userId, Guid videoId, CancellationToken ct = default);
     Task<PageResult<LibraryVideoResponse>> GetLikedVideosAsync(Guid userId, int? rating, int page, int pageSize, CancellationToken ct = default);
     Task<VideoResponse> GetVideoAsync(Guid videoId, Guid? viewerId, CancellationToken ct = default);
     Task<PlaybackResponse> GetPlaybackAsync(Guid videoId, Guid? viewerId, CancellationToken ct = default);
