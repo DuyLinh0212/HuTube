@@ -116,20 +116,23 @@ class MobileScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final isDetail = location.startsWith('/watch/');
+    final hideAppBar = location == '/account' || location == '/settings';
     final rawName = (auth.user?['displayName'] as String?) ?? 'H';
     final initial = rawName.isEmpty
         ? 'H'
         : rawName.substring(0, 1).toUpperCase();
     return Scaffold(
-      appBar: AppBar(
-        leadingWidth: wide ? 56 : 52,
-        leading: Builder(
-          builder: (drawerContext) => IconButton(
-            tooltip: AppStrings.t('common.menu'),
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(drawerContext).openDrawer(),
-          ),
-        ),
+      appBar: hideAppBar
+          ? null
+          : AppBar(
+              leadingWidth: wide ? 56 : 52,
+              leading: Builder(
+                builder: (drawerContext) => IconButton(
+                  tooltip: AppStrings.t('common.menu'),
+                  icon: const Icon(Icons.menu_rounded),
+                  onPressed: () => Scaffold.of(drawerContext).openDrawer(),
+                ),
+              ),
         title: isDetail
             ? Text(AppStrings.t('app.viewVideo'))
             : const HuTubeLogo(size: 25),
@@ -281,20 +284,75 @@ class MobileScaffold extends StatelessWidget {
                   label: AppStrings.t('nav.subscriptions'),
                 ),
                 NavigationDestination(
-                  icon: AppIcons.asset(
-                    AppIcons.user,
-                    size: 22,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  selectedIcon: AppIcons.asset(
-                    AppIcons.user,
-                    size: 22,
-                    color: AppColors.primaryPink,
-                  ),
+                  icon: _YouNavIcon(auth: auth, selected: false),
+                  selectedIcon: _YouNavIcon(auth: auth, selected: true),
                   label: AppStrings.t('app.navYou'),
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _YouNavIcon extends StatelessWidget {
+  const _YouNavIcon({required this.auth, required this.selected});
+  final AuthController auth;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = auth.user;
+    final avatarUrl = user?['avatarUrl'] as String?;
+    final name = (user?['displayName'] as String?) ?? 'U';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: selected
+            ? Border.all(
+                color: isDark ? Colors.white : AppColors.primaryPink,
+                width: 2,
+              )
+            : Border.all(
+                color: Colors.transparent,
+                width: 2,
+              ),
+      ),
+      child: ClipOval(
+        child: avatarUrl != null && avatarUrl.isNotEmpty
+            ? Image.network(
+                avatarUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: AppColors.primaryPink.withValues(alpha: 0.2),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.primaryPink,
+                    ),
+                  ),
+                ),
+              )
+            : Container(
+                color: AppColors.primaryPink.withValues(alpha: 0.2),
+                alignment: Alignment.center,
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.primaryPink,
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }
@@ -357,113 +415,100 @@ class _Drawer extends StatelessWidget {
   final AuthController auth;
 
   @override
-  Widget build(BuildContext context) => Drawer(
-    child: SafeArea(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 22, 16, 14),
-            child: HuTubeLogo(size: 30),
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('nav.home'),
-            '/home',
-            customIcon: AppIcons.asset(AppIcons.home, size: 20),
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('nav.explore'),
-            '/explore',
-            customIcon: AppIcons.asset(AppIcons.compass, size: 20),
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('nav.subscriptions'),
-            '/subscriptions',
-            customIcon: AppIcons.asset(AppIcons.myChannel, size: 20),
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('huai.title'),
-            '/huai',
-            customIcon: AppIcons.asset(AppIcons.huAi, size: 22),
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('nav.playlists'),
-            '/playlists',
-            customIcon: AppIcons.asset(AppIcons.playlist, size: 20),
-            protected: true,
-          ),
-          _SectionLabel(AppStrings.t('app.librarySection')),
-          _item(
-            context,
-            null,
-            '${AppStrings.t('library.history')} & ${AppStrings.t('library.liked')}',
-            '/library',
-            customIcon: AppIcons.asset(AppIcons.history, size: 20),
-            protected: true,
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('downloads.title'),
-            '/downloads',
-            customIcon: AppIcons.asset(AppIcons.download, size: 20),
-            protected: true,
-          ),
-          _SectionLabel(AppStrings.t('app.otherSection')),
-          _item(
-            context,
-            null,
-            AppStrings.t('plans.title'),
-            '/plans',
-            customIcon: AppIcons.asset(AppIcons.plan, size: 20),
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('policies.title'),
-            '/policies',
-            customIcon: AppIcons.asset(AppIcons.appeals, size: 20),
-          ),
-          _item(
-            context,
-            null,
-            AppStrings.t('moderation.navLabel'),
-            '/moderation',
-            customIcon: AppIcons.asset(AppIcons.warningStrike, size: 20),
-            protected: true,
-          ),
-          if (auth.authenticated) ...[
-            _item(
-              context,
-              null,
-              AppStrings.t('creator.title'),
-              '/creator',
-              customIcon: AppIcons.asset(AppIcons.dashboard, size: 20),
-              protected: true,
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark ? Colors.white : AppColors.textPrimary;
+    final textColor = isDark ? Colors.white : AppColors.textPrimary;
+
+    return Drawer(
+      width: 260,
+      backgroundColor: isDark ? const Color(0xFF181818) : AppColors.surface,
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 16, 12),
+              child: HuTubeLogo(size: 28),
             ),
             _item(
               context,
               null,
-              AppStrings.t('common.notifications'),
-              '/notifications',
-              customIcon: AppIcons.asset(AppIcons.notification, size: 20),
-              protected: true,
+              AppStrings.t('huai.title'),
+              '/huai',
+              customIcon: AppIcons.asset(AppIcons.huAi, size: 20),
+              textColor: textColor,
             ),
+            _item(
+              context,
+              null,
+              AppStrings.t('nav.playlists'),
+              '/playlists',
+              customIcon: AppIcons.asset(AppIcons.playlist, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            _SectionLabel(AppStrings.t('app.librarySection')),
+            _item(
+              context,
+              null,
+              '${AppStrings.t('library.history')} & ${AppStrings.t('library.liked')}',
+              '/library',
+              customIcon: AppIcons.asset(AppIcons.history, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('downloads.title'),
+              '/downloads',
+              customIcon: AppIcons.asset(AppIcons.download, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            _SectionLabel(AppStrings.t('app.otherSection')),
+            _item(
+              context,
+              null,
+              AppStrings.t('plans.title'),
+              '/plans',
+              customIcon: AppIcons.asset(AppIcons.plan, size: 20, color: iconColor),
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('policies.title'),
+              '/policies',
+              customIcon: AppIcons.asset(AppIcons.appeals, size: 20, color: iconColor),
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('moderation.navLabel'),
+              '/moderation',
+              customIcon: AppIcons.asset(AppIcons.warningStrike, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            if (auth.authenticated) ...[
+              _item(
+                context,
+                null,
+                AppStrings.t('creator.title'),
+                '/creator',
+                customIcon: AppIcons.asset(AppIcons.dashboard, size: 20, color: iconColor),
+                protected: true,
+                textColor: textColor,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _item(
     BuildContext context,
@@ -472,10 +517,21 @@ class _Drawer extends StatelessWidget {
     String route, {
     Widget? customIcon,
     bool protected = false,
+    Color? textColor,
   }) => ListTile(
-    leading: customIcon ?? (icon != null ? Icon(icon) : null),
-    title: Text(label),
-    minLeadingWidth: 26,
+    dense: true,
+    visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+    leading: customIcon ?? (icon != null ? Icon(icon, color: textColor) : null),
+    title: Text(
+      label,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: textColor,
+      ),
+    ),
+    minLeadingWidth: 24,
     onTap: () {
       Navigator.of(context).pop();
       context.go(protected && !auth.authenticated ? '/auth' : route);
@@ -488,14 +544,19 @@ class _SectionLabel extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(28, 20, 16, 6),
-    child: Text(
-      text,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.1,
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 16, 4),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+          fontSize: 11,
+          color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

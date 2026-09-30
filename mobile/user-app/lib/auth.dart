@@ -208,35 +208,50 @@ class AuthController extends ChangeNotifier {
     } on ApiFailure {
       rethrow;
     } on GoogleSignInException catch (error) {
+      debugPrint('[GoogleSignIn] code: ${error.code}, description: ${error.description}');
+      final detail = error.description != null && error.description!.isNotEmpty
+          ? ' - ${error.description}'
+          : '';
       throw switch (error.code) {
         GoogleSignInExceptionCode.canceled => ApiFailure(
           400,
           'GOOGLE_LOGIN_CANCELLED',
-          AppStrings.t('auth.googleCancelled'),
+          kDebugMode
+              ? '${AppStrings.t('auth.googleCancelled')} [${error.code.name}$detail]'
+              : AppStrings.t('auth.googleCancelled'),
         ),
         GoogleSignInExceptionCode.clientConfigurationError ||
         GoogleSignInExceptionCode.providerConfigurationError =>
           ApiFailure(
             503,
             'GOOGLE_LOGIN_NOT_CONFIGURED',
-            AppStrings.t('common.googleConfigurationHint'),
+            kDebugMode
+                ? '${AppStrings.t('common.googleConfigurationHint')} [${error.code.name}$detail]'
+                : AppStrings.t('common.googleConfigurationHint'),
           ),
         GoogleSignInExceptionCode.uiUnavailable => ApiFailure(
           503,
           'GOOGLE_LOGIN_NOT_CONFIGURED',
-          AppStrings.t('common.googleOpenError'),
+          kDebugMode
+              ? '${AppStrings.t('common.googleOpenError')} [${error.code.name}$detail]'
+              : AppStrings.t('common.googleOpenError'),
         ),
         _ => ApiFailure(
           401,
           'INVALID_GOOGLE_TOKEN',
-          AppStrings.t('common.googleLoginError'),
+          kDebugMode
+              ? '${AppStrings.t('common.googleLoginError')} [${error.code.name}$detail]'
+              : AppStrings.t('common.googleLoginError'),
         ),
       };
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[GoogleSignIn] Unexpected error: $e');
       throw ApiFailure(
         401,
         'INVALID_GOOGLE_TOKEN',
-        AppStrings.t('common.googleLoginError'),
+        kDebugMode
+            ? '${AppStrings.t('common.googleLoginError')} [$e]'
+            : AppStrings.t('common.googleLoginError'),
       );
     }
   }

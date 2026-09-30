@@ -47,6 +47,7 @@ dependencies:
   path_provider: ^2.1.5
   signalr_netcore: ^1.4.3
   flutter_local_notifications: ^22.3.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

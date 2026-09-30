@@ -9,6 +9,7 @@ import '../core/theme/app_theme.dart';
 import '../core/theme/theme_notifier.dart';
 import '../core/widgets/app_shell.dart';
 import '../features/account/account_hub_screen.dart';
+import '../features/account/account_settings_screen.dart';
 import '../features/ai/hu_ai_screen.dart';
 import '../features/content/feed_screen.dart';
 import '../features/content/downloads_screen.dart';
@@ -190,6 +191,11 @@ class _HuTubeAppState extends State<HuTubeApp> {
                 AccountHubScreen(auth: auth, notifications: notifications),
           ),
           GoRoute(
+            path: '/settings',
+            builder: (_, _) =>
+                AccountSettingsScreen(auth: auth, notifications: notifications),
+          ),
+          GoRoute(
             path: '/creator',
             builder: (_, _) => CreatorHubScreen(auth: auth),
           ),
@@ -203,7 +209,17 @@ class _HuTubeAppState extends State<HuTubeApp> {
             builder: (_, state) => MobilePlansScreen(
               auth: auth,
               invitationId: state.uri.queryParameters['invitationId'],
-              invitationToken: state.uri.queryParameters['invitationToken'],
+              invitationToken: state.uri.queryParameters['invitationToken'] ??
+                  state.uri.queryParameters['token'],
+            ),
+          ),
+          GoRoute(
+            path: '/plans/accept-invite',
+            builder: (_, state) => MobilePlansScreen(
+              auth: auth,
+              invitationId: state.uri.queryParameters['invitationId'],
+              invitationToken: state.uri.queryParameters['invitationToken'] ??
+                  state.uri.queryParameters['token'],
             ),
           ),
           GoRoute(
@@ -232,6 +248,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
       '/playlists',
       '/subscriptions',
       '/channel-invitations',
+      '/settings',
     ];
     if (!widget.auth.authenticated &&
         protected.any(
