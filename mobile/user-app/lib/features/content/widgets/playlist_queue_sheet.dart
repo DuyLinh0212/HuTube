@@ -231,6 +231,7 @@ class PlaylistQueueSheet extends StatelessWidget {
                     : ReorderableListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
                         itemCount: queue.length,
+                        // ignore: deprecated_member_use
                         onReorder: (oldIdx, newIdx) {
                           HapticFeedback.selectionClick();
                           playback.reorderQueue(oldIdx, newIdx);
