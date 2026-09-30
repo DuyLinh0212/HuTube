@@ -32,6 +32,15 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
@@ -48,3 +57,23 @@ dependencies {
 flutter {
     source = "../.."
 }
+
+val adbReverseTask = tasks.register("adbReverse") {
+    doLast {
+        try {
+            val adb = android.adbExecutable.absolutePath
+            project.exec {
+                commandLine(adb, "reverse", "tcp:5080", "tcp:5080")
+                isIgnoreExitValue = true
+            }
+            println("[HuTube] adb reverse tcp:5080 tcp:5080 thanh cong.")
+        } catch (e: Exception) {
+            println("[HuTube] Bo qua adb reverse: ${e.message}")
+        }
+    }
+}
+
+afterEvaluate {
+    tasks.findByName("preBuild")?.dependsOn(adbReverseTask)
+}
+
