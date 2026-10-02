@@ -216,6 +216,7 @@ class AppStrings {
       'app.modulePending':
           '{label} sẽ được kết nối khi module tương ứng hoàn tất.',
       'feed.homeTitle': 'Dành cho bạn',
+      'feed.promoted': 'Được quảng bá',
       'feed.homeDescription': 'Video mới và nổi bật từ cộng đồng HuTube.',
       'feed.exploreTitle': 'Khám phá',
       'feed.exploreDescription':
@@ -737,7 +738,8 @@ class AppStrings {
       'plans.transactionInfo': 'Mã: {code}\nTrạng thái: {status}\nSố tiền: {amount} {currency}',
       'plans.close': 'Đóng',
       'plans.planFallback': 'Gói HuTube',
-      'plans.planDetailInfo': 'Giá: {price}\nThời hạn: {days} ngày\nDung lượng: {storage}\nDung lượng mỗi video tối đa: {upload}\nThời lượng tối đa: {duration} giây\nChất lượng video: {quality}\nThành viên: {members}',
+      'plans.planDetailInfo': 'Giá: {price}\nThời hạn: {days} ngày\nDung lượng: {storage}\nDung lượng mỗi video tối đa: {upload}\nThời lượng tối đa: {duration} giây\nChất lượng video: {quality}\nThành viên: {members}\nQuảng bá video: {promotion}',
+      'plans.videoPromotion': 'Quảng bá video mới lên đề xuất',
       'plans.editOwnerStorage': 'Điều chỉnh dung lượng của bạn',
       'plans.membersTitle': 'Thành viên gói',
       'plans.memberFallback': 'Thành viên',
@@ -1192,6 +1194,7 @@ class AppStrings {
       'app.modulePending':
           '{label} will be connected when the corresponding module is ready.',
       'feed.homeTitle': 'For you',
+      'feed.promoted': 'Promoted',
       'feed.homeDescription':
           'New and notable videos from the HuTube community.',
       'feed.exploreTitle': 'Explore',
@@ -1726,7 +1729,8 @@ class AppStrings {
       'plans.transactionInfo': 'Code: {code}\nStatus: {status}\nAmount: {amount} {currency}',
       'plans.close': 'Close',
       'plans.planFallback': 'HuTube plan',
-      'plans.planDetailInfo': 'Price: {price}\nTerm: {days} days\nStorage: {storage}\nMaximum upload per video: {upload}\nMaximum video length: {duration} seconds\nVideo quality: {quality}\nMembers: {members}',
+      'plans.planDetailInfo': 'Price: {price}\nTerm: {days} days\nStorage: {storage}\nMaximum upload per video: {upload}\nMaximum video length: {duration} seconds\nVideo quality: {quality}\nMembers: {members}\nVideo promotion: {promotion}',
+      'plans.videoPromotion': 'Promote new videos in recommendations',
       'plans.editOwnerStorage': 'Adjust your storage',
       'plans.membersTitle': 'Plan members',
       'plans.memberFallback': 'Member',

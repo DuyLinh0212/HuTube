@@ -46,6 +46,17 @@ class VideoCardTile extends StatelessWidget {
                           )
                         : const _VideoFallback(),
                   ),
+                  if (video.isPromoted)
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: HuTubePill(
+                        label: AppStrings.t('feed.promoted'),
+                        icon: Icons.campaign_outlined,
+                        color: AppColors.primaryPink,
+                        textColor: Colors.white,
+                      ),
+                    ),
                   Positioned(
                     right: 8,
                     bottom: 8,

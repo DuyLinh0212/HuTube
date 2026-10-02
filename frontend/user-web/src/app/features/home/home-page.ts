@@ -110,7 +110,7 @@ export class HomePage implements AfterViewInit, OnDestroy {
       if (version !== this.loadVersion) return;
 
       this.recommendations.set(
-        this.addUnique(this.pickRandom(value.items ?? [], HomePage.RECOMMENDATION_DISPLAY_COUNT)),
+        this.addUnique(this.pickRecommendations(value.items ?? [], HomePage.RECOMMENDATION_DISPLAY_COUNT)),
       );
       this.error.set('');
     } catch (reason: unknown) {
@@ -254,6 +254,13 @@ export class HomePage implements AfterViewInit, OnDestroy {
       [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
     }
     return shuffled.slice(0, count);
+  }
+
+  private pickRecommendations(items: VideoCard[], count: number): VideoCard[] {
+    const promoted = items.filter(item => item.isPromoted).slice(0, count);
+    const promotedIds = new Set(promoted.map(item => item.videoId));
+    const organic = items.filter(item => !promotedIds.has(item.videoId));
+    return [...promoted, ...this.pickRandom(organic, Math.max(0, count - promoted.length))];
   }
 
   private resetFeed() {

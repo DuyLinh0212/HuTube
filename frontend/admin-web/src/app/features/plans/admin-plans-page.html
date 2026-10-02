@@ -19,6 +19,7 @@
         <label><input type="checkbox" [checked]="featureEnabled('download')" (change)="setFeature('download', $any($event.target).checked)" /> {{ 'plans.download' | translate }}</label>
         <label><input type="checkbox" [checked]="featureEnabled('background_play')" (change)="setFeature('background_play', $any($event.target).checked)" /> {{ 'plans.backgroundPlay' | translate }}</label>
         <label><input type="checkbox" [checked]="featureEnabled('pip')" (change)="setFeature('pip', $any($event.target).checked)" /> PiP</label>
+        <label><input type="checkbox" [checked]="featureEnabled('video_promotion')" (change)="setFeature('video_promotion', $any($event.target).checked)" /> {{ 'plans.videoPromotion' | translate }}</label>
       </fieldset>
       @if (editing()) { <label>{{ 'common.status' | translate }}<select [(ngModel)]="draft.status"><option value="active">{{ 'plans.status.active' | translate }}</option><option value="inactive">{{ 'plans.status.inactive' | translate }}</option><option value="archived">{{ 'plans.status.archived' | translate }}</option></select></label> }
     </div><div class="editor-actions"><button class="secondary-action" type="button" (click)="closeEditor()">{{ 'common.cancel' | translate }}</button><button class="primary-action" type="button" (click)="save()" [disabled]="saving()">{{ saving() ? ('common.saving' | translate) : ('plans.save' | translate) }}</button></div></section>

@@ -15,7 +15,7 @@ public sealed record RenditionResponse(string Quality, int Width, int Height, lo
 public sealed record VideoStatsResponse(long Views, long Likes, long Dislikes, int Comments, decimal? AverageRating, int RatingCount, long Shares);
 public sealed record VideoViewerStateResponse(string? Reaction, int? Rating, int ResumeAtSeconds, decimal Progress);
 public sealed record VideoCardResponse(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle, string Title,
-    string? ThumbnailUrl, int Duration, string Visibility, DateTimeOffset? PublishedAt, long Views);
+    string? ThumbnailUrl, int Duration, string Visibility, DateTimeOffset? PublishedAt, long Views, bool IsPromoted = false);
 public sealed record LibraryVideoResponse(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle, string Title,
     string? ThumbnailUrl, int Duration, string Visibility, DateTimeOffset? PublishedAt, long Views, long Likes,
     long Dislikes, decimal? AverageRating, int RatingCount, int? MyRating, int WatchedSeconds, decimal Progress,

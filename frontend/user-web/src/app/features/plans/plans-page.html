@@ -126,6 +126,7 @@
           <div class="mini-spec"><span class="ms-title">{{ 'plans.maxMembers' | translate }}</span><strong class="ms-val">{{ plan.maxMembers | localeNumber }} {{ 'ui.people' | translate }}</strong></div>
           <div class="mini-spec"><span class="ms-title">{{ 'plans.maxDuration' | translate }}</span><strong class="ms-val">{{ formatDuration(plan.maxVideoDuration) }}</strong></div>
           <div class="mini-spec"><span class="ms-title">{{ 'plans.capabilities' | translate }}</span><strong class="ms-val">{{ featureEnabled(plan, 'download') ? ('ui.yes' | translate) : ('ui.no' | translate) }} / {{ featureEnabled(plan, 'background_play') ? ('ui.yes' | translate) : ('ui.no' | translate) }} / {{ featureEnabled(plan, 'pip') ? ('ui.yes' | translate) : ('ui.no' | translate) }}</strong></div>
+          <div class="mini-spec"><span class="ms-title">{{ 'plans.videoPromotion' | translate }}</span><strong class="ms-val">{{ featureEnabled(plan, 'video_promotion') ? ('ui.yes' | translate) : ('ui.no' | translate) }}</strong></div>
         </div>
       </section>
 
@@ -255,6 +256,7 @@
               <div><dt>{{ 'plans.duration' | translate }}</dt><dd>{{ formatDuration(plan.maxVideoDuration) }}</dd></div>
               <div><dt>{{ 'plans.download' | translate }}</dt><dd>{{ featureEnabled(plan, 'download') ? ('ui.yes' | translate) : ('ui.no' | translate) }}</dd></div>
               <div><dt>{{ 'plans.backgroundPip' | translate }}</dt><dd>{{ featureEnabled(plan, 'background_play') ? ('ui.yes' | translate) : ('ui.no' | translate) }} / {{ featureEnabled(plan, 'pip') ? ('ui.yes' | translate) : ('ui.no' | translate) }}</dd></div>
+              <div><dt>{{ 'plans.videoPromotion' | translate }}</dt><dd>{{ featureEnabled(plan, 'video_promotion') ? ('ui.yes' | translate) : ('ui.no' | translate) }}</dd></div>
             </dl>
             <a class="plan-button" [routerLink]="['/plans', plan.planId]">
               @if (isCurrentPlan(plan.planId)) {

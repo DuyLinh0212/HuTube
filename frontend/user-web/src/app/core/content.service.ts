@@ -7,7 +7,7 @@ import { RuntimeConfig } from './runtime-config';
 export interface PageResult<T> { items: T[]; page: number; pageSize: number; total: number; }
 export interface VideoStats { views: number; likes: number; dislikes: number; comments: number; averageRating: number | null; ratingCount: number; shares: number; }
 export interface VideoViewerState { reaction: 'like' | 'dislike' | null; rating: number | null; resumeAtSeconds: number; progress: number; }
-export interface VideoCard { videoId: string; channelId: string; channelName: string; channelHandle: string; title: string; thumbnailUrl: string | null; duration: number; visibility: string; publishedAt: string | null; views: number; }
+export interface VideoCard { videoId: string; channelId: string; channelName: string; channelHandle: string; title: string; thumbnailUrl: string | null; duration: number; visibility: string; publishedAt: string | null; views: number; isPromoted?: boolean; }
 export interface LibraryVideo extends VideoCard {
   likes: number;
   dislikes: number;

@@ -43,6 +43,7 @@ class VideoCard {
     required this.visibility,
     required this.publishedAt,
     required this.views,
+    this.isPromoted = false,
   });
 
   final String id;
@@ -55,6 +56,7 @@ class VideoCard {
   final String visibility;
   final DateTime? publishedAt;
   final int views;
+  final bool isPromoted;
 
   factory VideoCard.fromJson(Map<String, dynamic> json) => VideoCard(
     id: '${json['videoId'] ?? ''}',
@@ -67,6 +69,7 @@ class VideoCard {
     visibility: '${json['visibility'] ?? ''}',
     publishedAt: DateTime.tryParse('${json['publishedAt'] ?? ''}'),
     views: asInt(json['views']),
+    isPromoted: json['isPromoted'] == true,
   );
 }
 

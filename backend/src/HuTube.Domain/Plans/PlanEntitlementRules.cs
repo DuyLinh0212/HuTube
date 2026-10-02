@@ -7,6 +7,7 @@ public static class PlanEntitlementRules
     public const string Download = "download";
     public const string BackgroundPlay = "background_play";
     public const string PictureInPicture = "pip";
+    public const string VideoPromotion = "video_promotion";
 
     public static IReadOnlyDictionary<string, bool> ReadFlags(string? json)
     {

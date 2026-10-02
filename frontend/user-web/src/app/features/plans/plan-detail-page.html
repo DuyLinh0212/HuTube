@@ -152,6 +152,15 @@
               {{ (hasFeature(plan, 'pip') ? 'ui.supported' : 'ui.notSupported') | translate }}
             </strong>
           </li>
+          <li class="spec-item">
+            <span class="spec-label">
+              <span class="spec-dot"></span>
+              {{ 'plans.videoPromotion' | translate }}
+            </span>
+            <strong class="spec-val" [class.checkmark]="hasFeature(plan, 'video_promotion')">
+              {{ (hasFeature(plan, 'video_promotion') ? 'ui.supported' : 'ui.notSupported') | translate }}
+            </strong>
+          </li>
         </ul>
       </section>
 

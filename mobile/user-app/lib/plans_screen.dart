@@ -429,6 +429,11 @@ class _PlansScreenState extends State<PlansScreen> {
                 'duration': plan['maxVideoDuration'] ?? 0,
                 'quality': plan['maxVideoQuality'] ?? '—',
                 'members': plan['maxMembers'] ?? 1,
+                'promotion': AppStrings.t(
+                  _features(plan['features'])['video_promotion'] == true
+                      ? 'common.yes'
+                      : 'common.no',
+                ),
               })}',
             ),
           ),
@@ -482,6 +487,9 @@ class _PlansScreenState extends State<PlansScreen> {
       labels.add(AppStrings.t('watch.background'));
     }
     if (features['pip'] == true) labels.add(AppStrings.t('watch.pipAction'));
+    if (features['video_promotion'] == true) {
+      labels.add(AppStrings.t('plans.videoPromotion'));
+    }
     return labels.isEmpty
         ? AppStrings.t('plans.featuresNone')
         : labels.join(' · ');

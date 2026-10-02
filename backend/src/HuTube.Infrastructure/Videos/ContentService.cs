@@ -27,6 +27,11 @@ public sealed class ContentService(
     VideoRenditionProcessingQueue renditionQueue,
     IRecommendationClient recommendationClient) : IContentService
 {
+    private static readonly string VideoPromotionFeatureJson =
+        $"{{\"{PlanEntitlementRules.VideoPromotion}\":true}}";
+    private sealed record FeedVideoRow(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle,
+        string Title, string? ThumbnailUrl, int Duration, string Visibility, DateTimeOffset? PublishedAt,
+        long? Views, bool IsPromoted);
     private sealed record ViewerHistoryRow(int WatchDuration, decimal Progress);
     private sealed class ExploreCategoryRow
     {
@@ -183,6 +188,8 @@ public sealed class ContentService(
         Guid? currentUserId = null,
         CancellationToken ct = default)
     {
+        IQueryable<Video> PublishedCatalogue() => db.Videos.AsNoTracking().Where(video =>
+            video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public");
         (page, pageSize) = Page(page, pageSize);
         // Read the current viewing history for every home/recommended page. A model snapshot
         // cannot know about views recorded after it was trained.
@@ -195,6 +202,56 @@ public sealed class ContentService(
                 .Select(x => x.VideoId).ToListAsync(ct)
             : [];
 
+        var isHomeRecommendationFeed = string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase)
+            && !categoryId.HasValue && string.IsNullOrWhiteSpace(tag);
+        IQueryable<Video>? promotedVideosQuery = null;
+        var promotedVideoCount = 0;
+        if (isHomeRecommendationFeed)
+        {
+            var now = clock.GetUtcNow();
+            promotedVideosQuery = PublishedCatalogue().Where(video =>
+                video.PublishedAt.HasValue && db.PlanHistories.AsNoTracking().Any(history =>
+                    history.Status == "active"
+                    && history.StartedAt <= video.PublishedAt!.Value
+                    && (!history.EndedAt.HasValue || history.EndedAt > now)
+                    && (history.UserId == video.UploadedByUserId
+                        || db.PlanMembers.AsNoTracking().Any(member =>
+                            member.PlanHistoryId == history.PlanHistoryId
+                            && member.MemberUserId == video.UploadedByUserId
+                            && member.Status == "accepted"
+                            && member.AcceptedAt <= video.PublishedAt))
+                    && db.Plans.AsNoTracking().Any(plan => plan.PlanId == history.PlanId
+                        && plan.Status == "active"
+                        && EF.Functions.JsonContains(plan.Features, VideoPromotionFeatureJson))));
+            if (hideViewed)
+                promotedVideosQuery = promotedVideosQuery.Where(video =>
+                    !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == video.VideoId));
+            promotedVideoCount = await promotedVideosQuery.CountAsync(ct);
+        }
+
+        IQueryable<FeedVideoRow> FeedRows(IQueryable<Video> videos, bool isPromoted)
+        {
+            var viewCounts = db.ViewingHistories.AsNoTracking().GroupBy(history => history.VideoId)
+                .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
+            return from video in videos
+                   join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
+                   join views in viewCounts on video.VideoId equals views.VideoId into viewRows
+                   from views in viewRows.DefaultIfEmpty()
+                   select new FeedVideoRow(video.VideoId, video.ChannelId, channel.Name, channel.Handle,
+                       video.Title, video.ThumbnailUrl, video.Duration, video.Visibility, video.PublishedAt,
+                       (long?)views!.Count, isPromoted);
+        }
+
+        async Task<List<VideoCardResponse>> ToFeedCardsAsync(IEnumerable<FeedVideoRow> rows)
+        {
+            var cards = new List<VideoCardResponse>();
+            foreach (var row in rows)
+                cards.Add(new(row.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle, row.Title,
+                    row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration,
+                    row.Visibility, row.PublishedAt, row.Views ?? 0L, row.IsPromoted));
+            return cards;
+        }
+
         // Use the model across every home/recommended page, with live exclusions.
         if (string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase)
             && currentUserId.HasValue
@@ -204,97 +261,63 @@ public sealed class ContentService(
         {
             try
             {
-                var recommended = await recommendationClient.GetRecommendationsAsync(currentUserId.Value, (int)Math.Min((long)page * pageSize, 100), viewedIds, ct);
-                if (recommended != null && recommended.Count > 0)
+                var recommended = await recommendationClient.GetRecommendationsAsync(currentUserId.Value, 100, viewedIds, ct);
+                if ((recommended?.Count ?? 0) > 0 || promotedVideoCount > 0)
                 {
-                    var recIds = recommended.Select(r => r.VideoId).Where(id => !viewedIds.Contains(id)).ToList();
-                    var recViewCounts = db.ViewingHistories.AsNoTracking()
-                        .Where(history => recIds.Contains(history.VideoId))
-                        .GroupBy(history => history.VideoId)
-                        .Select(group => new { VideoId = group.Key, Views = group.LongCount() });
-                    var recVideos = await (from video in db.Videos.AsNoTracking()
-                                           join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                                           join views in recViewCounts on video.VideoId equals views.VideoId into viewRows
-                                           from views in viewRows.DefaultIfEmpty()
-                                           where recIds.Contains(video.VideoId)
-                                                 && !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == video.VideoId)
-                                                 && video.Status == "published"
-                                                 && video.ModerationStatus == "approved"
-                                                 && video.Visibility == "public"
-                                           select new
-                                           {
-                                               video.VideoId,
-                                               video.ChannelId,
-                                               ChannelName = channel.Name,
-                                               ChannelHandle = channel.Handle,
-                                               video.Title,
-                                               video.ThumbnailUrl,
-                                               video.Duration,
-                                               video.Visibility,
-                                               video.PublishedAt,
-                                               Views = (long?)views.Views
-                                           }).ToListAsync(ct);
+                    var candidateRecIds = recommended?.Select(item => item.VideoId)
+                        .Where(id => !viewedIds.Contains(id)).Distinct().ToList() ?? [];
+                    var promotedRecIds = promotedVideoCount > 0 && candidateRecIds.Count > 0
+                        ? await promotedVideosQuery!.Where(video => candidateRecIds.Contains(video.VideoId))
+                            .Select(video => video.VideoId).ToListAsync(ct)
+                        : [];
+                    var promotedRecIdSet = promotedRecIds.ToHashSet();
+                    var recIds = candidateRecIds.Where(id => !promotedRecIdSet.Contains(id)).ToList();
+                    var recVideos = await FeedRows(PublishedCatalogue()
+                            .Where(video => recIds.Contains(video.VideoId)
+                                && !db.ViewingHistories.Any(history => history.UserId == currentUserId.Value && history.VideoId == video.VideoId)),
+                            isPromoted: false)
+                        .ToListAsync(ct);
 
-                    // Sắp xếp các video theo đúng thứ tự điểm ranking mà Model đề xuất
-                    var orderedVideos = recIds
-                        .Select(id => recVideos.FirstOrDefault(v => v.VideoId == id))
-                        .Where(v => v != null)
-                        .ToList();
-
-                    if (orderedVideos.Count > 0)
+                    // Keep the collaborative-filter order after the paid placements.
+                    var rowsById = recVideos.ToDictionary(row => row.VideoId);
+                    var orderedModelRows = recIds.Where(rowsById.ContainsKey).Select(id => rowsById[id]).ToList();
+                    var pageOffset = (int)Math.Min((long)(page - 1) * pageSize, int.MaxValue);
+                    var personalizedPageRows = new List<FeedVideoRow>(pageSize);
+                    if (promotedVideoCount > pageOffset)
                     {
-                        var pageVideos = orderedVideos.Skip((int)Math.Min((long)(page - 1) * pageSize, int.MaxValue)).Take(pageSize).ToList();
-                        // Nếu số lượng video đề xuất ít hơn pageSize, bù thêm video phổ biến chưa có trong danh sách
-                        if (pageVideos.Count < pageSize)
-                        {
-                            var existingIds = orderedVideos.Select(v => v!.VideoId).ToHashSet();
-                            var fallbackCount = pageSize - pageVideos.Count;
-                            var fallbackSkip = (int)Math.Min(Math.Max(0L, (long)(page - 1) * pageSize - orderedVideos.Count), int.MaxValue);
-                            var fallbackViewCounts = db.ViewingHistories.AsNoTracking()
-                                .GroupBy(history => history.VideoId)
-                                .Select(group => new { VideoId = group.Key, Views = group.LongCount() });
-                            var fallbackQuery = from video in db.Videos.AsNoTracking()
-                                                join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                                                join views in fallbackViewCounts on video.VideoId equals views.VideoId into viewRows
-                                                from views in viewRows.DefaultIfEmpty()
-                                                where !existingIds.Contains(video.VideoId)
-                                                      && !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == video.VideoId)
-                                                      && video.Status == "published"
-                                                      && video.ModerationStatus == "approved"
-                                                      && video.Visibility == "public"
-                                                select new
-                                                {
-                                                    video.VideoId,
-                                                    video.ChannelId,
-                                                    ChannelName = channel.Name,
-                                                    ChannelHandle = channel.Handle,
-                                                    video.Title,
-                                                    video.ThumbnailUrl,
-                                                    video.Duration,
-                                                    video.Visibility,
-                                                    video.PublishedAt,
-                                                    Views = (long?)views.Views
-                                                };
-                            var fallbackVideos = await fallbackQuery
-                                .OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt)
-                                .Skip(fallbackSkip).Take(fallbackCount).ToListAsync(ct);
+                        var promotionRows = await FeedRows(promotedVideosQuery!, isPromoted: true)
+                            .OrderByDescending(row => row.PublishedAt).ThenBy(row => row.VideoId)
+                            .Skip(pageOffset).Take(pageSize).ToListAsync(ct);
+                        personalizedPageRows.AddRange(promotionRows);
+                    }
 
-                            pageVideos.AddRange(fallbackVideos);
-                        }
+                    var organicOffset = Math.Max(0, pageOffset - promotedVideoCount);
+                    var modelRowsForPage = orderedModelRows.Skip(organicOffset).Take(pageSize - personalizedPageRows.Count).ToList();
+                    personalizedPageRows.AddRange(modelRowsForPage);
 
-                        var cardsList = new List<VideoCardResponse>(pageVideos.Count);
-                        foreach (var row in pageVideos)
-                        {
-                            cardsList.Add(new(row!.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
-                                row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct),
-                                row.Duration, row.Visibility, row.PublishedAt, row.Views ?? 0L));
-                        }
+                    if (personalizedPageRows.Count < pageSize)
+                    {
+                        var fallbackSkip = Math.Max(0, organicOffset - orderedModelRows.Count);
+                        var fallbackVideosQuery = PublishedCatalogue()
+                            .Where(video => !db.ViewingHistories.Any(history => history.UserId == currentUserId.Value && history.VideoId == video.VideoId));
+                        if (promotedVideoCount > 0)
+                            fallbackVideosQuery = fallbackVideosQuery.Where(video =>
+                                !promotedVideosQuery!.Select(promoted => promoted.VideoId).Contains(video.VideoId));
+                        if (recIds.Count > 0)
+                            fallbackVideosQuery = fallbackVideosQuery.Where(video => !recIds.Contains(video.VideoId));
 
-                        var totalCount = await db.Videos.AsNoTracking()
-                            .Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public")
-                            .Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId))
+                        var fallbackRows = await FeedRows(fallbackVideosQuery, isPromoted: false)
+                            .OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt)
+                            .Skip(fallbackSkip).Take(pageSize - personalizedPageRows.Count).ToListAsync(ct);
+                        personalizedPageRows.AddRange(fallbackRows);
+                    }
+
+                    if (personalizedPageRows.Count > 0)
+                    {
+                        var totalCount = await PublishedCatalogue()
+                            .Where(video => !db.ViewingHistories.Any(history => history.UserId == currentUserId.Value && history.VideoId == video.VideoId))
                             .CountAsync(ct);
-                        return new(cardsList, page, pageSize, totalCount);
+                        return new(await ToFeedCardsAsync(personalizedPageRows), page, pageSize, totalCount);
                     }
                 }
             }
@@ -304,7 +327,7 @@ public sealed class ContentService(
             }
         }
 
-        var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+        var query = PublishedCatalogue();
         if (hideViewed)
             query = query.Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId));
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId);
@@ -321,20 +344,14 @@ public sealed class ContentService(
         if (fallbackToDefault)
         {
             // Guest cold-start falls back from Category/Tag to the public newest/popular catalogue.
-            query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+            query = PublishedCatalogue();
             if (hideViewed)
                 query = query.Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId));
             total = await query.CountAsync(ct);
         }
-        var feedViewCounts = db.ViewingHistories.AsNoTracking().GroupBy(x => x.VideoId)
-            .Select(group => new { VideoId = group.Key, Count = group.LongCount() });
-        var rows = from video in query
-                   join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                   join view in feedViewCounts on video.VideoId equals view.VideoId into viewRows
-                   from view in viewRows.DefaultIfEmpty()
-                   select new { video.VideoId, video.ChannelId, ChannelName = channel.Name, ChannelHandle = channel.Handle,
-                       video.Title, video.ThumbnailUrl, video.Duration, video.Visibility, video.PublishedAt,
-                       Views = (long?)view.Count };
+        if (promotedVideoCount > 0)
+            query = query.Where(video => !promotedVideosQuery!.Select(promoted => promoted.VideoId).Contains(video.VideoId));
+        var rows = FeedRows(query, isPromoted: false);
         rows = (feed.ToLowerInvariant(), sort?.ToLowerInvariant()) switch
         {
             ("home", _) => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
@@ -342,11 +359,21 @@ public sealed class ContentService(
             (_, "trending") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
             _ => rows.OrderByDescending(x => x.PublishedAt)
         };
+        if (promotedVideoCount > 0)
+        {
+            var pageOffset = (int)Math.Min((long)(page - 1) * pageSize, int.MaxValue);
+            var promotionSkip = Math.Min(pageOffset, promotedVideoCount);
+            var promotionTake = Math.Min(pageSize, promotedVideoCount - promotionSkip);
+            var promotionRows = await FeedRows(promotedVideosQuery!, isPromoted: true)
+                .OrderByDescending(row => row.PublishedAt).ThenBy(row => row.VideoId)
+                .Skip(promotionSkip).Take(promotionTake).ToListAsync(ct);
+            var organicOffset = Math.Max(0, pageOffset - promotedVideoCount);
+            var organicRows = await rows.Skip(organicOffset).Take(pageSize - promotionRows.Count).ToListAsync(ct);
+            return new(await ToFeedCardsAsync(promotionRows.Concat(organicRows)), page, pageSize, total);
+        }
+
         var pageRows = await rows.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        var cards = new List<VideoCardResponse>();
-        foreach (var row in pageRows) cards.Add(new(row.VideoId, row.ChannelId, row.ChannelName, row.ChannelHandle,
-            row.Title, row.ThumbnailUrl == null ? null : await ReadUrlAsync(row.ThumbnailUrl, ct), row.Duration, row.Visibility, row.PublishedAt, row.Views ?? 0L));
-        return new(cards, page, pageSize, total);
+        return new(await ToFeedCardsAsync(pageRows), page, pageSize, total);
     }
 
     public async Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)

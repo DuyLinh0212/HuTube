@@ -85,6 +85,7 @@
     } @else {
       <span>▶</span>
     }
+    @if (video.isPromoted) { <span class="promotion-badge">{{ 'home.promoted' | translate }}</span> }
     <time>{{ duration(video.duration) }}</time>
   </div>
   <div class="copy">

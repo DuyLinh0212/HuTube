@@ -9,7 +9,7 @@ import { I18nService } from '../../core/i18n.service';
 const BYTES_PER_GIB = 1024 ** 3;
 const bytesToGiB = (bytes: number) => Number((bytes / BYTES_PER_GIB).toFixed(2));
 const giBToBytes = (gib: number) => Math.round(gib * BYTES_PER_GIB);
-const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxDownloadQuality: '720p', maxMembers: 1, status: 'active', features: '{"download":false,"background_play":false,"pip":false}', displayOrder: 0 });
+const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxDownloadQuality: '720p', maxMembers: 1, status: 'active', features: '{"download":false,"background_play":false,"pip":false,"video_promotion":false}', displayOrder: 0 });
 
 @Component({ selector: 'app-admin-plans-page', imports: [FormsModule, DecimalPipe, TranslatePipe], templateUrl: './admin-plans-page.html', styleUrl: './admin-plans-page.scss' })
 export class AdminPlansPage {
@@ -31,8 +31,8 @@ export class AdminPlansPage {
   applyTemplate(template: 'creator' | 'pro_monthly' | 'pro_yearly') {
     this.openCreate();
     this.draft = template === 'creator'
-      ? { ...this.draft, code: 'creator_plus', name: 'Creator Plus', description: this.i18n.t('plans.creatorDescription'), price: 99000, durationDays: 30, storageLimit: 100, maxUploadSize: 20, maxVideoQuality: '1080p', maxDownloadQuality: '1080p', maxMembers: 1, features: '{"download":true,"background_play":true,"pip":true}', displayOrder: 2 }
-      : { ...this.draft, code: template === 'pro_monthly' ? 'pro_family_monthly' : 'pro_family_yearly', name: template === 'pro_monthly' ? 'Pro Group Monthly' : 'Pro Group Yearly', description: this.i18n.t('plans.groupDescription'), price: template === 'pro_monthly' ? 299000 : 2990000, durationDays: template === 'pro_monthly' ? 30 : 365, storageLimit: 500, maxUploadSize: 50, maxVideoQuality: '2160p', maxDownloadQuality: '2160p', maxMembers: 5, features: '{"download":true,"background_play":true,"pip":true}', displayOrder: 3 };
+      ? { ...this.draft, code: 'creator_plus', name: 'Creator Plus', description: this.i18n.t('plans.creatorDescription'), price: 99000, durationDays: 30, storageLimit: 100, maxUploadSize: 20, maxVideoQuality: '1080p', maxDownloadQuality: '1080p', maxMembers: 1, features: '{"download":true,"background_play":true,"pip":true,"video_promotion":false}', displayOrder: 2 }
+      : { ...this.draft, code: template === 'pro_monthly' ? 'pro_family_monthly' : 'pro_family_yearly', name: template === 'pro_monthly' ? 'Pro Group Monthly' : 'Pro Group Yearly', description: this.i18n.t('plans.groupDescription'), price: template === 'pro_monthly' ? 299000 : 2990000, durationDays: template === 'pro_monthly' ? 30 : 365, storageLimit: 500, maxUploadSize: 50, maxVideoQuality: '2160p', maxDownloadQuality: '2160p', maxMembers: 5, features: '{"download":true,"background_play":true,"pip":true,"video_promotion":false}', displayOrder: 3 };
   }
   openEdit(plan: AdminPlan) {
     this.creating.set(false); this.editing.set(plan);
