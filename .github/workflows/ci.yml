@@ -163,7 +163,18 @@ jobs:
           flutter build apk --release --build-number=${{ github.run_number }} \
             --dart-define-from-file="$RUNNER_TEMP/hutube-mobile-defines.json"
           echo "=== Kiem tra chu ky thuc te cua APK vua build ==="
-          keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep -E "SHA1:|SHA256:"
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          android_sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$android_sdk" ]; then
+            echo 'ANDROID_HOME and ANDROID_SDK_ROOT are both unset.'
+            exit 1
+          fi
+          apksigner="$(find "$android_sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$apksigner" ]; then
+            echo 'Android SDK build-tools apksigner was not found.'
+            exit 1
+          fi
+          "$apksigner" verify --verbose --print-certs "$apk"
       - name: Upload release APK
         uses: actions/upload-artifact@v6
         with:
