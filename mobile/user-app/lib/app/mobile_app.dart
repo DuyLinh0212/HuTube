@@ -66,16 +66,15 @@ class _HuTubeAppState extends State<HuTubeApp> {
     redirect: (context, state) {
       final path = state.uri.path;
       if (auth.restoring) return path == '/splash' ? null : '/splash';
-      // Preserve the existing first-run authentication flow. Public pages can
-      // still be opened through a deep link, but a cold start does not issue
-      // unauthenticated feed requests before the user has chosen a session.
+      // Start signed-out users on the public feed. Signing in remains an
+      // explicit action from the account button or a protected destination.
       if (path == '/splash') {
         if (auth.authenticated && _pendingNotificationPath != null) {
           final target = _pendingNotificationPath!;
           _pendingNotificationPath = null;
           return target;
         }
-        return auth.authenticated ? '/home' : '/auth';
+        return '/home';
       }
       // Keep legacy account deep links on the auth shell long enough for its
       // session-management view to complete. Ordinary successful sign-in

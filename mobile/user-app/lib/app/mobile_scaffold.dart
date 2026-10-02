@@ -135,7 +135,10 @@ class MobileScaffold extends StatelessWidget {
               ),
         title: isDetail
             ? Text(AppStrings.t('app.viewVideo'))
-            : const HuTubeLogo(size: 25),
+            : HuTubeLogo(
+                size: 25,
+                showWordmark: MediaQuery.sizeOf(context).width >= 360,
+              ),
         actions: [
           if (!isDetail)
             IconButton(

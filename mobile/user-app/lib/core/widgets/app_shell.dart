@@ -43,7 +43,7 @@ class _AppShellState extends State<AppShell> {
   final _username = TextEditingController();
   final _displayName = TextEditingController();
   StreamSubscription<Uri>? _subscription;
-  String _page = '/login';
+  late String _page;
   String? _token;
   String? _message;
   bool _error = false;
@@ -60,7 +60,13 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _page = widget.initialPage ?? _page;
+    final initialPage = widget.initialPage ?? '/login';
+    _page = initialPage == '/account' && !auth.authenticated
+        ? '/login'
+        : initialPage;
+    if (initialPage == '/account' && !auth.authenticated) {
+      _message = AppStrings.t('auth.accountMessage');
+    }
     _token = widget.initialToken;
     auth.addListener(_authChanged);
     _subscription = widget.links?.listen(
