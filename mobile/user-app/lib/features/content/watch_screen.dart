@@ -1111,8 +1111,12 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
   bool _controlsVisible = true;
   bool? _seekForward;
   int _seekStep = 10;
+  int _accumulatedSeekSeconds = 0;
   Timer? _controlsTimer;
   Timer? _pulseTimer;
+  Timer? _singleTapTimer;
+  DateTime? _lastTapTime;
+  bool? _lastTapForward;
 
   @override
   void initState() {
@@ -1132,6 +1136,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
   void dispose() {
     _controlsTimer?.cancel();
     _pulseTimer?.cancel();
+    _singleTapTimer?.cancel();
     super.dispose();
   }
 
@@ -1148,15 +1153,50 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
     if (_controlsVisible) _scheduleHide();
   }
 
-  void _performSeek(bool forward) {
-    unawaited(widget.session.seekBy(forward ? _seekStep : -_seekStep));
-    setState(() {
-      _seekForward = forward;
-    });
-    _pulseTimer?.cancel();
-    _pulseTimer = Timer(const Duration(milliseconds: 850), () {
-      if (mounted) setState(() => _seekForward = null);
-    });
+  void _handleSideTap(bool forward) {
+    final now = DateTime.now();
+    final isSameSide = _lastTapForward == forward;
+    final isQuickConsecutiveTap = isSameSide &&
+        _lastTapTime != null &&
+        now.difference(_lastTapTime!).inMilliseconds <
+            (_seekForward != null ? 650 : 280);
+
+    _lastTapTime = now;
+    _lastTapForward = forward;
+
+    if (isQuickConsecutiveTap || _seekForward == forward) {
+      _singleTapTimer?.cancel();
+      _singleTapTimer = null;
+
+      _accumulatedSeekSeconds += _seekStep;
+      unawaited(widget.session.seekBy(forward ? _seekStep : -_seekStep));
+
+      setState(() {
+        _seekForward = forward;
+        _controlsVisible = false;
+      });
+
+      _pulseTimer?.cancel();
+      _pulseTimer = Timer(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          setState(() {
+            _seekForward = null;
+            _accumulatedSeekSeconds = 0;
+            _lastTapTime = null;
+            _lastTapForward = null;
+          });
+        }
+      });
+    } else {
+      _singleTapTimer?.cancel();
+      _singleTapTimer = Timer(const Duration(milliseconds: 280), () {
+        if (mounted && _seekForward == null) {
+          _lastTapTime = null;
+          _lastTapForward = null;
+          _toggleControls();
+        }
+      });
+    }
   }
 
   @override
@@ -1181,26 +1221,26 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTap: _toggleControls,
-                        onDoubleTap: () => _performSeek(false),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _handleSideTap(false),
                         onVerticalDragEnd: (details) {
                           if ((details.primaryVelocity ?? 0) > 240) {
                             widget.onMinimize();
                           }
                         },
+                        child: const SizedBox.expand(),
                       ),
                     ),
                     Expanded(
                       child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTap: _toggleControls,
-                        onDoubleTap: () => _performSeek(true),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _handleSideTap(true),
                         onVerticalDragEnd: (details) {
                           if ((details.primaryVelocity ?? 0) > 240) {
                             widget.onMinimize();
                           }
                         },
+                        child: const SizedBox.expand(),
                       ),
                     ),
                   ],
@@ -1241,7 +1281,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '+$_seekStep giây',
+                          '+$_accumulatedSeekSeconds giây',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -1279,7 +1319,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '-$_seekStep giây',
+                          '-$_accumulatedSeekSeconds giây',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -1358,14 +1398,14 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                               children: [
                                 Expanded(
                                   child: GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: _toggleControls,
-                                    onDoubleTap: () => _performSeek(false),
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => _handleSideTap(false),
                                     onVerticalDragEnd: (details) {
                                       if ((details.primaryVelocity ?? 0) > 240) {
                                         widget.onMinimize();
                                       }
                                     },
+                                    child: const SizedBox.expand(),
                                   ),
                                 ),
                                 if (!widget.session.isPlaying)
@@ -1400,14 +1440,14 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                   ),
                                 Expanded(
                                   child: GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onTap: _toggleControls,
-                                    onDoubleTap: () => _performSeek(true),
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => _handleSideTap(true),
                                     onVerticalDragEnd: (details) {
                                       if ((details.primaryVelocity ?? 0) > 240) {
                                         widget.onMinimize();
                                       }
                                     },
+                                    child: const SizedBox.expand(),
                                   ),
                                 ),
                               ],

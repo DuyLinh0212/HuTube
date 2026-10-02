@@ -133,6 +133,27 @@ jobs:
         run: |
           [[ "$MOBILE_API_BASE_URL" == https://* ]] || { echo 'MOBILE_API_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
           [[ "$GOOGLE_WEB_CLIENT_ID" == *.apps.googleusercontent.com ]] || { echo 'GOOGLE_WEB_CLIENT_ID is invalid.'; exit 1; }
+      - name: Setup release keystore
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'androiddebugkey' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "=== Decoding keystore from GitHub Secret ANDROID_KEYSTORE_BASE64 ==="
+            mkdir -p "$RUNNER_TEMP/keystore"
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keystore/release.keystore"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/keystore/release.keystore" >> $GITHUB_ENV
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+            echo "=== Keystore decoded successfully. Certificate fingerprints: ==="
+            keytool -list -v -keystore "$RUNNER_TEMP/keystore/release.keystore" -storepass "$KEYSTORE_PASSWORD" | grep -E "SHA1:|SHA256:"
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 not found in GitHub Secrets. Falling back to local/default debug keystore."
+          fi
       - name: Build release APK
         shell: bash
         run: |
@@ -141,6 +162,8 @@ jobs:
           EOF
           flutter build apk --release --build-number=${{ github.run_number }} \
             --dart-define-from-file="$RUNNER_TEMP/hutube-mobile-defines.json"
+          echo "=== Kiem tra chu ky thuc te cua APK vua build ==="
+          keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep -E "SHA1:|SHA256:"
       - name: Upload release APK
         uses: actions/upload-artifact@v6
         with:

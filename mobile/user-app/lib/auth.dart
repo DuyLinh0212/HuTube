@@ -195,7 +195,25 @@ class AuthController extends ChangeNotifier {
       );
     }
     try {
-      final account = await GoogleSignIn.instance.authenticate();
+      GoogleSignInAccount account;
+      try {
+        account = await GoogleSignIn.instance.authenticate();
+      } on GoogleSignInException catch (error) {
+        final isReauth = error.description != null &&
+            (error.description!.contains('16') ||
+                error.description!.toLowerCase().contains('reauth'));
+        if (isReauth) {
+          debugPrint(
+            '[GoogleSignIn] Encountered reauth error [16], attempting session reset and retry...',
+          );
+          try {
+            await GoogleSignIn.instance.signOut();
+          } catch (_) {}
+          account = await GoogleSignIn.instance.authenticate();
+        } else {
+          rethrow;
+        }
+      }
       final credential = account.authentication.idToken;
       if (credential == null || credential.isEmpty) {
         throw ApiFailure(
@@ -212,13 +230,18 @@ class AuthController extends ChangeNotifier {
       final detail = error.description != null && error.description!.isNotEmpty
           ? ' - ${error.description}'
           : '';
+      final isReauthError = error.description != null &&
+          (error.description!.contains('16') ||
+              error.description!.toLowerCase().contains('reauth'));
       throw switch (error.code) {
         GoogleSignInExceptionCode.canceled => ApiFailure(
           400,
           'GOOGLE_LOGIN_CANCELLED',
-          kDebugMode
-              ? '${AppStrings.t('auth.googleCancelled')} [${error.code.name}$detail]'
-              : AppStrings.t('auth.googleCancelled'),
+          isReauthError
+              ? '${AppStrings.t('auth.googleCancelled')} (Lỗi [16]: Kiểm tra mã SHA-1 của keystore trên Google Cloud Console hoặc thêm Gmail vào danh sách Test Users)'
+              : (detail.isNotEmpty
+                  ? '${AppStrings.t('auth.googleCancelled')} [${error.code.name}$detail]'
+                  : AppStrings.t('auth.googleCancelled')),
         ),
         GoogleSignInExceptionCode.clientConfigurationError ||
         GoogleSignInExceptionCode.providerConfigurationError =>
