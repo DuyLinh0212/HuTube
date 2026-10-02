@@ -75,7 +75,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
           _pendingNotificationPath = null;
           return target;
         }
-        return '/home';
+        return auth.authenticated ? '/home' : '/auth';
       }
       // Keep legacy account deep links on the auth shell long enough for its
       // session-management view to complete. Ordinary successful sign-in
