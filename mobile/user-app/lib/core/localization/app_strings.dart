@@ -299,7 +299,7 @@ class AppStrings {
       'feed.sortNewest': 'Mới nhất',
       'feed.sortPopular': 'Phổ biến',
       'feed.sortTrending': 'Thịnh hành',
-      'feed.allTopics': 'Tất cả chủ đề',
+      'feed.allTopics': 'Tất cả',
 
       // Library and downloads
       'library.title': 'Thư viện',
@@ -386,6 +386,8 @@ class AppStrings {
       'watch.shareAction': 'Chia sẻ',
       'watch.downloadAction': 'Tải xuống',
       'watch.pipAction': 'PiP',
+      'watch.fullscreen': 'Toàn màn hình',
+      'watch.exitFullscreen': 'Thoát toàn màn hình',
       'watch.background': 'Phát nền',
       'watch.chapters': 'Chương',
       'watch.comments': 'Bình luận ({count})',
@@ -549,6 +551,7 @@ class AppStrings {
       'auth.allDevicesLoggedOut': 'Đã đăng xuất khỏi tất cả thiết bị.',
       'auth.sessionExpired': 'Phiên đã hết hạn. Vui lòng đăng nhập lại.',
       'auth.storageError': 'Không thể mở bộ nhớ bảo mật. Vui lòng thử lại.',
+      'auth.logout': 'Đăng xuất',
       'auth.logoutOffline':
           'Đã thoát trên thiết bị. Chưa thể xác nhận thu hồi phiên trên máy chủ.',
 
@@ -1406,7 +1409,7 @@ class AppStrings {
       'feed.sortNewest': 'Newest',
       'feed.sortPopular': 'Popular',
       'feed.sortTrending': 'Trending',
-      'feed.allTopics': 'All topics',
+      'feed.allTopics': 'All',
 
       // Library and downloads
       'library.title': 'Library',
@@ -1493,6 +1496,8 @@ class AppStrings {
       'watch.shareAction': 'Share',
       'watch.downloadAction': 'Download',
       'watch.pipAction': 'PiP',
+      'watch.fullscreen': 'Fullscreen',
+      'watch.exitFullscreen': 'Exit fullscreen',
       'watch.background': 'Background play',
       'watch.chapters': 'Chapters',
       'watch.comments': 'Comments ({count})',
@@ -1661,6 +1666,7 @@ class AppStrings {
       'auth.allDevicesLoggedOut': 'All devices were signed out.',
       'auth.sessionExpired': 'Your session expired. Please sign in again.',
       'auth.storageError': 'Unable to open secure storage. Please try again.',
+      'auth.logout': 'Log out',
       'auth.logoutOffline':
           'You were signed out on this device. The server could not confirm session revocation.',
 

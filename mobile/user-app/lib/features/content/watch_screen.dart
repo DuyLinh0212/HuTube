@@ -39,9 +39,10 @@ class WatchScreen extends StatefulWidget {
   State<WatchScreen> createState() => _WatchScreenState();
 }
 
-class _WatchScreenState extends State<WatchScreen> {
+class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   late final ContentService _content;
   final _comment = TextEditingController();
+  final _prefs = const AppPreferencesStore();
   VideoDetail? _video;
   List<Rendition> _renditions = const [];
   MediaEntitlements _entitlements = const MediaEntitlements.none();
@@ -50,6 +51,10 @@ class _WatchScreenState extends State<WatchScreen> {
   bool _loading = true;
   bool _sendingComment = false;
   bool _isOwner = false;
+  bool _isFullScreen = false;
+  bool _zoomToFill = false;
+  bool _pipEnabled = false;
+  String _commentSort = 'top';
   String? _pinnedCommentId;
   final Set<String> _heartedCommentIds = <String>{};
   String? _error;
@@ -58,13 +63,24 @@ class _WatchScreenState extends State<WatchScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _content = ContentService(widget.auth);
     widget.playback.onVideoCompleted = _handleVideoCompleted;
+    _prefs.readZoomToFill().then((v) {
+      if (mounted) setState(() => _zoomToFill = v);
+    });
+    _prefs.readPipEnabled().then((v) {
+      if (mounted) setState(() => _pipEnabled = v);
+    });
     _load();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_isFullScreen) {
+      FullscreenManager.exitFullscreen();
+    }
     _comment.dispose();
     if (widget.playback.onVideoCompleted == _handleVideoCompleted) {
       widget.playback.onVideoCompleted = null;
@@ -73,6 +89,27 @@ class _WatchScreenState extends State<WatchScreen> {
       widget.playback.minimize();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if ((state == AppLifecycleState.inactive || state == AppLifecycleState.paused) &&
+        _pipEnabled &&
+        widget.playback.isPlaying &&
+        widget.playback.ready) {
+      _enterPictureInPicture();
+    }
+  }
+
+  Future<void> _toggleFullScreen() async {
+    if (!_isFullScreen) {
+      await FullscreenManager.enterFullscreen(lockToLandscape: true);
+      if (mounted) setState(() => _isFullScreen = true);
+    } else {
+      await FullscreenManager.exitFullscreen();
+      if (mounted) setState(() => _isFullScreen = false);
+    }
   }
 
   @override
@@ -372,29 +409,94 @@ class _WatchScreenState extends State<WatchScreen> {
     HapticFeedback.lightImpact();
     if (!await _requireAuth(action: 'đánh giá video này')) return;
     if (!mounted) return;
+    final currentRating = _video?.viewerState.rating;
     final score = await showModalBottomSheet<int>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(title: Text(AppStrings.t('watch.ratingTitle'))),
-            for (var value = 1; value <= 5; value++)
-              ListTile(
-                leading: AppIcons.asset(AppIcons.star, size: 22, color: Colors.amber.shade600),
-                title: Text(
-                  AppStrings.format('watch.ratingStars', {
-                    'count': AppStrings.number(value),
-                  }),
-                ),
-                onTap: () => Navigator.pop(context, value),
-              ),
-          ],
-        ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        int selected = currentRating ?? 0;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Text(
+                    AppStrings.t('watch.ratingTitle'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    selected > 0 ? '$selected / 5 sao' : 'Chạm vào sao để đánh giá',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: selected > 0 ? Colors.amber.shade700 : AppColors.textMuted,
+                      fontWeight: selected > 0 ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var i = 1; i <= 5; i++)
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setSheetState(() => selected = i);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              i <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
+                              size: 42,
+                              color: i <= selected ? Colors.amber.shade600 : Colors.grey.shade400,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      if (currentRating != null) ...[
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, 0),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
+                          child: const Text('Xóa đánh giá'),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: AppColors.primaryPink),
+                          onPressed: selected > 0 ? () => Navigator.pop(ctx, selected) : null,
+                          child: const Text('Gửi đánh giá'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
     if (score == null || _video == null) return;
     try {
-      final result = await _content.rate(widget.videoId, score);
+      final result = await _content.rate(widget.videoId, score == 0 ? null : score);
       final old = _video!;
       if (!mounted) return;
       setState(() {
@@ -429,7 +531,9 @@ class _WatchScreenState extends State<WatchScreen> {
           moderationStatus: old.moderationStatus,
           processingStatus: old.processingStatus,
         );
-        _actionMessage = AppStrings.t('watch.ratingSaved');
+        _actionMessage = score == 0
+            ? 'Đã xóa đánh giá của bạn'
+            : AppStrings.t('watch.ratingSaved');
       });
     } on ApiFailure catch (error) {
       if (mounted) {
@@ -438,17 +542,79 @@ class _WatchScreenState extends State<WatchScreen> {
     }
   }
 
+  String _formatDuration(Duration value) {
+    final seconds = value.inSeconds;
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final rest = seconds % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${rest.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${rest.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _share() async {
     HapticFeedback.lightImpact();
     final video = _video;
     if (video == null) return;
     if (widget.auth.authenticated) unawaited(_content.share(video.id));
-    await Share.share(
-      AppStrings.format('watch.shareText', {
-        'title': video.title,
-        'id': video.id,
-      }),
-    );
+    final currentPos = widget.playback.position.inSeconds;
+    if (currentPos > 5) {
+      final withTimestamp = await showModalBottomSheet<bool>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Chia sẻ: ${video.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.timer_outlined, color: AppColors.primaryPink),
+                  title: Text('Bắt đầu tại ${_formatDuration(widget.playback.position)}'),
+                  subtitle: const Text('Người xem sẽ mở video ngay tại mốc thời gian này'),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  tileColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  onTap: () => Navigator.pop(ctx, true),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.play_circle_outline_rounded),
+                  title: const Text('Bắt đầu từ đầu video'),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  tileColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  onTap: () => Navigator.pop(ctx, false),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (withTimestamp == null) return;
+      final url = withTimestamp
+          ? 'https://hutube.app/watch/${video.id}?t=$currentPos'
+          : 'https://hutube.app/watch/${video.id}';
+      await Share.share(
+        'Xem "${video.title}" trên HuTube:\n$url',
+      );
+    } else {
+      await Share.share(
+        AppStrings.format('watch.shareText', {
+          'title': video.title,
+          'id': video.id,
+        }),
+      );
+    }
   }
 
   Future<void> _download() async {
@@ -671,6 +837,29 @@ class _WatchScreenState extends State<WatchScreen> {
                   unawaited(widget.playback.setSpeed(speed));
                 },
               ),
+            const Divider(),
+            SwitchListTile(
+              secondary: const Icon(Icons.aspect_ratio_rounded),
+              title: const Text('Thu phóng vừa màn hình', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('Phóng to để che hết màn hình trong chế độ toàn màn hình'),
+              value: _zoomToFill,
+              onChanged: (val) {
+                setState(() => _zoomToFill = val);
+                _prefs.writeZoomToFill(val);
+                Navigator.pop(context);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.picture_in_picture_alt_rounded),
+              title: const Text('Hình trong hình (PiP)', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('Tự động thu nhỏ khi thoát ra màn hình chính'),
+              value: _pipEnabled,
+              onChanged: (val) {
+                setState(() => _pipEnabled = val);
+                _prefs.writePipEnabled(val);
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),
@@ -780,6 +969,51 @@ class _WatchScreenState extends State<WatchScreen> {
       );
     }
     final video = _video!;
+    final videoStageWidget = _CustomVideoStage(
+      session: widget.playback,
+      isFullScreen: _isFullScreen,
+      zoomToFill: _zoomToFill,
+      onToggleFullScreen: _toggleFullScreen,
+      onToggleZoom: () {
+        final newVal = !_zoomToFill;
+        setState(() => _zoomToFill = newVal);
+        _prefs.writeZoomToFill(newVal);
+      },
+      onMinimize: () {
+        if (_isFullScreen) {
+          _toggleFullScreen();
+          return;
+        }
+        widget.playback.minimize();
+        Navigator.of(context).maybePop();
+      },
+      onSettings: _showPlaybackSettings,
+      onPictureInPicture: _enterPictureInPicture,
+      showPictureInPicture: _entitlements.pictureInPicture,
+    );
+
+    if (_isFullScreen) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _toggleFullScreen();
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: SizedBox.expand(
+            child: AnimatedBuilder(
+              animation: widget.playback,
+              builder: (context, _) => widget.playback.player != null
+                  ? videoStageWidget
+                  : const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryPink),
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
@@ -799,16 +1033,7 @@ class _WatchScreenState extends State<WatchScreen> {
             child: AnimatedBuilder(
               animation: widget.playback,
               builder: (context, _) => widget.playback.player != null
-                  ? _CustomVideoStage(
-                      session: widget.playback,
-                      onMinimize: () {
-                        widget.playback.minimize();
-                        Navigator.of(context).maybePop();
-                      },
-                      onSettings: _showPlaybackSettings,
-                      onPictureInPicture: _enterPictureInPicture,
-                      showPictureInPicture: _entitlements.pictureInPicture,
-                    )
+                  ? videoStageWidget
                   : const DecoratedBox(
                       decoration: BoxDecoration(color: Color(0xff171927)),
                       child: Center(
@@ -860,7 +1085,10 @@ class _WatchScreenState extends State<WatchScreen> {
               ),
               _ActionChip(
                 customIcon: AppIcons.asset(AppIcons.star, size: 18),
-                label: AppStrings.t('watch.rateAction'),
+                label: video.viewerState.rating != null
+                    ? '${video.viewerState.rating} ★'
+                    : AppStrings.t('watch.rateAction'),
+                active: video.viewerState.rating != null,
                 onTap: _rate,
               ),
               _ActionChip(
@@ -978,10 +1206,47 @@ class _WatchScreenState extends State<WatchScreen> {
         const SizedBox(height: 22),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: HuTubeSectionHeader(
-            title: AppStrings.format('watch.comments', {
-              'count': AppStrings.number(video.stats.comments),
-            }),
+          child: Row(
+            children: [
+              Expanded(
+                child: HuTubeSectionHeader(
+                  title: AppStrings.format('watch.comments', {
+                    'count': AppStrings.number(video.stats.comments),
+                  }),
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Sắp xếp bình luận',
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.sort_rounded, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        _commentSort == 'top' ? 'Hàng đầu' : 'Mới nhất',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                onSelected: (val) {
+                  setState(() => _commentSort = val);
+                },
+                itemBuilder: (ctx) => const [
+                  PopupMenuItem(
+                    value: 'top',
+                    child: Text('Bình luận hàng đầu'),
+                  ),
+                  PopupMenuItem(
+                    value: 'newest',
+                    child: Text('Mới nhất trước'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
@@ -1020,6 +1285,11 @@ class _WatchScreenState extends State<WatchScreen> {
               .where((c) => c.id == _pinnedCommentId || c.isPinned)
               .firstOrNull;
           final others = _comments.where((c) => c.id != pinned?.id).toList();
+          if (_commentSort == 'top') {
+            others.sort((a, b) => (b.likes - b.dislikes).compareTo(a.likes - a.dislikes));
+          } else {
+            others.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+          }
           final list = [?pinned, ...others];
           return list.map(
             (item) => _CommentTile(
@@ -1095,6 +1365,10 @@ class _CustomVideoStage extends StatefulWidget {
     required this.onSettings,
     required this.onPictureInPicture,
     required this.showPictureInPicture,
+    this.isFullScreen = false,
+    this.zoomToFill = false,
+    this.onToggleFullScreen,
+    this.onToggleZoom,
   });
 
   final PlaybackSession session;
@@ -1102,6 +1376,10 @@ class _CustomVideoStage extends StatefulWidget {
   final VoidCallback onSettings;
   final VoidCallback onPictureInPicture;
   final bool showPictureInPicture;
+  final bool isFullScreen;
+  final bool zoomToFill;
+  final VoidCallback? onToggleFullScreen;
+  final VoidCallback? onToggleZoom;
 
   @override
   State<_CustomVideoStage> createState() => _CustomVideoStageState();
@@ -1215,7 +1493,16 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              NativeVideoPlayer(controller: player),
+              FittedBox(
+                fit: (widget.isFullScreen && widget.zoomToFill)
+                    ? BoxFit.cover
+                    : BoxFit.contain,
+                child: SizedBox(
+                  width: 16,
+                  height: 9,
+                  child: NativeVideoPlayer(controller: player),
+                ),
+              ),
               Positioned.fill(
                 child: Row(
                   children: [
@@ -1370,10 +1657,16 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                 ),
                               ),
                               IconButton(
-                                tooltip: AppStrings.t('watch.minimize'),
+                                tooltip: widget.isFullScreen
+                                    ? AppStrings.t('watch.exitFullscreen')
+                                    : AppStrings.t('watch.minimize'),
                                 onPressed: widget.onMinimize,
                                 color: Colors.white,
-                                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                icon: Icon(
+                                  widget.isFullScreen
+                                      ? Icons.arrow_back_rounded
+                                      : Icons.keyboard_arrow_down_rounded,
+                                ),
                               ),
                               IconButton(
                                 tooltip: AppStrings.t('watch.qualityAndSpeed'),
@@ -1381,6 +1674,22 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                 color: Colors.white,
                                 icon: const Icon(Icons.settings_rounded, size: 20),
                               ),
+                              if (widget.isFullScreen && widget.onToggleZoom != null)
+                                IconButton(
+                                  tooltip: widget.zoomToFill
+                                      ? 'Thu nhỏ vừa màn hình'
+                                      : 'Thu phóng vừa với màn hình',
+                                  onPressed: widget.onToggleZoom,
+                                  color: widget.zoomToFill
+                                      ? AppColors.primaryPink
+                                      : Colors.white,
+                                  icon: Icon(
+                                    widget.zoomToFill
+                                        ? Icons.fit_screen_rounded
+                                        : Icons.crop_free_rounded,
+                                    size: 20,
+                                  ),
+                                ),
                               if (widget.showPictureInPicture)
                                 IconButton(
                                   tooltip: AppStrings.t('watch.pictureInPicture'),
@@ -1502,6 +1811,24 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
+                                if (widget.onToggleFullScreen != null) ...[
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    tooltip: widget.isFullScreen
+                                        ? AppStrings.t('watch.exitFullscreen')
+                                        : AppStrings.t('watch.fullscreen'),
+                                    onPressed: widget.onToggleFullScreen,
+                                    iconSize: 22,
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    color: Colors.white,
+                                    icon: Icon(
+                                      widget.isFullScreen
+                                          ? Icons.fullscreen_exit_rounded
+                                          : Icons.fullscreen_rounded,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

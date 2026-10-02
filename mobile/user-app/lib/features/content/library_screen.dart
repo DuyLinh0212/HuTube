@@ -260,6 +260,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                 }),
                         ),
                         selected: _rating == score,
+                        showCheckmark: false,
+                        shape: const StadiumBorder(),
                         onSelected: (_) {
                           setState(() => _rating = score);
                           _load();

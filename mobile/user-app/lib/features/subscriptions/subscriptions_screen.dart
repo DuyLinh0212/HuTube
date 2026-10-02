@@ -48,6 +48,21 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     super.dispose();
   }
 
+  Future<void> _selectChannel(String? channelId) async {
+    if (_selectedChannelId == channelId) {
+      channelId = null;
+    }
+    setState(() {
+      _selectedChannelId = channelId;
+      _videos = [];
+      _page = 0;
+      _hasMore = false;
+      _loading = true;
+      _error = null;
+    });
+    await _load(more: false);
+  }
+
   Future<void> _load({bool more = false}) async {
     if (!widget.auth.authenticated) {
       if (mounted) setState(() => _loading = false);
@@ -66,12 +81,24 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     });
 
     try {
-      if (!more) {
+      if (!more && _channels.isEmpty) {
         final channels = await _channelService.getSubscribedChannels();
         if (mounted) setState(() => _channels = channels);
       }
 
-      final result = await _content.subscriptionsFeed(page: requestedPage);
+      final PageResult<VideoCard> result;
+      if (_selectedChannelId != null) {
+        result = await _content.searchVideos(
+          query: '',
+          channelId: _selectedChannelId,
+          sort: 'newest',
+          page: requestedPage,
+          pageSize: 20,
+        );
+      } else {
+        result = await _content.subscriptionsFeed(page: requestedPage);
+      }
+
       if (!mounted) return;
       setState(() {
         _videos = more ? [..._videos, ...result.items] : result.items;
@@ -107,13 +134,17 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   List<VideoCard> get _filteredVideos {
     var list = _videos;
-    if (_selectedChannelId != null) {
-      list = list.where((v) => v.channelId == _selectedChannelId).toList();
-    }
     if (_selectedFilter == 'Shorts') {
       list = list.where((v) => v.duration <= 60).toList();
     } else if (_selectedFilter == 'Video') {
       list = list.where((v) => v.duration > 60).toList();
+    } else if (_selectedFilter == 'Hôm nay') {
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      list = list.where((v) {
+        if (v.publishedAt == null) return false;
+        return v.publishedAt!.isAfter(todayStart);
+      }).toList();
     }
     return list;
   }
@@ -223,8 +254,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                       return InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {
-                          setState(() => _selectedChannelId = null);
-                          context.push('/explore');
+                          _selectChannel(null);
                         },
                         child: Container(
                           width: 64,
@@ -269,9 +299,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     return InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () {
-                        setState(() {
-                          _selectedChannelId = isSelected ? null : channel.channelId;
-                        });
+                        _selectChannel(channel.channelId);
                       },
                       onLongPress: () {
                         context.push('/channels/${channel.handle}');
@@ -347,25 +375,87 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                       ),
                       selected: active,
                       showCheckmark: false,
+                      shape: const StadiumBorder(),
                       onSelected: (_) {
                         setState(() => _selectedFilter = filter);
                       },
                       backgroundColor: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
                       selectedColor: isDark ? Colors.white : AppColors.ink,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: active
-                              ? Colors.transparent
-                              : (isDark ? const Color(0xFF3F3F3F) : AppColors.borderSubtle),
-                        ),
-                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     ),
                   );
                 }).toList(),
               ),
             ),
+
+            // ================= 2.1 SELECTED CHANNEL CARD =================
+            if (_selectedChannelId != null) ...[
+              () {
+                final selectedChannel = _channels.cast<SubscribedChannelResponse?>().firstWhere(
+                  (c) => c?.channelId == _selectedChannelId,
+                  orElse: () => null,
+                );
+                if (selectedChannel == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => context.push('/channels/${selectedChannel.handle}'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E1E1E) : AppColors.surfaceAlt,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF333333) : AppColors.borderSubtle,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          HuTubeAvatar(
+                            url: selectedChannel.avatarUrl,
+                            label: selectedChannel.name,
+                            radius: 18,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedChannel.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                Text(
+                                  '@${selectedChannel.handle}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white60 : AppColors.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            AppStrings.t('channel.view'),
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFF3EA6FF) : AppColors.primaryPink,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: isDark ? const Color(0xFF3EA6FF) : AppColors.primaryPink,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }(),
+            ],
 
             // ================= 3. SECTION TITLE =================
             Padding(

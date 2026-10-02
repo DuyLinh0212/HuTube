@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
@@ -9,6 +10,8 @@ import '../../core/storage/app_preferences.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
+import '../../channel/models/channel_models.dart';
+import '../../channel/services/channel_service.dart';
 import '../content/content_models.dart';
 import '../content/content_service.dart';
 import '../content/video_card.dart';
@@ -25,9 +28,11 @@ class _SearchScreenState extends State<SearchScreen> {
   final _query = TextEditingController();
   final _prefs = const AppPreferencesStore();
   late final ContentService _content = ContentService(widget.auth);
+  late final ChannelService _channels = ChannelService(widget.auth);
 
   List<VideoCard> _results = const [];
   List<String> _recentSearches = [];
+  ChannelDetail? _matchedChannel;
   String _sort = 'relevance';
   String? _duration;
   String? _dateRange;
@@ -105,9 +110,28 @@ class _SearchScreenState extends State<SearchScreen> {
         duration: _duration,
         dateRange: _dateRange,
       );
+      ChannelDetail? matchedChannel = more ? _matchedChannel : null;
+      if (!more) {
+        final clean = query.startsWith('@') ? query.substring(1) : query;
+        try {
+          matchedChannel = await _channels.getChannel(clean);
+        } catch (_) {
+          if (page.items.isNotEmpty) {
+            final first = page.items.first;
+            final normQ = query.toLowerCase().replaceAll('@', '').trim();
+            if (first.channelName.toLowerCase().contains(normQ) ||
+                first.channelHandle.toLowerCase().contains(normQ)) {
+              try {
+                matchedChannel = await _channels.getChannel(first.channelHandle);
+              } catch (_) {}
+            }
+          }
+        }
+      }
       if (!mounted) return;
       setState(() {
         _results = more ? [..._results, ...page.items] : page.items;
+        _matchedChannel = matchedChannel;
         _page = page.page;
         _hasMore = page.hasMore;
         _loading = false;
@@ -255,6 +279,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               ChoiceChip(
                                 label: Text(AppStrings.t(dur.$2)),
                                 selected: tempDuration == dur.$1,
+                                showCheckmark: false,
+                                shape: const StadiumBorder(),
                                 onSelected: (_) {
                                   setModalState(() => tempDuration = dur.$1);
                                 },
@@ -284,6 +310,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               ChoiceChip(
                                 label: Text(AppStrings.t(date.$2)),
                                 selected: tempDateRange == date.$1,
+                                showCheckmark: false,
+                                shape: const StadiumBorder(),
                                 onSelected: (_) {
                                   setModalState(() => tempDateRange = date.$1);
                                 },
@@ -420,6 +448,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 InputChip(
                   avatar: const Icon(Icons.history_rounded, size: 14),
                   label: Text(term),
+                  shape: const StadiumBorder(),
                   onDeleted: () => _removeRecentSearch(term),
                   onPressed: () {
                     _query.text = term;
@@ -440,6 +469,7 @@ class _SearchScreenState extends State<SearchScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ActionChip(
+                  shape: const StadiumBorder(),
                   avatar: AppIcons.asset(
                     AppIcons.filter,
                     size: 16,
@@ -468,6 +498,8 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: ChoiceChip(
                     label: Text(AppStrings.t(item.$2)),
                     selected: _sort == item.$1,
+                    showCheckmark: false,
+                    shape: const StadiumBorder(),
                     onSelected: (_) {
                       setState(() => _sort = item.$1);
                       if (_searched) _search();
@@ -479,6 +511,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: InputChip(
                     avatar: const Icon(Icons.timer_outlined, size: 14),
+                    shape: const StadiumBorder(),
                     label: Text(
                       _duration == 'short'
                           ? AppStrings.t('search.durationShort')
@@ -497,6 +530,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: InputChip(
                     avatar: const Icon(Icons.date_range_outlined, size: 14),
+                    shape: const StadiumBorder(),
                     label: Text(_dateRange!),
                     onDeleted: () {
                       setState(() => _dateRange = null);
@@ -539,6 +573,10 @@ class _SearchScreenState extends State<SearchScreen> {
           )
         else ...[
           const SizedBox(height: 8),
+          if (_matchedChannel != null) ...[
+            _SearchChannelCard(channel: _matchedChannel!, auth: widget.auth),
+            const SizedBox(height: 8),
+          ],
           for (final video in _results)
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
@@ -553,6 +591,114 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
         ],
       ],
+    );
+  }
+}
+
+class _SearchChannelCard extends StatelessWidget {
+  const _SearchChannelCard({required this.channel, required this.auth});
+  final ChannelDetail channel;
+  final AuthController auth;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06),
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => context.push('/channels/${channel.handle}'),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
+              backgroundImage: channel.avatarUrl != null
+                  ? NetworkImage(channel.avatarUrl!)
+                  : null,
+              child: channel.avatarUrl == null
+                  ? Text(
+                      channel.name.isNotEmpty
+                          ? channel.name[0].toUpperCase()
+                          : 'C',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryPink,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          channel.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '@${channel.handle} • ${AppStrings.number(channel.subscriberCount)} người đăng ký',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white60 : AppColors.textMuted,
+                    ),
+                  ),
+                  if (channel.description != null &&
+                      channel.description!.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      channel.description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white54 : AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              onPressed: () => context.push('/channels/${channel.handle}'),
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text(
+                'Xem kênh',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

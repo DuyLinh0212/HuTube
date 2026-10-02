@@ -146,19 +146,24 @@ class _FeedScreenState extends State<FeedScreen> {
       onRefresh: () => _load(refresh: true),
       child: ListView(
         controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           Text(
             AppStrings.t(widget.explore ? 'feed.exploreEyebrow' : 'feed.welcomeEyebrow'),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w900,
-              letterSpacing: 1.4,
+              fontSize: 10.5,
+              letterSpacing: 1.1,
             ),
           ),
-          const SizedBox(height: 7),
-          HuTubeSectionHeader(title: title, subtitle: description),
-          const SizedBox(height: 18),
+          const SizedBox(height: 4),
+          HuTubeSectionHeader(
+            title: title,
+            subtitle: description,
+            compact: true,
+          ),
+          const SizedBox(height: 12),
           _FilterRow(
             sort: _sort,
             categoryId: _categoryId,
@@ -167,7 +172,7 @@ class _FeedScreenState extends State<FeedScreen> {
             onSort: _setSort,
             onCategory: _setCategory,
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
           if (_error != null)
             _InlineError(message: _error!, onRetry: () => _load(refresh: true)),
           if (_videos.isEmpty)
@@ -226,6 +231,9 @@ class _FilterRow extends StatelessWidget {
                   child: ChoiceChip(
                     label: Text(AppStrings.t(item.$2)),
                     selected: sort == item.$1,
+                    showCheckmark: false,
+                    shape: const StadiumBorder(),
+                    visualDensity: VisualDensity.compact,
                     onSelected: (_) => onSort(item.$1),
                   ),
                 ),
@@ -243,6 +251,9 @@ class _FilterRow extends StatelessWidget {
                 child: FilterChip(
                   label: Text(AppStrings.t('feed.allTopics')),
                   selected: categoryId == null,
+                  showCheckmark: false,
+                  shape: const StadiumBorder(),
+                  visualDensity: VisualDensity.compact,
                   onSelected: (_) => onCategory(null),
                 ),
               ),
@@ -252,6 +263,9 @@ class _FilterRow extends StatelessWidget {
                   child: FilterChip(
                     label: Text(category.name),
                     selected: categoryId == category.id,
+                    showCheckmark: false,
+                    shape: const StadiumBorder(),
+                    visualDensity: VisualDensity.compact,
                     onSelected: (_) => onCategory(category.id),
                   ),
                 ),

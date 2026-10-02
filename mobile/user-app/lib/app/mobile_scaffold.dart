@@ -146,7 +146,7 @@ class MobileScaffold extends StatelessWidget {
               onPressed: () => context.push('/search'),
               icon: AppIcons.asset(
                 AppIcons.search,
-                size: 20,
+                size: 24,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
