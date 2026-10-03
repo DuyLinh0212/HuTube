@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:better_native_video_player/better_native_video_player.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -43,6 +44,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   late final ContentService _content;
   final _comment = TextEditingController();
   final _prefs = const AppPreferencesStore();
+  Timer? _metricsDebounce;
   VideoDetail? _video;
   List<Rendition> _renditions = const [];
   MediaEntitlements _entitlements = const MediaEntitlements.none();
@@ -66,6 +68,11 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _content = ContentService(widget.auth);
     widget.playback.onVideoCompleted = _handleVideoCompleted;
     _prefs.readZoomToFill().then((v) {
@@ -78,11 +85,32 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (!mounted || _changingFullScreen) return;
+    _metricsDebounce?.cancel();
+    _metricsDebounce = Timer(const Duration(milliseconds: 60), () {
+      if (!mounted || _changingFullScreen) return;
+      final view = View.of(context);
+      if (view.physicalSize.width <= 0 || view.physicalSize.height <= 0) return;
+      final isLandscapeNow = view.physicalSize.width > view.physicalSize.height;
+      if (isLandscapeNow && !_isFullScreen) {
+        _toggleFullScreen(toFullScreen: true, userInitiated: false);
+      } else if (!isLandscapeNow && _isFullScreen) {
+        _toggleFullScreen(toFullScreen: false, userInitiated: false);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _metricsDebounce?.cancel();
     if (_isFullScreen) {
-      FullscreenManager.exitFullscreen();
+      _isFullScreen = false;
     }
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _comment.dispose();
     if (widget.playback.onVideoCompleted == _handleVideoCompleted) {
       widget.playback.onVideoCompleted = null;
@@ -105,27 +133,55 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _toggleFullScreen() async {
-    if (_changingFullScreen || !mounted) return;
+  Future<void> _toggleFullScreen({
+    bool? toFullScreen,
+    bool userInitiated = true,
+  }) async {
+    final entering = toFullScreen ?? !_isFullScreen;
+    if (_changingFullScreen || !mounted || _isFullScreen == entering) return;
     _changingFullScreen = true;
-    final entering = !_isFullScreen;
-    // Rebuild the player with its destination constraints before Android
-    // rotates the activity. Waiting for the orientation call first leaves a
-    // portrait-sized platform view in the landscape frame for several seconds.
     setState(() => _isFullScreen = entering);
     try {
-      await WidgetsBinding.instance.endOfFrame;
-      if (entering) {
-        await FullscreenManager.enterFullscreen(lockToLandscape: true);
+      if (userInitiated) {
+        if (entering) {
+          // Specifying landscape directly commands Android's WindowManager to rotate
+          await SystemChrome.setPreferredOrientations([
+            DeviceOrientation.landscapeRight,
+            DeviceOrientation.landscapeLeft,
+          ]);
+          await SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.immersiveSticky,
+          );
+        } else {
+          await SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+          ]);
+          await SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.edgeToEdge,
+          );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted && !_isFullScreen) {
+              SystemChrome.setPreferredOrientations([
+                DeviceOrientation.portraitUp,
+                DeviceOrientation.landscapeLeft,
+                DeviceOrientation.landscapeRight,
+              ]);
+            }
+          });
+        }
       } else {
-        await FullscreenManager.exitFullscreen();
+        // Physical sensor rotation: orientations are already aligned.
+        // Update immersive UI mode without overriding device orientation.
+        await SystemChrome.setEnabledSystemUIMode(
+          entering ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+        );
       }
-      // Let the platform view receive the final dimensions after rotation.
-      await WidgetsBinding.instance.endOfFrame;
     } catch (_) {
       if (mounted) setState(() => _isFullScreen = !entering);
     } finally {
-      _changingFullScreen = false;
+      if (mounted) {
+        _changingFullScreen = false;
+      }
     }
   }
 
@@ -824,79 +880,146 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<T?> _showAdaptivePlaybackModal<T>({
+    required BuildContext context,
+    required Widget Function(BuildContext) builder,
+  }) {
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape = _isFullScreen || size.width > size.height;
+
+    if (isLandscape) {
+      return showDialog<T>(
+        context: context,
+        useRootNavigator: true,
+        barrierColor: Colors.black54,
+        builder: (dialogCtx) => Dialog(
+          backgroundColor: const Color(0xff212121),
+          elevation: 10,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 360,
+              maxHeight: 310,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Material(
+                color: const Color(0xff212121),
+                child: builder(dialogCtx),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      return showModalBottomSheet<T>(
+        context: context,
+        useRootNavigator: true,
+        backgroundColor: const Color(0xff212121),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetCtx) => SafeArea(
+          child: Material(
+            color: const Color(0xff212121),
+            child: builder(sheetCtx),
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _showPlaybackSettings() async {
     final player = widget.playback.player;
     if (player == null || !widget.playback.ready) return;
     final quality = widget.playback.selectedRendition;
-    await showModalBottomSheet<void>(
+    final qualityText =
+        quality != null ? 'Tự động (${quality.quality})' : 'Tự động';
+    final speedText =
+        '${player.speed.toStringAsFixed(player.speed == 1 ? 0 : 2)}x';
+
+    await _showAdaptivePlaybackModal<void>(
       context: context,
-      backgroundColor: const Color(0xff212121),
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.only(bottom: 12),
-          children: [
-            _PlaybackSettingTile(
-              icon: Icons.tune_rounded,
-              title: 'Chất lượng',
-              value: quality?.quality ?? 'Tự động',
-              onTap: () {
-                Navigator.pop(context);
-                _showQualityChoices();
-              },
-            ),
-            _PlaybackSettingTile(
-              icon: Icons.slow_motion_video_rounded,
-              title: 'Tốc độ phát',
-              value:
-                  '${player.speed.toStringAsFixed(player.speed == 1 ? 0 : 2)}x',
-              onTap: () {
-                Navigator.pop(context);
-                _showSpeedChoices();
-              },
-            ),
-            _PlaybackSettingTile(
-              icon: Icons.closed_caption_rounded,
-              title: 'Phụ đề',
-              onTap: () {
-                Navigator.pop(context);
-                _showSubtitleChoices();
-              },
-            ),
-            _PlaybackSettingTile(
-              icon: Icons.lock_outline_rounded,
-              title: 'Khóa màn hình',
-              onTap: () {
-                Navigator.pop(context);
-                if (mounted) setState(() => _controlsLocked = true);
-              },
-            ),
-            _PlaybackSettingTile(
-              icon: Icons.headphones_rounded,
-              title: 'Trên đường đi',
-              onTap: () {
-                Navigator.pop(context);
-                _showOnTheGoOptions();
-              },
-            ),
-            _PlaybackSettingTile(
-              icon: Icons.settings_outlined,
-              title: 'Tùy chọn khác',
-              trailing: const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white,
+      builder: (modalContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: 8),
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showMoreOptions();
-              },
             ),
-          ],
-        ),
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.tune_rounded,
+            title: 'Chất lượng',
+            value: qualityText,
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showQualityChoices();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.slow_motion_video_rounded,
+            title: 'Tốc độ phát',
+            value: speedText,
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showSpeedChoices();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.closed_caption_rounded,
+            title: 'Phụ đề',
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showSubtitleChoices();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.lock_outline_rounded,
+            title: 'Khóa màn hình',
+            onTap: () {
+              Navigator.pop(modalContext);
+              widget.playback.player?.lockOverlay();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.headphones_rounded,
+            title: 'Trên đường đi',
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showOnTheGoOptions();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.settings_outlined,
+            title: 'Tùy chọn khác',
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white70,
+              size: 20,
+            ),
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showMoreOptions();
+            },
+          ),
+        ],
       ),
     );
   }
@@ -978,78 +1101,128 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   Future<void> _showOnTheGoOptions() async {
     final mode = await _prefs.readBackgroundPlaybackMode();
     if (!mounted) return;
-    final selected = await showModalBottomSheet<String>(
+    final selected = await _showAdaptivePlaybackModal<String>(
       context: context,
-      backgroundColor: const Color(0xff212121),
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(
-              title: Text(
-                'Phát trong nền',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text(
-                'Thay đổi này có hiệu lực khi phát video tiếp theo.',
+      builder: (modalContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: 8),
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            for (final option in const [
-              (value: 'always', label: 'Luôn cho phép'),
-              (value: 'headphones', label: 'Chỉ khi dùng tai nghe'),
-              (value: 'off', label: 'Tắt'),
-            ])
-              ListTile(
-                title: Text(option.label),
-                trailing: mode == option.value
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: AppColors.primaryPink,
-                      )
-                    : null,
-                onTap: () => Navigator.pop(context, option.value),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Phát trong nền',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Thay đổi này có hiệu lực khi phát video tiếp theo.',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final option in const [
+            (value: 'always', label: 'Luôn cho phép'),
+            (value: 'headphones', label: 'Chỉ khi dùng tai nghe'),
+            (value: 'off', label: 'Tắt'),
+          ])
+            ListTile(
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              title: Text(
+                option.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
               ),
-          ],
-        ),
+              trailing: mode == option.value
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.primaryPink,
+                      size: 20,
+                    )
+                  : null,
+              onTap: () => Navigator.pop(modalContext, option.value),
+            ),
+        ],
       ),
     );
     if (selected != null) await _prefs.writeBackgroundPlaybackMode(selected);
   }
 
   Future<void> _showMoreOptions() async {
-    await showModalBottomSheet<void>(
+    await _showAdaptivePlaybackModal<void>(
       context: context,
-      backgroundColor: const Color(0xff212121),
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
+      builder: (modalContext) => StatefulBuilder(
+        builder: (context, setSheetState) => ListView(
           shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 8),
           children: [
-            const ListTile(
-              title: Text(
-                'Tùy chọn phát',
-                style: TextStyle(fontWeight: FontWeight.w800),
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-            SwitchListTile(
-              secondary: const Icon(Icons.aspect_ratio_rounded),
-              title: const Text('Thu phóng vừa màn hình'),
-              value: _zoomToFill,
-              onChanged: (value) {
-                setState(() => _zoomToFill = value);
-                unawaited(_prefs.writeZoomToFill(value));
-                Navigator.pop(context);
-              },
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Text(
+                'Tùy chọn phát',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
             ),
+
             SwitchListTile(
-              secondary: const Icon(Icons.picture_in_picture_alt_rounded),
-              title: const Text('Hình trong hình'),
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              secondary: const Icon(
+                Icons.picture_in_picture_alt_rounded,
+                color: Colors.white70,
+                size: 20,
+              ),
+              title: const Text(
+                'Hình trong hình',
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
               value: _pipEnabled,
               onChanged: (value) {
+                setSheetState(() => _pipEnabled = value);
                 setState(() => _pipEnabled = value);
                 unawaited(_prefs.writePipEnabled(value));
-                Navigator.pop(context);
               },
             ),
           ],
@@ -1064,37 +1237,69 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     required bool Function(T value) isSelected,
     required Future<void> Function(T value) onSelected,
   }) async {
-    await showModalBottomSheet<void>(
+    await _showAdaptivePlaybackModal<void>(
       context: context,
-      backgroundColor: const Color(0xff212121),
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              title: Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+      builder: (modalContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: 8),
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            for (final choice in choices)
-              ListTile(
-                title: Text(choice.label),
-                subtitle: choice.detail.isEmpty ? null : Text(choice.detail),
-                trailing: isSelected(choice.value)
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: AppColors.primaryPink,
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.pop(context);
-                  unawaited(onSelected(choice.value));
-                },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
               ),
-          ],
-        ),
+            ),
+          ),
+          for (final choice in choices)
+            ListTile(
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              title: Text(
+                choice.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: choice.detail.isEmpty
+                  ? null
+                  : Text(
+                      choice.detail,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+              trailing: isSelected(choice.value)
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.primaryPink,
+                      size: 20,
+                    )
+                  : null,
+              onTap: () {
+                Navigator.pop(modalContext);
+                unawaited(onSelected(choice.value));
+              },
+            ),
+        ],
       ),
     );
   }
@@ -1204,85 +1409,61 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       );
     }
     final video = _video!;
-    final videoStageWidget = _CustomVideoStage(
+    final videoStage = _CustomVideoStage(
       session: widget.playback,
       isFullScreen: _isFullScreen,
       controlsLocked: _controlsLocked,
       onUnlockControls: () => setState(() => _controlsLocked = false),
       zoomToFill: _zoomToFill,
-      onToggleFullScreen: _toggleFullScreen,
-      onToggleZoom: () {
-        final newVal = !_zoomToFill;
-        setState(() => _zoomToFill = newVal);
-        _prefs.writeZoomToFill(newVal);
+      onToggleFullScreen: () => _toggleFullScreen(),
+      onToggleZoom: (value) {
+        setState(() => _zoomToFill = value);
+        _prefs.writeZoomToFill(value);
       },
       onMinimize: () {
         if (_isFullScreen) {
-          _toggleFullScreen();
-          return;
+          _toggleFullScreen(toFullScreen: false);
+        } else {
+          widget.playback.minimize();
+          Navigator.of(context).maybePop();
         }
-        widget.playback.minimize();
-        Navigator.of(context).maybePop();
       },
       onSettings: _showPlaybackSettings,
       onPictureInPicture: _enterPictureInPicture,
       showPictureInPicture: _entitlements.pictureInPicture,
     );
 
-    if (_isFullScreen) {
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _toggleFullScreen();
-        },
-        child: Scaffold(
-          backgroundColor: Colors.black,
-          body: SizedBox.expand(
-            child: AnimatedBuilder(
-              animation: widget.playback,
-              builder: (context, _) => widget.playback.player != null
-                  ? videoStageWidget
-                  : const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryPink,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      );
-    }
-
     return PopScope(
-      canPop: true,
+      canPop: !_isFullScreen,
       onPopInvokedWithResult: (didPop, _) {
-        if (widget.playback.videoId == widget.videoId &&
-            widget.playback.ready) {
-          widget.playback.minimize();
+        if (!didPop && _isFullScreen) {
+          _toggleFullScreen(toFullScreen: false);
+        } else if (didPop) {
+          if (widget.playback.videoId == widget.videoId &&
+              widget.playback.ready) {
+            widget.playback.minimize();
+          }
         }
       },
-      child: SafeArea(
-        top: true,
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: AnimatedBuilder(
-                animation: widget.playback,
-                builder: (context, _) => widget.playback.player != null
-                    ? videoStageWidget
-                    : const DecoratedBox(
-                        decoration: BoxDecoration(color: Color(0xff171927)),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primaryPink,
-                          ),
-                        ),
-                      ),
-              ),
-            ),
+      child: Scaffold(
+        backgroundColor: _isFullScreen
+            ? Colors.black
+            : Theme.of(context).scaffoldBackgroundColor,
+        body: _isFullScreen
+            ? ColoredBox(
+                color: Colors.black,
+                child: SizedBox.expand(child: videoStage),
+              )
+            : SafeArea(
+                top: true,
+                bottom: false,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: videoStage,
+                    ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
               child: Text(
@@ -1583,7 +1764,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -1626,6 +1808,7 @@ class _PlaybackSettingTile extends StatelessWidget {
     required this.onTap,
     this.value,
     this.trailing,
+    this.dense = true,
   });
 
   final IconData icon;
@@ -1633,13 +1816,27 @@ class _PlaybackSettingTile extends StatelessWidget {
   final String? value;
   final Widget? trailing;
   final VoidCallback onTap;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) => ListTile(
-    leading: Icon(icon, color: Colors.white70, size: 23),
+    dense: dense,
+    visualDensity: dense
+        ? const VisualDensity(horizontal: 0, vertical: -2.5)
+        : VisualDensity.standard,
+    contentPadding: EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: dense ? 0 : 2,
+    ),
+    minLeadingWidth: 26,
+    leading: Icon(icon, color: Colors.white, size: dense ? 20 : 22),
     title: Text(
       title,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: dense ? 13.5 : 14.5,
+        fontWeight: FontWeight.w500,
+      ),
     ),
     trailing:
         trailing ??
@@ -1648,11 +1845,18 @@ class _PlaybackSettingTile extends StatelessWidget {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(value!, style: const TextStyle(color: Colors.white60)),
+                  Text(
+                    value!,
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: dense ? 12.5 : 13.5,
+                    ),
+                  ),
                   const SizedBox(width: 4),
                   const Icon(
                     Icons.chevron_right_rounded,
                     color: Colors.white60,
+                    size: 18,
                   ),
                 ],
               )),
@@ -1685,7 +1889,7 @@ class _CustomVideoStage extends StatefulWidget {
   final VoidCallback? onUnlockControls;
   final bool zoomToFill;
   final VoidCallback? onToggleFullScreen;
-  final VoidCallback? onToggleZoom;
+  final ValueChanged<bool>? onToggleZoom;
 
   @override
   State<_CustomVideoStage> createState() => _CustomVideoStageState();
@@ -1693,17 +1897,20 @@ class _CustomVideoStage extends StatefulWidget {
 
 class _CustomVideoStageState extends State<_CustomVideoStage> {
   bool _controlsVisible = true;
+  Timer? _controlsTimer;
   bool? _seekForward;
   int _seekStep = 10;
   int _accumulatedSeekSeconds = 0;
-  Timer? _controlsTimer;
   Timer? _pulseTimer;
   Timer? _singleTapTimer;
   DateTime? _lastTapTime;
   bool? _lastTapForward;
   double? _dragPosition;
+  String? _lastLoggedLayout;
   String? _zoomFeedbackText;
   Timer? _zoomFeedbackTimer;
+  bool _isPinching = false;
+  double _pinchScaleDelta = 1.0;
 
   @override
   void initState() {
@@ -1724,10 +1931,10 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
     _zoomFeedbackTimer?.cancel();
     setState(() {
       _zoomFeedbackText = zoomToFill
-          ? 'Đã thu phóng vừa màn hình'
-          : 'Đã thu nhỏ vừa màn hình';
+          ? 'Đã phóng to để lấp đầy màn hình'
+          : 'Nguyên bản';
     });
-    _zoomFeedbackTimer = Timer(const Duration(milliseconds: 1400), () {
+    _zoomFeedbackTimer = Timer(const Duration(milliseconds: 1500), () {
       if (mounted) setState(() => _zoomFeedbackText = null);
     });
   }
@@ -1818,49 +2025,88 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
           final videoSize = player.videoSize;
           final double videoAspect =
               (videoSize != null && videoSize.width > 0 && videoSize.height > 0)
-              ? videoSize.aspectRatio
-              : (16 / 9);
+                  ? videoSize.aspectRatio
+                  : (16 / 9);
 
-          double targetWidth = width;
-          double targetHeight = height;
-
-          if (widget.isFullScreen && height > 0) {
+          final double scale;
+          if (widget.zoomToFill && widget.isFullScreen && height > 0) {
             final double containerAspect = width / height;
-            if (widget.zoomToFill) {
-              if (videoAspect > containerAspect) {
-                targetHeight = height;
-                targetWidth = height * videoAspect;
-              } else {
-                targetWidth = width;
-                targetHeight = width / videoAspect;
-              }
-            } else {
-              if (videoAspect > containerAspect) {
-                targetWidth = width;
-                targetHeight = width / videoAspect;
-              } else {
-                targetHeight = height;
-                targetWidth = height * videoAspect;
-              }
-            }
+            scale = containerAspect > videoAspect
+                ? (containerAspect / videoAspect)
+                : (videoAspect / containerAspect);
+          } else {
+            scale = 1.0;
           }
 
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRect(
-                child: Center(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                    width: targetWidth,
-                    height: targetHeight,
-                    child: RepaintBoundary(
-                      child: NativeVideoPlayer(controller: player),
+          final layoutSignature =
+              'fullscreen=${widget.isFullScreen} '
+              'constraints=${width.toStringAsFixed(1)}x${height.toStringAsFixed(1)} '
+              'video=${videoSize?.width}x${videoSize?.height}';
+          if (kDebugMode && layoutSignature != _lastLoggedLayout) {
+            _lastLoggedLayout = layoutSignature;
+            debugPrint('[HuTube player] $layoutSignature');
+          }
+
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onScaleStart: (details) {
+              if (details.pointerCount >= 2) {
+                _isPinching = true;
+                _pinchScaleDelta = 1.0;
+              }
+            },
+            onScaleUpdate: (details) {
+              if (details.pointerCount >= 2) {
+                _isPinching = true;
+                _pinchScaleDelta = details.scale;
+              }
+            },
+            onScaleEnd: (details) {
+              if (_isPinching) {
+                _isPinching = false;
+                if (widget.isFullScreen) {
+                  if (_pinchScaleDelta > 1.06) {
+                    if (!widget.zoomToFill) {
+                      _triggerZoomFeedback(true);
+                      widget.onToggleZoom?.call(true);
+                    } else {
+                      _triggerZoomFeedback(true);
+                    }
+                  } else if (_pinchScaleDelta < 0.94) {
+                    if (widget.zoomToFill) {
+                      _triggerZoomFeedback(false);
+                      widget.onToggleZoom?.call(false);
+                    } else if (_pinchScaleDelta < 0.80) {
+                      widget.onMinimize();
+                    } else {
+                      _triggerZoomFeedback(false);
+                    }
+                  }
+                } else {
+                  if (_pinchScaleDelta > 1.15) {
+                    widget.onToggleFullScreen?.call();
+                  }
+                }
+              }
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRect(
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: scale,
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      child: AspectRatio(
+                        aspectRatio: videoAspect,
+                        child: RepaintBoundary(
+                          child: NativeVideoPlayer(controller: player),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
               Positioned.fill(
                 child: Row(
                   children: [
@@ -1869,6 +2115,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _handleSideTap(false),
                         onVerticalDragEnd: (details) {
+                          if (_isPinching) return;
                           if ((details.primaryVelocity ?? 0) > 240) {
                             widget.onMinimize();
                           }
@@ -1881,6 +2128,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _handleSideTap(true),
                         onVerticalDragEnd: (details) {
+                          if (_isPinching) return;
                           if ((details.primaryVelocity ?? 0) > 240) {
                             widget.onMinimize();
                           }
@@ -1979,46 +2227,40 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                   ),
                 ),
               if (_zoomFeedbackText != null)
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          widget.zoomToFill
-                              ? Icons.fit_screen_rounded
-                              : Icons.crop_free_rounded,
-                          color: AppColors.primaryPink,
-                          size: 18,
+                Positioned(
+                  top: widget.isFullScreen ? 28 : 16,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
                           _zoomFeedbackText!,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               Positioned.fill(
-                child: IgnorePointer(
-                  ignoring: !_controlsVisible || widget.controlsLocked,
-                  child: AnimatedOpacity(
-                    opacity: _controlsVisible ? 1 : 0,
-                    duration: const Duration(milliseconds: 180),
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  child: IgnorePointer(
+                    ignoring: !_controlsVisible || widget.controlsLocked,
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
@@ -2067,36 +2309,17 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: AppStrings.t(
-                                    'watch.qualityAndSpeed',
-                                  ),
-                                  onPressed: widget.onSettings,
+                                  tooltip: AppStrings.t('watch.qualityAndSpeed'),
+                                  onPressed: () {
+                                    _controlsTimer?.cancel();
+                                    widget.onSettings();
+                                  },
                                   color: Colors.white,
                                   icon: const Icon(
                                     Icons.settings_rounded,
                                     size: 20,
                                   ),
                                 ),
-                                if (widget.isFullScreen &&
-                                    widget.onToggleZoom != null)
-                                  IconButton(
-                                    tooltip: widget.zoomToFill
-                                        ? 'Thu nhỏ vừa màn hình'
-                                        : 'Thu phóng vừa màn hình',
-                                    onPressed: () {
-                                      _triggerZoomFeedback(!widget.zoomToFill);
-                                      widget.onToggleZoom!();
-                                    },
-                                    color: widget.zoomToFill
-                                        ? AppColors.primaryPink
-                                        : Colors.white,
-                                    icon: Icon(
-                                      widget.zoomToFill
-                                          ? Icons.fit_screen_rounded
-                                          : Icons.crop_free_rounded,
-                                      size: 20,
-                                    ),
-                                  ),
                                 if (widget.showPictureInPicture)
                                   IconButton(
                                     tooltip: AppStrings.t(
@@ -2119,6 +2342,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                       behavior: HitTestBehavior.opaque,
                                       onTap: () => _handleSideTap(false),
                                       onVerticalDragEnd: (details) {
+                                        if (_isPinching) return;
                                         if ((details.primaryVelocity ?? 0) >
                                             240) {
                                           widget.onMinimize();
@@ -2137,8 +2361,9 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                         _scheduleHide();
                                       },
                                       style: IconButton.styleFrom(
-                                        backgroundColor: Colors.black
-                                            .withValues(alpha: .58),
+                                        backgroundColor: Colors.black.withValues(
+                                          alpha: .58,
+                                        ),
                                         foregroundColor: Colors.white,
                                         minimumSize: const Size(58, 58),
                                       ),
@@ -2150,12 +2375,16 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                   else
                                     IconButton.filled(
                                       tooltip: AppStrings.t('watch.pauseVideo'),
-                                      onPressed: () => unawaited(
-                                        widget.session.togglePlayback(),
-                                      ),
+                                      onPressed: () {
+                                        unawaited(
+                                          widget.session.togglePlayback(),
+                                        );
+                                        _scheduleHide();
+                                      },
                                       style: IconButton.styleFrom(
-                                        backgroundColor: Colors.black
-                                            .withValues(alpha: .58),
+                                        backgroundColor: Colors.black.withValues(
+                                          alpha: .58,
+                                        ),
                                         foregroundColor: Colors.white,
                                         minimumSize: const Size(52, 52),
                                       ),
@@ -2169,6 +2398,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                       behavior: HitTestBehavior.opaque,
                                       onTap: () => _handleSideTap(true),
                                       onVerticalDragEnd: (details) {
+                                        if (_isPinching) return;
                                         if ((details.primaryVelocity ?? 0) >
                                             240) {
                                           widget.onMinimize();
@@ -2288,8 +2518,9 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                   ),
                 ),
             ],
-          );
-        },
+          ),
+        );
+      },
       );
     },
   );
