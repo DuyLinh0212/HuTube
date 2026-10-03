@@ -1,0 +1,3611 @@
+{
+  "source": "Real local /openapi/v1.json",
+  "operations": [
+    {
+      "method": "POST",
+      "path": "/api/v1/account/avatar",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/account/change-password",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/account/notifications",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/account/notifications",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/account/profile",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/account/profile",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/account/settings",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/account/settings",
+      "tags": [
+        "Account"
+      ],
+      "scenario": "B-ACCOUNT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/appeals",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/appeals/{appealId}/claim",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/appeals/{appealId}/evidence",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/appeals/{appealId}/release",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/appeals/{appealId}/resolve",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/cf-seeder/accounts",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/cf-seeder/upload-sessions",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/cf-seeder/upload-sessions/{uploadId}/chunks/{chunkIndex}",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/cf-seeder/upload-sessions/{uploadId}/complete",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/cf-seeder/upload-sessions/{uploadId}/complete-rendition",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/cf-seeder/users",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/cf-seeder/videos",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/cf-seeder/videos/{videoId}/processing",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/cf-seeder/videos/{videoId}/renditions",
+      "tags": [
+        "CfSeeder"
+      ],
+      "scenario": "B-CF",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/channels",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/channels/{channelId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/channels/{channelId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/channels/{channelId}/ban",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/channels/{channelId}/lock",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/channels/{channelId}/restore",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/channels/{channelId}/suspend",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/channels/{channelId}/unban",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/channels/{channelId}/unlock",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/me",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/approve",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/moderation/queue",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/{caseId}/claim",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/{caseId}/release",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/{caseId}/resolve",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/permissions",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/plans",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/plans",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/plans/subscriptions/{userId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/plans/{planId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/plans/{planId}/archive",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/policies",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/policies",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/policies/{policyId}/publish",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/recommendations/bots",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/recommendations/categories",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/recommendations/jobs/{jobId}",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/recommendations/jobs/{jobId}/stop",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/recommendations/matrix-preview",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/recommendations/matrix.csv",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/recommendations/model-jobs",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/recommendations/simulation-jobs",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/recommendations/status",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/recommendations/users",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/recommendations/videos",
+      "tags": [
+        "RecommendationAdmin"
+      ],
+      "scenario": "B-RECOMMENDATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/reports",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/reports/cases",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/reports/cases/{caseId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/cases/{caseId}/claim",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/cases/{caseId}/dispositions",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/cases/{caseId}/release",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/cases/{caseId}/resolve",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/{reportId}/claim",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/{reportId}/release",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/reports/{reportId}/resolve",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/roles",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/roles",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/roles/{roleId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/roles/{roleId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/strikes",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/strikes",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/strikes/{strikeId}/revoke",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/tags",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/tags",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/tags/{tagId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/tags/{tagId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/topics",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/topics",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/topics/{categoryId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/topics/{categoryId}/archive",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/{userId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{userId}/lock",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/users/{userId}/role",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/{userId}/statistics",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{userId}/unlock",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/videos",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/videos/statistics",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/videos/{videoId}",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/videos/{videoId}/hide",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/videos/{videoId}/metadata",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/videos/{videoId}/remove",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/videos/{videoId}/restore",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/videos/{videoId}/unhide",
+      "tags": [
+        "Admin"
+      ],
+      "scenario": "B-ADMIN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appeals",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appeals/my",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appeals/{appealId}/evidence",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appeals/{appealId}/evidence",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/forgot-password",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/google",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout-all",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout-others",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/refresh",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/resend-verification",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/reset-password",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/sessions",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/auth/sessions/{sessionId}",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/verify-email",
+      "tags": [
+        "Auth"
+      ],
+      "scenario": "B-AUTH",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/categories",
+      "tags": [
+        "Categories"
+      ],
+      "scenario": "B-TAXONOMY",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/accessible",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/check-handle",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/handle/{handle}",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/invitations/me",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/invitations/{invitationId}/accept",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/invitations/{invitationId}/decline",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/me",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/roles",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/{channelId}/comments/manage",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/{channelId}/strikes",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/channels/{id}",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/{id}",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/channels/{id}",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/avatar",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/banner",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/invitations",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/channels/{id}/invitations/{invitationId}",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/members",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/members/invite",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/channels/{id}/members/{targetUserId}",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/channels/{id}/members/{targetUserId}/role",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/report",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/channels/{id}/subscribe",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/subscribe",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/channels/{id}/subscribe-notifications",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/subscribe-status",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/watermark",
+      "tags": [
+        "Channel"
+      ],
+      "scenario": "B-CHANNEL",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/comments/{id}",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/comments/{id}",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/comments/{id}/reaction",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/comments/{id}/reaction",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/comments/{id}/replies",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/comments/{id}/report",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/comments/{id}/visibility",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/downloads",
+      "tags": [
+        "Downloads"
+      ],
+      "scenario": "B-DOWNLOAD",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/downloads",
+      "tags": [
+        "Downloads"
+      ],
+      "scenario": "B-DOWNLOAD",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/downloads/{id}",
+      "tags": [
+        "Downloads"
+      ],
+      "scenario": "B-DOWNLOAD",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/downloads/{id}/{operation}",
+      "tags": [
+        "Downloads"
+      ],
+      "scenario": "B-DOWNLOAD",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/feed/explore",
+      "tags": [
+        "Feed"
+      ],
+      "scenario": "B-FEED",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/feed/explore-hub",
+      "tags": [
+        "Feed"
+      ],
+      "scenario": "B-FEED",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/feed/home",
+      "tags": [
+        "Feed"
+      ],
+      "scenario": "B-FEED",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/feed/recommended",
+      "tags": [
+        "Feed"
+      ],
+      "scenario": "B-FEED",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/feed/subscriptions",
+      "tags": [
+        "Feed"
+      ],
+      "scenario": "B-FEED",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/library/history",
+      "tags": [
+        "Library"
+      ],
+      "scenario": "B-LIBRARY",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/library/liked",
+      "tags": [
+        "Library"
+      ],
+      "scenario": "B-LIBRARY",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "tags": [
+        "Notifications"
+      ],
+      "scenario": "B-NOTIFICATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "tags": [
+        "Notifications"
+      ],
+      "scenario": "B-NOTIFICATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/notifications/{id}/read",
+      "tags": [
+        "Notifications"
+      ],
+      "scenario": "B-NOTIFICATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/payments",
+      "tags": [
+        "Payments"
+      ],
+      "scenario": "B-PAYMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments",
+      "tags": [
+        "Payments"
+      ],
+      "scenario": "B-PAYMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments/webhook/sepay",
+      "tags": [
+        "Payments"
+      ],
+      "scenario": "B-PAYMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/payments/{paymentId}",
+      "tags": [
+        "Payments"
+      ],
+      "scenario": "B-PAYMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/invitations/{memberId}/accept",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/members/invite",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/plans/members/{memberId}",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/members/{memberId}/accept",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/plans/members/{memberId}/storage",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/my-plan",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/my-subscription/members",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/plans/my-subscription/members/{memberId}",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/plans/my-subscription/members/{memberId}/storage",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/plans/my-subscription/owner-storage",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}/share",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/{planId}/subscribe",
+      "tags": [
+        "Plans"
+      ],
+      "scenario": "B-PLAN",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/playlists",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/playlists",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/playlists/channel/{channelId}",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/playlists/channel/{channelId}/mine",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/playlists/save",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/playlists/{id}",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/playlists/{id}",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/playlists/{id}",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/playlists/{id}/order",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/playlists/{id}/videos",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/playlists/{id}/videos/{videoId}",
+      "tags": [
+        "Playlist"
+      ],
+      "scenario": "B-PLAYLIST",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/policies",
+      "tags": [
+        "Policy"
+      ],
+      "scenario": "B-TAXONOMY",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/reports",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/subscriptions",
+      "tags": [
+        "Subscriptions"
+      ],
+      "scenario": "B-SUBSCRIPTION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/system/config",
+      "tags": [
+        "HuTube.Api"
+      ],
+      "scenario": "B-SYSTEM",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/system/info",
+      "tags": [
+        "HuTube.Api"
+      ],
+      "scenario": "B-SYSTEM",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/videos/manage",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/videos/search",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/upload-preflight",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/videos/{id}",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/videos/{id}",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/videos/{id}",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/cancel-upload",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/videos/{id}/download-options",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/downloads",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/videos/{id}/playback",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/publish",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/videos/{id}/rating",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/videos/{id}/rating",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/videos/{id}/reaction",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/videos/{id}/reaction",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/report",
+      "tags": [
+        "UserModeration"
+      ],
+      "scenario": "B-MODERATION",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/retry-processing",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/share",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/submit-moderation",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{id}/thumbnail",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/videos/{id}/watch-progress",
+      "tags": [
+        "Videos"
+      ],
+      "scenario": "B-VIDEO",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/videos/{videoId}/comments",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/videos/{videoId}/comments",
+      "tags": [
+        "Comments"
+      ],
+      "scenario": "B-COMMENT",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/violation-types",
+      "tags": [
+        "ViolationTypes"
+      ],
+      "scenario": "B-TAXONOMY",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "tags": [
+        "HuTube.Api"
+      ],
+      "scenario": "B-SYSTEM",
+      "status": "PLANNED",
+      "required_variants": [
+        "success",
+        "input-boundaries",
+        "authorization-as-applicable",
+        "not-found-as-applicable",
+        "repeat-or-concurrency-as-applicable"
+      ]
+    }
+  ],
+  "outside_openapi": [
+    "/hubs/notifications (negotiate/connect/events)",
+    "/openapi/v1.json",
+    "Development Swagger UI",
+    "background workers"
+  ]
+}
