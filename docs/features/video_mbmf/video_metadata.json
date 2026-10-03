@@ -1,0 +1,56 @@
+{
+  "title": "Multi-Behavior Matrix Factorization",
+  "total_duration": 228.410677,
+  "scenes": [
+    {
+      "scene": 1,
+      "title": "Một người dùng, nhiều dấu vết",
+      "duration": 21.916
+    },
+    {
+      "scene": 2,
+      "title": "Vì sao một ma trận là chưa đủ?",
+      "duration": 23.572
+    },
+    {
+      "scene": 3,
+      "title": "Kiến trúc GSMF",
+      "duration": 21.364
+    },
+    {
+      "scene": 4,
+      "title": "Chỉ học từ điều đã quan sát",
+      "duration": 21.46
+    },
+    {
+      "scene": 5,
+      "title": "Group sparsity: chia sẻ có chọn lọc",
+      "duration": 27.316
+    },
+    {
+      "scene": 6,
+      "title": "Hàm mục tiêu gồm ba lực",
+      "duration": 26.764
+    },
+    {
+      "scene": 7,
+      "title": "Huấn luyện luân phiên",
+      "duration": 21.172
+    },
+    {
+      "scene": 8,
+      "title": "Ví dụ ba latent factor",
+      "duration": 25.756
+    },
+    {
+      "scene": 9,
+      "title": "Khi nào MBMF phát huy hiệu quả?",
+      "duration": 25.323999999999998
+    },
+    {
+      "scene": 10,
+      "title": "MBMF trong một câu",
+      "duration": 20.284
+    }
+  ]
+}
