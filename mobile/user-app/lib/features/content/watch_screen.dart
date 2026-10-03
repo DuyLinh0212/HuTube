@@ -1025,7 +1025,6 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         top: true,
         bottom: false,
         child: ListView(
-          cacheExtent: 500,
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
           children: [
             AspectRatio(

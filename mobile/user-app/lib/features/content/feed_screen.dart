@@ -146,7 +146,6 @@ class _FeedScreenState extends State<FeedScreen> {
       onRefresh: () => _load(refresh: true),
       child: ListView(
         controller: _scroll,
-        cacheExtent: 600,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           Text(
