@@ -1,0 +1,8 @@
+.venv/
+.state/
+artifacts/runs/
+artifacts/latest.json
+screenshots/20*/
+config.local.json
+__pycache__/
+**/__pycache__/

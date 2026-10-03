@@ -1,0 +1,17 @@
+{
+  "user_url": "http://127.0.0.1:53400",
+  "admin_url": "http://127.0.0.1:53401",
+  "api_url": "http://127.0.0.1:53480/api/v1",
+  "pg_port": 55439,
+  "postgres_bin": "D:/PostgreSQL/18/bin",
+  "account": {
+    "email": "hutube.e2e.owner@example.test",
+    "username": "hutube_e2e_owner",
+    "display_name": "HuTube — Người sáng tạo nội dung kiểm thử",
+    "password": "HuTubeE2e2026!"
+  },
+  "video_path": "F:/NgDuyLinh/Khoa_Luan_Tot_Nghiep/Em Làm Thì Em Mới Có Ăn_ Không Làm Mà Đòi Có Ăn Thì…_720p.mp4",
+  "timeouts_ms": {"action": 15000, "navigation": 45000, "api": 30000, "email": 30000},
+  "startup_seconds": 120,
+  "suite_seconds": 300
+}
