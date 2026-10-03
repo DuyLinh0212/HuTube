@@ -113,11 +113,44 @@
 .is-collapsed .nav-group { padding-inline: 0; }
 .is-collapsed .nav-item { justify-content: center; padding-inline: 0; }
 
+.channel-avatar {
+  display: block;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.channel-avatar--fallback {
+  display: grid;
+  place-items: center;
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.channel-name {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 961px) {
+  .side-nav.is-collapsed .nav-group--subscriptions {
+    display: none;
+  }
+}
+
 @media (max-width: 960px) {
   :host {
     position: fixed;
     inset: 0 auto 0 0;
-    z-index: 100;
+    z-index: 150;
     width: min(304px, 88vw);
     height: 100dvh;
     top: 0;
@@ -166,6 +199,20 @@
   .is-collapsed .nav-item {
     justify-content: flex-start;
     padding-inline: 12px;
+  }
+
+  .side-nav.is-collapsed .nav-item--subscription {
+    min-height: 42px;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.82rem;
+  }
+
+  .side-nav.is-collapsed .nav-item--subscription > .channel-name {
+    flex: 1;
+    text-align: left;
   }
 }
 

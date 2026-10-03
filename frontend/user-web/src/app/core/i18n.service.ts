@@ -35,6 +35,11 @@ function interpolate(message: string, params?: TranslationParams): string {
 export const DICTIONARY: Record<AppLang, Record<string, string>> = {
   vi: {
     ...USER_UI_TRANSLATIONS.vi,
+    'common.notSupported': 'Chưa hỗ trợ',
+    'upload.draftSaved': 'Đã lưu nháp metadata. Khi quay lại, hãy chọn lại file video.',
+    'upload.draftRestored': 'Đã khôi phục bản nháp. Hãy chọn lại file video và thumbnail.',
+    'upload.draftFailed': 'Không thể lưu hoặc đọc bản nháp trên thiết bị này.',
+    'studioEdit.partialSave': 'Metadata đã lưu. Không thể thêm vào playlist; hãy kiểm tra quyền và thử lại.',
     // Common
     'common.save': 'Lưu thay đổi',
     'common.saving': 'Đang lưu...',
@@ -53,6 +58,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.copy': 'Sao chép',
     'common.copied': 'Đã sao chép vào clipboard',
     'common.retry': 'Thử lại',
+    'network.title': 'Kết nối mạng không ổn định',
+    'network.description': 'Có vẻ mạng đang yếu hoặc bị gián đoạn. Kiểm tra Wi-Fi hoặc dữ liệu di động rồi thử lại.',
+    'network.checking': 'Đang kiểm tra kết nối…',
     'common.confirm': 'Xác nhận',
     'common.all': 'Tất cả',
     'common.open': 'Mở liên kết',
@@ -484,6 +492,37 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.membershipsHeading': 'Giao dịch mua và gói thành viên',
     'account.membershipsDesc': 'Tận hưởng trải nghiệm HuTube không quảng cáo, tải video ngoại tuyến và xem phát trong nền với HuTube Premium',
     'account.learnMorePremium': 'Tìm hiểu về HuTube Premium',
+    'account.currentPlanTitle': 'Gói hiện tại',
+    'account.currentPlanDesc': 'Thông tin gói và thời hạn đang áp dụng cho tài khoản này.',
+    'account.currentPlanLoading': 'Đang tải thông tin gói...',
+    'account.noCurrentPlan': 'Bạn chưa có gói đang hoạt động',
+    'account.noCurrentPlanDesc': 'Chọn một gói phù hợp để sử dụng thêm các tính năng của HuTube.',
+    'account.viewPlans': 'Xem các gói',
+    'account.planActive': 'Đang hoạt động',
+    'account.planExpired': 'Đã hết hạn',
+    'account.sharedPlan': 'Gói được chia sẻ',
+    'account.planPrice': 'Giá gói',
+    'account.planStartedAt': 'Ngày bắt đầu',
+    'account.planEndsAt': 'Ngày hết hạn',
+    'account.planRenewal': 'Gia hạn',
+    'account.planAutoRenew': 'Tự động gia hạn',
+    'account.planNoAutoRenew': 'Không tự động gia hạn',
+    'account.purchaseHistoryTitle': 'Lịch sử mua gói',
+    'account.purchaseHistoryDesc': 'Các gói đã thanh toán thành công.',
+    'account.viewPurchaseHistory': 'Xem lịch sử mua',
+    'account.paymentHistoryTitle': 'Lịch sử thanh toán',
+    'account.paymentHistoryDesc': 'Toàn bộ giao dịch, bao gồm cả giao dịch đang chờ hoặc không thành công.',
+    'account.viewPaymentHistory': 'Xem lịch sử thanh toán',
+    'account.hideHistory': 'Ẩn lịch sử',
+    'account.purchaseHistoryEmpty': 'Chưa có gói nào được thanh toán thành công.',
+    'account.paymentHistoryEmpty': 'Chưa có giao dịch thanh toán nào.',
+    'account.billingLoading': 'Đang tải dữ liệu...',
+    'account.billingRetry': 'Thử lại',
+    'account.paymentStatus.paid': 'Đã thanh toán',
+    'account.paymentStatus.pending': 'Đang chờ thanh toán',
+    'account.paymentStatus.failed': 'Thất bại',
+    'account.paymentStatus.cancelled': 'Đã hủy',
+    'account.paymentStatus.unknown': 'Không xác định',
 
     'account.tabProfile': 'Hồ sơ',
     'account.tabPassword': 'Mật khẩu',
@@ -564,6 +603,15 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.signedInAt': 'Đăng nhập:',
     'account.lastActiveAt': 'Hoạt động:',
     'account.ipAddress': 'Địa chỉ IP:',
+    'account.localIpAddress': 'Máy này (localhost)',
+    'account.deviceInfoNote': 'Địa chỉ IP cho biết mạng đang dùng, không xác định hãng máy. Trình duyệt chỉ cung cấp trình duyệt, hệ điều hành và loại thiết bị.',
+    'account.sessionsOnDevice': 'phiên trên thiết bị này',
+    'account.loginHistoryButton': 'Lịch sử đăng nhập',
+    'account.hideLoginHistory': 'Ẩn lịch sử đăng nhập',
+    'account.loginHistoryHeading': 'Lịch sử đăng nhập thành công',
+    'account.loginHistoryDesc': 'Các lần đăng nhập gần đây nhất, mới nhất hiển thị trước.',
+    'account.loginHistoryLoading': 'Đang tải lịch sử đăng nhập…',
+    'account.loginHistoryEmpty': 'Chưa có dữ liệu lịch sử đăng nhập.',
     'account.revoke': 'Thu hồi',
     'account.confirmRevokeText': 'Bạn có chắc chắn muốn đăng xuất phiên trên thiết bị',
     'account.noSessions': 'Không có phiên đăng nhập nào.',
@@ -603,6 +651,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio
     'studio.title': 'HuTube Creator Studio',
+    'studio.navGroupManage': 'QUẢN LÝ KÊNH',
+    'studio.navGroupCommunity': 'CỘNG ĐỒNG',
+    'studio.navGroupTools': 'CÔNG CỤ',
+    'studio.navGroupSettings': 'CÀI ĐẶT',
     'studio.appealSubmitted': 'Đơn khiếu nại đã được gửi thành công! Quản trị viên sẽ xem xét đơn của bạn.',
     'studio.overview': 'Tổng quan',
     'studio.content': 'Nội dung',
@@ -717,6 +769,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step2.tags': 'Thẻ (Tags)',
     'upload.step2.tagsPlaceholder': 'Thêm tag (nhấn Enter)',
     'upload.step2.tagsHint': 'Thêm từ khóa để giúp video dễ dàng được tìm thấy.',
+    'upload.step2.addTag': 'Thêm tag',
+    'upload.step2.removeTag': 'Xóa tag {tag}',
     'upload.step2.language': 'Ngôn ngữ',
     'upload.step2.langHint': 'Chọn ngôn ngữ chính trong video của bạn.',
     'upload.step2.saveDraft': 'Lưu bản nháp',
@@ -731,6 +785,16 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step3.timePlaceholder': 'mm:ss (vd: 14:00)',
     'upload.step3.addBtn': 'Thêm chương',
     'upload.step3.chapterTip': 'Mẹo: Kéo thanh thời gian hoặc nhấn vào video ở thời điểm muốn đặt chương, sau đó nhập tên và thêm chương.',
+    'upload.step3.videoCards': 'Video liên quan trong kênh',
+    'upload.step3.videoCardsHint': 'Gắn tối đa 5 video đã xuất bản. Băng-rôn sẽ xuất hiện tại mốc bạn chọn khi người xem đang xem video này.',
+    'upload.step3.chooseVideo': 'Chọn video đã đăng',
+    'upload.step3.chooseVideoPlaceholder': 'Chọn video trong kênh…',
+    'upload.step3.bannerTime': 'Thời điểm hiện băng-rôn',
+    'upload.step3.useCurrentTime': 'Dùng mốc hiện tại',
+    'upload.step3.addVideoCard': 'Gắn video',
+    'upload.step3.noPublishedVideos': 'Kênh chưa có video công khai đã xuất bản để gắn.',
+    'upload.videoCardsInvalid': 'Video liên quan hoặc mốc thời gian không hợp lệ. Hãy kiểm tra video đã xuất bản và thời lượng.',
+    'upload.videoCardFieldsInvalid': 'Chọn video và mốc thời gian hợp lệ, không trùng video hoặc mốc khác.',
     'upload.step3.aiSubTitle': 'Phụ đề thông minh HuTube AI',
     'upload.step3.aiSubDesc': 'Tự động nhận diện giọng nói và tạo phụ đề có dấu chính xác 98%.',
     'upload.step5.schedDate': 'Ngày công chiếu',
@@ -1040,6 +1104,26 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noPendingDesc': 'Lời mời mới gửi tới email tài khoản sẽ xuất hiện tại đây.',
     'channel.collaborating': 'Kênh đang cộng tác',
     'channel.collaboratingDesc': 'Mở Studio trên từng kênh theo đúng vai trò và quyền được cấp.',
+    'channel.workspaceSubtitle': 'Theo dõi lời mời, vai trò và các kênh bạn quản lý hoặc cộng tác.',
+    'channel.workspaceSummary': 'Tóm tắt không gian cộng tác',
+    'channel.pendingCountLabel': 'Lời mời chờ',
+    'channel.accessibleCountLabel': 'Kênh có quyền truy cập',
+    'channel.collaboratorCountLabel': 'Kênh cộng tác',
+    'channel.accessibleChannelsTitle': 'Kênh bạn quản lý và cộng tác',
+    'channel.accessibleChannelsDesc': 'Mở Studio trên kênh và làm việc theo vai trò cùng quyền được cấp.',
+    'channel.noAccessibleDesc': 'Kênh bạn sở hữu hoặc được mời cộng tác sẽ xuất hiện tại đây.',
+    'channel.retryLoad': 'Thử tải lại',
+    'channel.permissionGroups': 'Nhóm quyền được cấp',
+    'channel.morePermissionGroups': '+{count} nhóm quyền',
+    'channel.permissionVideos': 'Quản lý video',
+    'channel.permissionPlaylists': 'Danh sách phát',
+    'channel.permissionComments': 'Kiểm duyệt bình luận',
+    'channel.permissionAnalytics': 'Số liệu phân tích',
+    'channel.permissionCopyright': 'Bản quyền',
+    'channel.permissionMembers': 'Thành viên',
+    'channel.permissionSettings': 'Cài đặt kênh',
+    'channel.permissionChannelInfo': 'Thông tin kênh',
+    'channel.permissionDashboard': 'Tổng quan kênh',
     'channel.noAccessible': 'Bạn chưa có kênh nào được cấp quyền.',
     'channel.openStudio': 'Mở Studio',
     'channel.basic': 'Thông tin cơ bản',
@@ -1112,7 +1196,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.changeBanner': 'Thay đổi biểu ngữ',
     'channel.noBanner': 'Chưa có banner',
     'channel.watermarkTitle': 'Hình mờ video (Watermark)',
-    'channel.watermarkDesc': 'Hình mờ sẽ xuất hiện ở góc dưới bên phải trình phát video của bạn.',
+    'channel.watermarkDesc': 'Watermark được lưu ngay khi tải lên và hiển thị ở góc dưới bên phải trên trình phát video.',
     'channel.watermarkSaved': 'Đã tải watermark lên thành công.',
     'channel.submitAppeal': 'Gửi đơn khiếu nại',
     'channel.uploadWatermark': 'Tải watermark lên',
@@ -1125,7 +1209,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.reportChannelImage': 'Báo cáo hình ảnh kênh',
     'channel.reportProfileImage': 'Báo cáo ảnh hồ sơ',
     'channel.userHiddenFromChannel': 'Đã ẩn người dùng khỏi kênh của bạn.',
-    'channel.saveWatermark': 'Lưu watermark',
     'channel.rolesDesc': 'Mỗi vai trò có một tập quyền cố định và luôn được kiểm tra lại tại API.',
     'channel.memberEmailPlaceholder': 'member@example.com',
     'channel.roleDescription': 'Mô tả vai trò đã chọn',
@@ -1274,6 +1357,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.home': 'Về trang chủ',
     'watch.notReady': 'Video chưa sẵn sàng để phát.',
     'watch.videoInfo': 'Thông tin video',
+    'watch.relatedVideo': 'Video liên quan trong kênh',
+    'watch.openRelatedVideo': 'Mở video liên quan: {title}',
+    'watch.closeRelatedVideo': 'Đóng video liên quan',
+    'watch.openVideo': 'Xem video này',
     'watch.play': 'Phát video',
     'watch.pause': 'Tạm dừng',
     'watch.back10': 'Lùi 10 giây',
@@ -1332,8 +1419,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio pages
     'studio.loading': 'Đang tải…',
-    'studioEdit.eyebrow': 'HUTUBE STUDIO / CHỈNH SỬA VIDEO',
-    'studioEdit.subtitle': 'Chỉnh sửa thông tin, hình thu nhỏ và vị trí hiển thị của video.',
+    'studioEdit.promoteVideo': 'Quảng bá video',
+    'studioEdit.promoteVideoHint': 'Ưu tiên giới thiệu video khi gói của bạn hỗ trợ quyền lợi này.',
     'studioEdit.loadingVideo': 'Đang tải chi tiết video…',
     'studioEdit.basicInfo': 'Thông tin chính',
     'studioEdit.required': '* Bắt buộc',
@@ -1457,6 +1544,26 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.emptyVideo': 'Chưa có video. Hãy tải video đầu tiên của bạn.',
     'studio.searchVideo': 'Tìm kiếm theo tiêu đề video...',
     'studio.colModeration': 'Trạng thái kiểm duyệt',
+    'studio.videoListDescription': 'Xem trước nội dung, cập nhật chế độ hiển thị và quản lý video trên kênh của bạn.',
+    'studio.videoFilters': 'Bộ lọc danh sách video',
+    'studio.filterVisibility': 'Hiển thị',
+    'studio.filterAllVisibility': 'Mọi chế độ',
+    'studio.filterStatus': 'Trạng thái',
+    'studio.filterAllStatus': 'Mọi trạng thái',
+    'studio.statusBlocked': 'Bị chặn',
+    'studio.videoTotalUnit': 'video',
+    'studio.videoTotalUnitSingular': 'video',
+    'studio.clearVideoFilters': 'Xóa bộ lọc',
+    'studio.loadVideosError': 'Không thể tải danh sách video. Vui lòng thử lại.',
+    'studio.retryVideoList': 'Tải lại',
+    'studio.noVideosMatch': 'Không tìm thấy video phù hợp với bộ lọc.',
+    'studio.loadingMoreVideos': 'Đang tải thêm video…',
+    'studio.allVideosLoaded': 'Bạn đã xem hết danh sách video.',
+    'studio.confirmDeleteVideo': 'Xóa video này?',
+    'studio.confirmDeleteVideoDescription': '“{title}” sẽ bị gỡ khỏi kênh và không còn hiển thị với người xem.',
+    'studio.deleteVideo': 'Xóa video',
+    'studio.videoDeleted': 'Đã xóa video khỏi kênh.',
+    'studio.deleteVideoError': 'Không thể xóa video. Vui lòng thử lại.',
     'studio.interaction': 'Tương tác',
     'studio.noVideosList': 'Chưa có video nào trong danh sách.',
     'studio.visible': 'Đang hiển thị',
@@ -1466,6 +1573,23 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.send': 'Gửi',
     'studio.replyPlaceholder': 'Nhập câu trả lời',
     'studio.noComments': 'Không có bình luận ở trạng thái này.',
+    'studio.commentCountLabel': 'bình luận',
+    'studio.commentControls': 'Điều khiển bình luận',
+    'studio.commentStatusFilter': 'Lọc trạng thái bình luận',
+    'studio.commentSortLabel': 'Sắp xếp bình luận',
+    'studio.commentSortNewest': 'Mới nhất',
+    'studio.commentSortOldest': 'Cũ nhất',
+    'studio.commentSortMostLiked': 'Nhiều lượt thích',
+    'studio.loadingComments': 'Đang tải bình luận…',
+    'studio.retryComments': 'Thử tải lại',
+    'studio.noCommentsTitle': 'Chưa có bình luận',
+    'studio.commentedOn': 'đã bình luận về',
+    'studio.commentLikeCount': '{count} lượt thích',
+    'studio.commentReplies': 'trả lời',
+    'studio.loadingMoreComments': 'Đang tải thêm bình luận…',
+    'studio.loadMoreComments': 'Tải thêm bình luận',
+    'studio.allCommentsLoaded': 'Đã tải hết bình luận.',
+    'studio.commentActionError': 'Không thể cập nhật bình luận. Vui lòng thử lại.',
     'studio.noSubtitles': 'Chưa có phụ đề',
     'studio.noVideo': 'Chưa có video.',
     'studio.notSet': 'Chưa đặt',
@@ -1483,6 +1607,44 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.saveError': 'Không thể lưu cài đặt kênh.'
     ,'studio.performanceByVideo': 'Hiệu suất theo video'
     ,'studio.channelMetrics': 'Số liệu kênh'
+    ,'studio.analyticsPageDescription': 'Chọn một video để xem thống kê riêng, hoặc xem trung bình hiệu suất của toàn kênh.'
+    ,'studio.analyticsVideoFilter': 'Video cần phân tích'
+    ,'studio.analyticsAllVideos': 'Toàn bộ video'
+    ,'studio.analyticsAllAverageNote': 'Số liệu là trung bình trên toàn bộ {count} video trong kênh.'
+    ,'studio.analyticsSelectedNote': 'Các chỉ số và biểu đồ đang phản ánh video được chọn.'
+    ,'studio.averageViews': 'Lượt xem trung bình/video'
+    ,'studio.averageLikes': 'Lượt thích trung bình/video'
+    ,'studio.averageComments': 'Bình luận trung bình/video'
+    ,'studio.averageViewDuration': 'Thời lượng xem trung bình'
+    ,'studio.averageRating': 'Điểm đánh giá trung bình'
+    ,'studio.analyticsWatchDurationHint': 'Tổng thời gian xem chia tổng lượt xem'
+    ,'studio.analyticsRatingHint': 'Thang điểm 5 · có trọng số theo lượt đánh giá'
+    ,'studio.analyticsPerVideoHint': 'Tính trung bình trên toàn bộ video'
+    ,'studio.analyticsRadarTitle': 'Chân dung hiệu suất'
+    ,'studio.analyticsRadarDescription': 'So sánh 5 chỉ số đã chuẩn hóa theo quy mô.'
+    ,'studio.analyticsChannelAverage': 'Trung bình toàn kênh'
+    ,'studio.analyticsSelectedVideo': 'Video đã chọn'
+    ,'studio.analyticsRadarAccessible': 'Biểu đồ radar gồm thời lượng xem trung bình, lượt xem, bình luận, lượt thích và điểm đánh giá.'
+    ,'studio.analyticsAxisViews': 'Lượt xem'
+    ,'studio.analyticsAxisLikes': 'Lượt thích'
+    ,'studio.analyticsAxisComments': 'Bình luận'
+    ,'studio.analyticsAxisDuration': 'Thời lượng xem'
+    ,'studio.analyticsAxisRating': 'Đánh giá'
+    ,'studio.analyticsRadarScaleNote': 'Vòng ngoài là mức cao nhất từng chỉ số trong kênh; điểm đánh giá chuẩn hóa theo thang 5.'
+    ,'studio.analyticsTopVideos': 'Video nổi bật'
+    ,'studio.analyticsTopVideosDescription': 'Năm video có lượt xem cao nhất.'
+    ,'studio.analyticsTopFiveLimit': 'Chỉ hiển thị 5 video; chọn một video để xem thống kê riêng.'
+    ,'studio.analyticsOpenVideo': 'Xem thống kê: {title}'
+    ,'studio.analyticsVideoSummary': 'Tóm tắt video'
+    ,'studio.analyticsOneVideo': '1 video'
+    ,'studio.analyticsAverageViewDuration': 'Thời lượng xem trung bình'
+    ,'studio.analyticsBackToAll': 'Quay lại toàn kênh'
+    ,'studio.analyticsLoadError': 'Không thể tải số liệu phân tích'
+    ,'studio.loadingAnalytics': 'Đang tải số liệu kênh…'
+    ,'studio.retryAnalytics': 'Thử tải lại'
+    ,'studio.noAnalyticsVideos': 'Kênh chưa có video để phân tích'
+    ,'studio.noAnalyticsVideosDescription': 'Tải video đầu tiên lên để theo dõi lượt xem và mức độ tương tác.'
+    ,'studio.noRating': 'Chưa có'
     ,'studio.publicModerationToast': 'Đã chuyển video "{title}" sang Công khai và gửi vào Hàng đợi kiểm duyệt.'
     ,'studio.publicToast': 'Đã chuyển video "{title}" sang chế độ Công khai.'
     ,'studio.unlistedToast': 'Đã chuyển video "{title}" sang chế độ Không công khai.'
@@ -1502,6 +1664,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'ui.accountStats': 'Thống kê tài khoản'
     ,'ui.accountActions': 'Tác vụ tài khoản'
     ,'ui.shortcuts': 'Phím tắt'
+    ,'ui.shortcutsDesc': 'Xem các phím dùng khi phát video'
     ,'ui.shortcutPlayPause': 'Phát / tạm dừng'
     ,'ui.shortcutSeek': 'Tua ±10 giây'
     ,'ui.shortcutFullscreen': 'Toàn màn hình'
@@ -1921,6 +2084,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
   en: {
     ...USER_UI_TRANSLATIONS.en,
+    'common.notSupported': 'Not supported yet',
+    'upload.draftSaved': 'Metadata draft saved. Select the video file again when returning.',
+    'upload.draftRestored': 'Draft restored. Select the video and thumbnail files again.',
+    'upload.draftFailed': 'Cannot save or read drafts on this device.',
+    'studioEdit.partialSave': 'Metadata saved. Adding to playlists failed; check permissions and retry.',
     // Common
     'common.save': 'Save changes',
     'common.saving': 'Saving...',
@@ -1939,6 +2107,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.copy': 'Copy',
     'common.copied': 'Copied to clipboard',
     'common.retry': 'Retry',
+    'network.title': 'Connection is unstable',
+    'network.description': 'Your connection seems weak or interrupted. Check Wi-Fi or mobile data, then try again.',
+    'network.checking': 'Checking connection…',
     'common.confirm': 'Confirm',
     'common.all': 'All',
     'common.open': 'Open link',
@@ -2370,6 +2541,37 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.membershipsHeading': 'Purchases and memberships',
     'account.membershipsDesc': 'Enjoy ad-free HuTube, offline downloads and background play with HuTube Premium',
     'account.learnMorePremium': 'Learn about HuTube Premium',
+    'account.currentPlanTitle': 'Current plan',
+    'account.currentPlanDesc': 'Plan details and validity for this account.',
+    'account.currentPlanLoading': 'Loading plan details...',
+    'account.noCurrentPlan': 'You do not have an active plan',
+    'account.noCurrentPlanDesc': 'Choose a plan to get more HuTube features.',
+    'account.viewPlans': 'Browse plans',
+    'account.planActive': 'Active',
+    'account.planExpired': 'Expired',
+    'account.sharedPlan': 'Shared plan',
+    'account.planPrice': 'Plan price',
+    'account.planStartedAt': 'Started on',
+    'account.planEndsAt': 'Expires on',
+    'account.planRenewal': 'Renewal',
+    'account.planAutoRenew': 'Auto-renew on',
+    'account.planNoAutoRenew': 'No auto-renewal',
+    'account.purchaseHistoryTitle': 'Purchase history',
+    'account.purchaseHistoryDesc': 'Plans that were paid successfully.',
+    'account.viewPurchaseHistory': 'View purchases',
+    'account.paymentHistoryTitle': 'Payment history',
+    'account.paymentHistoryDesc': 'All transactions, including pending and unsuccessful payments.',
+    'account.viewPaymentHistory': 'View payments',
+    'account.hideHistory': 'Hide history',
+    'account.purchaseHistoryEmpty': 'No successfully paid plans yet.',
+    'account.paymentHistoryEmpty': 'No payment transactions yet.',
+    'account.billingLoading': 'Loading data...',
+    'account.billingRetry': 'Retry',
+    'account.paymentStatus.paid': 'Paid',
+    'account.paymentStatus.pending': 'Pending',
+    'account.paymentStatus.failed': 'Failed',
+    'account.paymentStatus.cancelled': 'Cancelled',
+    'account.paymentStatus.unknown': 'Unknown',
 
     'account.tabProfile': 'Profile',
     'account.tabPassword': 'Password',
@@ -2450,6 +2652,15 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.signedInAt': 'Signed in:',
     'account.lastActiveAt': 'Active:',
     'account.ipAddress': 'IP address:',
+    'account.localIpAddress': 'This device (localhost)',
+    'account.deviceInfoNote': 'An IP address identifies the network, not the computer manufacturer. Your browser only provides the browser, operating system, and device type.',
+    'account.sessionsOnDevice': 'sessions on this device',
+    'account.loginHistoryButton': 'Login history',
+    'account.hideLoginHistory': 'Hide login history',
+    'account.loginHistoryHeading': 'Successful login history',
+    'account.loginHistoryDesc': 'Recent sign-ins, with the newest shown first.',
+    'account.loginHistoryLoading': 'Loading login history…',
+    'account.loginHistoryEmpty': 'There is no login history yet.',
     'account.revoke': 'Revoke',
     'account.confirmRevokeText': 'Are you sure you want to sign out session on device',
     'account.noSessions': 'No active sessions found.',
@@ -2489,6 +2700,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio
     'studio.title': 'HuTube Creator Studio',
+    'studio.navGroupManage': 'CHANNEL MANAGEMENT',
+    'studio.navGroupCommunity': 'COMMUNITY',
+    'studio.navGroupTools': 'TOOLS',
+    'studio.navGroupSettings': 'SETTINGS',
     'studio.appealSubmitted': 'Your appeal was submitted successfully. An administrator will review it.',
     'studio.overview': 'Dashboard',
     'studio.content': 'Content',
@@ -2603,6 +2818,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step2.tags': 'Tags',
     'upload.step2.tagsPlaceholder': 'Add tag (press Enter)',
     'upload.step2.tagsHint': 'Add keywords to help people discover your video.',
+    'upload.step2.addTag': 'Add tag',
+    'upload.step2.removeTag': 'Remove tag {tag}',
     'upload.step2.language': 'Language',
     'upload.step2.langHint': 'Select the primary spoken language of the video.',
     'upload.step2.saveDraft': 'Save draft',
@@ -2617,6 +2834,16 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step3.timePlaceholder': 'mm:ss (e.g. 14:00)',
     'upload.step3.addBtn': 'Add chapter',
     'upload.step3.chapterTip': 'Tip: Scrub along the timeline or click the video at the desired point, then enter a title and add chapter.',
+    'upload.step3.videoCards': 'Related videos in this channel',
+    'upload.step3.videoCardsHint': 'Add up to 5 published videos. Their banners appear at the selected times while viewers watch this video.',
+    'upload.step3.chooseVideo': 'Choose a published video',
+    'upload.step3.chooseVideoPlaceholder': 'Choose a video from this channel…',
+    'upload.step3.bannerTime': 'Banner display time',
+    'upload.step3.useCurrentTime': 'Use current time',
+    'upload.step3.addVideoCard': 'Add video link',
+    'upload.step3.noPublishedVideos': 'This channel has no published public videos to link yet.',
+    'upload.videoCardsInvalid': 'A related video or its timestamp is invalid. Check that the video is published and the time is within this video.',
+    'upload.videoCardFieldsInvalid': 'Choose a video and a valid timestamp. Videos and timestamps must be unique.',
     'upload.step3.aiSubTitle': 'HuTube AI Smart Subtitles',
     'upload.step3.aiSubDesc': 'Automatically recognize speech and generate 98% accurate subtitles.',
     'upload.step5.schedDate': 'Premiere Date',
@@ -2926,6 +3153,26 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noPendingDesc': 'New invitations sent to your account email will appear here.',
     'channel.collaborating': 'Collaboration channels',
     'channel.collaboratingDesc': 'Open Studio on each channel with its assigned role and permissions.',
+    'channel.workspaceSubtitle': 'Track invitations, roles, and the channels you own or collaborate on.',
+    'channel.workspaceSummary': 'Collaboration workspace summary',
+    'channel.pendingCountLabel': 'Pending invitations',
+    'channel.accessibleCountLabel': 'Channels you can access',
+    'channel.collaboratorCountLabel': 'Collaboration channels',
+    'channel.accessibleChannelsTitle': 'Channels you own and collaborate on',
+    'channel.accessibleChannelsDesc': 'Open Studio and work within each channel’s assigned role and permissions.',
+    'channel.noAccessibleDesc': 'Channels you own or are invited to collaborate on will appear here.',
+    'channel.retryLoad': 'Try again',
+    'channel.permissionGroups': 'Granted permission groups',
+    'channel.morePermissionGroups': '+{count} permission groups',
+    'channel.permissionVideos': 'Video management',
+    'channel.permissionPlaylists': 'Playlists',
+    'channel.permissionComments': 'Comment moderation',
+    'channel.permissionAnalytics': 'Analytics',
+    'channel.permissionCopyright': 'Copyright',
+    'channel.permissionMembers': 'Members',
+    'channel.permissionSettings': 'Channel settings',
+    'channel.permissionChannelInfo': 'Channel information',
+    'channel.permissionDashboard': 'Channel overview',
     'channel.noAccessible': 'You do not have access to any channel yet.',
     'channel.openStudio': 'Open Studio',
     'channel.basic': 'Basic information',
@@ -2998,7 +3245,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.changeBanner': 'Change banner',
     'channel.noBanner': 'No banner yet',
     'channel.watermarkTitle': 'Video watermark',
-    'channel.watermarkDesc': 'The watermark appears in the bottom-right corner of your video player.',
+    'channel.watermarkDesc': 'The watermark is saved as soon as it uploads and appears in the bottom-right corner of the video player.',
     'channel.watermarkSaved': 'Watermark uploaded successfully.',
     'channel.submitAppeal': 'Submit an appeal',
     'channel.uploadWatermark': 'Upload watermark',
@@ -3011,7 +3258,6 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.reportChannelImage': 'Report channel image',
     'channel.reportProfileImage': 'Report profile image',
     'channel.userHiddenFromChannel': 'The user was hidden from your channel.',
-    'channel.saveWatermark': 'Save watermark',
     'channel.rolesDesc': 'Each role has a fixed permission set that is always checked by the API.',
     'channel.memberEmailPlaceholder': 'member@example.com',
     'channel.roleDescription': 'Selected role description',
@@ -3160,6 +3406,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.home': 'Go to home',
     'watch.notReady': 'This video is not ready to play.',
     'watch.videoInfo': 'Video information',
+    'watch.relatedVideo': 'Related video from this channel',
+    'watch.openRelatedVideo': 'Open related video: {title}',
+    'watch.closeRelatedVideo': 'Close related video',
+    'watch.openVideo': 'Watch this video',
     'watch.play': 'Play video',
     'watch.pause': 'Pause',
     'watch.back10': 'Rewind 10 seconds',
@@ -3218,8 +3468,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Studio pages
     'studio.loading': 'Loading…',
-    'studioEdit.eyebrow': 'HUTUBE STUDIO / VIDEO EDITOR',
-    'studioEdit.subtitle': 'Update the video details, thumbnail, and where it appears.',
+    'studioEdit.promoteVideo': 'Promote this video',
+    'studioEdit.promoteVideoHint': 'Give this video priority in recommendations when your plan includes this benefit.',
     'studioEdit.loadingVideo': 'Loading video details…',
     'studioEdit.basicInfo': 'Basic details',
     'studioEdit.required': '* Required',
@@ -3343,6 +3593,26 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.emptyVideo': 'No videos yet. Upload your first video.',
     'studio.searchVideo': 'Search by video title...',
     'studio.colModeration': 'Moderation status',
+    'studio.videoListDescription': 'Preview content, update visibility, and manage your channel videos.',
+    'studio.videoFilters': 'Video list filters',
+    'studio.filterVisibility': 'Visibility',
+    'studio.filterAllVisibility': 'Any visibility',
+    'studio.filterStatus': 'Status',
+    'studio.filterAllStatus': 'Any status',
+    'studio.statusBlocked': 'Blocked',
+    'studio.videoTotalUnit': 'videos',
+    'studio.videoTotalUnitSingular': 'video',
+    'studio.clearVideoFilters': 'Clear filters',
+    'studio.loadVideosError': 'Could not load videos. Please try again.',
+    'studio.retryVideoList': 'Retry',
+    'studio.noVideosMatch': 'No videos match these filters.',
+    'studio.loadingMoreVideos': 'Loading more videos…',
+    'studio.allVideosLoaded': 'You have reached the end of the video list.',
+    'studio.confirmDeleteVideo': 'Delete this video?',
+    'studio.confirmDeleteVideoDescription': '“{title}” will be removed from your channel and hidden from viewers.',
+    'studio.deleteVideo': 'Delete video',
+    'studio.videoDeleted': 'Video removed from the channel.',
+    'studio.deleteVideoError': 'Could not delete the video. Please try again.',
     'studio.interaction': 'Engagement',
     'studio.noVideosList': 'No videos in this list.',
     'studio.visible': 'Visible',
@@ -3352,6 +3622,23 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.send': 'Send',
     'studio.replyPlaceholder': 'Write a reply',
     'studio.noComments': 'No comments in this state.',
+    'studio.commentCountLabel': 'comments',
+    'studio.commentControls': 'Comment controls',
+    'studio.commentStatusFilter': 'Filter comments by status',
+    'studio.commentSortLabel': 'Sort comments',
+    'studio.commentSortNewest': 'Newest',
+    'studio.commentSortOldest': 'Oldest',
+    'studio.commentSortMostLiked': 'Most liked',
+    'studio.loadingComments': 'Loading comments…',
+    'studio.retryComments': 'Try again',
+    'studio.noCommentsTitle': 'No comments yet',
+    'studio.commentedOn': 'commented on',
+    'studio.commentLikeCount': '{count} likes',
+    'studio.commentReplies': 'replies',
+    'studio.loadingMoreComments': 'Loading more comments…',
+    'studio.loadMoreComments': 'Load more comments',
+    'studio.allCommentsLoaded': 'You have reached the end of the comments.',
+    'studio.commentActionError': 'Could not update the comment. Please try again.',
     'studio.noSubtitles': 'No subtitles yet',
     'studio.noVideo': 'No videos yet.',
     'studio.notSet': 'Not set',
@@ -3369,6 +3656,44 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.saveError': 'Unable to save channel settings.'
     ,'studio.performanceByVideo': 'Performance by video'
     ,'studio.channelMetrics': 'Channel metrics'
+    ,'studio.analyticsPageDescription': 'Choose a video for its statistics, or review average performance across your channel.'
+    ,'studio.analyticsVideoFilter': 'Video to analyze'
+    ,'studio.analyticsAllVideos': 'All videos'
+    ,'studio.analyticsAllAverageNote': 'Figures are averages across all {count} videos on this channel.'
+    ,'studio.analyticsSelectedNote': 'Metrics and chart reflect the selected video.'
+    ,'studio.averageViews': 'Average views per video'
+    ,'studio.averageLikes': 'Average likes per video'
+    ,'studio.averageComments': 'Average comments per video'
+    ,'studio.averageViewDuration': 'Average view duration'
+    ,'studio.averageRating': 'Average rating'
+    ,'studio.analyticsWatchDurationHint': 'Total watch time divided by total views'
+    ,'studio.analyticsRatingHint': 'Out of 5 · weighted by rating count'
+    ,'studio.analyticsPerVideoHint': 'Averaged across all videos'
+    ,'studio.analyticsRadarTitle': 'Performance profile'
+    ,'studio.analyticsRadarDescription': 'Compare five metrics normalized to their scale.'
+    ,'studio.analyticsChannelAverage': 'Channel average'
+    ,'studio.analyticsSelectedVideo': 'Selected video'
+    ,'studio.analyticsRadarAccessible': 'Radar chart for average view duration, views, comments, likes, and rating.'
+    ,'studio.analyticsAxisViews': 'Views'
+    ,'studio.analyticsAxisLikes': 'Likes'
+    ,'studio.analyticsAxisComments': 'Comments'
+    ,'studio.analyticsAxisDuration': 'View duration'
+    ,'studio.analyticsAxisRating': 'Rating'
+    ,'studio.analyticsRadarScaleNote': 'The outer ring is the channel maximum for each metric; rating is normalized to a five-point scale.'
+    ,'studio.analyticsTopVideos': 'Top videos'
+    ,'studio.analyticsTopVideosDescription': 'The five videos with the most views.'
+    ,'studio.analyticsTopFiveLimit': 'Only five videos are shown; select one for its full statistics.'
+    ,'studio.analyticsOpenVideo': 'View analytics for: {title}'
+    ,'studio.analyticsVideoSummary': 'Video summary'
+    ,'studio.analyticsOneVideo': '1 video'
+    ,'studio.analyticsAverageViewDuration': 'Average view duration'
+    ,'studio.analyticsBackToAll': 'Back to channel overview'
+    ,'studio.analyticsLoadError': 'Unable to load analytics'
+    ,'studio.loadingAnalytics': 'Loading channel analytics…'
+    ,'studio.retryAnalytics': 'Try again'
+    ,'studio.noAnalyticsVideos': 'This channel has no videos to analyze'
+    ,'studio.noAnalyticsVideosDescription': 'Upload your first video to track views and engagement.'
+    ,'studio.noRating': 'Not rated'
     ,'studio.publicModerationToast': '"{title}" was made public and sent to the moderation queue.'
     ,'studio.publicToast': '"{title}" is now public.'
     ,'studio.unlistedToast': '"{title}" is now unlisted.'
@@ -3388,6 +3713,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'ui.accountStats': 'Account statistics'
     ,'ui.accountActions': 'Account actions'
     ,'ui.shortcuts': 'Keyboard shortcuts'
+    ,'ui.shortcutsDesc': 'See the keys available while watching videos'
     ,'ui.shortcutPlayPause': 'Play / pause'
     ,'ui.shortcutSeek': 'Seek ±10 seconds'
     ,'ui.shortcutFullscreen': 'Fullscreen'

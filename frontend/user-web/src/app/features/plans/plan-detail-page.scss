@@ -421,3 +421,4 @@
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 600px) { .hero-left { min-width: 0; } }

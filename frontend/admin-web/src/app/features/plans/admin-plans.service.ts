@@ -18,6 +18,7 @@ export interface AdminPlan {
   status: string;
   features?: Record<string, boolean>;
   displayOrder?: number;
+  isDefaultForNewUsers: boolean;
 }
 
 export interface SavePlanRequest {
@@ -35,6 +36,7 @@ export interface SavePlanRequest {
   status?: string;
   features?: string;
   displayOrder?: number;
+  isDefaultForNewUsers: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -44,6 +46,7 @@ export class AdminPlansService {
   private readonly base = this.config.apiBaseUrl + '/admin/plans';
 
   plans() { return this.http.get<AdminPlan[]>(this.base); }
+  activePlans() { return this.http.get<AdminPlan[]>(this.config.apiBaseUrl + '/plans'); }
   createPlan(request: SavePlanRequest) { return this.http.post<AdminPlan>(this.base, request); }
   updatePlan(planId: string, request: SavePlanRequest) { return this.http.put<AdminPlan>(`${this.base}/${planId}`, request); }
   archivePlan(planId: string) { return this.http.post<void>(`${this.base}/${planId}/archive`, {}); }

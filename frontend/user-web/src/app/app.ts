@@ -9,10 +9,18 @@ import { StudioLayoutComponent } from './layouts/studio-layout/studio-layout.com
 import { UploadProgressTrayComponent } from './shared/upload-progress/upload-progress-tray.component';
 import { TranslatePipe } from './core/translate.pipe';
 import { I18nService } from './core/i18n.service';
+import { NetworkFallbackComponent } from './core/network/network-fallback.component';
 
 @Component({
   selector: 'app-root',
-  imports: [AuthLayoutComponent, ShellLayoutComponent, StudioLayoutComponent, UploadProgressTrayComponent, TranslatePipe],
+  imports: [
+    AuthLayoutComponent,
+    ShellLayoutComponent,
+    StudioLayoutComponent,
+    UploadProgressTrayComponent,
+    NetworkFallbackComponent,
+    TranslatePipe,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

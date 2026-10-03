@@ -22,4 +22,4 @@ npm run test:ci
 
 Phạm vi hiện tại: đăng nhập, xác minh/khôi phục mật khẩu, account/session, đăng xuất và thu hồi các phiên khác. Không có route đăng ký quản trị công khai. RBAC theo permission, menu nghiệp vụ và dashboard thuộc S4-06; không giả lập dữ liệu hoặc quyền ở client.
 
-Browser E2E dùng chung nằm tại `frontend/user-web/e2e/auth.cjs` (chạy `npm run test:e2e` từ User Web). Kiểm tra User thường bị chặn; với `RUN_ADMIN_DB_TESTS=1`, kiểm tra cấp quyền Admin → truy cập thành công → vô hiệu hóa → bị chặn khi reload/đăng nhập lại, trong khi tài khoản User vẫn hoạt động. Cấu hình PostgreSQL chỉ nhận qua biến môi trường; xem README User Web.
+Luồng E2E trình duyệt User/Admin nằm tại [`frontend/e2e_testing`](../e2e_testing/README.md). Runner dùng PostgreSQL, API và UI thật; chụp screenshot auth cho cả hai web và xuất report theo từng lần chạy. CI chạy cùng runner rồi upload report và screenshot thành artifact trên GitHub Actions.

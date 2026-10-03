@@ -24,6 +24,8 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   @Output() readonly menuOpened = new EventEmitter<void>();
   @Input() sidebarCollapsed = false;
   @ViewChild('searchInputEl') private searchInputRef?: ElementRef<HTMLInputElement>;
+  @ViewChild('shortcutsTrigger') private shortcutsTrigger?: ElementRef<HTMLButtonElement>;
+  @ViewChild('shortcutsCloseButton') private shortcutsCloseButton?: ElementRef<HTMLButtonElement>;
 
   readonly auth = inject(AuthService);
   readonly themeService = inject(ThemeService);
@@ -62,6 +64,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   readonly accountDrawerOpen = signal(false);
   readonly accountDrawerMounted = signal(false);
   readonly logoutConfirmOpen = signal(false);
+  readonly shortcutsDialogOpen = signal(false);
   readonly notificationsOpen = signal(false);
   readonly profile = signal<UserProfile | null>(null);
   readonly likedVideoCount = signal<number | null>(null);
@@ -72,7 +75,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   private drawerCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly drawerAnimationDurationMs = 500;
 
-  readonly socialLinks = computed(() => this.readSocialLinks(this.myChannel()?.settings));
+  readonly socialLinks = computed(() => {
+    const channel = this.myChannel();
+    return this.readSocialLinks(channel?.settings, channel?.channelId);
+  });
 
   ngOnInit() {
     this.route.queryParamMap.subscribe(params => {
@@ -137,6 +143,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
       return;
     }
 
+    this.refreshMyChannel();
     this.cancelDrawerClose();
     this.accountDrawerMounted.set(true);
     this.accountDrawerOpen.set(true);
@@ -148,6 +155,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   closeAccountDrawer() {
     this.accountDrawerOpen.set(false);
     this.logoutConfirmOpen.set(false);
+    this.shortcutsDialogOpen.set(false);
     this.destroyLogoutAnimation();
     if (!this.accountDrawerMounted()) return;
 
@@ -160,6 +168,33 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
 
   openLogoutConfirm() {
     this.logoutConfirmOpen.set(true);
+  }
+
+  openShortcutsDialog() {
+    this.shortcutsDialogOpen.set(true);
+    setTimeout(() => this.shortcutsCloseButton?.nativeElement.focus());
+  }
+
+  closeShortcutsDialog() {
+    this.shortcutsDialogOpen.set(false);
+    setTimeout(() => this.shortcutsTrigger?.nativeElement.focus());
+  }
+
+  onShortcutsDialogKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Tab') return;
+    const dialog = event.currentTarget as HTMLElement;
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   cancelLogout() {
@@ -242,6 +277,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape() {
+    if (this.shortcutsDialogOpen()) {
+      this.closeShortcutsDialog();
+      return;
+    }
     if (this.logoutConfirmOpen()) {
       this.cancelLogout();
       return;
@@ -274,16 +313,49 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     }
   }
 
-  private readSocialLinks(settings: string | null | undefined): Array<{ platform?: string; title: string; url: string }> {
-    if (!settings) return [];
-    try {
-      const parsed = JSON.parse(settings) as { links?: unknown };
-      if (!Array.isArray(parsed?.links)) return [];
-      return parsed.links
+  private refreshMyChannel() {
+    if (!this.auth.user()) return;
+    this.channelService.getMyChannel().subscribe({
+      next: channel => this.myChannel.set(channel),
+      // Keep the last known channel visible when a transient refresh fails.
+      error: () => undefined
+    });
+  }
+
+  private readSocialLinks(settings: string | null | undefined, channelId?: string): Array<{ platform?: string; title: string; url: string }> {
+    const normalize = (source: unknown): Array<{ platform?: string; title: string; url: string }> => {
+      let parsed: unknown = source;
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch { return []; }
+      }
+
+      const links = Array.isArray(parsed)
+        ? parsed
+        : parsed && typeof parsed === 'object' && Array.isArray((parsed as { links?: unknown }).links)
+          ? (parsed as { links: unknown[] }).links
+          : [];
+
+      return links
         .filter((link): link is { platform?: unknown; title?: unknown; url?: unknown } => !!link && typeof link === 'object')
-        .map(link => ({ platform: typeof link.platform === 'string' ? link.platform : undefined, title: typeof link.title === 'string' ? link.title : '', url: typeof link.url === 'string' ? link.url : '' }))
-        .filter(link => /^https?:\/\//i.test(link.url))
-        .slice(0, 5);
+        .map(link => ({ platform: typeof link.platform === 'string' ? link.platform : undefined, title: typeof link.title === 'string' ? link.title : '', url: typeof link.url === 'string' ? link.url.trim() : '' }))
+        .filter(link => /^https?:\/\//i.test(link.url));
+    };
+
+    let parsedSettings: unknown = settings;
+    if (typeof parsedSettings === 'string') {
+      try { parsedSettings = JSON.parse(parsedSettings); } catch { parsedSettings = null; }
+    }
+    const hasExplicitLinkList = !!parsedSettings
+      && typeof parsedSettings === 'object'
+      && !Array.isArray(parsedSettings)
+      && Object.prototype.hasOwnProperty.call(parsedSettings, 'links')
+      && Array.isArray((parsedSettings as { links?: unknown }).links);
+    const serverLinks = normalize(settings);
+    if (hasExplicitLinkList || serverLinks.length) return serverLinks.slice(0, 5);
+    if (!channelId || typeof localStorage === 'undefined') return [];
+
+    try {
+      return normalize(localStorage.getItem(`hutube_channel_links_${channelId}`)).slice(0, 5);
     } catch {
       return [];
     }

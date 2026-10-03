@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, HostListener, ViewChild, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminPlan, AdminPlansService, SavePlanRequest } from './admin-plans.service';
@@ -9,10 +9,10 @@ import { I18nService } from '../../core/i18n.service';
 const BYTES_PER_GIB = 1024 ** 3;
 const bytesToGiB = (bytes: number) => Number((bytes / BYTES_PER_GIB).toFixed(2));
 const giBToBytes = (gib: number) => Math.round(gib * BYTES_PER_GIB);
-const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxDownloadQuality: '720p', maxMembers: 1, status: 'active', features: '{"download":false,"background_play":false,"pip":false,"video_promotion":false}', displayOrder: 0 });
+const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxDownloadQuality: '720p', maxMembers: 1, status: 'active', features: '{"download":false,"background_play":false,"pip":false,"video_promotion":false}', displayOrder: 0, isDefaultForNewUsers: false });
 
 @Component({ selector: 'app-admin-plans-page', imports: [FormsModule, DecimalPipe, TranslatePipe], templateUrl: './admin-plans-page.html', styleUrl: './admin-plans-page.scss' })
-export class AdminPlansPage {
+export class AdminPlansPage implements AfterViewChecked {
   private readonly service = inject(AdminPlansService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
@@ -23,11 +23,25 @@ export class AdminPlansPage {
   readonly message = signal('');
   readonly editing = signal<AdminPlan | null>(null);
   readonly creating = signal(false);
+  @ViewChild('editorCloseButton') private editorCloseButton?: ElementRef<HTMLButtonElement>;
+  private focusEditorAfterRender = false;
+  private returnFocusTarget: HTMLElement | null = null;
   draft: SavePlanRequest = emptyDraft();
 
   constructor() { this.load(); }
+  ngAfterViewChecked() {
+    if (!this.focusEditorAfterRender) return;
+    this.focusEditorAfterRender = false;
+    this.editorCloseButton?.nativeElement.focus();
+  }
+  @HostListener('document:keydown.escape')
+  closeEditorOnEscape() { if (this.creating() || this.editing()) this.closeEditor(); }
   load() { this.loading.set(true); this.service.plans().subscribe({ next: plans => { this.plans.set(plans); this.loading.set(false); }, error: error => { this.error.set(errorMessage(error, this.i18n)); this.loading.set(false); } }); }
-  openCreate() { this.editing.set(null); this.creating.set(true); this.draft = emptyDraft(); this.error.set(''); this.message.set(''); }
+  openCreate() {
+    this.captureReturnFocus();
+    this.editing.set(null); this.creating.set(true); this.focusEditorAfterRender = true;
+    this.draft = emptyDraft(); this.error.set(''); this.message.set('');
+  }
   applyTemplate(template: 'creator' | 'pro_monthly' | 'pro_yearly') {
     this.openCreate();
     this.draft = template === 'creator'
@@ -35,19 +49,32 @@ export class AdminPlansPage {
       : { ...this.draft, code: template === 'pro_monthly' ? 'pro_family_monthly' : 'pro_family_yearly', name: template === 'pro_monthly' ? 'Pro Group Monthly' : 'Pro Group Yearly', description: this.i18n.t('plans.groupDescription'), price: template === 'pro_monthly' ? 299000 : 2990000, durationDays: template === 'pro_monthly' ? 30 : 365, storageLimit: 500, maxUploadSize: 50, maxVideoQuality: '2160p', maxDownloadQuality: '2160p', maxMembers: 5, features: '{"download":true,"background_play":true,"pip":true,"video_promotion":false}', displayOrder: 3 };
   }
   openEdit(plan: AdminPlan) {
+    this.captureReturnFocus();
     this.creating.set(false); this.editing.set(plan);
+    this.focusEditorAfterRender = true;
     this.draft = {
       code: plan.code, name: plan.name, description: plan.description ?? '', price: plan.price,
       durationDays: plan.durationDays, storageLimit: bytesToGiB(plan.storageLimit),
       maxUploadSize: bytesToGiB(plan.maxUploadSize), maxVideoDuration: Math.max(1, Math.round(plan.maxVideoDuration / 60)),
       maxVideoQuality: plan.maxVideoQuality ?? '720p', maxDownloadQuality: plan.maxDownloadQuality ?? plan.maxVideoQuality ?? '720p', maxMembers: plan.maxMembers, status: plan.status,
-      features: JSON.stringify(plan.features ?? {}), displayOrder: plan.displayOrder ?? 0
+      features: JSON.stringify(plan.features ?? {}), displayOrder: plan.displayOrder ?? 0,
+      isDefaultForNewUsers: plan.isDefaultForNewUsers
     };
     this.error.set(''); this.message.set('');
   }
-  closeEditor() { this.editing.set(null); this.creating.set(false); }
+  closeEditor() {
+    const returnFocusTarget = this.returnFocusTarget;
+    this.returnFocusTarget = null;
+    this.editing.set(null); this.creating.set(false);
+    if (returnFocusTarget?.isConnected) requestAnimationFrame(() => returnFocusTarget.focus());
+  }
   save() {
     if (this.saving()) return;
+    const replacement = this.plans().find(plan => plan.isDefaultForNewUsers && plan.planId !== this.editing()?.planId);
+    if (this.draft.isDefaultForNewUsers && replacement && !confirm(this.i18n.format('plans.defaultReplaceConfirm', {
+      current: replacement.name,
+      next: this.draft.name || this.i18n.t('plans.namePlaceholder')
+    }))) return;
     const request: SavePlanRequest = {
       ...this.draft,
       storageLimit: giBToBytes(this.draft.storageLimit),
@@ -74,9 +101,18 @@ export class AdminPlansPage {
     } catch { /* The API will return a validation error for malformed custom JSON. */ }
     this.draft = { ...this.draft, features: JSON.stringify({ ...current, [key]: enabled }) };
   }
+  onStatusChanged() {
+    if (this.draft.status !== 'active' && this.draft.isDefaultForNewUsers)
+      this.draft = { ...this.draft, isDefaultForNewUsers: false };
+  }
   statusLabel(status: string): string {
     const key = status === 'active' ? 'plans.status.active' : status === 'inactive' ? 'plans.status.inactive' : status === 'archived' ? 'plans.status.archived' : '';
     return key ? this.i18n.t(key) : status;
+  }
+
+  private captureReturnFocus() {
+    if (!this.creating() && !this.editing() && typeof document !== 'undefined')
+      this.returnFocusTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
 
   archive(plan: AdminPlan) { if (!confirm(this.i18n.format('plans.archiveConfirm', { name: plan.name }))) return; this.service.archivePlan(plan.planId).subscribe({ next: () => { this.message.set(this.i18n.t('plans.archivedSuccess')); this.load(); }, error: error => this.error.set(errorMessage(error, this.i18n)) }); }

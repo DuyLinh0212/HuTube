@@ -1,6 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { Subject, finalize, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { CreatePaymentResponse, MyPlan, Plan, PlanService, PlanShare } from '../../core/plan.service';
 import { I18nService } from '../../core/i18n.service';
@@ -28,6 +28,9 @@ export class PlanDetailPage {
   readonly message = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly eligibilityLoading = signal(true);
+  private readonly identityChanged = new Subject<void>();
+  private currentIdentityId: string | null | undefined;
 
   constructor() {
     const planId = this.route.snapshot.paramMap.get('planId');
@@ -37,9 +40,22 @@ export class PlanDetailPage {
       error: () => { this.error.set(this.i18n.t('plans.notFound')); this.loading.set(false); }
     });
     this.plansService.getShare(planId).subscribe({ next: share => this.share.set(share), error: () => {} });
-    if (this.auth.user()) {
-      this.plansService.getMyPlan().subscribe({ next: mp => this.myPlan.set(mp), error: () => {} });
-    }
+    effect(() => {
+      const userId = this.auth.user()?.userId ?? null;
+      // Refreshing an access token replaces the User object even when the same
+      // account remains signed in. Keep checkout open for that same identity.
+      if (this.currentIdentityId === userId) return;
+      this.currentIdentityId = userId;
+      this.identityChanged.next();
+      this.myPlan.set(null);
+      this.activePayment.set(null);
+      this.eligibilityLoading.set(!!userId);
+      if (userId) this.plansService.getMyPlan().pipe(takeUntil(this.identityChanged)).subscribe({
+        next: mp => { this.myPlan.set(mp); this.eligibilityLoading.set(false); },
+        error: () => { this.error.set(this.i18n.t('common.error')); this.eligibilityLoading.set(true); }
+      });
+    });
+    this.auth.restore().subscribe();
   }
 
   isCurrentActivePlan(): boolean {
@@ -53,6 +69,7 @@ export class PlanDetailPage {
   canSwitchToThisPlan(): boolean {
     const p = this.plan();
     const mp = this.myPlan();
+    if (this.eligibilityLoading()) return false;
     if (!mp || !mp.planId) return true; // Chưa có gói -> đăng ký mới được
     if (mp.subscription && mp.subscription.isExpired) return true; // Gói cũ đã hết hạn -> đăng ký được
     if (mp.price === 0) return true; // Gói miễn phí -> được mua gói trả phí
@@ -109,7 +126,7 @@ export class PlanDetailPage {
 
   subscribe() {
     const plan = this.plan();
-    if (!plan || this.busy()) return;
+    if (!plan || this.busy() || this.eligibilityLoading()) return;
 
     // Gói trả phí -> tạo đơn hàng SePay và mở modal VietQR
     if (plan.price > 0) {

@@ -6,6 +6,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter, withRouterConfig } from '@angular/router';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth.interceptor';
+import { networkInterceptor } from './core/network/network.interceptor';
 import { RuntimeConfig } from './core/runtime-config';
 
 // Keep locale data available to every route, including lazy-loaded pages that
@@ -17,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withRouterConfig({ onSameUrlNavigation: 'reload' })),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, networkInterceptor])),
     provideAppInitializer(() => inject(RuntimeConfig).load()),
     { provide: COMPOSITION_BUFFER_MODE, useValue: false }
   ]

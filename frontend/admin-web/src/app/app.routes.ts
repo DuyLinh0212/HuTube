@@ -16,6 +16,11 @@ export const routes: Routes = [
   { path: 'videos', canActivate: [authGuard, permissionGuard], data: { permission: 'video.view' }, loadComponent: () => import('./features/videos/admin-videos-page').then(m => m.AdminVideosPage), title: 'route.title.videos' },
   { path: 'roles', canActivate: [authGuard, permissionGuard], data: { permission: 'role.view' }, loadComponent: () => import('./features/rbac/admin-rbac-page').then(m => m.AdminRbacPage), title: 'route.title.roles' },
   { path: 'plans', canActivate: [authGuard, permissionGuard], data: { permission: 'plan.view' }, loadComponent: () => import('./features/plans/admin-plans-page').then(m => m.AdminPlansPage), title: 'route.title.plans' },
+  { path: 'subscriptions', canActivate: [authGuard, permissionGuard], data: { permission: 'plan.view' }, loadComponent: () => import('./features/subscriptions/admin-subscriptions-page').then(m => m.AdminSubscriptionsPage), title: 'route.title.subscriptions' },
+  { path: 'payments', canActivate: [authGuard, permissionGuard], data: { permission: 'payment.view' }, loadComponent: () => import('./features/payments/admin-payments-page').then(m => m.AdminPaymentsPage), title: 'route.title.payments' },
+  { path: 'system/notifications', canActivate: [authGuard, permissionGuard], data: { permission: 'system.view_setting' }, loadComponent: () => import('./features/operations/system-notifications-page').then(m => m.SystemNotificationsPage), title: 'route.title.systemNotifications' },
+  { path: 'system/reports', canActivate: [authGuard, permissionGuard], data: { permission: 'dashboard.view' }, loadComponent: () => import('./features/operations/system-reports-page').then(m => m.SystemReportsPage), title: 'route.title.systemReports' },
+  { path: 'system/logs', canActivate: [authGuard, permissionGuard], data: { permission: 'audit.view' }, loadComponent: () => import('./features/operations/system-logs-page').then(m => m.SystemLogsPage), title: 'route.title.systemLogs' },
   { path: 'moderation/videos', canActivate: [authGuard, permissionGuard], data: { permission: 'moderation.view_queue' }, loadComponent: () => import('./features/moderation/admin-moderation-page').then(m => m.AdminModerationPage), title: 'route.title.moderationVideos' },
   { path: 'moderation/reports', canActivate: [authGuard, permissionGuard], data: { permission: 'report.view' }, loadComponent: () => import('./features/moderation/admin-reports-page').then(m => m.AdminReportsPage), title: 'route.title.reports' },
   { path: 'moderation/appeals', canActivate: [authGuard, permissionGuard], data: { permission: 'appeal.view' }, loadComponent: () => import('./features/moderation/admin-appeals-page').then(m => m.AdminAppealsPage), title: 'route.title.appeals' },
@@ -25,6 +30,7 @@ export const routes: Routes = [
   { path: 'recommendations', canActivate: [authGuard, superAdminGuard], loadComponent: () => import('./features/recommendations/recommendations-page').then(m => m.RecommendationsPage), title: 'route.title.recommendations' },
   { path: 'policies', canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['system.view_setting', 'policy.view', 'moderation.review', 'moderation.view_queue'] }, loadComponent: () => import('./features/policies/admin-policies-page').then(m => m.AdminPoliciesPage), title: 'route.title.policies' },
   { path: 'account', canActivate: [authGuard], loadComponent: () => import('./features/account/account-page').then(m => m.AccountPage), title: 'route.title.account' },
-  { path: '', pathMatch: 'full', redirectTo: 'account' },
-  { path: '**', redirectTo: 'account' }
+  { path: 'dashboard', pathMatch: 'full', redirectTo: 'roles' },
+  { path: '', pathMatch: 'full', redirectTo: 'roles' },
+  { path: '**', redirectTo: 'roles' }
 ];

@@ -185,7 +185,7 @@
                 <h4>{{ 'policies.tools.exportTitle' | translate }}</h4>
                 <p>{{ 'policies.tools.exportDesc' | translate }}</p>
               </div>
-              <button type="button" class="btn-tool-primary" (click)="requestDataExport()">
+              <button type="button" class="btn-tool-primary" disabled [title]="'common.notSupported' | translate">
                 {{ 'policies.tools.exportBtn' | translate }}
               </button>
             </div>
@@ -196,7 +196,7 @@
                 <h4>{{ 'policies.tools.algoTitle' | translate }}</h4>
                 <p>{{ 'policies.tools.algoDesc' | translate }}</p>
               </div>
-              <button type="button" class="btn-tool-secondary" (click)="resetAlgorithm()">
+              <button type="button" class="btn-tool-secondary" disabled [title]="'common.notSupported' | translate">
                 {{ 'policies.tools.algoBtn' | translate }}
               </button>
             </div>
@@ -212,6 +212,7 @@
                 <label class="custom-switch">
                   <input
                     type="checkbox"
+                    disabled [title]="'common.notSupported' | translate"
                     [checked]="adPersonalization()"
                     (change)="toggleAdPersonalization()"
                   />

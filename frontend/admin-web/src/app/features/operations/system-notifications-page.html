@@ -1,0 +1,75 @@
+<main class="operations-page alerts-page">
+  <header class="page-heading">
+    <div>
+      <h1>{{ 'operations.system.title' | translate }}</h1>
+    </div>
+    <button class="quiet-button" type="button" (click)="load()" [disabled]="loading()">
+      <span aria-hidden="true">↻</span> {{ 'operations.refresh' | translate }}
+    </button>
+  </header>
+
+  @if (error()) {
+    <section class="state-panel error-panel" role="alert">
+      <span class="state-icon">!</span>
+      <div><strong>{{ 'operations.loadErrorTitle' | translate }}</strong><p>{{ 'operations.loadError' | translate }}</p></div>
+      <button class="text-button" type="button" (click)="load()">{{ 'operations.retry' | translate }}</button>
+    </section>
+  }
+
+  @if (loading() && !overview()) {
+    <section class="state-panel loading-panel" aria-live="polite">{{ 'operations.loading' | translate }}</section>
+  }
+
+  @if (overview(); as data) {
+    <section class="signal-summary" aria-label="{{ 'operations.system.summaryLabel' | translate }}">
+      <div class="summary-copy">
+        <span class="summary-mark" aria-hidden="true">⌁</span>
+        <div>
+          <span class="summary-eyebrow">{{ 'operations.system.liveSnapshot' | translate }}</span>
+          <h2>{{ data.activeAlertCount === 0 ? ('operations.system.clearTitle' | translate) : ('operations.system.alertsTitle' | translate:{ count: data.activeAlertCount }) }}</h2>
+          <p>{{ 'operations.system.sampledAt' | translate }} {{ sampledAt() }}</p>
+        </div>
+      </div>
+      <div class="summary-counts">
+        <div class="count-box count-critical"><strong>{{ data.criticalAlertCount }}</strong><span>{{ 'operations.severity.critical' | translate }}</span></div>
+        <div class="count-box count-warning"><strong>{{ data.activeAlertCount - data.criticalAlertCount }}</strong><span>{{ 'operations.severity.warning' | translate }}</span></div>
+        <div class="count-box count-normal"><strong>{{ normalCount() }}</strong><span>{{ 'operations.severity.normal' | translate }}</span></div>
+      </div>
+    </section>
+
+    <nav class="signal-filters" aria-label="{{ 'operations.system.filterLabel' | translate }}">
+      <button type="button" [class.selected]="activeFilter() === 'all'" (click)="setFilter('all')">{{ 'operations.filter.all' | translate }} <b>{{ data.signals.length }}</b></button>
+      <button type="button" [class.selected]="activeFilter() === 'runtime'" (click)="setFilter('runtime')">{{ 'operations.category.runtime' | translate }}</button>
+      <button type="button" [class.selected]="activeFilter() === 'security'" (click)="setFilter('security')">{{ 'operations.category.security' | translate }}</button>
+      <button type="button" [class.selected]="activeFilter() === 'moderation'" (click)="setFilter('moderation')">{{ 'operations.category.moderation' | translate }}</button>
+      <button type="button" [class.selected]="activeFilter() === 'payments'" (click)="setFilter('payments')">{{ 'operations.category.payments' | translate }}</button>
+    </nav>
+
+    <section class="signals-grid" aria-live="polite">
+      @for (signal of visibleSignals(); track trackSignal($index, signal)) {
+        <article class="signal-card" [class.triggered]="signal.isTriggered" [class.critical]="signal.severity === 'critical'">
+          <div class="signal-card-top">
+            <span class="signal-icon" [class]="'signal-icon tone-' + signal.severity" aria-hidden="true">{{ severityIcon(signal) }}</span>
+            <span class="severity-pill" [class]="'severity-pill tone-' + signal.severity">{{ severityKey(signal) | translate }}</span>
+          </div>
+          <div class="signal-category">{{ categoryKey(signal.category) | translate }}</div>
+          <h3>{{ signalTitle(signal) }}</h3>
+          <p class="signal-description">{{ signalDescription(signal) }}</p>
+          <div class="signal-measure">
+            <strong>{{ valueLabel(signal) }}</strong>
+            <span>{{ thresholdLabel(signal) }}</span>
+          </div>
+          <div class="threshold-track" role="progressbar" [attr.aria-valuenow]="signal.currentValue" [attr.aria-valuemax]="signal.threshold || 1" aria-label="{{ 'operations.system.thresholdProgress' | translate }}">
+            <span [class]="'fill-' + signal.severity" [style.width.%]="meterPercent(signal)"></span>
+          </div>
+          @if (canOpen(signal)) {
+            <a class="signal-action" [routerLink]="signal.actionUrl">{{ (signal.isTriggered ? 'operations.system.reviewSignal' : 'operations.system.openRelated') | translate }} <span aria-hidden="true">↗</span></a>
+          }
+        </article>
+      } @empty {
+        <div class="empty-panel">{{ 'operations.system.noSignals' | translate }}</div>
+      }
+    </section>
+    <p class="data-note">{{ 'operations.system.liveDataNote' | translate }}</p>
+  }
+</main>

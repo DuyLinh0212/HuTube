@@ -67,7 +67,7 @@
 
         @if (accountDrawerMounted()) {
           <button class="account-drawer__scrim" [class.account-drawer__scrim--closing]="!accountDrawerOpen()" type="button" [attr.aria-label]="'ui.closeAccountMenu' | translate" (click)="closeAccountDrawer()"></button>
-          <aside id="account-drawer" class="account-drawer" [class.account-drawer--closing]="!accountDrawerOpen()" role="dialog" aria-modal="true" [attr.aria-label]="'ui.account' | translate">
+          <aside id="account-drawer" class="account-drawer" [class.account-drawer--closing]="!accountDrawerOpen()" role="dialog" [attr.aria-modal]="!shortcutsDialogOpen()" [attr.aria-label]="'ui.account' | translate">
             <header class="account-drawer__header">
               <div class="account-drawer__identity">
                 <div class="drawer-avatar">
@@ -205,17 +205,14 @@
                   <span><strong>{{ 'nav.language' | translate }}</strong><small>{{ i18n.currentLang() === 'vi' ? ('nav.langVi' | translate) : ('nav.langEn' | translate) }}</small></span>
                   <b aria-hidden="true">›</b>
                 </button>
+                <button #shortcutsTrigger class="drawer-action" type="button" (click)="openShortcutsDialog()" aria-haspopup="dialog" [attr.aria-expanded]="shortcutsDialogOpen()">
+                  <span class="drawer-action-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="M6 8h.01M9 8h.01M12 8h.01M15 8h.01M18 8h.01M6 11.5h.01M9 11.5h.01M12 11.5h.01M15 11.5h.01M18 11.5h.01M7 15.5h10"/></svg>
+                  </span>
+                  <span><strong>{{ 'ui.shortcuts' | translate }}</strong><small>{{ 'ui.shortcutsDesc' | translate }}</small></span>
+                  <b aria-hidden="true">›</b>
+                </button>
               </nav>
-
-              <section class="drawer-shortcuts" aria-labelledby="drawer-shortcuts-title">
-                <h2 id="drawer-shortcuts-title" class="drawer-section-label">{{ 'ui.shortcuts' | translate }}</h2>
-                <ul class="drawer-shortcut-list">
-                  <li><kbd>K</kbd><span>{{ 'ui.shortcutPlayPause' | translate }}</span></li>
-                  <li><kbd>J / L</kbd><span>{{ 'ui.shortcutSeek' | translate }}</span></li>
-                  <li><kbd>F</kbd><span>{{ 'ui.shortcutFullscreen' | translate }}</span></li>
-                  <li><kbd>M</kbd><span>{{ 'ui.shortcutMute' | translate }}</span></li>
-                </ul>
-              </section>
 
               <section class="drawer-socials" [attr.aria-label]="'ui.myLinks' | translate">
                 <div class="drawer-section-heading"><strong>{{ 'ui.myLinks' | translate }}</strong><a [routerLink]="myChannel() ? ['/channel', myChannel()!.handle, 'customize'] : ['/channel/create']" (click)="closeAccountDrawer()">{{ 'common.edit' | translate }}</a></div>
@@ -244,6 +241,25 @@
 
             </div>
           </aside>
+          @if (shortcutsDialogOpen()) {
+            <div class="drawer-shortcuts-backdrop" (click)="closeShortcutsDialog()">
+              <section class="drawer-shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="drawer-shortcuts-title" aria-describedby="drawer-shortcuts-description" (click)="$event.stopPropagation()" (keydown)="onShortcutsDialogKeydown($event)">
+                <header class="drawer-shortcuts-dialog__header">
+                  <div>
+                    <h2 id="drawer-shortcuts-title">{{ 'ui.shortcuts' | translate }}</h2>
+                    <p id="drawer-shortcuts-description">{{ 'ui.shortcutsDesc' | translate }}</p>
+                  </div>
+                  <button #shortcutsCloseButton type="button" class="drawer-shortcuts-dialog__close" [attr.aria-label]="'common.close' | translate" (click)="closeShortcutsDialog()">×</button>
+                </header>
+                <ul class="drawer-shortcut-list">
+                  <li><kbd>K</kbd><span>{{ 'ui.shortcutPlayPause' | translate }}</span></li>
+                  <li><kbd>J / L</kbd><span>{{ 'ui.shortcutSeek' | translate }}</span></li>
+                  <li><kbd>F</kbd><span>{{ 'ui.shortcutFullscreen' | translate }}</span></li>
+                  <li><kbd>M</kbd><span>{{ 'ui.shortcutMute' | translate }}</span></li>
+                </ul>
+              </section>
+            </div>
+          }
         }
       </div>
     } @else {

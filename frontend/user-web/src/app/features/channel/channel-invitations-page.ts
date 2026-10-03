@@ -1,18 +1,19 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Observable, finalize, forkJoin } from 'rxjs';
 import { ChannelDetail, ChannelInvitation, ChannelRole, ChannelService } from '../../core/channel.service';
 import { NotificationService } from '../../core/notification.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-channel-invitations-page',
   standalone: true,
-  imports: [CommonModule, LocaleDatePipe, RouterLink, TranslatePipe],
+  imports: [CommonModule, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
   templateUrl: './channel-invitations-page.html',
   styleUrl: './channel-invitations-page.scss'
 })
@@ -26,6 +27,7 @@ export class ChannelInvitationsPage implements OnInit {
 
   readonly invitations = signal<ChannelInvitation[]>([]);
   readonly accessibleChannels = signal<ChannelDetail[]>([]);
+  readonly collaboratingChannels = computed(() => this.accessibleChannels().filter(channel => !channel.isOwner));
   readonly roles = signal<ChannelRole[]>([]);
   readonly loading = signal(true);
   readonly busyId = signal<string | null>(null);
@@ -96,6 +98,23 @@ export class ChannelInvitationsPage implements OnInit {
     if (channel.permissions.includes('video.edit')) return this.i18n.t('channel.videoManagement');
     if (channel.permissions.includes('comment.manage')) return this.i18n.t('channel.commentManagement');
     return this.i18n.t('channel.viewGrantedData');
+  }
+
+  permissionGroups(channel: ChannelDetail): string[] {
+    const groups = new Set<string>();
+    for (const permission of channel.permissions) {
+      const key = permission.startsWith('video.') ? 'channel.permissionVideos'
+        : permission.startsWith('playlist.') ? 'channel.permissionPlaylists'
+        : permission.startsWith('comment.') ? 'channel.permissionComments'
+        : permission.startsWith('analytics.') ? 'channel.permissionAnalytics'
+        : permission.startsWith('copyright.') ? 'channel.permissionCopyright'
+        : permission.startsWith('member.') ? 'channel.permissionMembers'
+        : permission.startsWith('channel.setting.') ? 'channel.permissionSettings'
+        : permission.startsWith('channel.edit_') ? 'channel.permissionChannelInfo'
+        : 'channel.permissionDashboard';
+      groups.add(this.i18n.t(key));
+    }
+    return [...groups];
   }
 
   private run(invitation: ChannelInvitation, action: 'accept' | 'decline', success: string): void {

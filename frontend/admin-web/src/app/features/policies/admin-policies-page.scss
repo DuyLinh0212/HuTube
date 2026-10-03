@@ -494,3 +494,6 @@
     }
   }
 }
+
+.table-container { overflow-x: auto; } .data-table { min-width: 900px; }
+@media (max-width: 600px) { :host { padding: 16px; } .search-box { width: 100%; max-width: 100%; min-width: 0; } .toolbar { flex-wrap: wrap; } }

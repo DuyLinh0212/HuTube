@@ -6,7 +6,9 @@ import { I18nService } from './i18n.service';
 
 export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; role?: string; permissions?: string[]; }
 export interface LoginResponse { accessToken: string; expiresAt: string; user: User; }
-export interface Session { sessionId: string; deviceName: string; platform: string; issuedAt: string; lastActiveAt: string; expiresAt: string; isCurrent: boolean; }
+export interface Session { sessionId: string; deviceName: string; platform: string; issuedAt: string; lastActiveAt: string; expiresAt: string; isCurrent: boolean; ipAddress?: string | null; deviceId?: string | null; }
+export interface LoginHistoryItem { loginHistoryId: string; deviceId: string; deviceName: string; platform: string; ipAddress?: string | null; loginAt: string; }
+export interface LoginHistoryPage { items: LoginHistoryItem[]; page: number; pageSize: number; total: number; }
 export interface Message { message: string; }
 
 function stableDeviceId(): string {
@@ -102,6 +104,9 @@ export class AuthService {
   forgot(email: string) { return this.post<Message>('/auth/forgot-password', { email }); }
   reset(token: string, password: string) { return this.post<Message>('/auth/reset-password', { token, password }).pipe(tap(() => this.clear())); }
   sessions() { return this.http.get<{ items: Session[] }>(this.config.apiBaseUrl + '/auth/sessions'); }
+  loginHistory(page = 1, pageSize = 20) {
+    return this.http.get<LoginHistoryPage>(this.config.apiBaseUrl + '/auth/login-history', { params: { page, pageSize } });
+  }
   logoutOthers() { return this.http.post<Message>(this.config.apiBaseUrl + '/auth/logout-others', {}); }
   revoke(id: string) { return this.http.delete<Message>(this.config.apiBaseUrl + '/auth/sessions/' + encodeURIComponent(id)); }
   logout() { this.clear(); return this.post<Message>('/auth/logout', {}); }

@@ -25,11 +25,15 @@
             <h2>{{ 'home.followingTitle' | translate }}</h2>
           </div>
         </header>
-        <div class="grid">
+        <div #subscriptionRail class="subscription-rail" tabindex="0" [attr.aria-label]="'home.followingTitle' | translate">
           @for (video of subscriptionVideos(); track video.videoId) {
             <a class="card" [routerLink]="['/watch', video.videoId]"><ng-container *ngTemplateOutlet="videoCard; context: { $implicit: video }"></ng-container></a>
           }
+          <div #subscriptionLoadSentinel class="subscription-rail-sentinel" aria-hidden="true"></div>
         </div>
+        @if (loadingSubscriptionVideos()) {
+          <p class="subscription-feed-status" role="status">{{ 'home.loadingMore' | translate }}</p>
+        }
       </section>
     }
 
@@ -72,7 +76,7 @@
     <div #loadMoreSentinel class="feed-sentinel" aria-hidden="true"></div>
     @if (loadingMore()) {
       <p class="feed-status" role="status">{{ 'home.loadingMore' | translate }}</p>
-    } @else if (!hasMore() && (recommendations().length > 0 || subscriptionVideos().length > 0 || popularVideos().length > 0 || randomVideos().length > 0)) {
+    } @else if (!hasMore() && subscriptionsDone && (recommendations().length > 0 || subscriptionVideos().length > 0 || popularVideos().length > 0 || randomVideos().length > 0)) {
       <p class="feed-status">{{ 'home.noMore' | translate }}</p>
     }
   }

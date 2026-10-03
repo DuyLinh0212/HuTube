@@ -17,6 +17,7 @@
       </div>
       <h2>{{ 'channel.unavailable' | translate }}</h2>
       <p>{{ error() }}</p>
+      <button type="button" class="btn-secondary" (click)="retryChannel()">{{ 'common.retry' | translate }}</button>
       <a routerLink="/account" class="btn-primary">{{ 'channel.backProfile' | translate }}</a>
     </div>
   } @else if (channel(); as ch) {
@@ -46,9 +47,6 @@
       <div class="channel-meta-content">
         <div class="channel-title-row">
           <h1 class="channel-name">{{ ch.name }}</h1>
-          <span class="verified-badge" [title]="'ui.verifiedChannel' | translate">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </span>
         </div>
 
         <p class="channel-sub-meta">
@@ -152,9 +150,19 @@
           <div class="channel-playlist-grid">
             @for (list of playlists(); track list.playlistId) {
               <a class="channel-playlist-card" [routerLink]="['/channel', ch.handle, 'playlists', list.playlistId]">
-                <img src="/assets/icons/playlist.png" alt="" />
-                <div>
-                  <strong>{{ list.name }}</strong>
+                <div class="channel-playlist-mosaic" [class.channel-playlist-mosaic--empty]="!playlistPreviewItems(list).length">
+                  @for (video of playlistPreviewItems(list); track video.playlistVideoId) {
+                    <img [src]="video.thumbnailUrl" [alt]="video.title || list.name" />
+                  }
+                  @if (!playlistPreviewItems(list).length) {
+                    <span class="channel-playlist-mosaic-line channel-playlist-mosaic-line--one"></span>
+                    <span class="channel-playlist-mosaic-line channel-playlist-mosaic-line--two"></span>
+                    <span class="channel-playlist-mosaic-letter">{{ list.name.slice(0, 1).toUpperCase() }}</span>
+                  }
+                  <span class="channel-playlist-count"><b aria-hidden="true">▣</b> {{ list.itemCount }}</span>
+                </div>
+                <div class="channel-playlist-copy">
+                  <div class="channel-playlist-title-row"><h3>{{ list.name }}</h3><span aria-hidden="true">›</span></div>
                   <small>{{ list.itemCount }} video</small>
                   @if (list.description) { <p>{{ list.description }}</p> }
                 </div>

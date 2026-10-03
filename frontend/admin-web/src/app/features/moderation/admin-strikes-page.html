@@ -1,10 +1,5 @@
 <div class="moderation-container">
   <header class="page-header">
-    <div class="header-titles">
-      <p class="eyebrow">{{ 'strikes.eyebrow' | translate }}</p>
-      <h1>{{ 'strikes.title' | translate }}</h1>
-      <p class="subtitle">{{ 'strikes.subtitle' | translate }}</p>
-    </div>
     <div class="header-actions">
       @if (canLockChannels()) {
         <button type="button" class="btn btn-secondary" (click)="openChannelLockModal()" [disabled]="loading()">
@@ -71,36 +66,100 @@
     </button>
   </div>
 
-  <!-- Strike Policy Banner -->
-  <section class="policy-banner">
-    <div class="tier-card tier-warn">
-      <div class="tier-header">
-        <span class="tier-badge">{{ 'strikes.tier' | translate:{level: 0} }}</span>
-        <h4>{{ 'strikes.warning' | translate }}</h4>
+  <!-- Strike policy configuration -->
+  <section class="policy-settings" aria-labelledby="strike-policy-title">
+    <div class="policy-settings-heading">
+      <div>
+        <p class="policy-kicker">{{ 'strikes.policyKicker' | translate }}</p>
+        <h2 id="strike-policy-title">{{ 'strikes.policyTitle' | translate }}</h2>
+        <p>{{ 'strikes.policyIntro' | translate }}</p>
       </div>
-      <p>{{ 'strikes.warningLevel' | translate }}</p>
+      @if (canManageStrikes()) {
+        <button type="button" class="btn btn-primary policy-save" (click)="savePolicy()"
+          [disabled]="policyLoading() || policySaving() || !policyDirty() || !policyValid()">
+          {{ policySaving() ? ('strikes.policySaving' | translate) : ('strikes.policySave' | translate) }}
+        </button>
+      }
     </div>
-    <div class="tier-card tier-strike1">
-      <div class="tier-header">
-        <span class="tier-badge">{{ 'strikes.tier' | translate:{level: 1} }}</span>
-        <h4>{{ 'strikes.firstStrike' | translate }}</h4>
+
+    @if (policyLoading()) {
+      <div class="policy-loading">{{ 'strikes.policyLoading' | translate }}</div>
+    } @else {
+      <div class="policy-config-grid">
+        <label class="policy-config-field policy-config-featured" for="strike-rejected-videos">
+          <span>{{ 'strikes.rejectedVideosPerStrike' | translate }}</span>
+          <div class="policy-number-input">
+            <input id="strike-rejected-videos" type="number" min="1" max="100"
+              [ngModel]="policy().rejectedVideosPerStrike" (ngModelChange)="setPolicyValue('rejectedVideosPerStrike', $event)"
+              [disabled]="!canManageStrikes() || policySaving()" />
+            <b>{{ 'strikes.rejectionsPerStrikeUnit' | translate }}</b>
+          </div>
+        </label>
+
+        <label class="policy-config-field" for="strike-first-restriction">
+          <span>{{ 'strikes.firstRestrictionDays' | translate }}</span>
+          <div class="policy-number-input">
+            <input id="strike-first-restriction" type="number" min="0" max="365"
+              [ngModel]="policy().firstStrikeRestrictionDays" (ngModelChange)="setPolicyValue('firstStrikeRestrictionDays', $event)"
+              [disabled]="!canManageStrikes() || policySaving()" />
+            <b>{{ 'strikes.daysUnit' | translate }}</b>
+          </div>
+        </label>
+
+        <label class="policy-config-field" for="strike-second-restriction">
+          <span>{{ 'strikes.secondRestrictionDays' | translate }}</span>
+          <div class="policy-number-input">
+            <input id="strike-second-restriction" type="number" min="0" max="365"
+              [ngModel]="policy().secondStrikeRestrictionDays" (ngModelChange)="setPolicyValue('secondStrikeRestrictionDays', $event)"
+              [disabled]="!canManageStrikes() || policySaving()" />
+            <b>{{ 'strikes.daysUnit' | translate }}</b>
+          </div>
+        </label>
+
+        <label class="policy-config-field" for="strike-suspension-count">
+          <span>{{ 'strikes.suspensionStrikeCount' | translate }}</span>
+          <div class="policy-number-input">
+            <input id="strike-suspension-count" type="number" min="3" max="10"
+              [ngModel]="policy().suspensionStrikeCount" (ngModelChange)="setPolicyValue('suspensionStrikeCount', $event)"
+              [disabled]="!canManageStrikes() || policySaving()" />
+            <b>{{ 'strikes.strikesUnit' | translate }}</b>
+          </div>
+        </label>
+
+        <label class="policy-config-field" for="strike-expiration-days">
+          <span>{{ 'strikes.strikeExpirationDays' | translate }}</span>
+          <div class="policy-number-input">
+            <input id="strike-expiration-days" type="number" min="1" max="3650"
+              [ngModel]="policy().strikeExpirationDays" (ngModelChange)="setPolicyValue('strikeExpirationDays', $event)"
+              [disabled]="!canManageStrikes() || policySaving()" />
+            <b>{{ 'strikes.daysUnit' | translate }}</b>
+          </div>
+        </label>
       </div>
-      <p>{{ 'strikes.firstStrikeLevel' | translate:{days: 7} }}</p>
-    </div>
-    <div class="tier-card tier-strike2">
-      <div class="tier-header">
-        <span class="tier-badge">{{ 'strikes.tier' | translate:{level: 2} }}</span>
-        <h4>{{ 'strikes.secondStrike' | translate }}</h4>
+
+      @if (!policyValid()) {
+        <p class="policy-validation" role="alert">{{ 'strikes.policyInvalid' | translate }}</p>
+      }
+
+      <div class="policy-outcomes">
+        <div class="policy-outcome outcome-first">
+          <span class="outcome-mark">01</span>
+          <div><strong>{{ 'strikes.firstStrike' | translate }}</strong><p>{{ 'strikes.policyFirstOutcome' | translate:{ days: policy().firstStrikeRestrictionDays } }}</p></div>
+        </div>
+        <div class="policy-outcome outcome-second">
+          <span class="outcome-mark">02</span>
+          <div><strong>{{ 'strikes.secondStrike' | translate }}</strong><p>{{ 'strikes.policySecondOutcome' | translate:{ days: policy().secondStrikeRestrictionDays } }}</p></div>
+        </div>
+        <div class="policy-outcome outcome-suspension">
+          <span class="outcome-mark">{{ policy().suspensionStrikeCount }}+</span>
+          <div><strong>{{ 'strikes.policyLockOutcomeTitle' | translate }}</strong><p>{{ 'strikes.policyLockOutcome' | translate }}</p></div>
+        </div>
       </div>
-      <p>{{ 'strikes.secondStrikeLevel' | translate:{days: 14} }}</p>
-    </div>
-    <div class="tier-card tier-strike3">
-      <div class="tier-header">
-        <span class="tier-badge">{{ 'strikes.tier' | translate:{level: 3} }}</span>
-        <h4>{{ 'strikes.finalStrike' | translate }}</h4>
-      </div>
-      <p>{{ 'strikes.finalStrikeLevel' | translate }}</p>
-    </div>
+
+      <p class="policy-preview">
+        {{ 'strikes.policyPreview' | translate:{ perStrike: policy().rejectedVideosPerStrike, rejectedCount: rejectedVideosForSuspension(), strikeCount: policy().suspensionStrikeCount } }}
+      </p>
+    }
   </section>
 
   <!-- Filters Toolbar -->
@@ -244,12 +303,14 @@
   @if (isCreateModalOpen()) {
     <div class="modal-backdrop" (click)="closeCreateModal()">
       <div class="modal-card" (click)="$event.stopPropagation()">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
         <div class="modal-header">
           <h3>{{ 'strikes.createTitle' | translate }}</h3>
           <button type="button" class="close-btn" (click)="closeCreateModal()">&times;</button>
         </div>
 
         <div class="modal-body">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
           <div class="form-group">
             <label>{{ 'strikes.channelId' | translate }} <span class="required">*</span></label>
             <input type="text" [placeholder]="'strikes.channelIdPlaceholder' | translate"
@@ -306,12 +367,14 @@
   @if (isRevokeModalOpen() && activeStrike()) {
     <div class="modal-backdrop" (click)="closeRevokeModal()">
       <div class="modal-card" (click)="$event.stopPropagation()">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
         <div class="modal-header">
           <h3>{{ 'strikes.revokeTitle' | translate:{number: activeStrike()!.strikeNumber} }}</h3>
           <button type="button" class="close-btn" (click)="closeRevokeModal()">&times;</button>
         </div>
 
         <div class="modal-body">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
           <div class="context-box">
             <div class="context-row">
               <span class="context-label">{{ 'strikes.channelApplied' | translate }}</span>
@@ -344,12 +407,14 @@
   @if (isChannelLockModalOpen()) {
     <div class="modal-backdrop" (click)="closeChannelLockModal()">
       <div class="modal-card" (click)="$event.stopPropagation()">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
         <div class="modal-header">
           <h3>{{ lockAction() === 'lock' ? ('strikes.lockTitle' | translate) : ('strikes.unlockTitle' | translate) }}</h3>
           <button type="button" class="close-btn" (click)="closeChannelLockModal()">&times;</button>
         </div>
 
         <div class="modal-body">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
           <div class="form-group">
             <label>{{ 'strikes.action' | translate }}</label>
             <select [ngModel]="lockAction()" (ngModelChange)="lockAction.set($event)">

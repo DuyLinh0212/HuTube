@@ -10,8 +10,13 @@ import {
   CreateStrikeRequest,
   PolicyItem,
   RevokeStrikeRequest,
-  StrikeItem
+  StrikeItem,
+  StrikePolicySettings,
+  UpdateStrikePolicySettingsRequest
 } from './admin-moderation.service';
+
+type StrikePolicyNumberKey = keyof Pick<StrikePolicySettings,
+  'rejectedVideosPerStrike' | 'firstStrikeRestrictionDays' | 'secondStrikeRestrictionDays' | 'strikeExpirationDays' | 'suspensionStrikeCount'>;
 
 @Component({
   selector: 'app-admin-strikes-page',
@@ -30,6 +35,18 @@ export class AdminStrikesPage implements OnInit {
   readonly successMessage = signal<string | null>(null);
   readonly strikes = signal<StrikeItem[]>([]);
   readonly policies = signal<PolicyItem[]>([]);
+  readonly policyLoading = signal(true);
+  readonly policySaving = signal(false);
+  readonly policy = signal<StrikePolicySettings>({
+    rejectedVideosPerStrike: 5,
+    firstStrikeRestrictionDays: 7,
+    secondStrikeRestrictionDays: 14,
+    strikeExpirationDays: 90,
+    suspensionStrikeCount: 3,
+    rejectedVideosEffectiveAt: '',
+    updatedAt: ''
+  });
+  readonly savedPolicy = signal<StrikePolicySettings | null>(null);
 
   readonly selectedStatus = signal<'ALL' | 'active' | 'expired' | 'revoked'>('ALL');
   readonly searchQuery = signal('');
@@ -65,6 +82,26 @@ export class AdminStrikesPage implements OnInit {
   readonly countActive = computed(() => this.strikes().filter(s => s.status === 'active').length);
   readonly countExpired = computed(() => this.strikes().filter(s => s.status === 'expired').length);
   readonly countRevoked = computed(() => this.strikes().filter(s => s.status === 'revoked').length);
+  readonly policyDirty = computed(() => {
+    const saved = this.savedPolicy();
+    const draft = this.policy();
+    return !!saved && (
+      saved.rejectedVideosPerStrike !== draft.rejectedVideosPerStrike ||
+      saved.firstStrikeRestrictionDays !== draft.firstStrikeRestrictionDays ||
+      saved.secondStrikeRestrictionDays !== draft.secondStrikeRestrictionDays ||
+      saved.strikeExpirationDays !== draft.strikeExpirationDays ||
+      saved.suspensionStrikeCount !== draft.suspensionStrikeCount
+    );
+  });
+  readonly policyValid = computed(() => {
+    const value = this.policy();
+    return Number.isInteger(value.rejectedVideosPerStrike) && value.rejectedVideosPerStrike >= 1 && value.rejectedVideosPerStrike <= 100
+      && Number.isInteger(value.firstStrikeRestrictionDays) && value.firstStrikeRestrictionDays >= 0 && value.firstStrikeRestrictionDays <= 365
+      && Number.isInteger(value.secondStrikeRestrictionDays) && value.secondStrikeRestrictionDays >= value.firstStrikeRestrictionDays && value.secondStrikeRestrictionDays <= 365
+      && Number.isInteger(value.strikeExpirationDays) && value.strikeExpirationDays >= Math.max(1, value.secondStrikeRestrictionDays) && value.strikeExpirationDays <= 3650
+      && Number.isInteger(value.suspensionStrikeCount) && value.suspensionStrikeCount >= 3 && value.suspensionStrikeCount <= 10;
+  });
+  readonly rejectedVideosForSuspension = computed(() => this.policy().rejectedVideosPerStrike * this.policy().suspensionStrikeCount);
 
   readonly policyGroups = computed(() => {
     const groupsMap = new Map<string, { label: string; items: PolicyItem[] }>();
@@ -145,6 +182,55 @@ export class AdminStrikesPage implements OnInit {
     this.moderationService.getPolicies().subscribe({
       next: (items) => this.policies.set(items),
       error: () => {}
+    });
+
+    this.policyLoading.set(true);
+    this.moderationService.getStrikePolicySettings().subscribe({
+      next: (settings) => {
+        this.policy.set(settings);
+        this.savedPolicy.set(settings);
+        this.policyLoading.set(false);
+      },
+      error: (err) => {
+        this.error.set(err?.error?.message || this.i18n.t('strikes.policyLoadError'));
+        this.policyLoading.set(false);
+      }
+    });
+  }
+
+  setPolicyValue(key: StrikePolicyNumberKey, value: number | string): void {
+    const numberValue = Number(value);
+    this.policy.update(current => ({ ...current, [key]: Number.isFinite(numberValue) ? numberValue : 0 }));
+  }
+
+  savePolicy(): void {
+    if (!this.canManageStrikes() || this.policySaving()) return;
+    if (!this.policyValid()) {
+      this.error.set(this.i18n.t('strikes.policyInvalid'));
+      return;
+    }
+
+    const current = this.policy();
+    const request: UpdateStrikePolicySettingsRequest = {
+      rejectedVideosPerStrike: current.rejectedVideosPerStrike,
+      firstStrikeRestrictionDays: current.firstStrikeRestrictionDays,
+      secondStrikeRestrictionDays: current.secondStrikeRestrictionDays,
+      strikeExpirationDays: current.strikeExpirationDays,
+      suspensionStrikeCount: current.suspensionStrikeCount
+    };
+    this.policySaving.set(true);
+    this.error.set(null);
+    this.moderationService.updateStrikePolicySettings(request).subscribe({
+      next: (settings) => {
+        this.policy.set(settings);
+        this.savedPolicy.set(settings);
+        this.policySaving.set(false);
+        this.successMessage.set(this.i18n.t('strikes.policySaved'));
+      },
+      error: (err) => {
+        this.policySaving.set(false);
+        this.error.set(err?.error?.message || this.i18n.t('strikes.policySaveError'));
+      }
     });
   }
 

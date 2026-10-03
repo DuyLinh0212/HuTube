@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, HostListener, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
@@ -16,6 +16,7 @@ import { StudioDataService } from '../../core/studio-data.service';
   styleUrl: './studio-topbar.component.scss'
 })
 export class StudioTopbarComponent implements OnInit {
+  @Input() sidebarCollapsed = false;
   @Output() readonly menuOpened = new EventEmitter<void>();
 
   readonly auth = inject(AuthService);

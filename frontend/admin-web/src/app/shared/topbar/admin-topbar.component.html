@@ -11,39 +11,73 @@
     </a>
   </div>
 
-  <label class="search-box">
-    <span class="search-glyph" aria-hidden="true"></span>
-    <input type="search" [placeholder]="'topbar.searchPlaceholder' | translate" [attr.aria-label]="'topbar.searchPlaceholder' | translate" />
-  </label>
+  <div class="top-actions">
+    <div class="profile-menu" (click)="$event.stopPropagation()">
+      <button
+        class="profile-trigger"
+        type="button"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="menuOpen()"
+        [attr.aria-label]="'topbar.adminInfo' | translate"
+        (click)="toggleMenu()">
+        <span class="profile-avatar">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'Q' }}</span>
+        <span class="profile-trigger-copy">
+          <strong>{{ auth.user()?.displayName || ('topbar.adminRole' | translate) }}</strong>
+          <small>{{ 'topbar.adminRole' | translate }}</small>
+        </span>
+        <svg class="profile-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" /></svg>
+      </button>
 
-  <div class="top-actions" [attr.aria-label]="'topbar.adminInfo' | translate">
-    <span class="date-range">{{ 'topbar.dateRange' | translate }}</span>
+      @if (menuOpen()) {
+        <section class="profile-dropdown" role="menu" [attr.aria-label]="'topbar.adminInfo' | translate">
+          <div class="profile-summary">
+            <span class="profile-avatar profile-avatar-large">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'Q' }}</span>
+            <span class="profile-summary-copy">
+              <strong>{{ auth.user()?.displayName || ('topbar.adminRole' | translate) }}</strong>
+              <small>{{ auth.user()?.email || auth.user()?.username || '' }}</small>
+              <span class="role-badge">{{ 'topbar.adminRole' | translate }}</span>
+            </span>
+          </div>
 
-    <!-- Theme Toggle -->
-    <button class="topbar-icon-btn" type="button" (click)="toggleTheme()" [title]="themeService.currentTheme() === 'dark' ? ('topbar.themeLight' | translate) : ('topbar.themeDark' | translate)">
-      @if (themeService.currentTheme() === 'dark') {
-        <span>☀️</span>
-      } @else {
-        <span>🌙</span>
+          <div class="menu-divider"></div>
+
+          <a class="menu-row account-row" routerLink="/account" role="menuitem" (click)="closeMenu()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.4 3.1-5 7-5s6.3 1.6 7 5"/></svg>
+            <span>{{ 'topbar.accountSettings' | translate }}</span>
+            <svg class="row-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6" /></svg>
+          </a>
+
+          <button class="menu-row" type="button" role="menuitem" (click)="toggleTheme()">
+            @if (themeService.currentTheme() === 'dark') {
+              <span class="menu-symbol" aria-hidden="true">☀</span>
+            } @else {
+              <span class="menu-symbol" aria-hidden="true">☾</span>
+            }
+            <span>{{ 'topbar.theme' | translate }}</span>
+            <span class="current-choice">{{ (themeService.currentTheme() === 'dark' ? 'topbar.themeDark' : 'topbar.themeLight') | translate }}</span>
+          </button>
+
+          <div class="language-menu-wrap">
+            <button class="menu-row language-trigger" type="button" role="menuitem" aria-haspopup="menu" [attr.aria-expanded]="languageMenuOpen()" (click)="toggleLanguageMenu()">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3c2.3 2.5 3.3 5.5 3.3 9s-1 6.5-3.3 9c-2.3-2.5-3.3-5.5-3.3-9S9.7 5.5 12 3Z"/></svg>
+              <span>{{ 'topbar.language' | translate }}</span>
+              <span class="current-choice">{{ i18n.currentLang() === 'vi' ? 'VI' : 'EN' }}</span>
+              <svg class="row-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6" /></svg>
+            </button>
+
+            @if (languageMenuOpen()) {
+              <div class="language-dropdown" role="menu" [attr.aria-label]="'topbar.language' | translate">
+                <button type="button" role="menuitemradio" [attr.aria-checked]="i18n.currentLang() === 'vi'" [class.is-selected]="i18n.currentLang() === 'vi'" (click)="selectLanguage('vi')">
+                  <span>Tiếng Việt</span><span class="language-code">VI</span>
+                </button>
+                <button type="button" role="menuitemradio" [attr.aria-checked]="i18n.currentLang() === 'en'" [class.is-selected]="i18n.currentLang() === 'en'" (click)="selectLanguage('en')">
+                  <span>English</span><span class="language-code">EN</span>
+                </button>
+              </div>
+            }
+          </div>
+        </section>
       }
-    </button>
-
-    <!-- Language Toggle -->
-    <button class="topbar-icon-btn lang-btn" type="button" (click)="toggleLanguage()" [title]="'topbar.language' | translate">
-      <span>{{ i18n.currentLang() === 'vi' ? 'VI' : 'EN' }}</span>
-    </button>
-
-    <span class="notification" role="img" [attr.aria-label]="'8 ' + ('topbar.notifications' | translate)">
-      <img src="/assets/icons/notification.png" alt="" />
-      <i>8</i>
-    </span>
-
-    <a class="admin-profile" routerLink="/account">
-      <span class="profile-avatar">{{ auth.user()?.displayName?.slice(0, 1)?.toUpperCase() || 'Q' }}</span>
-      <span>
-        <strong>{{ auth.user()?.displayName || ('topbar.adminRole' | translate) }}</strong>
-        <small>{{ 'topbar.adminRole' | translate }}</small>
-      </span>
-    </a>
+    </div>
   </div>
 </header>

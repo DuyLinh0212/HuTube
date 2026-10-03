@@ -1,21 +1,142 @@
-<main class="page">
-  <section class="cards" [attr.aria-label]="'studio.channelMetrics' | translate">
-    <article><span>{{ 'studio.viewsCount' | translate }}</span><strong>{{ data.views() | localeNumber }}</strong></article>
-    <article><span>{{ 'studio.likes' | translate }}</span><strong>{{ data.likes() | localeNumber }}</strong></article>
-    <article><span>{{ 'studio.commentsCount' | translate }}</span><strong>{{ data.comments() | localeNumber }}</strong></article>
-    <article><span>{{ 'studio.watchTime' | translate }}</span><strong>{{ data.watchSeconds() / 3600 | localeNumber:'1.0-1' }} {{ 'ui.watchHours' | translate }}</strong></article>
-  </section>
+<main class="page" id="studio-analytics">
+  <header class="page-header">
+    <div>
+      <h1>{{ 'studio.analytics' | translate }}</h1>
+    </div>
+    <label class="video-picker">
+      <span>{{ 'studio.analyticsVideoFilter' | translate }}</span>
+      <select aria-label="{{ 'studio.analyticsVideoFilter' | translate }}" [value]="selectedVideoId()" (change)="selectVideo($any($event.target).value)">
+        <option value="all">{{ 'studio.analyticsAllVideos' | translate }}</option>
+        @for (video of data.videos(); track video.videoId) {
+          <option [value]="video.videoId">{{ video.title }}</option>
+        }
+      </select>
+    </label>
+  </header>
 
-  <section class="chart">
-    <h2>{{ 'studio.performanceByVideo' | translate }}</h2>
-    @for (video of data.videos(); track video.videoId) {
-      <div class="row">
-        <span>{{ video.title }}</span>
-        <div><i [style.width.%]="data.views() ? video.stats.views / data.views() * 100 : 0"></i></div>
-        <b>{{ video.stats.views | localeNumber }}</b>
-      </div>
-    } @empty {
-      <p>{{ 'ui.noData' | translate }}</p>
-    }
-  </section>
+  @if (data.loading()) {
+    <section class="state-panel" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <p>{{ 'studio.loadingAnalytics' | translate }}</p>
+    </section>
+  } @else if (data.error()) {
+    <section class="state-panel error-panel" role="alert">
+      <h2>{{ 'studio.analyticsLoadError' | translate }}</h2>
+      <p>{{ data.error() }}</p>
+      <button type="button" class="button-primary" (click)="data.load()">{{ 'studio.retryAnalytics' | translate }}</button>
+    </section>
+  } @else if (videoCount() === 0) {
+    <section class="state-panel">
+      <span class="empty-icon" aria-hidden="true">◌</span>
+      <h2>{{ 'studio.noAnalyticsVideos' | translate }}</h2>
+      <p>{{ 'studio.noAnalyticsVideosDescription' | translate }}</p>
+      <a class="button-primary" routerLink="/studio/upload">{{ 'studio.uploadVideo' | translate }}</a>
+    </section>
+  } @else {
+    <p class="mode-note" aria-live="polite">
+      @if (isAllVideos()) {
+        {{ 'studio.analyticsAllAverageNote' | translate:{ count: videoCount() } }}
+      } @else {
+        {{ 'studio.analyticsSelectedNote' | translate }}
+      }
+    </p>
+
+    <section class="metric-grid" [attr.aria-label]="'studio.channelMetrics' | translate">
+      @for (metric of metrics(); track metric.key) {
+        <article class="metric-card" [class.metric-rating]="metric.key === 'rating'">
+          <span>{{ metric.labelKey | translate }}</span>
+          <strong>{{ metric.display }}</strong>
+          <small>
+            @if (metric.key === 'watchDuration') { {{ 'studio.analyticsWatchDurationHint' | translate }} }
+            @else if (metric.key === 'rating') { {{ 'studio.analyticsRatingHint' | translate }} }
+            @else if (isAllVideos()) { {{ 'studio.analyticsPerVideoHint' | translate }} }
+            @else { {{ selectedVideo()?.title }} }
+          </small>
+        </article>
+      }
+    </section>
+
+    <section class="analytics-grid">
+      <article class="panel radar-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>{{ 'studio.analyticsRadarTitle' | translate }}</h2>
+            <p>{{ 'studio.analyticsRadarDescription' | translate }}</p>
+          </div>
+          <span class="chart-legend"><i></i>{{ isAllVideos() ? ('studio.analyticsChannelAverage' | translate) : ('studio.analyticsSelectedVideo' | translate) }}</span>
+        </div>
+        <div class="radar-wrap">
+          <svg class="radar-chart" viewBox="0 0 440 316" role="img" [attr.aria-label]="'studio.analyticsRadarAccessible' | translate">
+            <g class="radar-grid">
+              @for (points of radarGrid; track $index) { <polygon [attr.points]="points"></polygon> }
+              @for (axis of radarAxes(); track axis.key) {
+                <line x1="220" y1="158" [attr.x2]="axis.x" [attr.y2]="axis.y"></line>
+              }
+            </g>
+            <polygon class="radar-area" [attr.points]="radarValuePoints()"></polygon>
+            @for (axis of radarAxes(); track axis.key) {
+              <circle class="radar-dot" [attr.cx]="axis.x" [attr.cy]="axis.y" r="4"></circle>
+              <text class="radar-label" [attr.x]="axis.labelX" [attr.y]="axis.labelY" [attr.text-anchor]="axis.anchor">{{ axis.radarLabelKey | translate }}</text>
+            }
+          </svg>
+        </div>
+        <p class="chart-footnote">{{ 'studio.analyticsRadarScaleNote' | translate }}</p>
+      </article>
+
+      @if (isAllVideos()) {
+        <article class="panel top-videos-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>{{ 'studio.analyticsTopVideos' | translate }}</h2>
+              <p>{{ 'studio.analyticsTopVideosDescription' | translate }}</p>
+            </div>
+            <span class="count-badge">{{ topVideos().length }} / {{ videoCount() }}</span>
+          </div>
+          <div class="top-video-list">
+            @for (video of topVideos(); track video.videoId; let index = $index) {
+              <button type="button" class="top-video" [attr.aria-label]="'studio.analyticsOpenVideo' | translate:{ title: video.title }" (click)="selectVideo(video.videoId)">
+                <span class="rank">{{ (index + 1).toString().padStart(2, '0') }}</span>
+                @if (video.thumbnailUrl) {
+                  <img class="video-thumb" [src]="video.thumbnailUrl" [alt]="''" loading="lazy" />
+                } @else {
+                  <span class="video-thumb thumb-placeholder" aria-hidden="true">▶</span>
+                }
+                <span class="video-info">
+                  <strong>{{ video.title }}</strong>
+                  <span class="video-stats">{{ video.stats.views | localeNumber }} {{ 'studio.views' | translate }} · {{ video.stats.likes | localeNumber }} {{ 'studio.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'studio.commentsCount' | translate }}</span>
+                  <span class="view-bar"><i [style.width.%]="topVideoWidth(video)"></i></span>
+                </span>
+                <span class="open-chevron" aria-hidden="true">›</span>
+              </button>
+            }
+          </div>
+          <p class="top-videos-footnote">{{ 'studio.analyticsTopFiveLimit' | translate }}</p>
+        </article>
+      } @else if (selectedVideo(); as video) {
+        <article class="panel selected-video-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>{{ 'studio.analyticsVideoSummary' | translate }}</h2>
+              <p>{{ 'studio.analyticsSelectedNote' | translate }}</p>
+            </div>
+            <span class="count-badge">{{ 'studio.analyticsOneVideo' | translate }}</span>
+          </div>
+          <a class="selected-video-card" [routerLink]="['/watch', video.videoId]">
+            @if (video.thumbnailUrl) {
+              <img [src]="video.thumbnailUrl" [alt]="''" />
+            } @else {
+              <span class="selected-thumb-placeholder" aria-hidden="true">▶</span>
+            }
+            <span class="selected-video-info">
+              <strong>{{ video.title }}</strong>
+              <span>{{ video.stats.views | localeNumber }} {{ 'studio.views' | translate }} · {{ video.stats.likes | localeNumber }} {{ 'studio.likes' | translate }}</span>
+              <span>{{ video.stats.comments | localeNumber }} {{ 'studio.commentsCount' | translate }} · {{ video.stats.averageRating ?? ('studio.noRating' | translate) }}</span>
+              <span class="watch-detail">{{ 'studio.analyticsAverageViewDuration' | translate }}: {{ metrics()[3].display }}</span>
+            </span>
+          </a>
+          <button type="button" class="text-button" (click)="selectVideo('all')">{{ 'studio.analyticsBackToAll' | translate }}</button>
+        </article>
+      }
+    </section>
+  }
 </main>

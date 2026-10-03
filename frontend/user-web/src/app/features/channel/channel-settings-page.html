@@ -175,12 +175,16 @@
               <p>{{ 'channel.watermarkDesc' | translate }}</p>
               <button type="button" class="btn-secondary" (click)="watermarkInput.click()" [disabled]="busy()">{{ 'channel.uploadWatermark' | translate }}</button>
               <input #watermarkInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onWatermarkSelected($event)" hidden />
-              <input type="text" class="text-input" [(ngModel)]="watermarkUrl" placeholder="https://example.com/watermark.png" [disabled]="busy()" />
-              <div class="watermark-action">
-                <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">{{ 'channel.saveWatermark' | translate }}</button>
-              </div>
             </div>
-            @if (ch.watermarkUrl) { <div class="branding-preview watermark-preview"><img [src]="ch.watermarkUrl" [alt]="'channel.previewWatermark' | translate" /></div> }
+            <div class="watermark-preview-stage" role="img" [attr.aria-label]="'channel.previewWatermark' | translate">
+              <span class="watermark-preview-play" aria-hidden="true">▶</span>
+              @if (ch.watermarkUrl) {
+                <img [src]="ch.watermarkUrl" alt="" aria-hidden="true" />
+              } @else {
+                <span class="watermark-preview-empty">{{ 'channel.watermarkPreviewEmpty' | translate }}</span>
+              }
+              <span class="watermark-preview-controls" aria-hidden="true"><i></i></span>
+            </div>
           </div>
         </div>
       }

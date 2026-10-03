@@ -65,6 +65,39 @@
   gap: 24px 18px;
 }
 
+.subscription-rail {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0 2px 12px;
+  scroll-padding-inline: 2px;
+  scroll-snap-type: x proximity;
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.subscription-rail > .card {
+  flex: 0 0 clamp(260px, calc((100% - 54px) / 4), 340px);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.subscription-rail-sentinel {
+  flex: 0 0 1px;
+  width: 1px;
+  height: 1px;
+  align-self: center;
+}
+
+.subscription-feed-status {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+  text-align: center;
+}
+
 .card {
   color: inherit;
   text-decoration: none;
@@ -161,6 +194,10 @@
   .grid {
     grid-template-columns: 1fr;
   }
+
+  .subscription-rail > .card {
+    flex-basis: min(84vw, 340px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -172,3 +209,6 @@
     transform: none;
   }
 }
+
+@media (max-width: 980px) { .feed-section--for-you .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .feed-section--for-you .grid { grid-template-columns: minmax(0, 1fr); } }

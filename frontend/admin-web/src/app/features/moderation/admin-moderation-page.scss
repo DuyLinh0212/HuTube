@@ -11,3 +11,7 @@
 @media (max-width: 1180px) { .moderation-layout { grid-template-columns: 1fr; } }
 @media (max-width: 850px) { .moderation-page { padding: 24px 15px 42px; }.page-heading { flex-direction: column; }.heading-actions { width: 100%; }.heading-actions .outline-button, .heading-actions .primary-button { flex: 1; }.filter-panel { flex-wrap: wrap; }.search-field { flex-basis: 100%; }.filter-field { flex: 1; }.review-grid { grid-template-columns: 1fr; }.player-container { min-height: 220px; }.review-modal.is-theater { width: 96vw; height: 94vh; } }
 @media (max-width: 560px) { .status-tabs { gap: 13px; overflow-x: auto; }.status-tabs button { flex: 0 0 auto; font-size: .7rem; }.table-heading { align-items: flex-start; flex-direction: column; gap: 4px; }.modal-header { padding: 15px; }.modal-content { padding: 14px; }.modal-footer { padding: 11px 15px; } }
+
+.moderation-page .page-heading { justify-content: flex-end; align-items: center; min-height: 40px; margin-bottom: 14px; }
+.queue-table { min-width: 1160px; }
+.queue-date { color: #5f6f85; font-size: .65rem; white-space: nowrap; }

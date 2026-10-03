@@ -62,16 +62,16 @@
     }
 
     @if (subscribedChannels().length > 0) {
-      <section class="nav-group" [attr.aria-label]="'nav.subscriptions' | translate">
+      <section class="nav-group nav-group--subscriptions" [attr.aria-label]="'nav.subscriptions' | translate">
         <p class="nav-label">{{ 'nav.subscriptions' | translate }}</p>
         @for (sub of subscribedChannels(); track sub.channelId) {
-          <a class="nav-item" [routerLink]="['/channel', sub.handle]" (click)="closeNavigation()" [title]="sub.name">
+          <a class="nav-item nav-item--subscription" [routerLink]="['/channel', sub.handle]" routerLinkActive="active" (click)="closeNavigation()" [attr.aria-label]="sub.name" [title]="sub.name">
             @if (sub.avatarUrl) {
-              <img class="channel-avatar" [src]="sub.avatarUrl" alt="" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" />
+              <img class="channel-avatar" [src]="sub.avatarUrl" alt="" />
             } @else {
-              <span class="channel-avatar channel-avatar--fallback" style="width: 24px; height: 24px; line-height: 24px; font-size: 10px;">{{ sub.name.charAt(0).toUpperCase() }}</span>
+              <span class="channel-avatar channel-avatar--fallback" aria-hidden="true">{{ sub.name.charAt(0).toUpperCase() }}</span>
             }
-            <span class="channel-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; flex: 1;">{{ sub.name }}</span>
+            <span class="channel-name">{{ sub.name }}</span>
           </a>
         }
       </section>

@@ -124,7 +124,7 @@
     top: 0;
     width: min(304px, 88vw);
     height: 100dvh;
-    z-index: 100;
+    z-index: 150;
     pointer-events: none;
   }
 
@@ -140,6 +140,7 @@
     transition: transform 220ms ease;
 
     &.is-open {
+      pointer-events: auto;
       transform: translateX(0);
     }
   }

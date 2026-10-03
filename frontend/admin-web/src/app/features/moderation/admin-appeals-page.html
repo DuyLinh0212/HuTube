@@ -1,10 +1,5 @@
-<div class="moderation-container">
+<div class="moderation-container appeals-page">
   <header class="page-header">
-    <div class="header-titles">
-      <p class="eyebrow">{{ 'appeals.eyebrow' | translate }}</p>
-      <h1>{{ 'appeals.title' | translate }}</h1>
-      <p class="subtitle">{{ 'appeals.subtitle' | translate }}</p>
-    </div>
     <div class="header-actions">
       <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
@@ -40,28 +35,31 @@
 
   <!-- Status Tabs -->
   <div class="status-tabs" role="tablist" [attr.aria-label]="'appeals.statusTabs' | translate">
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">
       {{ 'appeals.pending' | translate }} <b>{{ countPending() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'reviewing'" (click)="setStatus('reviewing')">
       {{ 'appeals.reviewing' | translate }} <b>{{ countReviewing() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'approved'" (click)="selectedStatus.set('approved')">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'approved'" (click)="setStatus('approved')">
       {{ 'appeals.approved' | translate }} <b>{{ countApproved() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'rejected'" (click)="selectedStatus.set('rejected')">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'rejected'" (click)="setStatus('rejected')">
       {{ 'appeals.rejected' | translate }} <b>{{ countRejected() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'ALL'" (click)="selectedStatus.set('ALL')">
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'escalated'" (click)="setStatus('escalated')">
+      {{ 'moderation.statusEscalated' | translate }} <b>{{ countEscalated() }}</b>
+    </button>
+    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'ALL'" (click)="setStatus('ALL')">
       {{ 'moderation.statusAll' | translate }} <b>{{ appeals().length }}</b>
     </button>
   </div>
 
   <!-- Filters Toolbar -->
-  <section class="toolbar">
+  <section class="toolbar appeals-toolbar">
     <div class="filter-group">
       <label for="appeal-target-filter">{{ 'appeals.target' | translate }}:</label>
-      <select id="appeal-target-filter" [ngModel]="selectedTargetType()" (ngModelChange)="selectedTargetType.set($event)">
+      <select id="appeal-target-filter" [ngModel]="selectedTargetType()" (ngModelChange)="setTargetType($event)">
         <option value="ALL">{{ 'appeals.allTargets' | translate }}</option>
         <option value="video">{{ 'moderation.colVideo' | translate }}</option>
         <option value="channel">{{ 'nav.channels' | translate }}</option>
@@ -70,13 +68,22 @@
       </select>
     </div>
 
+    <div class="date-filter">
+      <label for="appeal-submitted-from">{{ 'appeals.dateFrom' | translate }}</label>
+      <input id="appeal-submitted-from" type="date" [ngModel]="submittedFrom()" (ngModelChange)="setSubmittedFrom($event)" />
+    </div>
+    <div class="date-filter">
+      <label for="appeal-submitted-to">{{ 'appeals.dateTo' | translate }}</label>
+      <input id="appeal-submitted-to" type="date" [ngModel]="submittedTo()" (ngModelChange)="setSubmittedTo($event)" />
+    </div>
+
     <div class="search-box">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
       <input type="text" [placeholder]="'appeals.search' | translate"
-        [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+        [ngModel]="searchQuery()" (ngModelChange)="setSearchQuery($event)" />
     </div>
   </section>
 
@@ -113,20 +120,20 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 75px;">{{ 'appeals.index' | translate }}</th>
+              <th style="width: 70px;">{{ 'appeals.index' | translate }}</th>
               <th style="width: 100px;">{{ 'appeals.target' | translate }}</th>
-              <th style="min-width: 180px;">{{ 'appeals.item' | translate }}</th>
-              <th style="min-width: 220px;">{{ 'appeals.userReason' | translate }}</th>
-              <th style="width: 120px;">{{ 'appeals.evidence' | translate }}</th>
-              <th style="width: 130px;">{{ 'appeals.sender' | translate }}</th>
-              <th style="width: 135px;">{{ 'moderation.colStatus' | translate }}</th>
+              <th style="width: 245px;">{{ 'appeals.item' | translate }}</th>
+              <th style="width: 230px;">{{ 'appeals.userReason' | translate }}</th>
+              <th style="width: 160px;">{{ 'appeals.evidence' | translate }}</th>
+              <th style="width: 125px;">{{ 'appeals.sender' | translate }}</th>
+              <th style="width: 145px;">{{ 'moderation.colStatus' | translate }}</th>
               <th style="width: 120px;">{{ 'appeals.handler' | translate }}</th>
-              <th style="width: 135px;">{{ 'appeals.time' | translate }}</th>
-              <th class="actions-col" style="width: 170px;">{{ 'moderation.colActions' | translate }}</th>
+              <th style="width: 155px;">{{ 'appeals.time' | translate }}</th>
+              <th class="actions-col" style="width: 180px;">{{ 'moderation.colActions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
-            @for (item of filteredAppeals(); track item.appealId) {
+            @for (item of paginatedAppeals(); track item.appealId) {
               <tr>
                 <td>
                   <span class="appeal-index">#{{ item.appealNumber }}</span>
@@ -140,7 +147,7 @@
                 </td>
                 <td class="target-title-col">
                   <div class="target-info">
-                    <strong class="target-title">{{ item.targetTitle || item.targetType }}</strong>
+                    <strong class="target-title" [title]="item.targetTitle || item.targetType">{{ item.targetTitle || item.targetType }}</strong>
                     <span class="target-id" [title]="item.targetId">{{ item.targetId }}</span>
                   </div>
                 </td>
@@ -206,18 +213,46 @@
         </table>
       </div>
     }
+    @if (!loading() && filteredAppeals().length > 0) {
+      <footer class="pagination-footer">
+        <span class="pagination-range">
+          {{ 'appeals.range' | translate:{ start: rangeStart(), end: rangeEnd(), total: filteredAppeals().length } }}
+        </span>
+        <div class="pagination-controls">
+          <label for="appeal-page-size">{{ 'appeals.pageSize' | translate }}</label>
+          <select id="appeal-page-size" [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+          </select>
+          <button type="button" class="page-button" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() <= 1">
+            {{ 'appeals.previous' | translate }}
+          </button>
+          @for (pageNumber of visiblePages(); track pageNumber) {
+            <button type="button" class="page-button page-number" [class.is-active]="pageNumber === currentPage()" (click)="goToPage(pageNumber)" [attr.aria-current]="pageNumber === currentPage() ? 'page' : null">
+              {{ pageNumber }}
+            </button>
+          }
+          <button type="button" class="page-button" (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() >= pageCount()">
+            {{ 'appeals.next' | translate }}
+          </button>
+        </div>
+      </footer>
+    }
   </section>
 
   <!-- Resolution Modal -->
   @if (isResolveModalOpen() && activeAppeal()) {
     <div class="modal-backdrop" (click)="closeResolveModal()">
       <div class="modal-card" (click)="$event.stopPropagation()">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
         <div class="modal-header">
           <h3>{{ 'appeals.resolutionTitle' | translate:{ number: activeAppeal()!.appealNumber } }}</h3>
           <button type="button" class="close-btn" (click)="closeResolveModal()">&times;</button>
         </div>
 
         <div class="modal-body">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
           <div class="context-box">
             <div class="context-row">
               <span class="context-label">{{ 'appeals.targetLabel' | translate }}</span>

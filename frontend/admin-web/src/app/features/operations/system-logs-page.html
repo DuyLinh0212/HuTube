@@ -1,0 +1,77 @@
+<main class="operations-page logs-page">
+  <header class="page-heading">
+    <div>
+      <h1>{{ 'operations.logs.title' | translate }}</h1>
+    </div>
+    <button class="quiet-button" type="button" (click)="load()" [disabled]="loading()"><span aria-hidden="true">↻</span> {{ 'operations.refresh' | translate }}</button>
+  </header>
+
+  @if (error()) {
+    <section class="state-panel error-panel" role="alert"><span class="state-icon">!</span><div><strong>{{ 'operations.loadErrorTitle' | translate }}</strong><p>{{ 'operations.loadError' | translate }}</p></div><button class="text-button" type="button" (click)="load()">{{ 'operations.retry' | translate }}</button></section>
+  }
+  @if (loading() && !result()) { <section class="state-panel loading-panel">{{ 'operations.loading' | translate }}</section> }
+
+  @if (result(); as data) {
+    <section class="log-kpis">
+      <article class="log-kpi"><span class="kpi-symbol">▤</span><div><span>{{ 'operations.logs.events24h' | translate }}</span><strong>{{ data.eventsLast24Hours | number }}</strong></div><small>{{ 'operations.logs.last24hours' | translate }}</small></article>
+      <article class="log-kpi"><span class="kpi-symbol green">♙</span><div><span>{{ 'operations.logs.admins24h' | translate }}</span><strong>{{ data.activeAdministratorsLast24Hours | number }}</strong></div><small>{{ 'operations.logs.uniqueAdmins' | translate }}</small></article>
+      <article class="log-kpi"><span class="kpi-symbol rose">↪</span><div><span>{{ 'operations.logs.logins24h' | translate }}</span><strong>{{ data.loginsLast24Hours | number }}</strong></div><small>{{ 'operations.logs.successfulLogins' | translate }}</small></article>
+    </section>
+
+    <section class="log-filter-panel">
+      <div class="filter-heading"><div><h2>{{ 'operations.logs.searchTitle' | translate }}</h2><p>{{ 'operations.logs.searchHint' | translate }}</p></div><span class="filter-count">{{ data.total | number }} {{ 'operations.logs.records' | translate }}</span></div>
+      <div class="filters-grid">
+        <label class="search-field"><span>{{ 'operations.logs.searchLabel' | translate }}</span><input [ngModel]="search()" (ngModelChange)="search.set($event)" (keyup.enter)="applyFilters()" [placeholder]="'operations.logs.searchPlaceholder' | translate" /></label>
+        <label><span>{{ 'operations.logs.actionLabel' | translate }}</span><select [ngModel]="action()" (ngModelChange)="action.set($event); applyFilters()"><option value="all">{{ 'operations.filter.all' | translate }}</option>@for (option of data.actions; track trackAction($index, option)) { <option [value]="option">{{ actionLabel(option) }}</option> }</select></label>
+        <label><span>{{ 'operations.logs.fromDate' | translate }}</span><input type="date" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" /></label>
+        <label><span>{{ 'operations.logs.toDate' | translate }}</span><input type="date" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" /></label>
+        <button class="apply-button" type="button" (click)="applyFilters()">{{ 'operations.applyFilters' | translate }}</button>
+      </div>
+    </section>
+
+    <div class="logs-layout">
+      <section class="audit-panel">
+        <div class="audit-panel-heading"><div><h2>{{ 'operations.logs.auditTrail' | translate }}</h2><p>{{ 'operations.logs.showingRange' | translate:{ from: rangeStart(), to: rangeEnd(), total: data.total } }}</p></div><label class="page-size"><span>{{ 'operations.logs.rows' | translate }}</span><select [ngModel]="pageSize()" (ngModelChange)="setPageSize($event)"><option [value]="10">10</option><option [value]="25">25</option><option [value]="50">50</option><option [value]="100">100</option></select></label></div>
+        <div class="audit-list">
+          @for (item of data.items; track trackLog($index, item)) {
+            <article class="audit-entry" [class.expanded]="expandedId() === item.auditLogId">
+              <button class="audit-entry-main" type="button" (click)="toggle(item)" [attr.aria-expanded]="expandedId() === item.auditLogId">
+                <span class="actor-avatar">{{ initials(actorLabel(item)) }}</span>
+                <span class="entry-copy"><strong>{{ actionLabel(item.action) }}</strong><span>{{ actorLabel(item) }}</span></span>
+                <span class="entry-target">{{ item.resourceType || '—' }} @if (item.resourceId) { <small>· {{ item.resourceId }}</small> }</span>
+                <span class="entry-time"><strong>{{ formatDate(item.createdAt) }}</strong><small>{{ formatTime(item.createdAt) }}</small></span>
+                <span class="entry-chevron" aria-hidden="true">{{ expandedId() === item.auditLogId ? '−' : '+' }}</span>
+              </button>
+              @if (expandedId() === item.auditLogId) {
+                <div class="audit-details">
+                  <div><span>{{ 'operations.logs.reason' | translate }}</span><p>{{ item.reason || ('operations.logs.noReason' | translate) }}</p></div>
+                  <div><span>{{ 'operations.logs.account' | translate }}</span><p>{{ item.actorEmail || item.actorUserId || '—' }}</p></div>
+                  <div><span>{{ 'operations.logs.ipAddress' | translate }}</span><p>{{ item.ipAddress || '—' }}</p></div>
+                  <div><span>{{ 'operations.logs.userAgent' | translate }}</span><p>{{ item.userAgent || ('operations.logs.notRecorded' | translate) }}</p></div>
+                  <div class="full-detail"><span>{{ 'operations.logs.exactTimestamp' | translate }}</span><p>{{ formatTimestamp(item.createdAt) }}</p></div>
+                </div>
+              }
+            </article>
+          } @empty {
+            <div class="empty-panel">{{ 'operations.logs.empty' | translate }}</div>
+          }
+        </div>
+        <footer class="pagination">
+          <span>{{ 'operations.logs.pageOf' | translate:{ page: page(), pages: totalPages() } }}</span>
+          <div><button type="button" (click)="setPage(page() - 1)" [disabled]="page() <= 1">{{ 'operations.logs.previous' | translate }}</button>@for (pageNumber of pages(); track pageNumber) { <button type="button" [class.selected]="pageNumber === page()" (click)="setPage(pageNumber)">{{ pageNumber }}</button> }<button type="button" (click)="setPage(page() + 1)" [disabled]="page() >= totalPages()">{{ 'operations.logs.next' | translate }}</button></div>
+        </footer>
+      </section>
+
+      <aside class="runtime-panel">
+        <div class="runtime-heading"><span class="runtime-icon">⌘</span><div><h2>{{ 'operations.logs.runtimeTitle' | translate }}</h2><p>{{ 'operations.logs.runtimeHint' | translate }}</p></div></div>
+        <div class="runtime-list">
+          @for (setting of data.runtimeSettings; track trackSetting($index, setting)) {
+            <article><span>{{ setting.name }}</span><strong>{{ setting.value }}</strong><small>{{ setting.source }}</small></article>
+          }
+        </div>
+        <p class="runtime-note">{{ 'operations.logs.runtimeNote' | translate }}</p>
+      </aside>
+    </div>
+    <p class="data-note">{{ 'operations.logs.dataNote' | translate }}</p>
+  }
+</main>

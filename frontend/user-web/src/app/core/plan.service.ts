@@ -117,6 +117,10 @@ export class PlanService {
     return this.http.get<PaymentSummary>(`${this.paymentsBase}/${paymentId}`);
   }
 
+  cancelPayment(paymentId: string): Observable<void> {
+    return this.http.post<void>(`${this.paymentsBase}/${paymentId}/cancel`, {});
+  }
+
   getMyPayments(): Observable<PaymentSummary[]> {
     return this.http.get<PaymentSummary[]>(this.paymentsBase);
   }

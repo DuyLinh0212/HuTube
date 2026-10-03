@@ -1632,3 +1632,10 @@ body.dark-theme {
     }
   }
 }
+
+.drawer-backdrop, .modal-backdrop { z-index: 2000; } .detail-drawer, .channel-drawer { z-index: 2001; }
+
+.modal-backdrop { padding: 16px; overflow-y: auto; box-sizing: border-box; z-index: 2000; }
+.modal-card, .modal-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; max-width: 100%; }
+
+.dropdown-menu { position: fixed; top: auto; bottom: auto; right: auto; z-index: 2100; width: 210px; max-height: calc(100dvh - 16px); overflow-y: auto; }

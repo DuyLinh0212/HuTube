@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { RuntimeConfig } from '../../core/runtime-config';
-import { Observable } from 'rxjs';
+import { EMPTY, expand, reduce, Observable } from 'rxjs';
 
 export type ModerationDecision =
   | 'approve'
@@ -91,7 +91,7 @@ export interface ReportCaseSummary {
   caseId: string; targetType: 'video' | 'comment' | 'channel'; targetId: string; targetTitle: string | null;
   targetUrl: string | null; targetThumbnailUrl: string | null; targetChannelName: string | null; targetChannelHandle: string | null;
   status: string; reportCount: number; reporterCount: number; unclassifiedCount: number; violationCounts: ReportViolationCount[];
-  reviewerId: string | null; reviewerName: string | null; submittedAt: string; updatedAt: string;
+  reviewerId: string | null; reviewerName: string | null; submittedAt: string; updatedAt: string; resolvedAt?: string | null;
 }
 export interface ReportCaseReportDetail {
   reportId: string; userId: string; reporterName: string | null; violationTypeId: string; violationTypeCode: string | null;
@@ -169,6 +169,18 @@ export interface StrikeItem {
   channelStatus?: string | null;
 }
 
+export interface StrikePolicySettings {
+  rejectedVideosPerStrike: number;
+  firstStrikeRestrictionDays: number;
+  secondStrikeRestrictionDays: number;
+  strikeExpirationDays: number;
+  suspensionStrikeCount: number;
+  rejectedVideosEffectiveAt: string;
+  updatedAt: string;
+}
+
+export type UpdateStrikePolicySettingsRequest = Omit<StrikePolicySettings, 'updatedAt' | 'rejectedVideosEffectiveAt'>;
+
 export interface CreateStrikeRequest {
   channelId: string;
   policyCode?: string;
@@ -186,6 +198,15 @@ export class AdminModerationService {
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
 
+  private allPages<T>(url: string, params: HttpParams, pageSize: number): Observable<T[]> {
+    const fetchPage = (page: number) => this.http.get<T[]>(url, { params: params.set('page', page).set('pageSize', pageSize) });
+    let nextPage = Number(params.get('page') ?? 1);
+    return fetchPage(nextPage).pipe(
+      expand(items => items.length === pageSize ? fetchPage(++nextPage) : EMPTY),
+      reduce((all, items) => [...all, ...items], [] as T[])
+    );
+  }
+
   getQueue(status?: string, riskLevel?: string, page = 1, pageSize = 50): Observable<ModerationQueueItem[]> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -198,7 +219,7 @@ export class AdminModerationService {
       params = params.set('riskLevel', riskLevel);
     }
 
-    return this.http.get<ModerationQueueItem[]>(`${this.config.apiBaseUrl}/admin/moderation/queue`, { params });
+    return this.allPages<ModerationQueueItem>(`${this.config.apiBaseUrl}/admin/moderation/queue`, params, pageSize);
   }
 
   claim(caseId: string): Observable<{ message: string }> {
@@ -222,7 +243,7 @@ export class AdminModerationService {
     let params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
     if (targetType && targetType !== 'ALL') params = params.set('targetType', targetType);
     if (status && status !== 'ALL') params = params.set('status', status);
-    return this.http.get<ReportItem[]>(`${this.config.apiBaseUrl}/admin/reports`, { params });
+    return this.allPages<ReportItem>(`${this.config.apiBaseUrl}/admin/reports`, params, pageSize);
   }
 
   getReportCases(targetType?: string, status?: string, page = 1, pageSize = 50) {
@@ -259,7 +280,7 @@ export class AdminModerationService {
     let params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
     if (targetType && targetType !== 'ALL') params = params.set('targetType', targetType);
     if (status && status !== 'ALL') params = params.set('status', status);
-    return this.http.get<AppealItem[]>(`${this.config.apiBaseUrl}/admin/appeals`, { params });
+    return this.allPages<AppealItem>(`${this.config.apiBaseUrl}/admin/appeals`, params, pageSize);
   }
 
   getAppealEvidence(appealId: string): Observable<Blob> {
@@ -283,7 +304,15 @@ export class AdminModerationService {
     let params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
     if (channelId) params = params.set('channelId', channelId);
     if (status && status !== 'ALL') params = params.set('status', status);
-    return this.http.get<StrikeItem[]>(`${this.config.apiBaseUrl}/admin/strikes`, { params });
+    return this.allPages<StrikeItem>(`${this.config.apiBaseUrl}/admin/strikes`, params, pageSize);
+  }
+
+  getStrikePolicySettings(): Observable<StrikePolicySettings> {
+    return this.http.get<StrikePolicySettings>(`${this.config.apiBaseUrl}/admin/strikes/policy`);
+  }
+
+  updateStrikePolicySettings(request: UpdateStrikePolicySettingsRequest): Observable<StrikePolicySettings> {
+    return this.http.put<StrikePolicySettings>(`${this.config.apiBaseUrl}/admin/strikes/policy`, request);
   }
 
   createStrike(request: CreateStrikeRequest): Observable<StrikeItem> {
@@ -303,4 +332,3 @@ export class AdminModerationService {
     return this.http.post<void>(`${this.config.apiBaseUrl}/admin/channels/${channelId}/unlock`, { reason });
   }
 }
-

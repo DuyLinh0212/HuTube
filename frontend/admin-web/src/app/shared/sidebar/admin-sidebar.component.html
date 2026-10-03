@@ -3,9 +3,6 @@
     <button class="nav-close" type="button" [attr.aria-label]="'nav.closeMenu' | translate" (click)="closeNavigation()">×</button>
   </div>
   <nav class="nav-groups">
-    @if (can('dashboard.view')) {
-      <span class="nav-item" [title]="'nav.dashboard' | translate"><img src="/assets/icons/dashboard.png" alt="" /><span>{{ 'nav.dashboard' | translate }}</span></span>
-    }
     @if (can('user.view') || can('role.view')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupUser' | translate">
         <p class="nav-label">{{ 'nav.groupUser' | translate }}</p>
@@ -76,17 +73,17 @@
       <section class="nav-group" [attr.aria-label]="'nav.groupBusiness' | translate">
         <p class="nav-label">{{ 'nav.groupBusiness' | translate }}</p>
         @if (can('plan.view')) {
-          <a class="nav-item" routerLink="/plans" routerLinkActive="active" [title]="'nav.plans' | translate"><img src="/assets/icons/plan.png" alt="" /><span>{{ 'nav.plans' | translate }}</span></a>
+          <a class="nav-item" routerLink="/plans" routerLinkActive="is-active" [title]="'nav.plans' | translate" (click)="closeNavigation()"><img src="/assets/icons/plan.png" alt="" /><span>{{ 'nav.plans' | translate }}</span></a>
         }
-        @if (can('subscription.view')) {
-          <span class="nav-item" [title]="'nav.subscriptions' | translate"><img src="/assets/icons/user.png" alt="" /><span>{{ 'nav.subscriptions' | translate }}</span></span>
+        @if (can('plan.view')) {
+          <a class="nav-item" routerLink="/subscriptions" routerLinkActive="is-active" [title]="'nav.subscriptions' | translate" (click)="closeNavigation()"><img src="/assets/icons/user.png" alt="" /><span>{{ 'nav.subscriptions' | translate }}</span></a>
         }
         @if (can('payment.view')) {
-          <span class="nav-item" [title]="'nav.payments' | translate"><img src="/assets/icons/revenue.png" alt="" /><span>{{ 'nav.payments' | translate }}</span></span>
+          <a class="nav-item" routerLink="/payments" routerLinkActive="is-active" [title]="'nav.payments' | translate" (click)="closeNavigation()"><img src="/assets/icons/revenue.png" alt="" /><span>{{ 'nav.payments' | translate }}</span></a>
         }
       </section>
     }
-    @if (can('audit.view') || can('system.view_setting')) {
+    @if (can('audit.view') || can('system.view_setting') || can('dashboard.view')) {
       <section class="nav-group" [attr.aria-label]="'nav.groupSystem' | translate">
         <p class="nav-label">{{ 'nav.groupSystem' | translate }}</p>
         @if (can('system.view_setting')) {
@@ -94,9 +91,15 @@
             <img src="/assets/icons/topics.png" alt="" /><span>{{ 'nav.policies' | translate }}</span>
           </a>
         }
-        <span class="nav-item" [title]="'nav.notificationsNav' | translate"><img src="/assets/icons/notification.png" alt="" /><span>{{ 'nav.notificationsNav' | translate }}</span></span>
-        <span class="nav-item" [title]="'nav.statistics' | translate"><img src="/assets/icons/statistics.png" alt="" /><span>{{ 'nav.statistics' | translate }}</span></span>
-        <span class="nav-item" [title]="'nav.systemLogs' | translate"><img src="/assets/icons/system-administrator.png" alt="" /><span>{{ 'nav.systemLogs' | translate }}</span></span>
+        @if (can('system.view_setting')) {
+          <a class="nav-item" routerLink="/system/notifications" routerLinkActive="is-active" [title]="'nav.notificationsNav' | translate" (click)="closeNavigation()"><img src="/assets/icons/notification.png" alt="" /><span>{{ 'nav.notificationsNav' | translate }}</span></a>
+        }
+        @if (can('dashboard.view')) {
+          <a class="nav-item" routerLink="/system/reports" routerLinkActive="is-active" [title]="'nav.statistics' | translate" (click)="closeNavigation()"><img src="/assets/icons/statistics.png" alt="" /><span>{{ 'nav.statistics' | translate }}</span></a>
+        }
+        @if (can('audit.view')) {
+          <a class="nav-item" routerLink="/system/logs" routerLinkActive="is-active" [title]="'nav.systemLogs' | translate" (click)="closeNavigation()"><img src="/assets/icons/system-administrator.png" alt="" /><span>{{ 'nav.systemLogs' | translate }}</span></a>
+        }
       </section>
     }
   </nav>

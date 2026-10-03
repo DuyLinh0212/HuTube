@@ -5,8 +5,9 @@ import { map, catchError, switchMap } from 'rxjs/operators';
 import { RuntimeConfig } from './runtime-config';
 
 export interface PageResult<T> { items: T[]; page: number; pageSize: number; total: number; }
-export interface VideoStats { views: number; likes: number; dislikes: number; comments: number; averageRating: number | null; ratingCount: number; shares: number; }
+export interface VideoStats { views: number; likes: number; dislikes: number; comments: number; averageRating: number | null; ratingCount: number; shares: number; watchSeconds?: number; }
 export interface VideoViewerState { reaction: 'like' | 'dislike' | null; rating: number | null; resumeAtSeconds: number; progress: number; }
+export interface VideoCardLink { videoId: string; startSeconds: number; title: string; thumbnailUrl: string | null; }
 export interface VideoCard { videoId: string; channelId: string; channelName: string; channelHandle: string; title: string; thumbnailUrl: string | null; duration: number; visibility: string; publishedAt: string | null; views: number; isPromoted?: boolean; }
 export interface LibraryVideo extends VideoCard {
   likes: number;
@@ -19,10 +20,10 @@ export interface LibraryVideo extends VideoCard {
   activityAt: string;
 }
 export interface WatchHistoryItem extends Partial<LibraryVideo> { videoId: string; channelId: string; channelName: string; channelHandle: string; title: string; thumbnailUrl: string | null; duration: number; watchedSeconds: number; progress: number; activityAt: string; }
-export interface VideoDetail extends VideoCard { categoryId: string | null; description: string | null; videoUrl: string; fileSize: number; status: string; moderationStatus: string; moderationReason?: string | null; channelWatermarkUrl?: string | null; languageCode: string | null; ageRestricted: boolean; createdAt: string; tags: string[]; chapters: { startSeconds: number; title: string }[]; stats: VideoStats; viewerState: VideoViewerState | null; }
+export interface VideoDetail extends VideoCard { categoryId: string | null; description: string | null; videoUrl: string; fileSize: number; status: string; moderationStatus: string; moderationReason?: string | null; channelWatermarkUrl?: string | null; promotionEnabled?: boolean; languageCode: string | null; ageRestricted: boolean; createdAt: string; tags: string[]; chapters: { startSeconds: number; title: string }[]; videoCards?: VideoCardLink[] | null; stats: VideoStats; viewerState: VideoViewerState | null; }
 export interface Rendition { quality: string; width: number; height: number; fileSize: number; url: string; }
 export interface Playback { videoId: string; title: string; visibility: string; duration: number; renditions: Rendition[]; resumeAtSeconds: number; progress: number; }
-export interface CommentItem { commentId: string; videoId: string; userId: string; displayName: string; parentCommentId: string | null; content: string; status: string; createdAt: string; updatedAt: string; likes: number; dislikes: number; myReaction: 'like' | 'dislike' | null; replyCount: number; }
+export interface CommentItem { commentId: string; videoId: string; userId: string; displayName: string; parentCommentId: string | null; content: string; status: string; createdAt: string; updatedAt: string; likes: number; dislikes: number; myReaction: 'like' | 'dislike' | null; replyCount: number; videoTitle?: string | null; }
 export interface Category { categoryId: string; name: string; slug: string; description: string | null; }
 export interface ViolationType { violationTypeId: string; code: string; name: string; description: string | null; }
 export interface CategoryRankingGroup { categoryId: string; categoryName: string; slug: string; videos: VideoCard[]; }
@@ -144,14 +145,16 @@ export class ContentService {
   exploreHub() { return this.http.get<ExploreHub>(`${this.base}/feed/explore-hub`); }
   detail(id: string) { return this.http.get<VideoDetail>(`${this.base}/videos/${id}`); }
   playback(id: string) { return this.http.get<Playback>(`${this.base}/videos/${id}/playback`); }
-  managed(channelId: string, page = 1, pageSize = 20, search = '') {
+  managed(channelId: string, page = 1, pageSize = 20, search = '', visibility = '', status = '') {
     let params = new HttpParams().set('channelId', channelId).set('page', page).set('pageSize', pageSize);
     if (search) params = params.set('search', search);
+    if (visibility) params = params.set('visibility', visibility);
+    if (status) params = params.set('status', status);
     return this.http.get<PageResult<VideoDetail>>(`${this.base}/videos/manage`, { params });
   }
   comments(videoId: string, page = 1, pageSize = 20, sort = 'newest') { return this.http.get<PageResult<CommentItem>>(`${this.base}/videos/${videoId}/comments`, { params: { page, pageSize, sort } }); }
   replies(commentId: string, page = 1, pageSize = 20) { return this.http.get<PageResult<CommentItem>>(`${this.base}/comments/${commentId}/replies`, { params: { page, pageSize } }); }
-  managedComments(channelId: string, status = '', page = 1, pageSize = 50) { return this.http.get<PageResult<CommentItem>>(`${this.base}/channels/${channelId}/comments/manage`, { params: { status, page, pageSize } }); }
+  managedComments(channelId: string, status = '', page = 1, pageSize = 20, sort = 'newest') { return this.http.get<PageResult<CommentItem>>(`${this.base}/channels/${channelId}/comments/manage`, { params: { status, sort, page, pageSize } }); }
   violationTypes(): Observable<ViolationType[]> {
     return this.http.get<ViolationType[]>(`${this.base}/violation-types`).pipe(
       map(types => (types && types.length > 0 ? types : DEFAULT_VIOLATION_TYPES)),
@@ -215,9 +218,10 @@ export class ContentService {
     });
   }
   publish(videoId: string) { return this.http.post<VideoDetail>(`${this.base}/videos/${videoId}/publish`, {}); }
-  update(videoId: string, data: { visibility?: string; title?: string; description?: string; categoryId?: string | null; clearCategory?: boolean }) {
+  update(videoId: string, data: { visibility?: string; title?: string; description?: string; categoryId?: string | null; clearCategory?: boolean; promotionEnabled?: boolean; tags?: string[]; videoCards?: { videoId: string; startSeconds: number }[] }) {
     return this.http.patch<VideoDetail>(`${this.base}/videos/${videoId}`, data);
   }
+  deleteVideo(videoId: string) { return this.http.delete<void>(`${this.base}/videos/${videoId}`); }
   updateThumbnail(videoId: string, file: File | null, generate = false) {
     const data = new FormData();
     data.append('Generate', String(generate));

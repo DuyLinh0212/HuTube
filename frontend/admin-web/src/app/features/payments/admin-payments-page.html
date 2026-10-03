@@ -1,0 +1,154 @@
+<main class="payments-page">
+  <header class="page-heading">
+    <div>
+      <h1>{{ 'payments.title' | translate }}</h1>
+    </div>
+    <div class="heading-actions">
+      <button class="export-button" type="button" [disabled]="exporting()" (click)="exportReport()">
+        <span aria-hidden="true">⇩</span>{{ exporting() ? ('payments.exporting' | translate) : ('payments.export' | translate) }}
+      </button>
+      <button class="refresh-button" type="button" [disabled]="loading()" (click)="load()" [attr.aria-label]="'payments.refresh' | translate">↻</button>
+    </div>
+  </header>
+
+  @if (error()) { <div class="feedback error-feedback" role="alert"><span aria-hidden="true">!</span>{{ error() }}<button type="button" (click)="error.set('')" [attr.aria-label]="'common.close' | translate">×</button></div> }
+  @if (notice()) { <div class="feedback success-feedback" role="status"><span aria-hidden="true">✓</span>{{ notice() }}<button type="button" (click)="notice.set('')" [attr.aria-label]="'common.close' | translate">×</button></div> }
+
+  <section class="filter-panel" [attr.aria-label]="'payments.filters' | translate">
+    <label class="search-field"><span aria-hidden="true">⌕</span><input [(ngModel)]="search" (ngModelChange)="onSearchChanged()" [placeholder]="'payments.searchPlaceholder' | translate" /></label>
+    <label class="filter-field"><span>{{ 'payments.statusFilter' | translate }}</span><select [(ngModel)]="status" (ngModelChange)="onFilterChanged()"><option value="all">{{ 'payments.allStatuses' | translate }}</option><option value="paid">{{ 'payments.status.paid' | translate }}</option><option value="pending">{{ 'payments.status.pending' | translate }}</option><option value="processing">{{ 'payments.status.processing' | translate }}</option><option value="failed">{{ 'payments.status.failed' | translate }}</option><option value="cancelled">{{ 'payments.status.cancelled' | translate }}</option><option value="refunded">{{ 'payments.status.refunded' | translate }}</option></select></label>
+    <label class="filter-field"><span>{{ 'payments.methodFilter' | translate }}</span><select [(ngModel)]="method" (ngModelChange)="onFilterChanged()"><option value="all">{{ 'payments.allMethods' | translate }}</option>@for (value of availableMethods(); track value) { <option [value]="value">{{ methodLabel(value) }}</option> }</select></label>
+    <label class="filter-field"><span>{{ 'payments.typeFilter' | translate }}</span><select [(ngModel)]="type" (ngModelChange)="onFilterChanged()"><option value="all">{{ 'payments.allTypes' | translate }}</option><option value="subscription">{{ 'payments.subscriptionType' | translate }}</option></select></label>
+    <label class="filter-field date-field"><span>{{ 'payments.fromDate' | translate }}</span><input type="date" [(ngModel)]="fromDate" (ngModelChange)="onDateChanged()" /></label>
+    <label class="filter-field date-field"><span>{{ 'payments.toDate' | translate }}</span><input type="date" [(ngModel)]="toDate" (ngModelChange)="onDateChanged()" /></label>
+  </section>
+
+  @if (loading() && !stats()) {
+    <div class="loading-state" role="status"><span class="spinner"></span>{{ 'payments.loading' | translate }}</div>
+  } @else {
+    <section class="metric-grid" [attr.aria-label]="'payments.summary' | translate">
+      @for (metric of metricCards; track metric.key) {
+        <article class="metric-card" [class]="'metric-card tone-' + metric.tone">
+          <span class="metric-icon" aria-hidden="true">{{ metric.icon }}</span>
+          <div class="metric-copy">
+            <span>{{ metric.label | translate }}</span>
+            <strong>@if (metric.money) { {{ formatMoney(stats()?.[metric.key] ?? 0) }} } @else { {{ stats()?.[metric.key] ?? 0 | number }} }</strong>
+            <small>{{ metric.key === 'revenueInRange' ? ('payments.revenueHint' | translate) : metric.key === 'revenueThisMonth' ? ('payments.monthHint' | translate) : metric.key === 'successfulTransactions' ? ('payments.successHint' | translate) : metric.key === 'refundTransactions' ? ('payments.refundHint' | translate) : ('payments.pendingHint' | translate) }}</small>
+          </div>
+        </article>
+      }
+    </section>
+
+    <section class="payments-layout">
+      <div class="content-column">
+        <section class="transaction-card">
+          <header class="table-heading"><div><h2>{{ 'payments.listTitle' | translate }}</h2><p>{{ total | number }} {{ 'payments.records' | translate }}</p></div><span class="live-label"><i></i>{{ 'payments.liveData' | translate }}</span></header>
+          <div class="table-scroll" [class.is-loading]="loading()">
+            <table>
+              <thead><tr><th>{{ 'payments.colCode' | translate }}</th><th>{{ 'payments.colUser' | translate }}</th><th>{{ 'payments.colType' | translate }}</th><th>{{ 'payments.colMethod' | translate }}</th><th>{{ 'payments.colAmount' | translate }}</th><th>{{ 'payments.colStatus' | translate }}</th><th>{{ 'payments.colCreated' | translate }}</th><th>{{ 'payments.colReference' | translate }}</th><th aria-label="{{ 'payments.detailTitle' | translate }}"></th></tr></thead>
+              <tbody>
+                @for (item of items(); track item.paymentId) {
+                  <tr [class.is-current]="selectedId() === item.paymentId">
+                    <td><button class="record-id" type="button" (click)="select(item)">{{ item.transactionCode }}</button></td>
+                    <td><span class="user-cell">@if (item.avatarUrl) { <img [src]="item.avatarUrl" alt="" /> } @else { <span class="avatar-fallback">{{ item.userName.slice(0, 1) | uppercase }}</span> }<span><strong>{{ item.userName }}</strong><small>{{ item.email }}</small></span></span></td>
+                    <td><span class="plan-cell"><strong>{{ item.planName }}</strong><small>{{ 'payments.subscriptionType' | translate }}</small></span></td>
+                    <td><span class="method-cell"><i [style.--method-color]="methodColorFor(item.paymentMethod)">{{ methodLabel(item.paymentMethod).slice(0, 1) }}</i>{{ methodLabel(item.paymentMethod) }}</span></td>
+                    <td><strong class="amount-cell" [class.is-refund]="item.status === 'refunded'">{{ formatMoney(item.amount, item.currency) }}</strong></td>
+                    <td><span class="status-pill" [class]="'status-pill ' + statusClass(item.status)"><i></i>{{ paymentStatusLabel(item.status) }}</span></td>
+                    <td><span class="date-cell">{{ formatDate(item.createdAt) }}<small>{{ shortTime(item.createdAt) }}</small></span></td>
+                    <td><span class="reference-cell">{{ item.sepayTransactionId ?? '—' }}</span></td>
+                    <td><button type="button" class="row-open" (click)="select(item)" [attr.aria-label]="('payments.detailTitle' | translate) + ' ' + item.transactionCode">···</button></td>
+                  </tr>
+                } @empty {
+                  @if (!loading()) { <tr><td colspan="9" class="empty-row"><span aria-hidden="true">⌕</span><strong>{{ 'payments.noResults' | translate }}</strong><small>{{ 'payments.noResultsHint' | translate }}</small></td></tr> }
+                }
+              </tbody>
+            </table>
+          </div>
+          <footer class="table-footer">
+            <span class="table-range">{{ 'payments.showing' | translate }} {{ pageStart }}–{{ pageEnd }} {{ 'payments.of' | translate }} {{ total | number }}</span>
+            <div class="pagination">
+              <span class="rows-label">{{ 'payments.rowsPerPage' | translate }}</span>
+              <select [ngModel]="pageSize" (ngModelChange)="setPageSize(+$event)"><option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option><option [value]="100">100</option></select>
+              <button type="button" [disabled]="page <= 1 || loading()" (click)="goToPage(page - 1)">{{ 'payments.previous' | translate }}</button>
+              <span class="page-count">{{ page }} / {{ pageCount }}</span>
+              <button type="button" [disabled]="page >= pageCount || loading()" (click)="goToPage(page + 1)">{{ 'payments.next' | translate }}</button>
+            </div>
+          </footer>
+        </section>
+
+        <div class="insights-grid">
+          <section class="insight-card revenue-chart">
+            <header><div><h2>{{ 'payments.chartTitle' | translate }}</h2><p>{{ 'payments.chartHint' | translate }}</p></div></header>
+            <div class="chart-legend"><span><i class="legend-revenue"></i>{{ 'payments.revenueLegend' | translate }}</span><span><i class="legend-transactions"></i>{{ 'payments.transactionsLegend' | translate }}</span></div>
+            <svg class="revenue-svg" viewBox="0 0 600 205" role="img" [attr.aria-label]="'payments.chartTitle' | translate" preserveAspectRatio="none">
+              <line x1="8" y1="54" x2="592" y2="54" /><line x1="8" y1="108" x2="592" y2="108" /><line x1="8" y1="166" x2="592" y2="166" />
+              @for (bar of chartBars(); track bar.date) { <rect class="revenue-bar" [attr.x]="bar.x" [attr.y]="bar.y" [attr.width]="bar.width" [attr.height]="bar.height" rx="2" /> }
+              <polyline class="transaction-line" [attr.points]="transactionLine()" />
+            </svg>
+            <div class="chart-labels"><span>{{ chartTick(0, '—') }}</span><span>{{ chartTick(1) }}</span><span>{{ chartTick(2) }}</span><span>{{ chartTick(3, chartTick(2, '—')) }}</span></div>
+          </section>
+
+          <section class="insight-card method-card">
+            <header><div><h2>{{ 'payments.methodTitle' | translate }}</h2><p>{{ methods().length }} {{ 'payments.methodTransactions' | translate }}</p></div></header>
+            <div class="method-content">
+              <div class="donut-chart" [style.background]="methodChartBackground()" role="img" [attr.aria-label]="'payments.methodTitle' | translate"><div><small>{{ 'payments.records' | translate }}</small><strong>{{ methodTransactionTotal() | number }}</strong></div></div>
+              <ul class="method-legend">
+                @for (item of methods(); track item.method; let index = $index) {
+                  <li><i [style.--method-color]="methodColor(index)"></i><span>{{ methodLabel(item.method) }}</span><strong>{{ item.transactions | number }}</strong><small>{{ item.share }}%</small></li>
+                } @empty { <li class="empty-methods">—</li> }
+              </ul>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <aside class="detail-column" [attr.aria-label]="'payments.detailTitle' | translate">
+        @if (detailLoading()) {
+          <section class="detail-card detail-loading"><span class="spinner"></span>{{ 'payments.loadingDetails' | translate }}</section>
+        } @else if (detail(); as record) {
+          <section class="detail-card profile-card">
+            <header><span>{{ 'payments.detailTitle' | translate }}</span><button type="button" (click)="closeDetails()" [attr.aria-label]="'common.close' | translate">×</button></header>
+            <div class="profile-summary">
+              @if (record.transaction.avatarUrl) { <img [src]="record.transaction.avatarUrl" alt="" /> }
+              @else { <span class="avatar-fallback large">{{ record.transaction.userName.slice(0, 1) | uppercase }}</span> }
+              <span><strong>{{ record.transaction.userName }}</strong><small>{{ record.transaction.email }}</small><small>{{ 'payments.userId' | translate }}: {{ record.transaction.userId }}</small></span>
+            </div>
+            <div class="transaction-code"><span>{{ 'payments.colCode' | translate }}</span><strong>{{ record.transaction.transactionCode }}</strong><button type="button" (click)="copyValue(record.transaction.transactionCode, 'payments.colCode')" [attr.aria-label]="'payments.copyCode' | translate">▢</button></div>
+          </section>
+
+          <section class="detail-card info-card">
+            <h2>{{ 'payments.transactionInfo' | translate }}</h2>
+            <dl>
+              <div><dt><i>▦</i>{{ 'payments.plan' | translate }}</dt><dd>{{ record.transaction.planName }}</dd></div>
+              <div><dt><i>₫</i>{{ 'payments.amount' | translate }}</dt><dd>{{ formatMoney(record.transaction.amount, record.transaction.currency) }}</dd></div>
+              <div><dt><i>◈</i>{{ 'payments.method' | translate }}</dt><dd>{{ methodLabel(record.transaction.paymentMethod) }}</dd></div>
+              <div><dt><i>◉</i>{{ 'payments.status' | translate }}</dt><dd><span class="status-pill" [class]="'status-pill ' + statusClass(record.transaction.status)"><i></i>{{ paymentStatusLabel(record.transaction.status) }}</span></dd></div>
+              <div><dt><i>▣</i>{{ 'payments.createdAt' | translate }}</dt><dd>{{ formatDate(record.transaction.createdAt, true) }}</dd></div>
+              @if (record.transaction.paidAt) { <div><dt><i>✓</i>{{ 'payments.paidAt' | translate }}</dt><dd class="paid-date">{{ formatDate(record.transaction.paidAt, true) }}</dd></div> }
+              @if (record.transaction.status === 'pending') { <div><dt><i>◷</i>{{ 'payments.expiresAt' | translate }}</dt><dd>{{ formatDate(record.transaction.expiresAt, true) }}</dd></div> }
+              @if (record.transaction.sepayTransactionId) { <div><dt><i>⌁</i>{{ 'payments.reference' | translate }}</dt><dd>{{ record.transaction.sepayTransactionId }}</dd></div> }
+            </dl>
+          </section>
+
+          <section class="detail-card quick-actions">
+            <h2>{{ 'payments.quickActions' | translate }}</h2>
+            <button type="button" (click)="copyValue(record.transaction.transactionCode, 'payments.colCode')"><span>▣</span>{{ 'payments.copyCode' | translate }}</button>
+            <button type="button" (click)="copyValue(record.transaction.email, 'payments.colUser')"><span>✉</span>{{ 'payments.copyEmail' | translate }}</button>
+          </section>
+
+          <section class="detail-card timeline-card">
+            <h2>{{ 'payments.timeline' | translate }}</h2>
+            <ol>
+              @for (event of record.events; track event.status + event.occurredAt) {
+                <li><i [class]="'event-dot event-' + statusClass(event.status)"></i><time>{{ formatDate(event.occurredAt, true) }}</time><strong>{{ event.title }}</strong><small>{{ event.description }}</small></li>
+              } @empty { <li class="no-events">{{ 'payments.noEvents' | translate }}</li> }
+            </ol>
+          </section>
+        } @else {
+          <section class="detail-card detail-empty"><span aria-hidden="true">₫</span><strong>{{ 'payments.detailTitle' | translate }}</strong><p>{{ 'payments.noResultsHint' | translate }}</p></section>
+        }
+      </aside>
+    </section>
+  }
+</main>

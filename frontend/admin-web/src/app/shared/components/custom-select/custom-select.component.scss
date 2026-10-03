@@ -203,3 +203,6 @@
     transform: translateY(0) scale(1);
   }
 }
+
+.custom-select-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.option-item.is-active { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--surface-2); }

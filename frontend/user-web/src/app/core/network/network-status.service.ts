@@ -1,0 +1,77 @@
+import { Injectable, OnDestroy, inject, signal } from '@angular/core';
+import { RuntimeConfig } from '../runtime-config';
+
+@Injectable({ providedIn: 'root' })
+export class NetworkStatusService implements OnDestroy {
+  private readonly config = inject(RuntimeConfig);
+  private checkFlight?: Promise<boolean>;
+  private retryTimer?: number;
+
+  readonly unavailable = signal(typeof navigator !== 'undefined' && !navigator.onLine);
+  readonly checking = signal(false);
+
+  constructor() {
+    if (typeof window === 'undefined') return;
+
+    window.addEventListener('offline', this.onOffline);
+    window.addEventListener('online', this.onOnline);
+    this.retryTimer = window.setInterval(() => {
+      if (this.unavailable() && !document.hidden) void this.checkConnection();
+    }, 15_000);
+
+    if (navigator.onLine) void this.checkConnection();
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window === 'undefined') return;
+    window.clearInterval(this.retryTimer);
+    window.removeEventListener('offline', this.onOffline);
+    window.removeEventListener('online', this.onOnline);
+  }
+
+  markUnavailable(): void {
+    this.unavailable.set(true);
+  }
+
+  markAvailable(): void {
+    this.unavailable.set(false);
+  }
+
+  async checkConnection(): Promise<boolean> {
+    if (this.checkFlight) return this.checkFlight;
+    if (typeof window === 'undefined' || !this.config.apiBaseUrl) return false;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.markUnavailable();
+      return false;
+    }
+
+    this.checking.set(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8_000);
+    const flight = fetch(`${this.config.apiBaseUrl}/system/config`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(() => {
+        this.markAvailable();
+        return true;
+      })
+      .catch(() => {
+        this.markUnavailable();
+        return false;
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+        this.checking.set(false);
+        this.checkFlight = undefined;
+      });
+
+    this.checkFlight = flight;
+    return flight;
+  }
+
+  private readonly onOffline = (): void => this.markUnavailable();
+  private readonly onOnline = (): void => {
+    void this.checkConnection();
+  };
+}

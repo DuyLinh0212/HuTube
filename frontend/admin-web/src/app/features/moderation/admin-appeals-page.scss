@@ -51,6 +51,11 @@
   border-bottom: 1px solid #dfe6f0;
   margin-bottom: 1.25rem;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar { display: none; }
 
   button {
     position: relative;
@@ -269,6 +274,39 @@
     }
   }
 
+  .date-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 138px;
+
+    label {
+      color: #64748b;
+      font-size: 0.68rem;
+      font-weight: 650;
+      line-height: 1;
+    }
+
+    input {
+      width: 100%;
+      height: 38px;
+      padding: 0 0.6rem;
+      border: 1px solid var(--input-border, #cbd5e1);
+      border-radius: 7px;
+      color: var(--text-color, #0f172a);
+      background: #ffffff;
+      font: inherit;
+      font-size: 0.8rem;
+      box-sizing: border-box;
+
+      &:focus {
+        outline: none;
+        border-color: var(--primary, #ff2b66);
+        box-shadow: 0 0 0 3px rgba(255, 43, 102, 0.15);
+      }
+    }
+  }
+
   .search-box {
     flex: 1;
     min-width: 260px;
@@ -357,6 +395,72 @@
         background: #fee2e2;
         border-color: #fecaca;
       }
+    }
+  }
+}
+
+.pagination-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--surface-border, #e2e8f0);
+  color: var(--text-muted, #64748b);
+  font-size: 0.78rem;
+
+  .pagination-range {
+    white-space: nowrap;
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+
+    label {
+      margin-right: 0.15rem;
+      white-space: nowrap;
+    }
+
+    select {
+      height: 32px;
+      margin-right: 0.4rem;
+      padding: 0 1.4rem 0 0.5rem;
+      border: 1px solid var(--input-border, #cbd5e1);
+      border-radius: 6px;
+      color: var(--text-color, #334155);
+      background: #fff;
+      font: inherit;
+    }
+  }
+
+  .page-button {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 0.55rem;
+    border: 1px solid var(--surface-border, #dbe2ec);
+    border-radius: 6px;
+    background: #fff;
+    color: #475569;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      border-color: var(--primary, #ff2b66);
+      color: var(--primary, #ff2b66);
+    }
+
+    &.is-active {
+      border-color: var(--primary, #ff2b66);
+      background: rgba(255, 43, 102, 0.09);
+      color: var(--primary, #ff2b66);
+      font-weight: 700;
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
   }
 }
@@ -476,6 +580,7 @@
   border-radius: 4px;
   border: 1px solid #dbeafe;
   transition: all 0.12s ease;
+  white-space: nowrap;
 
   &:hover {
     background: #dbeafe;
@@ -750,4 +855,160 @@
   padding: 0.85rem 1.25rem;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+}
+
+// Give every filter the same label/input rhythm and use the remaining width for search.
+.appeals-toolbar {
+  display: grid;
+  grid-template-columns: minmax(200px, .9fr) repeat(2, minmax(160px, .75fr)) minmax(300px, 1.7fr);
+  align-items: end;
+  gap: 12px;
+  padding: 1rem 1.125rem;
+}
+
+.appeals-toolbar > .filter-group {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: auto 44px;
+  align-content: end;
+  gap: 4px;
+
+  label { color: #64748b; font-size: .7rem; font-weight: 650; line-height: 1.2; }
+
+  select {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    box-sizing: border-box;
+    border-radius: 8px;
+  }
+}
+
+.appeals-toolbar > .date-filter {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: auto 44px;
+  align-content: center;
+  gap: 4px;
+
+  label { color: #64748b; font-size: .7rem; font-weight: 650; line-height: 1.2; }
+  input { width: 100%; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 8px; }
+}
+
+.appeals-toolbar > .search-box {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  align-self: end;
+
+  input { height: 44px; border-radius: 8px; }
+}
+
+.pagination-footer .pagination-controls {
+  gap: 6px;
+
+  label { margin-right: 3px; font-weight: 650; }
+
+  select {
+    width: 78px;
+    height: 42px;
+    box-sizing: border-box;
+    margin-right: 3px;
+    border-radius: 8px;
+
+    &:focus-visible { outline: 0; border-color: var(--primary, #ff2b66); box-shadow: 0 0 0 3px rgba(255, 43, 102, .14); }
+  }
+
+  .page-button {
+    min-width: 42px;
+    height: 42px;
+    box-sizing: border-box;
+    border-radius: 8px;
+
+    &:not(.page-number) { min-width: 54px; }
+    &:focus-visible { outline: 0; border-color: var(--primary, #ff2b66); box-shadow: 0 0 0 3px rgba(255, 43, 102, .14); }
+  }
+}
+
+.moderation-container.appeals-page {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.appeals-page .page-header {
+  min-height: 0;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.appeals-page .page-header .eyebrow { color: var(--primary, #ff2b66); }
+
+.appeals-page .status-tabs {
+  min-width: 0;
+}
+
+.appeals-page .target-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.35;
+}
+
+.appeals-page .data-table {
+  min-width: 1550px;
+  table-layout: fixed;
+}
+
+@media (max-width: 760px) {
+  .moderation-container { padding: 1rem; }
+
+  .appeals-page .page-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .appeals-page .page-header .header-actions { justify-content: flex-start; }
+
+  .toolbar {
+    align-items: stretch;
+
+    .filter-group { justify-content: space-between; }
+    .date-filter { flex: 1 1 135px; }
+    .search-box { flex-basis: 100%; }
+  }
+
+  .appeals-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+    > .filter-group { grid-column: 1 / -1; }
+    > .filter-group select { width: 100%; }
+    > .search-box { grid-column: 1 / -1; }
+  }
+
+  .pagination-footer {
+    align-items: flex-start;
+    flex-direction: column;
+
+    .pagination-controls { flex-wrap: wrap; }
+  }
+}
+
+@media (max-width: 480px) {
+  .appeals-toolbar { grid-template-columns: 1fr; }
+  .appeals-toolbar > .filter-group,
+  .appeals-toolbar > .date-filter,
+  .appeals-toolbar > .search-box { grid-column: 1; }
+  .appeals-toolbar > .date-filter { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 761px) and (max-width: 1240px) {
+  .appeals-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    > .filter-group,
+    > .search-box { grid-column: 1 / -1; }
+  }
 }

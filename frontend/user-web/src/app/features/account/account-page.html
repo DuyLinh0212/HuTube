@@ -58,7 +58,7 @@
             <div class="row-label">{{ 'account.yourChannelLabel' | translate }}</div>
             <div class="row-body">
               <div class="channel-identity">
-                <div class="channel-avatar-box" (click)="triggerAvatarUpload()" [title]="'account.changeAvatar' | translate">
+                <div class="channel-avatar-box" role="button" tabindex="0" (keydown.enter)="triggerAvatarUpload()" (keydown.space)="$event.preventDefault(); triggerAvatarUpload()" (click)="triggerAvatarUpload()" [title]="'account.changeAvatar' | translate">
                   @if (profile()?.avatarUrl; as url) {
                     <img [src]="url" alt="" class="channel-avatar-img" />
                   } @else {
@@ -364,10 +364,16 @@
               <h2 class="section-title">{{ 'account.sessionsHeading' | translate }}</h2>
               <p class="section-subtitle">{{ 'account.sessionsDesc' | translate }}</p>
             </div>
-            <button type="button" class="btn-yt-secondary" (click)="logoutOthers()" [disabled]="busy() || sessions().length < 2">
-              {{ 'account.logoutOthers' | translate }}
-            </button>
+            <div class="sessions-actions">
+              <button type="button" class="btn-yt-secondary" (click)="logoutOthers()" [disabled]="busy() || sessions().length < 2">
+                {{ 'account.logoutOthers' | translate }}
+              </button>
+              <button type="button" class="btn-yt-secondary" (click)="toggleLoginHistory()" [attr.aria-expanded]="loginHistoryVisible()">
+                {{ (loginHistoryVisible() ? 'account.hideLoginHistory' : 'account.loginHistoryButton') | translate }}
+              </button>
+            </div>
           </div>
+          <p class="sessions-device-note">{{ 'account.deviceInfoNote' | translate }}</p>
 
           @if (pendingRevoke(); as pending) {
             <div class="revoke-warning">
@@ -380,22 +386,57 @@
           }
 
           <div class="sessions-list">
-            @for (session of sessions(); track session.sessionId) {
-              <div class="session-item" [class.is-current]="session.isCurrent">
-                <div class="session-icon">{{ session.platform === 'mobile' ? '📱' : '💻' }}</div>
+            @for (group of sessionGroups(); track group.key) {
+              <div class="session-item" [class.is-current]="group.isCurrent">
+                <div class="session-icon">{{ group.latest.platform === 'mobile' ? '📱' : '💻' }}</div>
                 <div class="session-detail">
                   <div class="session-name">
-                    <strong>{{ session.deviceName }}</strong>
-                    @if (session.isCurrent) { <span class="badge-current">{{ 'account.thisDevice' | translate }}</span> }
+                    <strong>{{ group.latest.deviceName }}</strong>
+                    @if (group.isCurrent) { <span class="badge-current">{{ 'account.thisDevice' | translate }}</span> }
+                    @if (group.count > 1) { <span class="badge-count">{{ group.count }} {{ 'account.sessionsOnDevice' | translate }}</span> }
                   </div>
-                  <small>{{ 'account.signedInAt' | translate }} {{ session.issuedAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ session.lastActiveAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (session.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ session.ipAddress }}}</small>
+                  <small>{{ 'account.signedInAt' | translate }} {{ group.latest.issuedAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ group.latest.lastActiveAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (group.latest.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(group.latest.ipAddress) }}}</small>
                 </div>
-                @if (!session.isCurrent) {
-                  <button type="button" class="btn-revoke" (click)="pendingRevoke.set(session)" [disabled]="busy()">{{ 'account.revoke' | translate }}</button>
+                @if (!group.isCurrent) {
+                  <button type="button" class="btn-revoke" (click)="pendingRevoke.set(group.latest)" [disabled]="busy()">{{ 'account.revoke' | translate }}</button>
                 }
               </div>
             }
           </div>
+
+          @if (loginHistoryVisible()) {
+            <div class="login-history-panel">
+              <div class="login-history-heading">
+                <div>
+                  <h3>{{ 'account.loginHistoryHeading' | translate }}</h3>
+                  <p>{{ 'account.loginHistoryDesc' | translate }}</p>
+                </div>
+                <span>{{ loginHistoryTotal() }}</span>
+              </div>
+              @if (loginHistoryLoading()) {
+                <p class="login-history-state">{{ 'account.loginHistoryLoading' | translate }}</p>
+              } @else if (loginHistoryItems().length === 0) {
+                <p class="login-history-state">{{ 'account.loginHistoryEmpty' | translate }}</p>
+              } @else {
+                <div class="sessions-list login-history-list">
+                  @for (entry of loginHistoryItems(); track entry.loginHistoryId) {
+                    <div class="session-item">
+                      <div class="session-icon">{{ entry.platform === 'mobile' ? '📱' : '💻' }}</div>
+                      <div class="session-detail">
+                        <div class="session-name"><strong>{{ entry.deviceName }}</strong></div>
+                        <small>{{ 'account.signedInAt' | translate }} {{ entry.loginAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (entry.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(entry.ipAddress) }}}</small>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="login-history-pagination">
+                  <button type="button" class="btn-yt-secondary" (click)="loadLoginHistory(loginHistoryPage() - 1)" [disabled]="loginHistoryLoading() || loginHistoryPage() <= 1">{{ 'explore.previousPage' | translate }}</button>
+                  <span>{{ loginHistoryPage() }} / {{ loginHistoryPageCount() }}</span>
+                  <button type="button" class="btn-yt-secondary" (click)="loadLoginHistory(loginHistoryPage() + 1)" [disabled]="loginHistoryLoading() || loginHistoryPage() >= loginHistoryPageCount()">{{ 'explore.nextPage' | translate }}</button>
+                </div>
+              }
+            </div>
+          }
         </section>
       </div>
     }
@@ -491,38 +532,165 @@
     <!-- TAB: LẬP HÓA ĐƠN VÀ THANH TOÁN                  -->
     <!-- ============================================== -->
     @if (activeTab() === 'billing') {
-      <div class="settings-pane">
-        <!-- Section 1: Giao dịch mua và gói thành viên -->
-        <section class="pane-section">
-          <div class="channel-row">
-            <div class="row-label">{{ 'account.membershipsHeading' | translate }}</div>
-            <div class="row-body">
-              <div class="billing-membership-card">
-                <div class="membership-badge-icon">👑</div>
-                <div class="membership-info">
-                  <strong class="membership-title">{{ 'profile.premiumMember' | translate }}</strong>
-                  <p class="membership-desc">{{ 'account.membershipsDesc' | translate }}</p>
-                </div>
-                <button type="button" class="btn-yt-primary">
-                  {{ 'account.learnMorePremium' | translate }}
-                </button>
-              </div>
+      <div class="settings-pane billing-pane">
+        <section class="pane-section billing-current-section">
+          <div class="billing-section-heading">
+            <div>
+              <h2 class="section-title">{{ 'account.currentPlanTitle' | translate }}</h2>
+              <p class="section-subtitle">{{ 'account.currentPlanDesc' | translate }}</p>
             </div>
           </div>
+
+          @if (currentPlanLoading()) {
+            <div class="billing-state" role="status">{{ 'account.billingLoading' | translate }}</div>
+          } @else if (billingPlanError()) {
+            <div class="billing-state billing-error" role="alert">
+              <span>{{ billingPlanError() }}</span>
+              <button type="button" class="btn-yt-secondary" (click)="loadCurrentPlan()">{{ 'account.billingRetry' | translate }}</button>
+            </div>
+          } @else if (currentPlan(); as plan) {
+            <article class="billing-plan-card">
+              <div class="billing-plan-icon" aria-hidden="true">♛</div>
+              <div class="billing-plan-content">
+                <div class="billing-plan-title-row">
+                  <h3>{{ plan.name }}</h3>
+                  @if (isPlanActive(plan)) {
+                    <span class="billing-status-badge is-active">{{ 'account.planActive' | translate }}</span>
+                  } @else {
+                    <span class="billing-status-badge is-expired">{{ 'account.planExpired' | translate }}</span>
+                  }
+                  @if (plan.isSharedMember) {
+                    <span class="billing-status-badge is-shared">{{ 'account.sharedPlan' | translate }}</span>
+                  }
+                </div>
+                @if (plan.description) { <p class="billing-plan-description">{{ plan.description }}</p> }
+                <div class="billing-plan-facts">
+                  <div>
+                    <span>{{ 'account.planPrice' | translate }}</span>
+                    <strong>{{ plan.price | localeCurrency:'VND' }}</strong>
+                  </div>
+                  @if (plan.subscription; as subscription) {
+                    <div>
+                      <span>{{ 'account.planStartedAt' | translate }}</span>
+                      <strong>{{ subscription.startedAt | localeDate:'dd/MM/yyyy' }}</strong>
+                    </div>
+                    @if (subscription.endedAt) {
+                      <div>
+                        <span>{{ 'account.planEndsAt' | translate }}</span>
+                        <strong>{{ subscription.endedAt | localeDate:'dd/MM/yyyy' }}</strong>
+                      </div>
+                    }
+                    <div>
+                      <span>{{ 'account.planRenewal' | translate }}</span>
+                      <strong>{{ (subscription.autoRenew ? 'account.planAutoRenew' : 'account.planNoAutoRenew') | translate }}</strong>
+                    </div>
+                  }
+                </div>
+              </div>
+              <a class="btn-yt-secondary billing-plan-action" routerLink="/plans">{{ 'account.viewPlans' | translate }}</a>
+            </article>
+          } @else {
+            <div class="billing-state billing-empty-plan">
+              <div>
+                <strong>{{ 'account.noCurrentPlan' | translate }}</strong>
+                <p>{{ 'account.noCurrentPlanDesc' | translate }}</p>
+              </div>
+              <a class="btn-yt-primary" routerLink="/plans">{{ 'account.viewPlans' | translate }}</a>
+            </div>
+          }
         </section>
 
         <div class="pane-divider"></div>
 
-        <!-- Section 2: Phương thức thanh toán -->
         <section class="pane-section">
-          <div class="channel-row">
-            <div class="row-label">{{ 'account.paymentMethodsHeading' | translate }}</div>
-            <div class="row-body">
-              <p class="sub-hint">{{ 'account.noPaymentMethod' | translate }}</p>
-              <button type="button" class="yt-action-link-btn primary-action" style="margin-top: 6px;">
-                + {{ 'account.addPaymentMethod' | translate }}
+          <div class="billing-history-grid">
+            <article class="billing-history-card">
+              <div class="billing-history-card-heading">
+                <div class="billing-history-icon" aria-hidden="true">▣</div>
+                <div>
+                  <h2>{{ 'account.purchaseHistoryTitle' | translate }}</h2>
+                  <p>{{ 'account.purchaseHistoryDesc' | translate }}</p>
+                </div>
+              </div>
+              <button type="button" class="btn-yt-secondary billing-history-toggle"
+                      (click)="togglePurchaseHistory()" [attr.aria-expanded]="purchaseHistoryVisible()">
+                {{ (purchaseHistoryVisible() ? 'account.hideHistory' : 'account.viewPurchaseHistory') | translate }}
               </button>
-            </div>
+              @if (purchaseHistoryVisible()) {
+                <div class="billing-history-content">
+                  @if (billingPaymentsLoading()) {
+                    <p class="billing-state" role="status">{{ 'account.billingLoading' | translate }}</p>
+                  } @else if (billingPaymentsError()) {
+                    <div class="billing-state billing-error" role="alert">
+                      <span>{{ billingPaymentsError() }}</span>
+                      <button type="button" class="btn-yt-secondary" (click)="loadBillingPayments()">{{ 'account.billingRetry' | translate }}</button>
+                    </div>
+                  } @else if (purchases().length === 0) {
+                    <p class="billing-state">{{ 'account.purchaseHistoryEmpty' | translate }}</p>
+                  } @else {
+                    <div class="billing-transaction-list">
+                      @for (purchase of purchases(); track purchase.paymentId) {
+                        <div class="billing-transaction">
+                          <div class="billing-transaction-main">
+                            <strong>{{ purchase.planName }}</strong>
+                            <span>{{ purchase.paidAt || purchase.createdAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ purchase.transactionCode }}</span>
+                          </div>
+                          <div class="billing-transaction-side">
+                            <strong>{{ purchase.amount | localeCurrency:purchase.currency }}</strong>
+                            <span class="billing-status-badge is-active">{{ 'account.paymentStatus.paid' | translate }}</span>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </article>
+
+            <article class="billing-history-card">
+              <div class="billing-history-card-heading">
+                <div class="billing-history-icon payment-icon" aria-hidden="true">₫</div>
+                <div>
+                  <h2>{{ 'account.paymentHistoryTitle' | translate }}</h2>
+                  <p>{{ 'account.paymentHistoryDesc' | translate }}</p>
+                </div>
+              </div>
+              <button type="button" class="btn-yt-secondary billing-history-toggle"
+                      (click)="togglePaymentHistory()" [attr.aria-expanded]="paymentHistoryVisible()">
+                {{ (paymentHistoryVisible() ? 'account.hideHistory' : 'account.viewPaymentHistory') | translate }}
+              </button>
+              @if (paymentHistoryVisible()) {
+                <div class="billing-history-content">
+                  @if (billingPaymentsLoading()) {
+                    <p class="billing-state" role="status">{{ 'account.billingLoading' | translate }}</p>
+                  } @else if (billingPaymentsError()) {
+                    <div class="billing-state billing-error" role="alert">
+                      <span>{{ billingPaymentsError() }}</span>
+                      <button type="button" class="btn-yt-secondary" (click)="loadBillingPayments()">{{ 'account.billingRetry' | translate }}</button>
+                    </div>
+                  } @else if (billingPayments().length === 0) {
+                    <p class="billing-state">{{ 'account.paymentHistoryEmpty' | translate }}</p>
+                  } @else {
+                    <div class="billing-transaction-list">
+                      @for (payment of billingPayments(); track payment.paymentId) {
+                        <div class="billing-transaction">
+                          <div class="billing-transaction-main">
+                            <strong>{{ payment.planName }}</strong>
+                            <span>{{ payment.createdAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ payment.transactionCode }}</span>
+                          </div>
+                          <div class="billing-transaction-side">
+                            <strong>{{ payment.amount | localeCurrency:payment.currency }}</strong>
+                            <span class="billing-status-badge" [attr.data-status]="payment.status.toLowerCase()">
+                              {{ paymentStatusKey(payment.status) | translate }}
+                            </span>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </article>
           </div>
         </section>
       </div>

@@ -10,63 +10,65 @@
     <button class="nav-close" type="button" [attr.aria-label]="'common.close' | translate" (click)="closeNavigation()">×</button>
   </div>
 
-  <nav class="studio-nav-items">
-    <a class="studio-nav-item" routerLink="/studio/overview" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.overview' | translate">
-      <img src="/assets/icons/dashboard.png" alt="" class="item-icon-img" />
-      <span class="item-label">{{ 'studio.overview' | translate }}</span>
-    </a>
-
-    <a class="studio-nav-item" routerLink="/studio/content" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.content' | translate">
-      <img src="/assets/icons/my_video.png" alt="" class="item-icon-img" />
-      <span class="item-label">{{ 'studio.content' | translate }}</span>
-    </a>
-
-    @if (data.hasPermission('video.upload')) {
-      <a class="studio-nav-item studio-nav-item--highlight" routerLink="/studio/upload" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.uploadVideo' | translate">
-        <img src="/assets/icons/upload_video.png" alt="" class="item-icon-img" />
-        <span class="item-label">{{ 'studio.uploadVideo' | translate }}</span>
-        <span class="highlight-badge">{{ 'ui.newBadge' | translate }}</span>
+  <nav class="studio-nav-items" [attr.aria-label]="'ui.studioNavigation' | translate">
+    <section class="studio-nav-group" [attr.aria-label]="'studio.navGroupManage' | translate">
+      <p class="studio-nav-label">{{ 'studio.navGroupManage' | translate }}</p>
+      <a class="studio-nav-item" routerLink="/studio/overview" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.overview' | translate">
+        <img src="/assets/icons/dashboard.png" alt="" class="item-icon-img" />
+        <span class="item-label">{{ 'studio.overview' | translate }}</span>
       </a>
-    }
 
-    @if (data.hasPermission('analytics.view')) {
-      <a class="studio-nav-item" routerLink="/studio/analytics" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.analytics' | translate">
-        <img src="/assets/icons/statistics.png" alt="" class="item-icon-img" />
-        <span class="item-label">{{ 'studio.analytics' | translate }}</span>
+      <a class="studio-nav-item" routerLink="/studio/content" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.content' | translate">
+        <img src="/assets/icons/my_video.png" alt="" class="item-icon-img" />
+        <span class="item-label">{{ 'studio.content' | translate }}</span>
       </a>
-    }
 
-    @if (data.hasPermission('comment.manage')) {
-      <a class="studio-nav-item" routerLink="/studio/comments" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.comments' | translate">
-        <img src="/assets/icons/icon-actions-ai-chat.png" alt="" class="item-icon-img" />
-        <span class="item-label">{{ 'studio.comments' | translate }}</span>
+      @if (data.hasPermission('video.upload')) {
+        <a class="studio-nav-item studio-nav-item--highlight" routerLink="/studio/upload" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.uploadVideo' | translate">
+          <img src="/assets/icons/upload_video.png" alt="" class="item-icon-img" />
+          <span class="item-label">{{ 'studio.uploadVideo' | translate }}</span>
+          <span class="highlight-badge">{{ 'ui.newBadge' | translate }}</span>
+        </a>
+      }
+
+      @if (data.hasPermission('analytics.view')) {
+        <a class="studio-nav-item" routerLink="/studio/analytics" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.analytics' | translate">
+          <img src="/assets/icons/statistics.png" alt="" class="item-icon-img" />
+          <span class="item-label">{{ 'studio.analytics' | translate }}</span>
+        </a>
+      }
+    </section>
+
+    <section class="studio-nav-group" [attr.aria-label]="'studio.navGroupCommunity' | translate">
+      <p class="studio-nav-label">{{ 'studio.navGroupCommunity' | translate }}</p>
+      @if (data.hasPermission('comment.manage')) {
+        <a class="studio-nav-item" routerLink="/studio/comments" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.comments' | translate">
+          <img src="/assets/icons/icon-actions-ai-chat.png" alt="" class="item-icon-img" />
+          <span class="item-label">{{ 'studio.comments' | translate }}</span>
+        </a>
+      }
+
+      <a class="studio-nav-item" routerLink="/studio/invitations" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.collaborationTitle' | translate">
+        <img src="/assets/icons/channel.png" alt="" class="item-icon-img" />
+        <span class="item-label">{{ 'studio.collaboration' | translate }}</span>
       </a>
-    }
-
-    <a class="studio-nav-item" routerLink="/studio/invitations" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.collaborationTitle' | translate">
-      <img src="/assets/icons/channel.png" alt="" class="item-icon-img" />
-      <span class="item-label">{{ 'studio.collaboration' | translate }}</span>
-    </a>
-
-    <a class="studio-nav-item" routerLink="/studio/subtitles" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.subtitles' | translate">
-      <img src="/assets/icons/utility/icon-utility-document.png" alt="" class="item-icon-img" />
-      <span class="item-label">{{ 'studio.subtitles' | translate }}</span>
-    </a>
+    </section>
 
     @if (data.hasPermission('channel.setting.view') || data.hasPermission('channel.setting.edit')) {
-      <a class="studio-nav-item" routerLink="/studio/settings" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.settings' | translate">
-        <img src="/assets/icons/setting.png" alt="" class="item-icon-img" />
-        <span class="item-label">{{ 'studio.settings' | translate }}</span>
-      </a>
+      <section class="studio-nav-group" [attr.aria-label]="'studio.navGroupSettings' | translate">
+        <p class="studio-nav-label">{{ 'studio.navGroupSettings' | translate }}</p>
+        <a class="studio-nav-item" routerLink="/studio/settings" routerLinkActive="active" (click)="closeNavigation()" [title]="'studio.settings' | translate">
+          <img src="/assets/icons/setting.png" alt="" class="item-icon-img" />
+          <span class="item-label">{{ 'studio.settings' | translate }}</span>
+        </a>
+      </section>
     }
   </nav>
 
   <div class="studio-nav-footer">
-    <button class="collapse-toggle-btn" type="button" (click)="toggleCollapsed()" [attr.aria-label]="collapsed ? ('nav.expandSidebar' | translate) : ('nav.collapseSidebar' | translate)">
-      <span class="collapse-arrow">{{ collapsed ? '›' : '‹' }}</span>
-      @if (!collapsed) {
-        <span>{{ 'studio.collapse' | translate }}</span>
-      }
-    </button>
+    <a class="studio-back-link" routerLink="/home" (click)="closeNavigation()" [title]="'studio.backToWeb' | translate">
+      <img src="/assets/icons/home.png" alt="" class="item-icon-img" />
+      <span class="item-label">{{ 'studio.backToWeb' | translate }}</span>
+    </a>
   </div>
 </aside>

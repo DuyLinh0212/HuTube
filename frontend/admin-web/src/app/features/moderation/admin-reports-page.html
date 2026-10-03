@@ -1,10 +1,5 @@
 <main class="moderation-container report-cases-page">
   <header class="page-header">
-    <div class="header-titles">
-      <p class="eyebrow">{{ 'reports.eyebrow' | translate }}</p>
-      <h1>{{ 'reports.title' | translate }}</h1>
-      <p class="subtitle">{{ 'reports.subtitle' | translate }}</p>
-    </div>
     <div class="header-actions">
       <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">{{ 'moderation.refresh' | translate }}</button>
     </div>
@@ -22,12 +17,49 @@
   </nav>
 
   <section class="toolbar report-case-toolbar">
-    <label class="filter-group"><span>{{ 'reports.target' | translate }}</span>
-      <select [ngModel]="selectedTargetType()" (ngModelChange)="setTargetType($event)">
-        <option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="video">{{ 'moderation.colVideo' | translate }}</option><option value="comment">{{ 'reports.comment' | translate }}</option><option value="channel">{{ 'nav.channels' | translate }}</option>
-      </select>
-    </label>
-    <input type="search" [attr.aria-label]="'reports.searchLabel' | translate" [placeholder]="'reports.searchPlaceholder' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+    <div class="report-primary-filters">
+      <label class="filter-group"><span>{{ 'reports.target' | translate }}</span>
+        <select [ngModel]="selectedTargetType()" (ngModelChange)="setTargetType($event)">
+          <option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="video">{{ 'moderation.colVideo' | translate }}</option><option value="comment">{{ 'reports.comment' | translate }}</option><option value="channel">{{ 'nav.channels' | translate }}</option>
+        </select>
+      </label>
+      <input class="report-search" type="search" [attr.aria-label]="'reports.searchLabel' | translate" [placeholder]="'reports.searchPlaceholder' | translate" [ngModel]="searchQuery()" (ngModelChange)="setSearchQuery($event)" />
+    </div>
+    @if (selectedStatus() === 'ALL') {
+      <div class="report-advanced-filters">
+        <label class="filter-group"><span>{{ 'reports.statusFilter' | translate }}</span>
+          <select [ngModel]="allStatusFilter()" (ngModelChange)="setAllStatusFilter($event)">
+            <option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="pending">{{ 'reports.pending' | translate }}</option><option value="reviewing">{{ 'reports.statusReviewing' | translate }}</option><option value="resolved">{{ 'reports.statusResolved' | translate }}</option><option value="escalated">{{ 'reports.statusEscalated' | translate }}</option>
+          </select>
+        </label>
+        <div class="filter-group violation-filter">
+          <span>{{ 'reports.violationType' | translate }}</span>
+          <details class="violation-dropdown" #violationDropdown>
+            <summary>{{ selectedViolationTypeLabel() }}</summary>
+            <div class="violation-dropdown-panel">
+              <input type="search" [attr.aria-label]="'reports.searchViolationTypes' | translate" [placeholder]="'reports.searchViolationTypes' | translate" [ngModel]="violationTypeSearch()" (ngModelChange)="setViolationTypeSearch($event)" />
+              <div class="violation-option-list" role="listbox">
+                <button type="button" role="option" [attr.aria-selected]="selectedViolationType() === 'ALL'" [class.is-selected]="selectedViolationType() === 'ALL'" (click)="selectViolationType('ALL', violationDropdown)">{{ 'reports.allViolations' | translate }}</button>
+                @for (option of pagedViolationTypes(); track option.value) {
+                  <button type="button" role="option" [attr.aria-selected]="selectedViolationType() === option.value" [class.is-selected]="selectedViolationType() === option.value" (click)="selectViolationType(option.value, violationDropdown)">{{ option.label }}</button>
+                } @empty {
+                  <p>{{ 'reports.noViolationTypes' | translate }}</p>
+                }
+              </div>
+              @if (violationTypePageCount() > 1) {
+                <div class="violation-pagination">
+                  <button type="button" (click)="setViolationTypePage(safeViolationTypePage() - 1)" [disabled]="safeViolationTypePage() <= 1" [attr.aria-label]="'reports.previousPage' | translate">‹</button>
+                  <span>{{ safeViolationTypePage() }} / {{ violationTypePageCount() }}</span>
+                  <button type="button" (click)="setViolationTypePage(safeViolationTypePage() + 1)" [disabled]="safeViolationTypePage() >= violationTypePageCount()" [attr.aria-label]="'reports.nextPage' | translate">›</button>
+                </div>
+              }
+            </div>
+          </details>
+        </div>
+        <label class="filter-group date-filter"><span>{{ 'reports.processedFrom' | translate }}</span><input type="date" [ngModel]="processedFrom()" (ngModelChange)="setProcessedFrom($event)" /></label>
+        <label class="filter-group date-filter"><span>{{ 'reports.processedTo' | translate }}</span><input type="date" [ngModel]="processedTo()" (ngModelChange)="setProcessedTo($event)" /></label>
+      </div>
+    }
   </section>
 
   <section class="table-card">
@@ -41,7 +73,7 @@
         <table class="data-table">
           <thead><tr><th>{{ 'reports.target' | translate }}</th><th>{{ 'nav.groupContent' | translate }}</th><th>{{ 'reports.reportsHeader' | translate }}</th><th>{{ 'reports.violationType' | translate }}</th><th>{{ 'moderation.colStatus' | translate }}</th><th>{{ 'reports.handler' | translate }}</th><th>{{ 'reports.time' | translate }}</th><th>{{ 'moderation.colActions' | translate }}</th></tr></thead>
           <tbody>
-            @for (item of filteredCases(); track item.caseId) {
+            @for (item of paginatedCases(); track item.caseId) {
               <tr>
                 <td><span class="badge" [class.badge-video]="item.targetType === 'video'" [class.badge-comment]="item.targetType === 'comment'" [class.badge-channel]="item.targetType === 'channel'">{{ targetTypeLabel(item.targetType) }}</span></td>
                 <td class="target-title-col">
@@ -49,7 +81,7 @@
                     @if (item.targetThumbnailUrl) { <div class="thumb-mini"><img [src]="item.targetThumbnailUrl" alt="" /></div> }
                     <div class="target-info"><strong class="target-title">{{ item.targetTitle || ('reports.targetUnavailable' | translate) }}</strong>
                       @if (item.targetChannelName) { <span class="channel-tag">{{ item.targetChannelName }} · &#64;{{ item.targetChannelHandle }}</span> }
-                      @if (item.targetUrl) { <a class="link-view-target" [href]="targetHref(item)" target="_blank" rel="noopener">{{ 'reports.openTarget' | translate }} ↗</a> }
+                      @if (targetHref(item); as href) { <a class="link-view-target" [href]="href" target="_blank" rel="noopener">{{ 'reports.openTarget' | translate }} ↗</a> }
                     </div>
                   </div>
                 </td>
@@ -57,7 +89,7 @@
                 <td><div class="violation-counts">@for (violation of item.violationCounts; track violation.code) { <span>{{ violation.name || violation.code || ('reports.other' | translate) }} <b>{{ violation.count }}</b></span> }</div></td>
                 <td><span class="status-pill" [class.status-pending]="item.status === 'pending'" [class.status-reviewing]="item.status === 'reviewing'" [class.status-resolved]="item.status === 'resolved'">{{ statusLabel(item.status) }}</span></td>
                 <td>{{ item.reviewerName || '—' }}</td>
-                <td>{{ item.submittedAt | date:'short':undefined:dateLocale() }}</td>
+                <td>{{ (item.resolvedAt || item.submittedAt) | date:'short':undefined:dateLocale() }}</td>
                 <td class="actions-col">
                   <div class="action-buttons">
                     <button type="button" class="btn-action btn-resolve" (click)="openCase(item)">{{ 'reports.details' | translate }}</button>
@@ -70,6 +102,14 @@
           </tbody>
         </table>
       </div>
+      <footer class="reports-pagination">
+        <span>{{ 'reports.paginationRange' | translate:{ from: pageRangeStart(), to: pageRangeEnd(), total: filteredCases().length } }}</span>
+        <div class="reports-page-controls">
+          <button type="button" (click)="setPage(safePage() - 1)" [disabled]="safePage() <= 1">{{ 'reports.previousPage' | translate }}</button>
+          <span>{{ safePage() }} / {{ pageCount() }}</span>
+          <button type="button" (click)="setPage(safePage() + 1)" [disabled]="safePage() >= pageCount()">{{ 'reports.nextPage' | translate }}</button>
+        </div>
+      </footer>
     }
   </section>
 

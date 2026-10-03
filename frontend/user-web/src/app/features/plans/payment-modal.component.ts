@@ -61,6 +61,12 @@ import { Subscription, interval } from 'rxjs';
               <span class="spinner"></span>
               <span>{{ 'payment.waiting' | translate }}</span>
             </div>
+            <p *ngIf="cancelError()" class="cancel-error" role="alert">{{ cancelError() }}</p>
+            <div class="pending-actions">
+              <button class="cancel-btn" type="button" [disabled]="cancelling()" (click)="cancelPending()">
+                {{ (cancelling() ? 'payment.cancelling' : 'payment.cancel') | translate }}
+              </button>
+            </div>
           </ng-container>
 
           <!-- Trạng thái: Thành công -->
@@ -74,8 +80,8 @@ import { Subscription, interval } from 'rxjs';
           <!-- Trạng thái: Hết hạn / Huỷ -->
           <div *ngIf="status() === 'cancelled'" class="result-box failed">
             <div class="icon">⏰</div>
-            <h3>{{ 'payment.expiredTitle' | translate }}</h3>
-            <p>{{ 'payment.expiredDescription' | translate }}</p>
+            <h3>{{ (expired() ? 'payment.expiredTitle' : 'payment.cancelledTitle') | translate }}</h3>
+            <p>{{ (expired() ? 'payment.expiredDescription' : 'payment.cancelledDescription') | translate }}</p>
             <button class="action-btn" (click)="close()">{{ 'payment.close' | translate }}</button>
           </div>
         </div>
@@ -86,11 +92,11 @@ import { Subscription, interval } from 'rxjs';
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
       display: flex; align-items: center; justify-content: center; z-index: 1000;
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px); padding: 16px; box-sizing: border-box; overflow-y: auto;
     }
     .modal-card {
       background: var(--surface-primary, #1e1e24); color: var(--text-primary, #fff);
-      border-radius: 16px; width: 100%; max-width: 480px; padding: 24px;
+      border-radius: 16px; width: 100%; max-width: 480px; padding: 24px; box-sizing: border-box; max-height: calc(100dvh - 32px); overflow-y: auto;
       box-shadow: 0 12px 32px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
     }
     .modal-header {
@@ -110,7 +116,7 @@ import { Subscription, interval } from 'rxjs';
       text-align: center; margin-bottom: 20px; background: #fff; padding: 16px;
       border-radius: 12px; display: inline-block; width: 100%; box-sizing: border-box;
     }
-    .qr-image { width: 220px; height: 220px; object-fit: contain; margin: 0 auto; display: block; }
+    .qr-image { width: min(220px, 100%); height: auto; aspect-ratio: 1; object-fit: contain; margin: 0 auto; display: block; }
     .scan-hint { color: #333; font-size: 0.85rem; margin-top: 8px; font-weight: 500; }
     .no-qr-box {
       text-align: center; padding: 24px; background: rgba(255,255,255,0.05);
@@ -152,6 +158,10 @@ import { Subscription, interval } from 'rxjs';
       border-radius: 8px; font-weight: 600; cursor: pointer;
     }
     .action-btn:hover { background: #1d4ed8; }
+    .pending-actions { display: flex; justify-content: center; margin-top: 12px; }
+    .cancel-btn { padding: 8px 16px; border: 1px solid rgba(255,255,255,.22); border-radius: 8px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+    .cancel-btn:disabled { opacity: .6; cursor: wait; }
+    .cancel-error { margin: 10px 0 0; color: #fca5a5; text-align: center; font-size: .85rem; }
   `]
 })
 export class PaymentModalComponent implements OnInit, OnDestroy {
@@ -165,6 +175,9 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   readonly status = signal<'pending' | 'paid' | 'cancelled'>('pending');
   readonly copied = signal(false);
   readonly remainingTime = signal('');
+  readonly cancelling = signal(false);
+  readonly cancelError = signal('');
+  readonly expired = signal(false);
 
   private pollSub?: Subscription;
   private timerSub?: Subscription;
@@ -195,6 +208,24 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     this.completed.emit();
   }
 
+  cancelPending(expired = false) {
+    if (this.cancelling() || this.status() !== 'pending') return;
+    this.cancelling.set(true);
+    this.expired.set(expired);
+    this.cancelError.set('');
+    this.planService.cancelPayment(this.payment.paymentId).subscribe({
+      next: () => {
+        this.status.set('cancelled');
+        this.pollSub?.unsubscribe();
+        this.timerSub?.unsubscribe();
+      },
+      error: () => {
+        this.cancelError.set(this.i18n.t('payment.cancelError'));
+        this.cancelling.set(false);
+      }
+    });
+  }
+
   private startCountdown() {
     const expiresAt = new Date(this.payment.expiresAt).getTime();
     const update = () => {
@@ -203,8 +234,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       if (diff <= 0) {
         this.remainingTime.set(this.i18n.t('payment.expired'));
         if (this.status() === 'pending') {
-          this.status.set('cancelled');
-          this.pollSub?.unsubscribe();
+          this.cancelPending(true);
         }
         return;
       }

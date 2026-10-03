@@ -63,7 +63,6 @@ export class ChannelSettingsPage {
   handle = '';
   description = '';
   contactEmail = '';
-  watermarkUrl = '';
   links: ChannelLinkItem[] = [];
   inviteEmail = '';
   inviteRole: ChannelRole['code'] = 'editor';
@@ -149,7 +148,7 @@ export class ChannelSettingsPage {
     this.links.splice(index, 1);
   }
 
-  loadChannel() {
+  loadChannel(preserveActiveTab = false) {
     const handle = this.route.snapshot.paramMap.get('handle');
     if (!handle) {
       this.error.set(this.i18n.t('channel.handleNotFound'));
@@ -165,9 +164,8 @@ export class ChannelSettingsPage {
         this.handle = channel.handle;
         this.description = channel.description ?? '';
         this.contactEmail = channel.contactEmail ?? '';
-        this.watermarkUrl = channel.watermarkUrl ?? '';
         this.parseLinks(channel);
-        this.chooseAvailableTab();
+        if (!preserveActiveTab) this.chooseAvailableTab();
         this.loadCollaboration();
       },
       error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.loadError'))
@@ -263,7 +261,6 @@ export class ChannelSettingsPage {
         handle: cleanHandle,
         description: this.description.trim(),
         contactEmail: this.contactEmail.trim(),
-        watermarkUrl: this.watermarkUrl.trim(),
         settings: JSON.stringify(currentSettings)
       }),
       this.i18n.t('channel.basicSaved')
@@ -433,7 +430,7 @@ export class ChannelSettingsPage {
     request.pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
         this.message.set(successMessage);
-        this.loadChannel();
+        this.loadChannel(true);
       },
       error: err => this.error.set(errorMessage(err, this.i18n))
     });

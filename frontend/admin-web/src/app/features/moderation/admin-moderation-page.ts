@@ -72,7 +72,7 @@ export class AdminModerationPage implements OnInit {
         x.channelName.toLowerCase().includes(query)
       );
     }
-    return items;
+    return [...items].sort((left, right) => Date.parse(left.submittedAt) - Date.parse(right.submittedAt));
   });
 
   readonly stats = computed(() => {

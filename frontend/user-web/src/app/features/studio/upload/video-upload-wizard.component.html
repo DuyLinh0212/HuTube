@@ -72,8 +72,8 @@
 
             <div class="dropzone-area">
               <p class="dropzone-hint">{{ 'upload.step1.dragDrop' | translate }}</p>
-              <label class="btn-select-file" for="videoFile">{{ 'upload.step1.btn' | translate }}</label>
-              <input id="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" hidden (change)="selectVideo($event)" />
+              <button type="button" class="btn-select-file" (click)="videoFileInput.click()">{{ 'upload.step1.btn' | translate }}</button>
+              <input #videoFileInput id="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" hidden (change)="selectVideo($event)" />
             </div>
 
             <p class="dropzone-formats">
@@ -293,19 +293,56 @@
             </div>
           </div>
 
-          <!-- Subtitle Options Box -->
-          <div class="subtitles-option-card">
-            <div class="option-row">
-              <div class="option-info">
-                <h4>{{ 'upload.step3.aiSubTitle' | translate }}</h4>
-                <p>{{ 'upload.step3.aiSubDesc' | translate }}</p>
+          <section class="video-cards-card" aria-labelledby="video-cards-heading">
+            <div class="video-cards-heading">
+              <div>
+                <h3 id="video-cards-heading">{{ 'upload.step3.videoCards' | translate }} <span>{{ videoCards().length }}/5</span></h3>
+                <p>{{ 'upload.step3.videoCardsHint' | translate }}</p>
               </div>
-              <label class="switch-toggle">
-                <input type="checkbox" [(ngModel)]="autoSubtitles" />
-                <span class="slider"></span>
-              </label>
             </div>
-          </div>
+
+            @if (publishedChannelVideos().length) {
+              <div class="video-card-add-row">
+                <label class="video-card-select">
+                  <span>{{ 'upload.step3.chooseVideo' | translate }}</span>
+                  <select name="videoCardTarget" [(ngModel)]="selectedVideoCardId">
+                    <option value="">{{ 'upload.step3.chooseVideoPlaceholder' | translate }}</option>
+                    @for (video of publishedChannelVideos(); track video.videoId) {
+                      <option [value]="video.videoId" [disabled]="isVideoCardAdded(video.videoId)">{{ video.title }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="video-card-time">
+                  <span>{{ 'upload.step3.bannerTime' | translate }}</span>
+                  <input name="videoCardTime" type="text" [(ngModel)]="newVideoCardTime" [placeholder]="formatDuration(timelineSeconds())" />
+                </label>
+                <button class="video-card-current-time" type="button" (click)="useCurrentTimeForVideoCard()">{{ 'upload.step3.useCurrentTime' | translate }}</button>
+                <button class="btn-add-ch video-card-add-button" type="button" [disabled]="videoCards().length >= 5" (click)="addVideoCard()">＋ {{ 'upload.step3.addVideoCard' | translate }}</button>
+              </div>
+            } @else {
+              <p class="video-cards-empty">{{ 'upload.step3.noPublishedVideos' | translate }}</p>
+            }
+
+            @if (videoCards().length) {
+              <div class="video-card-list">
+                @for (card of videoCards(); track card.id) {
+                  <article class="video-card-row">
+                    @if (videoCardThumbnail(card.videoId)) {
+                      <img [src]="videoCardThumbnail(card.videoId)" alt="" />
+                    } @else {
+                      <span class="video-card-thumb-placeholder" aria-hidden="true">▶</span>
+                    }
+                    <strong [title]="videoCardTitle(card.videoId)">{{ videoCardTitle(card.videoId) }}</strong>
+                    <label>
+                      <span class="sr-only">{{ 'upload.step3.bannerTime' | translate }}</span>
+                      <input type="text" [class.is-invalid]="!isVideoCardValid(card.id)" [ngModel]="card.time" (ngModelChange)="updateVideoCardTime(card.id, $event)" [attr.aria-label]="'upload.step3.bannerTime' | translate" />
+                    </label>
+                    <button type="button" class="btn-icon-del" (click)="removeVideoCard(card.id)" [attr.aria-label]="'common.delete' | translate">✕</button>
+                  </article>
+                }
+              </div>
+            }
+          </section>
 
           <div class="wizard-tip-box">
             <span class="tip-icon">✦</span>
@@ -475,8 +512,8 @@
                 <span>{{ 'upload.step5.publishNow' | translate }}</span>
               </label>
               <label class="radio-label">
-                <input type="radio" name="publishMode" value="schedule" [(ngModel)]="publishMode" />
-                <span>{{ 'upload.step5.schedule' | translate }}</span>
+                <input type="radio" name="publishMode" value="schedule" disabled [(ngModel)]="publishMode" />
+                <span>{{ 'upload.step5.schedule' | translate }} ({{ 'common.notSupported' | translate }})</span>
               </label>
             </div>
 
@@ -629,8 +666,22 @@
                 <button class="player-play-btn" type="button" (click)="togglePreview($event)" [attr.aria-label]="'upload.step6.watchVideo' | translate">{{ previewPlaying() ? '❚❚' : '▶' }}</button>
                 <span class="player-duration">{{ formatDuration(duration) }}</span>
               </div>
+              @if (channelWatermarkUrl() && watermarkPreviewEnabled()) {
+                <img class="upload-watermark-preview" [src]="channelWatermarkUrl()" alt="" aria-hidden="true" />
+              }
             } @else {
               <div class="player-empty">{{ 'upload.previewVideo' | translate }}</div>
+            }
+          </div>
+          <div class="watermark-preview-control">
+            @if (channelWatermarkUrl()) {
+              <label>
+                <input type="checkbox" [checked]="watermarkPreviewEnabled()" (change)="watermarkPreviewEnabled.set($any($event.target).checked)" />
+                <span>{{ 'upload.watermarkPreview' | translate }}</span>
+              </label>
+              <small>{{ (watermarkPreviewEnabled() ? 'upload.watermarkPreviewOn' : 'upload.watermarkPreviewOff') | translate }}</small>
+            } @else {
+              <span class="watermark-preview-unavailable">{{ 'upload.noWatermarkConfigured' | translate }}</span>
             }
           </div>
           <div class="player-info">
@@ -700,7 +751,7 @@
       </div>
 
       <div class="footer-right">
-        <button type="button" class="btn-wizard-draft">
+        <button type="button" class="btn-wizard-draft" (click)="saveDraft()">
           {{ 'upload.step2.saveDraft' | translate }}
         </button>
 

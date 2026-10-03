@@ -1,59 +1,157 @@
-<main id="main-content" class="invitations-page">
-  <div class="invitations-toolbar">
-    <button type="button" class="btn-secondary" (click)="load()" [disabled]="loading()">{{ 'channel.reload' | translate }}</button>
-  </div>
+<main id="main-content" class="collaboration-page">
+  <header class="page-heading">
+    <div class="heading-copy">
+      <h1>{{ 'studio.collaborationTitle' | translate }}</h1>
+    </div>
+    <button type="button" class="refresh-button" (click)="load()" [disabled]="loading()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.6 9A7 7 0 0 1 18 6.5L20 12M4 12l2 5.5A7 7 0 0 0 18.4 15" /></svg>
+      {{ 'channel.reload' | translate }}
+    </button>
+  </header>
 
-  @if (error()) { <div class="notice notice--error" role="alert">{{ error() }}</div> }
-  @if (success()) { <div class="notice notice--success" role="status">{{ success() }}</div> }
+  @if (error()) {
+    <div class="notice notice--error" role="alert">
+      <span class="notice-icon" aria-hidden="true">!</span>
+      <span>{{ error() }}</span>
+      <button type="button" (click)="load()" [disabled]="loading()">{{ 'channel.retryLoad' | translate }}</button>
+    </div>
+  }
+  @if (success()) {
+    <div class="notice notice--success" role="status"><span class="notice-icon" aria-hidden="true">✓</span>{{ success() }}</div>
+  }
 
-  @if (loading()) {
-    <section class="state-card" aria-live="polite">
-      <span class="spinner" aria-hidden="true"></span>
-      <p>{{ 'channel.loadingInvitations' | translate }}</p>
+  @if (loading() && invitations().length === 0 && accessibleChannels().length === 0) {
+    <section class="loading-grid" aria-label="{{ 'channel.loadingInvitations' | translate }}" aria-live="polite">
+      <div class="loading-card"><span class="skeleton skeleton-title"></span><span class="skeleton skeleton-row"></span><span class="skeleton skeleton-row"></span></div>
+      <div class="loading-card"><span class="skeleton skeleton-title"></span><span class="skeleton skeleton-row"></span><span class="skeleton skeleton-row"></span></div>
     </section>
   } @else {
-    @if (invitations().length > 0) {
-      <section class="section-block" aria-labelledby="pending-title">
-        <div class="section-heading"><div><h2 id="pending-title">{{ 'channel.pendingInvitations' | translate }}</h2><p>{{ 'channel.pendingDesc' | translate }}</p></div></div>
-        <div class="invitation-list">
-          @for (invitation of invitations(); track invitation.channelInvitationId) {
-            <article class="invitation-card">
-              <div class="channel-avatar" aria-hidden="true">{{ invitation.channelName.slice(0, 1).toUpperCase() }}</div>
-              <div class="invitation-copy">
-                <div class="title-row">
-                  <div><h2>{{ invitation.channelName }}</h2><span>&#64;{{ invitation.channelHandle }}</span></div>
-                  <span class="role-badge">{{ roleName(invitation.roleCode) }}</span>
-                </div>
-                <p>{{ roleDescription(invitation.roleCode) }}</p>
-                <small>{{ 'channel.expires' | translate:{ date: ((invitation.expiresAt | localeDate:'dd/MM/yyyy, HH:mm') ?? '') } }}</small>
-              </div>
-              <div class="actions">
-                <button type="button" class="btn-primary" (click)="accept(invitation)" [disabled]="busyId() !== null">{{ (busyId() === invitation.channelInvitationId ? 'channel.processing' : 'channel.inviteAccept') | translate }}</button>
-                <button type="button" class="btn-secondary" (click)="decline(invitation)" [disabled]="busyId() !== null">{{ 'channel.inviteDecline' | translate }}</button>
-              </div>
-            </article>
-          }
-        </div>
-      </section>
-    } @else {
-      <section class="empty-inline"><span class="state-icon" aria-hidden="true">✓</span><div><strong>{{ 'channel.noPending' | translate }}</strong><p>{{ 'channel.noPendingDesc' | translate }}</p></div></section>
-    }
-
-    <section class="section-block" aria-labelledby="collaboration-title">
-      <div class="section-heading"><div><h2 id="collaboration-title">{{ 'channel.collaborating' | translate }}</h2><p>{{ 'channel.collaboratingDesc' | translate }}</p></div></div>
-      @if (accessibleChannels().length > 0) {
-        <div class="collaboration-list">
-          @for (channel of accessibleChannels(); track channel.channelId) {
-            <article class="collaboration-card">
-              @if (channel.avatarUrl) { <img [src]="channel.avatarUrl" alt="" class="channel-avatar-image" /> } @else { <div class="channel-avatar" aria-hidden="true">{{ channel.name.slice(0, 1).toUpperCase() }}</div> }
-              <div class="collaboration-copy"><h3>{{ channel.name }}</h3><p>&#64;{{ channel.handle }} · <strong>{{ channelRole(channel) }}</strong></p><small>{{ permissionSummary(channel) }}</small></div>
-              <a class="btn-primary" routerLink="/studio/overview" [queryParams]="{ channelId: channel.channelId }">{{ 'channel.openStudio' | translate }}</a>
-            </article>
-          }
-        </div>
-      } @else {
-        <div class="state-card state-card--compact"><p>{{ 'channel.noAccessible' | translate }}</p></div>
-      }
+    <section class="overview-metrics" [attr.aria-label]="'channel.workspaceSummary' | translate">
+      <article class="metric-card metric-card--pending">
+        <span class="metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5zM5 7l7 5 7-5" /></svg>
+        </span>
+        <span class="metric-copy"><strong>{{ invitations().length | localeNumber }}</strong><small>{{ 'channel.pendingCountLabel' | translate }}</small></span>
+        <span class="metric-accent" aria-hidden="true"></span>
+      </article>
+      <article class="metric-card metric-card--channels">
+        <span class="metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3.5 7.5h17v12h-17zM6 7.5V5h12v2.5M8 11h8M8 15h5" /></svg>
+        </span>
+        <span class="metric-copy"><strong>{{ accessibleChannels().length | localeNumber }}</strong><small>{{ 'channel.accessibleCountLabel' | translate }}</small></span>
+        <span class="metric-accent" aria-hidden="true"></span>
+      </article>
+      <article class="metric-card metric-card--team">
+        <span class="metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.8M17 14a5.5 5.5 0 0 1 3.5 5" /></svg>
+        </span>
+        <span class="metric-copy"><strong>{{ collaboratingChannels().length | localeNumber }}</strong><small>{{ 'channel.collaboratorCountLabel' | translate }}</small></span>
+        <span class="metric-accent" aria-hidden="true"></span>
+      </article>
     </section>
+
+    <div class="workspace-grid">
+      <section class="workspace-panel invitations-panel" aria-labelledby="pending-title">
+        <div class="panel-heading">
+          <span class="panel-icon panel-icon--invite" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5zM5 7l7 5 7-5" /></svg>
+          </span>
+          <div class="panel-heading-copy">
+            <div class="panel-title-line"><h2 id="pending-title">{{ 'channel.pendingInvitations' | translate }}</h2><span class="count-badge">{{ invitations().length | localeNumber }}</span></div>
+            <p>{{ 'channel.pendingDesc' | translate }}</p>
+          </div>
+        </div>
+
+        @if (invitations().length > 0) {
+          <div class="invitation-list">
+            @for (invitation of invitations(); track invitation.channelInvitationId) {
+              <article class="invitation-card">
+                <div class="invitation-main">
+                  <div class="channel-avatar" aria-hidden="true">{{ invitation.channelName.slice(0, 1).toLocaleUpperCase() }}</div>
+                  <div class="invitation-copy">
+                    <div class="invitation-title-row">
+                      <div class="invitation-name"><h3>{{ invitation.channelName }}</h3><span>&#64;{{ invitation.channelHandle }}</span></div>
+                      <span class="role-badge">{{ roleName(invitation.roleCode) }}</span>
+                    </div>
+                    <p class="role-description">{{ roleDescription(invitation.roleCode) }}</p>
+                    <div class="invitation-expiry">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></svg>
+                      <span>{{ 'channel.expires' | translate:{ date: ((invitation.expiresAt | localeDate:'dd/MM/yyyy, HH:mm') ?? '') } }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="invitation-actions">
+                  <button type="button" class="button button--secondary" (click)="decline(invitation)" [disabled]="busyId() !== null">{{ 'channel.inviteDecline' | translate }}</button>
+                  <button type="button" class="button button--primary" (click)="accept(invitation)" [disabled]="busyId() !== null">
+                    @if (busyId() === invitation.channelInvitationId) { <span class="button-spinner" aria-hidden="true"></span> }
+                    {{ (busyId() === invitation.channelInvitationId ? 'channel.processing' : 'channel.inviteAccept') | translate }}
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state empty-state--invites">
+            <span class="empty-icon empty-icon--success" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7" /></svg>
+            </span>
+            <div><h3>{{ 'channel.noPending' | translate }}</h3><p>{{ 'channel.noPendingDesc' | translate }}</p></div>
+          </div>
+        }
+      </section>
+
+      <section class="workspace-panel channels-panel" aria-labelledby="channels-title">
+        <div class="panel-heading">
+          <span class="panel-icon panel-icon--channels" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3.5 7.5h17v12h-17zM6 7.5V5h12v2.5M8 11h8M8 15h5" /></svg>
+          </span>
+          <div class="panel-heading-copy">
+            <div class="panel-title-line"><h2 id="channels-title">{{ 'channel.accessibleChannelsTitle' | translate }}</h2><span class="count-badge">{{ accessibleChannels().length | localeNumber }}</span></div>
+            <p>{{ 'channel.accessibleChannelsDesc' | translate }}</p>
+          </div>
+        </div>
+
+        @if (accessibleChannels().length > 0) {
+          <div class="collaboration-grid">
+            @for (channel of accessibleChannels(); track channel.channelId) {
+              <article class="collaboration-card">
+                @let permissionLabels = permissionGroups(channel);
+                <div class="collaboration-card__top">
+                  @if (channel.avatarUrl) { <img [src]="channel.avatarUrl" alt="" class="channel-avatar-image" /> }
+                  @else { <div class="channel-avatar" aria-hidden="true">{{ channel.name.slice(0, 1).toLocaleUpperCase() }}</div> }
+                  <span class="role-badge" [class.role-badge--owner]="channel.isOwner">{{ channelRole(channel) }}</span>
+                </div>
+                <div class="collaboration-copy">
+                  <h3>{{ channel.name }}</h3>
+                  <p class="channel-handle">&#64;{{ channel.handle }}</p>
+                  <p class="permission-summary">{{ permissionSummary(channel) }}</p>
+                </div>
+                <div class="channel-stats">
+                  <span><strong>{{ channel.videoCount | localeNumber }}</strong>{{ 'channel.videos' | translate }}</span>
+                  <span><strong>{{ channel.subscriberCount | localeNumber }}</strong>{{ 'channel.subscribers' | translate }}</span>
+                </div>
+                @if (permissionLabels.length > 0) {
+                  <div class="permission-groups" [attr.aria-label]="'channel.permissionGroups' | translate">
+                    @for (permission of permissionLabels.slice(0, 4); track permission) { <span>{{ permission }}</span> }
+                    @if (permissionLabels.length > 4) { <span class="more-permissions">{{ 'channel.morePermissionGroups' | translate:{ count: permissionLabels.length - 4 } }}</span> }
+                  </div>
+                }
+                <a class="button button--primary open-studio" routerLink="/studio/overview" [queryParams]="{ channelId: channel.channelId }">
+                  {{ 'channel.openStudio' | translate }}
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                </a>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state empty-state--channels">
+            <span class="empty-icon empty-icon--channels" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5" /></svg>
+            </span>
+            <div><h3>{{ 'channel.noAccessible' | translate }}</h3><p>{{ 'channel.noAccessibleDesc' | translate }}</p></div>
+          </div>
+        }
+      </section>
+    </div>
   }
 </main>

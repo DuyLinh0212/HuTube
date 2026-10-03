@@ -1,0 +1,156 @@
+<main class="subscriptions-page">
+  <header class="page-heading">
+    <div class="heading-actions">
+      <button class="export-button" type="button" [disabled]="exporting()" (click)="exportReport()">
+        <span aria-hidden="true">⇩</span>{{ exporting() ? ('subscriptions.exporting' | translate) : ('subscriptions.export' | translate) }}
+      </button>
+      <button class="refresh-button" type="button" [disabled]="loading()" (click)="load()" [attr.aria-label]="'subscriptions.refresh' | translate">↻</button>
+    </div>
+  </header>
+
+  @if (error()) { <div class="feedback error-feedback" role="alert"><span aria-hidden="true">!</span>{{ error() }}<button type="button" (click)="error.set('')" [attr.aria-label]="'common.close' | translate">×</button></div> }
+  @if (notice()) { <div class="feedback success-feedback" role="status"><span aria-hidden="true">✓</span>{{ notice() }}<button type="button" (click)="notice.set('')" [attr.aria-label]="'common.close' | translate">×</button></div> }
+
+  @if (loading() && !stats()) {
+    <div class="loading-state" role="status"><span class="spinner"></span>{{ 'subscriptions.loading' | translate }}</div>
+  } @else {
+    <section class="metric-grid primary-metrics" [attr.aria-label]="'subscriptions.summary' | translate">
+      @for (metric of metricCards; track metric.key) {
+        <article class="metric-card" [class]="'metric-card tone-' + metric.tone">
+          <span class="metric-icon" aria-hidden="true">{{ metric.icon }}</span>
+          <div class="metric-copy"><span>{{ metric.label | translate }}</span>
+            <strong>@if (metric.key === 'paidRevenueThisMonth') { {{ formatMoney(stats()?.[metric.key] ?? 0) }} } @else { {{ (stats()?.[metric.key] ?? 0) | number }} }</strong>
+            @if (metric.key === 'paidRevenueThisMonth') { <small>{{ 'subscriptions.paidRevenueHint' | translate }}</small> }
+            @else if (metric.key === 'expiringSubscriptions') { <small>{{ 'subscriptions.nextSevenDays' | translate }}</small> }
+            @else { <small>{{ 'subscriptions.fromRecords' | translate }}</small> }
+          </div>
+        </article>
+      }
+    </section>
+
+    <section class="metric-grid secondary-metrics" [attr.aria-label]="'subscriptions.paymentSummary' | translate">
+      @for (metric of secondaryMetrics; track metric.key) {
+        <article class="metric-card compact-card" [class]="'metric-card compact-card tone-' + metric.tone">
+          <span class="metric-icon" aria-hidden="true">{{ metric.icon }}</span>
+          <div class="metric-copy"><span>{{ metric.label | translate }}</span><strong>{{ (stats()?.[metric.key] ?? 0) | number }}</strong></div>
+        </article>
+      }
+    </section>
+
+    <div class="subscriptions-layout">
+      <section class="list-column" aria-label="{{ 'subscriptions.listTitle' | translate }}">
+        <div class="status-tabs" role="tablist" [attr.aria-label]="'subscriptions.statusFilter' | translate">
+          <button type="button" role="tab" [attr.aria-selected]="status === 'all'" [class.is-selected]="status === 'all'" (click)="setStatus('all')">{{ 'subscriptions.all' | translate }} <b>{{ (stats()?.totalSubscriptions ?? 0) | number }}</b></button>
+          <button type="button" role="tab" [attr.aria-selected]="status === 'active'" [class.is-selected]="status === 'active'" (click)="setStatus('active')">{{ 'subscriptions.status.active' | translate }} <b>{{ (stats()?.activeSubscriptions ?? 0) | number }}</b></button>
+          <button type="button" role="tab" [attr.aria-selected]="status === 'expiring'" [class.is-selected]="status === 'expiring'" (click)="setStatus('expiring')">{{ 'subscriptions.status.expiring' | translate }} <b>{{ (stats()?.expiringSubscriptions ?? 0) | number }}</b></button>
+          <button type="button" role="tab" [attr.aria-selected]="status === 'expired'" [class.is-selected]="status === 'expired'" (click)="setStatus('expired')">{{ 'subscriptions.status.expired' | translate }} <b>{{ (stats()?.expiredSubscriptions ?? 0) | number }}</b></button>
+        </div>
+
+        <section class="filters-panel" [attr.aria-label]="'subscriptions.filters' | translate">
+          <label class="search-field"><span aria-hidden="true">⌕</span><input [(ngModel)]="search" (ngModelChange)="onSearchChanged()" [placeholder]="'subscriptions.searchPlaceholder' | translate" /></label>
+          <label class="filter-field"><span>{{ 'subscriptions.filterStatus' | translate }}</span><select [(ngModel)]="status" (ngModelChange)="onFilterChanged()"><option value="all">{{ 'subscriptions.allStatuses' | translate }}</option><option value="active">{{ 'subscriptions.status.active' | translate }}</option><option value="expiring">{{ 'subscriptions.status.expiring' | translate }}</option><option value="expired">{{ 'subscriptions.status.expired' | translate }}</option></select></label>
+          <label class="filter-field"><span>{{ 'subscriptions.filterPlan' | translate }}</span><select [(ngModel)]="planId" (ngModelChange)="onFilterChanged()"><option value="">{{ 'subscriptions.allPlans' | translate }}</option>@for (plan of plans(); track plan.planId) { <option [value]="plan.planId">{{ plan.name }}</option> }</select></label>
+          <label class="filter-field"><span>{{ 'subscriptions.filterCycle' | translate }}</span><select [(ngModel)]="cycle" (ngModelChange)="onFilterChanged()"><option value="all">{{ 'subscriptions.allCycles' | translate }}</option><option value="monthly">{{ 'subscriptions.cycle.monthly' | translate }}</option><option value="yearly">{{ 'subscriptions.cycle.yearly' | translate }}</option><option value="custom">{{ 'subscriptions.cycle.custom' | translate }}</option></select></label>
+          <label class="filter-field"><span>{{ 'subscriptions.filterRenewal' | translate }}</span><select [(ngModel)]="renewal" (ngModelChange)="onFilterChanged()"><option value="all">{{ 'subscriptions.all' | translate }}</option><option value="yes">{{ 'subscriptions.renewalEnabled' | translate }}</option><option value="no">{{ 'subscriptions.renewalDisabled' | translate }}</option></select></label>
+          <label class="filter-field date-field"><span>{{ 'subscriptions.fromDate' | translate }}</span><input type="date" [(ngModel)]="fromDate" (ngModelChange)="onDateChanged()" /></label>
+          <label class="filter-field date-field"><span>{{ 'subscriptions.toDate' | translate }}</span><input type="date" [(ngModel)]="toDate" (ngModelChange)="onDateChanged()" /></label>
+        </section>
+
+        <section class="subscription-table-card">
+          <header class="table-heading"><div><h2>{{ 'subscriptions.listTitle' | translate }}</h2><p>{{ total | number }} {{ 'subscriptions.records' | translate }}</p></div><span class="live-label"><i></i>{{ 'subscriptions.liveData' | translate }}</span></header>
+          <div class="table-scroll" [class.is-loading]="loading()">
+            <table>
+              <thead><tr>
+                <th class="select-col"></th>
+                <th>{{ 'subscriptions.colId' | translate }}</th><th>{{ 'subscriptions.colUser' | translate }}</th><th>{{ 'subscriptions.colPlan' | translate }}</th>
+                <th>{{ 'subscriptions.colStatus' | translate }}</th><th>{{ 'subscriptions.colCycle' | translate }}</th><th>{{ 'subscriptions.colStart' | translate }}</th>
+                <th>{{ 'subscriptions.colEnd' | translate }}</th><th>{{ 'subscriptions.colAutoRenew' | translate }}</th><th>{{ 'subscriptions.colLastPayment' | translate }}</th><th>{{ 'subscriptions.colActions' | translate }}</th>
+              </tr></thead>
+              <tbody>
+                @for (item of items(); track item.planHistoryId; let index = $index) {
+                  <tr [class.is-current]="selectedId() === item.planHistoryId" (click)="select(item)">
+                    <td class="select-col"><input type="radio" name="subscription-record" [checked]="selectedId() === item.planHistoryId" (change)="select(item)" (click)="$event.stopPropagation()" [attr.aria-label]="('subscriptions.selectRow' | translate) + ' ' + item.userName" /></td>
+                    <td><button type="button" class="record-id" (click)="$event.stopPropagation(); select(item)">SUB-{{ item.planHistoryId.slice(0, 8) | uppercase }}</button></td>
+                    <td><div class="user-cell">@if (item.avatarUrl) { <img [src]="item.avatarUrl" alt="" /> } @else { <span class="avatar-fallback">{{ item.userName.slice(0, 1) | uppercase }}</span> }<span><strong>{{ item.userName }}</strong><small>{{ item.email }}</small></span></div></td>
+                    <td><span class="plan-cell"><strong>{{ item.planName }}</strong><small>{{ formatMoney(item.price) }} / {{ item.durationDays }} {{ 'subscriptions.days' | translate }}</small></span></td>
+                    <td><span class="status-pill" [class]="'status-pill ' + statusClass(item.status)"><i></i>{{ statusLabel(item.status) }}</span></td>
+                    <td>{{ cycleLabel(item.cycle) }}</td>
+                    <td>{{ formatDate(item.startedAt) }}</td>
+                    <td><span class="expiry-cell">{{ formatDate(item.expiresAt) }} @if (item.expiresAt && item.status !== 'expired') { <small>{{ item.status === 'expiring' ? ('subscriptions.expiresSoon' | translate) : ' ' }}</small> }</span></td>
+                    <td><span class="renew-indicator" [class.is-on]="item.autoRenew"><i></i>{{ item.autoRenew ? ('subscriptions.yes' | translate) : ('subscriptions.no' | translate) }}</span></td>
+                    <td><span class="payment-cell">{{ item.lastPaymentAmount === null ? '—' : formatMoney(item.lastPaymentAmount) }}<small>{{ formatDate(item.lastPaymentAt) }}</small></span></td>
+                    <td><button type="button" class="row-more" (click)="$event.stopPropagation(); select(item)" [attr.aria-label]="('subscriptions.openDetails' | translate) + ' ' + item.userName">···</button></td>
+                  </tr>
+                } @empty {
+                  @if (!loading()) { <tr><td colspan="11" class="empty-row"><span aria-hidden="true">⌕</span><strong>{{ 'subscriptions.noResults' | translate }}</strong><small>{{ 'subscriptions.noResultsHint' | translate }}</small></td></tr> }
+                }
+              </tbody>
+            </table>
+          </div>
+          <footer class="table-footer"><span>{{ 'subscriptions.showing' | translate }} {{ total ? rowNumber(0) : 0 }}–{{ pageEnd }} {{ 'subscriptions.of' | translate }} {{ total }}</span><div class="pagination"><label>{{ 'subscriptions.rowsPerPage' | translate }}<select [ngModel]="pageSize" (ngModelChange)="setPageSize(+$event)"><option [value]="10">10</option><option [value]="20">20</option><option [value]="50">50</option><option [value]="100">100</option></select></label><button type="button" [disabled]="page <= 1 || loading()" (click)="goToPage(page - 1)">{{ 'subscriptions.previous' | translate }}</button><span>{{ page }} / {{ pageCount }}</span><button type="button" [disabled]="!hasMore || loading()" (click)="goToPage(page + 1)">{{ 'subscriptions.next' | translate }}</button></div></footer>
+        </section>
+      </section>
+
+      <aside class="detail-column" aria-label="{{ 'subscriptions.detailTitle' | translate }}">
+        @if (detailLoading()) {
+          <section class="detail-card detail-loading"><span class="spinner"></span>{{ 'subscriptions.loadingDetails' | translate }}</section>
+        } @else if (detail(); as record) {
+          <section class="detail-card profile-card">
+            <header><span>{{ 'subscriptions.detailTitle' | translate }}</span><button type="button" (click)="closeDetails()" [attr.aria-label]="'common.close' | translate">×</button></header>
+            <div class="profile-summary">@if (record.subscription.avatarUrl) { <img [src]="record.subscription.avatarUrl" alt="" /> } @else { <span class="avatar-fallback large">{{ record.subscription.userName.slice(0, 1) | uppercase }}</span> }<span><strong>{{ record.subscription.userName }}</strong><small>{{ record.subscription.email }}</small><small>{{ 'subscriptions.userId' | translate }}: {{ record.subscription.userId }}</small></span></div>
+          </section>
+
+          <section class="detail-card info-card">
+            <h2>{{ 'subscriptions.subscriptionInfo' | translate }}</h2>
+            <dl>
+              <div><dt><i>▦</i>{{ 'subscriptions.detailPlan' | translate }}</dt><dd>{{ record.subscription.planName }} <small>{{ record.subscription.planCode }}</small></dd></div>
+              <div><dt><i>₫</i>{{ 'subscriptions.detailPrice' | translate }}</dt><dd>{{ formatMoney(record.subscription.price) }} / {{ cycleLabel(record.subscription.cycle) }}</dd></div>
+              <div><dt><i>◉</i>{{ 'subscriptions.colStatus' | translate }}</dt><dd><span class="status-pill" [class]="'status-pill ' + statusClass(record.subscription.status)"><i></i>{{ statusLabel(record.subscription.status) }}</span></dd></div>
+              <div><dt><i>▣</i>{{ 'subscriptions.colStart' | translate }}</dt><dd>{{ formatDate(record.subscription.startedAt) }}</dd></div>
+              <div><dt><i>◷</i>{{ 'subscriptions.colEnd' | translate }}</dt><dd>{{ formatDate(record.subscription.expiresAt) }}</dd></div>
+              <div><dt><i>↻</i>{{ 'subscriptions.colAutoRenew' | translate }}</dt><dd><span class="renew-indicator" [class.is-on]="record.subscription.autoRenew"><i></i>{{ record.subscription.autoRenew ? ('subscriptions.renewalEnabled' | translate) : ('subscriptions.renewalDisabled' | translate) }}</span></dd></div>
+            </dl>
+          </section>
+
+          <section class="detail-card quick-actions">
+            <h2>{{ 'subscriptions.quickActions' | translate }}</h2>
+            <div class="action-grid">
+              @if (auth.hasPermission('plan.edit')) { <button type="button" [disabled]="!!action()" (click)="extendSubscription()"><span>▣</span>{{ 'subscriptions.manualExtend' | translate }}</button> }
+              @if (auth.hasPermission('plan.edit') && (record.subscription.status === 'active' || record.subscription.status === 'expiring')) { <button type="button" [disabled]="!!action() || plansLoading()" (click)="openSwitchPlan()"><span>⇄</span>{{ 'subscriptions.switchPlan' | translate }}</button> }
+            </div>
+            @if (action()) { <p class="action-progress"><span class="spinner small"></span>{{ 'subscriptions.savingAction' | translate }}</p> }
+          </section>
+
+          <section class="detail-card payment-history" id="subscription-payments">
+            <header><h2>{{ 'subscriptions.paymentHistory' | translate }}</h2><span>{{ record.payments.length }}</span></header>
+            <ul>
+              @for (payment of record.payments; track payment.paymentId) {
+                <li><span class="payment-dot" [class]="'payment-dot status-' + payment.status"></span><div><strong>{{ paymentStatusLabel(payment.status) }} · {{ payment.planName }}</strong><small>{{ payment.transactionCode || payment.paymentId }}</small><time>{{ formatDate(payment.paidAt || payment.createdAt, true) }}</time></div><b>{{ formatMoney(payment.amount) }}</b></li>
+              } @empty { <li class="empty-payment">{{ 'subscriptions.noPayments' | translate }}</li> }
+            </ul>
+          </section>
+        } @else {
+          <section class="detail-card detail-empty"><span aria-hidden="true">◎</span><strong>{{ 'subscriptions.chooseRecord' | translate }}</strong><p>{{ 'subscriptions.chooseRecordHint' | translate }}</p></section>
+        }
+      </aside>
+    </div>
+  }
+
+  @if (showPlanSwitch() && detail(); as record) {
+    <div class="modal-backdrop" (click)="closeSwitchPlan()" (keydown.escape)="closeSwitchPlan()">
+      <section class="switch-dialog" role="dialog" aria-modal="true" [attr.aria-label]="'subscriptions.switchPlan' | translate" (click)="$event.stopPropagation()">
+        <header><div><span>{{ 'subscriptions.switchPlan' | translate }}</span><h2>{{ 'subscriptions.switchDialogTitle' | translate }}</h2></div><button type="button" (click)="closeSwitchPlan()" [attr.aria-label]="'common.close' | translate">×</button></header>
+        <p>{{ 'subscriptions.switchDialogHint' | translate }}</p>
+        @if (plansLoading()) {
+          <p class="action-progress"><span class="spinner small"></span>{{ 'subscriptions.loading' | translate }}</p>
+        } @else if (plansError()) {
+          <p class="empty-payment">{{ plansError() }}</p>
+          <button type="button" class="secondary-button" (click)="loadPlans()">{{ i18n.currentLang() === 'vi' ? 'Thử lại' : 'Retry' }}</button>
+        } @else {
+          <label class="switch-plan-field"><span>{{ 'subscriptions.filterPlan' | translate }}</span><select [(ngModel)]="switchPlanId">@for (plan of plans(); track plan.planId) { @if (plan.status === 'active' && plan.planId !== record.subscription.planId) { <option [value]="plan.planId">{{ plan.name }} · {{ formatMoney(plan.price) }} / {{ plan.durationDays }} {{ 'subscriptions.days' | translate }}</option> } }</select></label>
+        }
+        <footer><button type="button" class="secondary-button" (click)="closeSwitchPlan()">{{ 'common.cancel' | translate }}</button><button type="button" class="primary-button" [disabled]="!switchPlanId || !!action() || plansLoading() || !!plansError()" (click)="confirmSwitchPlan()">{{ 'subscriptions.confirmSwitch' | translate }}</button></footer>
+      </section>
+    </div>
+  }
+</main>

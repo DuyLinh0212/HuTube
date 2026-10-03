@@ -20,7 +20,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 export class HomePage implements AfterViewInit, OnDestroy {
   private static readonly RECOMMENDATION_CANDIDATE_COUNT = 50;
   private static readonly RECOMMENDATION_DISPLAY_COUNT = 20;
-  private static readonly SUBSCRIPTION_DISPLAY_COUNT = 3;
+  private static readonly SUBSCRIPTION_BATCH_SIZE = 12;
   private static readonly FEED_BATCH_SIZE = 30;
 
   private readonly auth = inject(AuthService);
@@ -28,12 +28,14 @@ export class HomePage implements AfterViewInit, OnDestroy {
   private readonly i18n = inject(I18nService);
   private readonly router = inject(Router);
   private observer?: IntersectionObserver;
+  private subscriptionObserver?: IntersectionObserver;
   private loadVersion = 0;
   private loadingMoreInFlight = false;
+  private subscriptionLoadingVersion?: number;
   private readonly displayedIds = new Set<string>();
 
   private subscriptionsPage = 1;
-  private subscriptionsDone = false;
+  subscriptionsDone = false;
   private popularPage = 1;
   private popularDone = false;
   private randomDone = false;
@@ -41,6 +43,8 @@ export class HomePage implements AfterViewInit, OnDestroy {
   private randomTotal = 0;
 
   private loadMoreSentinel?: ElementRef<HTMLElement>;
+  private subscriptionRail?: HTMLElement;
+  private subscriptionLoadSentinel?: HTMLElement;
 
   @ViewChild('loadMoreSentinel')
   set loadMoreSentinelRef(value: ElementRef<HTMLElement> | undefined) {
@@ -48,8 +52,21 @@ export class HomePage implements AfterViewInit, OnDestroy {
     this.observeSentinel();
   }
 
+  @ViewChild('subscriptionRail')
+  set subscriptionRailRef(value: ElementRef<HTMLElement> | undefined) {
+    this.subscriptionRail = value?.nativeElement;
+    this.observeSubscriptionSentinel();
+  }
+
+  @ViewChild('subscriptionLoadSentinel')
+  set subscriptionLoadSentinelRef(value: ElementRef<HTMLElement> | undefined) {
+    this.subscriptionLoadSentinel = value?.nativeElement;
+    this.observeSubscriptionSentinel();
+  }
+
   readonly recommendations = signal<VideoCard[]>([]);
   readonly subscriptionVideos = signal<VideoCard[]>([]);
+  readonly loadingSubscriptionVideos = signal(false);
   readonly popularVideos = signal<VideoCard[]>([]);
   readonly randomVideos = signal<VideoCard[]>([]);
   readonly loading = signal(true);
@@ -77,12 +94,29 @@ export class HomePage implements AfterViewInit, OnDestroy {
 
   ngOnDestroy() {
     this.observer?.disconnect();
+    this.subscriptionObserver?.disconnect();
   }
 
   private observeSentinel() {
     if (this.observer && this.loadMoreSentinel) {
       this.observer.observe(this.loadMoreSentinel.nativeElement);
     }
+  }
+
+  private observeSubscriptionSentinel() {
+    this.subscriptionObserver?.disconnect();
+    if (typeof IntersectionObserver === 'undefined' || !this.subscriptionRail || !this.subscriptionLoadSentinel) return;
+
+    this.subscriptionObserver = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) void this.loadSubscriptionPage(this.loadVersion);
+    }, { root: this.subscriptionRail, rootMargin: '0px 640px 0px 0px' });
+    this.subscriptionObserver.observe(this.subscriptionLoadSentinel);
+  }
+
+  private shouldPrefetchSubscriptionPage(): boolean {
+    if (!this.subscriptionRail) return false;
+    const remaining = this.subscriptionRail.scrollWidth - this.subscriptionRail.clientWidth - this.subscriptionRail.scrollLeft;
+    return remaining <= 640;
   }
 
   async load() {
@@ -113,13 +147,40 @@ export class HomePage implements AfterViewInit, OnDestroy {
         this.addUnique(this.pickRecommendations(value.items ?? [], HomePage.RECOMMENDATION_DISPLAY_COUNT)),
       );
       this.error.set('');
+      // Keep subscription pagination independent from the vertical discovery feed.
+      // Start after recommendations so duplicate videos always stay in the intended section.
+      if (this.auth.user()) void this.loadSubscriptionPage(version);
+      else this.subscriptionsDone = true;
     } catch (reason: unknown) {
       if (version !== this.loadVersion) return;
-      this.error.set(
-        reason instanceof HttpErrorResponse && reason.status === 404
-          ? ''
-          : this.i18n.t('home.error'),
-      );
+      try {
+        const fallback = await firstValueFrom(
+          this.content.feed(
+            'explore',
+            1,
+            HomePage.RECOMMENDATION_DISPLAY_COUNT,
+            undefined,
+            undefined,
+            'random',
+          ),
+        );
+        if (version !== this.loadVersion) return;
+        const items = this.addUnique(fallback.items ?? []);
+        this.randomVideos.set(items);
+        this.randomTotal = fallback.total;
+        this.randomEmptyAttempts = 0;
+        this.randomDone = items.length === 0 || this.displayedIds.size >= this.randomTotal;
+        this.error.set('');
+        if (this.auth.user()) void this.loadSubscriptionPage(version);
+        else this.subscriptionsDone = true;
+      } catch {
+        if (version !== this.loadVersion) return;
+        this.error.set(
+          reason instanceof HttpErrorResponse && reason.status === 404
+            ? ''
+            : this.i18n.t('home.error'),
+        );
+      }
     } finally {
       if (version === this.loadVersion) this.loading.set(false);
     }
@@ -134,11 +195,6 @@ export class HomePage implements AfterViewInit, OnDestroy {
 
     try {
       while (version === this.loadVersion && this.hasMore()) {
-        if (!this.subscriptionsDone) {
-          const added = await this.loadSubscriptionPage(version);
-          if (added > 0) break;
-          continue;
-        }
         if (!this.popularDone) {
           const added = await this.loadPopularPage(version);
           if (added > 0) break;
@@ -163,21 +219,33 @@ export class HomePage implements AfterViewInit, OnDestroy {
   }
 
   private async loadSubscriptionPage(version: number): Promise<number> {
-    const page = this.subscriptionsPage++;
+    if (version !== this.loadVersion || this.subscriptionsDone || this.subscriptionLoadingVersion === version) return 0;
+
+    this.subscriptionLoadingVersion = version;
+    this.loadingSubscriptionVideos.set(true);
     try {
-      const result = await firstValueFrom(
-        this.content.feed('subscriptions', page, HomePage.SUBSCRIPTION_DISPLAY_COUNT),
-      );
-      if (version !== this.loadVersion) return 0;
-      const items = this.addUnique(result.items ?? []);
-      if (items.length > 0) this.subscriptionVideos.update(current => [...current, ...items]);
-      // The subscription section is intentionally limited to the three newest videos.
-      this.subscriptionsDone = true;
-      return items.length;
-    } catch {
-      // Guests and users without subscriptions simply continue to Popular.
-      this.subscriptionsDone = true;
+      while (version === this.loadVersion && !this.subscriptionsDone) {
+        const page = this.subscriptionsPage;
+        const result = await firstValueFrom(
+          this.content.feed('subscriptions', page, HomePage.SUBSCRIPTION_BATCH_SIZE),
+        );
+        if (version !== this.loadVersion) return 0;
+        this.subscriptionsPage = page + 1;
+        const items = this.addUnique(result.items ?? []);
+        if (items.length > 0) this.subscriptionVideos.update(current => [...current, ...items]);
+        this.subscriptionsDone = !result.items?.length || page * result.pageSize >= result.total;
+        if (items.length > 0) return items.length;
+      }
       return 0;
+    } catch {
+      if (version === this.loadVersion) this.subscriptionsDone = true;
+      return 0;
+    } finally {
+      if (this.subscriptionLoadingVersion === version) this.subscriptionLoadingVersion = undefined;
+      if (version === this.loadVersion) this.loadingSubscriptionVideos.set(false);
+      if (version === this.loadVersion && !this.subscriptionsDone && this.shouldPrefetchSubscriptionPage()) {
+        queueMicrotask(() => void this.loadSubscriptionPage(version));
+      }
     }
   }
 
@@ -266,6 +334,7 @@ export class HomePage implements AfterViewInit, OnDestroy {
   private resetFeed() {
     this.recommendations.set([]);
     this.subscriptionVideos.set([]);
+    this.loadingSubscriptionVideos.set(false);
     this.popularVideos.set([]);
     this.randomVideos.set([]);
     this.error.set('');

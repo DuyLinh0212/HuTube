@@ -4,6 +4,7 @@ if (process.env.API_BASE_URL) config.API_BASE_URL = process.env.API_BASE_URL;
 else if (process.argv.includes('--render')) config.API_BASE_URL = 'https://hutube.onrender.com/api/v1';
 else if (process.argv.includes('--local') || !process.env.CI) config.API_BASE_URL = 'http://localhost:5080/api/v1';
 else config.API_BASE_URL = 'https://hutube.onrender.com/api/v1';
+if (process.env.USER_WEB_BASE_URL) config.USER_WEB_BASE_URL = process.env.USER_WEB_BASE_URL;
 const url = new URL(config.API_BASE_URL);
 if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error('Invalid API_BASE_URL');
 config.API_BASE_URL = url.href.replace(/\/$/, '');

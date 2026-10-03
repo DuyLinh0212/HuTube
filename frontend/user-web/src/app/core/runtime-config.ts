@@ -15,7 +15,14 @@ export class RuntimeConfig {
   apiBaseUrl = '';
   googleClientId = '';
   async load(): Promise<void> {
-    const response = await fetch('config.json', { cache: 'no-store' });
+    const configController = new AbortController();
+    const configTimeout = setTimeout(() => configController.abort(), 10_000);
+    let response: Response;
+    try {
+      response = await fetch('config.json', { cache: 'no-store', signal: configController.signal });
+    } finally {
+      clearTimeout(configTimeout);
+    }
     if (!response.ok) throw new Error('Không tải được cấu hình kết nối.');
     const config = await response.json();
     const configuredApiUrl = validateApiUrl(config.API_BASE_URL);
@@ -33,13 +40,21 @@ export class RuntimeConfig {
     this.googleClientId = typeof configuredGoogleClientId === 'string' && configuredGoogleClientId.endsWith('.apps.googleusercontent.com')
       ? configuredGoogleClientId
       : '';
+    const apiController = new AbortController();
+    const apiTimeout = setTimeout(() => apiController.abort(), 8_000);
     try {
-      const publicConfig = await fetch(this.apiBaseUrl + '/system/config', { cache: 'no-store' });
+      const publicConfig = await fetch(this.apiBaseUrl + '/system/config', {
+        cache: 'no-store',
+        signal: apiController.signal,
+      });
       if (publicConfig.ok) {
         const value = (await publicConfig.json()).googleClientId;
         if (typeof value === 'string' && value.endsWith('.apps.googleusercontent.com')) this.googleClientId = value;
       }
     } catch { /* Keep the public fallback so Google remains visible when CORS is not configured for local preview. */ }
+    finally {
+      clearTimeout(apiTimeout);
+    }
   }
   owns(url: string): boolean {
     return !!this.apiBaseUrl && url.startsWith(this.apiBaseUrl + '/');

@@ -28,15 +28,6 @@ Các nghiệp vụ video/kênh và chỉnh sửa hồ sơ thuộc slice sau; tra
 
 ## Browser E2E
 
-`e2e/auth.cjs` chạy luồng thật trên hai web và API, tạo tài khoản kiểm thử mới mỗi lần. Yêu cầu API Development dùng email pickup, cả hai web đang chạy, migrations hoàn tất.
+Luồng E2E trình duyệt cho đăng ký, xác minh email, đăng nhập/đăng xuất User và Admin hiện chạy từ [`frontend/e2e_testing`](../e2e_testing/README.md). Runner tự dựng PostgreSQL kiểm thử, API và bản build của cả hai web; không cần khởi động server bằng tay.
 
-```powershell
-npx playwright install chromium
-npm run test:e2e
-```
-
-Hoặc dùng Chrome đã cài: `$env:PLAYWRIGHT_CHANNEL = 'chrome'`. Cấu hình tùy chọn: `USER_WEB_URL`, `ADMIN_WEB_URL`, `API_BASE_URL`, `EMAIL_PICKUP_DIRECTORY`, `E2E_OUTPUT_DIR`. Mặc định dùng các URL local nêu trên và thư mục `.work/mail` / `.work/screenshots` ở repository root.
-
-Để kiểm tra quản trị được cấp quyền rồi bị vô hiệu hóa, đặt `RUN_ADMIN_DB_TESTS=1` cùng các biến PostgreSQL `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`; `PSQL_BINARY` trỏ đến psql nếu chưa nằm trên PATH. Chỉ chạy trên database kiểm thử/local: script cấp/vô hiệu hóa quyền của đúng tài khoản ngẫu nhiên do lần chạy đó tạo, sau đó xác nhận tài khoản User vẫn đăng nhập được. Không đưa mật khẩu vào câu lệnh hoặc source.
-
-Script kiểm tra đăng ký → email pickup → xác minh → đăng nhập → cookie HttpOnly → restore khi reload → đăng xuất thiết bị khác → forgot/reset → từ chối mật khẩu cũ → logout → chặn User thường ở Admin. Screenshot dùng cho kiểm tra giao diện, không lưu trong Git.
+Screenshot và report được tạo trong `frontend/e2e_testing/screenshots/<run-id>/` và `frontend/e2e_testing/artifacts/runs/<run-id>/report.json`. CI chạy cùng runner và upload chúng thành artifact `hutube-e2e-evidence-*` trên GitHub Actions.

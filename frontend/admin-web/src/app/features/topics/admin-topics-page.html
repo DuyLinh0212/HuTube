@@ -1,10 +1,5 @@
 <main id="main-content" class="taxonomy-page">
   <header class="page-heading">
-    <div>
-      <p class="eyebrow">{{ 'topics.eyebrow' | translate }}</p>
-      <h1>{{ 'topics.title' | translate }}</h1>
-      <p class="muted">{{ 'topics.subtitle' | translate }}</p>
-    </div>
     <div class="heading-actions">
       <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading()">
         <span aria-hidden="true">↻</span> {{ 'policies.refresh' | translate }}
@@ -96,8 +91,8 @@
                 <td class="actions-column">
                   @if (canEdit()) {
                     <div class="row-actions">
-                      <button type="button" class="icon-action" [title]="'common.edit' | translate" [attr.aria-label]="'topics.editCategory' | translate" (click)="openEditTopic(topic)">✎</button>
-                      @if (topic.status === 'active') { <button type="button" class="icon-action danger" [title]="'topics.archive' | translate" [attr.aria-label]="'topics.archiveCategory' | translate" (click)="archiveTopic(topic)">⌫</button> }
+                      <button type="button" class="icon-action" [title]="'common.edit' | translate" [attr.aria-label]="'topics.editCategory' | translate" (click)="openEditTopic(topic)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 4 4 4M4 20l4.2-.8L19 8.4 15.6 5 4.8 15.8 4 20Z"/><path d="M13.8 6.8 17.2 10.2"/></svg></button>
+                      @if (topic.status === 'active') { <button type="button" class="icon-action danger" [title]="'topics.archive' | translate" [attr.aria-label]="'topics.archiveCategory' | translate" (click)="archiveTopic(topic)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5h17v4h-17z"/><path d="M5.5 9v10.5h13V9M10 13h4"/></svg></button> }
                     </div>
                   } @else { <span class="muted">—</span> }
                 </td>
@@ -127,8 +122,8 @@
                 <td class="actions-column">
                   @if (canEdit()) {
                     <div class="row-actions">
-                      <button type="button" class="icon-action" [title]="'common.edit' | translate" [attr.aria-label]="'topics.editTag' | translate" (click)="openEditTag(tag)">✎</button>
-                      <button type="button" class="icon-action danger" [disabled]="tag.videoCount > 0" [title]="tag.videoCount > 0 ? ('topics.usedByVideo' | translate) : ('topics.deleteTag' | translate)" [attr.aria-label]="'topics.deleteTag' | translate" (click)="deleteTag(tag)">⌫</button>
+                      <button type="button" class="icon-action" [title]="'common.edit' | translate" [attr.aria-label]="'topics.editTag' | translate" (click)="openEditTag(tag)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 4 4 4M4 20l4.2-.8L19 8.4 15.6 5 4.8 15.8 4 20Z"/><path d="M13.8 6.8 17.2 10.2"/></svg></button>
+                      <button type="button" class="icon-action danger" [disabled]="tag.videoCount > 0" [title]="tag.videoCount > 0 ? ('topics.usedByVideo' | translate) : ('topics.deleteTag' | translate)" [attr.aria-label]="'topics.deleteTag' | translate" (click)="deleteTag(tag)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></svg></button>
                     </div>
                   } @else { <span class="muted">—</span> }
                 </td>
@@ -147,6 +142,7 @@
       <form class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="topic-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="saveTopic()">
           <header class="modal-header"><div><p class="eyebrow">{{ 'topics.categoryName' | translate }}</p><h2 id="topic-dialog-title">{{ editingTopic() ? ('topics.editCategory' | translate) : ('topics.addCategory' | translate) }}</h2></div><button type="button" class="close-button" [attr.aria-label]="'common.close' | translate" (click)="closeTopicEditor()">×</button></header>
         <div class="modal-body">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
           <label class="form-field"><span>{{ 'topics.categoryName' | translate }} <i>*</i></span><input name="topicName" required maxlength="100" [(ngModel)]="topicDraft.name" [placeholder]="'topics.categoryExample' | translate" /></label>
           <label class="form-field"><span>{{ 'topics.slug' | translate }}</span><input name="topicSlug" maxlength="120" [(ngModel)]="topicDraft.slug" [placeholder]="'topics.slugPlaceholder' | translate" /><small>{{ 'topics.slugHint' | translate }}</small></label>
           <label class="form-field"><span>{{ 'common.description' | translate }}</span><textarea name="topicDescription" rows="4" maxlength="1000" [(ngModel)]="topicDraft.description" [placeholder]="'topics.descriptionPlaceholder' | translate"></textarea></label>
@@ -161,7 +157,8 @@
     <div class="modal-backdrop" role="presentation" (click)="closeTagEditor()">
       <form class="modal-dialog compact" role="dialog" aria-modal="true" aria-labelledby="tag-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="saveTag()">
         <header class="modal-header"><div><p class="eyebrow">{{ 'topics.type' | translate }}</p><h2 id="tag-dialog-title">{{ editingTag() ? ('topics.editTag' | translate) : ('topics.addTag' | translate) }}</h2></div><button type="button" class="close-button" [attr.aria-label]="'common.close' | translate" (click)="closeTagEditor()">×</button></header>
-        <div class="modal-body"><label class="form-field"><span>{{ 'topics.tagName' | translate }} <i>*</i></span><input name="tagName" required maxlength="80" [(ngModel)]="tagDraft" [placeholder]="'topics.tagExample' | translate" /><small>{{ 'topics.tagHint' | translate }}</small></label></div>
+        <div class="modal-body">
+ @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }<label class="form-field"><span>{{ 'topics.tagName' | translate }} <i>*</i></span><input name="tagName" required maxlength="80" [(ngModel)]="tagDraft" [placeholder]="'topics.tagExample' | translate" /><small>{{ 'topics.tagHint' | translate }}</small></label></div>
         <footer class="modal-footer"><button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="closeTagEditor()">{{ 'common.cancel' | translate }}</button><button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? ('common.saving' | translate) : ('topics.saveTag' | translate) }}</button></footer>
       </form>
     </div>

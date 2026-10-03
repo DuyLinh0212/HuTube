@@ -4,15 +4,9 @@
       <span>✉</span><span>{{ toast }}</span><strong>›</strong>
     </button>
   }
-  <button class="menu-button" type="button" [attr.aria-label]="'nav.expandSidebar' | translate" (click)="menuOpened.emit()">
+  <button class="menu-button" type="button" [attr.aria-label]="(sidebarCollapsed ? 'nav.expandSidebar' : 'nav.collapseSidebar') | translate" [attr.aria-expanded]="!sidebarCollapsed" (click)="menuOpened.emit()">
     <span></span><span></span><span></span>
   </button>
-
-  <label class="search-box">
-    <span class="search-glyph" aria-hidden="true"></span>
-    <input type="search" [placeholder]="'studio.searchPlaceholder' | translate" [attr.aria-label]="'studio.searchPlaceholder' | translate" />
-    <kbd>{{ 'ui.searchShortcut' | translate }}</kbd>
-  </label>
 
   <div class="topbar-actions">
     <!-- Only roles that can upload receive the create CTA. -->

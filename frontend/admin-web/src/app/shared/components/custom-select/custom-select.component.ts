@@ -23,10 +23,15 @@ export interface CustomSelectOption {
     <div class="custom-select-wrap" [class.is-open]="isOpen()">
       <button
         type="button"
-        class="custom-select-trigger"
+        class="custom-select-trigger" [disabled]="disabled"
         [class.is-open]="isOpen()"
         [class.is-filtered]="value !== 'all' && value !== ''"
         (click)="toggle($event)"
+        (keydown)="onKeydown($event)"
+        role="combobox"
+        aria-haspopup="listbox"
+        [attr.aria-controls]="listId"
+        [attr.aria-activedescendant]="isOpen() ? listId + '-' + activeIndex() : null"
         [attr.aria-expanded]="isOpen()"
       >
         @if (prefix) {
@@ -49,11 +54,13 @@ export interface CustomSelectOption {
 
       @if (isOpen()) {
         <div class="custom-select-menu" [class.align-right]="alignRight()" (click)="$event.stopPropagation()">
-          <ul class="options-list" role="listbox">
+          <ul class="options-list" role="listbox" [id]="listId">
             @for (opt of options; track opt.value) {
               <li
                 class="option-item"
                 [class.is-selected]="opt.value === value"
+                [class.is-active]="$index === activeIndex()"
+                [id]="listId + '-' + $index"
                 (click)="onSelect(opt)"
                 role="option"
                 [attr.aria-selected]="opt.value === value"
@@ -78,6 +85,10 @@ export interface CustomSelectOption {
   styleUrl: './custom-select.component.scss'
 })
 export class CustomSelectComponent {
+  private static nextId = 0;
+  readonly listId = 'custom-select-' + CustomSelectComponent.nextId++;
+  readonly activeIndex = signal(0);
+  @Input() disabled = false;
   @Input() prefix = '';
   @Input() options: CustomSelectOption[] = [];
   @Input() value: string = 'all';
@@ -97,9 +108,11 @@ export class CustomSelectComponent {
   }
 
   toggle(event: MouseEvent): void {
+    if (this.disabled) return;
     event.stopPropagation();
     const nextState = !this.isOpen();
     if (nextState) {
+      this.activeIndex.set(Math.max(0, this.options.findIndex(option => option.value === this.value)));
       const rect = this.elementRef.nativeElement.getBoundingClientRect();
       this.alignRight.set(window.innerWidth - rect.left < 260);
     }
@@ -110,6 +123,24 @@ export class CustomSelectComponent {
     this.value = opt.value;
     this.valueChange.emit(opt.value);
     this.isOpen.set(false);
+  }
+
+  onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Tab') { this.isOpen.set(false); return; }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' ', 'Escape'].includes(event.key) || !this.options.length) return;
+    event.preventDefault();
+    if (event.key === 'Escape') { this.isOpen.set(false); return; }
+    if ((event.key === 'Enter' || event.key === ' ') && this.isOpen()) {
+      this.onSelect(this.options[this.activeIndex()]); return;
+    }
+    if (!this.isOpen()) {
+      this.activeIndex.set(Math.max(0, this.options.findIndex(option => option.value === this.value)));
+      this.isOpen.set(true);
+    } else if (event.key === 'ArrowDown') this.activeIndex.update(index => (index + 1) % this.options.length);
+    else if (event.key === 'ArrowUp') this.activeIndex.update(index => (index + this.options.length - 1) % this.options.length);
+    if (event.key === 'Home') this.activeIndex.set(0);
+    if (event.key === 'End') this.activeIndex.set(this.options.length - 1);
+    setTimeout(() => this.elementRef.nativeElement.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' }));
   }
 
   @HostListener('document:click', ['$event'])

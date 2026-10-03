@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnDestroy, ViewChild, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -8,11 +8,18 @@ import { TranslatePipe } from '../../../core/translate.pipe';
 import { Category, ContentService, UploadPreflight, VideoDetail } from '../../../core/content.service';
 import { UploadStateService } from '../../../core/upload-state.service';
 import { StudioDataService } from '../../../core/studio-data.service';
+import { AuthService } from '../../../core/auth.service';
 import { PlaylistService, PlaylistSummary } from '../../../core/playlist.service';
 
 export interface Chapter {
   id: number;
   title: string;
+  time: string;
+}
+
+interface VideoCardMarker {
+  id: number;
+  videoId: string;
   time: string;
 }
 
@@ -30,9 +37,14 @@ interface ThumbnailOption {
 })
 export class VideoUploadWizardComponent implements OnDestroy {
   readonly i18n = inject(I18nService);
+  private readonly auth = inject(AuthService);
+  private restoredDraftKey = '';
   private readonly router = inject(Router);
   private readonly content = inject(ContentService);
   private readonly studio = inject(StudioDataService);
+  readonly publishedChannelVideos = computed(() => this.studio.videos().filter(video =>
+    video.channelId === this.channelId && video.status === 'published'
+    && video.moderationStatus === 'approved' && video.visibility === 'public' && Boolean(video.publishedAt)));
   private readonly playlistService = inject(PlaylistService);
   readonly uploadState = inject(UploadStateService);
 
@@ -56,6 +68,8 @@ export class VideoUploadWizardComponent implements OnDestroy {
   readonly playlistMessage = signal('');
   readonly previewVideoUrl = signal('');
   readonly previewPlaying = signal(false);
+  readonly channelWatermarkUrl = computed(() => this.studio.channel()?.watermarkUrl?.trim() || '');
+  readonly watermarkPreviewEnabled = signal(true);
   readonly timelineSeconds = signal(0);
 
   private channelId = '';
@@ -90,12 +104,13 @@ export class VideoUploadWizardComponent implements OnDestroy {
   chapters = signal<Chapter[]>([]);
   newChapterTitle = '';
   newChapterTime = '';
-  autoSubtitles = true;
-
+  videoCards = signal<VideoCardMarker[]>([]);
+  selectedVideoCardId = '';
+  newVideoCardTime = '';
   // Visibility (Step 5)
   visibility = 'public';
   publishMode = 'now';
-  scheduleDate = '2026-09-15';
+  scheduleDate = new Date().toISOString().slice(0, 10);
   scheduleTime = '19:00';
   allowComments = true;
   selectedPlaylistId = '';
@@ -111,6 +126,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       const channel = this.studio.channel();
       if (!channel) return;
       this.channelId = channel.channelId;
+      this.restoreDraft();
       this.runPreflight();
     });
     this.content.categories().subscribe({ next: items => this.categoryOptions.set(items) });
@@ -126,6 +142,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       if (state.phase === 'failed' && state.error) this.uploadError.set(state.error);
       if (state.phase === 'completed' && state.video && this.handledUploadVideoId !== state.video.videoId) {
         this.handledUploadVideoId = state.video.videoId;
+        try { localStorage.removeItem(this.draftKey()); } catch { /* optional storage */ }
         this.attachToSelectedPlaylist(state.video.videoId);
         this.publishedVideoUrl = this.isAwaitingModeration(state.video) ? '' : `${location.origin}/watch/${state.video.videoId}`;
         this.currentStep.set(6);
@@ -172,7 +189,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.preflight.set(null);
     this.preflightLoading.set(false);
     this.fileType = file.type || this.typeFromName(file.name);
-    this.videoTitle = file.name.replace(/\.[^.]+$/, '').slice(0, 100);
+    if (!this.videoTitle.trim()) this.videoTitle = file.name.replace(/\.[^.]+$/, '').slice(0, 100);
     this.thumbnails = [];
     this.thumbnailFile = undefined;
     this.thumbnailFiles.clear();
@@ -406,7 +423,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       if (this.preflightError() || !this.preflight()) { this.uploadError.set(this.preflightError() || this.i18n.t('upload.preflightUnavailable')); return; }
     }
     if (this.currentStep() === 2 && !this.videoTitle.trim()) { this.uploadError.set(this.i18n.t('upload.titleRequired')); return; }
-    if (this.currentStep() === 3 && !this.validateChapters()) return;
+    if (this.currentStep() === 3 && (!this.validateChapters() || !this.validateVideoCards())) return;
     if (this.currentStep() === 5) { this.submitUpload(); return; }
     if (this.currentStep() < 6) {
       this.currentStep.update(s => s + 1);
@@ -414,10 +431,39 @@ export class VideoUploadWizardComponent implements OnDestroy {
     }
   }
 
+  private draftKey() { return 'hutube.upload.draft.' + this.auth.user()?.userId + '.' + this.channelId; }
+
+  saveDraft() {
+    if (!this.channelId || !this.auth.user()) return;
+    try {
+      localStorage.setItem(this.draftKey(), JSON.stringify({ videoTitle: this.videoTitle, videoDesc: this.videoDesc,
+        category: this.category, videoLang: this.videoLang, visibility: this.visibility, allowComments: this.allowComments,
+        tags: this.tags(), chapters: this.chapters(), videoCards: this.videoCards() }));
+      this.uploadError.set(this.i18n.t('upload.draftSaved'));
+    } catch { this.uploadError.set(this.i18n.t('upload.draftFailed')); }
+  }
+
+  private restoreDraft() {
+    if (!this.auth.user() || this.restoredDraftKey === this.draftKey()) return;
+    this.restoredDraftKey = this.draftKey();
+    try {
+      const draft = JSON.parse(localStorage.getItem(this.draftKey()) ?? 'null');
+      if (!draft) return;
+      for (const key of ['videoTitle', 'videoDesc', 'category', 'videoLang', 'visibility'] as const)
+        if (typeof draft[key] === 'string') this[key] = draft[key];
+      if (typeof draft.allowComments === 'boolean') this.allowComments = draft.allowComments;
+      if (Array.isArray(draft.tags)) this.tags.set(draft.tags.filter((x: unknown) => typeof x === 'string'));
+      if (Array.isArray(draft.chapters)) this.chapters.set(draft.chapters.filter((x: Chapter) => typeof x.title === 'string' && typeof x.time === 'string'));
+      if (Array.isArray(draft.videoCards)) this.videoCards.set(draft.videoCards.filter((x: VideoCardMarker) => Number.isInteger(x.id) && typeof x.videoId === 'string' && typeof x.time === 'string'));
+      this.uploadError.set(this.i18n.t('upload.draftRestored'));
+    } catch { this.uploadError.set(this.i18n.t('upload.draftFailed')); }
+  }
+
   private submitUpload() {
     if (!this.selectedFile || !this.channelId || this.isUploading()) return;
     if (!this.videoTitle.trim()) { this.uploadError.set(this.i18n.t('upload.titleRequired')); this.setStep(2); return; }
     if (!this.validateChapters()) { this.setStep(3); return; }
+    if (!this.validateVideoCards()) { this.setStep(3); return; }
     if (this.visibility === 'public' && !this.policyAgreed) {
       this.uploadError.set(this.i18n.t('upload.policyRequired'));
       return;
@@ -430,12 +476,14 @@ export class VideoUploadWizardComponent implements OnDestroy {
     data.append('LanguageCode', this.videoLang);
     data.append('Visibility', this.visibility);
     data.append('AgeRestricted', 'false');
+    data.append('AllowComments', String(this.allowComments));
     data.append('Duration', String(this.duration || 1));
     data.append('SourceQuality', this.sourceQuality);
     data.append('Video', this.selectedFile, this.selectedFile.name);
     if (this.thumbnailFile) data.append('Thumbnail', this.thumbnailFile, this.thumbnailFile.name);
     this.tags().forEach(tag => data.append('Tags', tag));
     data.append('ChaptersJson', JSON.stringify(this.chapters().map(chapter => ({ startSeconds: this.toSeconds(chapter.time), title: chapter.title.trim() }))));
+    data.append('VideoCardsJson', JSON.stringify(this.videoCards().map(card => ({ startSeconds: this.toSeconds(card.time), videoId: card.videoId }))));
     this.uploadError.set('');
     if (!this.uploadState.start(data, this.selectedFile.name, this.visibility === 'unlisted'))
       this.uploadError.set(this.i18n.t('upload.uploadInProgress'));
@@ -469,6 +517,72 @@ export class VideoUploadWizardComponent implements OnDestroy {
       previous = seconds;
     }
     return true;
+  }
+
+  private validateVideoCards(): boolean {
+    const eligibleIds = new Set(this.publishedChannelVideos().map(video => video.videoId));
+    const cards = this.videoCards();
+    if (cards.length > 5
+      || cards.some(card => !eligibleIds.has(card.videoId) || this.toSeconds(card.time) < 0 || this.toSeconds(card.time) >= this.duration)
+      || new Set(cards.map(card => card.videoId)).size !== cards.length
+      || new Set(cards.map(card => this.toSeconds(card.time))).size !== cards.length) {
+      this.uploadError.set(this.i18n.t('upload.videoCardsInvalid'));
+      return false;
+    }
+    return true;
+  }
+
+  videoCardTitle(videoId: string): string {
+    return this.publishedChannelVideos().find(video => video.videoId === videoId)?.title ?? '';
+  }
+
+  videoCardThumbnail(videoId: string): string {
+    return this.publishedChannelVideos().find(video => video.videoId === videoId)?.thumbnailUrl ?? '';
+  }
+
+  isVideoCardAdded(videoId: string): boolean {
+    return this.videoCards().some(card => card.videoId === videoId);
+  }
+
+  isVideoCardValid(id: number): boolean {
+    const card = this.videoCards().find(item => item.id === id);
+    if (!card) return false;
+    const seconds = this.toSeconds(card.time);
+    return seconds >= 0 && seconds < this.duration
+      && this.videoCards().filter(item => this.toSeconds(item.time) === seconds).length === 1;
+  }
+
+  addVideoCard(): void {
+    const videoId = this.selectedVideoCardId;
+    const time = this.newVideoCardTime.trim() || this.formatDuration(this.timelineSeconds());
+    const seconds = this.toSeconds(time);
+    if (!videoId || !this.publishedChannelVideos().some(video => video.videoId === videoId)
+      || seconds < 0 || seconds >= this.duration || this.videoCards().length >= 5
+      || this.videoCards().some(card => card.videoId === videoId || this.toSeconds(card.time) === seconds)) {
+      this.uploadError.set(this.i18n.t('upload.videoCardFieldsInvalid'));
+      return;
+    }
+    this.videoCards.update(cards => [...cards, {
+      id: Math.max(0, ...cards.map(card => card.id)) + 1,
+      videoId,
+      time: this.formatDuration(seconds)
+    }].sort((a, b) => this.toSeconds(a.time) - this.toSeconds(b.time)));
+    this.selectedVideoCardId = '';
+    this.newVideoCardTime = '';
+    this.uploadError.set('');
+  }
+
+  updateVideoCardTime(id: number, time: string): void {
+    this.videoCards.update(cards => cards.map(card => card.id === id ? { ...card, time } : card)
+      .sort((a, b) => this.toSeconds(a.time) - this.toSeconds(b.time)));
+  }
+
+  removeVideoCard(id: number): void {
+    this.videoCards.update(cards => cards.filter(card => card.id !== id));
+  }
+
+  useCurrentTimeForVideoCard(): void {
+    this.newVideoCardTime = this.formatDuration(this.timelineSeconds());
   }
 
   togglePreview(event?: Event) {
@@ -630,6 +744,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.selectedPlaylistId = '';
     this.playlistMessage.set('');
     this.chapters.set([]);
+    this.videoCards.set([]);
     this.tags.set([]);
     this.thumbnails = [];
   }

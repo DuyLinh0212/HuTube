@@ -1,14 +1,16 @@
-import { Component, ElementRef, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { AuthService, Session, errorMessage } from '../../core/auth.service';
+import { AuthService, LoginHistoryItem, Session, errorMessage } from '../../core/auth.service';
 import { AccountService, NotificationSettings, UserPreferences, UserProfile } from '../../core/account.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { ThemeService } from '../../core/theme.service';
 import { I18nService } from '../../core/i18n.service';
+import { LocaleCurrencyPipe } from '../../core/locale-currency.pipe';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { MyPlan, PaymentSummary, PlanService } from '../../core/plan.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 
 export type AccountTab =
@@ -19,9 +21,16 @@ export type AccountTab =
   | 'billing'
   | 'advanced';
 
+interface SessionGroup {
+  key: string;
+  latest: Session;
+  count: number;
+  isCurrent: boolean;
+}
+
 @Component({
   selector: 'app-account-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
+  imports: [LocaleCurrencyPipe, LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './account-page.html',
   styleUrl: './account-page.scss'
 })
@@ -31,6 +40,7 @@ export class AccountPage implements OnInit {
   readonly channelService = inject(ChannelService);
   readonly themeService = inject(ThemeService);
   readonly i18n = inject(I18nService);
+  readonly planService = inject(PlanService);
   private router = inject(Router);
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
@@ -41,6 +51,19 @@ export class AccountPage implements OnInit {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly message = signal('');
+
+  // Billing data is loaded only when the user opens the billing tab/history.
+  readonly currentPlan = signal<MyPlan | null>(null);
+  readonly currentPlanLoading = signal(false);
+  readonly currentPlanLoaded = signal(false);
+  readonly billingPlanError = signal('');
+  readonly purchaseHistoryVisible = signal(false);
+  readonly paymentHistoryVisible = signal(false);
+  readonly billingPayments = signal<PaymentSummary[]>([]);
+  readonly billingPaymentsLoading = signal(false);
+  readonly billingPaymentsLoaded = signal(false);
+  readonly billingPaymentsError = signal('');
+  readonly purchases = computed(() => this.billingPayments().filter(payment => payment.status.toLowerCase() === 'paid'));
 
   // Privacy toggles matching YouTube Image 2
   readonly keepSubscriptionsPrivate = signal(true);
@@ -93,7 +116,29 @@ export class AccountPage implements OnInit {
 
   // Sessions
   readonly sessions = signal<Session[]>([]);
+  readonly sessionGroups = computed<SessionGroup[]>(() => {
+    const groups = new Map<string, Session[]>();
+    for (const session of this.sessions()) {
+      const deviceId = session.deviceId?.trim();
+      const key = deviceId ? `${session.platform}:${deviceId}` : `session:${session.sessionId}`;
+      const items = groups.get(key) ?? [];
+      items.push(session);
+      groups.set(key, items);
+    }
+    return [...groups.entries()].map(([key, items]) => {
+      const latest = items.reduce((newest, item) => Date.parse(item.issuedAt) > Date.parse(newest.issuedAt) ? item : newest);
+      return { key, latest, count: items.length, isCurrent: items.some(item => item.isCurrent) };
+    }).sort((left, right) => Date.parse(right.latest.issuedAt) - Date.parse(left.latest.issuedAt));
+  });
   readonly pendingRevoke = signal<Session | null>(null);
+  readonly loginHistoryVisible = signal(false);
+  readonly loginHistoryLoading = signal(false);
+  readonly loginHistoryLoaded = signal(false);
+  readonly loginHistoryItems = signal<LoginHistoryItem[]>([]);
+  readonly loginHistoryPage = signal(1);
+  readonly loginHistoryTotal = signal(0);
+  readonly loginHistoryPageSize = 20;
+  readonly loginHistoryPageCount = computed(() => Math.max(1, Math.ceil(this.loginHistoryTotal() / this.loginHistoryPageSize)));
   readonly apiState = signal(this.i18n.t('account.apiChecking'));
 
   constructor() {
@@ -117,6 +162,58 @@ export class AccountPage implements OnInit {
     this.activeTab.set(tab);
     this.error.set('');
     this.message.set('');
+    if (tab === 'billing') this.loadCurrentPlan();
+  }
+
+  loadCurrentPlan() {
+    if (this.currentPlanLoaded() || this.currentPlanLoading()) return;
+    this.currentPlanLoading.set(true);
+    this.billingPlanError.set('');
+    this.planService.getMyPlan().pipe(finalize(() => this.currentPlanLoading.set(false))).subscribe({
+      next: plan => {
+        this.currentPlan.set(plan);
+        this.currentPlanLoaded.set(true);
+      },
+      error: err => this.billingPlanError.set(errorMessage(err, this.i18n))
+    });
+  }
+
+  togglePurchaseHistory() {
+    const visible = !this.purchaseHistoryVisible();
+    this.purchaseHistoryVisible.set(visible);
+    if (visible) this.loadBillingPayments();
+  }
+
+  togglePaymentHistory() {
+    const visible = !this.paymentHistoryVisible();
+    this.paymentHistoryVisible.set(visible);
+    if (visible) this.loadBillingPayments();
+  }
+
+  loadBillingPayments() {
+    if (this.billingPaymentsLoaded() || this.billingPaymentsLoading()) return;
+    this.billingPaymentsLoading.set(true);
+    this.billingPaymentsError.set('');
+    this.planService.getMyPayments().pipe(finalize(() => this.billingPaymentsLoading.set(false))).subscribe({
+      next: payments => {
+        this.billingPayments.set(payments);
+        this.billingPaymentsLoaded.set(true);
+      },
+      error: err => this.billingPaymentsError.set(errorMessage(err, this.i18n))
+    });
+  }
+
+  paymentStatusKey(status: string): string {
+    const normalized = status.trim().toLowerCase();
+    return ['paid', 'pending', 'failed', 'cancelled'].includes(normalized)
+      ? `account.paymentStatus.${normalized}`
+      : 'account.paymentStatus.unknown';
+  }
+
+  isPlanActive(plan: MyPlan): boolean {
+    if (plan.subscription) return !plan.subscription.isExpired;
+    if (plan.price <= 0) return true;
+    return plan.activePaidPlanIds?.includes(plan.planId) ?? false;
   }
 
   loadAll() {
@@ -168,6 +265,33 @@ export class AccountPage implements OnInit {
       next: result => this.sessions.set(result.items),
       error: err => this.error.set(errorMessage(err, this.i18n))
     });
+  }
+
+  toggleLoginHistory() {
+    const visible = !this.loginHistoryVisible();
+    this.loginHistoryVisible.set(visible);
+    if (visible && !this.loginHistoryLoaded()) this.loadLoginHistory(1);
+  }
+
+  loadLoginHistory(page: number) {
+    if (this.loginHistoryLoading()) return;
+    this.loginHistoryLoading.set(true);
+    this.auth.loginHistory(page, this.loginHistoryPageSize).pipe(finalize(() => this.loginHistoryLoading.set(false))).subscribe({
+      next: result => {
+        this.loginHistoryItems.set(result.items);
+        this.loginHistoryPage.set(result.page);
+        this.loginHistoryTotal.set(result.total);
+        this.loginHistoryLoaded.set(true);
+      },
+      error: err => this.error.set(errorMessage(err, this.i18n))
+    });
+  }
+
+  displayIpAddress(ipAddress: string): string {
+    const normalized = ipAddress.trim().toLowerCase();
+    return ['::1', '0:0:0:0:0:0:0:1', '127.0.0.1', '::ffff:127.0.0.1'].includes(normalized)
+      ? this.i18n.t('account.localIpAddress')
+      : ipAddress;
   }
 
   // Privacy Toggle Handlers

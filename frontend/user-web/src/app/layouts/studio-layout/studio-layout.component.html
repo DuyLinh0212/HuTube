@@ -1,17 +1,46 @@
 <div class="studio-shell" [class.nav-open]="navOpen()" [class.nav-collapsed]="navCollapsed()">
   <button class="nav-scrim" type="button" [attr.aria-label]="'ui.closeMenu' | translate" (click)="closeNavigation()"></button>
-  <app-studio-sidebar [open]="navOpen()" [collapsed]="navCollapsed()" (collapsedChange)="setCollapsed($event)" (navigationClosed)="closeNavigation()" />
+  <app-studio-sidebar [open]="navOpen()" [collapsed]="navCollapsed()" (navigationClosed)="closeNavigation()" />
   <section class="studio-stage">
-    <app-studio-topbar (menuOpened)="navOpen.set(true)" />
+    <app-studio-topbar [sidebarCollapsed]="navCollapsed()" (menuOpened)="toggleNavigation()" />
     @if (data.accessibleChannels().length > 0) {
-      <div class="studio-channel-switcher">
-        <label for="studio-channel-select">{{ 'studio.manageChannel' | translate }}</label>
-        <select id="studio-channel-select" [value]="data.selectedChannelId() || ''" (change)="data.selectChannel($any($event.target).value)">
-          @for (channel of data.accessibleChannels(); track channel.channelId) {
-            <option [value]="channel.channelId">{{ channel.name }} · {{ roleLabel(channel.myRole) }}</option>
-          }
-        </select>
-      </div>
+      @if (data.channel(); as selectedChannel) {
+        <details class="studio-channel-switcher" #channelMenu>
+          <summary class="channel-switcher-trigger" (keydown.escape)="closeChannelMenu(channelMenu)">
+            <span class="channel-avatar" aria-hidden="true">
+              @if (selectedChannel.avatarUrl) { <img [src]="selectedChannel.avatarUrl" [alt]="" /> }
+              @else { <span>{{ selectedChannel.name.slice(0, 1).toUpperCase() }}</span> }
+            </span>
+            <span class="channel-trigger-copy">
+              <span class="channel-switcher-label">{{ 'studio.manageChannel' | translate }}</span>
+              <strong>{{ selectedChannel.name }}</strong>
+            </span>
+            <span class="channel-role-pill">{{ roleLabel(selectedChannel.myRole) }}</span>
+            <svg class="channel-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" /></svg>
+          </summary>
+          <div class="channel-switcher-menu" role="group" [attr.aria-label]="'studio.manageChannel' | translate">
+            @for (channel of data.accessibleChannels(); track channel.channelId) {
+              <button type="button" class="channel-switcher-option"
+                [class.is-current]="channel.channelId === data.selectedChannelId()"
+                [attr.aria-current]="channel.channelId === data.selectedChannelId() ? 'true' : null"
+                (click)="chooseChannel(channel.channelId, channelMenu)">
+                <span class="channel-avatar channel-avatar--option" aria-hidden="true">
+                  @if (channel.avatarUrl) { <img [src]="channel.avatarUrl" [alt]="" /> }
+                  @else { <span>{{ channel.name.slice(0, 1).toUpperCase() }}</span> }
+                </span>
+                <span class="channel-option-copy">
+                  <strong>{{ channel.name }}</strong>
+                  <small>{{ channel.handle }}</small>
+                </span>
+                <span class="channel-role-pill channel-role-pill--option">{{ roleLabel(channel.myRole) }}</span>
+                @if (channel.channelId === data.selectedChannelId()) {
+                  <svg class="channel-current-check" viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8" /></svg>
+                }
+              </button>
+            }
+          </div>
+        </details>
+      }
     }
     <main id="studio-content" class="studio-content-frame">
       <router-outlet />

@@ -1,0 +1,101 @@
+<main class="operations-page reports-page">
+  <header class="page-heading reports-heading">
+    <div>
+      <h1>{{ 'operations.reports.title' | translate }}</h1>
+    </div>
+    <div class="period-switch" role="group" aria-label="{{ 'operations.reports.periodLabel' | translate }}">
+      @for (period of periods; track period) {
+        <button type="button" [class.selected]="days() === period" (click)="load(period)">{{ 'operations.periodCount' | translate:{ days: period } }}</button>
+      }
+    </div>
+  </header>
+
+  @if (error()) {
+    <section class="state-panel error-panel" role="alert">
+      <span class="state-icon">!</span><div><strong>{{ 'operations.loadErrorTitle' | translate }}</strong><p>{{ 'operations.loadError' | translate }}</p></div>
+      <button class="text-button" type="button" (click)="load()">{{ 'operations.retry' | translate }}</button>
+    </section>
+  }
+  @if (loading() && !report()) { <section class="state-panel loading-panel">{{ 'operations.loading' | translate }}</section> }
+
+  @if (report(); as data) {
+    <section class="report-lead">
+      <div class="lead-copy">
+        <span class="lead-mark" aria-hidden="true">⌁</span>
+        <div><span class="lead-kicker">{{ 'operations.reports.periodSnapshot' | translate }}</span><strong>{{ periodLabel() }}</strong><span>{{ 'operations.reports.coverageHint' | translate }}</span></div>
+      </div>
+      <div class="revenue-lead"><span>{{ 'operations.metric.revenue' | translate }}</span><strong>{{ formatMoney(data.revenue.inPeriod) }}</strong><small>{{ 'operations.reports.paidTransactions' | translate:{ count: formatNumber(data.revenue.transactionsInPeriod) } }}</small></div>
+    </section>
+
+    <section class="metric-grid" aria-label="{{ 'operations.reports.metricsLabel' | translate }}">
+      @for (card of metricCards; track trackMetric($index, card)) {
+        <article class="metric-card" [class]="'metric-card tone-' + card.tone">
+          <span class="metric-icon" aria-hidden="true">{{ card.icon }}</span>
+          <div class="metric-copy">
+            <span>{{ ('operations.metric.' + card.key) | translate }}</span>
+            <strong>{{ value(card.key) }}</strong>
+            <small>{{ 'operations.metric.inPeriod' | translate:{ value: periodValue(card.key), days: days() } }}</small>
+          </div>
+        </article>
+      }
+    </section>
+
+    <section class="report-grid">
+      <article class="report-panel activity-panel">
+        <div class="panel-heading"><div><h2>{{ 'operations.reports.activityTitle' | translate }}</h2><p>{{ 'operations.reports.activityHint' | translate:{ days: days() } }}</p></div><span class="live-dot">{{ 'operations.reports.liveData' | translate }}</span></div>
+        <div class="chart-legend"><span><i class="legend-line"></i>{{ 'operations.metric.views' | translate }}</span><span><i class="legend-bar"></i>{{ 'operations.metric.users' | translate }}</span></div>
+        <div class="chart-wrap">
+          <svg viewBox="0 0 840 232" role="img" aria-label="{{ 'operations.reports.activityChartLabel' | translate }}" preserveAspectRatio="none">
+            <defs><linearGradient id="reportArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#527cf6" stop-opacity=".18"/><stop offset="100%" stop-color="#527cf6" stop-opacity="0"/></linearGradient></defs>
+            <line x1="48" y1="42" x2="792" y2="42" class="gridline"/><line x1="48" y1="91" x2="792" y2="91" class="gridline"/><line x1="48" y1="140" x2="792" y2="140" class="gridline"/><line x1="48" y1="190" x2="792" y2="190" class="gridline"/>
+            <path [attr.d]="areaFor('views')" fill="url(#reportArea)"/>
+            <path [attr.d]="pathFor('views')" class="views-line"/>
+            <path [attr.d]="pathFor('newUsers')" class="users-line"/>
+          </svg>
+          <div class="axis-labels"><span>{{ 'operations.reports.lowerActivity' | translate }}</span><span>{{ periodLabel() }}</span><span>{{ 'operations.reports.higherActivity' | translate }}</span></div>
+        </div>
+        <div class="activity-ribbon">
+          @for (day of activityBars(); track day.date) {
+            <div class="activity-day" [title]="dailyLabel(day) + ': ' + formatNumber(day.newUsers) + ' ' + ('operations.metric.users' | translate)">
+              <span class="activity-bar" [style.height]="barHeight(day)"></span><small>{{ dailyLabel(day) }}</small>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="report-panel revenue-panel">
+        <div class="panel-heading"><div><h2>{{ 'operations.reports.revenueTitle' | translate }}</h2><p>{{ 'operations.reports.revenueHint' | translate }}</p></div><span class="revenue-icon">₫</span></div>
+        <strong class="revenue-total">{{ formatMoney(data.revenue.total) }}</strong>
+        <span class="revenue-caption">{{ 'operations.reports.totalPaidTransactions' | translate:{ count: formatNumber(data.revenue.transactionsTotal) } }}</span>
+        <div class="revenue-bars" aria-label="{{ 'operations.reports.revenueChartLabel' | translate }}">
+          @for (day of activityBars(); track day.date) {
+            <span [title]="dailyLabel(day) + ': ' + formatMoney(day.revenue)" [style.height.%]="revenueBarHeight(day)"></span>
+          }
+        </div>
+        <div class="revenue-footer"><span>{{ 'operations.reports.selectedPeriod' | translate }}</span><strong>{{ formatMoney(data.revenue.inPeriod) }}</strong></div>
+      </article>
+    </section>
+
+    <section class="distribution-grid">
+      <article class="report-panel distribution-panel">
+        <div class="panel-heading"><div><h2>{{ 'operations.reports.contentStatusTitle' | translate }}</h2><p>{{ 'operations.reports.allTimeDistribution' | translate }}</p></div></div>
+        @for (item of data.videoStatuses; track trackSlice($index, item)) {
+          <div class="distribution-row"><div class="distribution-label"><span>{{ statusLabel(item.key) }}</span><strong>{{ formatNumber(item.count) }}</strong></div><div class="distribution-track"><span [style.width.%]="share(item, data.videoStatuses)" [style.background]="categoryColor($index)"></span></div></div>
+        } @empty { <p class="empty-copy">{{ 'operations.reports.noDistribution' | translate }}</p> }
+      </article>
+      <article class="report-panel distribution-panel">
+        <div class="panel-heading"><div><h2>{{ 'operations.reports.reportStatusTitle' | translate }}</h2><p>{{ 'operations.reports.allTimeDistribution' | translate }}</p></div></div>
+        @for (item of data.reportStatuses; track trackSlice($index, item)) {
+          <div class="distribution-row"><div class="distribution-label"><span>{{ statusLabel(item.key) }}</span><strong>{{ formatNumber(item.count) }}</strong></div><div class="distribution-track"><span [style.width.%]="share(item, data.reportStatuses)" [style.background]="categoryColor($index + 2)"></span></div></div>
+        } @empty { <p class="empty-copy">{{ 'operations.reports.noDistribution' | translate }}</p> }
+      </article>
+      <article class="report-panel distribution-panel">
+        <div class="panel-heading"><div><h2>{{ 'operations.reports.paymentMethodTitle' | translate }}</h2><p>{{ 'operations.reports.paidOnly' | translate }}</p></div></div>
+        @for (item of data.paymentMethods; track trackSlice($index, item)) {
+          <div class="distribution-row"><div class="distribution-label"><span>{{ item.key }}</span><strong>{{ formatNumber(item.count) }}</strong></div><div class="distribution-track"><span [style.width.%]="share(item, data.paymentMethods)" [style.background]="categoryColor($index + 1)"></span></div></div>
+        } @empty { <p class="empty-copy">{{ 'operations.reports.noDistribution' | translate }}</p> }
+      </article>
+    </section>
+    <p class="data-note">{{ 'operations.reports.dataNote' | translate }} {{ 'operations.reports.generatedAt' | translate }} {{ data.generatedAt | date:'medium' }}</p>
+  }
+</main>

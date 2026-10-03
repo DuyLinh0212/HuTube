@@ -722,22 +722,11 @@ export class PublicPolicyPage implements OnInit {
   }
 
   requestDataExport(): void {
-    this.showToast(this.i18n.t('policies.tools.exportSuccess'));
+    this.showToast(this.i18n.t('common.notSupported'));
   }
 
-  resetAlgorithm(): void {
-    if (confirm(this.i18n.t('policies.tools.resetConfirm'))) {
-      this.showToast(this.i18n.t('policies.tools.resetSuccess'));
-    }
-  }
-
-  toggleAdPersonalization(): void {
-    this.adPersonalization.update(v => !v);
-    const status = this.adPersonalization()
-      ? this.i18n.t('policies.tools.adsStatusOn')
-      : this.i18n.t('policies.tools.adsStatusOff');
-    this.showToast(this.i18n.t('policies.tools.adsChanged', { status }));
-  }
+  resetAlgorithm(): void { this.showToast(this.i18n.t('common.notSupported')); }
+  toggleAdPersonalization(): void { this.showToast(this.i18n.t('common.notSupported')); }
 
   private showToast(msg: string): void {
     this.actionToast.set(msg);

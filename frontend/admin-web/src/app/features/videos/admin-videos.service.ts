@@ -1,3 +1,4 @@
+import { csvCell } from '../../core/csv';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
@@ -191,47 +192,11 @@ export class AdminVideosService {
   }
 
   getCategories(): Observable<AdminCategory[]> {
-    return this.http.get<AdminCategory[]>(`${this.config.apiBaseUrl}/categories`).pipe(
-      catchError(() =>
-        of([
-          { categoryId: '1', name: this.i18n.t('videos.categoryFallback.tech'), slug: 'cong-nghe', description: null },
-          { categoryId: '2', name: this.i18n.t('videos.categoryFallback.travel'), slug: 'du-lich', description: null },
-          { categoryId: '3', name: this.i18n.t('videos.categoryFallback.music'), slug: 'am-nhac', description: null },
-          { categoryId: '4', name: this.i18n.t('videos.categoryFallback.food'), slug: 'am-thuc', description: null },
-          { categoryId: '5', name: this.i18n.t('videos.categoryFallback.education'), slug: 'giao-duc', description: null },
-          { categoryId: '6', name: this.i18n.t('videos.categoryFallback.entertainment'), slug: 'giai-tri', description: null }
-        ])
-      )
-    );
+    return this.http.get<AdminCategory[]>(`${this.config.apiBaseUrl}/categories`);
   }
 
   getVideoStatistics(): Observable<AdminVideoStatisticsResponse> {
-    return this.http.get<AdminVideoStatisticsResponse>(`${this.base}/videos/statistics`).pipe(
-      catchError(() =>
-        of({
-          weekly: {
-            total: 0,
-            growthPercentage: 0,
-            days: [
-              { day: 'T2', label: this.i18n.t('videos.weekday.mon'), count: 0, heightPercent: 10 },
-              { day: 'T3', label: this.i18n.t('videos.weekday.tue'), count: 0, heightPercent: 10 },
-              { day: 'T4', label: this.i18n.t('videos.weekday.wed'), count: 0, heightPercent: 10 },
-              { day: 'T5', label: this.i18n.t('videos.weekday.thu'), count: 0, heightPercent: 10 },
-              { day: 'T6', label: this.i18n.t('videos.weekday.fri'), count: 0, heightPercent: 10 },
-              { day: 'T7', label: this.i18n.t('videos.weekday.sat'), count: 0, heightPercent: 10 },
-              { day: 'CN', label: this.i18n.t('videos.weekday.sun'), count: 0, heightPercent: 10 }
-            ]
-          },
-          storage: {
-            percentage: 0,
-            usedFormatted: '0 MB',
-            totalFormatted: '100 GB',
-            weeklyChangeFormatted: '0 MB',
-            totalVideosFormatted: '0'
-          }
-        })
-      )
-    );
+    return this.http.get<AdminVideoStatisticsResponse>(`${this.base}/videos/statistics`);
   }
 
   getWeeklyUploadStats(range: '7days' | '30days' = '7days'): Observable<WeeklyUploadStats> {
@@ -257,19 +222,19 @@ export class AdminVideosService {
     ];
 
     const rows = videos.map(v => [
-      `"${v.videoId}"`,
-      `"${v.title.replace(/"/g, '""')}"`,
-      `"${v.channelName.replace(/"/g, '""')}"`,
-      `"@${v.channelHandle}"`,
-      `"${v.categoryName ?? this.i18n.t('videos.uncategorized')}"`,
-      `"${v.status}"`,
-      `"${v.visibility}"`,
+      v.videoId,
+      v.title,
+      v.channelName,
+      `@${v.channelHandle}`,
+      v.categoryName ?? this.i18n.t('videos.uncategorized'),
+      v.status,
+      v.visibility,
       v.views,
       v.reportCount ?? 0,
-      `"${v.createdAt}"`
+      v.createdAt
     ]);
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const csvContent = '\uFEFF' + [headers.map(csvCell).join(','), ...rows.map(r => r.map(csvCell).join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

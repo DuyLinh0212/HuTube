@@ -54,19 +54,25 @@
 
     <!-- Sessions Section -->
     <section class="sessions-section" aria-labelledby="sessions-title">
-      <div class="section-heading">
+      <div class="sessions-title-bar">
         <div>
-          <h2 id="sessions-title">{{ 'account.tabSessions' | translate }}</h2>
-          <p class="muted">{{ 'account.logoutUnusedDevices' | translate }}</p>
+          <h2 id="sessions-title">{{ 'account.sessionsHeading' | translate }}</h2>
+          <p class="muted">{{ 'account.sessionsDesc' | translate }}</p>
         </div>
-        <button class="secondary" type="button" (click)="logoutOthers()" [disabled]="busy() || loading() || sessions().length < 2">{{ 'account.logoutOtherDevices' | translate }}</button>
+        <div class="sessions-actions">
+          <button class="secondary" type="button" (click)="logoutOthers()" [disabled]="busy() || loading() || sessions().length < 2">{{ 'account.logoutOthers' | translate }}</button>
+          <button class="secondary" type="button" (click)="toggleLoginHistory()" [attr.aria-expanded]="loginHistoryVisible()">
+            {{ (loginHistoryVisible() ? 'account.hideLoginHistory' : 'account.loginHistoryButton') | translate }}
+          </button>
+        </div>
       </div>
+      <p class="sessions-device-note">{{ 'account.deviceInfoNote' | translate }}</p>
 
       @if (pendingRevoke(); as pending) {
-        <div class="notice confirm" role="group" [attr.aria-label]="'account.confirmLogoutDevice' | translate">
-          <p>{{ 'account.endSessionOn' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
-          <div class="actions">
-            <button class="danger" type="button" (click)="revoke()" [disabled]="busy()">{{ 'account.logoutDevice' | translate }}</button>
+        <div class="revoke-warning" role="group" [attr.aria-label]="'account.confirmLogoutDevice' | translate">
+          <p>{{ 'account.confirmRevokeText' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
+          <div class="revoke-btn-group">
+            <button class="danger" type="button" (click)="revoke()" [disabled]="busy()">{{ 'common.confirm' | translate }}</button>
             <button class="secondary" type="button" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
           </div>
         </div>
@@ -75,23 +81,60 @@
       @if (loading()) {
         <div class="skeleton" role="status">{{ 'common.loading' | translate }}</div>
       } @else {
-        <ul class="session-list">
-          @for (session of sessions(); track session.sessionId) {
-            <li>
-              <div class="device-icon" aria-hidden="true">{{ session.platform === 'mobile' ? '📱' : '💻' }}</div>
-              <div class="session-details">
-                <h3>{{ session.deviceName }} @if (session.isCurrent) { <span class="current">{{ 'account.thisDevice' | translate }}</span> }</h3>
-                <p>{{ 'account.lastActive' | translate }} {{ session.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}</p>
-                <p class="muted">{{ 'account.signedInAt' | translate }} {{ session.issuedAt | date:'dd/MM/yyyy HH:mm' }}</p>
+        <div class="sessions-list">
+          @for (group of sessionGroups(); track group.key) {
+            <div class="session-item" [class.is-current]="group.isCurrent">
+              <div class="session-icon" aria-hidden="true">{{ group.latest.platform === 'mobile' ? '📱' : '💻' }}</div>
+              <div class="session-detail">
+                <div class="session-name">
+                  <strong>{{ group.latest.deviceName }}</strong>
+                  @if (group.isCurrent) { <span class="badge-current">{{ 'account.thisDevice' | translate }}</span> }
+                  @if (group.count > 1) { <span class="badge-count">{{ group.count }} {{ 'account.sessionsOnDevice' | translate }}</span> }
+                </div>
+                <small>{{ 'account.signedInAt' | translate }} {{ group.latest.issuedAt | date:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ group.latest.lastActiveAt | date:'dd/MM/yyyy HH:mm' }}@if (group.latest.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(group.latest.ipAddress) }}}</small>
               </div>
-              @if (!session.isCurrent) {
-                <button class="text-button" type="button" (click)="pendingRevoke.set(session)" [disabled]="busy()" [attr.aria-label]="('auth.logout' | translate) + ' ' + session.deviceName">{{ 'auth.logout' | translate }}</button>
+              @if (!group.isCurrent) {
+                <button class="session-revoke" type="button" (click)="pendingRevoke.set(group.latest)" [disabled]="busy()">{{ 'account.revoke' | translate }}</button>
               }
-            </li>
+            </div>
           } @empty {
-            <li>{{ 'account.noSessions' | translate }} <button type="button" class="text-button" (click)="load()">{{ 'account.reloadSessions' | translate }}</button></li>
+            <p class="sessions-empty">{{ 'account.noSessions' | translate }} <button type="button" class="text-button" (click)="load()">{{ 'account.reloadSessions' | translate }}</button></p>
           }
-        </ul>
+        </div>
+      }
+
+      @if (loginHistoryVisible()) {
+        <div class="login-history-panel">
+          <div class="login-history-heading">
+            <div>
+              <h3>{{ 'account.loginHistoryHeading' | translate }}</h3>
+              <p>{{ 'account.loginHistoryDesc' | translate }}</p>
+            </div>
+            <span>{{ loginHistoryTotal() }}</span>
+          </div>
+          @if (loginHistoryLoading()) {
+            <p class="login-history-state">{{ 'account.loginHistoryLoading' | translate }}</p>
+          } @else if (loginHistoryItems().length === 0) {
+            <p class="login-history-state">{{ 'account.loginHistoryEmpty' | translate }}</p>
+          } @else {
+            <div class="sessions-list login-history-list">
+              @for (entry of loginHistoryItems(); track entry.loginHistoryId) {
+                <div class="session-item">
+                  <div class="session-icon" aria-hidden="true">{{ entry.platform === 'mobile' ? '📱' : '💻' }}</div>
+                  <div class="session-detail">
+                    <div class="session-name"><strong>{{ entry.deviceName }}</strong></div>
+                    <small>{{ 'account.signedInAt' | translate }} {{ entry.loginAt | date:'dd/MM/yyyy HH:mm' }}@if (entry.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(entry.ipAddress) }}}</small>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="login-history-pagination">
+              <button class="secondary" type="button" (click)="loadLoginHistory(loginHistoryPage() - 1)" [disabled]="loginHistoryLoading() || loginHistoryPage() <= 1">{{ 'account.previousPage' | translate }}</button>
+              <span>{{ loginHistoryPage() }} / {{ loginHistoryPageCount() }}</span>
+              <button class="secondary" type="button" (click)="loadLoginHistory(loginHistoryPage() + 1)" [disabled]="loginHistoryLoading() || loginHistoryPage() >= loginHistoryPageCount()">{{ 'account.nextPage' | translate }}</button>
+            </div>
+          }
+        </div>
       }
     </section>
 

@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal, OnInit, HostListener } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, HostListener, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
@@ -86,6 +86,10 @@ export class AdminVideosPage implements OnInit {
   readonly total = signal(0);
 
   // Dropdown action menus & Modals
+  private menuAnchor: HTMLElement | null = null;
+  private menuAnchorTop = 0;
+  private menuAnchorLeft = 0;
+  readonly menuPosition = signal({ top: 0, left: 0 });
   readonly activeMenuId = signal<string | null>(null);
   readonly showPreviewModal = signal(false);
   readonly previewVideo = signal<AdminVideo | null>(null);
@@ -112,6 +116,8 @@ export class AdminVideosPage implements OnInit {
   readonly newVideoVisibility = signal('public');
 
   // Permissions
+  readonly editLoading = signal(false);
+  private editGeneration = 0;
   readonly canEdit = computed(() => this.auth.hasPermission('video.edit_metadata'));
   readonly canHide = computed(() => this.auth.hasPermission('video.hide'));
   readonly canUnhide = computed(() => this.auth.hasPermission('video.unhide'));
@@ -152,6 +158,17 @@ export class AdminVideosPage implements OnInit {
     }
     return pages;
   });
+
+  constructor() {
+    const closeOnScroll = (event: Event) => {
+      // Keep scrolling inside the floating menu usable, but close it when its anchor moves.
+      if (event.target instanceof Element && event.target.closest('.dropdown-menu')) return;
+      const current = this.menuAnchor?.getBoundingClientRect();
+      if (current && (current.top !== this.menuAnchorTop || current.left !== this.menuAnchorLeft)) this.closeActionMenu();
+    };
+    document.addEventListener('scroll', closeOnScroll, true);
+    inject(DestroyRef).onDestroy(() => document.removeEventListener('scroll', closeOnScroll, true));
+  }
 
   ngOnInit(): void {
     this.loadCategories();
@@ -258,6 +275,11 @@ export class AdminVideosPage implements OnInit {
 
   toggleActionMenu(videoId: string, event: MouseEvent): void {
     event.stopPropagation();
+    this.menuAnchor = event.currentTarget as HTMLElement;
+    const rect = this.menuAnchor.getBoundingClientRect();
+    this.menuAnchorTop = rect.top;
+    this.menuAnchorLeft = rect.left;
+    this.menuPosition.set({ top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 280)), left: Math.max(8, Math.min(rect.right - 210, window.innerWidth - 218)) });
     if (this.activeMenuId() === videoId) {
       this.activeMenuId.set(null);
     } else {
@@ -265,6 +287,7 @@ export class AdminVideosPage implements OnInit {
     }
   }
 
+  @HostListener('window:resize')
   @HostListener('document:click')
   closeActionMenu(): void {
     this.activeMenuId.set(null);
@@ -280,41 +303,14 @@ export class AdminVideosPage implements OnInit {
 
     this.service.getVideo(video.videoId).subscribe({
       next: detail => {
+        if (this.previewVideo()?.videoId !== video.videoId) return;
         this.previewDetail.set(detail);
         this.detailLoading.set(false);
       },
       error: () => {
-        // Fallback detail
-        this.previewDetail.set({
-          video,
-          description: this.i18n.format('videos.fallbackDescription', { title: video.title, channel: video.channelName }),
-          categoryId: video.categoryId ?? '1',
-          categoryName: video.categoryName ?? this.i18n.t('videos.defaultCategory'),
-          videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          fileSize: 48500000,
-          duration: 754,
-          history: [
-            {
-              auditLogId: 'h1',
-              action: 'admin.video.review',
-              reason: this.i18n.t('videos.fallbackModerationReason'),
-              actorName: 'AI Moderation Bot',
-              createdAt: video.createdAt
-            }
-          ],
-          reports: (video.reportCount || 0) > 0 ? [
-            {
-              reportId: 'rep-1',
-              reporterId: 'usr-1',
-              reporterName: this.i18n.t('videos.fallbackReporter'),
-              reporterEmail: 'user1@hutube.local',
-              reason: this.i18n.t('videos.fallbackReportReason'),
-              description: this.i18n.t('videos.fallbackReportDescription'),
-              status: 'pending',
-              createdAt: video.createdAt
-            }
-          ] : []
-        });
+        if (this.previewVideo()?.videoId !== video.videoId) return;
+        this.previewDetail.set(null);
+        this.error.set(this.i18n.t('videos.updateError'));
         this.detailLoading.set(false);
       }
     });
@@ -340,6 +336,8 @@ export class AdminVideosPage implements OnInit {
 
   // Edit Metadata Modal
   openEdit(video: AdminVideo): void {
+    if (!this.canEdit()) return;
+    this.editLoading.set(true);
     this.activeMenuId.set(null);
     this.editingVideo.set(video);
     this.editTitle.set(video.title);
@@ -348,17 +346,21 @@ export class AdminVideosPage implements OnInit {
     this.editReason.set('');
     this.showEditModal.set(true);
 
+    const generation = ++this.editGeneration;
     // Fetch existing description if available
     this.service.getVideo(video.videoId).subscribe({
       next: detail => {
-        if (detail.description) this.editDescription.set(detail.description);
-        if (detail.categoryId) this.editCategoryId.set(detail.categoryId);
+        if (generation !== this.editGeneration || this.editingVideo()?.videoId !== video.videoId) return;
+        this.editDescription.set(detail.description ?? '');
+        this.editCategoryId.set(detail.categoryId ?? '');
+        this.editLoading.set(false);
       },
-      error: () => {}
+      error: () => { if (generation === this.editGeneration) this.error.set(this.i18n.t('videos.updateError')); }
     });
   }
 
   closeEdit(): void {
+    ++this.editGeneration;
     this.showEditModal.set(false);
     this.editingVideo.set(null);
   }
@@ -366,7 +368,7 @@ export class AdminVideosPage implements OnInit {
   saveEdit(): void {
     const video = this.editingVideo();
     const reason = this.editReason().trim();
-    if (!video || reason.length < 3 || this.busy()) return;
+    if (!video || reason.length < 3 || this.busy() || this.editLoading() || !this.canEdit()) return;
 
     this.busy.set(true);
     this.error.set('');
@@ -374,7 +376,7 @@ export class AdminVideosPage implements OnInit {
     this.service
       .updateVideo(video.videoId, {
         title: this.editTitle().trim(),
-        description: this.editDescription().trim() || undefined,
+        description: this.editDescription().trim(),
         categoryId: this.editCategoryId() || undefined,
         clearCategory: !this.editCategoryId(),
         reason
@@ -395,7 +397,12 @@ export class AdminVideosPage implements OnInit {
   }
 
   // Action Modal (Hide, Remove, Restore)
+  private allowedAction(action: string): boolean {
+    return ({ hide: this.canHide(), unhide: this.canUnhide(), remove: this.canRemove(), restore: this.canRestore() } as Record<string, boolean>)[action] ?? false;
+  }
+
   openAction(action: 'hide' | 'unhide' | 'remove' | 'restore', video: AdminVideo): void {
+    if (!this.allowedAction(action)) return;
     this.activeMenuId.set(null);
     this.actionModalType.set(action);
     this.actionModalVideo.set(video);
@@ -415,7 +422,7 @@ export class AdminVideosPage implements OnInit {
     const video = this.actionModalVideo();
     const reason = this.actionModalReason().trim();
 
-    if (!action || !video || reason.length < 3 || this.busy()) return;
+    if (!action || !video || reason.length < 3 || this.busy() || !this.allowedAction(action)) return;
 
     this.busy.set(true);
     this.error.set('');

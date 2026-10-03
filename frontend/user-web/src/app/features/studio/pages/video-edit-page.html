@@ -2,9 +2,7 @@
   <header class="edit-header">
     <div>
       <a class="back-link" routerLink="/studio/content">← {{ 'studio.content' | translate }}</a>
-      <p class="eyebrow">{{ 'studioEdit.eyebrow' | translate }}</p>
       <h1>{{ 'upload.step2' | translate }}</h1>
-      <p class="subhead">{{ 'studioEdit.subtitle' | translate }}</p>
     </div>
     <div class="header-actions">
       <button type="button" class="button button-quiet" (click)="backToContent()">{{ 'common.discardChanges' | translate }}</button>
@@ -34,6 +32,18 @@
             @for (category of categories(); track category.categoryId) { <option [value]="category.categoryId">{{ category.name }}</option> }
           </select>
           <div class="field-meta"><span>{{ 'studioEdit.categoryHint' | translate }}</span></div>
+          <label class="field-label" for="video-tags">{{ 'upload.step2.tags' | translate }}</label>
+          <div class="edit-tags-box">
+            @for (tag of tags(); track tag) {
+              <span class="edit-tag-chip">#{{ tag }}<button type="button" [attr.aria-label]="'upload.step2.removeTag' | translate:{tag: tag}" (click)="removeTag(tag)">×</button></span>
+            }
+            <input id="video-tags" name="newTag" class="edit-tag-input" type="text" [(ngModel)]="newTag" maxlength="80"
+              [placeholder]="'upload.step2.tagsPlaceholder' | translate"
+              [disabled]="tags().length >= 20"
+              (keydown.enter)="$event.preventDefault(); addTag()" />
+            <button type="button" class="button button-tag-add" (click)="addTag()" [disabled]="!newTag.trim() || tags().length >= 20">{{ 'upload.step2.addTag' | translate }}</button>
+          </div>
+          <div class="field-meta"><span>{{ 'upload.step2.tagsHint' | translate }}</span><strong>{{ tags().length }}/20</strong></div>
         </section>
 
         <section class="editor-card thumbnail-card">
@@ -48,7 +58,7 @@
               <label class="choice-card" [class.is-selected]="thumbnailMode() === 'auto'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'auto'" (change)="thumbnailMode.set('auto')" /><span><strong>{{ 'studioEdit.autoThumbnail' | translate }}</strong><small>{{ 'studioEdit.autoThumbnailHint' | translate }}</small></span></label>
               <label class="choice-card" [class.is-selected]="thumbnailMode() === 'keep'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'keep'" (change)="thumbnailMode.set('keep')" /><span><strong>{{ 'studioEdit.keepThumbnail' | translate }}</strong><small>{{ 'studioEdit.keepThumbnailHint' | translate }}</small></span></label>
               <label class="choice-card" [class.is-selected]="thumbnailMode() === 'custom'"><input type="radio" name="thumbnailMode" [checked]="thumbnailMode() === 'custom'" (change)="thumbnailMode.set('custom')" /><span><strong>{{ 'studioEdit.uploadThumbnail' | translate }}</strong><small>{{ 'studioEdit.thumbnailFormats' | translate }}</small></span></label>
-              <label class="upload-thumb-button">{{ 'studioEdit.chooseImage' | translate }}<input type="file" accept="image/jpeg,image/png,image/webp" (change)="selectThumbnail($event)" /></label>
+              <button type="button" class="upload-thumb-button" (click)="thumbnailPicker.click()">{{ 'studioEdit.chooseImage' | translate }}</button><input #thumbnailPicker type="file" hidden accept="image/jpeg,image/png,image/webp" (change)="selectThumbnail($event)" />
             </div>
           </div>
         </section>
@@ -61,6 +71,12 @@
             }
           </div>
           @if (visibility === 'public' && current.moderationStatus !== 'approved') { <p class="moderation-note">{{ 'studioEdit.publicModerationNote' | translate }}</p> }
+          @if (canPromote()) {
+            <label class="promotion-option" [class.is-selected]="promotionEnabled">
+              <input type="checkbox" name="promotionEnabled" [(ngModel)]="promotionEnabled" [disabled]="saving()" />
+              <span><strong>{{ 'studioEdit.promoteVideo' | translate }}</strong><small>{{ 'studioEdit.promoteVideoHint' | translate }}</small></span>
+            </label>
+          }
         </section>
 
         <section class="editor-card playlist-card">
@@ -69,17 +85,63 @@
           @if (playlists().length) {
             <div class="playlist-checklist">
               @for (list of playlists(); track list.playlistId) {
-                <label class="playlist-choice"><input type="checkbox" [checked]="selectedPlaylistIds.includes(list.playlistId)" (change)="togglePlaylist(list.playlistId, $event)" /><span class="playlist-art">{{ list.name.slice(0, 1).toUpperCase() }}</span><span class="playlist-copy"><strong>{{ list.name }}</strong><small>{{ list.itemCount }} {{ 'playlists.video' | translate }} · {{ visibilityLabel(list.visibility) }}</small></span><span class="checkmark">✓</span></label>
+                <label class="playlist-choice"><input type="checkbox" [disabled]="visibility !== 'public' || current.status !== 'published' || current.moderationStatus !== 'approved'" [checked]="selectedPlaylistIds.includes(list.playlistId)" (change)="togglePlaylist(list.playlistId, $event)" /><span class="playlist-art">{{ list.name.slice(0, 1).toUpperCase() }}</span><span class="playlist-copy"><strong>{{ list.name }}</strong><small>{{ list.itemCount }} {{ 'playlists.video' | translate }} · {{ visibilityLabel(list.visibility) }}</small></span><span class="checkmark">✓</span></label>
               }
             </div>
           } @else { <div class="empty-playlists">{{ 'studioEdit.noPlaylists' | translate }} <a routerLink="/playlists">{{ 'playlists.createTitle' | translate }}</a></div> }
+        </section>
+
+        <section class="editor-card related-video-card" aria-labelledby="related-video-heading">
+          <div class="card-heading">
+            <div><span class="section-number">05</span><h2 id="related-video-heading">{{ 'upload.step3.videoCards' | translate }}</h2></div>
+            <span class="count-chip">{{ videoCards().length }}/5</span>
+          </div>
+          <p class="card-intro">{{ 'upload.step3.videoCardsHint' | translate }}</p>
+          @if (publishedChannelVideos().length) {
+            <div class="related-video-add-row">
+              <label class="related-video-select" for="related-video-select">
+                <span>{{ 'upload.step3.chooseVideo' | translate }}</span>
+                <select id="related-video-select" class="text-field" name="relatedVideoId" [(ngModel)]="selectedVideoCardId" [disabled]="videoCards().length >= 5 || saving()">
+                  <option value="">{{ 'upload.step3.chooseVideoPlaceholder' | translate }}</option>
+                  @for (item of publishedChannelVideos(); track item.videoId) {
+                    <option [value]="item.videoId" [disabled]="isVideoCardAdded(item.videoId)">{{ item.title }}</option>
+                  }
+                </select>
+              </label>
+              <label class="related-video-time" for="related-video-time">
+                <span>{{ 'upload.step3.bannerTime' | translate }}</span>
+                <input id="related-video-time" class="text-field" name="relatedVideoTime" type="text" [(ngModel)]="newVideoCardTime" placeholder="0:00" [disabled]="videoCards().length >= 5 || saving()" />
+              </label>
+              <button type="button" class="button button-quiet" (click)="useCurrentTimeForVideoCard()" [disabled]="saving()">{{ 'upload.step3.useCurrentTime' | translate }}</button>
+              <button type="button" class="button button-primary" (click)="addVideoCard()" [disabled]="videoCards().length >= 5 || !selectedVideoCardId || saving()">＋ {{ 'upload.step3.addVideoCard' | translate }}</button>
+            </div>
+          } @else {
+            <p class="related-video-empty">{{ 'upload.step3.noPublishedVideos' | translate }}</p>
+          }
+          @if (videoCards().length) {
+            <div class="related-video-list">
+              @for (card of videoCards(); track card.id) {
+                <article class="related-video-row">
+                  @if (videoCardThumbnail(card.videoId)) { <img [src]="videoCardThumbnail(card.videoId)" alt="" /> }
+                  @else { <span class="related-video-placeholder" aria-hidden="true">▶</span> }
+                  <strong [title]="videoCardTitle(card.videoId)">{{ videoCardTitle(card.videoId) }}</strong>
+                  <label class="related-video-row-time">
+                    <span class="sr-only">{{ 'upload.step3.bannerTime' | translate }}</span>
+                    <input class="text-field" type="text" [name]="'videoCardTime-' + card.id" inputmode="numeric" placeholder="0:00" [class.is-invalid]="!isVideoCardValid(card.id)" [ngModel]="card.time" (ngModelChange)="updateVideoCardTime(card.id, $event)" [attr.aria-label]="'upload.step3.bannerTime' | translate" [disabled]="saving()" />
+                  </label>
+                  <button type="button" class="related-video-current-time" (click)="useCurrentTimeForVideoCard(card.id)" [title]="'upload.step3.useCurrentTime' | translate" [attr.aria-label]="'upload.step3.useCurrentTime' | translate" [disabled]="saving()">↻</button>
+                  <button type="button" class="related-video-remove" (click)="removeVideoCard(card.id)" [attr.aria-label]="'common.delete' | translate" [disabled]="saving()">×</button>
+                </article>
+              }
+            </div>
+          }
         </section>
       </form>
 
       <aside class="editor-aside">
         <section class="preview-card">
           <div class="preview-label"><span class="live-dot"></span> {{ 'upload.sidebar.preview' | translate }}</div>
-          <div class="video-preview"><video [src]="current.videoUrl" controls preload="metadata"></video></div>
+          <div class="video-preview"><video [src]="previewUrl()" controls preload="metadata"></video></div>
           <h3>{{ title || current.title }}</h3><p>{{ visibilityLabel(visibility) }} · {{ formatDuration(current.duration) }}</p>
           <a [routerLink]="['/watch', current.videoId]" target="_blank">{{ 'studioEdit.openWatchPage' | translate }} ↗</a>
         </section>

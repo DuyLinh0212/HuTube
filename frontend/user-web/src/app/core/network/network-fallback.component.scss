@@ -1,0 +1,101 @@
+:host { display: contents; }
+
+.network-screen {
+  position: fixed;
+  z-index: 20000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+.network-card {
+  width: min(100%, 460px);
+  padding: clamp(28px, 7vw, 52px);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.network-mark {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 25px;
+  border: 1px solid rgba(255, 43, 102, .19);
+  border-radius: 28px;
+  background: var(--primary-soft);
+  color: var(--brand);
+}
+
+.network-mark svg { width: 62px; height: 62px; }
+.network-mark path { stroke: currentColor; stroke-linecap: round; stroke-width: 3; }
+.network-mark .network-mark__break { stroke: var(--canvas); stroke-width: 7; }
+.network-mark circle { fill: currentColor; }
+
+.network-kicker {
+  margin-bottom: 9px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.network-card h1 {
+  margin-bottom: 12px;
+  font-size: clamp(24px, 5vw, 32px);
+  font-weight: 850;
+  letter-spacing: -.04em;
+  line-height: 1.15;
+}
+
+.network-description {
+  max-width: 340px;
+  margin: 0 auto 27px;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.network-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 152px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 14px;
+  color: #fff;
+  background: var(--brand-gradient);
+  box-shadow: 0 10px 24px rgba(255, 43, 102, .2);
+  font-weight: 750;
+  transition: filter .18s ease, transform .18s ease;
+}
+
+.network-retry:hover:not(:disabled) { filter: brightness(1.04); transform: translateY(-1px); }
+.network-retry:focus-visible { outline: 3px solid var(--brand); outline-offset: 4px; }
+.network-retry:disabled { cursor: wait; opacity: .8; }
+.network-retry__icon { font-size: 22px; line-height: 1; }
+
+.network-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, .45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: network-spin .75s linear infinite;
+}
+
+@keyframes network-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .network-retry { transition: none; }
+  .network-spinner { animation-duration: 1.5s; }
+}

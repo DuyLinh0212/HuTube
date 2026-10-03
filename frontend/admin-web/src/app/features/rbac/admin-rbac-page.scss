@@ -2,3 +2,7 @@
 .permission-groups{grid-auto-rows:max-content}
 .permission-group{height:auto;max-height:none;overflow:visible}
 .danger-action{border-color:color-mix(in srgb,var(--danger) 35%,var(--line));color:var(--danger)}.danger-action:hover:not(:disabled){background:color-mix(in srgb,var(--danger) 8%,var(--surface))}.danger-action:disabled{opacity:.45}.role-dialog{position:relative;z-index:41}
+
+@media (max-width: 680px) { .role-form-grid { grid-template-columns: minmax(0, 1fr); } .role-form-grid input, .role-form-grid select { min-width: 0; width: 100%; box-sizing: border-box; } }
+
+@media (max-width: 680px) { .role-form { grid-template-columns: minmax(0, 1fr); } .role-form label, .role-form input, .role-form textarea { min-width: 0; } }

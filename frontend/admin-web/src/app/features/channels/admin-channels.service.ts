@@ -1,3 +1,4 @@
+import { csvCell } from '../../core/csv';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map, of, catchError } from 'rxjs';
@@ -117,8 +118,7 @@ export class AdminChannelsService {
         params: new HttpParams().set('page', 1).set('pageSize', 1)
       })
       .pipe(
-        map(res => res.total),
-        catchError(() => of(12568))
+        map(res => res.total)
       );
 
     const active$ = this.http
@@ -126,8 +126,7 @@ export class AdminChannelsService {
         params: new HttpParams().set('page', 1).set('pageSize', 1).set('status', 'active')
       })
       .pipe(
-        map(res => res.total),
-        catchError(() => of(10432))
+        map(res => res.total)
       );
 
     const suspended$ = this.http
@@ -135,8 +134,7 @@ export class AdminChannelsService {
         params: new HttpParams().set('page', 1).set('pageSize', 1).set('status', 'suspended')
       })
       .pipe(
-        map(res => res.total),
-        catchError(() => of(856))
+        map(res => res.total)
       );
 
     const banned$ = this.http
@@ -144,8 +142,7 @@ export class AdminChannelsService {
         params: new HttpParams().set('page', 1).set('pageSize', 1).set('status', 'banned')
       })
       .pipe(
-        map(res => res.total),
-        catchError(() => of(1280))
+        map(res => res.total)
       );
 
     return forkJoin({
@@ -191,19 +188,19 @@ export class AdminChannelsService {
     ];
 
     const rows = channels.map(c => [
-      `"${c.channelId}"`,
-      `"${c.name.replace(/"/g, '""')}"`,
-      `"@${c.handle}"`,
-      `"${c.ownerName.replace(/"/g, '""')}"`,
-      `"${c.ownerEmail}"`,
+      c.channelId,
+      c.name,
+      `@${c.handle}`,
+      c.ownerName,
+      c.ownerEmail,
       c.videoCount,
       c.subscriberCount,
       c.viewCount ?? 0,
-      `"${c.status}"`,
-      `"${c.createdAt}"`
+      c.status,
+      c.createdAt
     ]);
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const csvContent = '\uFEFF' + [headers.map(csvCell).join(','), ...rows.map(r => r.map(csvCell).join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

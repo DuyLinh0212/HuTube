@@ -1,6 +1,6 @@
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { catchError, finalize, forkJoin, of } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { ContentService, VideoCard, VideoDetail } from '../../core/content.service';
@@ -8,7 +8,8 @@ import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
-import { PlaylistService, PlaylistSummary } from '../../core/playlist.service';
+import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
+import { NetworkStatusService } from '../../core/network/network-status.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 
 export interface ChannelLink {
@@ -32,6 +33,7 @@ export class ChannelPage {
   private contentService = inject(ContentService);
   private playlistService = inject(PlaylistService);
   private auth = inject(AuthService);
+  private networkStatus = inject(NetworkStatusService);
   readonly i18n = inject(I18nService);
 
   readonly channel = signal<ChannelDetail | null>(null);
@@ -46,6 +48,7 @@ export class ChannelPage {
   readonly authReady = signal(false);
   readonly videos = signal<Array<VideoDetail | VideoCard>>([]);
   readonly playlists = signal<PlaylistSummary[]>([]);
+  readonly playlistPreviewById = signal<Record<string, PlaylistItem[]>>({});
   readonly channelLinks = signal<ChannelLink[]>([]);
   readonly showInfoModal = signal(false);
   readonly shareCopied = signal(false);
@@ -53,6 +56,8 @@ export class ChannelPage {
   readonly reportMenuOpen = signal(false);
   readonly reportTargetId = signal('');
   readonly reportTargetTitle = signal('');
+  private pendingHandle: string | null = null;
+  private networkWasUnavailable = false;
 
   readonly firstLink = computed(() => this.channelLinks()[0] ?? null);
   readonly otherLinksCount = computed(() => Math.max(0, this.channelLinks().length - 1));
@@ -63,15 +68,33 @@ export class ChannelPage {
   });
 
   constructor() {
+    effect(() => {
+      const unavailable = this.networkStatus.unavailable();
+      const hasError = !!this.error();
+      if (unavailable) {
+        this.networkWasUnavailable = true;
+      } else if (this.networkWasUnavailable && hasError && this.pendingHandle) {
+        this.networkWasUnavailable = false;
+        this.loadChannel(this.pendingHandle);
+      }
+    });
+
     this.auth.restore().subscribe({
-      next: () => this.authReady.set(true),
-      error: () => this.authReady.set(true)
+      next: () => {
+        this.authReady.set(true);
+        if (this.pendingHandle) this.loadChannel(this.pendingHandle);
+      },
+      error: () => {
+        this.authReady.set(true);
+        if (this.pendingHandle) this.loadChannel(this.pendingHandle);
+      }
     });
 
     this.route.paramMap.subscribe(params => {
       const handle = params.get('handle');
       if (handle) {
-        this.loadChannel(handle);
+        this.pendingHandle = handle;
+        if (this.authReady()) this.loadChannel(handle);
       }
     });
 
@@ -104,6 +127,10 @@ export class ChannelPage {
     });
   }
 
+  retryChannel() {
+    if (this.pendingHandle) this.loadChannel(this.pendingHandle);
+  }
+
   loadChannel(handle: string) {
     this.loading.set(true);
     this.error.set('');
@@ -114,8 +141,14 @@ export class ChannelPage {
         this.channel.set(ch);
         this.parseLinks(ch);
         this.playlistService.publicByChannel(ch.channelId).subscribe({
-          next: lists => this.playlists.set(lists),
-          error: () => this.playlists.set([])
+          next: lists => {
+            this.playlists.set(lists);
+            this.loadPlaylistPreviews(lists);
+          },
+          error: () => {
+            this.playlists.set([]);
+            this.playlistPreviewById.set({});
+          }
         });
         // A channel page is always a public surface, including when its owner is
         // viewing it. The manage endpoint also returns rejected, private, and
@@ -132,6 +165,28 @@ export class ChannelPage {
 
   videoViews(video: VideoDetail | VideoCard): number {
     return 'stats' in video ? video.stats.views : video.views;
+  }
+
+  private loadPlaylistPreviews(playlists: PlaylistSummary[]) {
+    const previewPlaylists = playlists.filter(playlist => playlist.itemCount > 0).slice(0, 12);
+    this.playlistPreviewById.set({});
+    if (!previewPlaylists.length) return;
+
+    forkJoin(previewPlaylists.map(playlist =>
+      this.playlistService.get(playlist.playlistId).pipe(catchError(() => of(null)))
+    )).subscribe(details => {
+      const previews: Record<string, PlaylistItem[]> = {};
+      previewPlaylists.forEach((playlist, index) => {
+        previews[playlist.playlistId] = details[index]?.items
+          .filter(item => !!item.thumbnailUrl)
+          .slice(0, 4) ?? [];
+      });
+      this.playlistPreviewById.set(previews);
+    });
+  }
+
+  playlistPreviewItems(playlist: PlaylistSummary): PlaylistItem[] {
+    return this.playlistPreviewById()[playlist.playlistId] ?? [];
   }
 
   private parseLinks(ch: ChannelDetail) {

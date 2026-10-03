@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal, OnInit, HostListener } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, HostListener, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
@@ -30,11 +30,12 @@ export class AdminChannelsPage implements OnInit {
   // Data signals
   readonly channels = signal<AdminChannel[]>([]);
   readonly channelCounts = signal<ChannelCounts>({
-    all: 12568,
-    active: 10432,
-    restricted: 856,
-    banned: 1280
+    all: 0,
+    active: 0,
+    restricted: 0,
+    banned: 0
   });
+  readonly countsAvailable = signal(false);
   readonly selectedChannel = signal<AdminChannelDetail | null>(null);
 
   // State signals
@@ -69,13 +70,17 @@ export class AdminChannelsPage implements OnInit {
   // Pagination
   readonly page = signal(1);
   readonly pageSize = signal(8);
-  readonly total = signal(12568);
+  readonly total = signal(0);
 
   // Sorting
   readonly sortColumn = signal<string>('createdAt');
   readonly sortDirection = signal<'asc' | 'desc'>('desc');
 
   // Dropdown menu & Modals
+  private menuAnchor: HTMLElement | null = null;
+  private menuAnchorTop = 0;
+  private menuAnchorLeft = 0;
+  readonly menuPosition = signal({ top: 0, left: 0 });
   readonly activeMenuId = signal<string | null>(null);
   readonly showDetailDrawer = signal(false);
   readonly showActionModal = signal(false);
@@ -126,28 +131,31 @@ export class AdminChannelsPage implements OnInit {
     return pages;
   });
 
+  constructor() {
+    const closeOnScroll = (event: Event) => {
+      // Keep scrolling inside the floating menu usable, but close it when its anchor moves.
+      if (event.target instanceof Element && event.target.closest('.dropdown-menu')) return;
+      const current = this.menuAnchor?.getBoundingClientRect();
+      if (current && (current.top !== this.menuAnchorTop || current.left !== this.menuAnchorLeft)) this.closeActionMenu();
+    };
+    document.addEventListener('scroll', closeOnScroll, true);
+    inject(DestroyRef).onDestroy(() => document.removeEventListener('scroll', closeOnScroll, true));
+  }
+
   ngOnInit(): void {
     this.loadCounts();
     this.load();
   }
 
   loadCounts(): void {
+    this.countsAvailable.set(false);
     this.service.getChannelCounts().subscribe({
-      next: counts => {
-        this.channelCounts.set(counts);
-        if (this.activeTab() === 'all') {
-          this.total.set(counts.all);
-        } else if (this.activeTab() === 'active') {
-          this.total.set(counts.active);
-        } else if (this.activeTab() === 'restricted') {
-          this.total.set(counts.restricted);
-        } else if (this.activeTab() === 'banned') {
-          this.total.set(counts.banned);
-        }
-      },
-      error: () => {}
+      next: counts => { this.channelCounts.set(counts); this.countsAvailable.set(true); },
+      error: () => { this.countsAvailable.set(false); }
     });
   }
+
+  countLabel(value: number): string { return this.countsAvailable() ? this.formatNumber(value) : '—'; }
 
   load(page = this.page()): void {
     this.loading.set(true);
@@ -193,6 +201,7 @@ export class AdminChannelsPage implements OnInit {
   }
 
   setStatus(val: string): void {
+    this.activeTab.set('all');
     this.statusFilter.set(val);
     this.applyFilters();
   }
@@ -240,6 +249,11 @@ export class AdminChannelsPage implements OnInit {
 
   toggleActionMenu(channelId: string, event: MouseEvent): void {
     event.stopPropagation();
+    this.menuAnchor = event.currentTarget as HTMLElement;
+    const rect = this.menuAnchor.getBoundingClientRect();
+    this.menuAnchorTop = rect.top;
+    this.menuAnchorLeft = rect.left;
+    this.menuPosition.set({ top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 280)), left: Math.max(8, Math.min(rect.right - 210, window.innerWidth - 218)) });
     if (this.activeMenuId() === channelId) {
       this.activeMenuId.set(null);
     } else {
@@ -247,6 +261,7 @@ export class AdminChannelsPage implements OnInit {
     }
   }
 
+  @HostListener('window:resize')
   @HostListener('document:click')
   closeActionMenu(): void {
     this.activeMenuId.set(null);
@@ -285,7 +300,12 @@ export class AdminChannelsPage implements OnInit {
     this.selectedChannel.set(null);
   }
 
+  private allowedAction(action: string): boolean {
+    return ({ suspend: this.canSuspend(), ban: this.canBan(), unban: this.canUnban(), restore: this.canUnban(), delete: this.canDelete(), lock: this.canLock(), unlock: this.canLock() } as Record<string, boolean>)[action] ?? false;
+  }
+
   openActionModal(action: 'suspend' | 'ban' | 'unban' | 'delete' | 'restore' | 'lock' | 'unlock', channel: AdminChannel): void {
+    if (!this.allowedAction(action)) return;
     this.activeMenuId.set(null);
     this.actionModalType.set(action);
     this.actionModalChannel.set(channel);
@@ -306,7 +326,7 @@ export class AdminChannelsPage implements OnInit {
     const channel = this.actionModalChannel();
     const reason = this.actionModalReason().trim();
 
-    if (!action || !channel || reason.length < 3 || this.busy()) return;
+    if (!action || !channel || reason.length < 3 || this.busy() || !this.allowedAction(action)) return;
 
     this.busy.set(true);
     this.error.set('');

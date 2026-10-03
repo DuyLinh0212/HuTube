@@ -226,71 +226,181 @@
   }
 }
 
-// Policy Tier Cards
-.policy-banner {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0.85rem;
+// Strike policy controls and the live consequence ladder.
+.policy-settings {
   margin-bottom: 1.5rem;
+  border: 1px solid var(--surface-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--surface-card, #fff);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
 
-  .tier-card {
-    padding: 0.85rem 1rem;
-    border-radius: 7px;
-    background: var(--surface-card, #ffffff);
-    border: 1px solid var(--surface-border, #e2e8f0);
-    position: relative;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+.policy-settings-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid #edf0f5;
+  background: linear-gradient(100deg, #fff 0%, #fff8fa 100%);
 
-    .tier-header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.35rem;
-
-      .tier-badge {
-        font-size: 0.7rem;
-        font-weight: 700;
-        padding: 0.15rem 0.4rem;
-        border-radius: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-      }
-
-      h4 {
-        margin: 0;
-        font-size: 0.875rem;
-        font-weight: 650;
-        color: var(--text-color, #0f172a);
-      }
-    }
-
-    p {
-      margin: 0;
-      font-size: 0.815rem;
-      line-height: 1.45;
-      color: var(--text-muted, #475569);
-    }
-
-    &.tier-warn {
-      border-top: 3px solid #f59e0b;
-      .tier-badge { background: #fef3c7; color: #92400e; }
-    }
-
-    &.tier-strike1 {
-      border-top: 3px solid #3b82f6;
-      .tier-badge { background: #eff6ff; color: #1e40af; }
-    }
-
-    &.tier-strike2 {
-      border-top: 3px solid #8b5cf6;
-      .tier-badge { background: #f5f3ff; color: #5b21b6; }
-    }
-
-    &.tier-strike3 {
-      border-top: 3px solid #ef4444;
-      .tier-badge { background: #fee2e2; color: #991b1b; }
-    }
+  .policy-kicker {
+    margin: 0 0 0.2rem;
+    color: var(--primary, #ff2b66);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
+
+  h2 {
+    margin: 0 0 0.2rem;
+    color: #1e2c47;
+    font-size: 1rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+  }
+
+  p:last-child {
+    margin: 0;
+    color: var(--text-muted, #64748b);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  .policy-save { flex: 0 0 auto; }
+}
+
+.policy-loading {
+  padding: 1rem 1.15rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.82rem;
+}
+
+.policy-config-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(145px, 1fr));
+  border-bottom: 1px solid #edf0f5;
+}
+
+.policy-config-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.85rem 0.9rem;
+  border-right: 1px solid #edf0f5;
+
+  &:last-child { border-right: 0; }
+
+  > span {
+    color: #526078;
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
+  &.policy-config-featured {
+    border-top: 3px solid var(--primary, #ff2b66);
+    background: #fff7fa;
+
+    > span { color: #a8204b; }
+  }
+}
+
+.policy-number-input {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+
+  input {
+    width: 82px;
+    min-width: 0;
+    height: 38px;
+    padding: 0 0.55rem;
+    border: 1px solid #d7deea;
+    border-radius: 7px;
+    background: #fff;
+    color: #1e2c47;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 750;
+    outline: none;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: var(--primary, #ff2b66);
+      box-shadow: 0 0 0 3px rgba(255, 43, 102, 0.13);
+    }
+
+    &:disabled { color: #64748b; background: #f8fafc; }
+  }
+
+  b {
+    color: #7b8798;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+}
+
+.policy-validation {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #fecaca;
+  background: #fff7f7;
+  color: #b42318;
+  font-size: 0.77rem;
+}
+
+.policy-outcomes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0.8rem 1rem;
+  gap: 0.8rem;
+}
+
+.policy-outcome {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding-right: 0.8rem;
+  border-right: 1px solid #edf0f5;
+
+  &:last-child { padding-right: 0; border-right: 0; }
+
+  .outcome-mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 9px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.71rem;
+    font-weight: 800;
+  }
+
+  strong { color: #27354b; font-size: 0.8rem; }
+  p { margin: 0.12rem 0 0; color: #64748b; font-size: 0.74rem; line-height: 1.35; }
+
+  &.outcome-second .outcome-mark { background: #f5f3ff; color: #6d28d9; }
+  &.outcome-suspension .outcome-mark { background: #fff1f2; color: #be123c; }
+}
+
+.policy-preview {
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid #edf0f5;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 // Toolbar
@@ -833,4 +943,38 @@
   padding: 0.85rem 1.25rem;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+}
+
+.modal-backdrop { padding: 16px; overflow-y: auto; box-sizing: border-box; z-index: 2000; }
+.modal-card, .modal-dialog, .strike-modal { max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; max-width: 100%; }
+
+@media (max-width: 1100px) {
+  .policy-config-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .moderation-container { padding: 1rem; }
+
+  .policy-settings-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .policy-config-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .policy-config-field:nth-child(2n) { border-right: 0; }
+  .policy-outcomes { grid-template-columns: 1fr; }
+
+  .policy-outcome {
+    padding: 0 0 0.65rem;
+    border-right: 0;
+    border-bottom: 1px solid #edf0f5;
+
+    &:last-child { padding-bottom: 0; border-bottom: 0; }
+  }
+}
+
+@media (max-width: 440px) {
+  .policy-config-grid { grid-template-columns: 1fr; }
+  .policy-config-field { border-right: 0; border-bottom: 1px solid #edf0f5; }
+  .policy-config-field:last-child { border-bottom: 0; }
 }

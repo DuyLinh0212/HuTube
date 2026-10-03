@@ -1,10 +1,11 @@
-import { Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { finalize, Subject, takeUntil } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
-import { CommentItem, ContentService, Playback, Rendition, VideoCard, VideoDetail, ViolationType } from '../../core/content.service';
+import { CommentItem, ContentService, Playback, Rendition, VideoCard, VideoCardLink, VideoDetail, ViolationType } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
@@ -53,6 +54,14 @@ export class WatchPage {
   readonly volume = signal(1);
   readonly currentTime = signal(0);
   readonly totalDuration = signal(0);
+  readonly videoCardDrawer = signal<VideoCardLink | null>(null);
+  readonly dismissedVideoCardIds = signal<string[]>([]);
+  readonly activeVideoCard = computed(() => {
+    if (this.videoCardDrawer()) return null;
+    const current = this.currentTime();
+    return (this.video()?.videoCards ?? []).find(card => current >= card.startSeconds
+      && current < card.startSeconds + 12 && !this.dismissedVideoCardIds().includes(card.videoId)) ?? null;
+  });
   readonly progressPercent = computed(() => {
     const duration = this.totalDuration();
     if (duration <= 0) return 0;
@@ -79,6 +88,9 @@ export class WatchPage {
 
   commentText = '';
   replyText = '';
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly videoChanged = new Subject<void>();
+  private playlistId: string | null = null;
   private videoId = '';
   private lastSaved = 0;
   private pendingSeek: number | null = null;
@@ -93,21 +105,25 @@ export class WatchPage {
 
   constructor() {
     this.videoId = this.route.snapshot.paramMap.get('id') ?? '';
-    const playlistId = this.route.snapshot.queryParamMap.get('playlist');
-    this.playlistIndex = Number(this.route.snapshot.queryParamMap.get('index') ?? -1);
-    if (playlistId) {
-      this.playlists.get(playlistId).subscribe({
-        next: playlist => this.playlistQueue = playlist.items,
-        error: () => this.playlistQueue = []
-      });
-    }
-
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       const id = params.get('id') ?? '';
       if (id && id !== this.videoId) {
         this.videoId = id;
         this.resetPlayerState();
         this.loadPageData();
+      }
+    });
+
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const playlistId = params.get('playlist');
+      this.playlistIndex = Number(params.get('index') ?? -1);
+      if (playlistId !== this.playlistId) {
+        this.playlistId = playlistId;
+        this.playlistQueue = [];
+        if (playlistId) this.playlists.get(playlistId).subscribe({
+          next: playlist => { if (this.playlistId === playlistId) this.playlistQueue = playlist.items; },
+          error: () => { if (this.playlistId === playlistId) this.playlistQueue = []; }
+        });
       }
     });
 
@@ -121,9 +137,17 @@ export class WatchPage {
   }
 
   private resetPlayerState() {
+    this.videoChanged.next();
+    this.repliesByComment.set({});
+    this.expandedReplies.set({});
+    this.repliesLoading.set({});
+    this.relatedVideos.set([]);
+    this.channel.set(null);
     this.loading.set(true);
     this.error.set('');
     this.video.set(null);
+    this.videoCardDrawer.set(null);
+    this.dismissedVideoCardIds.set([]);
     this.playback.set(null);
     this.activeRendition.set(null);
     this.comments.set([]);
@@ -143,22 +167,22 @@ export class WatchPage {
   }
 
   private loadPageData() {
-    this.channels.getMyChannel().subscribe({ next: channel => this.myChannelId.set(channel.channelId), error: () => {} });
-    this.content.violationTypes().subscribe({ next: types => this.violationTypes.set(types), error: () => {} });
+    this.channels.getMyChannel().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({ next: channel => this.myChannelId.set(channel.channelId), error: () => {} });
+    this.content.violationTypes().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({ next: types => this.violationTypes.set(types), error: () => {} });
 
-    this.content.detail(this.videoId).subscribe({
+    this.content.detail(this.videoId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: video => {
         this.video.set(video);
         this.loadRecommendations();
         if (video.videoUrl) {
           this.setAutoplayRendition({ quality: this.i18n.t('watch.sourceQuality'), width: 0, height: 0, fileSize: video.fileSize, url: video.videoUrl });
         }
-        this.channels.getChannel(video.channelHandle).subscribe({
+        this.channels.getChannel(video.channelHandle).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
           next: channel => {
             this.channel.set(channel);
             this.subscriberCount.set(channel.subscriberCount);
             if (this.auth.user()) {
-              this.channels.getSubscriptionStatus(channel.channelId).subscribe({
+              this.channels.getSubscriptionStatus(channel.channelId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
                 next: sub => {
                   this.subscribed.set(sub.status === 'active');
                   this.subscriptionNotificationsEnabled.set(sub.status === 'active' && sub.notificationsEnabled);
@@ -180,7 +204,7 @@ export class WatchPage {
       }
     });
 
-    this.content.playback(this.videoId).subscribe({
+    this.content.playback(this.videoId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: playback => {
         this.playback.set(playback);
         this.totalDuration.set(playback.duration);
@@ -194,7 +218,7 @@ export class WatchPage {
       error: () => this.actionMessage.set(this.i18n.t('watch.playbackQualityError'))
     });
 
-    this.content.comments(this.videoId).subscribe({
+    this.content.comments(this.videoId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => {
         const items = value.items ?? [];
         this.comments.set(items);
@@ -320,7 +344,8 @@ export class WatchPage {
     // A PiP window may keep playing while the user is viewing another tab.
     // Do not silently replace the original watch page when that window ends.
     if (!this.autoplay() || this.pipActive() || document.pictureInPictureElement === this.playerRef?.nativeElement) return;
-    const next = this.playlistQueue.slice(this.playlistIndex + 1).find(item => item.available);
+    const currentIndex = this.playlistQueue.findIndex(item => item.videoId === this.videoId);
+    const next = this.playlistQueue.slice((currentIndex >= 0 ? currentIndex : this.playlistIndex) + 1).find(item => item.available);
     if (next) {
       const nextIndex = this.playlistQueue.findIndex(item => item.playlistVideoId === next.playlistVideoId);
       const tree = this.router.createUrlTree(['/watch', next.videoId], {
@@ -406,13 +431,32 @@ export class WatchPage {
     if (player.paused) void player.play();
   }
 
+  openVideoCard(card: VideoCardLink): void {
+    this.playerRef?.nativeElement.pause();
+    this.isPlaying.set(false);
+    this.videoCardDrawer.set(card);
+  }
+
+  closeVideoCard(): void {
+    const card = this.videoCardDrawer();
+    if (card) this.dismissedVideoCardIds.update(ids => [...new Set([...ids, card.videoId])]);
+    this.videoCardDrawer.set(null);
+  }
+
+  openLinkedVideo(): void {
+    const target = this.videoCardDrawer();
+    if (!target || target.videoId === this.videoId) return;
+    this.videoCardDrawer.set(null);
+    void this.router.navigate(['/watch', target.videoId]);
+  }
+
   onProgress() {
     const player = this.playerRef?.nativeElement;
     if (!player) return;
     this.currentTime.set(player.currentTime);
-    if (!this.auth.user() || Math.abs(player.currentTime - this.lastSaved) < 10) return;
+    if (!this.auth.user() || this.playback()?.videoId !== this.videoId || !this.activeRendition() || Math.abs(player.currentTime - this.lastSaved) < 10) return;
     this.lastSaved = player.currentTime;
-    this.content.progress(this.videoId, Math.floor(player.currentTime)).subscribe();
+    this.content.progress(this.playback()?.videoId ?? this.video()!.videoId, Math.floor(player.currentTime)).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe();
   }
 
   react(type: 'like' | 'dislike') {
@@ -420,7 +464,7 @@ export class WatchPage {
     const item = this.video();
     if (!item) return;
     const next = item.viewerState?.reaction === type ? null : type;
-    this.content.reactVideo(item.videoId, next).subscribe({
+    this.content.reactVideo(item.videoId, next).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => this.video.set({
         ...item,
         stats: { ...item.stats, likes: result.likes, dislikes: result.dislikes },
@@ -434,7 +478,7 @@ export class WatchPage {
     if (!this.requireAuthentication(this.i18n.t('watch.loginRating'))) return;
     const item = this.video();
     if (!item) return;
-    this.content.rate(item.videoId, score).subscribe({
+    this.content.rate(item.videoId, score).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => {
         this.video.set({
           ...item,
@@ -462,7 +506,7 @@ export class WatchPage {
       this.actionMessage.set(this.i18n.t('watch.shareReadyPublic'));
       return;
     }
-    this.content.share(item.videoId).subscribe({
+    this.content.share(item.videoId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => {
         if (result?.url) this.shareUrl.set(this.absoluteUrl(result.url));
         this.actionMessage.set(this.i18n.t('watch.shareReady'));
@@ -475,7 +519,7 @@ export class WatchPage {
     if (!this.requireAuthentication(this.i18n.t('watchPlaylist.loginRequired'))) return;
     this.playlistPickerOpen.set(true);
     this.playlistLoading.set(true);
-    this.playlists.mine().pipe(finalize(() => this.playlistLoading.set(false))).subscribe({
+    this.playlists.mine().pipe(finalize(() => this.playlistLoading.set(false))).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: lists => this.playlistOptions.set(lists),
       error: () => this.actionMessage.set(this.i18n.t('watchPlaylist.loadError'))
     });
@@ -489,7 +533,7 @@ export class WatchPage {
     const item = this.video();
     if (!item || this.playlistAddingId() || this.addedPlaylistIds()[playlist.playlistId]) return;
     this.playlistAddingId.set(playlist.playlistId);
-    this.playlists.addVideo(playlist.playlistId, item.videoId).pipe(finalize(() => this.playlistAddingId.set(null))).subscribe({
+    this.playlists.addVideo(playlist.playlistId, item.videoId).pipe(finalize(() => this.playlistAddingId.set(null))).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.addedPlaylistIds.update(ids => ({ ...ids, [playlist.playlistId]: true }));
         this.playlistOptions.update(lists => lists.map(list => list.playlistId === playlist.playlistId
@@ -528,7 +572,7 @@ export class WatchPage {
     const item = this.video();
     const text = this.commentText.trim();
     if (!item || !text) return;
-    this.content.createComment(item.videoId, text).subscribe({
+    this.content.createComment(item.videoId, text).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: comment => {
         this.comments.update(items => [comment, ...items]);
         this.commentText = '';
@@ -566,7 +610,7 @@ export class WatchPage {
     if (this.isRepliesLoading(comment.commentId)) return;
     this.repliesLoading.update(state => ({ ...state, [comment.commentId]: true }));
     if (expand) this.expandedReplies.update(state => ({ ...state, [comment.commentId]: true }));
-    this.content.replies(comment.commentId).subscribe({
+    this.content.replies(comment.commentId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => {
         this.repliesByComment.update(groups => ({ ...groups, [comment.commentId]: value.items ?? [] }));
         this.repliesLoading.update(state => ({ ...state, [comment.commentId]: false }));
@@ -582,7 +626,7 @@ export class WatchPage {
     if (!this.requireAuthentication(this.i18n.t('watch.loginReply'))) return;
     const text = this.replyText.trim();
     if (!text) return;
-    this.content.createComment(comment.videoId, text, comment.commentId).subscribe({
+    this.content.createComment(comment.videoId, text, comment.commentId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: reply => {
         this.repliesByComment.update(groups => ({
           ...groups,
@@ -604,7 +648,7 @@ export class WatchPage {
   reactComment(comment: CommentItem, type: 'like' | 'dislike') {
     if (!this.requireAuthentication(this.i18n.t('watch.loginCommentInteraction'))) return;
     const next = comment.myReaction === type ? null : type;
-    this.content.reactComment(comment.commentId, next).subscribe({
+    this.content.reactComment(comment.commentId, next).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => {
         const updated = {
           ...comment,
@@ -631,7 +675,7 @@ export class WatchPage {
 
   hide(comment: CommentItem) {
     if (!this.requireAuthentication(this.i18n.t('watch.loginCommentManage'))) return;
-    this.content.hideComment(comment.commentId, comment.status !== 'hidden').subscribe({
+    this.content.hideComment(comment.commentId, comment.status !== 'hidden').pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => this.replaceCommentInState(value),
       error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.commentUpdateError'))
     });
@@ -640,7 +684,7 @@ export class WatchPage {
   remove(comment: CommentItem) {
     if (!this.requireAuthentication(this.i18n.t('watch.loginCommentDelete'))) return;
     if (!confirm(this.i18n.t('watch.deleteCommentConfirm'))) return;
-    this.content.deleteComment(comment.commentId).subscribe({
+    this.content.deleteComment(comment.commentId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         const wasRoot = this.comments().some(item => item.commentId === comment.commentId);
         if (wasRoot) {
@@ -706,7 +750,7 @@ export class WatchPage {
     }
     if (this.downloadBusy()) return;
     this.downloadBusy.set(true);
-    this.content.downloadOptions(this.videoId).pipe(finalize(() => this.downloadBusy.set(false))).subscribe({
+    this.content.downloadOptions(this.videoId).pipe(finalize(() => this.downloadBusy.set(false))).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: options => {
         this.downloadOptions.set(options ?? []);
         this.downloadOpen.set(true);
@@ -719,7 +763,7 @@ export class WatchPage {
   download(quality: string) {
     if (!this.requireAuthentication(this.i18n.t('watch.loginDownload'))) return;
     this.downloadBusy.set(true);
-    this.content.createDownload(this.videoId, quality).pipe(finalize(() => this.downloadBusy.set(false))).subscribe({
+    this.content.createDownload(this.videoId, quality).pipe(finalize(() => this.downloadBusy.set(false))).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => {
         this.downloadOpen.set(false);
         this.actionMessage.set(result.fileUrl ? this.i18n.t('watch.downloadCreatedWithLink') : this.i18n.t('watch.downloadCreated'));
@@ -741,7 +785,7 @@ export class WatchPage {
       this.content.search({
         channelId: current.channelId,
         sort: 'newest', page: 1, pageSize: 20
-      }).subscribe({
+      }).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
         next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
         error: () => this.relatedVideos.set([])
       });
@@ -753,13 +797,13 @@ export class WatchPage {
         categoryId: current.categoryId ?? undefined,
         tag: tag,
         sort: 'popular', page: 1, pageSize: 20
-      }).subscribe({
+      }).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
         next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
         error: () => this.relatedVideos.set([])
       });
       return;
     }
-    this.content.feed('home', 1, 20).subscribe({
+    this.content.feed('home', 1, 20).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
       error: () => this.relatedVideos.set([])
     });
@@ -878,7 +922,7 @@ export class WatchPage {
     }
 
     if (this.subscribed()) {
-      this.channels.unsubscribe(channel.channelId).subscribe({
+      this.channels.unsubscribe(channel.channelId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           this.subscribed.set(false);
           this.subscriptionNotificationsEnabled.set(false);
@@ -887,7 +931,7 @@ export class WatchPage {
         error: () => this.actionMessage.set(this.i18n.t('watch.unsubscribeError'))
       });
     } else {
-      this.channels.subscribe(channel.channelId).subscribe({
+      this.channels.subscribe(channel.channelId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
         next: sub => {
           this.subscribed.set(true);
           this.subscriptionNotificationsEnabled.set(sub.notificationsEnabled);
@@ -905,7 +949,7 @@ export class WatchPage {
       return;
     }
     const enabled = !this.subscriptionNotificationsEnabled();
-    this.channels.updateSubscriptionNotifications(channel.channelId, enabled).subscribe({
+    this.channels.updateSubscriptionNotifications(channel.channelId, enabled).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: response => this.subscriptionNotificationsEnabled.set(response.notificationsEnabled),
       error: () => this.actionMessage.set(this.i18n.t('watchPlaylist.notificationsError'))
     });
