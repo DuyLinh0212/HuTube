@@ -40,7 +40,9 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
       _error = null;
     });
     try {
-      final page = await _service.managedComments(widget.channel.id);
+      final page = await loadAllPages(
+        (page) => _service.managedComments(widget.channel.id, page: page),
+      );
       if (mounted) {
         setState(() {
           _comments = page.items;
@@ -148,7 +150,9 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                       HuTubeStateView(
                         icon: Icons.forum_outlined,
                         title: AppStrings.t('creator.noComments'),
-                        message: AppStrings.t('creator.commentsEmptyDescription'),
+                        message: AppStrings.t(
+                          'creator.commentsEmptyDescription',
+                        ),
                         compact: true,
                         accent: AppColors.violet,
                       ),

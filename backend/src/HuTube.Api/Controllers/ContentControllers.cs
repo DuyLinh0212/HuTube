@@ -89,6 +89,7 @@ public sealed class UploadVideoForm
     public Guid? CategoryId { get; set; }
     public string? LanguageCode { get; set; }
     public string Visibility { get; set; } = "private";
+    public bool AllowComments { get; set; } = true;
     public bool AgeRestricted { get; set; }
     public int Duration { get; set; }
     public string SourceQuality { get; set; } = "720p";
@@ -96,6 +97,7 @@ public sealed class UploadVideoForm
     public IFormFile? Thumbnail { get; set; }
     public string[] Tags { get; set; } = [];
     public string? ChaptersJson { get; set; }
+    public string? VideoCardsJson { get; set; }
 }
 
 public sealed class UpdateThumbnailForm
@@ -135,17 +137,23 @@ public sealed class VideosController(IContentService content) : ControllerBase
     {
         if (form.Video == null || form.Video.Length == 0) throw new ContentException(400, "VIDEO_REQUIRED", "Vui lòng chọn file video.");
         IReadOnlyList<ChapterRequest> chapters = [];
+        IReadOnlyList<VideoCardRequest> videoCards = [];
         if (!string.IsNullOrWhiteSpace(form.ChaptersJson))
         {
             try { chapters = JsonSerializer.Deserialize<List<ChapterRequest>>(form.ChaptersJson, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? []; }
             catch (JsonException) { throw new ContentException(400, "INVALID_CHAPTERS", "Danh sách chương không đúng định dạng JSON."); }
+        }
+        if (!string.IsNullOrWhiteSpace(form.VideoCardsJson))
+        {
+            try { videoCards = JsonSerializer.Deserialize<List<VideoCardRequest>>(form.VideoCardsJson, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? []; }
+            catch (JsonException) { throw new ContentException(400, "INVALID_VIDEO_CARDS", "Danh sách video liên quan không đúng định dạng JSON."); }
         }
         await using var videoStream = form.Video.OpenReadStream();
         await using var thumbnailStream = form.Thumbnail?.OpenReadStream();
         var result = await content.CreateVideoAsync(UserId, new CreateVideoCommand(form.ChannelId, form.Title, form.Description,
             form.CategoryId, form.LanguageCode, form.Visibility, form.AgeRestricted, form.Duration, form.SourceQuality, form.Video.Length,
             form.Video.FileName, form.Video.ContentType, videoStream, form.Thumbnail?.FileName, form.Thumbnail?.ContentType,
-            thumbnailStream, form.Tags, chapters, idempotencyKey), ct);
+            thumbnailStream, form.Tags, chapters, idempotencyKey, AllowComments: form.AllowComments, VideoCards: videoCards), ct);
         return Created($"/api/v1/videos/{result.VideoId}", result);
     }
 
@@ -224,7 +232,7 @@ public sealed class VideosController(IContentService content) : ControllerBase
 }
 
 [ApiController, Route("api/v1")]
-public sealed class CommentsController(IContentService content) : ControllerBase
+public sealed class CommentsController(IContentService content, HuTube.Infrastructure.Videos.ReportService reports) : ControllerBase
 {
     private Guid? CurrentUserId => Guid.TryParse(User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
     private Guid UserId => CurrentUserId ?? throw new ContentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
@@ -243,8 +251,8 @@ public sealed class CommentsController(IContentService content) : ControllerBase
     public Task<PageResult<CommentResponse>> RepliesAsync(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) => content.GetRepliesAsync(id, CurrentUserId, page, pageSize, ct);
 
     [Authorize, HttpGet("channels/{channelId:guid}/comments/manage")]
-    public Task<PageResult<CommentResponse>> ManageAsync(Guid channelId, [FromQuery] string? status = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default) =>
-        content.GetManagedCommentsAsync(UserId, channelId, status, page, pageSize, ct);
+    public Task<PageResult<CommentResponse>> ManageAsync(Guid channelId, [FromQuery] string? status = null, [FromQuery] string? sort = "newest", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        content.GetManagedCommentsAsync(UserId, channelId, status, sort, page, pageSize, ct);
 
     [Authorize, HttpPatch("comments/{id:guid}")]
     public Task<CommentResponse> UpdateAsync(Guid id, UpdateCommentRequest request, CancellationToken ct) => content.UpdateCommentAsync(UserId, id, request, ct);
@@ -261,8 +269,8 @@ public sealed class CommentsController(IContentService content) : ControllerBase
     [Authorize, HttpPost("comments/{id:guid}/report")]
     public async Task<ActionResult<ReportResponse>> ReportAsync(Guid id, ReportCommentRequest request, CancellationToken ct)
     {
-        var result = await content.ReportCommentAsync(UserId, id, request, ct);
-        return StatusCode(StatusCodes.Status201Created, result);
+        var result = await reports.CreateReportAsync(UserId, new CreateContentReportRequest("comment", id, request.ViolationTypeId, request.Description ?? ""), ct);
+        return StatusCode(StatusCodes.Status201Created, new ReportResponse(result.ReportId, result.Status, result.CreatedAt));
     }
 
     [Authorize, HttpPatch("comments/{id:guid}/visibility")]

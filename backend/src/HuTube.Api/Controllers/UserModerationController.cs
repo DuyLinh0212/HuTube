@@ -78,7 +78,7 @@ public sealed class UserModerationController(
 
     [HttpGet("channels/{channelId:guid}/strikes")]
     public Task<ChannelStrikeStatusResponse> GetChannelStrikesAsync(Guid channelId, CancellationToken ct) =>
-        strikeService.GetChannelStrikeStatusAsync(channelId, ct);
+        strikeService.GetMyChannelStrikeStatusAsync(channelId, UserId, ct);
 
     private async Task<IActionResult> ReadAppealEvidenceAsync(string path, CancellationToken ct)
     {

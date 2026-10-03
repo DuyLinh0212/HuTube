@@ -28,10 +28,12 @@ public sealed class TestGoogleTokenVerifier : IGoogleTokenVerifier
 public sealed class TestObjectStorage : IObjectStorage
 {
     public ConcurrentDictionary<string, byte[]> Objects { get; } = new();
+    public Func<string, string, Task>? BeforeSave { get; set; }
     public Task<string> SaveFileAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default) => SaveAsync(folder, fileName, content, ct);
     public Task<string> SaveVideoAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default) => SaveAsync(folder, fileName, content, ct);
     private async Task<string> SaveAsync(string folder, string fileName, Stream content, CancellationToken ct)
     {
+        if (BeforeSave != null) await BeforeSave(folder, fileName);
         var path = $"test://{folder}/{Guid.NewGuid():N}{Path.GetExtension(fileName)}";
         using var buffer = new MemoryStream(); await content.CopyToAsync(buffer, ct); Objects[path] = buffer.ToArray(); return path;
     }
@@ -58,6 +60,12 @@ public sealed class TestRecommendationSnapshots : IRecommendationSnapshotStore
 
 public sealed class TestVideoTranscoder : IVideoTranscoder
 {
+    public async Task<ProbedVideo> ProbeAsync(string sourceFilePath, CancellationToken ct = default)
+    {
+        var bytes = await File.ReadAllTextAsync(sourceFilePath, ct);
+        var duration = bytes.StartsWith("fake-video-duration:") && int.TryParse(bytes[20..], out var parsed) ? parsed : 120;
+        return new ProbedVideo(duration, 1280, 720);
+    }
     public async Task<IReadOnlyList<TranscodedVideo>> CreateLowerRenditionsAsync(string sourceFilePath, string sourceQuality, string workingDirectory, CancellationToken ct = default)
     {
         var result = new List<TranscodedVideo>();

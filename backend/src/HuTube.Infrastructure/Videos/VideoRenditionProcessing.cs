@@ -136,10 +136,17 @@ public sealed class VideoRenditionProcessor(
             var video = await db.Videos.SingleOrDefaultAsync(x => x.VideoId == job.VideoId, ct)
                 ?? throw new InvalidOperationException($"Video {job.VideoId} không còn tồn tại.");
 
-            workingDirectory = string.IsNullOrWhiteSpace(job.WorkingDirectory)
-                ? FindReusableWorkspace(video.FileSize)
-                    ?? Path.Combine(Path.GetTempPath(), "hutube-video-processing", $"recovery-{job.VideoId:N}-{Guid.NewGuid():N}")
+            var candidateDirectory = string.IsNullOrWhiteSpace(job.WorkingDirectory)
+                ? Path.Combine(Path.GetTempPath(), "hutube-video-processing", $"recovery-{job.VideoId:N}-{Guid.NewGuid():N}")
                 : job.WorkingDirectory;
+            var processingRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "hutube-video-processing"));
+            var candidateFullPath = Path.GetFullPath(candidateDirectory);
+            var candidateName = Path.GetFileName(candidateFullPath);
+            if (!candidateFullPath.StartsWith(processingRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || !(candidateName.StartsWith($"video-{job.VideoId:N}-", StringComparison.Ordinal)
+                    || candidateName.StartsWith($"recovery-{job.VideoId:N}-", StringComparison.Ordinal)))
+                throw new InvalidOperationException("Workspace does not belong to this video.");
+            workingDirectory = candidateFullPath;
             Directory.CreateDirectory(workingDirectory);
             var sourceFilePath = await EnsureSourceFileAsync(video, job.SourceFilePath, workingDirectory, ct);
 
@@ -251,33 +258,15 @@ public sealed class VideoRenditionProcessor(
         await db.SaveChangesAsync(ct);
     }
 
-    private static string? FindReusableWorkspace(long sourceFileSize)
-    {
-        var root = Path.Combine(Path.GetTempPath(), "hutube-video-processing");
-        if (!Directory.Exists(root)) return null;
-        foreach (var directory in Directory.EnumerateDirectories(root)
-                     .OrderByDescending(Directory.GetLastWriteTimeUtc))
-        {
-            foreach (var source in Directory.EnumerateFiles(directory, "source.*"))
-            {
-                try
-                {
-                    if (new FileInfo(source).Length == sourceFileSize) return directory;
-                }
-                catch (FileNotFoundException) { }
-                catch (DirectoryNotFoundException) { }
-            }
-        }
-        return null;
-    }
-
     private async Task<string> EnsureSourceFileAsync(
         HuTube.Domain.Videos.Video video,
         string sourceFilePath,
         string workingDirectory,
         CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(sourceFilePath) && File.Exists(sourceFilePath)
+        if (!string.IsNullOrWhiteSpace(sourceFilePath)
+            && Path.GetFullPath(sourceFilePath).StartsWith(workingDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            && File.Exists(sourceFilePath)
             && new FileInfo(sourceFilePath).Length == video.FileSize)
             return sourceFilePath;
 

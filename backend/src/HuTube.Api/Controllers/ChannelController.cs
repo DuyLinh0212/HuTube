@@ -27,7 +27,7 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
     public async Task<ActionResult<ChannelResponse>> CreateAsync(CreateChannelRequest request, CancellationToken ct)
     {
         var result = await channelService.CreateChannelAsync(UserId, request, ct);
-        return StatusCode(StatusCodes.Status201Created, result);
+        return StatusCode(StatusCodes.Status201Created, await ResolveChannelImageUrlsAsync(result, ct));
     }
 
     [Authorize, HttpGet("me")]
@@ -36,12 +36,15 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
         var channel = await channelService.GetMyChannelAsync(UserId, ct);
         return channel == null
             ? NotFound(new { code = "CHANNEL_NOT_FOUND", message = "Bạn chưa tạo kênh nào." })
-            : Ok(channel);
+            : Ok(await ResolveChannelImageUrlsAsync(channel, ct));
     }
 
     [Authorize, HttpGet("accessible")]
-    public async Task<ActionResult<IReadOnlyList<ChannelResponse>>> GetAccessibleChannelsAsync(CancellationToken ct) =>
-        Ok(await channelService.GetAccessibleChannelsAsync(UserId, ct));
+    public async Task<ActionResult<IReadOnlyList<ChannelResponse>>> GetAccessibleChannelsAsync(CancellationToken ct)
+    {
+        var channels = await channelService.GetAccessibleChannelsAsync(UserId, ct);
+        return Ok(await Task.WhenAll(channels.Select(channel => ResolveChannelImageUrlsAsync(channel, ct))));
+    }
 
     [Authorize, HttpGet("roles")]
     public ActionResult<IReadOnlyList<ChannelRoleResponse>> GetRoles() => Ok(ChannelService.Roles);
@@ -51,16 +54,16 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
         channelService.CheckHandleAsync(handle, currentChannelId, ct);
 
     [HttpGet("{id:guid}")]
-    public Task<ChannelResponse> GetByIdAsync(Guid id, CancellationToken ct) =>
-        channelService.GetChannelAsync(id, CurrentUserId, ct);
+    public async Task<ActionResult<ChannelResponse>> GetByIdAsync(Guid id, CancellationToken ct) =>
+        Ok(await ResolveChannelImageUrlsAsync(await channelService.GetChannelAsync(id, CurrentUserId, ct), ct));
 
     [HttpGet("handle/{handle}")]
-    public Task<ChannelResponse> GetByHandleAsync(string handle, CancellationToken ct) =>
-        channelService.GetChannelByHandleAsync(handle, CurrentUserId, ct);
+    public async Task<ActionResult<ChannelResponse>> GetByHandleAsync(string handle, CancellationToken ct) =>
+        Ok(await ResolveChannelImageUrlsAsync(await channelService.GetChannelByHandleAsync(handle, CurrentUserId, ct), ct));
 
     [Authorize, HttpPatch("{id:guid}")]
-    public Task<ChannelResponse> UpdateAsync(Guid id, UpdateChannelRequest request, CancellationToken ct) =>
-        channelService.UpdateChannelAsync(id, UserId, request, ct);
+    public async Task<ActionResult<ChannelResponse>> UpdateAsync(Guid id, UpdateChannelRequest request, CancellationToken ct) =>
+        Ok(await ResolveChannelImageUrlsAsync(await channelService.UpdateChannelAsync(id, UserId, request, ct), ct));
 
     [Authorize, HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken ct)
@@ -90,8 +93,9 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
         if (!allowed.Contains(file.ContentType)) throw new ChannelException(400, "INVALID_FILE_TYPE", "Watermark chỉ hỗ trợ JPG, PNG hoặc WEBP.");
         await using var stream = file.OpenReadStream();
         var imageUrl = await storage.SaveFileAsync("channel-watermarks", file.FileName, stream, file.ContentType, ct);
-        return Ok(await channelService.UpdateChannelAsync(id, UserId,
-            new UpdateChannelRequest(null, null, null, null, WatermarkUrl: imageUrl), ct));
+        var channel = await channelService.UpdateChannelAsync(id, UserId,
+            new UpdateChannelRequest(null, null, null, null, WatermarkUrl: imageUrl), ct);
+        return Ok(await ResolveChannelImageUrlsAsync(channel, ct));
     }
 
     [Authorize, HttpPost("{id:guid}/members/invite")]
@@ -197,6 +201,15 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
         var update = avatar
             ? new UpdateChannelRequest(null, null, imageUrl, null)
             : new UpdateChannelRequest(null, null, null, imageUrl);
-        return Ok(await channelService.UpdateChannelAsync(channelId, UserId, update, ct));
+        var channel = await channelService.UpdateChannelAsync(channelId, UserId, update, ct);
+        return Ok(await ResolveChannelImageUrlsAsync(channel, ct));
     }
+
+    private async Task<ChannelResponse> ResolveChannelImageUrlsAsync(ChannelResponse channel, CancellationToken ct) =>
+        channel with
+        {
+            AvatarUrl = channel.AvatarUrl == null ? null : await storage.GetReadUrlAsync(channel.AvatarUrl, TimeSpan.FromMinutes(60), ct),
+            BannerUrl = channel.BannerUrl == null ? null : await storage.GetReadUrlAsync(channel.BannerUrl, TimeSpan.FromMinutes(60), ct),
+            WatermarkUrl = channel.WatermarkUrl == null ? null : await storage.GetReadUrlAsync(channel.WatermarkUrl, TimeSpan.FromMinutes(60), ct)
+        };
 }

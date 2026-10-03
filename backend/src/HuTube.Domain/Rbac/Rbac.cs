@@ -49,6 +49,7 @@ public static class AdminPermissions
     public const string PlanCreate = "plan.create";
     public const string PlanEdit = "plan.edit";
     public const string PlanArchive = "plan.archive";
+    public const string PaymentView = "payment.view";
     public const string PolicyView = "policy.view";
     public const string PolicyManage = "policy.manage";
     public const string ReportView = "report.view";
@@ -76,7 +77,7 @@ public static class AdminPermissions
         AuditView,
         SystemViewSetting, SystemEditSetting,
         TaxonomyManage, CfSeedManage,
-        PlanView, PlanCreate, PlanEdit, PlanArchive
+        PlanView, PlanCreate, PlanEdit, PlanArchive, PaymentView
     ];
 }
 

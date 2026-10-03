@@ -85,76 +85,123 @@ class LocalDownload {
 /// require OS-specific scheduling and must be added with a dedicated plugin,
 /// not faked with an in-memory status.
 class LocalDownloadManager extends ChangeNotifier {
-  LocalDownloadManager._();
+  LocalDownloadManager._()
+    : _rootDirectory = null,
+      _clientFactory = (() => http.Client());
+  @visibleForTesting
+  LocalDownloadManager.test({
+    required Future<Directory> Function() rootDirectory,
+    http.Client Function()? clientFactory,
+  }) : _rootDirectory = rootDirectory,
+       _clientFactory = clientFactory ?? (() => http.Client());
+  final Future<Directory> Function()? _rootDirectory;
+  final http.Client Function() _clientFactory;
   static final instance = LocalDownloadManager._();
-
   final List<LocalDownload> _items = [];
-  bool _loaded = false;
-  Future<void>? _loading;
   final Map<String, http.Client> _clients = {};
-
+  String? _owner;
+  int _generation = 0;
+  Future<void>? _loading;
+  Future<void> _writes = Future.value();
+  Future<String?> Function(String)? _authorize;
   List<LocalDownload> get items => List.unmodifiable(_items);
+  String? get ownerId => _owner;
 
-  Future<Directory> _directory() async {
-    final root = await getApplicationDocumentsDirectory();
+  Future<void> bindUser(
+    String? owner, {
+    Future<String?> Function(String)? authorize,
+  }) {
+    _authorize = authorize;
+    if (_owner == owner) return _loading ?? Future.value();
+    _owner = owner;
+    ++_generation;
+    for (final client in _clients.values) {
+      client.close();
+    }
+    _clients.clear();
+    _items.clear();
+    notifyListeners();
+    _loading = owner == null ? Future.value() : _load(_generation, owner);
+    return _loading!;
+  }
+
+  Future<Directory> _directory(String owner) async {
+    final root =
+        await (_rootDirectory?.call() ?? getApplicationDocumentsDirectory());
+    final safeOwner = owner.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     final directory = Directory(
-      '${root.path}${Platform.pathSeparator}downloads',
+      '${root.path}${Platform.pathSeparator}downloads${Platform.pathSeparator}$safeOwner',
     );
-    if (!await directory.exists()) await directory.create(recursive: true);
+    await directory.create(recursive: true);
     return directory;
   }
 
-  Future<File> _manifest() async => File(
-    '${(await _directory()).path}${Platform.pathSeparator}manifest.json',
-  );
+  Future<void> ensureLoaded() => _loading ?? Future.value();
+  @visibleForTesting
+  Future<void> flush() => _writes;
 
-  Future<void> ensureLoaded() => _loading ??= _load();
-  Future<void> _load() async {
+  Future<void> _load(int generation, String owner) async {
+    await _writes;
+    final loaded = <LocalDownload>[];
     try {
-      final manifest = await _manifest();
+      final manifest = File(
+        '${(await _directory(owner)).path}${Platform.pathSeparator}manifest.json',
+      );
       if (await manifest.exists()) {
         final raw = jsonDecode(await manifest.readAsString());
-        final entries = raw is List ? raw : const [];
-        _items
-          ..clear()
-          ..addAll(
-            entries.whereType<Map>().map(
-              (value) =>
-                  LocalDownload.fromJson(Map<String, dynamic>.from(value)),
-            ),
-          );
-        for (var index = 0; index < _items.length; index++) {
-          final item = _items[index];
+        for (final entry in (raw is List ? raw : const []).whereType<Map>()) {
+          var item = LocalDownload.fromJson(Map<String, dynamic>.from(entry));
           if (item.completed &&
               (item.filePath == null || !await File(item.filePath!).exists())) {
-            _items[index] = item.copyWith(
+            item = item.copyWith(
               status: 'failed',
               error: 'downloads.localMissing',
             );
-          } else if (item.active) {
-            _items[index] = item.copyWith(
+          } else if (item.active || item.status == 'queued') {
+            item = item.copyWith(
               status: 'paused',
               error: 'downloads.interrupted',
             );
           }
+          loaded.add(item);
         }
       }
     } catch (_) {
-      _items.clear();
-    } finally {
-      _loaded = true;
-      await _persist();
-      notifyListeners();
+      /* Corrupt manifests are isolated to their owner. */
     }
+    if (generation != _generation || owner != _owner) return;
+    _items.addAll(loaded);
+    try {
+      await _persist();
+    } catch (_) {
+      /* Downloads remain unavailable when device storage is unavailable. */
+    }
+    notifyListeners();
   }
 
-  Future<void> _persist() async {
-    if (!_loaded) return;
-    final manifest = await _manifest();
-    await manifest.writeAsString(
-      jsonEncode(_items.map((item) => item.toJson()).toList()),
-      flush: true,
-    );
+  Future<void> _persist() {
+    final owner = _owner;
+    if (owner == null) return Future.value();
+    final snapshot = jsonEncode(_items.map((item) => item.toJson()).toList());
+    final next = _writes.then((_) async {
+      final directory = await _directory(owner);
+      final file = File(
+        '${directory.path}${Platform.pathSeparator}manifest.json',
+      );
+      final temporary = File('${file.path}.tmp');
+      await temporary.writeAsString(snapshot, flush: true);
+      await temporary.rename(file.path);
+    });
+    _writes = next.catchError((Object _) {});
+    return next;
+  }
+
+  void _replace(String id, LocalDownload item) {
+    final index = _items.indexWhere((entry) => entry.id == id);
+    if (index < 0) return;
+    _items[index] = item;
+    unawaited(_persist().catchError((Object _) {}));
+    notifyListeners();
   }
 
   Future<void> enqueue({
@@ -165,91 +212,115 @@ class LocalDownloadManager extends ChangeNotifier {
     required String url,
     required int fileSize,
   }) async {
+    final generation = _generation;
     await ensureLoaded();
-    final index = _items.indexWhere((item) => item.id == id);
-    final initial = LocalDownload(
-      id: id,
-      videoId: videoId,
-      title: title,
-      quality: quality,
-      url: url,
-      totalBytes: fileSize,
-      status: 'queued',
-      progress: 0,
+    if (_owner == null || generation != _generation) return;
+    _clients.remove(id)?.close();
+    _items.removeWhere((entry) => entry.id == id);
+    _items.insert(
+      0,
+      LocalDownload(
+        id: id,
+        videoId: videoId,
+        title: title,
+        quality: quality,
+        url: url,
+        totalBytes: fileSize,
+        status: 'queued',
+        progress: 0,
+      ),
     );
-    if (index >= 0) {
-      _items[index] = initial;
-    } else {
-      _items.insert(0, initial);
-    }
     await _persist();
     notifyListeners();
     unawaited(_start(id));
   }
 
   Future<void> retry(String id) async {
+    final generation = _generation;
     await ensureLoaded();
-    unawaited(_start(id));
+    if (generation != _generation) return;
+    await _start(id);
+  }
+
+  Future<void> pause(String id) async {
+    final generation = _generation;
+    await ensureLoaded();
+    if (generation != _generation) return;
+    _clients.remove(id)?.close();
+    final index = _items.indexWhere((entry) => entry.id == id);
+    if (index < 0 || _items[index].completed) return;
+    _replace(id, _items[index].copyWith(status: 'paused', clearError: true));
+    await _persist();
   }
 
   Future<void> _start(String id) async {
-    final index = _items.indexWhere((item) => item.id == id);
+    final owner = _owner, generation = _generation;
+    if (owner == null || _clients.containsKey(id)) return;
+    final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
-    var item = _items[index];
-    final uri = Uri.tryParse(item.url);
-    if (uri == null || !(uri.isScheme('https') || uri.isScheme('http'))) {
-      _replace(
-        index,
-        item.copyWith(
-          status: 'failed',
-          error: 'downloads.invalidUrl',
-        ),
-      );
-      return;
-    }
-    final safe = item.title.replaceAll(RegExp(r'[^a-zA-Z0-9 _-]'), '_').trim();
-    final file = File(
-      '${(await _directory()).path}${Platform.pathSeparator}${id}_${safe.isEmpty ? 'video' : safe}_${item.quality}.mp4',
-    );
-    final temporary = File('${file.path}.part');
-    final client = http.Client();
-    _clients[id]?.close();
+    final item = _items[index];
+    final client = _clientFactory();
     _clients[id] = client;
-    _replace(
-      index,
-      item.copyWith(status: 'downloading', progress: 0, clearError: true),
-    );
+    IOSink? sink;
+    File? temporary;
+    bool current() =>
+        generation == _generation &&
+        _owner == owner &&
+        identical(_clients[id], client) &&
+        _items.any((entry) => entry.id == id);
     try {
-      final response = await client.send(http.Request('GET', uri));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException('downloads.serverError:${response.statusCode}');
+      final url = await _authorize?.call(id);
+      if (!current()) return;
+      final uri = Uri.tryParse(url ?? '');
+      if (uri == null || !(uri.isScheme('https') || uri.isScheme('http'))) {
+        throw StateError('Download access revoked');
       }
-      final sink = temporary.openWrite();
+      final directory = await _directory(owner);
+      if (!current()) return;
+      final safeId = id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      final file = File(
+        '${directory.path}${Platform.pathSeparator}$safeId.mp4',
+      );
+      temporary = File(
+        '${file.path}.${DateTime.now().microsecondsSinceEpoch}.part',
+      );
+      _replace(
+        id,
+        item.copyWith(status: 'downloading', progress: 0, clearError: true),
+      );
+      final response = await client.send(http.Request('GET', uri));
+      if (!current()) return;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException('Download failed');
+      }
+      sink = temporary.openWrite();
       var received = 0;
       final expected = response.contentLength ?? item.totalBytes;
       await for (final chunk in response.stream) {
+        if (!current()) return;
         sink.add(chunk);
         received += chunk.length;
-        final current = _items.indexWhere((entry) => entry.id == id);
-        if (current < 0 || _clients[id] != client) {
-          await sink.close();
-          return;
-        }
         _replace(
-          current,
-          _items[current].copyWith(
+          id,
+          item.copyWith(
+            status: 'downloading',
             progress: expected > 0 ? received / expected : 0,
           ),
         );
       }
+      await sink.flush();
       await sink.close();
-      if (await file.exists()) await file.delete();
+      sink = null;
+      if (!current()) return;
+      if (expected > 0 && received != expected) {
+        throw const FileSystemException('Incomplete download');
+      }
       await temporary.rename(file.path);
-      final current = _items.indexWhere((entry) => entry.id == id);
-      if (current >= 0) {
+      temporary = null;
+      if (current()) {
         _replace(
-          current,
-          _items[current].copyWith(
+          id,
+          item.copyWith(
             status: 'completed',
             progress: 1,
             filePath: file.path,
@@ -258,38 +329,34 @@ class LocalDownloadManager extends ChangeNotifier {
         );
       }
     } catch (_) {
-      final current = _items.indexWhere((entry) => entry.id == id);
-      if (current >= 0) {
+      if (current()) {
         _replace(
-          current,
-          _items[current].copyWith(
-            status: 'failed',
-            error: 'downloads.fileError',
-          ),
+          id,
+          item.copyWith(status: 'failed', error: 'downloads.fileError'),
         );
       }
     } finally {
-      _clients.remove(id)?.close();
+      await sink?.close();
+      if (temporary != null && await temporary.exists()) {
+        await temporary.delete();
+      }
+      if (identical(_clients[id], client)) _clients.remove(id);
+      client.close();
     }
   }
 
   Future<void> remove(String id) async {
+    final generation = _generation;
     await ensureLoaded();
+    if (generation != _generation) return;
     _clients.remove(id)?.close();
-    final index = _items.indexWhere((item) => item.id == id);
+    final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
     final item = _items.removeAt(index);
-    if (item.filePath != null) {
-      final file = File(item.filePath!);
-      if (await file.exists()) await file.delete();
+    if (item.filePath != null && await File(item.filePath!).exists()) {
+      await File(item.filePath!).delete();
     }
     await _persist();
-    notifyListeners();
-  }
-
-  void _replace(int index, LocalDownload item) {
-    _items[index] = item;
-    unawaited(_persist());
     notifyListeners();
   }
 }

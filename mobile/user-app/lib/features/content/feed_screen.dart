@@ -25,7 +25,8 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _loading = true;
   bool _moreLoading = false;
   String? _error;
-  int _page = 1;
+  int _page = 0;
+  int _generation = 0;
   int _total = 0;
   String _sort = 'newest';
   String? _categoryId;
@@ -55,19 +56,27 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _load({bool refresh = false}) async {
-    final nextPage = refresh ? 1 : _page;
+    if (refresh) ++_generation;
+    final generation = _generation;
+    final categoryId = _categoryId;
+    final sort = _sort;
+    final nextPage = refresh ? 1 : _page + 1;
     setState(() {
-      if (refresh) _loading = true;
+      if (refresh) {
+        _loading = true;
+        _moreLoading = false;
+        _videos = [];
+      }
       _error = null;
     });
     try {
       final page = await _content.feed(
         explore: widget.explore,
         page: nextPage,
-        categoryId: _categoryId,
-        sort: widget.explore ? _sort : 'popular',
+        categoryId: categoryId,
+        sort: widget.explore ? sort : 'popular',
       );
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _videos = nextPage == 1 ? page.items : [..._videos, ...page.items];
         _page = page.page;
@@ -76,7 +85,7 @@ class _FeedScreenState extends State<FeedScreen> {
         _moreLoading = false;
       });
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = AppStrings.apiError(error, fallback: 'feed.loadError');
           _loading = false;
@@ -84,7 +93,7 @@ class _FeedScreenState extends State<FeedScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = AppStrings.t('feed.loadError');
           _loading = false;
@@ -95,11 +104,12 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   void _maybeLoadMore() {
-    if (_loading || _moreLoading || _videos.length >= _total) return;
+    if (_loading || _moreLoading || _error != null || _videos.length >= _total) {
+      return;
+    }
     if (_scroll.position.extentAfter > 360) return;
     setState(() {
       _moreLoading = true;
-      _page += 1;
     });
     _load();
   }
@@ -149,7 +159,9 @@ class _FeedScreenState extends State<FeedScreen> {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
           Text(
-            AppStrings.t(widget.explore ? 'feed.exploreEyebrow' : 'feed.welcomeEyebrow'),
+            AppStrings.t(
+              widget.explore ? 'feed.exploreEyebrow' : 'feed.welcomeEyebrow',
+            ),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w900,
@@ -169,7 +181,7 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
           const SizedBox(height: 22),
           if (_error != null)
-            _InlineError(message: _error!, onRetry: () => _load(refresh: true)),
+            _InlineError(message: _error!, onRetry: () => _load()),
           if (_videos.isEmpty)
             HuTubeStateView(
               icon: Icons.video_library_outlined,

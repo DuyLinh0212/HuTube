@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../config/app_config.dart';
 import '../errors/app_error.dart';
+import 'network_status.dart';
 
 class UploadPayload {
   const UploadPayload({
@@ -73,15 +74,19 @@ class ApiClient {
       final response = await http.Response.fromStream(
         await client.send(request).timeout(const Duration(seconds: 40)),
       ).timeout(const Duration(seconds: 40));
+      NetworkStatus.instance.markAvailable();
       final data = _decodeResponse(response);
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
     } on AppError {
       rethrow;
     } on TimeoutException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.timeoutError;
     } on SocketException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.network;
     } on http.ClientException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.network;
     }
   }
@@ -116,15 +121,19 @@ class ApiClient {
       final response = await http.Response.fromStream(
         await client.send(request).timeout(const Duration(minutes: 5)),
       ).timeout(const Duration(minutes: 5));
+      NetworkStatus.instance.markAvailable();
       final data = _decodeResponse(response);
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
     } on AppError {
       rethrow;
     } on TimeoutException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.timeoutError;
     } on SocketException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.network;
     } on http.ClientException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.network;
     }
   }
@@ -178,16 +187,47 @@ class ApiClient {
       final response = await http.Response.fromStream(
         await client.send(request).timeout(const Duration(seconds: 20)),
       ).timeout(const Duration(seconds: 20));
+      NetworkStatus.instance.markAvailable();
 
       return _decodeResponse(response);
     } on AppError {
       rethrow;
     } on TimeoutException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.timeoutError;
     } on SocketException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.network;
     } on http.ClientException {
+      NetworkStatus.instance.markUnavailable();
       throw ApiFailure.network;
+    }
+  }
+
+  Future<bool> checkConnection() async {
+    final status = NetworkStatus.instance;
+    status.beginCheck();
+    try {
+      await client
+          .get(
+            Uri.parse(_buildUrl('/system/config')),
+            headers: {'X-HuTube-Client': AppConfig.standard.clientHeader},
+          )
+          .timeout(const Duration(seconds: 8));
+      status.markAvailable();
+      return true;
+    } on TimeoutException {
+      status.markUnavailable();
+      return false;
+    } on SocketException {
+      status.markUnavailable();
+      return false;
+    } on http.ClientException {
+      status.markUnavailable();
+      return false;
+    } catch (_) {
+      status.markUnavailable();
+      return false;
     }
   }
 

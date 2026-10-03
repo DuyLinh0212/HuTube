@@ -59,8 +59,7 @@ public sealed class VideoMediaRetentionCleanupService(
         var now = clock.GetUtcNow();
 
         var videos = await db.Videos
-            .Where(video => video.Status == "blocked"
-                && video.ModerationStatus == "rejected"
+            .Where(video => (video.Status == "deleted" || (video.Status == "blocked" && video.ModerationStatus == "rejected"))
                 && video.MediaRetentionUntil.HasValue
                 && video.MediaRetentionUntil <= now
                 && video.MediaPurgedAt == null
@@ -82,7 +81,10 @@ public sealed class VideoMediaRetentionCleanupService(
 
         foreach (var video in videos)
         {
+            if (db.Entry(video).State == EntityState.Detached) db.Attach(video);
             var videoRenditions = renditions.Where(rendition => rendition.VideoId == video.VideoId).ToArray();
+            foreach (var rendition in videoRenditions)
+                if (db.Entry(rendition).State == EntityState.Detached) db.Attach(rendition);
             var paths = videoRenditions.Select(rendition => rendition.FileUrl)
                 .Append(video.VideoUrl)
                 .Append(video.ThumbnailUrl)
@@ -92,19 +94,42 @@ public sealed class VideoMediaRetentionCleanupService(
 
             try
             {
+                // Persist intent before external deletion. Keep object keys for retry
+                // and keep the existing non-empty URL constraints valid.
+                await using (var claim = await db.Database.BeginTransactionAsync(ct))
+                {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"purge:" + video.VideoId}, 0))", ct);
+                    await db.Entry(video).ReloadAsync(ct);
+                    if (video.MediaPurgedAt.HasValue || !(video.Status == "deleted" || (video.Status == "blocked" && video.ModerationStatus == "rejected"))
+                        || video.MediaRetentionUntil == null || video.MediaRetentionUntil > now
+                        || await db.Appeals.AnyAsync(appeal => appeal.TargetType == AppealTargetTypes.Video && appeal.TargetId == video.VideoId
+                            && (appeal.Status == AppealStatuses.Pending || appeal.Status == AppealStatuses.Reviewing || appeal.Status == "escalated"), ct)) continue;
+                    video.MediaPurgeStartedAt ??= now;
+                    await db.SaveChangesAsync(ct);
+                    await claim.CommitAsync(ct);
+                }
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"purge:" + video.VideoId}, 0))", ct);
+                await db.Entry(video).ReloadAsync(ct);
+                if (video.MediaPurgedAt.HasValue) continue;
                 foreach (var path in paths)
                     await storage.DeleteFileAsync(path!, ct);
 
                 video.MediaPurgedAt = now;
-                video.VideoUrl = "";
                 video.ThumbnailUrl = null;
                 video.UpdatedAt = now;
                 foreach (var rendition in videoRenditions)
                 {
-                    rendition.FileUrl = "";
                     rendition.Status = "deleted";
                     rendition.UpdatedAt = now;
                 }
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"quota:" + video.ChannelId}, 0))", ct);
+                await db.ChannelQuotas.Where(x => x.ChannelId == video.ChannelId)
+                    .ExecuteUpdateAsync(update => update
+                        .SetProperty(x => x.StorageUsed, x => Math.Max(0, x.StorageUsed - video.FileSize))
+                        .SetProperty(x => x.UpdatedAt, now), ct);
+                await db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
 
                 logger.LogInformation("Đã dọn media video {VideoId} sau thời hạn khiếu nại.", video.VideoId);
             }
@@ -114,10 +139,10 @@ public sealed class VideoMediaRetentionCleanupService(
             }
             catch (Exception ex)
             {
+                db.ChangeTracker.Clear();
                 logger.LogWarning(ex, "Không dọn được toàn bộ media video {VideoId}; lần chạy sau sẽ thử lại.", video.VideoId);
             }
         }
 
-        await db.SaveChangesAsync(ct);
     }
 }

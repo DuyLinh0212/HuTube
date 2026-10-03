@@ -21,6 +21,16 @@ public sealed class PaymentService(
 
     public async Task<CreatePaymentResponse> InitiateAsync(Guid userId, CreatePaymentRequest request, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(options.SecretKey) || string.IsNullOrWhiteSpace(options.AccountNumber)
+            || string.IsNullOrWhiteSpace(options.BankCode))
+            throw new PaymentException(503, "PAYMENT_UNAVAILABLE", "Thanh toán chưa được cấu hình.");
+        var key = string.IsNullOrWhiteSpace(request.IdempotencyKey) ? null : request.IdempotencyKey.Trim();
+        if (key?.Length > 200)
+            throw new PaymentException(400, "INVALID_IDEMPOTENCY_KEY", "Mã yêu cầu tối đa 200 ký tự.");
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct) : null;
+        if (transaction != null)
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))", ct);
         // Validate gói tồn tại và có giá > 0
         var plan = await db.Plans.AsNoTracking()
             .SingleOrDefaultAsync(x => x.PlanId == request.PlanId && x.Status == "active", ct)
@@ -32,20 +42,32 @@ public sealed class PaymentService(
         var now = Now;
 
         // Idempotency: nếu cùng key + user + plan → trả về payment cũ (nếu còn pending và chưa hết hạn)
-        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        if (key != null)
         {
             var existing = await db.Payments
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x =>
-                    x.IdempotencyKey == request.IdempotencyKey
-                    && x.UserId == userId
-                    && x.PlanId == request.PlanId
-                    && x.Status == "pending"
-                    && x.ExpiresAt > now, ct);
+                    x.IdempotencyKey == key && x.UserId == userId, ct);
 
+            if (existing != null && (existing.PlanId != request.PlanId || existing.AutoRenew != request.AutoRenew))
+                throw new PaymentException(409, "IDEMPOTENCY_CONFLICT", "Mã yêu cầu đã dùng cho gói khác.");
             if (existing != null)
-                return BuildResponse(existing, plan.Name);
+            {
+                if (existing.Status == "pending" && existing.ExpiresAt > now)
+                    return BuildResponse(existing, plan.Name);
+                throw new PaymentException(409, "PAYMENT_REQUEST_ALREADY_PROCESSED", "Yêu cầu thanh toán này đã được xử lý hoặc hết hạn. Vui lòng tạo yêu cầu mới.");
+            }
         }
+
+        // Reuse an active attempt for the same purchase so repeated clicks do not
+        // create multiple pending transfers for one user and plan.
+        var activePayment = await db.Payments.AsNoTracking()
+            .Where(x => x.UserId == userId && x.PlanId == request.PlanId && x.AutoRenew == request.AutoRenew
+                && x.Status == "pending" && x.ExpiresAt > now)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (activePayment != null)
+            return BuildResponse(activePayment, plan.Name);
 
         // Sinh mã chuyển khoản duy nhất
         var transactionCode = await GenerateUniqueTransactionCodeAsync(ct);
@@ -60,7 +82,8 @@ public sealed class PaymentService(
             PaymentMethod = "sepay",
             TransactionCode = transactionCode,
             Status = "pending",
-            IdempotencyKey = request.IdempotencyKey,
+            IdempotencyKey = key,
+            AutoRenew = request.AutoRenew,
             ExpiresAt = now.AddMinutes(options.PaymentExpiryMinutes),
             CreatedAt = now,
             UpdatedAt = now,
@@ -68,14 +91,45 @@ public sealed class PaymentService(
 
         db.Payments.Add(payment);
         await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
 
         return BuildResponse(payment, plan.Name);
+    }
+
+    public async Task CancelAsync(Guid userId, Guid paymentId, CancellationToken ct = default)
+    {
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct) : null;
+        if (transaction != null)
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))", ct);
+
+        var payment = await db.Payments.SingleOrDefaultAsync(x => x.PaymentId == paymentId && x.UserId == userId, ct)
+            ?? throw new PaymentException(404, "PAYMENT_NOT_FOUND", "Không tìm thấy giao dịch thanh toán.");
+        if (payment.Status == "cancelled")
+        {
+            if (transaction != null) await transaction.CommitAsync(ct);
+            return;
+        }
+        if (payment.Status != "pending")
+            throw new PaymentException(409, "PAYMENT_CANNOT_BE_CANCELLED", "Giao dịch này không còn ở trạng thái chờ thanh toán.");
+
+        payment.Status = "cancelled";
+        payment.UpdatedAt = Now;
+        await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
     }
 
     // ─── HandleSepayWebhookAsync ──────────────────────────────────────────────
 
     public async Task<bool> HandleSepayWebhookAsync(SepayWebhookPayload payload, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(options.SecretKey) || string.IsNullOrWhiteSpace(options.AccountNumber)
+            || payload.AccountNumber != options.AccountNumber || payload.Id <= 0)
+            return false;
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct) : null;
+        if (transaction != null)
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"sepay:" + payload.Id}, 0))", ct);
         // Chỉ xử lý tiền vào
         if (!string.Equals(payload.TransferType, "in", StringComparison.OrdinalIgnoreCase))
             return true;
@@ -90,6 +144,12 @@ public sealed class PaymentService(
         var payment = await FindMatchingPaymentAsync(payload, ct);
         if (payment == null)
             return true; // Giao dịch không liên quan đến HuTube → trả true để SePay không retry
+
+        if (transaction != null)
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({payment.UserId.ToString()}, 0))", ct);
+            await db.Entry(payment).ReloadAsync(ct);
+        }
 
         var now = Now;
 
@@ -107,12 +167,13 @@ public sealed class PaymentService(
             payment.Status = "cancelled";
             payment.UpdatedAt = now;
             await db.SaveChangesAsync(ct);
+            if (transaction != null) await transaction.CommitAsync(ct);
             return true;
         }
 
         // Kích hoạt gói
         var planHistoryId = await planService.ActivatePaidPlanAsync(
-            payment.UserId, payment.PlanId, payment.PaymentId, autoRenew: false, ct);
+            payment.UserId, payment.PlanId, payment.PaymentId, autoRenew: payment.AutoRenew, ct);
 
         // Cập nhật payment
         payment.Status = "paid";
@@ -123,6 +184,7 @@ public sealed class PaymentService(
         payment.GatewayPayload = JsonSerializer.Serialize(payload);
 
         await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
         return true;
     }
 

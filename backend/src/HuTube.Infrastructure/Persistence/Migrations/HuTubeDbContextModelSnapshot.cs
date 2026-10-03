@@ -296,6 +296,52 @@ namespace HuTube.Infrastructure.Persistence.Migrations
                     b.ToTable("user_sessions", "hutube");
                 });
 
+            modelBuilder.Entity("HuTube.Domain.Users.UserLoginHistory", b =>
+                {
+                    b.Property<Guid>("LoginHistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("login_history_id");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("device_id");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("device_name");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("platform");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<DateTimeOffset>("LoginAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("login_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("LoginHistoryId");
+
+                    b.HasIndex("UserId", "LoginAt")
+                        .HasDatabaseName("ix_login_history_user_id_login_at");
+
+                    b.ToTable("login_history", "public");
+                });
+
             modelBuilder.Entity("HuTube.Domain.Users.AdminAccount", b =>
                 {
                     b.HasOne("HuTube.Domain.Users.User", null)
@@ -344,6 +390,55 @@ namespace HuTube.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("HuTube.Domain.Users.UserLoginHistory", b =>
+                {
+                    b.HasOne("HuTube.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HuTube.Domain.Videos.StrikePolicyConfiguration", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedNever()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<int>("RejectedVideosPerStrike")
+                        .HasColumnType("integer")
+                        .HasColumnName("rejected_videos_per_strike");
+
+                    b.Property<int>("FirstStrikeRestrictionDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("first_strike_restriction_days");
+
+                    b.Property<int>("SecondStrikeRestrictionDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("second_strike_restriction_days");
+
+                    b.Property<int>("StrikeExpirationDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("strike_expiration_days");
+
+                    b.Property<int>("SuspensionStrikeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("suspension_strike_count");
+
+                    b.Property<DateTimeOffset>("RejectedVideosEffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rejected_videos_effective_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("strike_policy_settings", "public");
                 });
 #pragma warning restore 612, 618
         }

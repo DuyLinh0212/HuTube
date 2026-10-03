@@ -70,6 +70,8 @@ public sealed class ReportService(
                 var video = await db.Videos.AsNoTracking().FirstOrDefaultAsync(v => v.VideoId == request.TargetId, ct)
                     ?? throw new AuthException(404, "VIDEO_NOT_FOUND", "Không tìm thấy video cần báo cáo.");
                 videoId = video.VideoId;
+                if (!await VideoAccessPolicy.CanViewAsync(db, video, userId, ct))
+                    throw new AuthException(404, "VIDEO_NOT_FOUND", "Video không khả dụng.");
                 targetTitle = video.Title;
                 break;
 
@@ -77,6 +79,9 @@ public sealed class ReportService(
                 var comment = await db.Comments.AsNoTracking().FirstOrDefaultAsync(c => c.CommentId == request.TargetId, ct)
                     ?? throw new AuthException(404, "COMMENT_NOT_FOUND", "Không tìm thấy bình luận cần báo cáo.");
                 commentId = comment.CommentId;
+                var commentVideo = await db.Videos.AsNoTracking().SingleOrDefaultAsync(x => x.VideoId == comment.VideoId, ct);
+                if (comment.Status != "visible" || commentVideo == null || !await VideoAccessPolicy.CanViewAsync(db, commentVideo, userId, ct))
+                    throw new AuthException(404, "COMMENT_NOT_FOUND", "Bình luận không khả dụng.");
                 targetTitle = comment.Content.Length > 50 ? comment.Content[..50] + "..." : comment.Content;
                 break;
 
@@ -84,6 +89,7 @@ public sealed class ReportService(
                 var channel = await db.Channels.AsNoTracking().FirstOrDefaultAsync(c => c.ChannelId == request.TargetId, ct)
                     ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh cần báo cáo.");
                 channelId = channel.ChannelId;
+                if (channel.Status != "active") throw new AuthException(404, "CHANNEL_NOT_FOUND", "Kênh không khả dụng.");
                 targetTitle = channel.Name;
                 break;
         }
@@ -513,7 +519,7 @@ public sealed class ReportService(
             users.TryGetValue(reviewerId ?? Guid.Empty, out var reviewerName);
             result.Add(new ReportCaseSummary(c.ModerationCaseId, c.TargetType ?? "unknown", targetId, title, url, thumbnail,
                 channelName, channelHandle, c.Status, caseReports.Count, caseReports.Select(r => r.UserId).Distinct().Count(),
-                caseReports.Count(r => r.Disposition == null), counts, reviewerId, reviewerName, c.SubmittedAt, c.UpdatedAt));
+                caseReports.Count(r => r.Disposition == null), counts, reviewerId, reviewerName, c.SubmittedAt, c.UpdatedAt, c.ResolvedAt));
         }
         return result;
     }
@@ -697,9 +703,10 @@ public sealed class ReportService(
 
     private static void ApplyVideoDecision(Video video, string decision, DateTimeOffset now, string reason)
     {
-        if (decision == "age_restrict") video.AgeRestricted = true;
+        if (decision == "age_restrict") { video.AgeRestricted = true; video.ModerationAgeRestricted = true; }
         else if (decision == "recommendation_restricted")
         {
+            video.RecommendationRestricted = true;
             try
             {
                 var metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(video.Metadata) ?? [];
@@ -711,8 +718,8 @@ public sealed class ReportService(
                 video.Metadata = "{\"recommendation_restricted\":true}";
             }
         }
-        else if (decision == "hide") video.Visibility = "private";
-        else if (decision == "remove") { video.Status = "blocked"; video.ModerationStatus = "rejected"; video.ModerationReason = reason; video.MediaRetentionUntil ??= now.AddDays(30); }
+        else if (decision == "hide") { video.Visibility = "private"; video.ModerationHidden = true; }
+        else if (decision == "remove") { video.ModerationHidden = true; video.Status = "blocked"; video.ModerationStatus = "rejected"; video.ModerationReason = reason; video.MediaRetentionUntil ??= now.AddDays(30); }
         video.UpdatedAt = now;
     }
 

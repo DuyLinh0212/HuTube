@@ -11,14 +11,27 @@ namespace HuTube.Infrastructure.Videos;
 public sealed class StrikeService(
     HuTubeDbContext db,
     RbacService rbac,
-    INotificationService notifications)
+    INotificationService notifications,
+    StrikePolicySettingsService strikePolicySettings)
 {
+    public StrikeService(HuTubeDbContext db, RbacService rbac, INotificationService notifications)
+        : this(db, rbac, notifications, new StrikePolicySettingsService(db, rbac)) { }
+
+    public async Task<ChannelStrikeStatusResponse> GetMyChannelStrikeStatusAsync(Guid channelId, Guid userId, CancellationToken ct = default)
+    {
+        if (!await db.Channels.AnyAsync(x => x.ChannelId == channelId && x.OwnerUserId == userId, ct))
+            throw new AuthException(403, "CHANNEL_OWNER_REQUIRED", "Chỉ chủ kênh được xem lịch sử vi phạm.");
+        var result = await GetChannelStrikeStatusAsync(channelId, ct);
+        return result with { Strikes = result.Strikes.Select(x => x with { InternalNote = null, RevokedByUserId = null, RevocationReason = null }).ToList() };
+    }
+
     public async Task<ChannelStrikeStatusResponse> GetChannelStrikeStatusAsync(Guid channelId, CancellationToken ct = default)
     {
         var channel = await db.Channels.AsNoTracking().FirstOrDefaultAsync(c => c.ChannelId == channelId, ct)
             ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
 
         var now = DateTimeOffset.UtcNow;
+        var policy = await strikePolicySettings.GetAsync(ct);
         var strikes = await db.ChannelStrikes.AsNoTracking()
             .Where(s => s.ChannelId == channelId)
             .OrderByDescending(s => s.CreatedAt)
@@ -36,7 +49,7 @@ public sealed class StrikeService(
         else if (strikes.Any(s => s.Status == StrikeStatuses.Active && s.ExpiresAt > now))
         {
             uploadRestrictedUntil = strikes.Where(s => s.Status == StrikeStatuses.Active && s.ExpiresAt > now)
-                .Select(s => s.UploadRestrictedUntil ?? s.CreatedAt.AddDays(s.StrikeNumber >= 2 ? 14 : 7))
+                .Select(s => s.UploadRestrictedUntil ?? s.CreatedAt.AddDays(StrikePolicySettingsService.RestrictionDaysFor(s.StrikeNumber, policy)))
                 .Where(until => until > now).DefaultIfEmpty().Max();
             if (uploadRestrictedUntil == default) uploadRestrictedUntil = null;
         }
@@ -169,6 +182,7 @@ public sealed class StrikeService(
             ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh cần xử lý.");
 
         var now = DateTimeOffset.UtcNow;
+        var policy = await strikePolicySettings.GetAsync(ct);
         var activeStrikesCount = await db.ChannelStrikes
             .CountAsync(s => s.ChannelId == request.ChannelId && s.StrikeNumber > 0 && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
 
@@ -185,13 +199,14 @@ public sealed class StrikeService(
             Reason = request.Reason.Trim(),
             InternalNote = request.InternalNote?.Trim(),
             Status = StrikeStatuses.Active,
-            ExpiresAt = now.AddDays(90),
+            ExpiresAt = now.AddDays(policy.StrikeExpirationDays),
+            UploadRestrictedUntil = now.AddDays(StrikePolicySettingsService.RestrictionDaysFor(nextStrikeNumber, policy)),
             CreatedAt = now
         };
 
         db.ChannelStrikes.Add(strike);
 
-        if (nextStrikeNumber >= 3)
+        if (nextStrikeNumber >= policy.SuspensionStrikeCount)
         {
             channel.Status = "suspended";
             channel.StatusReason = request.Reason.Trim();
@@ -273,6 +288,7 @@ public sealed class StrikeService(
             throw new AuthException(409, "STRIKE_ALREADY_REVOKED", "Gậy này đã được thu hồi trước đó.");
 
         var now = DateTimeOffset.UtcNow;
+        var policy = await strikePolicySettings.GetAsync(ct);
         strike.Status = StrikeStatuses.Revoked;
         strike.RevokedAt = now;
         strike.RevokedByUserId = actorId;
@@ -283,9 +299,10 @@ public sealed class StrikeService(
         {
             // If channel was suspended, check remaining active strikes
             var remainingActive = await db.ChannelStrikes
-                .CountAsync(s => s.ChannelId == channel.ChannelId && s.StrikeId != strikeId && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
+                .CountAsync(s => s.ChannelId == channel.ChannelId && s.StrikeId != strikeId && s.StrikeNumber > 0
+                    && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
 
-            if (remainingActive < 3)
+            if (remainingActive < policy.SuspensionStrikeCount)
             {
                 channel.Status = "active";
                 channel.StatusReason = null;

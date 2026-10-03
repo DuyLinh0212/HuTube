@@ -79,11 +79,14 @@ public sealed class RbacTests
         public Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
         public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => throw new NotImplementedException();
         public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) => throw new NotImplementedException();
+        public Task<(List<UserLoginHistory> Items, int Page, int PageSize, int Total)> GetLoginHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct) =>
+            throw new NotImplementedException();
         public Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct) => throw new NotImplementedException();
         public Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct) => throw new NotImplementedException();
         public Task<PasswordResetToken?> FindResetAsync(string hash, CancellationToken ct) => throw new NotImplementedException();
         public void AddUser(User user, string passwordHash) => throw new NotImplementedException();
         public void AddSession(UserSession session) => throw new NotImplementedException();
+        public void AddLoginHistory(UserLoginHistory loginHistory) => throw new NotImplementedException();
         public void AddVerification(User user, EmailVerificationToken token) => throw new NotImplementedException();
         public void AddReset(User user, PasswordResetToken token) => throw new NotImplementedException();
         public Task InvalidateTokensAsync(Guid userId, bool reset, DateTimeOffset now, CancellationToken ct) => throw new NotImplementedException();

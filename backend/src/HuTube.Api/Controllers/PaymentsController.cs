@@ -55,6 +55,14 @@ public sealed class PaymentsController(
         return Ok(result);
     }
 
+    [Authorize]
+    [HttpPost("{paymentId:guid}/cancel")]
+    public async Task<IActionResult> CancelAsync(Guid paymentId, CancellationToken ct)
+    {
+        await paymentService.CancelAsync(UserId, paymentId, ct);
+        return NoContent();
+    }
+
     /// <summary>
     /// Webhook nhận thông báo chuyển khoản tự động từ SePay.
     /// SePay yêu cầu trả về HTTP 200/201 với body {"success": true}.

@@ -76,11 +76,14 @@ class _ChannelScreenState extends State<ChannelScreen>
         }
       }
       final results = await Future.wait([
-        ContentService(widget.auth).searchVideos(
-          query: '',
-          channelId: detail.id,
-          pageSize: 30,
-          sort: 'newest',
+        loadAllPages(
+          (page) => ContentService(widget.auth).searchVideos(
+            query: '',
+            channelId: detail.id,
+            page: page,
+            pageSize: 30,
+            sort: 'newest',
+          ),
         ),
         detail.isOwner
             ? PlaylistService(widget.auth).channelMine(detail.id)

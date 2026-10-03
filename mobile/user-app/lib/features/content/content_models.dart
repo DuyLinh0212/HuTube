@@ -1,3 +1,23 @@
+/// Consume the server's bounded pages without silently truncating a collection.
+Future<PageResult<T>> loadAllPages<T>(
+  Future<PageResult<T>> Function(int) fetch,
+) async {
+  final items = <T>[];
+  var number = 1;
+  while (true) {
+    final page = await fetch(number);
+    items.addAll(page.items);
+    if (!page.hasMore || page.items.isEmpty) break;
+    number = page.page + 1;
+  }
+  return PageResult(
+    items: items,
+    page: 1,
+    pageSize: items.isEmpty ? 1 : items.length,
+    total: items.length,
+  );
+}
+
 class PageResult<T> {
   const PageResult({
     required this.items,

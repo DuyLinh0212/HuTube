@@ -7,6 +7,8 @@ import '../../core/widgets/hutube_widgets.dart';
 import 'local_download_manager.dart';
 import 'offline_player_screen.dart';
 import 'content_service.dart';
+import 'download_actions.dart';
+import 'content_models.dart';
 
 class DownloadsScreen extends StatefulWidget {
   const DownloadsScreen({super.key, required this.auth});
@@ -23,40 +25,77 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   @override
   void initState() {
     super.initState();
+    widget.auth.addListener(_identityChanged);
     _downloads.ensureLoaded();
     _loadRemote();
   }
 
+  void _identityChanged() {
+    if (mounted) {
+      setState(() {
+        _remote = [];
+        _remoteLoading = true;
+      });
+    }
+    if (widget.auth.authenticated) _loadRemote();
+  }
+
+  @override
+  void dispose() {
+    widget.auth.removeListener(_identityChanged);
+    super.dispose();
+  }
+
   Future<void> _loadRemote() async {
+    final generation = widget.auth.sessionGeneration;
     try {
       final items = await _content.downloads();
-      if (mounted) {
+      if (mounted && generation == widget.auth.sessionGeneration) {
         setState(() {
           _remote = items;
           _remoteLoading = false;
         });
       }
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == widget.auth.sessionGeneration) {
         setState(() {
           _remoteLoading = false;
           if (error.status != 404) _remote = const [];
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _remoteLoading = false);
+      if (mounted && generation == widget.auth.sessionGeneration) {
+        setState(() => _remoteLoading = false);
+      }
     }
   }
 
   Future<void> _operate(Map<String, dynamic> item, String operation) async {
+    final generation = widget.auth.sessionGeneration;
     final id = '${item['videoDownloadId'] ?? ''}';
     if (id.isEmpty) return;
     try {
-      await _content.updateDownload(id, operation);
-      await _loadRemote();
+      final updated = operation == 'download'
+          ? item
+          : await _content.updateDownload(id, operation);
+      if (!mounted || generation != widget.auth.sessionGeneration) return;
+      if (operation == 'pause') await _downloads.pause(id);
       if (operation == 'cancel') await _downloads.remove(id);
+      if (operation == 'resume' ||
+          operation == 'retry' ||
+          operation == 'download') {
+        await _downloads.enqueue(
+          id: id,
+          videoId: '${updated['videoId'] ?? ''}',
+          title: '${updated['title'] ?? ''}',
+          quality: '${updated['quality'] ?? ''}',
+          url: '${updated['fileUrl'] ?? ''}',
+          fileSize: asInt(updated['fileSize']),
+        );
+      }
+      if (generation == widget.auth.sessionGeneration) await _loadRemote();
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == widget.auth.sessionGeneration) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
@@ -65,14 +104,16 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   }
 
   Future<void> _removeRemote(Map<String, dynamic> item) async {
+    final generation = widget.auth.sessionGeneration;
     final id = '${item['videoDownloadId'] ?? ''}';
     if (id.isEmpty) return;
     try {
       await _content.deleteDownload(id);
+      if (generation != widget.auth.sessionGeneration) return;
       await _downloads.remove(id);
       await _loadRemote();
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == widget.auth.sessionGeneration) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
@@ -81,6 +122,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   }
 
   Future<void> _deleteAllRemote() async {
+    final generation = widget.auth.sessionGeneration;
     final ids = _remote
         .map((item) => '${item['videoDownloadId'] ?? ''}')
         .where((id) => id.isNotEmpty)
@@ -103,7 +145,9 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || generation != widget.auth.sessionGeneration) {
+      return;
+    }
     try {
       await _content.deleteDownloads(ids);
       for (final id in ids) {
@@ -111,7 +155,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       }
       await _loadRemote();
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == widget.auth.sessionGeneration) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
@@ -128,8 +172,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
         return HuTubeStateView(
           icon: Icons.download_done_outlined,
           title: AppStrings.t('downloads.empty'),
-          message:
-          AppStrings.t('downloads.description'),
+          message: AppStrings.t('downloads.description'),
           accent: AppColors.violet,
         );
       }
@@ -176,36 +219,23 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                         _operate(item, choice);
                       }
                     },
-                    itemBuilder: (_) {
-                      final status = '${item['status'] ?? ''}'.toLowerCase();
-                      return [
-                        if (status.contains('pause') || status.contains('hold'))
-                          PopupMenuItem(
-                            value: 'resume',
-                            child: Text(AppStrings.t('downloads.resume')),
-                          ),
-                        if (status.contains('progress') ||
-                            status.contains('download'))
-                          PopupMenuItem(
-                            value: 'pause',
-                            child: Text(AppStrings.t('downloads.pause')),
-                          ),
-                        if (status.contains('fail'))
-                          PopupMenuItem(
-                            value: 'retry',
-                            child: Text(AppStrings.t('downloads.retry')),
-                          ),
-                        if (!status.contains('complete'))
-                          PopupMenuItem(
-                            value: 'cancel',
-                            child: Text(AppStrings.t('downloads.cancel')),
-                          ),
+                    itemBuilder: (_) => [
+                      for (final action in remoteDownloadActions(
+                        '${item['status'] ?? ''}',
+                      ))
                         PopupMenuItem(
-                          value: 'delete',
-                          child: Text(AppStrings.t('downloads.removeRequest')),
+                          value: action,
+                          child: Text(
+                            AppStrings.t(
+                              action == 'download'
+                                  ? 'common.download'
+                                  : action == 'delete'
+                                  ? 'downloads.removeRequest'
+                                  : 'downloads.$action',
+                            ),
+                          ),
                         ),
-                      ];
-                    },
+                    ],
                   ),
                 ),
               ),
@@ -332,11 +362,17 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
 
   String _remoteStatus(String status) => switch (status.toLowerCase()) {
     'queued' || 'pending' => AppStrings.t('downloads.status.waiting'),
-    'downloading' || 'in_progress' => AppStrings.t('downloads.status.loading'),
+    'downloading' ||
+    'in_progress' ||
+    'processing' => AppStrings.t('downloads.status.loading'),
+    'ready' => AppStrings.t('downloads.status.ready'),
+    'revoked' => AppStrings.t('downloads.status.revoked'),
     'paused' => AppStrings.t('downloads.status.paused'),
     'completed' || 'complete' => AppStrings.t('downloads.status.complete'),
     'failed' || 'error' => AppStrings.t('downloads.status.failed'),
-    'cancelled' || 'canceled' => AppStrings.t('downloads.status.cancelled'),
+    'cancelled' ||
+    'canceled' ||
+    'canceled_by_user' => AppStrings.t('downloads.status.cancelled'),
     _ => status.isEmpty ? AppStrings.t('downloads.status.processing') : status,
   };
 }

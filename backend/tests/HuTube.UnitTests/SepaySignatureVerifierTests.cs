@@ -7,8 +7,19 @@ namespace HuTube.UnitTests;
 
 public sealed class SepaySignatureVerifierTests
 {
+    [Theory]
+    [InlineData(null)]
+    [InlineData("invalid")]
+    [InlineData("9223372036854775807")]
+    [InlineData("-9223372036854775808")]
+    public void Verify_WhenTimestampMalformedOrOutsideWindow_RejectsWithoutThrowing(string? timestamp)
+    {
+        var verifier = new SepaySignatureVerifier(new SepayOptions { SecretKey = "test-secret" });
+        Assert.False(verifier.Verify(Encoding.UTF8.GetBytes("{}"), "sha256=" + new string('0', 64), timestamp));
+    }
+
     [Fact]
-    public void Verify_WhenSecretKeyIsEmpty_ReturnsTrue()
+    public void Verify_WhenSecretKeyIsEmpty_ReturnsFalse()
     {
         var options = new SepayOptions { SecretKey = "" };
         var verifier = new SepaySignatureVerifier(options);
@@ -16,7 +27,7 @@ public sealed class SepaySignatureVerifierTests
 
         var result = verifier.Verify(rawBody, "any-sig", null);
 
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]
@@ -41,9 +52,10 @@ public sealed class SepaySignatureVerifierTests
         var rawBody = Encoding.UTF8.GetBytes(bodyString);
 
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        var validSignature = Convert.ToHexString(hmac.ComputeHash(rawBody)).ToLowerInvariant();
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var validSignature = "sha256=" + Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(timestamp + "." + bodyString))).ToLowerInvariant();
 
-        var result = verifier.Verify(rawBody, validSignature, null);
+        var result = verifier.Verify(rawBody, validSignature, timestamp);
 
         Assert.True(result);
     }

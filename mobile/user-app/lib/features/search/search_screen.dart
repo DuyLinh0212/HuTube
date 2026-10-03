@@ -26,6 +26,9 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _searched = false;
   bool _hasMore = false;
   int _page = 1;
+  int _generation = 0;
+  String _committedQuery = '';
+  String _committedSort = 'relevance';
 
   @override
   void dispose() {
@@ -34,8 +37,15 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _search({bool more = false}) async {
-    final query = _query.text.trim();
-    if (query.isEmpty || _loading) return;
+    final query = more ? _committedQuery : _query.text.trim();
+    if (query.isEmpty || (more && _loading)) return;
+    if (!more) {
+      ++_generation;
+      _committedQuery = query;
+      _committedSort = _sort;
+    }
+    final generation = _generation;
+    final sort = _committedSort;
     final next = more ? _page + 1 : 1;
     setState(() {
       _loading = true;
@@ -46,9 +56,9 @@ class _SearchScreenState extends State<SearchScreen> {
       final page = await _content.searchVideos(
         query: query,
         page: next,
-        sort: _sort,
+        sort: sort,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _results = more ? [..._results, ...page.items] : page.items;
         _page = page.page;
@@ -56,14 +66,14 @@ class _SearchScreenState extends State<SearchScreen> {
         _loading = false;
       });
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = AppStrings.apiError(error, fallback: 'common.error');
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = AppStrings.t('common.networkError');
           _loading = false;
@@ -94,6 +104,12 @@ class _SearchScreenState extends State<SearchScreen> {
               : IconButton(
                   tooltip: AppStrings.t('search.clear'),
                   onPressed: () => setState(() {
+                    ++_generation;
+                    _loading = false;
+                    _hasMore = false;
+                    _page = 1;
+                    _error = null;
+                    _committedQuery = '';
                     _query.clear();
                     _results = const [];
                     _searched = false;
@@ -159,7 +175,9 @@ class _SearchScreenState extends State<SearchScreen> {
       else if (_results.isEmpty)
         HuTubeStateView(
           icon: Icons.manage_search_rounded,
-          title: AppStrings.t(_searched ? 'search.noResults' : 'search.startTitle'),
+          title: AppStrings.t(
+            _searched ? 'search.noResults' : 'search.startTitle',
+          ),
           message: _searched
               ? AppStrings.t('search.tryAnother')
               : AppStrings.t('search.enterKeyword'),
@@ -176,7 +194,9 @@ class _SearchScreenState extends State<SearchScreen> {
         if (_hasMore)
           OutlinedButton(
             onPressed: _loading ? null : () => _search(more: true),
-            child: Text(AppStrings.t(_loading ? 'search.loading' : 'search.loadMore')),
+            child: Text(
+              AppStrings.t(_loading ? 'search.loading' : 'search.loadMore'),
+            ),
           ),
       ],
     ],

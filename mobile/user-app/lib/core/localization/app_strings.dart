@@ -181,6 +181,11 @@ class AppStrings {
 
       // Shared app chrome
       'common.networkError': 'Không thể kết nối. Kiểm tra mạng rồi thử lại.',
+      'network.title': 'Kết nối mạng không ổn định',
+      'network.description':
+          'Có vẻ mạng đang yếu hoặc bị gián đoạn. Kiểm tra Wi-Fi hoặc dữ liệu di động rồi thử lại.',
+      'network.checking': 'Đang kiểm tra kết nối…',
+      'network.continueOffline': 'Tiếp tục ở chế độ ngoại tuyến',
       'common.serverError': 'Máy chủ đang bận. Vui lòng thử lại sau.',
       'common.confirm': 'Xác nhận',
       'common.yes': 'Có',
@@ -923,6 +928,8 @@ class AppStrings {
       'downloads.status.loading': 'Đang tải',
       'downloads.status.paused': 'Đã tạm dừng',
       'downloads.status.complete': 'Hoàn tất',
+      'downloads.status.ready': 'Sẵn sàng tải',
+      'downloads.status.revoked': 'Quyền tải đã bị thu hồi',
       'downloads.status.failed': 'Thất bại',
       'downloads.status.cancelled': 'Đã hủy',
       'downloads.status.processing': 'Đang xử lý',
@@ -1159,6 +1166,11 @@ class AppStrings {
       // Shared app chrome
       'common.networkError':
           'Unable to connect. Check your network and try again.',
+      'network.title': 'Connection is unstable',
+      'network.description':
+          'Your connection seems weak or interrupted. Check Wi-Fi or mobile data, then try again.',
+      'network.checking': 'Checking connection…',
+      'network.continueOffline': 'Continue offline',
       'common.serverError': 'The server is busy. Please try again later.',
       'common.confirm': 'Confirm',
       'common.yes': 'Yes',
@@ -1914,6 +1926,8 @@ class AppStrings {
       'downloads.status.loading': 'Downloading',
       'downloads.status.paused': 'Paused',
       'downloads.status.complete': 'Complete',
+      'downloads.status.ready': 'Ready to download',
+      'downloads.status.revoked': 'Download access revoked',
       'downloads.status.failed': 'Failed',
       'downloads.status.cancelled': 'Cancelled',
       'downloads.status.processing': 'Processing',

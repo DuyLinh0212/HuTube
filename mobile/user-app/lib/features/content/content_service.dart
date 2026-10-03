@@ -144,9 +144,12 @@ class ContentService {
     );
   }
 
-  Future<PageResult<CommentItem>> replies(String commentId) async {
+  Future<PageResult<CommentItem>> replies(
+    String commentId, {
+    int page = 1,
+  }) async {
     final endpoint =
-        '/comments/${Uri.encodeComponent(commentId)}/replies?page=1&pageSize=50';
+        '/comments/${Uri.encodeComponent(commentId)}/replies?page=$page&pageSize=50';
     final json = auth.authenticated
         ? await auth.protected('GET', endpoint)
         : await auth.api.request('GET', endpoint);

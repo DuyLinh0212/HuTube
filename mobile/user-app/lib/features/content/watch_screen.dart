@@ -1,3 +1,5 @@
+import '../../account/services/account_service.dart';
+import '../../core/widgets/scrollable_sheet.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -43,6 +45,7 @@ class _WatchScreenState extends State<WatchScreen> {
   MediaEntitlements _entitlements = const MediaEntitlements.none();
   List<CommentItem> _comments = [];
   List<VideoCard> _related = [];
+  int _generation = 0;
   bool _loading = true;
   bool _sendingComment = false;
   String? _error;
@@ -72,21 +75,30 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_generation;
+    final videoId = widget.videoId;
     setState(() {
       _loading = true;
       _error = null;
+      _video = null;
+      _comments = [];
+      _related = [];
+      _actionMessage = null;
+      _sendingComment = false;
     });
     try {
-      final detail = await _content.detail(widget.videoId);
-      final playback = await _content.playback(widget.videoId);
+      final detail = await _content.detail(videoId);
+      final playback = await _content.playback(videoId);
       final entitlements = await MediaEntitlements.load(widget.auth);
-      final comments = await _content.comments(widget.videoId);
+      final comments = await loadAllPages(
+        (page) => _content.comments(videoId, page: page),
+      );
       final related = await _content.feed(
         explore: false,
         pageSize: 12,
         sort: 'popular',
       );
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _video = detail;
         _renditions = [...playback.renditions]
@@ -102,9 +114,27 @@ class _WatchScreenState extends State<WatchScreen> {
       final resumeAt = playback.resumeAt > 0
           ? playback.resumeAt
           : detail.viewerState.resumeAt;
-      final source = _renditions.isNotEmpty
-          ? _renditions.last.url
-          : detail.videoUrl;
+      var preferredQuality = 'auto';
+      if (widget.auth.authenticated) {
+        try {
+          preferredQuality = (await AccountService(
+            widget.auth,
+          ).getPreferences()).defaultPlaybackQuality;
+        } catch (_) {
+          /* Auto remains available offline. */
+        }
+      }
+      if (!mounted || generation != _generation) return;
+      final cap = int.tryParse(preferredQuality.replaceAll('p', ''));
+      final candidates = cap == null
+          ? _renditions
+          : _renditions.where((item) => item.height <= cap).toList();
+      final source = candidates.isNotEmpty
+          ? candidates.last.url
+          : _renditions.isNotEmpty
+          ? _renditions.first.url
+          : '';
+      if (source.isEmpty) throw StateError('No authorized rendition');
       await widget.playback.start(
         auth: widget.auth,
         video: detail,
@@ -113,14 +143,14 @@ class _WatchScreenState extends State<WatchScreen> {
         sourceUrl: source,
         resumeAt: resumeAt,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted || generation != _generation) return;
         unawaited(
           widget.playback.initialize(source, resumeAt: resumeAt).catchError((
             _,
           ) {
-            if (mounted) {
+            if (mounted && generation == _generation) {
               setState(
                 () => _actionMessage = AppStrings.t('watch.playerError'),
               );
@@ -129,14 +159,14 @@ class _WatchScreenState extends State<WatchScreen> {
         );
       });
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = AppStrings.apiError(error, fallback: 'watch.loadError');
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = AppStrings.t('watch.loadError');
           _loading = false;
@@ -162,6 +192,7 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _react(String type) async {
+    final generation = _generation;
     if (!widget.auth.authenticated) {
       setState(() => _actionMessage = AppStrings.t('watch.loginInteract'));
       return;
@@ -173,7 +204,7 @@ class _WatchScreenState extends State<WatchScreen> {
         video.id,
         video.viewerState.reaction == type ? null : type,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _video = VideoDetail(
           id: video.id,
@@ -208,42 +239,52 @@ class _WatchScreenState extends State<WatchScreen> {
         );
       });
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() => _actionMessage = AppStrings.apiError(error));
       }
     }
   }
 
   Future<void> _rate() async {
+    final generation = _generation;
+    final videoId = widget.videoId;
     if (!widget.auth.authenticated) {
       setState(() => _actionMessage = AppStrings.t('watch.loginRate'));
       return;
     }
+    final originalVideo = _video;
     final score = await showModalBottomSheet<int>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(title: Text(AppStrings.t('watch.ratingTitle'))),
-            for (var value = 1; value <= 5; value++)
-              ListTile(
-                leading: Icon(Icons.star_rounded, color: Colors.amber.shade700),
-                title: Text(
-                  AppStrings.format('watch.ratingStars', {
-                    'count': AppStrings.number(value),
-                  }),
+      isScrollControlled: true,
+      builder: (context) => ScrollableSheet(
+        child: SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(title: Text(AppStrings.t('watch.ratingTitle'))),
+              for (var value = 1; value <= 5; value++)
+                ListTile(
+                  leading: Icon(
+                    Icons.star_rounded,
+                    color: Colors.amber.shade700,
+                  ),
+                  title: Text(
+                    AppStrings.format('watch.ratingStars', {
+                      'count': AppStrings.number(value),
+                    }),
+                  ),
+                  onTap: () => Navigator.pop(context, value),
                 ),
-                onTap: () => Navigator.pop(context, value),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
     if (score == null || _video == null) return;
     try {
-      final result = await _content.rate(widget.videoId, score);
-      final old = _video!;
-      if (!mounted) return;
+      final result = await _content.rate(videoId, score);
+      final old = originalVideo;
+      if (old == null) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _video = VideoDetail(
           id: old.id,
@@ -279,7 +320,7 @@ class _WatchScreenState extends State<WatchScreen> {
         _actionMessage = AppStrings.t('watch.ratingSaved');
       });
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() => _actionMessage = AppStrings.apiError(error));
       }
     }
@@ -298,55 +339,65 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _download() async {
+    final generation = _generation;
+    final videoId = widget.videoId;
     if (!widget.auth.authenticated) {
       setState(() => _actionMessage = AppStrings.t('watch.loginDownload'));
       return;
     }
     try {
-      final options = await _content.downloadOptions(widget.videoId);
-      if (!mounted) return;
+      final options = await _content.downloadOptions(videoId);
+      if (!mounted || generation != _generation) return;
       final chosen = await showModalBottomSheet<Rendition>(
         context: context,
-        builder: (context) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(title: Text(AppStrings.t('watch.downloadQuality'))),
-              for (final item in options)
-                ListTile(
-                  title: Text(item.quality),
-                  subtitle: Text('${item.width}×${item.height}'),
-                  onTap: () => Navigator.pop(context, item),
-                ),
-            ],
+        isScrollControlled: true,
+        builder: (context) => ScrollableSheet(
+          child: SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(title: Text(AppStrings.t('watch.downloadQuality'))),
+                for (final item in options)
+                  ListTile(
+                    title: Text(item.quality),
+                    subtitle: Text('${item.width}×${item.height}'),
+                    onTap: () => Navigator.pop(context, item),
+                  ),
+              ],
+            ),
           ),
         ),
       );
       if (chosen == null) return;
-      final record = await _content.createDownload(
-        widget.videoId,
-        chosen.quality,
-      );
+      final session = widget.auth.sessionGeneration;
+      final record = await _content.createDownload(videoId, chosen.quality);
+      if (!mounted ||
+          generation != _generation ||
+          session != widget.auth.sessionGeneration) {
+        return;
+      }
       await LocalDownloadManager.instance.enqueue(
         id: '${record['videoDownloadId'] ?? ''}',
-        videoId: widget.videoId,
+        videoId: videoId,
         title:
             '${record['title'] ?? _video?.title ?? AppStrings.t('common.download')}',
         quality: '${record['quality'] ?? chosen.quality}',
         url: '${record['fileUrl'] ?? chosen.url}',
         fileSize: asInt(record['fileSize']),
       );
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() => _actionMessage = AppStrings.t('watch.downloadAdded'));
       }
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() => _actionMessage = AppStrings.apiError(error));
       }
     }
   }
 
   Future<void> _saveToPlaylist() async {
+    final generation = _generation;
+    final videoId = widget.videoId;
     if (!widget.auth.authenticated) {
       setState(() => _actionMessage = AppStrings.t('watch.loginPlaylist'));
       return;
@@ -354,53 +405,58 @@ class _WatchScreenState extends State<WatchScreen> {
     try {
       final service = PlaylistService(widget.auth);
       final playlists = await service.mine();
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       final selected = await showModalBottomSheet<String>(
         context: context,
-        builder: (context) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(title: Text(AppStrings.t('watch.saveVideo'))),
-              ListTile(
-                leading: const Icon(Icons.bookmark_add_outlined),
-                title: Text(AppStrings.t('watch.savedVideo')),
-                onTap: () => Navigator.pop(context, '__saved__'),
-              ),
-              for (final playlist in playlists)
+        isScrollControlled: true,
+        builder: (context) => ScrollableSheet(
+          child: SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(title: Text(AppStrings.t('watch.saveVideo'))),
                 ListTile(
-                  leading: const Icon(Icons.playlist_play_rounded),
-                  title: Text(playlist.name),
-                  subtitle: Text(
-                    AppStrings.format('channel.videoCount', {
-                      'count': AppStrings.number(playlist.itemCount),
-                    }),
-                  ),
-                  onTap: () => Navigator.pop(context, playlist.id),
+                  leading: const Icon(Icons.bookmark_add_outlined),
+                  title: Text(AppStrings.t('watch.savedVideo')),
+                  onTap: () => Navigator.pop(context, '__saved__'),
                 ),
-              ListTile(
-                leading: const Icon(Icons.add_rounded),
-                title: Text(AppStrings.t('watch.createPlaylist')),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push('/playlists');
-                },
-              ),
-            ],
+                for (final playlist in playlists)
+                  ListTile(
+                    leading: const Icon(Icons.playlist_play_rounded),
+                    title: Text(playlist.name),
+                    subtitle: Text(
+                      AppStrings.format('channel.videoCount', {
+                        'count': AppStrings.number(playlist.itemCount),
+                      }),
+                    ),
+                    onTap: () => Navigator.pop(context, playlist.id),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.add_rounded),
+                  title: Text(AppStrings.t('watch.createPlaylist')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/playlists');
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       );
       if (selected == null) return;
       if (selected == '__saved__') {
-        await service.saveVideo(widget.videoId);
+        await service.saveVideo(videoId);
       } else {
-        await service.addVideo(selected, widget.videoId);
+        await service.addVideo(selected, videoId);
       }
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() => _actionMessage = AppStrings.t('watch.savedToPlaylist'));
       }
     } on ApiFailure catch (error) {
-      if (mounted) setState(() => _actionMessage = AppStrings.apiError(error));
+      if (mounted && generation == _generation) {
+        setState(() => _actionMessage = AppStrings.apiError(error));
+      }
     }
   }
 
@@ -409,81 +465,91 @@ class _WatchScreenState extends State<WatchScreen> {
     if (player == null || !widget.playback.ready) return;
     await showModalBottomSheet<void>(
       context: context,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              title: Text(
-                AppStrings.t('watch.quality'),
-                style: TextStyle(fontWeight: FontWeight.w900),
+      isScrollControlled: true,
+      builder: (context) => ScrollableSheet(
+        child: SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                title: Text(
+                  AppStrings.t('watch.quality'),
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: Text(AppStrings.t('watch.chooseResolution')),
               ),
-              subtitle: Text(AppStrings.t('watch.chooseResolution')),
-            ),
-            if (_renditions.isEmpty)
-              ListTile(title: Text(AppStrings.t('watch.originalQuality')))
-            else
-              for (final rendition in _renditions)
+              if (_renditions.isEmpty)
+                ListTile(title: Text(AppStrings.t('watch.originalQuality')))
+              else
+                for (final rendition in _renditions)
+                  ListTile(
+                    title: Text(rendition.quality),
+                    subtitle: Text('${rendition.width} × ${rendition.height}'),
+                    trailing:
+                        widget.playback.selectedRendition?.url == rendition.url
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: AppColors.primary,
+                          )
+                        : null,
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        await widget.playback.changeQuality(rendition);
+                      } on Object catch (_) {
+                        if (mounted) {
+                          setState(
+                            () => _actionMessage = AppStrings.t(
+                              'watch.playerError',
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+              const Divider(),
+              ListTile(
+                title: Text(
+                  AppStrings.t('watch.playbackSpeed'),
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: Text(AppStrings.t('watch.changePlaybackSpeed')),
+              ),
+              for (final speed in const [
+                0.25,
+                0.5,
+                0.75,
+                1.0,
+                1.25,
+                1.5,
+                1.75,
+                2.0,
+              ])
                 ListTile(
-                  title: Text(rendition.quality),
-                  subtitle: Text('${rendition.width} × ${rendition.height}'),
-                  trailing:
-                      widget.playback.selectedRendition?.url == rendition.url
+                  title: Text(
+                    speed == 1 ? AppStrings.t('watch.normalSpeed') : '$speed×',
+                  ),
+                  trailing: (player.speed - speed).abs() < .01
                       ? const Icon(
                           Icons.check_rounded,
                           color: AppColors.primary,
                         )
                       : null,
-                  onTap: () async {
+                  onTap: () {
                     Navigator.pop(context);
-                    try {
-                      await widget.playback.changeQuality(rendition);
-                    } on Object catch (_) {
-                      if (mounted) {
-                        setState(
-                          () => _actionMessage = AppStrings.t(
-                            'watch.playerError',
-                          ),
-                        );
-                      }
-                    }
+                    unawaited(widget.playback.setSpeed(speed));
                   },
                 ),
-            const Divider(),
-            ListTile(
-              title: Text(
-                AppStrings.t('watch.playbackSpeed'),
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              subtitle: Text(AppStrings.t('watch.changePlaybackSpeed')),
-            ),
-            for (final speed in const [
-              0.25,
-              0.5,
-              0.75,
-              1.0,
-              1.25,
-              1.5,
-              1.75,
-              2.0,
-            ])
-              ListTile(
-                title: Text(speed == 1 ? AppStrings.t('watch.normalSpeed') : '$speed×'),
-                trailing: (player.speed - speed).abs() < .01
-                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                    : null,
-                onTap: () {
-                  Navigator.pop(context);
-                  unawaited(widget.playback.setSpeed(speed));
-                },
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _sendComment() async {
+    final generation = _generation;
+    final videoId = widget.videoId;
     final text = _comment.text.trim();
     if (text.isEmpty || _sendingComment) return;
     if (!widget.auth.authenticated) {
@@ -492,8 +558,8 @@ class _WatchScreenState extends State<WatchScreen> {
     }
     setState(() => _sendingComment = true);
     try {
-      final comment = await _content.createComment(widget.videoId, text);
-      if (mounted) {
+      final comment = await _content.createComment(videoId, text);
+      if (mounted && generation == _generation) {
         setState(() {
           _comments = [comment, ..._comments];
           _comment.clear();
@@ -501,7 +567,7 @@ class _WatchScreenState extends State<WatchScreen> {
         });
       }
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _actionMessage = AppStrings.apiError(error);
           _sendingComment = false;
@@ -547,7 +613,11 @@ class _WatchScreenState extends State<WatchScreen> {
                       session: widget.playback,
                       onMinimize: () {
                         widget.playback.minimize();
-                        Navigator.of(context).maybePop();
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/home');
+                        }
                       },
                       onSettings: _showPlaybackSettings,
                       onPictureInPicture: _enterPictureInPicture,
@@ -743,6 +813,7 @@ class _WatchScreenState extends State<WatchScreen> {
         const SizedBox(height: 8),
         ..._comments.map(
           (item) => _CommentTile(
+            key: ValueKey(item.id),
             item: item,
             content: _content,
             signedIn: widget.auth.authenticated,
@@ -1188,7 +1259,11 @@ class _ChannelSummaryState extends State<_ChannelSummary> {
               : null,
         ),
         child: Text(
-          _busy ? '…' : (_subscribed ? AppStrings.t('watch.following') : AppStrings.t('watch.follow')),
+          _busy
+              ? '…'
+              : (_subscribed
+                    ? AppStrings.t('watch.following')
+                    : AppStrings.t('watch.follow')),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
@@ -1232,6 +1307,7 @@ class _WatchSkeletonCopy extends StatelessWidget {
 
 class _CommentTile extends StatefulWidget {
   const _CommentTile({
+    super.key,
     required this.item,
     required this.content,
     required this.signedIn,
@@ -1246,6 +1322,18 @@ class _CommentTile extends StatefulWidget {
 }
 
 class _CommentTileState extends State<_CommentTile> {
+  int _generation = 0;
+  @override
+  void didUpdateWidget(covariant _CommentTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id) {
+      ++_generation;
+      _replies = null;
+      _loading = false;
+    }
+    if (!identical(oldWidget.item, widget.item)) _item = widget.item;
+  }
+
   late CommentItem _item;
   List<CommentItem>? _replies;
   bool _loading = false;
@@ -1257,13 +1345,14 @@ class _CommentTileState extends State<_CommentTile> {
   }
 
   Future<void> _react() async {
+    final generation = _generation;
     if (!widget.signedIn) return;
     try {
       final response = await widget.content.reactComment(
         _item.id,
         _item.myReaction == 'like' ? null : 'like',
       );
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _item = CommentItem(
           id: _item.id,
@@ -1286,6 +1375,7 @@ class _CommentTileState extends State<_CommentTile> {
   }
 
   Future<void> _reply() async {
+    final generation = _generation;
     if (!widget.signedIn) return;
     final controller = TextEditingController();
     final text = await showDialog<String>(
@@ -1323,29 +1413,37 @@ class _CommentTileState extends State<_CommentTile> {
         text.trim(),
         parentCommentId: _item.id,
       );
-      if (mounted) setState(() => _replies = [...?_replies, reply]);
+      if (mounted && generation == _generation) {
+        setState(() => _replies = [...?_replies, reply]);
+      }
     } on ApiFailure {
       // Leave the dialog closed; the API is the source of truth for replies.
     }
   }
 
   Future<void> _loadReplies() async {
+    final generation = _generation;
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final replies = await widget.content.replies(_item.id);
-      if (mounted) {
+      final replies = await loadAllPages(
+        (page) => widget.content.replies(_item.id, page: page),
+      );
+      if (mounted && generation == _generation) {
         setState(() {
           _replies = replies.items;
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _generation) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _edit() async {
+    final generation = _generation;
     final controller = TextEditingController(text: _item.content);
     final updatedText = await showDialog<String>(
       context: context,
@@ -1365,12 +1463,16 @@ class _CommentTileState extends State<_CommentTile> {
       ),
     );
     controller.dispose();
-    if (updatedText == null || updatedText.trim().isEmpty) return;
+    if (updatedText == null ||
+        updatedText.trim().isEmpty ||
+        generation != _generation) {
+      return;
+    }
     try {
       final updated = await widget.content.updateComment(_item.id, updatedText);
-      if (mounted) setState(() => _item = updated);
+      if (mounted && generation == _generation) setState(() => _item = updated);
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
@@ -1379,6 +1481,7 @@ class _CommentTileState extends State<_CommentTile> {
   }
 
   Future<void> _delete() async {
+    final generation = _generation;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1396,10 +1499,10 @@ class _CommentTileState extends State<_CommentTile> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || generation != _generation) return;
     try {
       await widget.content.deleteComment(_item.id);
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(
           () => _item = CommentItem(
             id: _item.id,
@@ -1417,7 +1520,7 @@ class _CommentTileState extends State<_CommentTile> {
         );
       }
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
@@ -1476,7 +1579,10 @@ class _CommentTileState extends State<_CommentTile> {
                               value: 'edit',
                               child: Text(AppStrings.t('common.edit')),
                             ),
-                            PopupMenuItem(value: 'delete', child: Text(AppStrings.t('common.delete'))),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text(AppStrings.t('common.delete')),
+                            ),
                           ],
                         )
                       else if (widget.signedIn && _item.status != 'deleted')

@@ -23,6 +23,8 @@ public sealed class AuthServicePlanTests
         public Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct) => Task.FromResult<UserSession?>(null);
         public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => Task.FromResult(new List<UserSession>());
         public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) => Task.FromResult(new List<UserSession>());
+        public Task<(List<UserLoginHistory> Items, int Page, int PageSize, int Total)> GetLoginHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct) =>
+            Task.FromResult((new List<UserLoginHistory>(), page, pageSize, 0));
         public Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct) => Task.CompletedTask;
         public Task<EmailVerificationToken?> FindVerificationAsync(string hash, CancellationToken ct) => Task.FromResult<EmailVerificationToken?>(null);
         public Task<PasswordResetToken?> FindResetAsync(string hash, CancellationToken ct) => Task.FromResult<PasswordResetToken?>(null);
@@ -44,6 +46,7 @@ public sealed class AuthServicePlanTests
         }
 
         public void AddSession(UserSession session) { }
+        public void AddLoginHistory(UserLoginHistory loginHistory) { }
         public void AddVerification(User user, EmailVerificationToken token) { }
         public void AddReset(User user, PasswordResetToken token) { }
         public Task InvalidateTokensAsync(Guid userId, bool reset, DateTimeOffset now, CancellationToken ct) => Task.CompletedTask;

@@ -82,6 +82,17 @@ public sealed class UserSession
     public void Revoke(DateTimeOffset now, string reason) { RevokedAt ??= now; RevokeReason ??= reason; }
 }
 
+public sealed class UserLoginHistory
+{
+    public Guid LoginHistoryId { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
+    public string DeviceId { get; set; } = "";
+    public string DeviceName { get; set; } = "";
+    public string Platform { get; set; } = "web";
+    public string? IpAddress { get; set; }
+    public DateTimeOffset LoginAt { get; set; }
+}
+
 public sealed class EmailVerificationToken
 {
     public Guid EmailVerificationTokenId { get; set; } = Guid.NewGuid();

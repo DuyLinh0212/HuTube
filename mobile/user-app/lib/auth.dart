@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'features/content/local_download_manager.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -45,6 +46,23 @@ class AuthController extends ChangeNotifier {
   int get sessionGeneration => _generation;
 
   void _changed() {
+    final owner = user?['userId'] as String?;
+    unawaited(
+      LocalDownloadManager.instance.bindUser(
+        owner,
+        authorize: (id) async {
+          if (user?['userId'] != owner || owner == null) return null;
+          final entries = await protectedList('/downloads');
+          if (user?['userId'] != owner) return null;
+          for (final entry in entries.whereType<Map>()) {
+            if (entry['videoDownloadId'] == id && entry['status'] != 'revoked') {
+              return entry['fileUrl'] as String?;
+            }
+          }
+          return null;
+        },
+      ),
+    );
     if (!_disposed) notifyListeners();
   }
 
@@ -215,12 +233,11 @@ class AuthController extends ChangeNotifier {
           AppStrings.t('auth.googleCancelled'),
         ),
         GoogleSignInExceptionCode.clientConfigurationError ||
-        GoogleSignInExceptionCode.providerConfigurationError =>
-          ApiFailure(
-            503,
-            'GOOGLE_LOGIN_NOT_CONFIGURED',
-            AppStrings.t('common.googleConfigurationHint'),
-          ),
+        GoogleSignInExceptionCode.providerConfigurationError => ApiFailure(
+          503,
+          'GOOGLE_LOGIN_NOT_CONFIGURED',
+          AppStrings.t('common.googleConfigurationHint'),
+        ),
         GoogleSignInExceptionCode.uiUnavailable => ApiFailure(
           503,
           'GOOGLE_LOGIN_NOT_CONFIGURED',
@@ -296,7 +313,11 @@ class AuthController extends ChangeNotifier {
   Future<void> _refresh() async {
     final generation = _generation;
     if (_refreshToken == null) {
-      throw ApiFailure(401, 'SESSION_EXPIRED', AppStrings.t('common.loginAgain'));
+      throw ApiFailure(
+        401,
+        'SESSION_EXPIRED',
+        AppStrings.t('common.loginAgain'),
+      );
     }
     try {
       final response = await api.request(

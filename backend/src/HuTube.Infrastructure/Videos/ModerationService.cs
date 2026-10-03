@@ -15,8 +15,12 @@ public sealed class ModerationService(
     HuTubeDbContext db,
     RbacService rbac,
     INotificationService notifications,
-    IObjectStorage storage)
+    IObjectStorage storage,
+    StrikePolicySettingsService strikePolicySettings)
 {
+    public ModerationService(HuTubeDbContext db, RbacService rbac, INotificationService notifications, IObjectStorage storage)
+        : this(db, rbac, notifications, storage, new StrikePolicySettingsService(db, rbac)) { }
+
     public async Task<List<ModerationQueueItemResponse>> GetQueueAsync(string? status = null, string? riskLevel = null, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
         page = Math.Max(1, page);
@@ -258,52 +262,86 @@ public sealed class ModerationService(
                     await notifications.PublishAsync(channel.OwnerUserId, "video_rejected", "Video bị từ chối xuất bản",
                         $"Video '{video.Title}' bị từ chối xuất bản do vi phạm điều khoản {request.PolicyCode}. Lý do: {request.Reason}", $"/studio", "video", video.VideoId, ct);
 
-                    var distinctRejectedCount = await db.Videos.AsNoTracking()
-                        .Where(v => v.ChannelId == channel.ChannelId && (v.VideoId == video.VideoId || v.ModerationStatus == "rejected"))
+                    var strikePolicy = await strikePolicySettings.GetAsync(ct);
+                    var rejectedVideoIds = await db.Videos.AsNoTracking()
+                        .Where(v => v.ChannelId == channel.ChannelId && v.ModerationStatus == "rejected"
+                            && v.UpdatedAt >= strikePolicy.RejectedVideosEffectiveAt)
                         .Select(v => v.VideoId)
                         .Distinct()
-                        .CountAsync(ct);
+                        .ToListAsync(ct);
+                    if (!rejectedVideoIds.Contains(video.VideoId)) rejectedVideoIds.Add(video.VideoId);
+                    var distinctRejectedCount = rejectedVideoIds.Count;
 
-                    if (distinctRejectedCount >= 5 && channel.Status != "suspended")
+                    var automaticStrikesIssued = await db.ChannelStrikes.AsNoTracking()
+                        .CountAsync(s => s.ChannelId == channel.ChannelId && s.PolicyCode == "SPAM.REPEATED_VIOLATIONS"
+                            && s.SourceModerationCaseId.HasValue && s.CreatedAt >= strikePolicy.RejectedVideosEffectiveAt
+                            && s.Status != StrikeStatuses.Revoked, ct);
+                    var automaticStrikesEarned = distinctRejectedCount / strikePolicy.RejectedVideosPerStrike;
+
+                    if (automaticStrikesEarned > automaticStrikesIssued && channel.Status != "suspended")
                     {
+                        var activeStrikeCount = await db.ChannelStrikes.AsNoTracking()
+                            .CountAsync(s => s.ChannelId == channel.ChannelId && s.StrikeNumber > 0
+                                && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
+                        var nextStrikeNumber = activeStrikeCount + 1;
+                        var shouldSuspendChannel = nextStrikeNumber >= strikePolicy.SuspensionStrikeCount;
+                        var restrictionDays = StrikePolicySettingsService.RestrictionDaysFor(nextStrikeNumber, strikePolicy);
+                        var strikeReason = $"Kênh có {distinctRejectedCount} video bị từ chối kiểm duyệt; cứ {strikePolicy.RejectedVideosPerStrike} video bị từ chối sẽ tính một gậy.";
                         var strike = new ChannelStrike
                         {
                             ChannelId = channel.ChannelId,
                             UserId = channel.OwnerUserId,
-                            StrikeNumber = 1,
+                            StrikeNumber = nextStrikeNumber,
                             Severity = StrikeSeverities.High,
                             PolicyCode = "SPAM.REPEATED_VIOLATIONS",
-                            Reason = "Kênh đã có 5 nội dung vi phạm bị từ chối kiểm duyệt.",
-                            InternalNote = "Hệ thống tự động khóa kênh sau 5 lần video bị từ chối.",
+                            Reason = strikeReason,
+                            InternalNote = "Gậy được cấp tự động theo quy tắc từ chối video lặp lại.",
                             Status = StrikeStatuses.Active,
-                            ExpiresAt = now.AddDays(90),
+                            ExpiresAt = now.AddDays(strikePolicy.StrikeExpirationDays),
+                            UploadRestrictedUntil = now.AddDays(restrictionDays),
                             CreatedAt = now,
                             SourceModerationCaseId = moderationCase.ModerationCaseId
                         };
                         db.ChannelStrikes.Add(strike);
 
-                        channel.Status = "suspended";
-                        channel.StatusReason = "Kênh đã có 5 nội dung vi phạm bị từ chối kiểm duyệt.";
-                        channel.UpdatedAt = now;
-
-                        await rbac.LogAuditAsync(new AuditLogEntry(
-                            actorId,
-                            "channel.auto_lock",
-                            "channel",
-                            channel.ChannelId,
-                            $"Tự động khóa kênh '{channel.Name}' do đạt ngưỡng 5 video bị từ chối kiểm duyệt."
-                        ), ct);
-
+                        var strikeNotification = shouldSuspendChannel
+                            ? $"{strikeReason} Kênh đạt ngưỡng {strikePolicy.SuspensionStrikeCount} gậy đang hiệu lực và đã bị khóa."
+                            : $"{strikeReason} Gậy này hạn chế quyền đăng tải video trong {restrictionDays} ngày.";
                         await notifications.PublishAsync(
                             channel.OwnerUserId,
-                            "channel_suspended",
-                            "Kênh của bạn đã bị khóa tự động",
-                            $"Kênh '{channel.Name}' đã bị khóa tự động do có 5 nội dung bị từ chối xuất bản. Vui lòng gửi khiếu nại nếu bạn cho rằng đây là nhầm lẫn.",
+                            "channel_strike",
+                            $"Kênh nhận Gậy phạt {nextStrikeNumber}",
+                            strikeNotification,
                             "/studio",
                             "channel",
                             channel.ChannelId,
-                            ct
-                        );
+                            ct);
+
+                        if (shouldSuspendChannel)
+                        {
+                            channel.Status = "suspended";
+                            channel.StatusReason = $"Kênh đạt {nextStrikeNumber} gậy đang hiệu lực.";
+                            channel.UpdatedAt = now;
+
+                            await rbac.LogAuditAsync(new AuditLogEntry(
+                                actorId,
+                                "channel.auto_lock",
+                                "channel",
+                                channel.ChannelId,
+                                $"Tự động khóa kênh '{channel.Name}' do đạt {nextStrikeNumber} gậy đang hiệu lực."
+                            ), ct);
+
+                            await notifications.PublishAsync(
+                                channel.OwnerUserId,
+                                "channel_suspended",
+                                "Kênh của bạn đã bị khóa tự động",
+                                $"Kênh '{channel.Name}' đã bị khóa tự động do đạt {nextStrikeNumber} gậy đang hiệu lực. Vui lòng gửi khiếu nại nếu bạn cho rằng đây là nhầm lẫn.",
+                                "/studio",
+                                "channel",
+                                channel.ChannelId,
+                                ct
+                            );
+                        }
                     }
                 }
                 break;

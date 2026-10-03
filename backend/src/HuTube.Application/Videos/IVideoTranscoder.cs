@@ -1,9 +1,12 @@
 namespace HuTube.Application.Videos;
 
 public sealed record TranscodedVideo(string Quality, int Width, int Height, int BitrateKbps, string FilePath, long FileSize);
+public sealed record ProbedVideo(int Duration, int Width, int Height);
 
 public interface IVideoTranscoder
 {
+    Task<ProbedVideo> ProbeAsync(string sourceFilePath, CancellationToken ct = default) =>
+        throw new InvalidOperationException("Media probing is required before accepting an upload.");
     Task<IReadOnlyList<TranscodedVideo>> CreateLowerRenditionsAsync(
         string sourceFilePath,
         string sourceQuality,
@@ -34,6 +37,7 @@ public sealed class VideoProcessingOptions
 {
     public bool Enabled { get; set; } = true;
     public string FfmpegPath { get; set; } = "ffmpeg";
+    public string FfprobePath { get; set; } = "ffprobe";
 }
 
 public sealed class FeatureOptions

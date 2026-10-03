@@ -1,3 +1,4 @@
+import '../../core/widgets/scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
@@ -11,9 +12,9 @@ Future<void> showContentReportDialog(
   required String targetId,
 }) async {
   if (!auth.authenticated) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(AppStrings.t('report.loginRequired'))));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.t('report.loginRequired'))),
+    );
     return;
   }
   final service = ModerationService(auth);
@@ -21,9 +22,9 @@ Future<void> showContentReportDialog(
     final types = await service.violationTypes();
     if (!context.mounted) return;
     if (types.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.t('report.noReasons'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppStrings.t('report.noReasons'))));
       return;
     }
     final description = TextEditingController();
@@ -32,62 +33,70 @@ Future<void> showContentReportDialog(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (context, refresh) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                AppStrings.format('report.title', {'target': _targetLabel(targetType)}),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 6),
-              Text(AppStrings.t('report.instruction')),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: selected,
-                decoration: InputDecoration(labelText: AppStrings.t('report.reason')),
-                items: [
-                  for (final type in types)
-                    DropdownMenuItem(
-                      value: '${type['violationTypeId'] ?? ''}',
-                      child: Text('${type['name'] ?? type['code'] ?? AppStrings.t('report.other')}'),
-                    ),
-                ],
-                onChanged: (value) => refresh(() => selected = value),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: description,
-                minLines: 3,
-                maxLines: 5,
-                maxLength: 1000,
-                onChanged: (_) => refresh(() {}),
-                decoration: InputDecoration(
-                  labelText: AppStrings.t('report.description'),
-                  hintText: AppStrings.t('report.descriptionHint'),
+        builder: (context, refresh) => ScrollableSheet(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              MediaQuery.viewInsetsOf(context).bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  AppStrings.format('report.title', {
+                    'target': _targetLabel(targetType),
+                  }),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
-              ),
-              const SizedBox(height: 10),
-              FilledButton(
-                onPressed: selected == null || description.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.pop(sheetContext, true),
-                child: Text(AppStrings.t('report.submit')),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(sheetContext, false),
-                child: Text(AppStrings.t('common.cancel')),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(AppStrings.t('report.instruction')),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: selected,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('report.reason'),
+                  ),
+                  items: [
+                    for (final type in types)
+                      DropdownMenuItem(
+                        value: '${type['violationTypeId'] ?? ''}',
+                        child: Text(
+                          '${type['name'] ?? type['code'] ?? AppStrings.t('report.other')}',
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) => refresh(() => selected = value),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: description,
+                  minLines: 3,
+                  maxLines: 5,
+                  maxLength: 1000,
+                  onChanged: (_) => refresh(() {}),
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('report.description'),
+                    hintText: AppStrings.t('report.descriptionHint'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton(
+                  onPressed: selected == null || description.text.trim().isEmpty
+                      ? null
+                      : () => Navigator.pop(sheetContext, true),
+                  child: Text(AppStrings.t('report.submit')),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(sheetContext, false),
+                  child: Text(AppStrings.t('common.cancel')),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -126,9 +135,9 @@ Future<void> showContentReportDialog(
           );
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.t('report.success'))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.t('report.success'))));
       }
     } on ApiFailure catch (error) {
       if (context.mounted) {

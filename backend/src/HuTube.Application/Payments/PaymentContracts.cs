@@ -72,6 +72,9 @@ public interface IPaymentService
     /// <summary>Xử lý webhook từ SePay. Trả về true nếu đã xử lý thành công (kể cả trùng lặp).</summary>
     Task<bool> HandleSepayWebhookAsync(SepayWebhookPayload payload, CancellationToken ct = default);
 
+    /// <summary>Hủy giao dịch đang chờ thanh toán do người dùng hiện tại tạo.</summary>
+    Task CancelAsync(Guid userId, Guid paymentId, CancellationToken ct = default);
+
     /// <summary>Lấy danh sách giao dịch của user hiện tại.</summary>
     Task<IReadOnlyList<PaymentSummaryResponse>> GetUserPaymentsAsync(Guid userId, CancellationToken ct = default);
 

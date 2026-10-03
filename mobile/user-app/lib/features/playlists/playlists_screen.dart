@@ -1,3 +1,4 @@
+import '../../core/widgets/scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -79,61 +80,81 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (context, refresh) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                AppStrings.t(playlist == null ? 'playlists.create' : 'playlists.edit'),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: name,
-                autofocus: true,
-                maxLength: 150,
-                decoration: InputDecoration(labelText: AppStrings.t('playlists.name')),
-              ),
-              TextField(
-                controller: description,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(labelText: AppStrings.t('playlists.descriptionField')),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: visibility,
-                decoration: InputDecoration(labelText: AppStrings.t('playlists.privacy')),
-                items: [
-                  DropdownMenuItem(value: 'private', child: Text(AppStrings.t('playlists.private'))),
-                  DropdownMenuItem(value: 'public', child: Text(AppStrings.t('playlists.public'))),
-                  DropdownMenuItem(
-                    value: 'unlisted',
-                    child: Text(AppStrings.t('playlists.unlisted')),
+        builder: (context, refresh) => ScrollableSheet(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              MediaQuery.viewInsetsOf(context).bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  AppStrings.t(
+                    playlist == null ? 'playlists.create' : 'playlists.edit',
                   ),
-                ],
-                onChanged: (value) =>
-                    refresh(() => visibility = value ?? 'private'),
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () => Navigator.pop(sheetContext, (
-                  name.text.trim(),
-                  description.text.trim(),
-                  visibility,
-                )),
-                child: Text(AppStrings.t(playlist == null ? 'playlists.create' : 'playlists.save')),
-              ),
-            ],
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: name,
+                  autofocus: true,
+                  maxLength: 150,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('playlists.name'),
+                  ),
+                ),
+                TextField(
+                  controller: description,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('playlists.descriptionField'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: visibility,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('playlists.privacy'),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'private',
+                      child: Text(AppStrings.t('playlists.private')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'public',
+                      child: Text(AppStrings.t('playlists.public')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'unlisted',
+                      child: Text(AppStrings.t('playlists.unlisted')),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      refresh(() => visibility = value ?? 'private'),
+                ),
+                const SizedBox(height: 18),
+                FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext, (
+                    name.text.trim(),
+                    description.text.trim(),
+                    visibility,
+                  )),
+                  child: Text(
+                    AppStrings.t(
+                      playlist == null ? 'playlists.create' : 'playlists.save',
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -168,7 +189,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppStrings.t('playlists.deleteTitle')),
-        content: Text(AppStrings.format('playlists.deleteDescription', {'name': playlist.name})),
+        content: Text(
+          AppStrings.format('playlists.deleteDescription', {
+            'name': playlist.name,
+          }),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -260,7 +285,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           HuTubeSectionHeader(
             title: AppStrings.t('playlists.title'),
             subtitle: AppStrings.t('playlists.subtitle'),
-            action: widget.auth.authenticated ? AppStrings.t('playlists.createAction') : null,
+            action: widget.auth.authenticated
+                ? AppStrings.t('playlists.createAction')
+                : null,
             onAction: _edit,
           ),
           const SizedBox(height: 18),
@@ -311,8 +338,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         if (value == 'delete') _delete(playlist);
                       },
                       itemBuilder: (_) => [
-                        PopupMenuItem(value: 'edit', child: Text(AppStrings.t('common.edit'))),
-                        PopupMenuItem(value: 'delete', child: Text(AppStrings.t('common.delete'))),
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text(AppStrings.t('common.edit')),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(AppStrings.t('common.delete')),
+                        ),
                       ],
                     ),
                   ),
@@ -368,7 +401,10 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             : ReorderableListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 itemCount: detail.items.length,
-                onReorderItem: _reorder,
+                onReorder: (oldIndex, newIndex) => _reorder(
+                  oldIndex,
+                  newIndex > oldIndex ? newIndex - 1 : newIndex,
+                ),
                 itemBuilder: (context, index) {
                   final item = detail.items[index];
                   return ListTile(

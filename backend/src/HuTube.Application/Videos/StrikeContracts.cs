@@ -34,6 +34,24 @@ public sealed record RevokeStrikeRequest(
     string Reason
 );
 
+public sealed record StrikePolicySettingsDto(
+    int RejectedVideosPerStrike,
+    int FirstStrikeRestrictionDays,
+    int SecondStrikeRestrictionDays,
+    int StrikeExpirationDays,
+    int SuspensionStrikeCount,
+    DateTimeOffset RejectedVideosEffectiveAt,
+    DateTimeOffset UpdatedAt
+);
+
+public sealed record UpdateStrikePolicySettingsRequest(
+    int RejectedVideosPerStrike,
+    int FirstStrikeRestrictionDays,
+    int SecondStrikeRestrictionDays,
+    int StrikeExpirationDays,
+    int SuspensionStrikeCount
+);
+
 public sealed record ChannelStrikeStatusResponse(
     Guid ChannelId,
     int ActiveStrikesCount,
@@ -112,7 +130,8 @@ public sealed record ReportCaseSummary(
     Guid? ReviewerId,
     string? ReviewerName,
     DateTimeOffset SubmittedAt,
-    DateTimeOffset UpdatedAt
+    DateTimeOffset UpdatedAt,
+    DateTimeOffset? ResolvedAt = null
 );
 public sealed record ReportCaseReportDetail(
     Guid ReportId,

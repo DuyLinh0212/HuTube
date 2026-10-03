@@ -1,3 +1,4 @@
+using HuTube.Infrastructure.Videos;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -76,8 +77,14 @@ public sealed class RecommendationAdminService(
             StringComparer.OrdinalIgnoreCase);
         if (weights.Values.Any(value => value < 0m) || weights.Values.All(value => value == 0m))
             throw Error(400, "INVALID_SCORE_WEIGHTS", "Trọng số phải không âm và cần có ít nhất một trọng số lớn hơn 0.");
-        return new(mode, weights);
+        var maximum = weights.Values.Max();
+        return new(mode, weights.ToDictionary(x => x.Key, x => x.Value / maximum, StringComparer.OrdinalIgnoreCase));
     }
+
+    private static bool MatchesPublishedModel(ModelManifest? manifest, string key, string hash, ScoreAggregationConfig requested) =>
+        manifest?.CsvKey == key && string.Equals(manifest.CsvSha256, hash, StringComparison.OrdinalIgnoreCase)
+        && (manifest.ScoreAggregation ?? DefaultScoreAggregation()).Mode == requested.Mode
+        && ScoreFeatures.All(feature => Math.Abs((manifest.ScoreAggregation ?? DefaultScoreAggregation()).Weights.GetValueOrDefault(feature) - requested.Weights.GetValueOrDefault(feature)) <= 0.000000000001m);
 
     private static ScoreAggregationConfig ScoreAggregationFromPayload(string? payloadJson)
     {
@@ -133,7 +140,7 @@ public sealed class RecommendationAdminService(
     private async Task<List<Signal>> BuildMatrixAsync(CancellationToken ct)
     {
         var activeUsers = db.Users.AsNoTracking().Where(x => x.Status == "active");
-        var publicVideos = db.Videos.AsNoTracking()
+        var publicVideos = VideoAccessPolicy.Catalogue(db)
             .Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
         var userIds = (await activeUsers.Select(x => x.UserId).ToListAsync(ct)).ToHashSet();
         var videos = await publicVideos.Select(x => new { x.VideoId, x.ChannelId }).ToListAsync(ct);
@@ -255,17 +262,18 @@ public sealed class RecommendationAdminService(
     }
 
     public async Task<byte[]> ExportMatrixAsync(CancellationToken ct) =>
-        ToCsv(await BuildMatrixAsync(ct), DefaultScoreAggregation());
+        ToCsv(await BuildMatrixAsync(ct), (await ActiveAsync(ct))?.ScoreAggregation ?? DefaultScoreAggregation());
 
     public async Task<MatrixPreviewResponse> PreviewMatrixAsync(CancellationToken ct)
     {
+        var scoreConfig = (await ActiveAsync(ct))?.ScoreAggregation ?? DefaultScoreAggregation();
         var rows = await BuildMatrixAsync(ct);
         var previewRows = rows.Take(20).ToList();
         var userIds = previewRows.Select(x => x.UserId).Distinct().ToArray();
         var videoIds = previewRows.Select(x => x.VideoId).Distinct().ToArray();
         var users = await db.Users.AsNoTracking().Where(x => userIds.Contains(x.UserId))
             .ToDictionaryAsync(x => x.UserId, x => new { x.DisplayName, x.Username }, ct);
-        var videos = await db.Videos.AsNoTracking().Where(x => videoIds.Contains(x.VideoId))
+        var videos = await VideoAccessPolicy.Catalogue(db).Where(x => videoIds.Contains(x.VideoId))
             .Select(x => new { x.VideoId, x.Title, x.CategoryId }).ToListAsync(ct);
         var categories = await db.Categories.AsNoTracking()
             .ToDictionaryAsync(x => x.CategoryId, x => x.Name, ct);
@@ -291,7 +299,7 @@ public sealed class RecommendationAdminService(
         return new MatrixPreviewResponse(
             ["user_id", "video_id", "watch_ratio", "like", "dislike", "rating",
                 "comment_count", "subscribed", "score"],
-            previewRows.Select(x => x.CsvLine(DefaultScoreAggregation()).Split(',')).ToList(), rows.Count,
+            previewRows.Select(x => x.CsvLine(scoreConfig).Split(',')).ToList(), rows.Count,
             ["viewer_name", "viewer_username", "video", "category", "watch_percent",
                 "reaction", "rating", "subscription", "comments"], displayRows);
     }
@@ -336,7 +344,7 @@ public sealed class RecommendationAdminService(
     public async Task<IReadOnlyList<AdminVideoOption>> VideosAsync(string? search, Guid? categoryId,
         string? categoryIds, CancellationToken ct)
     {
-        var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+        var query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(x => EF.Functions.ILike(x.Title, $"%{search.Trim()}%"));
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId.Value);
         var categoryIdList = (categoryIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -423,7 +431,7 @@ public sealed class RecommendationAdminService(
             .Select(x => new { x.UserId, x.Email }).ToListAsync(ct);
         if (users.Count != request.UserIds.Distinct().Count())
             throw Error(400, "USER_NOT_ACTIVE", "Danh sách có user không hoạt động hoặc không tồn tại.");
-        var videos = await db.Videos.AsNoTracking().Where(x => request.VideoIds.Contains(x.VideoId)
+        var videos = await VideoAccessPolicy.Catalogue(db).Where(x => request.VideoIds.Contains(x.VideoId)
                 && x.Status == "published" && x.ModerationStatus == "approved"
                 && x.Visibility == "public" && x.Duration > 0)
             .Select(x => x.VideoId).ToListAsync(ct);
@@ -431,7 +439,7 @@ public sealed class RecommendationAdminService(
             throw Error(400, "VIDEO_NOT_PUBLIC", "Danh sách có video không công khai hoặc không tồn tại.");
         if (categoryRates.Count > 0)
         {
-            var videoCategoryIds = await db.Videos.AsNoTracking()
+            var videoCategoryIds = await VideoAccessPolicy.Catalogue(db)
                 .Where(x => request.VideoIds.Contains(x.VideoId) && x.CategoryId.HasValue)
                 .Select(x => x.CategoryId!.Value).Distinct().ToListAsync(ct);
             if (categoryRates.Any(rate => !videoCategoryIds.Contains(rate.CategoryId)))
@@ -471,6 +479,7 @@ public sealed class RecommendationAdminService(
             job.Status = job.Status == "cancelling" ? "cancelled" : "completed";
             job.Step = job.Status;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Recommendation job {JobId} failed at {Step}", job.JobId, job.Step);
@@ -483,6 +492,10 @@ public sealed class RecommendationAdminService(
     private async Task ProcessModelAsync(RecommendationJob job, CancellationToken ct)
     {
         var scoreAggregation = ScoreAggregationFromPayload(job.PayloadJson);
+        var key = job.ModelCsvKey;
+        var hash = job.ModelCsvSha256;
+        if (key == null || hash == null)
+        {
         job.Step = "matrix"; await db.SaveChangesAsync(ct);
         var rows = await BuildMatrixAsync(ct);
         if (rows.Count < 3 || rows.Select(x => x.UserId).Distinct().Count() < 2 || rows.Select(x => x.VideoId).Distinct().Count() < 2)
@@ -490,11 +503,16 @@ public sealed class RecommendationAdminService(
         var bytes = ToCsv(rows, scoreAggregation);
         if (bytes.Length > 32 * 1024 * 1024)
             throw Error(422, "MATRIX_TOO_LARGE", "CSV vượt giới hạn 32 MiB của Render Free.");
-        var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         var now = DateTimeOffset.UtcNow;
-        var key = $"collaborative_cf/{now:yyyy/MM/dd}/interactions_{now:yyyyMMddTHHmmssZ}_{hash[..12]}.csv";
+        key = $"collaborative_cf/{now:yyyy/MM/dd}/interactions_{now:yyyyMMddTHHmmssZ}_{hash[..12]}.csv";
         job.Step = "upload_csv"; await db.SaveChangesAsync(ct);
         await snapshots.WriteAsync(key, bytes, "text/csv", ct);
+        job.ModelCsvKey = key; job.ModelCsvSha256 = hash;
+        await db.SaveChangesAsync(ct);
+        }
+        job.ServiceJobId ??= job.JobId.ToString();
+        await db.SaveChangesAsync(ct);
         job.Step = "train_model"; await db.SaveChangesAsync(ct);
         if (string.IsNullOrWhiteSpace(options.ServiceUrl) || string.IsNullOrWhiteSpace(options.AdminToken))
             throw new InvalidOperationException("Recommendation Service URL/AdminToken is not configured.");
@@ -502,18 +520,31 @@ public sealed class RecommendationAdminService(
         client.Timeout = TimeSpan.FromSeconds(30);
         using var request = new HttpRequestMessage(HttpMethod.Post, options.ServiceUrl.TrimEnd('/') + "/internal/model/train") {
             Content = System.Net.Http.Json.JsonContent.Create(new {
+                jobId = job.ServiceJobId,
                 csvKey = key,
                 csvSha256 = hash,
                 scoreAggregation
             }) };
         request.Headers.Add("X-Model-Admin-Token", options.AdminToken);
-        using var response = await client.SendAsync(request, ct);
-        var body = await response.Content.ReadAsStringAsync(ct);
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Recommendation Service returned {(int)response.StatusCode}: {body[..Math.Min(500, body.Length)]}");
-        using var submitted = JsonDocument.Parse(body);
-        var serviceJobId = submitted.RootElement.GetProperty("jobId").GetString()
-            ?? throw new InvalidOperationException("Recommendation Service did not return a job ID.");
+        var serviceJobId = job.ServiceJobId;
+        HttpResponseMessage? response = null;
+        try { response = await client.SendAsync(request, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException)
+        { logger.LogWarning("Model submission outcome is unknown for {JobId}; polling its durable ID.", job.JobId); }
+        using (response)
+        {
+            if (response != null)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                if (!response.IsSuccessStatusCode)
+                    throw new InvalidOperationException($"Recommendation Service returned {(int)response.StatusCode}: {body[..Math.Min(500, body.Length)]}");
+                using var submitted = JsonDocument.Parse(body);
+                serviceJobId = submitted.RootElement.GetProperty("jobId").GetString()
+                    ?? throw new InvalidOperationException("Recommendation Service did not return a job ID.");
+                job.ServiceJobId = serviceJobId;
+                await db.SaveChangesAsync(ct);
+            }
+        }
         var deadline = DateTimeOffset.UtcNow.AddMinutes(20);
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -521,10 +552,23 @@ public sealed class RecommendationAdminService(
             using var poll = new HttpRequestMessage(HttpMethod.Get,
                 options.ServiceUrl.TrimEnd('/') + "/internal/model/jobs/" + Uri.EscapeDataString(serviceJobId));
             poll.Headers.Add("X-Model-Admin-Token", options.AdminToken);
-            using var progress = await client.SendAsync(poll, ct);
+            HttpResponseMessage progress;
+            try { progress = await client.SendAsync(poll, ct); }
+            catch (Exception ex) when (!ct.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException)
+            {
+                var reconciled = await ActiveAsync(ct);
+                if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation)) break;
+                continue;
+            }
+            using var progressLifetime = progress;
             var progressBody = await progress.Content.ReadAsStringAsync(ct);
             if (!progress.IsSuccessStatusCode)
+            {
+                var reconciled = await ActiveAsync(ct);
+                if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation)) break;
+                if (progress.StatusCode == System.Net.HttpStatusCode.NotFound || (int)progress.StatusCode >= 500) continue;
                 throw new InvalidOperationException($"Model job polling returned {(int)progress.StatusCode}: {progressBody[..Math.Min(500, progressBody.Length)]}");
+            }
             using var progressJson = JsonDocument.Parse(progressBody);
             var state = progressJson.RootElement.GetProperty("status").GetString();
             if (state == "completed") break;
@@ -535,8 +579,9 @@ public sealed class RecommendationAdminService(
             throw new TimeoutException("Model training exceeded the 20-minute job limit.");
         job.Step = "verify_manifest"; await db.SaveChangesAsync(ct);
         var active = await ActiveAsync(ct);
-        if (active == null || active.CsvKey != key || !string.Equals(active.CsvSha256, hash, StringComparison.OrdinalIgnoreCase))
+        if (!MatchesPublishedModel(active, key, hash, scoreAggregation))
             throw new InvalidOperationException("Recommendation Service did not publish the requested CSV manifest.");
+        var publishedModel = active!;
         var cleanupMessage = "Các CSV ma trận cũ đã được dọn khỏi R2.";
         try
         {
@@ -546,11 +591,11 @@ public sealed class RecommendationAdminService(
         {
             // The new manifest is already authoritative. A cleanup failure must not
             // roll the model back; the next successful update can retry the sweep.
-            logger.LogWarning(cleanupError, "Could not remove old recommendation CSV snapshots after model {ModelVersion}.", active.ModelVersion);
+            logger.LogWarning(cleanupError, "Could not remove old recommendation CSV snapshots after model {ModelVersion}.", publishedModel.ModelVersion);
             cleanupMessage = "Không thể dọn toàn bộ CSV cũ trên R2; model mới vẫn đang hoạt động và lượt cập nhật sau sẽ thử lại.";
         }
         job.LogsJson = Serialize(new[] {
-            $"Model {active.ModelVersion} đang hoạt động.",
+            $"Model {publishedModel.ModelVersion} đang hoạt động.",
             $"CSV: {key}",
             $"SHA-256: {hash}",
             $"Score aggregation: {scoreAggregation.Mode}.",
@@ -562,7 +607,7 @@ public sealed class RecommendationAdminService(
     {
         var request = JsonSerializer.Deserialize<SimulatorRequest>(job.PayloadJson, JsonOptions)
             ?? throw new InvalidOperationException("Invalid simulation payload.");
-        var videos = await db.Videos.AsNoTracking().Where(x => request.VideoIds.Contains(x.VideoId))
+        var videos = await VideoAccessPolicy.Catalogue(db).Where(x => request.VideoIds.Contains(x.VideoId))
             .Select(x => new SimulationVideo(x.VideoId, x.ChannelId, x.UploadedByUserId, x.Duration, x.CategoryId)).ToListAsync(ct);
         var videosById = videos.ToDictionary(x => x.VideoId);
         var videoChannelIds = videos.Select(video => video.ChannelId).Distinct().ToArray();
@@ -741,12 +786,7 @@ public sealed class RecommendationAdminService(
         var plan = new List<SimulationVideo>(count);
         while (plan.Count < count)
         {
-            var available = definitions.Where(item => pools[item.CategoryId].Count > 0).ToList();
-            if (available.Count == 0)
-            {
-                pools = CreatePools();
-                available = definitions.ToList();
-            }
+            var available = definitions.ToList();
             var total = available.Sum(item => item.Rate);
             var roll = Random.Shared.Next(total);
             var selected = available[0];
@@ -756,6 +796,8 @@ public sealed class RecommendationAdminService(
                 roll -= item.Rate;
             }
             var pool = pools[selected.CategoryId];
+            if (pool.Count == 0)
+                pool.AddRange(videos.Where(video => video.CategoryId == selected.CategoryId).OrderBy(_ => Random.Shared.Next()));
             plan.Add(pool[^1]);
             pool.RemoveAt(pool.Count - 1);
         }

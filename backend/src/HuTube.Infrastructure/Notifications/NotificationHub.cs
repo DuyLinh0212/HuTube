@@ -6,11 +6,63 @@ using HuTube.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace HuTube.Infrastructure.Notifications;
 
 [Authorize]
-public sealed class NotificationHub : Hub;
+public sealed class NotificationHub(NotificationConnections connections) : Hub
+{
+    public override Task OnConnectedAsync()
+    {
+        if (!Guid.TryParse(Context.User?.FindFirst("sid")?.Value, out var sessionId))
+        { Context.Abort(); return Task.CompletedTask; }
+        connections.Active[Context.ConnectionId] = (sessionId, Context);
+        return base.OnConnectedAsync();
+    }
+
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        connections.Active.TryRemove(Context.ConnectionId, out _);
+        return base.OnDisconnectedAsync(exception);
+    }
+}
+
+public sealed class NotificationConnections
+{
+    internal ConcurrentDictionary<string, (Guid SessionId, HubCallerContext Context)> Active { get; } = new();
+}
+
+public sealed class NotificationSessionMonitor(IServiceScopeFactory scopes, NotificationConnections connections) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            if (connections.Active.IsEmpty) continue;
+            var snapshot = connections.Active.ToArray();
+            var ids = snapshot.Select(x => x.Value.SessionId).Distinct().ToArray();
+            try
+            {
+                await using var scope = scopes.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<HuTubeDbContext>();
+                var now = DateTimeOffset.UtcNow;
+                var valid = (await db.Sessions.AsNoTracking().Where(x => ids.Contains(x.SessionId) && x.RevokedAt == null && x.ExpiresAt > now)
+                    .Select(x => x.SessionId).ToListAsync(stoppingToken)).ToHashSet();
+                foreach (var pair in snapshot)
+                    if (!valid.Contains(pair.Value.SessionId)) pair.Value.Context.Abort();
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+            catch
+            {
+                foreach (var pair in snapshot) pair.Value.Context.Abort();
+            }
+        }
+    }
+}
 
 public sealed class NotificationUserIdProvider : IUserIdProvider
 {
@@ -79,6 +131,7 @@ public sealed class NotificationService(
             "new_video" => setting?.NewVideoEnabled ?? true,
             "report_result" => setting?.ReportResultEnabled ?? true,
             "moderation" => setting?.ModerationEnabled ?? true,
+            "plan_invitation" => setting?.PlanEnabled ?? true,
             "channel_activity" or "video_like" or "video_dislike" or "comment_like" => setting?.ChannelActivityEnabled ?? true,
             _ => true
         };

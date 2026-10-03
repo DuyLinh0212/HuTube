@@ -65,15 +65,15 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         foreach (var row in rows)
         {
             var video = row.Video;
-            var available = video != null && video.Status == "published" && (video.Visibility is "public" or "unlisted")
-                && video.ModerationStatus == "approved";
+            var available = video != null && await HuTube.Infrastructure.Videos.VideoAccessPolicy.CanViewAsync(db, video, viewerId, ct);
             var reason = video == null || video.Status == "deleted" ? "deleted" : available ? null
                 : video.Visibility == "private" ? "private"
                 : video.ModerationStatus is "rejected" or "removed" ? "removed"
                 : "unavailable";
             items.Add(new(row.Item.PlaylistVideoId, row.Item.VideoId, row.Item.Position,
-                video?.Title, video?.ThumbnailUrl == null ? null : await storage.GetReadUrlAsync(video.ThumbnailUrl, TimeSpan.FromMinutes(60), ct),
-                video?.Duration ?? 0, video?.Visibility, video?.Status, video?.ModerationStatus, available, reason));
+                available ? video?.Title : null, !available || video?.ThumbnailUrl == null ? null : await storage.GetReadUrlAsync(video.ThumbnailUrl, TimeSpan.FromMinutes(60), ct),
+                available ? video?.Duration ?? 0 : 0, available ? video?.Visibility : null, available ? video?.Status : null,
+                available ? video?.ModerationStatus : null, available, available ? null : "unavailable"));
         }
         return new(playlist.PlaylistId, playlist.UserId, playlist.Name, playlist.Description, playlist.Visibility,
             playlist.CreatedAt, playlist.UpdatedAt, items);

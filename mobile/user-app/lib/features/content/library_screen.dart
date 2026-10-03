@@ -39,8 +39,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _error = null;
     });
     try {
-      final history = await _content.history();
-      final liked = await _content.liked(rating: _rating);
+      final history = await loadAllPages(
+        (page) => _content.history(page: page),
+      );
+      final liked = await loadAllPages(
+        (page) => _content.liked(page: page, rating: _rating),
+      );
       if (mounted) {
         setState(() {
           _history = history.items;

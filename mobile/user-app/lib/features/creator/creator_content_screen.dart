@@ -1,3 +1,4 @@
+import '../../core/widgets/scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -42,9 +43,12 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       _error = null;
     });
     try {
-      final result = await _service.managedVideos(
-        widget.channel.id,
-        visibility: _visibility,
+      final result = await loadAllPages(
+        (page) => _service.managedVideos(
+          widget.channel.id,
+          page: page,
+          visibility: _visibility,
+        ),
       );
       if (!mounted) return;
       setState(() {
@@ -123,7 +127,11 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppStrings.t('creator.cancelUploadTitle')),
-        content: Text(AppStrings.format('creator.cancelUploadDescription', {'title': item.title})),
+        content: Text(
+          AppStrings.format('creator.cancelUploadDescription', {
+            'title': item.title,
+          }),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -331,7 +339,9 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       ),
                                     ),
                                   IconButton(
-                                    tooltip: AppStrings.t('creator.thumbnailTooltip'),
+                                    tooltip: AppStrings.t(
+                                      'creator.thumbnailTooltip',
+                                    ),
                                     onPressed: () => _updateThumbnail(video),
                                     icon: const Icon(Icons.image_outlined),
                                   ),
@@ -340,7 +350,9 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       video.visibility.toLowerCase() !=
                                           'public')
                                     IconButton(
-                                      tooltip: AppStrings.t('creator.publishVideo'),
+                                      tooltip: AppStrings.t(
+                                        'creator.publishVideo',
+                                      ),
                                       onPressed: () => _publish(video),
                                       icon: const Icon(Icons.publish_rounded),
                                     ),
@@ -348,7 +360,9 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       .toLowerCase()
                                       .contains('fail'))
                                     IconButton(
-                                      tooltip: AppStrings.t('creator.reprocessVideo'),
+                                      tooltip: AppStrings.t(
+                                        'creator.reprocessVideo',
+                                      ),
                                       onPressed: () => _retryProcessing(video),
                                       icon: const Icon(Icons.refresh_rounded),
                                     ),
@@ -356,7 +370,9 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       .toLowerCase()
                                       .contains('upload'))
                                     IconButton(
-                                      tooltip: AppStrings.t('creator.cancelUploadTooltip'),
+                                      tooltip: AppStrings.t(
+                                        'creator.cancelUploadTooltip',
+                                      ),
                                       onPressed: () => _cancelUpload(video),
                                       icon: const Icon(Icons.cancel_outlined),
                                     ),
@@ -427,75 +443,77 @@ class _VideoEditorState extends State<_VideoEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            AppStrings.t('creator.editTitle'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _title,
-            decoration: InputDecoration(
-              labelText: AppStrings.t('creator.titleField'),
+  Widget build(BuildContext context) => ScrollableSheet(
+    child: SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppStrings.t('creator.editTitle'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _description,
-            minLines: 2,
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: AppStrings.t('creator.descriptionField'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _visibility,
-            decoration: InputDecoration(
-              labelText: AppStrings.t('creator.visibilityField'),
-            ),
-            items: [
-              DropdownMenuItem(
-                value: 'private',
-                child: Text(AppStrings.t('creator.private')),
-              ),
-              DropdownMenuItem(
-                value: 'unlisted',
-                child: Text(AppStrings.t('creator.unlisted')),
-              ),
-              DropdownMenuItem(
-                value: 'public',
-                child: Text(AppStrings.t('creator.publicModeration')),
-              ),
-            ],
-            onChanged: (value) => setState(() => _visibility = value!),
-          ),
-          const SizedBox(height: 18),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              _VideoEdit(
-                title: _title.text,
-                description: _description.text,
-                visibility: _visibility,
+            const SizedBox(height: 16),
+            TextField(
+              controller: _title,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('creator.titleField'),
               ),
             ),
-            child: Text(AppStrings.t('creator.save')),
-          ),
-        ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _description,
+              minLines: 2,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('creator.descriptionField'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _visibility,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('creator.visibilityField'),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: 'private',
+                  child: Text(AppStrings.t('creator.private')),
+                ),
+                DropdownMenuItem(
+                  value: 'unlisted',
+                  child: Text(AppStrings.t('creator.unlisted')),
+                ),
+                DropdownMenuItem(
+                  value: 'public',
+                  child: Text(AppStrings.t('creator.publicModeration')),
+                ),
+              ],
+              onChanged: (value) => setState(() => _visibility = value!),
+            ),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () => Navigator.pop(
+                context,
+                _VideoEdit(
+                  title: _title.text,
+                  description: _description.text,
+                  visibility: _visibility,
+                ),
+              ),
+              child: Text(AppStrings.t('creator.save')),
+            ),
+          ],
+        ),
       ),
     ),
   );

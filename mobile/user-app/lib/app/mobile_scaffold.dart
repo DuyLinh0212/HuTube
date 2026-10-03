@@ -1,3 +1,4 @@
+import '../core/widgets/scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -55,56 +56,59 @@ class MobileScaffold extends StatelessWidget {
     }
     showModalBottomSheet<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppStrings.t('app.create.title'),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                AppStrings.t('app.create.description'),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              _CreateAction(
-                icon: Icons.cloud_upload_outlined,
-                color: AppColors.primary,
-                title: AppStrings.t('app.create.videoTitle'),
-                description: AppStrings.t('app.create.videoDescription'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  context.go('/creator');
-                },
-              ),
-              _CreateAction(
-                icon: Icons.playlist_add_rounded,
-                color: AppColors.violet,
-                title: AppStrings.t('app.create.playlistTitle'),
-                description: AppStrings.t('app.create.playlistDescription'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  context.go('/playlists');
-                },
-              ),
-              _CreateAction(
-                icon: Icons.storefront_outlined,
-                color: AppColors.success,
-                title: AppStrings.t('app.create.channelTitle'),
-                description: AppStrings.t('app.create.channelDescription'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  context.go('/account');
-                },
-              ),
-            ],
+      isScrollControlled: true,
+      builder: (sheetContext) => ScrollableSheet(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppStrings.t('app.create.title'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  AppStrings.t('app.create.description'),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                _CreateAction(
+                  icon: Icons.cloud_upload_outlined,
+                  color: AppColors.primary,
+                  title: AppStrings.t('app.create.videoTitle'),
+                  description: AppStrings.t('app.create.videoDescription'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    context.go('/creator');
+                  },
+                ),
+                _CreateAction(
+                  icon: Icons.playlist_add_rounded,
+                  color: AppColors.violet,
+                  title: AppStrings.t('app.create.playlistTitle'),
+                  description: AppStrings.t('app.create.playlistDescription'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    context.go('/playlists');
+                  },
+                ),
+                _CreateAction(
+                  icon: Icons.storefront_outlined,
+                  color: AppColors.success,
+                  title: AppStrings.t('app.create.channelTitle'),
+                  description: AppStrings.t('app.create.channelDescription'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    context.go('/account');
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -340,7 +344,12 @@ class _Drawer extends StatelessWidget {
             AppStrings.t('nav.subscriptions'),
             '/subscriptions',
           ),
-          _item(context, Icons.auto_awesome_outlined, AppStrings.t('huai.title'), '/huai'),
+          _item(
+            context,
+            Icons.auto_awesome_outlined,
+            AppStrings.t('huai.title'),
+            '/huai',
+          ),
           _item(
             context,
             Icons.playlist_play_outlined,

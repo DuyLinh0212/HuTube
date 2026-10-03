@@ -1,3 +1,4 @@
+import 'scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -140,47 +141,49 @@ class HuTubeStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accent ?? AppColors.primary;
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: 28,
-          vertical: compact ? 28 : 72,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: compact ? 58 : 72,
-              height: compact ? 58 : 72,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: .1),
-                shape: BoxShape.circle,
+    return HuTubeScrollable(
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 28,
+            vertical: compact ? 28 : 72,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: compact ? 58 : 72,
+                height: compact ? 58 : 72,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: compact ? 27 : 34, color: color),
               ),
-              child: Icon(icon, size: compact ? 27 : 34, color: color),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            if (message != null) ...[
-              const SizedBox(height: 7),
+              const SizedBox(height: 16),
               Text(
-                message!,
+                title,
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
-                ).textTheme.bodyMedium?.copyWith(height: 1.45),
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
               ),
+              if (message != null) ...[
+                const SizedBox(height: 7),
+                Text(
+                  message!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.45),
+                ),
+              ],
+              if (actionLabel != null) ...[
+                const SizedBox(height: 18),
+                FilledButton(onPressed: onAction, child: Text(actionLabel!)),
+              ],
             ],
-            if (actionLabel != null) ...[
-              const SizedBox(height: 18),
-              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
-            ],
-          ],
+          ),
         ),
       ),
     );

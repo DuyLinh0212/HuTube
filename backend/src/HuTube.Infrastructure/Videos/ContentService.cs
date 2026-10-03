@@ -25,13 +25,25 @@ public sealed class ContentService(
     ILogger<ContentService> logger,
     IHttpClientFactory httpClientFactory,
     VideoRenditionProcessingQueue renditionQueue,
-    IRecommendationClient recommendationClient) : IContentService
+    IRecommendationClient recommendationClient,
+    StrikePolicySettingsService strikePolicySettings) : IContentService
 {
     private static readonly string VideoPromotionFeatureJson =
         $"{{\"{PlanEntitlementRules.VideoPromotion}\":true}}";
-    private sealed record FeedVideoRow(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle,
-        string Title, string? ThumbnailUrl, int Duration, string Visibility, DateTimeOffset? PublishedAt,
-        long? Views, bool IsPromoted);
+    private sealed class FeedVideoRow
+    {
+        public Guid VideoId { get; init; }
+        public Guid ChannelId { get; init; }
+        public string ChannelName { get; init; } = "";
+        public string ChannelHandle { get; init; } = "";
+        public string Title { get; init; } = "";
+        public string? ThumbnailUrl { get; init; }
+        public int Duration { get; init; }
+        public string Visibility { get; init; } = "public";
+        public DateTimeOffset? PublishedAt { get; init; }
+        public long? Views { get; init; }
+        public bool IsPromoted { get; init; }
+    }
     private sealed record ViewerHistoryRow(int WatchDuration, decimal Progress);
     private sealed class ExploreCategoryRow
     {
@@ -89,6 +101,9 @@ public sealed class ContentService(
                 WHERE video.status = 'published'
                   AND video.moderation_status = 'approved'
                   AND video.visibility = 'public'
+                  AND channel.status = 'active'
+                  AND NOT video.moderation_hidden AND NOT video.recommendation_restricted
+                  AND video.media_purged_at IS NULL
             ), ranked AS (
                 SELECT public_rows.*,
                        ROW_NUMBER() OVER (
@@ -188,8 +203,6 @@ public sealed class ContentService(
         Guid? currentUserId = null,
         CancellationToken ct = default)
     {
-        IQueryable<Video> PublishedCatalogue() => db.Videos.AsNoTracking().Where(video =>
-            video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public");
         (page, pageSize) = Page(page, pageSize);
         // Read the current viewing history for every home/recommended page. A model snapshot
         // cannot know about views recorded after it was trained.
@@ -209,17 +222,18 @@ public sealed class ContentService(
         if (isHomeRecommendationFeed)
         {
             var now = clock.GetUtcNow();
-            promotedVideosQuery = PublishedCatalogue().Where(video =>
-                video.PublishedAt.HasValue && db.PlanHistories.AsNoTracking().Any(history =>
+            promotedVideosQuery = VideoAccessPolicy.Catalogue(db).Where(video =>
+                video.PromotionEnabled
+                && video.PublishedAt.HasValue && db.PlanHistories.AsNoTracking().Any(history =>
                     history.Status == "active"
-                    && history.StartedAt <= video.PublishedAt!.Value
+                    && history.StartedAt <= now
                     && (!history.EndedAt.HasValue || history.EndedAt > now)
                     && (history.UserId == video.UploadedByUserId
                         || db.PlanMembers.AsNoTracking().Any(member =>
                             member.PlanHistoryId == history.PlanHistoryId
                             && member.MemberUserId == video.UploadedByUserId
                             && member.Status == "accepted"
-                            && member.AcceptedAt <= video.PublishedAt))
+                            && member.AcceptedAt <= now))
                     && db.Plans.AsNoTracking().Any(plan => plan.PlanId == history.PlanId
                         && plan.Status == "active"
                         && EF.Functions.JsonContains(plan.Features, VideoPromotionFeatureJson))));
@@ -237,9 +251,20 @@ public sealed class ContentService(
                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
                    join views in viewCounts on video.VideoId equals views.VideoId into viewRows
                    from views in viewRows.DefaultIfEmpty()
-                   select new FeedVideoRow(video.VideoId, video.ChannelId, channel.Name, channel.Handle,
-                       video.Title, video.ThumbnailUrl, video.Duration, video.Visibility, video.PublishedAt,
-                       (long?)views!.Count, isPromoted);
+                   select new FeedVideoRow
+                   {
+                       VideoId = video.VideoId,
+                       ChannelId = video.ChannelId,
+                       ChannelName = channel.Name,
+                       ChannelHandle = channel.Handle,
+                       Title = video.Title,
+                       ThumbnailUrl = video.ThumbnailUrl,
+                       Duration = video.Duration,
+                       Visibility = video.Visibility,
+                       PublishedAt = video.PublishedAt,
+                       Views = (long?)views!.Count,
+                       IsPromoted = isPromoted
+                   };
         }
 
         async Task<List<VideoCardResponse>> ToFeedCardsAsync(IEnumerable<FeedVideoRow> rows)
@@ -259,9 +284,11 @@ public sealed class ContentService(
             && string.IsNullOrWhiteSpace(tag)
             && recommendationClient.IsEnabled)
         {
+            var useRandomFallback = false;
             try
             {
                 var recommended = await recommendationClient.GetRecommendationsAsync(currentUserId.Value, 100, viewedIds, ct);
+                useRandomFallback = recommended is null || recommended.Count == 0;
                 if ((recommended?.Count ?? 0) > 0 || promotedVideoCount > 0)
                 {
                     var candidateRecIds = recommended?.Select(item => item.VideoId)
@@ -272,7 +299,7 @@ public sealed class ContentService(
                         : [];
                     var promotedRecIdSet = promotedRecIds.ToHashSet();
                     var recIds = candidateRecIds.Where(id => !promotedRecIdSet.Contains(id)).ToList();
-                    var recVideos = await FeedRows(PublishedCatalogue()
+                    var recVideos = await FeedRows(VideoAccessPolicy.Catalogue(db)
                             .Where(video => recIds.Contains(video.VideoId)
                                 && !db.ViewingHistories.Any(history => history.UserId == currentUserId.Value && history.VideoId == video.VideoId)),
                             isPromoted: false)
@@ -298,7 +325,7 @@ public sealed class ContentService(
                     if (personalizedPageRows.Count < pageSize)
                     {
                         var fallbackSkip = Math.Max(0, organicOffset - orderedModelRows.Count);
-                        var fallbackVideosQuery = PublishedCatalogue()
+                        var fallbackVideosQuery = VideoAccessPolicy.Catalogue(db)
                             .Where(video => !db.ViewingHistories.Any(history => history.UserId == currentUserId.Value && history.VideoId == video.VideoId));
                         if (promotedVideoCount > 0)
                             fallbackVideosQuery = fallbackVideosQuery.Where(video =>
@@ -306,15 +333,18 @@ public sealed class ContentService(
                         if (recIds.Count > 0)
                             fallbackVideosQuery = fallbackVideosQuery.Where(video => !recIds.Contains(video.VideoId));
 
-                        var fallbackRows = await FeedRows(fallbackVideosQuery, isPromoted: false)
-                            .OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt)
+                        var fallbackRowsQuery = FeedRows(fallbackVideosQuery, isPromoted: false);
+                        fallbackRowsQuery = useRandomFallback
+                            ? fallbackRowsQuery.OrderBy(_ => EF.Functions.Random())
+                            : fallbackRowsQuery.OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt);
+                        var fallbackRows = await fallbackRowsQuery
                             .Skip(fallbackSkip).Take(pageSize - personalizedPageRows.Count).ToListAsync(ct);
                         personalizedPageRows.AddRange(fallbackRows);
                     }
 
                     if (personalizedPageRows.Count > 0)
                     {
-                        var totalCount = await PublishedCatalogue()
+                        var totalCount = await VideoAccessPolicy.Catalogue(db)
                             .Where(video => !db.ViewingHistories.Any(history => history.UserId == currentUserId.Value && history.VideoId == video.VideoId))
                             .CountAsync(ct);
                         return new(await ToFeedCardsAsync(personalizedPageRows), page, pageSize, totalCount);
@@ -323,11 +353,17 @@ public sealed class ContentService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Error while processing personalized feed for user {UserId}. Falling back to default feed.", currentUserId.Value);
+                useRandomFallback = true;
+                logger.LogWarning(ex, "Error while processing personalized feed for user {UserId}. Falling back to random public videos.", currentUserId.Value);
             }
+
+            // If CF has no usable result (for example when Recommendation Service is down),
+            // serve public catalogue videos in a random order instead of a popularity-only feed.
+            if (useRandomFallback)
+                sort = "random";
         }
 
-        var query = PublishedCatalogue();
+        var query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
         if (hideViewed)
             query = query.Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId));
         if (categoryId.HasValue) query = query.Where(x => x.CategoryId == categoryId);
@@ -344,7 +380,7 @@ public sealed class ContentService(
         if (fallbackToDefault)
         {
             // Guest cold-start falls back from Category/Tag to the public newest/popular catalogue.
-            query = PublishedCatalogue();
+            query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
             if (hideViewed)
                 query = query.Where(x => !db.ViewingHistories.Any(history => history.UserId == currentUserId!.Value && history.VideoId == x.VideoId));
             total = await query.CountAsync(ct);
@@ -354,6 +390,7 @@ public sealed class ContentService(
         var rows = FeedRows(query, isPromoted: false);
         rows = (feed.ToLowerInvariant(), sort?.ToLowerInvariant()) switch
         {
+            ("home", "random") => rows.OrderBy(_ => EF.Functions.Random()),
             ("home", _) => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
             (_, "popular") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
             (_, "trending") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
@@ -389,7 +426,7 @@ public sealed class ContentService(
             return new([], p, size, 0);
         }
 
-        var query = db.Videos.AsNoTracking()
+        var query = VideoAccessPolicy.Catalogue(db)
             .Where(x => subscribedChannelIds.Contains(x.ChannelId) && x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
 
         var total = await query.CountAsync(ct);
@@ -399,7 +436,7 @@ public sealed class ContentService(
                    join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
                    join view in subscriptionViewCounts on video.VideoId equals view.VideoId into viewRows
                    from view in viewRows.DefaultIfEmpty()
-                   orderby video.PublishedAt descending
+                   orderby video.PublishedAt.HasValue descending, video.PublishedAt descending, video.VideoId descending
                    select new
                    {
                        video.VideoId,
@@ -427,7 +464,7 @@ public sealed class ContentService(
     public async Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery search, CancellationToken ct = default)
     {
         var (page, pageSize) = Page(search.Page, search.PageSize);
-        var query = db.Videos.AsNoTracking().Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
+        var query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
 
         var term = search.Query?.Trim();
         if (!string.IsNullOrWhiteSpace(term))
@@ -676,17 +713,29 @@ public sealed class ContentService(
         IReadOnlyList<VideoChapter> chapters;
         try { chapters = VideoRules.ValidateChapters(command.Chapters.Select(x => new VideoChapter(x.StartSeconds, x.Title)), command.Duration); }
         catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
+        IReadOnlyList<VideoCardRequest> videoCards = [];
         var tags = NormalizeTags(command.Tags);
-        var temporaryDirectory = Path.Combine(Path.GetTempPath(), "hutube-video-processing", Guid.NewGuid().ToString("N"));
+        var videoId = Guid.NewGuid();
+        var temporaryDirectory = Path.Combine(Path.GetTempPath(), "hutube-video-processing", $"video-{videoId:N}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(temporaryDirectory);
         var sourceExtension = Path.GetExtension(command.FileName);
         if (string.IsNullOrWhiteSpace(sourceExtension)) sourceExtension = ".mp4";
         var sourceFile = Path.Combine(temporaryDirectory, "source" + sourceExtension);
+        ProbedVideo? probe = null;
         string? videoUrl = null;
         string? thumbnailUrl = null;
         try
         {
             await using (var local = File.Create(sourceFile)) await command.Content.CopyToAsync(local, ct);
+            probe = await transcoder.ProbeAsync(sourceFile, ct);
+            var actualSize = new FileInfo(sourceFile).Length;
+            var qualityHeight = new[] { 360, 480, 720, 1080, 1440, 2160 }.FirstOrDefault(height => height >= probe.Height);
+            if (qualityHeight == 0) throw Error(400, "INVALID_SOURCE_QUALITY", "Video vượt chất lượng hỗ trợ.");
+            command = command with { Duration = probe.Duration, FileSize = actualSize, SourceQuality = qualityHeight + "p" };
+            await PreflightAsync(actorId, new(command.ChannelId, actualSize, probe.Duration, command.ContentType, command.SourceQuality), ct);
+            try { chapters = VideoRules.ValidateChapters(command.Chapters.Select(x => new VideoChapter(x.StartSeconds, x.Title)), command.Duration); }
+            catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
+            videoCards = await ValidateVideoCardsAsync(channel.ChannelId, command.VideoCards, command.Duration, ct);
             if (command.ThumbnailContent != null && command.ThumbnailFileName != null && command.ThumbnailContentType != null)
                 thumbnailUrl = await storage.SaveFileAsync("video-thumbnails", command.ThumbnailFileName, command.ThumbnailContent, command.ThumbnailContentType, ct);
             else
@@ -725,12 +774,12 @@ public sealed class ContentService(
         var now = Now;
         var publicUploadRequiresModeration = features.ModerationEnabled
             && command.Visibility.Equals("public", StringComparison.OrdinalIgnoreCase);
-        var video = new Video { ChannelId = command.ChannelId, UploadedByUserId = actorId, CategoryId = command.CategoryId, Title = command.Title.Trim(), Description = Clean(command.Description),
+        var video = new Video { VideoId = videoId, ChannelId = command.ChannelId, UploadedByUserId = actorId, CategoryId = command.CategoryId, Title = command.Title.Trim(), Description = Clean(command.Description),
             VideoUrl = videoUrl!, ThumbnailUrl = thumbnailUrl, Duration = command.Duration, FileSize = command.FileSize, Visibility = command.Visibility.ToLowerInvariant(),
-            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted,
+            Status = "processing", LanguageCode = Clean(command.LanguageCode), AgeRestricted = command.AgeRestricted, AllowComments = command.AllowComments,
             ModerationStatus = publicUploadRequiresModeration ? "pending" : "not_submitted",
             IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey,
-            Metadata = PersistenceJson.Serialize(new { chapters }), CreatedAt = now, UpdatedAt = now };
+            Metadata = PersistenceJson.Serialize(new { chapters, videoCards }), CreatedAt = now, UpdatedAt = now };
         var generated = new List<(TranscodedVideo Rendition, string StoredPath)>();
         Exception? processingError = null;
         var deferredProcessingQueued = false;
@@ -752,11 +801,13 @@ public sealed class ContentService(
             }
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         try
         {
             if (quota != null)
             {
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"quota:" + channel.ChannelId}, 0))", ct);
+                await db.Entry(quota).ReloadAsync(ct);
                 if (!ChannelQuotaRules.CanReserve(quota.StorageUsed, command.FileSize, quota.StorageLimit))
                     throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
                 quota.StorageUsed += command.FileSize;
@@ -768,9 +819,8 @@ public sealed class ContentService(
             if (publicUploadRequiresModeration)
                 db.ModerationCases.Add(CreateUploadModerationCase(video, now));
 
-            var sourceHeight = VideoRules.QualityHeight(command.SourceQuality);
-            db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = command.SourceQuality.ToLowerInvariant(), Width = sourceHeight * 16 / 9,
-                Height = sourceHeight, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "source", Status = "ready", CreatedAt = now, UpdatedAt = now });
+            db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = command.SourceQuality.ToLowerInvariant(), Width = probe!.Width,
+                Height = probe.Height, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "source", Status = "ready", CreatedAt = now, UpdatedAt = now });
             if (command.DeferLowerRenditions)
             {
                 foreach (var quality in VideoRules.LowerQualities(command.SourceQuality))
@@ -824,6 +874,7 @@ public sealed class ContentService(
     public async Task<UploadPreflightResponse> PreflightAsync(Guid actorId, UploadPreflightRequest request, CancellationToken ct = default)
     {
         var channel = await RequireChannelPermissionAsync(request.ChannelId, actorId, ChannelPermissions.VideoUpload, ct);
+        var strikePolicy = await strikePolicySettings.GetAsync(ct);
         var activeStrikes = await db.ChannelStrikes.AsNoTracking()
             .Where(s => s.ChannelId == channel.ChannelId && s.Status == "active" && s.ExpiresAt > Now)
             .OrderByDescending(s => s.CreatedAt)
@@ -831,7 +882,7 @@ public sealed class ContentService(
             .ToListAsync(ct);
         var activeRestrictions = activeStrikes.Select(s => new
             {
-                Until = s.UploadRestrictedUntil ?? s.CreatedAt.AddDays(s.StrikeNumber >= 2 ? 14 : 7),
+                Until = s.UploadRestrictedUntil ?? s.CreatedAt.AddDays(StrikePolicySettingsService.RestrictionDaysFor(s.StrikeNumber, strikePolicy)),
                 s.Reason
             })
             .Where(x => x.Until > Now).ToList();
@@ -904,6 +955,8 @@ public sealed class ContentService(
         {
             var oldVisibility = video.Visibility;
             var newVisibility = request.Visibility.ToLowerInvariant();
+            if (video.ModerationHidden && newVisibility != "private")
+                throw Error(403, "MODERATION_RESTRICTION", "Video đang bị hạn chế bởi kiểm duyệt.");
             VideoRules.ValidateVisibility(newVisibility);
             EnsureVisibilityAvailable(newVisibility);
             video.Visibility = newVisibility;
@@ -938,12 +991,38 @@ public sealed class ContentService(
             video.CategoryId = request.CategoryId;
         }
         if (request.LanguageCode != null) video.LanguageCode = Clean(request.LanguageCode);
-        if (request.AgeRestricted.HasValue) video.AgeRestricted = request.AgeRestricted.Value;
+        if (request.AgeRestricted.HasValue) video.AgeRestricted = request.AgeRestricted.Value || video.ModerationAgeRestricted;
+        if (request.PromotionEnabled == true)
+        {
+            if (!await HasVideoPromotionEntitlementAsync(video.UploadedByUserId, ct))
+                throw Error(403, "VIDEO_PROMOTION_DENIED", "Gói hiện tại không hỗ trợ quảng bá video.");
+            video.PromotionEnabled = true;
+        }
+        else if (request.PromotionEnabled == false)
+        {
+            video.PromotionEnabled = false;
+        }
         if (request.ThumbnailUrl != null) video.ThumbnailUrl = Clean(request.ThumbnailUrl);
         if (request.Chapters != null)
         {
-            try { video.Metadata = PersistenceJson.Serialize(new { chapters = VideoRules.ValidateChapters(request.Chapters.Select(x => new VideoChapter(x.StartSeconds, x.Title)), video.Duration) }); }
+            try
+            {
+                var metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(video.Metadata) ?? [];
+                metadata["chapters"] = VideoRules.ValidateChapters(request.Chapters.Select(x => new VideoChapter(x.StartSeconds, x.Title)), video.Duration);
+                video.Metadata = PersistenceJson.Serialize(metadata);
+            }
             catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
+        }
+        if (request.VideoCards != null)
+        {
+            var videoCards = await ValidateVideoCardsAsync(video.ChannelId, request.VideoCards, video.Duration, ct);
+            try
+            {
+                var metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(video.Metadata) ?? [];
+                metadata["videoCards"] = videoCards;
+                video.Metadata = PersistenceJson.Serialize(metadata);
+            }
+            catch (JsonException) { throw Error(400, "INVALID_VIDEO_CARDS", "Không thể lưu video liên quan."); }
         }
         if (request.Tags != null) await ReplaceTagsAsync(video.VideoId, NormalizeTags(request.Tags), ct);
         video.UpdatedAt = Now;
@@ -1029,7 +1108,7 @@ public sealed class ContentService(
     {
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoDelete, ct);
-        video.Status = "deleted"; video.UpdatedAt = Now;
+        video.Status = "deleted"; video.UpdatedAt = Now; video.MediaRetentionUntil ??= Now.AddDays(30);
         await db.SaveChangesAsync(ct);
     }
 
@@ -1038,6 +1117,8 @@ public sealed class ContentService(
         if (!features.ModerationEnabled) throw Error(409, "MODERATION_UNAVAILABLE", "Kiểm duyệt đang tạm khóa; video chưa thể đặt ở chế độ công khai.");
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
+        if (video.ModerationHidden || video.MediaPurgeStartedAt.HasValue || video.MediaPurgedAt.HasValue)
+            throw Error(403, "MODERATION_RESTRICTION", "Video đang bị hạn chế bởi kiểm duyệt hoặc đã được dọn media.");
         if (video.ModerationStatus == "approved") throw Error(409, "INVALID_MODERATION_STATE", "Video đã được duyệt.");
         if (video.ModerationStatus == "pending"
             && await db.ModerationCases.AnyAsync(c => c.VideoId == video.VideoId && (c.Status == "pending" || c.Status == "reviewing"), ct))
@@ -1055,6 +1136,8 @@ public sealed class ContentService(
     {
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
+        if (video.ModerationHidden || video.MediaPurgeStartedAt.HasValue || video.MediaPurgedAt.HasValue)
+            throw Error(403, "MODERATION_RESTRICTION", "Video đang bị hạn chế bởi kiểm duyệt hoặc đã được dọn media.");
         if (!features.ModerationEnabled && video.Visibility == "public")
             throw Error(409, "PUBLICATION_LOCKED", "Chế độ công khai đang tạm khóa cho đến khi kiểm duyệt được bật.");
         if (features.ModerationEnabled && video.ModerationStatus != "approved") throw Error(409, "VIDEO_NOT_APPROVED", "Video phải được kiểm duyệt trước khi xuất bản.");
@@ -1107,17 +1190,15 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoDelete, ct);
         if (video.Status == "published") throw Error(409, "PUBLISHED_VIDEO_CANNOT_CANCEL", "Video đã xuất bản không thể hủy upload.");
-        await storage.DeleteFileAsync(video.VideoUrl, ct);
-        video.Status = "deleted"; video.UpdatedAt = Now;
-        var quota = await db.ChannelQuotas.SingleOrDefaultAsync(x => x.ChannelId == video.ChannelId, ct);
-        if (quota != null) { quota.StorageUsed = Math.Max(0, quota.StorageUsed - video.FileSize); quota.UpdatedAt = Now; }
-        await db.SaveChangesAsync(ct);
+        await DeleteVideoAsync(actorId, videoId, ct);
     }
 
     public async Task<VideoResponse> RetryProcessingAsync(Guid actorId, Guid videoId, CancellationToken ct = default)
     {
         var video = await RequireVideoAsync(videoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoEdit, ct);
+        if (video.ModerationHidden || video.MediaPurgeStartedAt.HasValue || video.MediaPurgedAt.HasValue)
+            throw Error(403, "MODERATION_RESTRICTION", "Video đang bị hạn chế bởi kiểm duyệt hoặc đã được dọn media.");
         if (video.Status != "failed") throw Error(409, "VIDEO_NOT_RETRYABLE", "Chỉ video xử lý lỗi mới có thể thử lại.");
         if (video.MediaPurgedAt.HasValue) throw Error(409, "VIDEO_MEDIA_PURGED", "Tệp video đã được dọn và không thể xử lý lại.");
         var sourceRendition = await db.VideoRenditions
@@ -1256,14 +1337,39 @@ public sealed class ContentService(
         return new(items, page, pageSize, total);
     }
 
-    public async Task<PageResult<CommentResponse>> GetManagedCommentsAsync(Guid actorId, Guid channelId, string? status, int page, int pageSize, CancellationToken ct = default)
+    public async Task<PageResult<CommentResponse>> GetManagedCommentsAsync(Guid actorId, Guid channelId, string? status, string? sort, int page, int pageSize, CancellationToken ct = default)
     {
         await RequireChannelPermissionAsync(channelId, actorId, ChannelPermissions.CommentManage, ct);
         (page, pageSize) = Page(page, pageSize);
         var query = db.Comments.AsNoTracking().Where(x => db.Videos.Any(v => v.VideoId == x.VideoId && v.ChannelId == channelId) && x.Status != "deleted");
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.ToLowerInvariant());
         var total = await query.CountAsync(ct);
-        var rows = await query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var normalizedSort = sort?.Trim().ToLowerInvariant();
+        List<Comment> rows;
+        if (normalizedSort is "mostliked" or "most_liked" or "top" or "likes")
+        {
+            var channelCommentIds = query.Select(comment => comment.CommentId);
+            var likeCounts = db.CommentReactions.AsNoTracking()
+                .Where(reaction => reaction.Type == "like" && channelCommentIds.Contains(reaction.CommentId))
+                .GroupBy(reaction => reaction.CommentId)
+                .Select(group => new { CommentId = group.Key, Count = group.LongCount() });
+            rows = await (from comment in query
+                          join likes in likeCounts on comment.CommentId equals likes.CommentId into likeRows
+                          from likes in likeRows.DefaultIfEmpty()
+                          orderby (long?)likes.Count descending, comment.CreatedAt descending, comment.CommentId descending
+                          select comment)
+                .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        }
+        else if (normalizedSort == "oldest")
+        {
+            rows = await query.OrderBy(comment => comment.CreatedAt).ThenBy(comment => comment.CommentId)
+                .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        }
+        else
+        {
+            rows = await query.OrderByDescending(comment => comment.CreatedAt).ThenByDescending(comment => comment.CommentId)
+                .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        }
         var items = await ToCommentsAsync(rows, actorId, ct);
         return new(items, page, pageSize, total);
     }
@@ -1297,6 +1403,7 @@ public sealed class ContentService(
     public async Task<CommentResponse> CreateCommentAsync(Guid userId, Guid videoId, CreateCommentRequest request, CancellationToken ct = default)
     {
         var video = await RequireVideoAsync(videoId, ct); await EnsureCanViewAsync(video, userId, ct);
+        if (!video.AllowComments) throw Error(403, "COMMENTS_DISABLED", "Video đã tắt bình luận.");
         string content; try { content = VideoRules.ValidateComment(request.Content); } catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
         Comment? parent = null;
         if (request.ParentCommentId.HasValue)
@@ -1366,27 +1473,6 @@ public sealed class ContentService(
         return new(normalizedReaction, await db.CommentReactions.LongCountAsync(x => x.CommentId == commentId && x.Type == "like", ct), await db.CommentReactions.LongCountAsync(x => x.CommentId == commentId && x.Type == "dislike", ct));
     }
 
-    public async Task<ReportResponse> ReportCommentAsync(Guid userId, Guid commentId, ReportCommentRequest request, CancellationToken ct = default)
-    {
-        await RequireCommentAsync(commentId, ct);
-        var violationTypeId = request.ViolationTypeId;
-        if (!await db.ViolationTypes.AnyAsync(x => x.ViolationTypeId == violationTypeId && x.Status == "active", ct))
-        {
-            var fallback = await db.ViolationTypes.FirstOrDefaultAsync(x => x.Status == "active", ct);
-            if (fallback != null) violationTypeId = fallback.ViolationTypeId;
-            else
-            {
-                var defaults = await GetViolationTypesAsync(ct);
-                violationTypeId = defaults[0].ViolationTypeId;
-            }
-        }
-        var description = Clean(request.Description); if (description == null) throw Error(400, "DESCRIPTION_REQUIRED", "Vui lòng mô tả vi phạm.");
-        var report = new Report { UserId = userId, CommentId = commentId, ViolationTypeId = violationTypeId, Description = description, CreatedAt = Now, UpdatedAt = Now };
-        db.Reports.Add(report); await db.SaveChangesAsync(ct);
-        db.ModerationCases.Add(new ModerationCase { ReportId = report.ReportId, CaseType = "report_review", Status = "pending", SubmittedAt = Now, UpdatedAt = Now });
-        await db.SaveChangesAsync(ct); return new(report.ReportId, report.Status, report.CreatedAt);
-    }
-
     public async Task<CommentResponse> SetCommentHiddenAsync(Guid actorId, Guid commentId, bool hidden, string? reason, CancellationToken ct = default)
     {
         var comment = await RequireCommentAsync(commentId, ct); var video = await RequireVideoAsync(comment.VideoId, ct);
@@ -1429,11 +1515,15 @@ public sealed class ContentService(
     public async Task<IReadOnlyList<DownloadResponse>> GetDownloadsAsync(Guid userId, CancellationToken ct = default)
     {
         var rows = await (from item in db.VideoDownloads.AsNoTracking() join video in db.Videos.AsNoTracking() on item.VideoId equals video.VideoId
-                          where item.UserId == userId orderby item.CreatedAt descending select new { item, video.Title })
+                          where item.UserId == userId orderby item.CreatedAt descending select new { item, Video = video })
             .Take(200).ToListAsync(ct);
         var result = new List<DownloadResponse>();
-        foreach (var row in rows) result.Add(new(row.item.VideoDownloadId, row.item.VideoId, row.Title, row.item.QualityLabel,
-            await ReadUrlAsync(row.item.FileUrl, ct), row.item.FileSize, row.item.Status, row.item.CreatedAt));
+        foreach (var row in rows)
+        {
+            var allowed = await CanIssueDownloadAsync(userId, row.Video, row.item.QualityLabel, ct);
+            result.Add(new(row.item.VideoDownloadId, row.item.VideoId, allowed ? row.Video.Title : "Video không khả dụng", row.item.QualityLabel,
+                allowed ? await ReadUrlAsync(row.item.FileUrl, ct) : "", row.item.FileSize, allowed ? row.item.Status : "revoked", row.item.CreatedAt));
+        }
         return result;
     }
 
@@ -1447,6 +1537,9 @@ public sealed class ContentService(
     public async Task<DownloadResponse> SetDownloadStateAsync(Guid userId, Guid downloadId, string action, CancellationToken ct = default)
     {
         var item = await db.VideoDownloads.SingleOrDefaultAsync(x => x.VideoDownloadId == downloadId && x.UserId == userId, ct) ?? throw Error(404, "DOWNLOAD_NOT_FOUND", "Không tìm thấy bản tải xuống.");
+        var video = await RequireVideoAsync(item.VideoId, ct);
+        if (!await CanIssueDownloadAsync(userId, video, item.QualityLabel, ct))
+            throw Error(403, "DOWNLOAD_REVOKED", "Quyền tải video đã bị thu hồi.");
         item.Status = action.ToLowerInvariant() switch
         {
             "pause" when item.Status is "pending" or "processing" => "cancelled",
@@ -1467,6 +1560,17 @@ public sealed class ContentService(
         db.VideoDownloads.RemoveRange(rows); await db.SaveChangesAsync(ct);
     }
 
+    private async Task<bool> CanIssueDownloadAsync(Guid userId, Video video, string quality, CancellationToken ct)
+    {
+        try
+        {
+            await EnsureCanViewAsync(video, userId, ct);
+            await EnsureDownloadAllowedAsync(userId, ct);
+            return VideoRules.QualityHeight(quality) <= await MaxDownloadHeightAsync(userId, ct);
+        }
+        catch (ContentException) { return false; }
+    }
+
     private async Task<VideoResponse> ToResponseAsync(Video video, Guid? viewerId, CancellationToken ct)
     {
         var channel = await db.Channels.AsNoTracking().SingleAsync(x => x.ChannelId == video.ChannelId, ct);
@@ -1475,12 +1579,14 @@ public sealed class ContentService(
         var likes = await db.VideoReactions.LongCountAsync(x => x.VideoId == video.VideoId && x.Type == "like", ct);
         var dislikes = await db.VideoReactions.LongCountAsync(x => x.VideoId == video.VideoId && x.Type == "dislike", ct);
         var views = await db.ViewingHistories.LongCountAsync(x => x.VideoId == video.VideoId, ct);
+        var watchSeconds = await db.ViewingHistories.Where(x => x.VideoId == video.VideoId).SumAsync(x => (long)x.WatchDuration, ct);
         var comments = await db.Comments.CountAsync(x => x.VideoId == video.VideoId && x.Status == "visible", ct);
         var ratingAggregate = await db.VideoRatings.AsNoTracking().Where(x => x.VideoId == video.VideoId)
             .GroupBy(_ => 1)
             .Select(group => new { Count = group.Count(), Average = group.Average(row => (double)row.Score) })
             .SingleOrDefaultAsync(ct);
         var shares = await db.ShareHistories.LongCountAsync(x => x.VideoId == video.VideoId, ct);
+        var videoCards = await ResolveVideoCardLinksAsync(video, ct);
         VideoViewerStateResponse? state = null;
         if (viewerId.HasValue)
         {
@@ -1490,11 +1596,71 @@ public sealed class ContentService(
             state = new(reaction?.Type, rating?.Score, history?.WatchDuration ?? 0, history?.Progress ?? 0);
         }
         return new(video.VideoId, video.ChannelId, channel.Name, channel.Handle, video.CategoryId, video.Title, video.Description,
-            await ReadUrlAsync(video.VideoUrl, ct), video.ThumbnailUrl == null ? null : await ReadUrlAsync(video.ThumbnailUrl, ct), video.Duration, video.FileSize, video.Visibility, video.Status, video.ModerationStatus,
+            "", video.ThumbnailUrl == null ? null : await ReadUrlAsync(video.ThumbnailUrl, ct), video.Duration, video.FileSize, video.Visibility, video.Status, video.ModerationStatus,
             video.LanguageCode, video.AgeRestricted, video.PublishedAt, video.CreatedAt, tags, chapters,
             new(views, likes, dislikes, comments, ratingAggregate == null ? null : Math.Round((decimal)ratingAggregate.Average, 2),
-                ratingAggregate?.Count ?? 0, shares), state,
-             viewerId == channel.OwnerUserId ? video.ModerationReason : null, channel.WatermarkUrl);
+                ratingAggregate?.Count ?? 0, shares, watchSeconds), state,
+             viewerId == channel.OwnerUserId ? video.ModerationReason : null,
+             channel.WatermarkUrl == null ? null : await ReadUrlAsync(channel.WatermarkUrl, ct),
+             video.PromotionEnabled, videoCards);
+    }
+
+    private async Task<IReadOnlyList<VideoCardLinkResponse>> ResolveVideoCardLinksAsync(Video video, CancellationToken ct)
+    {
+        var references = ReadVideoCardReferences(video.Metadata);
+        if (references.Count == 0) return [];
+        var ids = references.Select(card => card.VideoId).Distinct().ToArray();
+        var targets = await db.Videos.AsNoTracking()
+            .Where(target => ids.Contains(target.VideoId) && target.ChannelId == video.ChannelId
+                && target.Status == "published" && target.ModerationStatus == "approved" && target.Visibility == "public")
+            .Select(target => new { target.VideoId, target.Title, target.ThumbnailUrl })
+            .ToListAsync(ct);
+        var byId = targets.ToDictionary(target => target.VideoId);
+        var result = new List<VideoCardLinkResponse>(references.Count);
+        foreach (var reference in references.OrderBy(card => card.StartSeconds))
+        {
+            if (!byId.TryGetValue(reference.VideoId, out var target)) continue;
+            result.Add(new(reference.VideoId, reference.StartSeconds, target.Title,
+                target.ThumbnailUrl == null ? null : await ReadUrlAsync(target.ThumbnailUrl, ct)));
+        }
+        return result;
+    }
+
+    private async Task<IReadOnlyList<VideoCardRequest>> ValidateVideoCardsAsync(
+        Guid channelId, IReadOnlyList<VideoCardRequest>? cards, int duration, CancellationToken ct)
+    {
+        var requested = cards ?? [];
+        if (requested.Count > 5 || requested.Select(card => card.VideoId).Distinct().Count() != requested.Count
+            || requested.Select(card => card.StartSeconds).Distinct().Count() != requested.Count
+            || requested.Any(card => card.StartSeconds < 0 || card.StartSeconds >= duration))
+            throw Error(400, "INVALID_VIDEO_CARDS", "Tối đa 5 video liên quan, mỗi video chỉ được gắn một lần tại mốc hợp lệ.");
+        if (requested.Count == 0) return [];
+        var ids = requested.Select(card => card.VideoId).ToArray();
+        var eligibleIds = await db.Videos.AsNoTracking()
+            .Where(video => ids.Contains(video.VideoId) && video.ChannelId == channelId
+                && video.Status == "published" && video.ModerationStatus == "approved" && video.Visibility == "public")
+            .Select(video => video.VideoId)
+            .ToListAsync(ct);
+        if (eligibleIds.Count != requested.Count)
+            throw Error(400, "INVALID_VIDEO_CARD_TARGET", "Chỉ có thể gắn video công khai đã xuất bản trong cùng kênh.");
+        return requested.OrderBy(card => card.StartSeconds).ToArray();
+    }
+
+    private Task<bool> HasVideoPromotionEntitlementAsync(Guid userId, CancellationToken ct)
+    {
+        var now = Now;
+        return db.PlanHistories.AsNoTracking().AnyAsync(history =>
+            history.Status == "active"
+            && history.StartedAt <= now
+            && (!history.EndedAt.HasValue || history.EndedAt > now)
+            && (history.UserId == userId || db.PlanMembers.AsNoTracking().Any(member =>
+                member.PlanHistoryId == history.PlanHistoryId
+                && member.MemberUserId == userId
+                && member.Status == "accepted"
+                && member.AcceptedAt <= now))
+            && db.Plans.AsNoTracking().Any(plan => plan.PlanId == history.PlanId
+                && plan.Status == "active"
+                && EF.Functions.JsonContains(plan.Features, VideoPromotionFeatureJson)), ct);
     }
 
     private async Task<IReadOnlyList<VideoResponse>> ToResponsesAsync(IReadOnlyList<Video> videos, Guid? viewerId, CancellationToken ct)
@@ -1519,6 +1685,9 @@ public sealed class ContentService(
             .ToDictionary(group => group.Key, group => (
                 Likes: group.Where(row => row.Type == "like").Select(row => row.Count).FirstOrDefault(),
                 Dislikes: group.Where(row => row.Type == "dislike").Select(row => row.Count).FirstOrDefault()));
+        var watchStats = await db.ViewingHistories.AsNoTracking().Where(row => videoIds.Contains(row.VideoId))
+            .GroupBy(row => row.VideoId).Select(group => new { VideoId = group.Key, Seconds = group.Sum(row => (long)row.WatchDuration) })
+            .ToDictionaryAsync(row => row.VideoId, row => row.Seconds, ct);
         var viewStats = await db.ViewingHistories.AsNoTracking().Where(row => videoIds.Contains(row.VideoId))
             .GroupBy(row => row.VideoId).Select(group => new { VideoId = group.Key, Count = group.LongCount() })
             .ToDictionaryAsync(row => row.VideoId, row => row.Count, ct);
@@ -1557,7 +1726,7 @@ public sealed class ContentService(
             viewerHistory = [];
         }
 
-        var urlPaths = videos.SelectMany(video => new[] { video.VideoUrl, video.ThumbnailUrl,
+        var urlPaths = videos.SelectMany(video => new[] { video.ThumbnailUrl,
             channels.GetValueOrDefault(video.ChannelId)?.WatermarkUrl });
         var urls = await ResolveReadUrlsAsync(urlPaths, ct);
         return videos.Select(video =>
@@ -1570,16 +1739,16 @@ public sealed class ContentService(
             viewerRatings.TryGetValue(video.VideoId, out var myRating);
             var stats = new VideoStatsResponse(viewStats.GetValueOrDefault(video.VideoId), reactions.Likes,
                 reactions.Dislikes, commentStats.GetValueOrDefault(video.VideoId), rating.Average,
-                rating.Count, shareStats.GetValueOrDefault(video.VideoId));
+                rating.Count, shareStats.GetValueOrDefault(video.VideoId), watchStats.GetValueOrDefault(video.VideoId));
             var state = viewerId.HasValue
                 ? new VideoViewerStateResponse(myReaction, myRating, history?.WatchDuration ?? 0, history?.Progress ?? 0)
                 : null;
             return new VideoResponse(video.VideoId, video.ChannelId, channel.Name, channel.Handle, video.CategoryId,
-                video.Title, video.Description, urls[video.VideoUrl], video.ThumbnailUrl == null ? null : urls.GetValueOrDefault(video.ThumbnailUrl),
+                video.Title, video.Description, "", video.ThumbnailUrl == null ? null : urls.GetValueOrDefault(video.ThumbnailUrl),
                 video.Duration, video.FileSize, video.Visibility, video.Status, video.ModerationStatus, video.LanguageCode,
                 video.AgeRestricted, video.PublishedAt, video.CreatedAt, tagsByVideo.GetValueOrDefault(video.VideoId, []),
                 ReadChapters(video.Metadata), stats, state, viewerId == channel.OwnerUserId ? video.ModerationReason : null,
-                channel.WatermarkUrl == null ? null : urls.GetValueOrDefault(channel.WatermarkUrl));
+                channel.WatermarkUrl == null ? null : urls.GetValueOrDefault(channel.WatermarkUrl), video.PromotionEnabled);
         }).ToList();
     }
 
@@ -1619,11 +1788,13 @@ public sealed class ContentService(
     private async Task<CommentResponse> ToCommentAsync(Comment comment, Guid? viewerId, CancellationToken ct)
     {
         var user = await db.Users.IgnoreQueryFilters().AsNoTracking().SingleAsync(x => x.UserId == comment.UserId, ct);
+        var videoTitle = await db.Videos.IgnoreQueryFilters().AsNoTracking()
+            .Where(video => video.VideoId == comment.VideoId).Select(video => video.Title).SingleOrDefaultAsync(ct);
         var likes = await db.CommentReactions.LongCountAsync(x => x.CommentId == comment.CommentId && x.Type == "like", ct);
         var dislikes = await db.CommentReactions.LongCountAsync(x => x.CommentId == comment.CommentId && x.Type == "dislike", ct);
         var mine = viewerId.HasValue ? await db.CommentReactions.AsNoTracking().SingleOrDefaultAsync(x => x.CommentId == comment.CommentId && x.UserId == viewerId, ct) : null;
         var replies = await db.Comments.CountAsync(x => x.ParentCommentId == comment.CommentId && x.Status == "visible", ct);
-        return new(comment.CommentId, comment.VideoId, comment.UserId, user.DisplayName, comment.ParentCommentId, comment.Content, comment.Status, comment.CreatedAt, comment.UpdatedAt, likes, dislikes, mine?.Type, replies);
+        return new(comment.CommentId, comment.VideoId, comment.UserId, user.DisplayName, comment.ParentCommentId, comment.Content, comment.Status, comment.CreatedAt, comment.UpdatedAt, likes, dislikes, mine?.Type, replies, videoTitle);
     }
 
     private async Task<IReadOnlyList<CommentResponse>> ToCommentsAsync(IReadOnlyList<Comment> comments, Guid? viewerId, CancellationToken ct)
@@ -1631,9 +1802,13 @@ public sealed class ContentService(
         if (comments.Count == 0) return [];
         var commentIds = comments.Select(comment => comment.CommentId).ToArray();
         var userIds = comments.Select(comment => comment.UserId).Distinct().ToArray();
+        var videoIds = comments.Select(comment => comment.VideoId).Distinct().ToArray();
         var users = await db.Users.IgnoreQueryFilters().AsNoTracking()
             .Where(user => userIds.Contains(user.UserId))
             .ToDictionaryAsync(user => user.UserId, user => user.DisplayName, ct);
+        var videoTitles = await db.Videos.IgnoreQueryFilters().AsNoTracking()
+            .Where(video => videoIds.Contains(video.VideoId))
+            .ToDictionaryAsync(video => video.VideoId, video => video.Title, ct);
         var reactionRows = await db.CommentReactions.AsNoTracking().Where(reaction => commentIds.Contains(reaction.CommentId))
             .GroupBy(reaction => new { reaction.CommentId, reaction.Type })
             .Select(group => new { group.Key.CommentId, group.Key.Type, Count = group.LongCount() }).ToListAsync(ct);
@@ -1656,7 +1831,7 @@ public sealed class ContentService(
             return new CommentResponse(comment.CommentId, comment.VideoId, comment.UserId,
                 users.GetValueOrDefault(comment.UserId, "Người dùng"), comment.ParentCommentId, comment.Content,
                 comment.Status, comment.CreatedAt, comment.UpdatedAt, stats.Likes, stats.Dislikes, myReaction,
-                replies.GetValueOrDefault(comment.CommentId));
+                replies.GetValueOrDefault(comment.CommentId), videoTitles.GetValueOrDefault(comment.VideoId));
         }).ToList();
     }
 
@@ -1665,6 +1840,9 @@ public sealed class ContentService(
 
     private async Task EnsureCanViewAsync(Video video, Guid? viewerId, CancellationToken ct)
     {
+        var channelActive = await db.Channels.AnyAsync(x => x.ChannelId == video.ChannelId && x.Status == "active", ct);
+        if (video.MediaPurgedAt.HasValue || video.MediaPurgeStartedAt.HasValue || !channelActive || video.ModerationHidden)
+            throw Error(viewerId.HasValue ? 403 : 404, "VIDEO_NOT_AVAILABLE", "Video không khả dụng.");
         // Local development can publish unlisted videos while moderation is disabled.
         // They must remain reachable by anyone holding the link, while public-feed
         // queries continue to require an approved public video.
@@ -1679,7 +1857,8 @@ public sealed class ContentService(
 
     private IQueryable<Video> LibraryVisibleVideos(Guid userId) =>
         db.Videos.AsNoTracking().Where(video =>
-            video.Status != "deleted" &&
+            video.Status != "deleted" && video.MediaPurgedAt == null && video.MediaPurgeStartedAt == null
+            && !video.ModerationHidden && db.Channels.Any(channel => channel.ChannelId == video.ChannelId && channel.Status == "active") &&
             ((video.Status == "published" &&
               ((video.Visibility == "public" && video.ModerationStatus == "approved") ||
                (video.Visibility == "unlisted" && (!features.ModerationEnabled || video.ModerationStatus == "approved"))))
@@ -1786,7 +1965,12 @@ public sealed class ContentService(
         try { return JsonSerializer.Deserialize<Metadata>(metadata, new JsonSerializerOptions(JsonSerializerDefaults.Web))?.Chapters ?? []; }
         catch (JsonException) { return []; }
     }
-    private sealed record Metadata(IReadOnlyList<VideoChapter> Chapters);
+    private static IReadOnlyList<VideoCardRequest> ReadVideoCardReferences(string metadata)
+    {
+        try { return JsonSerializer.Deserialize<Metadata>(metadata, new JsonSerializerOptions(JsonSerializerDefaults.Web))?.VideoCards ?? []; }
+        catch (JsonException) { return []; }
+    }
+    private sealed record Metadata(IReadOnlyList<VideoChapter>? Chapters, IReadOnlyList<VideoCardRequest>? VideoCards = null);
     private static IReadOnlyList<string> NormalizeTags(IEnumerable<string>? tags) => (tags ?? []).Select(x => x.Trim().TrimStart('#').ToLowerInvariant()).Where(x => x.Length is > 0 and <= 80).Distinct().Take(20).ToArray();
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private void EnsureVisibilityAvailable(string visibility)

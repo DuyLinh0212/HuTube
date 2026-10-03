@@ -13,7 +13,10 @@ import 'features/plans/plan_service.dart';
 String _localizedPlanStatus(Object? rawStatus) {
   final raw = '${rawStatus ?? ''}'.trim();
   if (raw.isEmpty) return '—';
-  final normalized = raw.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  final normalized = raw
+      .toLowerCase()
+      .replaceAll('-', '_')
+      .replaceAll(' ', '_');
   final statusKey = switch (normalized) {
     'pending' || 'pending_payment' || 'awaiting_payment' => 'pending',
     'paid' => 'paid',
@@ -130,6 +133,10 @@ class _PlansScreenState extends State<PlansScreen> {
           builder: (_) =>
               _PaymentDialog(payment: payment, service: _paymentService),
         );
+        if (paid != true) {
+          if (mounted) await _load();
+          return;
+        }
         if (paid == true) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -141,9 +148,11 @@ class _PlansScreenState extends State<PlansScreen> {
         await _planService.subscribe(planId);
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.t('plans.subscribeSuccess'))),
-        );
+        if (price == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppStrings.t('plans.subscribeSuccess'))),
+          );
+        }
         await _load();
       }
     } on ApiFailure catch (error) {
@@ -385,7 +394,9 @@ class _PlansScreenState extends State<PlansScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('${payment['planName'] ?? AppStrings.t('plans.transaction')}'),
+          title: Text(
+            '${payment['planName'] ?? AppStrings.t('plans.transaction')}',
+          ),
           content: Text(
             AppStrings.format('plans.transactionInfo', {
               'code': payment['transactionCode'] ?? '—',
@@ -712,7 +723,9 @@ class _PlansScreenState extends State<PlansScreen> {
                     Icons.receipt_long_outlined,
                     color: AppColors.violet,
                   ),
-                  title: Text('${payment['planName'] ?? AppStrings.t('plans.planFallback')}'),
+                  title: Text(
+                    '${payment['planName'] ?? AppStrings.t('plans.planFallback')}',
+                  ),
                   subtitle: Text(
                     '${payment['transactionCode'] ?? ''} · ${_localizedPlanStatus(payment['status'])}',
                   ),
@@ -905,7 +918,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(AppStrings.t(_paid ? 'plans.paymentReceived' : 'plans.paymentHeader')),
+    title: Text(
+      AppStrings.t(_paid ? 'plans.paymentReceived' : 'plans.paymentHeader'),
+    ),
     content: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 360, maxHeight: 540),
       child: SingleChildScrollView(
@@ -973,7 +988,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                 );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(AppStrings.t('plans.paymentCopied'))),
+                    SnackBar(
+                      content: Text(AppStrings.t('plans.paymentCopied')),
+                    ),
                   );
                 }
               },
@@ -1000,7 +1017,10 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     ),
     actions: [
       if (!_paid && !_expired)
-        TextButton(onPressed: _poll, child: Text(AppStrings.t('plans.checkPayment'))),
+        TextButton(
+          onPressed: _poll,
+          child: Text(AppStrings.t('plans.checkPayment')),
+        ),
       TextButton(
         onPressed: () => Navigator.pop(context, _paid),
         child: Text(AppStrings.t(_paid ? 'plans.paymentDone' : 'plans.close')),

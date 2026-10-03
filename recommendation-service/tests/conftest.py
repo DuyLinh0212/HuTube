@@ -9,6 +9,13 @@ import pytest
 from app.data.mapping import build_mappings, encode_interactions
 
 
+@pytest.fixture(autouse=True)
+def isolate_r2_credentials(monkeypatch):
+    # Unit tests must never inherit the developer's live bucket from .env.
+    for key in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"):
+        monkeypatch.setenv(key, "")
+
+
 @pytest.fixture
 def synthetic_interactions() -> pd.DataFrame:
     started = datetime(2024, 1, 1, tzinfo=UTC)

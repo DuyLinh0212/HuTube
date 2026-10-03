@@ -497,7 +497,11 @@ class _AppShellState extends State<AppShell> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      AppStrings.t(compact ? 'app.guest.storyPrimary' : 'app.guest.storySecondary'),
+                      AppStrings.t(
+                        compact
+                            ? 'app.guest.storyPrimary'
+                            : 'app.guest.storySecondary',
+                      ),
                       style: TextStyle(
                         color: Colors.white,
                         fontFamily: 'Plus Jakarta Sans',
@@ -523,8 +527,8 @@ class _AppShellState extends State<AppShell> {
               ),
               Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 padding: EdgeInsets.fromLTRB(24, compact ? 20 : 28, 24, 34),

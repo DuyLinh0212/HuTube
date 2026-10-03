@@ -354,6 +354,7 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
             VideoId = Guid.NewGuid(),
             ChannelId = channel.ChannelId,
             Title = "Target Video",
+            Visibility = "public",
             Description = "Desc",
             Status = "published",
             ModerationStatus = "approved",

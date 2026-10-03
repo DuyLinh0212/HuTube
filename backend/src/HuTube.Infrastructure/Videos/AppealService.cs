@@ -1,3 +1,4 @@
+using HuTube.Application.Serialization;
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
 using HuTube.Application.Rbac;
@@ -15,8 +16,17 @@ public sealed class AppealService(
     RbacService rbac,
     INotificationService notifications,
     IObjectStorage storage,
-    IHttpContextAccessor httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor,
+    StrikePolicySettingsService strikePolicySettings)
 {
+    public AppealService(
+        HuTubeDbContext db,
+        RbacService rbac,
+        INotificationService notifications,
+        IObjectStorage storage,
+        IHttpContextAccessor httpContextAccessor)
+        : this(db, rbac, notifications, storage, httpContextAccessor, new StrikePolicySettingsService(db, rbac)) { }
+
     public async Task<AppealDto> CreateAppealAsync(Guid userId, CreateAppealRequest request, CancellationToken ct = default)
     {
         var targetType = request.TargetType?.Trim().ToLowerInvariant();
@@ -28,6 +38,12 @@ public sealed class AppealService(
         if (!string.IsNullOrWhiteSpace(request.EvidenceUrl))
             throw new AuthException(400, "EVIDENCE_UPLOAD_REQUIRED", "Hãy tải tệp bằng chứng trực tiếp lên HuTube.");
 
+        await using var creationTransaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        if (targetType == AppealTargetTypes.Video && db.Database.IsRelational())
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"purge:" + request.TargetId}, 0))", ct);
+        if (request.ModerationCaseId.HasValue && !await db.ModerationCases.AnyAsync(m => m.ModerationCaseId == request.ModerationCaseId
+            && ((targetType == AppealTargetTypes.Video && m.VideoId == request.TargetId) || (m.TargetType == targetType && m.TargetId == request.TargetId)), ct))
+            throw new AuthException(400, "INVALID_MODERATION_CASE", "Hồ sơ kiểm duyệt không thuộc đối tượng khiếu nại.");
         string targetTitle = "Đối tượng kiểm duyệt";
         Guid? linkedModerationCaseId = request.ModerationCaseId;
         Guid? linkedStrikeId = request.StrikeId;
@@ -45,7 +61,7 @@ public sealed class AppealService(
                 if (video.Status != "blocked" || video.ModerationStatus != "rejected")
                     throw new AuthException(409, "VIDEO_NOT_APPEALABLE", "Chỉ video đã bị từ chối hoặc gỡ mới có thể khiếu nại quyết định đó.");
                 var appealDeadline = video.MediaRetentionUntil ?? video.UpdatedAt.AddDays(30);
-                if (video.MediaPurgedAt.HasValue || appealDeadline <= DateTimeOffset.UtcNow)
+                if (video.MediaPurgedAt.HasValue || video.MediaPurgeStartedAt.HasValue || appealDeadline <= DateTimeOffset.UtcNow)
                     throw new AuthException(409, "VIDEO_APPEAL_WINDOW_CLOSED", "Thời hạn khiếu nại video đã kết thúc.");
 
                 targetTitle = video.Title;
@@ -53,7 +69,7 @@ public sealed class AppealService(
                 if (linkedModerationCaseId == null)
                 {
                     var mc = await db.ModerationCases.AsNoTracking()
-                        .Where(m => m.VideoId == video.VideoId)
+                        .Where(m => m.VideoId == video.VideoId || (m.TargetType == "video" && m.TargetId == video.VideoId))
                         .OrderByDescending(m => m.SubmittedAt)
                         .FirstOrDefaultAsync(ct);
                     linkedModerationCaseId = mc?.ModerationCaseId;
@@ -144,6 +160,7 @@ public sealed class AppealService(
 
         db.Appeals.Add(appeal);
         await db.SaveChangesAsync(ct);
+        if (creationTransaction != null) await creationTransaction.CommitAsync(ct);
 
         await rbac.LogAuditAsync(new AuditLogEntry(
             userId,
@@ -338,6 +355,13 @@ public sealed class AppealService(
         var appeal = await db.Appeals.FirstOrDefaultAsync(a => a.AppealId == appealId, ct)
             ?? throw new AuthException(404, "APPEAL_NOT_FOUND", "Không tìm thấy đơn khiếu nại.");
 
+        await using var transaction = appeal.TargetType == AppealTargetTypes.Video && db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct) : null;
+        if (transaction != null)
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"purge:" + appeal.TargetId}, 0))", ct);
+            await db.Entry(appeal).ReloadAsync(ct);
+        }
         // Rule: Separation of duties check
         await EnsureSeparationOfDutiesAsync(actorId, appeal, ct);
 
@@ -367,6 +391,14 @@ public sealed class AppealService(
                 var video = await db.Videos.FirstOrDefaultAsync(v => v.VideoId == appeal.TargetId, ct);
                 if (video != null)
                 {
+                    if (video.MediaPurgedAt.HasValue || video.MediaPurgeStartedAt.HasValue)
+                        throw new AuthException(409, "VIDEO_MEDIA_PURGED", "Media đang dọn hoặc đã bị xóa và không thể phục hồi.");
+                    video.ModerationHidden = false;
+                    video.ModerationAgeRestricted = false;
+                    video.RecommendationRestricted = false;
+                    var metadata = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(video.Metadata) ?? [];
+                    metadata.Remove("recommendation_restricted");
+                    video.Metadata = PersistenceJson.Serialize(metadata);
                     video.ModerationStatus = "approved";
                     video.ModerationReason = null;
                     video.MediaRetentionUntil = null;
@@ -385,30 +417,50 @@ public sealed class AppealService(
                         }
                     }
 
-                    // Check if channel was suspended due to 5 rejections, and if current distinct rejections is now < 5, unlock channel
+                    var strikePolicy = await strikePolicySettings.GetAsync(ct);
                     var remainingRejects = await db.Videos.AsNoTracking()
-                        .Where(v => v.ChannelId == video.ChannelId && v.VideoId != video.VideoId && v.ModerationStatus == "rejected")
+                        .Where(v => v.ChannelId == video.ChannelId && v.VideoId != video.VideoId
+                            && v.ModerationStatus == "rejected" && v.UpdatedAt >= strikePolicy.RejectedVideosEffectiveAt)
                         .Select(v => v.VideoId)
                         .Distinct()
                         .CountAsync(ct);
 
                     var ch = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);
-                    if (ch != null && ch.Status == "suspended" && remainingRejects < 5)
+                    var activeStrikes = await db.ChannelStrikes
+                        .Where(s => s.ChannelId == video.ChannelId && s.StrikeNumber > 0
+                            && s.Status == StrikeStatuses.Active && s.ExpiresAt > now)
+                        .ToListAsync(ct);
+                    var issuedAutoStrikes = await db.ChannelStrikes
+                        .Where(s => s.ChannelId == video.ChannelId && s.StrikeNumber > 0
+                            && s.PolicyCode == "SPAM.REPEATED_VIOLATIONS" && s.SourceModerationCaseId.HasValue
+                            && s.CreatedAt >= strikePolicy.RejectedVideosEffectiveAt && s.Status != StrikeStatuses.Revoked)
+                        .OrderByDescending(s => s.CreatedAt)
+                        .ToListAsync(ct);
+                    var expectedAutoStrikes = remainingRejects / strikePolicy.RejectedVideosPerStrike;
+                    var autoStrikesToRevoke = issuedAutoStrikes
+                        .Take(Math.Max(0, issuedAutoStrikes.Count - expectedAutoStrikes))
+                        .ToList();
+                    var activeAutoStrikesToRevoke = autoStrikesToRevoke
+                        .Count(s => s.Status == StrikeStatuses.Active && s.ExpiresAt > now);
+                    foreach (var strike in autoStrikesToRevoke)
+                    {
+                        strike.Status = StrikeStatuses.Revoked;
+                        strike.RevokedAt = now;
+                        strike.RevokedByUserId = actorId;
+                        strike.RevocationReason = "Thu hồi do khiếu nại video được chấp thuận.";
+                    }
+
+                    var isAutoSuspension = ch?.Status == "suspended"
+                        && (ch.StatusReason?.StartsWith("Kênh đạt ", StringComparison.OrdinalIgnoreCase) == true
+                            || ch.StatusReason?.StartsWith("Kênh đã có 5 nội dung", StringComparison.OrdinalIgnoreCase) == true);
+                    var activeStrikeCount = activeStrikes.Count(s => s.Status == StrikeStatuses.Active)
+                        - activeAutoStrikesToRevoke;
+                    if (ch != null && isAutoSuspension && activeAutoStrikesToRevoke > 0
+                        && activeStrikeCount < strikePolicy.SuspensionStrikeCount)
                     {
                         ch.Status = "active";
                         ch.StatusReason = null;
                         ch.UpdatedAt = now;
-
-                        // Also revoke auto strike if any
-                        var autoStrike = await db.ChannelStrikes.FirstOrDefaultAsync(s =>
-                            s.ChannelId == ch.ChannelId && s.PolicyCode == "SPAM.REPEATED_VIOLATIONS" && s.Status == StrikeStatuses.Active, ct);
-                        if (autoStrike != null)
-                        {
-                            autoStrike.Status = StrikeStatuses.Revoked;
-                            autoStrike.RevokedAt = now;
-                            autoStrike.RevokedByUserId = actorId;
-                            autoStrike.RevocationReason = "Thu hồi do khiếu nại video được chấp thuận.";
-                        }
                     }
                 }
             }
@@ -446,9 +498,11 @@ public sealed class AppealService(
                     var ch = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == st.ChannelId, ct);
                     if (ch != null && ch.Status == "suspended")
                     {
+                        var strikePolicy = await strikePolicySettings.GetAsync(ct);
                         var remainingActive = await db.ChannelStrikes
-                            .CountAsync(s => s.ChannelId == ch.ChannelId && s.StrikeId != st.StrikeId && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
-                        if (remainingActive < 3)
+                            .CountAsync(s => s.ChannelId == ch.ChannelId && s.StrikeId != st.StrikeId && s.StrikeNumber > 0
+                                && s.Status == StrikeStatuses.Active && s.ExpiresAt > now, ct);
+                        if (remainingActive < strikePolicy.SuspensionStrikeCount)
                         {
                             ch.Status = "active";
                             ch.StatusReason = null;
@@ -493,6 +547,7 @@ public sealed class AppealService(
         }
 
         await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
 
         await rbac.LogAuditAsync(new AuditLogEntry(
             actorId,
@@ -581,7 +636,7 @@ public sealed class AppealService(
         if (appeal.TargetType == AppealTargetTypes.Video)
         {
             var originalReviewer = await db.ModerationCases.AsNoTracking()
-                .Where(m => m.VideoId == appeal.TargetId && m.ReviewerId.HasValue)
+                .Where(m => (m.VideoId == appeal.TargetId || (m.TargetType == "video" && m.TargetId == appeal.TargetId)) && m.ReviewerId.HasValue)
                 .OrderByDescending(m => m.SubmittedAt)
                 .Select(m => m.ReviewerId)
                 .FirstOrDefaultAsync(ct);

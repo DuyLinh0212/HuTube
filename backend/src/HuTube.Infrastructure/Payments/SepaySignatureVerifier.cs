@@ -23,25 +23,25 @@ public sealed class SepaySignatureVerifier(SepayOptions options)
         if (string.IsNullOrWhiteSpace(signature))
             return false;
 
-        // Nếu SecretKey chưa được cấu hình (development) thì bỏ qua xác thực
         if (string.IsNullOrWhiteSpace(options.SecretKey))
-            return true;
+            return false;
 
-        // Kiểm tra replay attack qua timestamp (nếu SePay gửi kèm)
-        if (!string.IsNullOrWhiteSpace(timestampHeader)
-            && long.TryParse(timestampHeader, out var ts))
-        {
-            var requestTime = DateTimeOffset.FromUnixTimeSeconds(ts);
-            var skew = Math.Abs((DateTimeOffset.UtcNow - requestTime).TotalSeconds);
-            if (skew > MaxTimestampSkewSeconds)
-                return false;
-        }
+        if (!long.TryParse(timestampHeader, out var ts)
+            || Math.Abs((double)DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > MaxTimestampSkewSeconds
+            || !signature.StartsWith("sha256=", StringComparison.Ordinal)
+            || signature.Length != 71)
+            return false;
+
+        byte[] supplied;
+        try { supplied = Convert.FromHexString(signature[7..]); }
+        catch (FormatException) { return false; }
 
         var key = Encoding.UTF8.GetBytes(options.SecretKey);
         using var hmac = new HMACSHA256(key);
-        var computed = Convert.ToHexString(hmac.ComputeHash(rawBody.ToArray())).ToLowerInvariant();
-        return CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(computed),
-            Encoding.UTF8.GetBytes(signature.ToLowerInvariant()));
+        var prefix = Encoding.UTF8.GetBytes(timestampHeader + ".");
+        var signed = new byte[prefix.Length + rawBody.Length];
+        prefix.CopyTo(signed, 0);
+        rawBody.CopyTo(signed.AsSpan(prefix.Length));
+        return CryptographicOperations.FixedTimeEquals(hmac.ComputeHash(signed), supplied);
     }
 }

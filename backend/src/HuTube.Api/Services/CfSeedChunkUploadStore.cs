@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using HuTube.Application.CfSeeding;
 using HuTube.Application.Videos;
 
@@ -8,23 +9,48 @@ public sealed record CfSeedChunkSessionInfo(Guid UploadId, int ChunkSize);
 public sealed record CfSeedChunkReady(string FilePath, string FileName, string ContentType,
     long FileSize, CfSeedVideoResponse? CompletedResponse, CfSeedRenditionResponse? CompletedRenditionResponse);
 
-public sealed class CfSeedChunkUploadStore
+public sealed class CfSeedChunkUploadStore : IDisposable
 {
     public const int ChunkSize = 24 * 1024 * 1024;
     private const long MaximumFileSize = 256L * 1024 * 1024 * 1024;
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(24);
     private readonly ConcurrentDictionary<Guid, UploadSession> sessions = new();
     private readonly string root;
+    private readonly object startGate = new();
+    private readonly Timer janitor;
+    public void Dispose() => janitor.Dispose();
 
-    public CfSeedChunkUploadStore()
+    public CfSeedChunkUploadStore(string? directory = null)
     {
-        root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "hutube-cf-seeder-chunks"));
+        root = Path.GetFullPath(directory ?? Path.Combine(Path.GetTempPath(), "hutube-cf-seeder-chunks"));
         Directory.CreateDirectory(root);
+        foreach (var path in Directory.EnumerateFiles(root, "*.session.json"))
+        {
+            try
+            {
+                if (!Guid.TryParse(Path.GetFileName(path).Split('.')[0], out var id)) continue;
+                var state = JsonSerializer.Deserialize<SessionState>(File.ReadAllText(path));
+                if (state == null) continue;
+                var filePath = SafePath(id);
+                if (state.LastTouchedAt < DateTimeOffset.UtcNow - SessionLifetime)
+                { DeleteSafe(filePath); DeleteSafe(path); continue; }
+                if (state.CompletedResponse == null && state.CompletedRenditionResponse == null
+                    && (!File.Exists(filePath) || new FileInfo(filePath).Length < Math.Min(state.FileSize, (long)state.NextChunk * ChunkSize))) continue;
+                sessions[id] = new UploadSession(state.ActorId, filePath, state.FileName, state.ContentType, state.FileSize, state.TotalChunks, state.LastTouchedAt)
+                { NextChunk = state.NextChunk, CompletedResponse = state.CompletedResponse, CompletedRenditionResponse = state.CompletedRenditionResponse };
+            }
+            catch (JsonException) { }
+            catch (IOException) { }
+        }
+        CleanupExpired();
+        janitor = new Timer(_ => { try { CleanupExpired(); } catch (IOException) { } }, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
     }
 
     public CfSeedChunkSessionInfo Start(Guid actorId, Guid uploadId, string fileName, string contentType,
         long fileSize, int totalChunks)
     {
+        lock (startGate)
+        {
         CleanupExpired();
         if (fileSize is <= 0 or > MaximumFileSize)
             throw Error(400, "CF_SEED_FILE_SIZE", "Dung lượng video phải lớn hơn 0 và không vượt quá 256 GB.");
@@ -40,17 +66,22 @@ public sealed class CfSeedChunkUploadStore
             throw Error(409, "CF_SEED_UPLOAD_ID_CONFLICT", "Mã phiên upload đã được sử dụng cho file khác.");
         }
         var path = SafePath(uploadId);
+        var reserved = sessions.Values.Where(x => x.CompletedResponse == null && x.CompletedRenditionResponse == null).Sum(x => x.FileSize);
+        var available = new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace;
+        if (reserved + fileSize > Math.Min(512L * 1024 * 1024 * 1024, available))
+            throw Error(409, "CF_SEED_DISK_BUDGET", "Dung lượng tạm không đủ; vui lòng hoàn tất hoặc hủy phiên cũ.");
         var created = new UploadSession(actorId, path, Path.GetFileName(fileName), contentType,
             fileSize, totalChunks, DateTimeOffset.UtcNow);
         if (!sessions.TryAdd(uploadId, created))
             throw Error(409, "CF_SEED_UPLOAD_ID_CONFLICT", "Mã phiên upload vừa được sử dụng.");
-        try { using (File.Create(path)) { } }
+        try { using (File.Create(path)) { } Persist(uploadId, created); }
         catch
         {
             sessions.TryRemove(uploadId, out _);
             throw;
         }
         return new(uploadId, ChunkSize);
+        }
     }
 
     public async Task<int> AppendAsync(Guid actorId, Guid uploadId, int chunkIndex, IFormFile chunk,
@@ -80,8 +111,10 @@ public sealed class CfSeedChunkUploadStore
             output.Position = offset;
             await using var input = chunk.OpenReadStream();
             await input.CopyToAsync(output, ct);
+            await output.FlushAsync(ct);
             session.NextChunk++;
             session.LastTouchedAt = DateTimeOffset.UtcNow;
+            Persist(uploadId, session);
             return session.NextChunk;
         }
         finally { session.Gate.Release(); }
@@ -119,6 +152,7 @@ public sealed class CfSeedChunkUploadStore
             session.Processing = false;
             session.LastTouchedAt = DateTimeOffset.UtcNow;
             DeleteSafe(session.FilePath);
+            Persist(uploadId, session);
         }
         finally { session.Gate.Release(); }
     }
@@ -134,6 +168,7 @@ public sealed class CfSeedChunkUploadStore
             session.Processing = false;
             session.LastTouchedAt = DateTimeOffset.UtcNow;
             DeleteSafe(session.FilePath);
+            Persist(uploadId, session);
         }
         finally { session.Gate.Release(); }
     }
@@ -157,8 +192,41 @@ public sealed class CfSeedChunkUploadStore
     {
         var cutoff = DateTimeOffset.UtcNow - SessionLifetime;
         foreach (var pair in sessions.Where(x => x.Value.LastTouchedAt < cutoff && !x.Value.Processing))
-            if (sessions.TryRemove(pair.Key, out var expired)) DeleteSafe(expired.FilePath);
+        {
+            if (!pair.Value.Gate.Wait(0)) continue;
+            try
+            {
+                if (sessions.TryRemove(pair.Key, out var expired))
+                { DeleteSafe(expired.FilePath); DeleteSafe(SafePath(pair.Key) + ".session.json"); }
+            }
+            finally { pair.Value.Gate.Release(); }
+        }
+        foreach (var path in Directory.EnumerateFiles(root, "*.upload"))
+            if (Guid.TryParse(Path.GetFileNameWithoutExtension(path), out var id) && !sessions.ContainsKey(id)
+                && File.GetLastWriteTimeUtc(path) < cutoff.UtcDateTime) DeleteSafe(path);
+        CleanupOrphanManifests(cutoff);
     }
+
+    private void CleanupOrphanManifests(DateTimeOffset cutoff)
+    {
+        foreach (var pattern in new[] { "*.session.json", "*.session.json.tmp" })
+            foreach (var path in Directory.EnumerateFiles(root, pattern))
+                if (Guid.TryParse(Path.GetFileName(path).Split('.')[0], out var id) && !sessions.ContainsKey(id)
+                    && File.GetLastWriteTimeUtc(path) < cutoff.UtcDateTime) DeleteSafe(path);
+    }
+
+    private void Persist(Guid uploadId, UploadSession session)
+    {
+        var path = SafePath(uploadId) + ".session.json";
+        var state = new SessionState(session.ActorId, session.FileName, session.ContentType, session.FileSize,
+            session.TotalChunks, session.NextChunk, session.LastTouchedAt, session.CompletedResponse, session.CompletedRenditionResponse);
+        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(state));
+        File.Move(path + ".tmp", path, true);
+    }
+
+    private sealed record SessionState(Guid ActorId, string FileName, string ContentType, long FileSize,
+        int TotalChunks, int NextChunk, DateTimeOffset LastTouchedAt, CfSeedVideoResponse? CompletedResponse,
+        CfSeedRenditionResponse? CompletedRenditionResponse);
 
     private string SafePath(Guid uploadId)
     {

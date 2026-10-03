@@ -117,7 +117,7 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         return response;
     }
 
-    public async Task<LoginResponse> RefreshAsync(string refresh, string platform, CancellationToken ct = default, string? ipAddress = null)
+    public async Task<LoginResponse> RefreshAsync(string refresh, string platform, CancellationToken ct = default, string? ipAddress = null, string? deviceName = null)
     {
         if (string.IsNullOrWhiteSpace(refresh)) throw InvalidRefresh();
         var hash = tokens.HashToken(refresh);
@@ -139,12 +139,13 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             await store.SaveAsync(ct); await transaction.CommitAsync(ct);
             throw InvalidRefresh();
         }
-        if (!old.IsActive(Now)) throw InvalidRefresh();
+        if (!old.IsActive(Now) || old.LastActiveAt <= Now.AddDays(-options.SessionInactivityDays)) throw InvalidRefresh();
         var user = await store.FindUserAsync(old.UserId, ct) ?? throw InvalidRefresh();
         EnsureActive(user);
         if (old.Platform == "admin" && !await store.IsAdminAsync(user.UserId, ct))
             throw new AuthException(403, "ADMIN_ACCESS_DENIED", "Quyền quản trị đã bị vô hiệu hóa.");
-        var (session, nextRefresh) = CreateSession(user.UserId, old.Platform, old.DeviceName, old.DeviceId, ipAddress ?? old.IpAddress);
+        var refreshedDeviceName = string.IsNullOrWhiteSpace(deviceName) ? old.DeviceName : deviceName.Trim()[..Math.Min(deviceName.Trim().Length, 200)];
+        var (session, nextRefresh) = CreateSession(user.UserId, old.Platform, refreshedDeviceName, old.DeviceId, ipAddress ?? old.IpAddress);
         // Refreshing an active session starts a new idle window. A session that is
         // already expired is still rejected above, so inactive sessions cannot be
         // revived by this sliding expiration.
@@ -248,7 +249,8 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
     public async Task<bool> ValidateSessionAsync(Guid userId, Guid sessionId, Guid jti, CancellationToken ct = default, string? ipAddress = null)
     {
         var session = await store.FindSessionAsync(sessionId, ct);
-        if (session == null || session.UserId != userId || session.Jti != jti || !session.IsActive(Now)) return false;
+        if (session == null || session.UserId != userId || session.Jti != jti || !session.IsActive(Now)
+            || session.LastActiveAt <= Now.AddDays(-options.SessionInactivityDays)) return false;
         var user = await store.FindUserAsync(userId, ct);
         if (user == null || user.IsBlocked || user.Status != "active" || user.EmailVerifiedAt == null) return false;
         if (session.Platform == "admin" && !await store.IsAdminAsync(userId, ct)) return false;
@@ -268,7 +270,15 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
 
     public async Task<SessionListResponse> GetSessionsAsync(Guid userId, Guid current, CancellationToken ct = default) =>
         new((await store.GetActiveSessionsAsync(userId, Now, ct))
-            .Select(s => new SessionResponse(s.SessionId, s.DeviceName, s.Platform, s.IssuedAt, s.LastActiveAt, s.ExpiresAt, s.SessionId == current, s.IpAddress)).ToList());
+            .Where(s => s.LastActiveAt > Now.AddDays(-options.SessionInactivityDays))
+            .Select(s => new SessionResponse(s.SessionId, s.DeviceName, s.Platform, s.IssuedAt, s.LastActiveAt, s.ExpiresAt, s.SessionId == current, s.IpAddress, s.DeviceId)).ToList());
+
+    public async Task<LoginHistoryPageResponse> GetLoginHistoryAsync(Guid userId, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    {
+        var result = await store.GetLoginHistoryAsync(userId, Math.Max(1, page), Math.Clamp(pageSize, 1, 50), ct);
+        return new(result.Items.Select(item => new LoginHistoryResponse(item.LoginHistoryId, item.DeviceId, item.DeviceName,
+            item.Platform, item.IpAddress, item.LoginAt)).ToList(), result.Page, result.PageSize, result.Total);
+    }
 
     public async Task<MessageResponse> RevokeSessionsAsync(Guid userId, Guid current, Guid? target, CancellationToken ct = default)
     {
@@ -278,11 +288,19 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             throw new AuthException(404, "SESSION_NOT_FOUND", "Không tìm thấy phiên đăng nhập.");
         if (target.HasValue)
         {
-            var session = sessions.Single(s => s.SessionId == target);
-            while (session != null)
+            var selected = sessions.Single(s => s.SessionId == target);
+            var sameDevice = !string.IsNullOrWhiteSpace(selected.DeviceId)
+                ? sessions.Where(s => s.Platform == selected.Platform && s.DeviceId == selected.DeviceId)
+                : [selected];
+            var visited = new HashSet<Guid>();
+            foreach (var seed in sameDevice)
             {
-                session.Revoke(Now, "user-revoked");
-                session = session.ReplacedBySessionId is { } next ? sessions.SingleOrDefault(s => s.SessionId == next) : null;
+                var session = seed;
+                while (session != null && visited.Add(session.SessionId))
+                {
+                    session.Revoke(Now, "user-revoked");
+                    session = session.ReplacedBySessionId is { } next ? sessions.SingleOrDefault(s => s.SessionId == next) : null;
+                }
             }
         }
         else foreach (var session in sessions.Where(s => s.SessionId != current)) session.Revoke(Now, "user-revoked");
@@ -317,14 +335,15 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
     {
         EnsureActive(user);
         user.FailedLoginAttempts = 0; user.LockedUntil = null; user.LastLoginAt = Now; user.UpdatedAt = Now;
-        var normalizedDeviceId = deviceId?.Trim();
+        var normalizedDeviceName = string.IsNullOrWhiteSpace(deviceName) ? "Unknown device" : deviceName.Trim()[..Math.Min(deviceName.Trim().Length, 200)];
+        var normalizedDeviceId = string.IsNullOrWhiteSpace(deviceId) ? "" : deviceId.Trim()[..Math.Min(deviceId.Trim().Length, 128)];
         var session = !string.IsNullOrWhiteSpace(normalizedDeviceId)
-            ? await store.FindActiveSessionByDeviceAsync(user.UserId, platform, normalizedDeviceId!, Now, ct)
+            ? await store.FindActiveSessionByDeviceAsync(user.UserId, platform, normalizedDeviceId, Now, ct)
             : null;
         string refresh;
         if (session is null)
         {
-            (session, refresh) = CreateSession(user.UserId, platform, deviceName, normalizedDeviceId, ipAddress);
+            (session, refresh) = CreateSession(user.UserId, platform, normalizedDeviceName, normalizedDeviceId, ipAddress);
             store.AddSession(session);
         }
         else
@@ -334,8 +353,8 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             refresh = tokens.CreateOpaqueToken();
             session.RefreshTokenHash = tokens.HashToken(refresh);
             session.Jti = Guid.NewGuid();
-            session.DeviceName = deviceName;
-            session.DeviceId = normalizedDeviceId!;
+            session.DeviceName = normalizedDeviceName;
+            session.DeviceId = normalizedDeviceId;
             session.IpAddress = ipAddress ?? session.IpAddress;
             session.IssuedAt = Now;
             session.LastActiveAt = Now;
@@ -344,6 +363,15 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             session.RevokeReason = null;
             session.ReplacedBySessionId = null;
         }
+        store.AddLoginHistory(new UserLoginHistory
+        {
+            UserId = user.UserId,
+            DeviceId = normalizedDeviceId,
+            DeviceName = normalizedDeviceName,
+            Platform = platform,
+            IpAddress = ipAddress,
+            LoginAt = Now
+        });
         await store.SaveAsync(ct);
         return await CreateLoginResponseAsync(user, session, refresh, ct);
     }

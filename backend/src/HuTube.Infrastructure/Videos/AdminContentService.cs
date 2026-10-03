@@ -470,6 +470,9 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
     {
         ValidateReason(request.Reason);
         if (action is not ("hide" or "unhide" or "remove" or "restore")) throw new AuthException(400, "INVALID_VIDEO_ACTION", "Thao tác video không hợp lệ.");
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        if (transaction != null)
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"purge:" + videoId}, 0))", ct);
         var video = await db.Videos.FirstOrDefaultAsync(v => v.VideoId == videoId, ct)
             ?? throw new AuthException(404, "VIDEO_NOT_FOUND", "Không tìm thấy video.");
         var oldValues = PersistenceJson.Serialize(new { video.Status, video.Visibility, video.ModerationStatus });
@@ -478,6 +481,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             video.AdminOriginalStatus ??= video.Status;
             video.AdminOriginalVisibility ??= video.Visibility;
             video.AdminOriginalModerationStatus ??= video.ModerationStatus;
+            video.ModerationHidden = true;
             video.Status = "blocked";
             if (action == "remove")
             {
@@ -489,7 +493,8 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         else
         {
             if (video.AdminOriginalStatus == null) throw new AuthException(409, "VIDEO_NOT_ADMIN_BLOCKED", "Video không có trạng thái ẩn hoặc gỡ để khôi phục.");
-            if (video.MediaPurgedAt.HasValue) throw new AuthException(409, "VIDEO_MEDIA_PURGED", "Tệp video đã hết thời hạn lưu trữ và không thể khôi phục.");
+            if (video.MediaPurgedAt.HasValue || video.MediaPurgeStartedAt.HasValue) throw new AuthException(409, "VIDEO_MEDIA_PURGED", "Tệp video đã hết thời hạn lưu trữ và không thể khôi phục.");
+            video.ModerationHidden = false;
             video.Status = video.AdminOriginalStatus;
             video.Visibility = video.AdminOriginalVisibility ?? video.Visibility;
             video.ModerationStatus = video.AdminOriginalModerationStatus ?? video.ModerationStatus;
@@ -499,6 +504,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         video.UpdatedAt = DateTimeOffset.UtcNow;
         await rbac.LogAuditAsync(new AuditLogEntry(actorId, $"admin.video.{action}", "video", videoId, request.Reason.Trim(),
             OldValues: oldValues, NewValues: PersistenceJson.Serialize(new { video.Status, video.Visibility, video.ModerationStatus })), ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
         if (action == "remove" && request.NotifyOwner)
         {
             var channel = await db.Channels.AsNoTracking().FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);

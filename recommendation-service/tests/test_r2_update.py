@@ -5,13 +5,15 @@ import json
 import time
 
 from fastapi.testclient import TestClient
+from botocore.exceptions import ClientError
 
 from app.config import Settings
 from app.main import create_app
 from app.model_registry import ModelRegistry
+from app.r2_store import R2Store
 
 
-class FakeR2:
+class FakeR2(R2Store):
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
 
@@ -31,6 +33,17 @@ class FakeR2:
     def write_json(self, key: str, value: dict) -> None:
         self.write(key, json.dumps(value).encode(), "application/json")
 
+    def read_versioned_json(self, key: str):
+        raw = self.read_optional(key)
+        return (json.loads(raw), hashlib.sha256(raw).hexdigest()) if raw is not None else (None, None)
+
+    def compare_write_json(self, key: str, value: dict, etag: str | None) -> str:
+        _, current = self.read_versioned_json(key)
+        if current != etag:
+            raise ClientError({"Error": {"Code": "PreconditionFailed"}}, "PutObject")
+        self.write_json(key, value)
+        return self.read_versioned_json(key)[1]
+
 
 def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monkeypatch) -> None:
     store = FakeR2()
@@ -46,6 +59,7 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
     store.write(csv_key, csv, "text/csv")
     digest = hashlib.sha256(csv).hexdigest()
     registry = ModelRegistry(settings)
+    requested_job_id = "97d80366-6dfb-436e-aeb9-046ca50a1d36"
     with TestClient(create_app(settings, registry)) as client:
         assert client.post(
             "/internal/model/train", json={"csvKey": csv_key, "csvSha256": digest}
@@ -53,10 +67,11 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
         started = client.post(
             "/internal/model/train",
             headers={"X-Model-Admin-Token": "admin-secret"},
-            json={"csvKey": csv_key, "csvSha256": digest},
+            json={"jobId": requested_job_id, "csvKey": csv_key, "csvSha256": digest},
         )
         assert started.status_code == 202
         job_id = started.json()["jobId"]
+        assert job_id == requested_job_id
         for _ in range(100):
             progress = client.get(f"/internal/model/jobs/{job_id}",
                                   headers={"X-Model-Admin-Token": "admin-secret"}).json()
@@ -64,6 +79,13 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
                 break
             time.sleep(.05)
         assert progress["status"] == "completed", progress
+        replay = client.post("/internal/model/train", headers={"X-Model-Admin-Token": "admin-secret"},
+                             json={"jobId": job_id, "csvKey": csv_key, "csvSha256": digest})
+        assert replay.status_code == 200
+        assert replay.json()["status"] == "completed"
+        conflict = client.post("/internal/model/train", headers={"X-Model-Admin-Token": "admin-secret"},
+                               json={"jobId": job_id, "csvKey": csv_key + "other", "csvSha256": digest})
+        assert conflict.status_code == 409
         manifest = store.read_json("collaborative_cf/active.json")
         assert manifest is not None
         assert manifest["csvKey"] == csv_key
@@ -101,3 +123,38 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
     restarted.load()
     assert restarted.loaded is not None
     assert restarted.loaded.metadata["modelVersion"] == manifest["modelVersion"]
+    assert restarted.get_job(job_id)["status"] == "completed"
+
+
+def test_training_lease_excludes_replicas_and_fences_old_owner():
+    store = FakeR2()
+    first = store.acquire_training_lease()
+    import pytest
+    with pytest.raises(RuntimeError):
+        store.acquire_training_lease()
+    store.release_training_lease(*first)
+    second = store.acquire_training_lease()
+    with pytest.raises(ClientError):
+        store.renew_training_lease(*first)
+    store.release_training_lease(*second)
+
+
+def test_job_creation_excludes_other_replica_and_recovers_default_aggregation(tmp_path, monkeypatch):
+    store = FakeR2()
+    monkeypatch.setattr("app.model_registry.R2Store", lambda _: store)
+    settings = Settings(model_storage_path=tmp_path)
+    first, second = ModelRegistry(settings), ModelRegistry(settings)
+    job_id = "97d80366-6dfb-436e-aeb9-046ca50a1d37"
+    job = {"jobId": job_id, "status": "running", "csvKey": "collaborative_cf/input.csv",
+           "csvSha256": "a" * 64, "scoreAggregation": {"mode": "average", "weights": {}}}
+    assert first.create_job(job_id, job)
+    assert not second.create_job(job_id, {**job, "csvKey": "other.csv"})
+    assert second.get_job(job_id) == job
+    from training.train_hutube import normalize_score_aggregation
+    active = {"csvKey": job["csvKey"], "csvSha256": job["csvSha256"],
+              "modelVersion": "published-before-restart",
+              "scoreAggregation": normalize_score_aggregation(None)}
+    store.write_json("collaborative_cf/active.json", active)
+    restarted = ModelRegistry(settings)
+    assert restarted.get_job(job_id)["status"] == "completed"
+    assert restarted.get_job(job_id)["manifest"] == active

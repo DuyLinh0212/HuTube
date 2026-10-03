@@ -15,7 +15,8 @@ public sealed record PlanResponse(
     string Status,
     IReadOnlyDictionary<string, bool>? Features = null,
     int DisplayOrder = 0,
-    string? MaxDownloadQuality = null);
+    string? MaxDownloadQuality = null,
+    bool IsDefaultForNewUsers = false);
 
 public sealed record PlanMemberResponse(
     Guid PlanMemberId,
@@ -86,7 +87,8 @@ public sealed record CreatePlanRequest(
     int MaxMembers,
     string? Features = null,
     int DisplayOrder = 0,
-    string? MaxDownloadQuality = null);
+    string? MaxDownloadQuality = null,
+    bool IsDefaultForNewUsers = false);
 
 public sealed record UpdatePlanRequest(
     string Name,
@@ -101,7 +103,8 @@ public sealed record UpdatePlanRequest(
     string Status,
     string? Features = null,
     int DisplayOrder = 0,
-    string? MaxDownloadQuality = null);
+    string? MaxDownloadQuality = null,
+    bool? IsDefaultForNewUsers = null);
 
 public sealed record PlanInviteRequest(
     string Email,

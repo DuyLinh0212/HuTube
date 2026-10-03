@@ -270,7 +270,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
             TextFormField(
               controller: _title,
               enabled: !_uploading,
-              maxLength: 150,
+              maxLength: 100,
               decoration: InputDecoration(
                 labelText: AppStrings.t('upload.titleField'),
               ),

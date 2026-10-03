@@ -104,6 +104,7 @@ public sealed class Plan
     public string? MaxDownloadQuality { get; set; } = "720p";
     public string Features { get; set; } = "{}";
     public int DisplayOrder { get; set; }
+    public bool IsDefaultForNewUsers { get; set; }
 }
 
 public sealed class Category
@@ -135,13 +136,19 @@ public sealed class Video
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public string? LanguageCode { get; set; }
+    public bool AllowComments { get; set; } = true;
     public bool AgeRestricted { get; set; }
+    public bool PromotionEnabled { get; set; }
+    public bool ModerationHidden { get; set; }
+    public bool ModerationAgeRestricted { get; set; }
+    public bool RecommendationRestricted { get; set; }
     public string? AdminOriginalStatus { get; set; }
     public string? AdminOriginalVisibility { get; set; }
     public string? AdminOriginalModerationStatus { get; set; }
     public string? ModerationReason { get; set; }
     public DateTimeOffset? MediaRetentionUntil { get; set; }
     public DateTimeOffset? MediaPurgedAt { get; set; }
+    public DateTimeOffset? MediaPurgeStartedAt { get; set; }
     public string ModerationStatus { get; set; } = "not_submitted";
     public DateTimeOffset? ScheduledAt { get; set; }
     public string? IdempotencyKey { get; set; }

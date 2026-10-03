@@ -217,7 +217,7 @@ public sealed class SearchAndFilterIntegrationTests(AuthApiFactory factory) : IC
         form.Add(new StringContent(duration.ToString()), "Duration");
         if (categoryId.HasValue) form.Add(new StringContent(categoryId.Value.ToString()), "CategoryId");
         foreach (var tag in tags ?? ["hu-tube"]) form.Add(new StringContent(tag), "Tags");
-        var bytes = new ByteArrayContent(Encoding.UTF8.GetBytes("fake-video-content"));
+        var bytes = new ByteArrayContent(Encoding.UTF8.GetBytes($"fake-video-duration:{duration}"));
         bytes.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
         form.Add(bytes, "Video", "sample.mp4");
         var response = await client.PostAsync("/api/v1/videos", form);
@@ -235,7 +235,7 @@ public sealed class SearchAndFilterIntegrationTests(AuthApiFactory factory) : IC
         form.Add(new StringContent(duration.ToString()), "Duration");
         if (categoryId.HasValue) form.Add(new StringContent(categoryId.Value.ToString()), "CategoryId");
         foreach (var tag in tags) form.Add(new StringContent(tag), "Tags");
-        var bytes = new ByteArrayContent(Encoding.UTF8.GetBytes("fake-video-content"));
+        var bytes = new ByteArrayContent(Encoding.UTF8.GetBytes($"fake-video-duration:{duration}"));
         bytes.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
         form.Add(bytes, "Video", "sample.mp4");
         var response = await client.PostAsync("/api/v1/videos", form);

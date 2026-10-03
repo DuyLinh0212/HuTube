@@ -105,6 +105,7 @@ class CreatorService {
 
   Future<PageResult<VideoDetail>> managedVideos(
     String channelId, {
+    int page = 1,
     String? status,
     String? visibility,
     String? search,
@@ -116,7 +117,7 @@ class CreatorService {
         'status': status,
         'visibility': visibility,
         'search': search,
-        'page': 1,
+        'page': page,
         'pageSize': 50,
       }),
     );
@@ -236,10 +237,13 @@ class CreatorService {
     return 'application/octet-stream';
   }
 
-  Future<PageResult<CommentItem>> managedComments(String channelId) async {
+  Future<PageResult<CommentItem>> managedComments(
+    String channelId, {
+    int page = 1,
+  }) async {
     final json = await auth.protected(
       'GET',
-      '/channels/${Uri.encodeComponent(channelId)}/comments/manage?page=1&pageSize=50',
+      '/channels/${Uri.encodeComponent(channelId)}/comments/manage?page=$page&pageSize=50',
     );
     return PageResult(
       items: (json['items'] as List? ?? const [])

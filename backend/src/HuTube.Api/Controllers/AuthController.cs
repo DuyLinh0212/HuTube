@@ -18,6 +18,15 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     private string CookieName => Platform == "admin" ? "hutube_admin_refresh" : "hutube_refresh";
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
     private Guid SessionId => Guid.Parse(User.FindFirst("sid")!.Value);
+    private string? ClientIpAddress
+    {
+        get
+        {
+            var address = HttpContext.Connection.RemoteIpAddress;
+            if (address?.IsIPv4MappedToIPv6 == true) address = address.MapToIPv4();
+            return address?.ToString();
+        }
+    }
 
     private void ValidateBrowser()
     {
@@ -50,7 +59,7 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     {
         ValidateBrowser();
         if (request.Platform != Platform) throw new AuthException(400, "CLIENT_PLATFORM_MISMATCH", "Cấu hình client không khớp nền tảng đăng nhập.");
-        var response = await auth.LoginAsync(request, ct, HttpContext.Connection.RemoteIpAddress?.ToString());
+        var response = await auth.LoginAsync(request, ct, ClientIpAddress);
 
         if (Platform == "admin")
         {
@@ -60,7 +69,7 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
                 "user",
                 response.User.UserId,
                 "Admin login succeeded",
-                IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress: ClientIpAddress,
                 UserAgent: Request.Headers.UserAgent.ToString()), ct);
         }
 
@@ -72,11 +81,11 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
         ValidateBrowser();
         if (request.Platform != Platform || Platform == "admin")
             throw new AuthException(400, "CLIENT_PLATFORM_MISMATCH", "Cấu hình client không khớp nền tảng đăng nhập Google.");
-        return SetSession(await auth.GoogleLoginAsync(request, ct, HttpContext.Connection.RemoteIpAddress?.ToString()));
+        return SetSession(await auth.GoogleLoginAsync(request, ct, ClientIpAddress));
     }
     [HttpPost("refresh")]
     public async Task<ActionResult<LoginResponse>> RefreshAsync(RefreshRequest request, CancellationToken ct) =>
-        SetSession(await auth.RefreshAsync(ReadRefresh(request) ?? "", Platform, ct, HttpContext.Connection.RemoteIpAddress?.ToString()));
+        SetSession(await auth.RefreshAsync(ReadRefresh(request) ?? "", Platform, ct, ClientIpAddress, request.DeviceName));
     [HttpPost("logout")]
     public async Task<ActionResult<MessageResponse>> LogoutAsync(RefreshRequest request, CancellationToken ct)
     {
@@ -92,7 +101,7 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
                 "user",
                 adminUserId,
                 "Admin logout",
-                IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress: ClientIpAddress,
                 UserAgent: Request.Headers.UserAgent.ToString()), ct);
         }
 
@@ -110,6 +119,9 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
     public Task<UserResponse> GetMeAsync(CancellationToken ct) => auth.GetMeAsync(UserId, false, ct);
     [Authorize, HttpGet("sessions")]
     public Task<SessionListResponse> GetSessionsAsync(CancellationToken ct) => auth.GetSessionsAsync(UserId, SessionId, ct);
+    [Authorize, HttpGet("login-history")]
+    public Task<LoginHistoryPageResponse> GetLoginHistoryAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        auth.GetLoginHistoryAsync(UserId, page, pageSize, ct);
     [Authorize, HttpPost("logout-others")]
     public async Task<MessageResponse> LogoutOthersAsync(CancellationToken ct)
     {
@@ -136,7 +148,7 @@ public sealed class AuthController(AuthService auth, AuthOptions options, IWebHo
             "user",
             userId,
             "User signed out all devices",
-            IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString(),
+            IpAddress: ClientIpAddress,
             UserAgent: Request.Headers.UserAgent.ToString()), ct);
         if (IsWeb) Response.Cookies.Delete(CookieName, new CookieOptions { Path = "/api/v1/auth", Secure = !environment.IsDevelopment(), HttpOnly = true,
             SameSite = environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None });

@@ -152,34 +152,7 @@ jobs:
   e2e:
     needs: [backend, web]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: hutube_e2e
-          POSTGRES_PASSWORD: ci-only-e2e-password
-          POSTGRES_DB: hutube_e2e
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U hutube_e2e -d hutube_e2e"
-          --health-interval 5s --health-timeout 5s --health-retries 12
-    env:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://127.0.0.1:5080
-      ConnectionStrings__Database: Host=127.0.0.1;Port=5432;Database=hutube_e2e;Username=hutube_e2e;Password=ci-only-e2e-password
-      Jwt__SigningKey: ci-e2e-signing-key-is-deliberately-ephemeral-and-longer-than-sixty-four-characters
-      Jwt__Issuer: HuTube
-      Jwt__Audience: HuTube.Clients
-      Auth__WebBaseUrl: http://localhost:4200
-      Auth__AdminBaseUrl: http://localhost:4201
-      Email__Mode: Pickup
-      Email__PickupDirectory: ${{ github.workspace }}/.work/mail
-      Features__PlanEnforcementEnabled: "true"
-      API_BASE_URL: http://localhost:5080/api/v1
-      MOBILE_API_BASE_URL: http://localhost:5080/api/v1
-      PLAYWRIGHT_CHANNEL: chrome
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -192,44 +165,46 @@ jobs:
           cache-dependency-path: |
             frontend/user-web/package-lock.json
             frontend/admin-web/package-lock.json
-      - name: Build and migrate API
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: frontend/e2e_testing/requirements.txt
+      - name: Install PostgreSQL 18 binaries
         shell: bash
         run: |
-          mkdir -p .work/mail
-          dotnet build backend/HuTube.sln --configuration Release
-          dotnet run --project backend/src/HuTube.Api --no-build --configuration Release --no-launch-profile -- --migrate
-          nohup dotnet run --project backend/src/HuTube.Api --no-build --configuration Release --no-launch-profile > .work/e2e-api.log 2>&1 &
-      - name: Start web clients
+          sudo apt-get update
+          sudo apt-get install --yes ca-certificates curl postgresql-common
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error --location \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: %s-pgdg\nArchitectures: %s\nComponents: main\nSigned-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc\n' \
+            "$VERSION_CODENAME" "$(dpkg --print-architecture)" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-18
+          test -x /usr/lib/postgresql/18/bin/initdb
+          echo 'E2E_POSTGRES_BIN=/usr/lib/postgresql/18/bin' >> "$GITHUB_ENV"
+      - name: Install browser and project dependencies
         shell: bash
         run: |
           npm ci --prefix frontend/user-web
           npm ci --prefix frontend/admin-web
-          nohup npm start --prefix frontend/user-web -- --host 127.0.0.1 > .work/e2e-user-web.log 2>&1 &
-          nohup npm start --prefix frontend/admin-web -- --host 127.0.0.1 > .work/e2e-admin-web.log 2>&1 &
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent --max-time 5 http://127.0.0.1:5080/health > /dev/null \
-              && curl --fail --silent --max-time 5 http://127.0.0.1:4200/login > /dev/null \
-              && curl --fail --silent --max-time 5 http://127.0.0.1:4201/login > /dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo 'Local E2E services did not become ready.'
-          exit 1
-      - name: Sprint 4 browser smoke E2E (6 scenarios)
-        working-directory: frontend/user-web
-        run: npm run test:e2e:sprint4
-      - name: Sprint 5 Tú browser smoke E2E (Guest, Plan, sharing)
-        working-directory: frontend/user-web
-        run: npm run test:e2e:sprint5:tu
+          python -m pip install --requirement frontend/e2e_testing/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Run User and Admin browser E2E
+        run: python frontend/e2e_testing/run_local.py
       - uses: actions/upload-artifact@v6
-        if: failure()
+        if: always()
         with:
-          name: e2e-diagnostics
-          include-hidden-files: true
+          name: hutube-e2e-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .work/e2e-*.log
-            frontend/user-web/.work/screenshots
+            frontend/e2e_testing/artifacts/runs/*/report.json
+            frontend/e2e_testing/screenshots/20*/**
+          if-no-files-found: warn
+          retention-days: 14
 
   container:
     needs: [recommendation, backend, web, mobile, e2e]

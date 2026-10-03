@@ -8,6 +8,9 @@ public sealed class RecommendationJob
     public string Status { get; set; } = "queued";
     public string Step { get; set; } = "queued";
     public string PayloadJson { get; set; } = "{}";
+    public string? ModelCsvKey { get; set; }
+    public string? ModelCsvSha256 { get; set; }
+    public string? ServiceJobId { get; set; }
     public string LogsJson { get; set; } = "[]";
     public string? Error { get; set; }
     public int Completed { get; set; }

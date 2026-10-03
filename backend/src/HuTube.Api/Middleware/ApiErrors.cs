@@ -25,6 +25,8 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
     {
         try { await next(context); }
         catch (AuthException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
+        catch (HuTube.Application.Plans.PlanException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
+        catch (HuTube.Application.Payments.PaymentException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
         catch (HuTube.Application.Channels.ChannelException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
         catch (HuTube.Application.Rbac.RbacException ex) { await ApiErrors.WriteAsync(context, ex.Status, ex.Code, ex.Message); }
         catch (HuTube.Application.Storage.ObjectStorageException ex) { logger.LogWarning(ex, "Object storage request failed for {TraceId}", context.TraceIdentifier); await ApiErrors.WriteAsync(context, 502, "STORAGE_UPLOAD_FAILED", ex.Message); }
@@ -40,6 +42,13 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
                 await ApiErrors.WriteAsync(context, status, "BAD_REQUEST", "Nội dung yêu cầu không đầy đủ hoặc không hợp lệ.");
         }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }
+        catch (Exception ex) when (HuTube.Infrastructure.Persistence.DatabaseResilience.IsTransientFailure(ex))
+        {
+            logger.LogWarning(ex, "Database connection temporarily unavailable for {TraceId}", context.TraceIdentifier);
+            if (!context.Response.HasStarted && !context.RequestAborted.IsCancellationRequested)
+                await ApiErrors.WriteAsync(context, StatusCodes.Status503ServiceUnavailable, "DATABASE_UNAVAILABLE",
+                    "Kết nối cơ sở dữ liệu đang gián đoạn. Vui lòng thử lại sau ít phút.");
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Request {TraceId} failed with {ExceptionType}", context.TraceIdentifier, ex.GetType().Name);

@@ -8,20 +8,23 @@ namespace HuTube.Infrastructure.Persistence;
 
 public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
 {
-    public async Task<IAuthTransaction> LockUserAsync(Guid userId, CancellationToken ct)
-    {
-        db.ChangeTracker.Clear();
-        var transaction = await db.Database.BeginTransactionAsync(ct);
-        try
+    public Task<IAuthTransaction> LockUserAsync(Guid userId, CancellationToken ct) =>
+        DatabaseResilience.ExecuteWithRetryAsync<IAuthTransaction>(async () =>
         {
-            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))", ct);
-            return new AuthTransaction(transaction);
-        }
-        catch { await transaction.DisposeAsync(); throw; }
-    }
+            db.ChangeTracker.Clear();
+            var transaction = await db.Database.BeginTransactionAsync(ct);
+            try
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))", ct);
+                return new AuthTransaction(transaction);
+            }
+            catch { await transaction.DisposeAsync(); throw; }
+        }, ct);
 
-    public Task<User?> FindUserByEmailAsync(string email, CancellationToken ct) => db.Users.SingleOrDefaultAsync(x => x.Email == email, ct);
-    public Task<User?> FindUserByGoogleSubjectAsync(string subject, CancellationToken ct) => db.Users.SingleOrDefaultAsync(x => x.GoogleSubject == subject, ct);
+    public Task<User?> FindUserByEmailAsync(string email, CancellationToken ct) =>
+        DatabaseResilience.ExecuteWithRetryAsync(() => db.Users.SingleOrDefaultAsync(x => x.Email == email, ct), ct);
+    public Task<User?> FindUserByGoogleSubjectAsync(string subject, CancellationToken ct) =>
+        DatabaseResilience.ExecuteWithRetryAsync(() => db.Users.SingleOrDefaultAsync(x => x.GoogleSubject == subject, ct), ct);
     public Task<User?> FindUserAsync(Guid id, CancellationToken ct) => db.Users.SingleOrDefaultAsync(x => x.UserId == id, ct);
     public Task<bool> UsernameExistsAsync(string username, CancellationToken ct) => db.Users.AnyAsync(x => x.Username == username, ct);
     public Task<string?> FindPasswordHashAsync(Guid userId, CancellationToken ct) => db.Users.Where(x => x.UserId == userId).Select(x => x.PasswordHash).SingleOrDefaultAsync(ct);
@@ -33,6 +36,18 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
     public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => db.Sessions.Where(x => x.UserId == userId).ToListAsync(ct);
     public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) =>
         db.Sessions.Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now).OrderByDescending(x => x.IssuedAt).ToListAsync(ct);
+    public async Task<(List<UserLoginHistory> Items, int Page, int PageSize, int Total)> GetLoginHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 50);
+        var query = db.LoginHistory.AsNoTracking().Where(x => x.UserId == userId);
+        var total = await query.CountAsync(ct);
+        var pageCount = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Min(page, pageCount);
+        var items = await query.OrderByDescending(x => x.LoginAt).ThenByDescending(x => x.LoginHistoryId)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return (items, page, pageSize, total);
+    }
     public async Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct) =>
         await db.Sessions.Where(x => x.SessionId == sessionId && x.RevokedAt == null && x.LastActiveAt < now.AddMinutes(-1))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastActiveAt, now).SetProperty(x => x.ExpiresAt, expiresAt), ct);
@@ -67,20 +82,21 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
         user.PasswordHash = passwordHash;
         user.RoleId = UserRoles.User;
 
-        var freePlan = await db.Plans.FirstOrDefaultAsync(p => p.Code == "free" && p.Status == "active", ct);
-        if (freePlan != null)
+        var defaultPlan = await db.Plans.FirstOrDefaultAsync(p => p.IsDefaultForNewUsers && p.Status == "active", ct)
+            ?? await db.Plans.FirstOrDefaultAsync(p => p.Code == "free" && p.Status == "active", ct);
+        if (defaultPlan != null)
         {
             var startedAt = user.CreatedAt != default ? user.CreatedAt : DateTimeOffset.UtcNow;
-            user.PlanId = freePlan.PlanId;
+            user.PlanId = defaultPlan.PlanId;
             db.PlanHistories.Add(new Domain.Plans.PlanHistory
             {
                 PlanHistoryId = Guid.NewGuid(),
                 UserId = user.UserId,
-                PlanId = freePlan.PlanId,
+                PlanId = defaultPlan.PlanId,
                 OwnerUserId = user.UserId,
                 Status = "active",
                 StartedAt = startedAt,
-                EndedAt = startedAt.AddDays(freePlan.DurationDays),
+                EndedAt = startedAt.AddDays(defaultPlan.DurationDays),
                 AutoRenew = false,
                 CreatedAt = startedAt
             });
@@ -94,20 +110,21 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
         user.PasswordHash = passwordHash;
         user.RoleId = UserRoles.User;
 
-        var freePlan = db.Plans.FirstOrDefault(p => p.Code == "free" && p.Status == "active");
-        if (freePlan != null)
+        var defaultPlan = db.Plans.FirstOrDefault(p => p.IsDefaultForNewUsers && p.Status == "active")
+            ?? db.Plans.FirstOrDefault(p => p.Code == "free" && p.Status == "active");
+        if (defaultPlan != null)
         {
             var startedAt = user.CreatedAt != default ? user.CreatedAt : DateTimeOffset.UtcNow;
-            user.PlanId = freePlan.PlanId;
+            user.PlanId = defaultPlan.PlanId;
             db.PlanHistories.Add(new Domain.Plans.PlanHistory
             {
                 PlanHistoryId = Guid.NewGuid(),
                 UserId = user.UserId,
-                PlanId = freePlan.PlanId,
+                PlanId = defaultPlan.PlanId,
                 OwnerUserId = user.UserId,
                 Status = "active",
                 StartedAt = startedAt,
-                EndedAt = startedAt.AddDays(freePlan.DurationDays),
+                EndedAt = startedAt.AddDays(defaultPlan.DurationDays),
                 AutoRenew = false,
                 CreatedAt = startedAt
             });
@@ -117,6 +134,7 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
     }
 
     public void AddSession(UserSession session) => db.Sessions.Add(session);
+    public void AddLoginHistory(UserLoginHistory loginHistory) => db.LoginHistory.Add(loginHistory);
 
     public void AddVerification(User user, EmailVerificationToken token)
     {

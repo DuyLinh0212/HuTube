@@ -48,13 +48,17 @@ public sealed class PlanService(
         if (await db.Plans.AnyAsync(x => x.Code == code, ct))
             throw new PlanException(409, "PLAN_CODE_EXISTS", "Mã gói đã tồn tại.");
         var now = Now;
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (request.IsDefaultForNewUsers) await ClearDefaultPlanAsync(null, now, ct);
         var plan = new Plan { PlanId = Guid.NewGuid(), Code = code, Name = request.Name.Trim(), Description = Clean(request.Description),
             Price = request.Price, DurationDays = request.DurationDays, StorageLimit = request.StorageLimit,
             MaxUploadSize = request.MaxUploadSize, MaxVideoDuration = request.MaxVideoDuration,
             MaxVideoQuality = request.MaxVideoQuality.Trim().ToLowerInvariant(), MaxDownloadQuality = NormalizeQuality(request.MaxDownloadQuality, request.MaxVideoQuality), MaxMembers = request.MaxMembers,
-            Features = features, DisplayOrder = Math.Max(0, request.DisplayOrder), Status = "active", CreatedAt = now, UpdatedAt = now };
+            Features = features, DisplayOrder = Math.Max(0, request.DisplayOrder), Status = "active", IsDefaultForNewUsers = request.IsDefaultForNewUsers,
+            CreatedAt = now, UpdatedAt = now };
         db.Plans.Add(plan);
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, "plan.created", "plan", plan.PlanId, "Admin tạo gói dịch vụ",
             NewValues: PersistenceJson.Serialize(ToResponse(plan))), ct);
         return ToResponse(plan);
@@ -67,17 +71,26 @@ public sealed class PlanService(
         ValidatePlan(plan.Code, request.Name, request.Price, request.DurationDays, request.StorageLimit,
             request.MaxUploadSize, request.MaxVideoDuration, request.MaxVideoQuality, request.MaxDownloadQuality,
             request.MaxMembers, request.Status);
+        var normalizedStatus = request.Status.Trim().ToLowerInvariant();
+        var isDefaultForNewUsers = request.IsDefaultForNewUsers ?? plan.IsDefaultForNewUsers;
+        if (isDefaultForNewUsers && normalizedStatus != "active")
+            throw new PlanException(400, "DEFAULT_PLAN_MUST_BE_ACTIVE", "Gói mặc định cho người dùng mới phải đang hoạt động.");
         var features = NormalizeFeatures(request.Features ?? plan.Features);
         var old = ToResponse(plan);
+        var now = Now;
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (isDefaultForNewUsers) await ClearDefaultPlanAsync(planId, now, ct);
         plan.Name = request.Name.Trim(); plan.Description = Clean(request.Description); plan.Price = request.Price;
         plan.DurationDays = request.DurationDays; plan.StorageLimit = request.StorageLimit; plan.MaxUploadSize = request.MaxUploadSize;
         plan.MaxVideoDuration = request.MaxVideoDuration; plan.MaxVideoQuality = request.MaxVideoQuality.Trim().ToLowerInvariant();
         plan.MaxDownloadQuality = NormalizeQuality(
             request.MaxDownloadQuality ?? plan.MaxDownloadQuality,
             request.MaxVideoQuality);
-        plan.MaxMembers = request.MaxMembers; plan.Status = request.Status.Trim().ToLowerInvariant();
-        plan.Features = features; plan.DisplayOrder = Math.Max(0, request.DisplayOrder); plan.UpdatedAt = Now;
+        plan.MaxMembers = request.MaxMembers; plan.Status = normalizedStatus;
+        plan.Features = features; plan.DisplayOrder = Math.Max(0, request.DisplayOrder);
+        plan.IsDefaultForNewUsers = isDefaultForNewUsers; plan.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, "plan.updated", "plan", plan.PlanId, "Admin cập nhật gói dịch vụ",
             OldValues: PersistenceJson.Serialize(old), NewValues: PersistenceJson.Serialize(ToResponse(plan))), ct);
         return ToResponse(plan);
@@ -87,9 +100,18 @@ public sealed class PlanService(
     {
         var plan = await db.Plans.SingleOrDefaultAsync(x => x.PlanId == planId, ct)
             ?? throw new PlanException(404, "PLAN_NOT_FOUND", "Gói dịch vụ không tồn tại.");
-        plan.Status = "archived"; plan.UpdatedAt = Now;
+        plan.Status = "archived"; plan.IsDefaultForNewUsers = false; plan.UpdatedAt = Now;
         await db.SaveChangesAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, "plan.archived", "plan", plan.PlanId, "Admin lưu trữ gói dịch vụ"), ct);
+    }
+
+    private async Task ClearDefaultPlanAsync(Guid? exceptPlanId, DateTimeOffset updatedAt, CancellationToken ct)
+    {
+        var query = db.Plans.Where(item => item.IsDefaultForNewUsers);
+        if (exceptPlanId.HasValue) query = query.Where(item => item.PlanId != exceptPlanId.Value);
+        await query.ExecuteUpdateAsync(update => update
+            .SetProperty(item => item.IsDefaultForNewUsers, false)
+            .SetProperty(item => item.UpdatedAt, updatedAt), ct);
     }
 
     public async Task<PlanResponse> GetPlanByIdAsync(Guid planId, CancellationToken ct = default)
@@ -240,6 +262,8 @@ public sealed class PlanService(
     {
         var user = await db.Users.SingleAsync(x => x.UserId == userId, ct);
         var plan = await db.Plans.SingleAsync(x => x.PlanId == planId && x.Status == "active", ct);
+        if (plan.Price > 0)
+            throw new PlanException(402, "PAYMENT_REQUIRED", "Vui lòng thanh toán để kích hoạt gói trả phí.");
         var now = Now;
 
         // Kiểm tra xem người dùng có gói đang active hay không
@@ -306,11 +330,11 @@ public sealed class PlanService(
     /// <inheritdoc/>
     public async Task<Guid> ActivatePaidPlanAsync(Guid userId, Guid planId, Guid paymentId, bool autoRenew, CancellationToken ct = default)
     {
+        if (db.Database.IsRelational() && db.Database.CurrentTransaction == null)
+            throw new InvalidOperationException("Paid activation requires the payment transaction.");
         var user = await db.Users.SingleAsync(x => x.UserId == userId, ct);
         var plan = await db.Plans.SingleAsync(x => x.PlanId == planId && x.Status == "active", ct);
         var now = Now;
-
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         // Expire tất cả gói đang active của user
         await db.PlanHistories
@@ -341,8 +365,6 @@ public sealed class PlanService(
         await SyncChannelQuotaAsync(userId, plan.StorageLimit, now, ct);
 
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-
         return historyId;
     }
 
@@ -567,7 +589,7 @@ public sealed class PlanService(
 
     private static PlanResponse ToResponse(Plan x) => new(x.PlanId, x.Code, x.Name, x.Description, x.Price, x.DurationDays,
         x.StorageLimit, x.MaxUploadSize, x.MaxVideoDuration, x.MaxVideoQuality, x.MaxMembers, x.Status,
-        PlanEntitlementRules.ReadFlags(x.Features), x.DisplayOrder, x.MaxDownloadQuality);
+        PlanEntitlementRules.ReadFlags(x.Features), x.DisplayOrder, x.MaxDownloadQuality, x.IsDefaultForNewUsers);
 
     private static void ValidatePlan(string code, string name, decimal price, int durationDays, long storageLimit,
         long maxUploadSize, int maxVideoDuration, string quality, string? downloadQuality, int maxMembers, string status)

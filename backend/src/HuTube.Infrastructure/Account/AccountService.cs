@@ -60,6 +60,7 @@ public sealed class AccountService(
 
     public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct = default)
     {
+        await using var transaction = await new AuthStore(db).LockUserAsync(userId, ct);
         var user = await db.Users.SingleOrDefaultAsync(u => u.UserId == userId, ct)
             ?? throw new AuthException(404, "USER_NOT_FOUND", "Không tìm thấy thông tin tài khoản.");
 
@@ -89,6 +90,7 @@ public sealed class AccountService(
         }
 
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task<NotificationSettingsDto> GetNotificationSettingsAsync(Guid userId, CancellationToken ct = default)

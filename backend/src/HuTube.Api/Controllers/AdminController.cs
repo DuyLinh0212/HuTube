@@ -12,6 +12,7 @@ using HuTube.Infrastructure.Policies;
 using HuTube.Infrastructure.Taxonomy;
 using HuTube.Infrastructure.Users;
 using HuTube.Infrastructure.Videos;
+using HuTube.Infrastructure.Plans;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,7 +27,9 @@ public sealed class AdminController(
     PolicyService policyService,
     TaxonomyService taxonomy,
     AdminUserService users,
+    AdminSubscriptionService subscriptions,
     StrikeService strikeService,
+    StrikePolicySettingsService strikePolicySettings,
     ReportService reportService,
     AdminContentService adminContent,
     AppealService appealService,
@@ -61,6 +64,50 @@ public sealed class AdminController(
         var result = await plans.GetMyPlanAsync(userId, ct);
         return result == null ? NotFound() : Ok(result);
     }
+
+    [HttpGet("subscriptions"), RequirePermission(AdminPermissions.PlanView)]
+    public Task<AdminSubscriptionPageResponse> GetSubscriptionsAsync(
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? planId = null,
+        [FromQuery] string? cycle = null,
+        [FromQuery] bool? autoRenew = null,
+        [FromQuery] DateTimeOffset? fromDate = null,
+        [FromQuery] DateTimeOffset? toDate = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default) =>
+        subscriptions.GetSubscriptionsAsync(search, status, planId, cycle, autoRenew, fromDate, toDate, page, pageSize, ct);
+
+    [HttpGet("subscriptions/export"), RequirePermission(AdminPermissions.PlanView)]
+    public Task<IReadOnlyList<AdminSubscriptionItemResponse>> ExportSubscriptionsAsync(
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? planId = null,
+        [FromQuery] string? cycle = null,
+        [FromQuery] bool? autoRenew = null,
+        [FromQuery] DateTimeOffset? fromDate = null,
+        [FromQuery] DateTimeOffset? toDate = null,
+        CancellationToken ct = default) =>
+        subscriptions.GetSubscriptionsExportAsync(search, status, planId, cycle, autoRenew, fromDate, toDate, ct);
+
+    [HttpGet("subscriptions/{historyId:guid}"), RequirePermission(AdminPermissions.PlanView)]
+    public Task<AdminSubscriptionDetailResponse> GetSubscriptionAsync(Guid historyId, CancellationToken ct) =>
+        subscriptions.GetSubscriptionAsync(historyId, ct);
+
+    [HttpPut("subscriptions/{historyId:guid}/auto-renew"), RequirePermission(AdminPermissions.PlanEdit)]
+    public Task<AdminSubscriptionItemResponse> SetSubscriptionAutoRenewAsync(
+        Guid historyId, [FromBody] AdminSubscriptionAutoRenewRequest request, CancellationToken ct) =>
+        subscriptions.SetAutoRenewAsync(UserId, historyId, request, ct);
+
+    [HttpPost("subscriptions/{historyId:guid}/extend"), RequirePermission(AdminPermissions.PlanEdit)]
+    public Task<AdminSubscriptionItemResponse> ExtendSubscriptionAsync(Guid historyId, CancellationToken ct) =>
+        subscriptions.ExtendAsync(UserId, historyId, ct);
+
+    [HttpPost("subscriptions/{historyId:guid}/change-plan"), RequirePermission(AdminPermissions.PlanEdit)]
+    public Task<AdminSubscriptionItemResponse> ChangeSubscriptionPlanAsync(
+        Guid historyId, [FromBody] AdminSubscriptionSwitchPlanRequest request, CancellationToken ct) =>
+        subscriptions.SwitchPlanAsync(UserId, historyId, request, ct);
 
     [HttpGet("me")]
     public Task<AdminMeResponse> GetMeAsync(CancellationToken ct) =>
@@ -419,8 +466,6 @@ public sealed class AdminController(
     public async Task<IActionResult> GetAdminAppealEvidenceAsync(Guid appealId, CancellationToken ct)
     {
         var path = await appealService.GetEvidenceStoragePathAsync(UserId, appealId, true, ct);
-        if (path.StartsWith("r2://", StringComparison.OrdinalIgnoreCase))
-            return Redirect(await storage.GetReadUrlAsync(path, TimeSpan.FromMinutes(10), ct));
         var stream = await storage.OpenReadAsync(path, ct);
         var contentType = Path.GetExtension(path).ToLowerInvariant() switch
         {
@@ -451,6 +496,16 @@ public sealed class AdminController(
         appealService.ResolveAppealAsync(UserId, appealId, request, ct);
 
     // ================= SPRINT 6: STRIKES =================
+
+    [HttpGet("strikes/policy"), RequirePermission(AdminPermissions.StrikeView)]
+    public Task<StrikePolicySettingsDto> GetStrikePolicySettingsAsync(CancellationToken ct) =>
+        strikePolicySettings.GetAsync(ct);
+
+    [HttpPut("strikes/policy"), RequirePermission(AdminPermissions.StrikeManage)]
+    public Task<StrikePolicySettingsDto> UpdateStrikePolicySettingsAsync(
+        [FromBody] UpdateStrikePolicySettingsRequest request,
+        CancellationToken ct) =>
+        strikePolicySettings.UpdateAsync(UserId, request, ct);
 
     [HttpGet("strikes"), RequirePermission(AdminPermissions.StrikeView)]
     public Task<List<ChannelStrikeDto>> GetAdminStrikesAsync(

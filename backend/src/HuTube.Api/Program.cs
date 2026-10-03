@@ -1,4 +1,5 @@
 using System.Text;
+using System.Net;
 using System.Threading.RateLimiting;
 using HuTube.Api.Middleware;
 using HuTube.Api.Services;
@@ -21,6 +22,7 @@ using HuTube.Infrastructure.Storage;
 using HuTube.Infrastructure.Taxonomy;
 using HuTube.Infrastructure.Users;
 using HuTube.Infrastructure.Videos;
+using HuTube.Infrastructure.Operations;
 using HuTube.Infrastructure.Notifications;
 using HuTube.Infrastructure.Payments;
 using HuTube.Infrastructure.Policies;
@@ -29,6 +31,7 @@ using HuTube.Application.Recommendations;
 using HuTube.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -50,7 +53,8 @@ var recommendationOptions = builder.Configuration.GetSection("Recommendation").G
 if (builder.Environment.IsDevelopment())
     R2OptionsLoader.LoadDevelopmentFile(r2Options, builder.Environment.ContentRootPath, builder.Configuration["Storage:R2:CredentialsFile"]);
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
-if (authOptions.AccessTokenMinutes is < 1 or > 60 || authOptions.RefreshTokenDays is < 1 or > 90)
+if (authOptions.AccessTokenMinutes is < 1 or > 60 || authOptions.RefreshTokenDays is < 1 or > 90
+    || authOptions.SessionInactivityDays is < 1 || authOptions.SessionInactivityDays > authOptions.RefreshTokenDays)
     throw new InvalidOperationException("Auth token lifetime configuration is outside its supported range.");
 var requiredAuthOrigins = new[] { authOptions.WebBaseUrl, authOptions.AdminBaseUrl };
 var additionalAuthOrigins = (authOptions.AllowedOrigins ?? []).Select(url => url.TrimEnd('/'))
@@ -82,6 +86,7 @@ builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLi
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
+builder.Services.AddHostedService<AuthSessionCleanupWorker>();
 builder.Services.AddScoped<HuTube.Application.Channels.IChannelStore, ChannelStore>();
 builder.Services.AddScoped<HuTube.Application.Channels.ChannelService>();
 builder.Services.AddScoped<HuTube.Application.Rbac.IRbacStore, RbacStore>();
@@ -113,15 +118,21 @@ builder.Services.AddSingleton<VideoRenditionProcessingQueue>();
 builder.Services.AddScoped<VideoRenditionProcessor>();
 builder.Services.AddHostedService<VideoRenditionProcessingWorker>();
 builder.Services.AddHostedService<VideoMediaRetentionCleanupService>();
-builder.Services.AddSingleton<CfSeedChunkUploadStore>();
+builder.Services.AddSingleton(_ => new CfSeedChunkUploadStore(builder.Configuration["CfSeedUpload:Directory"]));
 builder.Services.AddScoped<IPlanService, PlanService>();
+builder.Services.AddHostedService<PlanExpirationWorker>();
+builder.Services.AddScoped<AdminSubscriptionService>();
+builder.Services.AddScoped<AdminPaymentService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddHostedService<PaymentExpirationWorker>();
  builder.Services.AddScoped<IPlaylistService, PlaylistService>();
 builder.Services.AddScoped<PolicyService>();
 builder.Services.AddScoped<ModerationService>();
+builder.Services.AddScoped<StrikePolicySettingsService>();
 builder.Services.AddScoped<StrikeService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<AdminContentService>();
+builder.Services.AddScoped<AdminOperationsService>();
 builder.Services.AddScoped<AppealService>();
 builder.Services.AddScoped<TaxonomyService>();
 builder.Services.AddScoped<AdminUserService>();
@@ -129,6 +140,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<IVideoTranscoder, FfmpegVideoTranscoder>();
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, NotificationUserIdProvider>();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<NotificationConnections>();
+builder.Services.AddHostedService<NotificationSessionMonitor>();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<IRecommendationClient, RecommendationClient>();
 builder.Services.AddScoped<IRecommendationSnapshotStore, RecommendationSnapshotStore>();
@@ -182,6 +195,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     };
 });
 builder.Services.AddAuthorization();
+builder.Services.Configure<ForwardedHeadersOptions>(options => {
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+    // Production ingress addresses must be explicitly trusted; never accept arbitrary X-Forwarded-For values.
+    foreach (var value in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+        if (IPAddress.TryParse(value, out var proxy)) options.KnownProxies.Add(proxy);
+});
 builder.Services.AddRateLimiter(options => {
     options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new() {
         PermitLimit = builder.Configuration.GetValue("RateLimit:AuthPermitLimit", 60), Window = TimeSpan.FromMinutes(1), QueueLimit = 0
@@ -199,6 +221,7 @@ if (args.Contains("--migrate"))
     await scope.ServiceProvider.GetRequiredService<HuTubeDbContext>().Database.MigrateAsync();
     return;
 }
+app.UseForwardedHeaders();
 app.Use(async (context, next) => {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "no-referrer";
@@ -215,7 +238,7 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 app.UseMiddleware<ExceptionMiddleware>();
-app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
+app.UseRateLimiter(); app.UseAuthentication(); app.UseMiddleware<AdminApiAuditMiddleware>(); app.UseAuthorization();
 app.UseStatusCodePages(context => ApiErrors.WriteAsync(context.HttpContext, context.HttpContext.Response.StatusCode, "HTTP_ERROR", "Yêu cầu không được xử lý."));
 if (!app.Environment.IsProduction()) {
     app.MapOpenApi();
@@ -230,6 +253,6 @@ app.MapGet("/api/v1/system/info", () => new { name = "HuTube", apiVersion = "v1"
     serverTime = DateTimeOffset.UtcNow, commitSha = Environment.GetEnvironmentVariable("RENDER_GIT_COMMIT") ?? Environment.GetEnvironmentVariable("HUTUBE_COMMIT_SHA") ?? "local" }).AllowAnonymous();
 app.MapGet("/api/v1/system/config", () => new { googleClientId = googleOptions.ClientId }).AllowAnonymous();
 app.MapControllers();
-app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapHub<NotificationHub>("/hubs/notifications", options => options.CloseOnAuthenticationExpiration = true);
 app.Run();
 public partial class Program { }

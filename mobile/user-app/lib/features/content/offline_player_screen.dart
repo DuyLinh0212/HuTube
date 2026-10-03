@@ -31,10 +31,29 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
   @override
   void initState() {
     super.initState();
+    widget.auth.addListener(_identityChanged);
     _open();
   }
 
+  void _identityChanged() {
+    if (LocalDownloadManager.instance.ownerId != widget.auth.user?['userId'] ||
+        !widget.auth.authenticated) {
+      unawaited(_player?.dispose());
+      _player = null;
+      if (mounted) setState(() => _error = AppStrings.t('common.loginAgain'));
+    }
+  }
+
   Future<void> _open() async {
+    final owner = widget.auth.user?['userId'];
+    if (owner == null ||
+        LocalDownloadManager.instance.ownerId != owner ||
+        !LocalDownloadManager.instance.items.any(
+          (item) => item.id == widget.download.id,
+        )) {
+      setState(() => _error = AppStrings.t('common.loginAgain'));
+      return;
+    }
     final path = widget.download.filePath;
     if (path == null || !await File(path).exists()) {
       if (mounted) {
@@ -129,23 +148,25 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Stack(
-                    children: [
-                      NativeVideoPlayer(controller: player),
-                      if (!_ready)
-                        const Positioned.fill(
-                          child: ColoredBox(
-                            color: Color(0xB3171927),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primaryPink,
+                Flexible(
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Stack(
+                      children: [
+                        NativeVideoPlayer(controller: player),
+                        if (!_ready)
+                          const Positioned.fill(
+                            child: ColoredBox(
+                              color: Color(0xB3171927),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primaryPink,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 if (_entitlements.backgroundPlayback)

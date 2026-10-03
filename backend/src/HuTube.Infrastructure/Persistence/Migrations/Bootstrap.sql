@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS plans (
         max_download_quality VARCHAR(20) NOT NULL DEFAULT '720p',
         max_members         INT NOT NULL DEFAULT 1,
         display_order       INT NOT NULL DEFAULT 0,
+        is_default_for_new_users BOOLEAN NOT NULL DEFAULT FALSE,
         status              VARCHAR(20) NOT NULL DEFAULT 'active',
         features            JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -81,22 +82,31 @@ CREATE TABLE IF NOT EXISTS plans (
         CONSTRAINT ck_plans_status CHECK (status IN ('active', 'inactive', 'archived'))
 );
 
+ALTER TABLE public.plans
+  ADD COLUMN IF NOT EXISTS is_default_for_new_users BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE public.plans
+SET is_default_for_new_users = TRUE
+WHERE code = 'free' AND status = 'active'
+  AND NOT EXISTS (SELECT 1 FROM public.plans WHERE is_default_for_new_users);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_plans_default_for_new_users
+  ON public.plans (is_default_for_new_users) WHERE is_default_for_new_users;
+
 INSERT INTO public.plans (
   plan_id, code, name, description, price, duration_days, storage_limit, max_upload_size, max_video_duration,
-  max_video_quality, max_download_quality, max_members, display_order, status, features, created_at, updated_at
+  max_video_quality, max_download_quality, max_members, display_order, is_default_for_new_users, status, features, created_at, updated_at
 )
 VALUES
   (
     '00000000-0000-0000-0000-000000000100', 'free', 'Free', 'Gói miễn phí cho người mới bắt đầu.', 0, 3650,
-    1073741824, 1073741824, 43200, '720p', '720p', 1, 1, 'active', '{"download":false,"background_play":false,"pip":false}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    1073741824, 1073741824, 43200, '720p', '720p', 1, 1, TRUE, 'active', '{"download":false,"background_play":false,"pip":false}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   ),
   (
     '00000000-0000-0000-0000-000000000101', 'creator', 'Creator', 'Gói dành cho người sáng tạo.', 99000, 30,
-    107374182400, 21474836480, 43200, '1080p', '1080p', 1, 2, 'active', '{"download":true,"background_play":true,"pip":true}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    107374182400, 21474836480, 43200, '1080p', '1080p', 1, 2, FALSE, 'active', '{"download":true,"background_play":true,"pip":true}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   ),
   (
     '00000000-0000-0000-0000-000000000102', 'pro_family', 'Pro Group', 'Gói nhóm chia sẻ cho chủ gói và 4 thành viên qua Gmail.', 299000, 30,
-    536870912000, 53687091200, 86400, '2160p', '2160p', 5, 3, 'active', '{"download":true,"background_play":true,"pip":true,"shared_seats":5}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    536870912000, 53687091200, 86400, '2160p', '2160p', 5, 3, FALSE, 'active', '{"download":true,"background_play":true,"pip":true,"shared_seats":5}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   )
 ON CONFLICT (plan_id) DO UPDATE SET
   code = EXCLUDED.code,
@@ -978,10 +988,11 @@ VALUES
     ('00000000-0000-0001-0000-000000000019', 'plan.create', 'Tạo Gói dịch vụ', 'Tạo gói dịch vụ mới.', 'active'),
     ('00000000-0000-0001-0000-000000000020', 'plan.edit', 'Sửa Gói dịch vụ', 'Cập nhật giới hạn và giá gói dịch vụ.', 'active'),
     ('00000000-0000-0001-0000-000000000021', 'plan.archive', 'Lưu trữ Gói dịch vụ', 'Ngừng cung cấp gói dịch vụ mà không xóa lịch sử.', 'active'),
+    ('00000000-0000-0001-0000-000000000022', 'payment.view', 'Xem doanh thu & thanh toán', 'Xem giao dịch thanh toán, số liệu doanh thu và báo cáo.', 'active'),
     ('00000000-0000-0001-0000-000000000023', 'taxonomy.manage', 'Quản lý Danh mục & Chủ đề', 'Tạo, sửa, lưu trữ danh mục, chủ đề và tag.', 'active')
 ON CONFLICT (permission_id) DO UPDATE SET code = EXCLUDED.code, name = EXCLUDED.name, description = EXCLUDED.description, status = EXCLUDED.status;
 
 INSERT INTO public.role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id FROM public.roles r CROSS JOIN public.permissions p
-WHERE r.code IN ('admin', 'super_admin') AND p.code IN ('plan.view', 'plan.create', 'plan.edit', 'plan.archive', 'taxonomy.manage')
+WHERE r.code IN ('admin', 'super_admin') AND p.code IN ('plan.view', 'plan.create', 'plan.edit', 'plan.archive', 'payment.view', 'taxonomy.manage')
 ON CONFLICT (role_id, permission_id) DO NOTHING;

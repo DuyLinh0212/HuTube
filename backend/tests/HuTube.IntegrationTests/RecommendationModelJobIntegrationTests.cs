@@ -56,7 +56,8 @@ public sealed class FakeModelHttpFactory(TestRecommendationSnapshots snapshots) 
                 parent.LastScoreMode = json.RootElement.GetProperty("scoreAggregation")
                     .GetProperty("mode").GetString();
                 var active = new ModelManifest("fake-model-v1", csvKey, hash,
-                    "collaborative_cf/artifacts/fake-model-v1.zip", "fake-artifact-hash", DateTimeOffset.UtcNow);
+                    "collaborative_cf/artifacts/fake-model-v1.zip", "fake-artifact-hash", DateTimeOffset.UtcNow,
+                    JsonSerializer.Deserialize<ScoreAggregationConfig>(json.RootElement.GetProperty("scoreAggregation").GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web)));
                 snapshots.Objects["collaborative_cf/active.json"] =
                     JsonSerializer.SerializeToUtf8Bytes(active, new JsonSerializerOptions(JsonSerializerDefaults.Web));
                 return new HttpResponseMessage(HttpStatusCode.Accepted) {

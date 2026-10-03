@@ -13,6 +13,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserSession> Sessions => Set<UserSession>();
+    public DbSet<UserLoginHistory> LoginHistory => Set<UserLoginHistory>();
     public DbSet<Channel> Channels => Set<Channel>();
     public DbSet<ChannelQuota> ChannelQuotas => Set<ChannelQuota>();
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
@@ -49,6 +50,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<CommentModerationAction> CommentModerationActions => Set<CommentModerationAction>();
     public DbSet<VideoDownload> VideoDownloads => Set<VideoDownload>();
     public DbSet<ChannelStrike> ChannelStrikes => Set<ChannelStrike>();
+    public DbSet<StrikePolicyConfiguration> StrikePolicyConfigurations => Set<StrikePolicyConfiguration>();
     public DbSet<Appeal> Appeals => Set<Appeal>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
@@ -59,7 +61,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.HasDefaultSchema("public");
         model.HasPostgresExtension("citext");
         model.Entity<User>(b => {
-            b.ToTable("users"); b.HasKey(x => x.UserId); b.Ignore(x => x.IsBlocked); b.Ignore(x => x.Bio);
+            b.ToTable("users"); b.HasKey(x => x.UserId); b.Ignore(x => x.IsBlocked);
+            b.Property(x => x.Bio).HasColumnName("bio");
             b.HasQueryFilter(x => x.DeletedAt == null);
             b.Property(x => x.Email).HasColumnType("citext"); b.Property(x => x.Username).HasColumnType("citext");
             b.Property(x => x.UserId).HasColumnName("user_id"); b.Property(x => x.PasswordHash).HasColumnName("password_hash");
@@ -116,6 +119,18 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<UserSession>().WithMany().HasForeignKey(x => x.ReplacedBySessionId).OnDelete(DeleteBehavior.SetNull);
             b.HasIndex(x => x.RefreshTokenHash).IsUnique(); b.HasIndex(x => x.Jti).IsUnique();
         });
+        model.Entity<UserLoginHistory>(b => {
+            b.ToTable("login_history", "public"); b.HasKey(x => x.LoginHistoryId);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.LoginHistoryId).HasColumnName("login_history_id");
+            b.Property(x => x.UserId).HasColumnName("user_id");
+            b.Property(x => x.DeviceId).HasColumnName("device_id").HasMaxLength(128).HasColumnType("character varying(128)");
+            b.Property(x => x.DeviceName).HasColumnName("device_name").HasMaxLength(200).HasColumnType("character varying(200)");
+            b.Property(x => x.Platform).HasColumnName("platform").HasMaxLength(20).HasColumnType("character varying(20)");
+            b.Property(x => x.IpAddress).HasColumnName("ip_address").HasMaxLength(45).HasColumnType("character varying(45)");
+            b.Property(x => x.LoginAt).HasColumnName("login_at");
+            b.HasIndex(x => new { x.UserId, x.LoginAt }).HasDatabaseName("ix_login_history_user_id_login_at");
+        });
         model.Entity<Channel>(b => {
             b.ToTable("channels"); b.HasKey(x => x.ChannelId);
             b.Ignore(x => x.IsActive);
@@ -164,7 +179,10 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
                     v => v == null ? null : v.ToString())
                 .HasColumnType("inet");
         });
-        model.Entity<Plan>(b => { b.ToTable("plans"); b.HasKey(x => x.PlanId); b.Property(x => x.Features).HasColumnType("jsonb"); });
+        model.Entity<Plan>(b => {
+            b.ToTable("plans"); b.HasKey(x => x.PlanId); b.Property(x => x.Features).HasColumnType("jsonb");
+            b.HasIndex(x => x.IsDefaultForNewUsers).IsUnique().HasFilter("is_default_for_new_users").HasDatabaseName("ux_plans_default_for_new_users");
+        });
         model.Entity<HuTube.Domain.Plans.PlanHistory>(b => {
             b.ToTable("plan_histories");
             b.HasKey(x => x.PlanHistoryId);
@@ -181,7 +199,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<HuTube.Domain.Plans.PlanHistory>().WithMany().HasForeignKey(x => x.PlanHistoryId).IsRequired(false);
             b.Property(x => x.GatewayPayload).HasColumnType("jsonb");
             b.HasIndex(x => x.TransactionCode).IsUnique().HasDatabaseName("uq_payments_transaction");
-            b.HasIndex(x => x.IdempotencyKey).IsUnique().HasDatabaseName("ux_payments_idempotency").HasFilter("idempotency_key IS NOT NULL");
+            b.HasIndex(x => new { x.UserId, x.IdempotencyKey }).IsUnique().HasDatabaseName("ux_payments_idempotency").HasFilter("idempotency_key IS NOT NULL");
         });
         model.Entity<Playlist>(b => { b.ToTable("playlists"); b.HasKey(x => x.PlaylistId); b.HasIndex(x => x.UserId); b.HasIndex(x => x.Status); });
         model.Entity<PlaylistVideo>(b => { b.ToTable("playlist_videos"); b.HasKey(x => x.PlaylistVideoId); b.HasIndex(x => new { x.PlaylistId, x.VideoId }).IsUnique(); b.HasIndex(x => new { x.PlaylistId, x.Position }).IsUnique(); });
@@ -191,6 +209,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasKey(x => x.VideoId);
             b.HasOne<User>().WithMany().HasForeignKey(x => x.UploadedByUserId).OnDelete(DeleteBehavior.Restrict);
             b.Property(x => x.Metadata).HasColumnType("jsonb");
+            b.Property(x => x.PromotionEnabled).HasColumnName("promotion_enabled");
             b.HasIndex(x => new { x.ChannelId, x.IdempotencyKey }).IsUnique().HasFilter("idempotency_key IS NOT NULL");
         });
         model.Entity<VideoRendition>(b => { b.ToTable("video_renditions"); b.HasKey(x => x.VideoRenditionId); b.HasIndex(x => new { x.VideoId, x.QualityLabel }).IsUnique(); });
@@ -222,6 +241,17 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<CommentModerationAction>(b => { b.ToTable("comment_moderation_actions"); b.HasKey(x => x.CommentModerationActionId); });
         model.Entity<VideoDownload>(b => { b.ToTable("video_downloads"); b.HasKey(x => x.VideoDownloadId); b.HasIndex(x => new { x.UserId, x.VideoId, x.QualityLabel }).IsUnique(); });
         model.Entity<ChannelStrike>(b => { b.ToTable("channel_strikes"); b.HasKey(x => x.StrikeId); });
+        model.Entity<StrikePolicyConfiguration>(b => {
+            b.ToTable("strike_policy_settings", "public"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+            b.Property(x => x.RejectedVideosPerStrike).HasColumnName("rejected_videos_per_strike");
+            b.Property(x => x.FirstStrikeRestrictionDays).HasColumnName("first_strike_restriction_days");
+            b.Property(x => x.SecondStrikeRestrictionDays).HasColumnName("second_strike_restriction_days");
+            b.Property(x => x.StrikeExpirationDays).HasColumnName("strike_expiration_days");
+            b.Property(x => x.SuspensionStrikeCount).HasColumnName("suspension_strike_count");
+            b.Property(x => x.RejectedVideosEffectiveAt).HasColumnName("rejected_videos_effective_at");
+            b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+        });
         model.Entity<Appeal>(b => { b.ToTable("appeals"); b.HasKey(x => x.AppealId); });
         foreach (var entity in model.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())

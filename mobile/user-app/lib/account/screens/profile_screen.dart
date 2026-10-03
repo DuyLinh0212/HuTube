@@ -11,6 +11,7 @@ import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/screens/channel_settings_screen.dart';
 import '../../channel/screens/channel_invitations_screen.dart';
 import '../models/account_models.dart';
+import '../state/account_controller.dart';
 import '../services/account_service.dart';
 import '../widgets/session_card.dart';
 import 'edit_profile_screen.dart';
@@ -21,6 +22,7 @@ import 'preferences_screen.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
+    this.accountController,
     required this.auth,
     required this.notifications,
     required this.sessions,
@@ -32,6 +34,7 @@ class ProfileScreen extends StatefulWidget {
     required this.onLogout,
   });
 
+  final AccountController? accountController;
   final AuthController auth;
   final NotificationCenter notifications;
   final List<Map<String, dynamic>> sessions;
@@ -50,6 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final AccountService _accountService;
   late final ChannelService _channelService;
 
+  String? _owner;
   UserProfile? _profile;
   ChannelDetail? _channel;
   bool _loadingChannel = true;
@@ -57,9 +61,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _owner = widget.auth.user?['userId'] as String?;
     _accountService = AccountService(widget.auth);
     _channelService = ChannelService(widget.auth);
+    widget.auth.addListener(_changed);
+    widget.accountController?.addListener(_changed);
     _loadData();
+  }
+
+  void _changed() {
+    final owner = widget.auth.user?['userId'] as String?;
+    if (owner != _owner) {
+      _owner = owner;
+      _profile = null;
+      _channel = null;
+      if (owner != null) _loadData();
+    }
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.auth.removeListener(_changed);
+    widget.accountController?.removeListener(_changed);
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -68,10 +93,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
+    final owner = _owner;
     try {
       final p = await _accountService.getProfile();
       if (p.userId.isEmpty || p.email.isEmpty) return;
-      if (mounted) {
+      if (mounted && owner == _owner) {
         setState(() {
           _profile = p;
         });
@@ -80,16 +106,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadChannel() async {
+    final owner = _owner;
     try {
       final c = await _channelService.getMyChannel();
-      if (mounted) {
+      if (mounted && owner == _owner) {
         setState(() {
           _channel = c;
           _loadingChannel = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingChannel = false);
+      if (mounted && owner == _owner) setState(() => _loadingChannel = false);
     }
   }
 
@@ -506,15 +533,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 12),
 
-        if (widget.sessionsLoading)
+        if ((widget.accountController?.loadingSessions ??
+            widget.sessionsLoading))
           const LinearProgressIndicator(color: AppColors.primaryPink)
-        else if (widget.sessions.isEmpty)
+        else if ((widget.accountController?.sessions ?? widget.sessions)
+            .isEmpty)
           Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Text(AppStrings.t('profile.sessionsEmpty')),
           )
         else
-          ...widget.sessions.map((session) {
+          ...(widget.accountController?.sessions ?? widget.sessions).map((
+            session,
+          ) {
             final sessionId = session['sessionId'] as String? ?? '';
             return SessionCard(
               session: session,

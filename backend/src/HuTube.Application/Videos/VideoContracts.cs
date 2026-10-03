@@ -11,8 +11,10 @@ public sealed class ContentException(int status, string code, string message) : 
 public sealed record PageResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 public sealed record CategoryResponse(Guid CategoryId, string Name, string Slug, string? Description);
 public sealed record ChapterRequest(int StartSeconds, string Title);
+public sealed record VideoCardRequest(int StartSeconds, Guid VideoId);
+public sealed record VideoCardLinkResponse(Guid VideoId, int StartSeconds, string Title, string? ThumbnailUrl);
 public sealed record RenditionResponse(string Quality, int Width, int Height, long FileSize, string Url);
-public sealed record VideoStatsResponse(long Views, long Likes, long Dislikes, int Comments, decimal? AverageRating, int RatingCount, long Shares);
+public sealed record VideoStatsResponse(long Views, long Likes, long Dislikes, int Comments, decimal? AverageRating, int RatingCount, long Shares, long WatchSeconds = 0);
 public sealed record VideoViewerStateResponse(string? Reaction, int? Rating, int ResumeAtSeconds, decimal Progress);
 public sealed record VideoCardResponse(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle, string Title,
     string? ThumbnailUrl, int Duration, string Visibility, DateTimeOffset? PublishedAt, long Views, bool IsPromoted = false);
@@ -27,7 +29,8 @@ public sealed record VideoResponse(Guid VideoId, Guid ChannelId, string ChannelN
     string Visibility, string Status, string ModerationStatus, string? LanguageCode, bool AgeRestricted,
     DateTimeOffset? PublishedAt, DateTimeOffset CreatedAt, IReadOnlyList<string> Tags,
     IReadOnlyList<VideoChapter> Chapters, VideoStatsResponse Stats, VideoViewerStateResponse? ViewerState,
-    string? ModerationReason = null, string? ChannelWatermarkUrl = null);
+    string? ModerationReason = null, string? ChannelWatermarkUrl = null, bool PromotionEnabled = false,
+    IReadOnlyList<VideoCardLinkResponse>? VideoCards = null);
 public sealed record PlaybackResponse(Guid VideoId, string Title, string Visibility, int Duration,
     IReadOnlyList<RenditionResponse> Renditions, int ResumeAtSeconds, decimal Progress);
 
@@ -36,10 +39,12 @@ public sealed record CreateVideoCommand(Guid ChannelId, string Title, string? De
     string FileName, string ContentType, Stream Content, string? ThumbnailFileName,
     string? ThumbnailContentType, Stream? ThumbnailContent, IReadOnlyList<string> Tags,
     IReadOnlyList<ChapterRequest> Chapters, string? IdempotencyKey = null,
-    bool GenerateLowerRenditions = true, bool DeferLowerRenditions = false);
+    bool GenerateLowerRenditions = true, bool DeferLowerRenditions = false, bool AllowComments = true,
+    IReadOnlyList<VideoCardRequest>? VideoCards = null);
 public sealed record UpdateVideoRequest(string? Title, string? Description, Guid? CategoryId, bool ClearCategory,
     string? LanguageCode, string? Visibility, bool? AgeRestricted, string? ThumbnailUrl,
-    IReadOnlyList<string>? Tags, IReadOnlyList<ChapterRequest>? Chapters);
+    IReadOnlyList<string>? Tags, IReadOnlyList<ChapterRequest>? Chapters, bool? PromotionEnabled = null,
+    IReadOnlyList<VideoCardRequest>? VideoCards = null);
 public sealed record UpdateThumbnailRequest(Stream? Content, string? FileName, string? ContentType, bool Generate);
 public sealed record WatchProgressRequest(int WatchedSeconds, bool SaveHistory = true, bool NewSession = false);
 public sealed record WatchProgressResponse(int WatchedSeconds, decimal Progress, DateTimeOffset ViewedAt);
@@ -53,7 +58,7 @@ public sealed record CreateCommentRequest(string Content, Guid? ParentCommentId)
 public sealed record UpdateCommentRequest(string Content);
 public sealed record CommentResponse(Guid CommentId, Guid VideoId, Guid UserId, string DisplayName, Guid? ParentCommentId,
     string Content, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, long Likes, long Dislikes,
-    string? MyReaction, int ReplyCount);
+    string? MyReaction, int ReplyCount, string? VideoTitle = null);
 public sealed record ReportCommentRequest(Guid ViolationTypeId, string Description);
 public sealed record ReportResponse(Guid ReportId, string Status, DateTimeOffset CreatedAt);
 public sealed record ViolationTypeResponse(Guid ViolationTypeId, string Code, string Name, string? Description);
@@ -127,13 +132,12 @@ public interface IContentService
     Task<ShareResponse> ShareAsync(Guid userId, Guid videoId, string? method, CancellationToken ct = default);
     Task<PageResult<CommentResponse>> GetCommentsAsync(Guid videoId, Guid? viewerId, string sort, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<CommentResponse>> GetRepliesAsync(Guid commentId, Guid? viewerId, int page, int pageSize, CancellationToken ct = default);
-    Task<PageResult<CommentResponse>> GetManagedCommentsAsync(Guid actorId, Guid channelId, string? status, int page, int pageSize, CancellationToken ct = default);
+    Task<PageResult<CommentResponse>> GetManagedCommentsAsync(Guid actorId, Guid channelId, string? status, string? sort, int page, int pageSize, CancellationToken ct = default);
     Task<IReadOnlyList<ViolationTypeResponse>> GetViolationTypesAsync(CancellationToken ct = default);
     Task<CommentResponse> CreateCommentAsync(Guid userId, Guid videoId, CreateCommentRequest request, CancellationToken ct = default);
     Task<CommentResponse> UpdateCommentAsync(Guid userId, Guid commentId, UpdateCommentRequest request, CancellationToken ct = default);
     Task DeleteCommentAsync(Guid userId, Guid commentId, CancellationToken ct = default);
     Task<ReactionResponse> SetCommentReactionAsync(Guid userId, Guid commentId, string? reaction, CancellationToken ct = default);
-    Task<ReportResponse> ReportCommentAsync(Guid userId, Guid commentId, ReportCommentRequest request, CancellationToken ct = default);
     Task<CommentResponse> SetCommentHiddenAsync(Guid actorId, Guid commentId, bool hidden, string? reason, CancellationToken ct = default);
     Task<IReadOnlyList<RenditionResponse>> GetDownloadOptionsAsync(Guid userId, Guid videoId, CancellationToken ct = default);
     Task<DownloadResponse> CreateDownloadAsync(Guid userId, Guid videoId, string quality, CancellationToken ct = default);

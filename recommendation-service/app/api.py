@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -22,6 +22,7 @@ class ScoreAggregationRequest(BaseModel):
 
 
 class TrainRequest(BaseModel):
+    job_id: UUID | None = Field(default=None, alias="jobId")
     csv_key: str = Field(alias="csvKey", min_length=1)
     csv_sha256: str = Field(alias="csvSha256", min_length=64, max_length=64)
     score_aggregation: ScoreAggregationRequest = Field(
@@ -151,23 +152,40 @@ async def train_model(payload: TrainRequest, request: Request,
                       admin_token: str | None = Header(default=None, alias="X-Model-Admin-Token")):
     _require_admin(request, admin_token)
     registry = request.app.state.registry
+    from training.train_hutube import normalize_score_aggregation
+
+    score_aggregation = normalize_score_aggregation(payload.score_aggregation.model_dump())
+    job_id = str(payload.job_id or uuid4())
+    if payload.job_id is not None:
+        existing = await run_in_threadpool(registry.get_job, job_id)
+        if existing is not None:
+            if (existing.get("csvKey") != payload.csv_key or existing.get("csvSha256") != payload.csv_sha256
+                    or normalize_score_aggregation(existing.get("scoreAggregation")) != score_aggregation):
+                raise _error(409, "IDEMPOTENCY_CONFLICT", "Job ID belongs to a different model update.", False)
+            return {"jobId": job_id, "status": existing["status"]}
     if registry.update_task is not None and not registry.update_task.done():
         raise _error(409, "TRAINING_UNAVAILABLE", "A model update is already running.", True)
-    job_id = str(uuid4())
-    registry.update_jobs = {job_id: {"jobId": job_id, "status": "running",
+    job = {"jobId": job_id, "status": "running",
                                       "csvKey": payload.csv_key, "csvSha256": payload.csv_sha256,
-                                      "scoreAggregation": payload.score_aggregation.model_dump()}}
+                                      "scoreAggregation": score_aggregation}
+    if not await run_in_threadpool(registry.create_job, job_id, job):
+        existing = await run_in_threadpool(registry.get_job, job_id)
+        if (existing is None or existing.get("csvKey") != payload.csv_key
+                or existing.get("csvSha256") != payload.csv_sha256
+                or normalize_score_aggregation(existing.get("scoreAggregation")) != score_aggregation):
+            raise _error(409, "IDEMPOTENCY_CONFLICT", "Job ID belongs to a different model update.", False)
+        return {"jobId": job_id, "status": existing["status"]}
 
     async def work() -> None:
         try:
             manifest = await run_in_threadpool(registry.train_from_r2,
                                                payload.csv_key, payload.csv_sha256,
-                                               payload.score_aggregation.model_dump())
-            registry.update_jobs[job_id] = {"jobId": job_id, "status": "completed",
-                                            "manifest": manifest}
+                                               score_aggregation)
+            await run_in_threadpool(registry.record_job, job_id, {**job, "status": "completed", "manifest": manifest})
         except Exception as exc:
-            registry.update_jobs[job_id] = {"jobId": job_id, "status": "failed",
-                                            "error": str(exc)}
+            reconciled = await run_in_threadpool(registry.get_job, job_id)
+            if reconciled is None or reconciled["status"] != "completed":
+                await run_in_threadpool(registry.record_job, job_id, {**job, "status": "failed", "error": str(exc)})
 
     registry.update_task = asyncio.create_task(work())
     return JSONResponse(status_code=202, content={"jobId": job_id, "status": "running"})
@@ -177,7 +195,7 @@ async def train_model(payload: TrainRequest, request: Request,
 async def model_job(job_id: str, request: Request,
                     admin_token: str | None = Header(default=None, alias="X-Model-Admin-Token")):
     _require_admin(request, admin_token)
-    job = request.app.state.registry.update_jobs.get(job_id)
+    job = await run_in_threadpool(request.app.state.registry.get_job, job_id)
     if job is None:
         raise _error(
             404, "MODEL_JOB_NOT_FOUND", "Model job is not available in this process.", True

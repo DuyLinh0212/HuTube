@@ -80,27 +80,33 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     await controller.loadSessions();
     if (!mounted) return;
     await _open(
-      ProfileScreen(
-        auth: widget.auth,
-        notifications: widget.notifications,
-        sessions: controller.sessions,
-        sessionsLoading: controller.loadingSessions,
-        onRefreshSessions: controller.loadSessions,
-        onRevokeSession: (id) async {
-          await controller.revokeSession(id);
-        },
-        onLogoutOthers: () async {
-          await controller.revokeOtherSessions();
-        },
-        onLogoutAll: () async {
-          await AccountService(widget.auth).revokeAllSessions();
-          await widget.auth.logout();
-          if (mounted) context.go('/auth');
-        },
-        onLogout: () async {
-          await widget.auth.logout();
-          if (mounted) context.go('/auth');
-        },
+      Scaffold(
+        appBar: AppBar(),
+        body: SingleChildScrollView(
+          child: ProfileScreen(
+            accountController: controller,
+            auth: widget.auth,
+            notifications: widget.notifications,
+            sessions: controller.sessions,
+            sessionsLoading: controller.loadingSessions,
+            onRefreshSessions: controller.loadSessions,
+            onRevokeSession: (id) async {
+              await controller.revokeSession(id);
+            },
+            onLogoutOthers: () async {
+              await controller.revokeOtherSessions();
+            },
+            onLogoutAll: () async {
+              await AccountService(widget.auth).revokeAllSessions();
+              await widget.auth.logout();
+              if (mounted) context.go('/auth');
+            },
+            onLogout: () async {
+              await widget.auth.logout();
+              if (mounted) context.go('/auth');
+            },
+          ),
+        ),
       ),
     );
     controller.dispose();

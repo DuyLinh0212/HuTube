@@ -4,6 +4,7 @@ public sealed class Payment
 {
     public Guid PaymentId { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
+    public bool AutoRenew { get; set; }
     public Guid PlanId { get; set; }
     public Guid? PlanHistoryId { get; set; }
     public decimal Amount { get; set; }

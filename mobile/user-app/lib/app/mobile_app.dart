@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 
 import '../auth.dart';
 import '../core/localization/app_strings.dart';
+import '../core/network/network_status.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_notifier.dart';
 import '../core/widgets/app_shell.dart';
+import '../core/widgets/network_fallback_overlay.dart';
 import '../features/account/account_hub_screen.dart';
 import '../features/ai/hu_ai_screen.dart';
 import '../features/content/feed_screen.dart';
@@ -43,6 +45,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
   final PlaybackSession _playback = PlaybackSession();
   late final NotificationCenter _notifications;
   StreamSubscription<Uri>? _linkSubscription;
+  Timer? _networkRetryTimer;
   String? _pendingNotificationPath;
 
   @override
@@ -52,6 +55,12 @@ class _HuTubeAppState extends State<HuTubeApp> {
     _router = _buildRouter(widget.auth, _playback, _notifications);
     unawaited(_notifications.initialize(onOpenNotification: _openNotification));
     _linkSubscription = widget.links?.listen(_openDeepLink);
+    unawaited(widget.auth.api.checkConnection());
+    _networkRetryTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (NetworkStatus.instance.unavailable) {
+        unawaited(widget.auth.api.checkConnection());
+      }
+    });
     unawaited(widget.auth.restore());
   }
 
@@ -321,6 +330,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    _networkRetryTimer?.cancel();
     _router.dispose();
     _playback.dispose();
     _notifications.dispose();
@@ -339,6 +349,10 @@ class _HuTubeAppState extends State<HuTubeApp> {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
         routerConfig: _router,
+        builder: (context, child) => NetworkFallbackOverlay(
+          api: widget.auth.api,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     ),
   );

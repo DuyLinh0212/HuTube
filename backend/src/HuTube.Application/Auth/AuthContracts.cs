@@ -23,13 +23,16 @@ public sealed record EmailRequest([Required, EmailAddress, StringLength(254)] st
 public sealed record TokenRequest([Required, StringLength(256)] string Token);
 public sealed record ResetPasswordRequest([Required, StringLength(256)] string Token,
     [Required, StringLength(128, MinimumLength = 10)] string Password);
-public sealed record RefreshRequest([StringLength(256)] string? RefreshToken = null);
+public sealed record RefreshRequest([StringLength(256)] string? RefreshToken = null, [StringLength(200)] string? DeviceName = null);
 public sealed record MessageResponse(string Message);
 public sealed record UserResponse(Guid UserId, string Username, string Email, string DisplayName, bool EmailVerified, bool IsAdmin);
 public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, string? RefreshToken, UserResponse User);
 public sealed record SessionResponse(Guid SessionId, string DeviceName, string Platform, DateTimeOffset IssuedAt,
-    DateTimeOffset LastActiveAt, DateTimeOffset ExpiresAt, bool IsCurrent, string? IpAddress = null);
+    DateTimeOffset LastActiveAt, DateTimeOffset ExpiresAt, bool IsCurrent, string? IpAddress = null, string? DeviceId = null);
 public sealed record SessionListResponse(IReadOnlyList<SessionResponse> Items);
+public sealed record LoginHistoryResponse(Guid LoginHistoryId, string DeviceId, string DeviceName, string Platform,
+    string? IpAddress, DateTimeOffset LoginAt);
+public sealed record LoginHistoryPageResponse(IReadOnlyList<LoginHistoryResponse> Items, int Page, int PageSize, int Total);
 public sealed class AuthException(int status, string code, string message) : Exception(message)
 {
     public int Status { get; } = status;
@@ -39,6 +42,7 @@ public sealed class AuthOptions
 {
     public int AccessTokenMinutes { get; set; } = 15;
     public int RefreshTokenDays { get; set; } = 30;
+    public int SessionInactivityDays { get; set; } = 14;
     public string WebBaseUrl { get; set; } = "http://localhost:4200";
     public string AdminBaseUrl { get; set; } = "http://localhost:4201";
     public string[] AllowedOrigins { get; set; } = [];
@@ -86,6 +90,7 @@ public interface IAuthStore
     Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct);
     Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct);
     Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct);
+    Task<(List<UserLoginHistory> Items, int Page, int PageSize, int Total)> GetLoginHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct);
     Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, CancellationToken ct);
     Task TouchSessionAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset expiresAt, string? ipAddress, CancellationToken ct) =>
         TouchSessionAsync(sessionId, now, expiresAt, ct);
@@ -99,6 +104,7 @@ public interface IAuthStore
         return Task.CompletedTask;
     }
     void AddSession(UserSession session);
+    void AddLoginHistory(UserLoginHistory loginHistory);
     void AddVerification(User user, EmailVerificationToken token);
     void AddReset(User user, PasswordResetToken token);
     Task InvalidateTokensAsync(Guid userId, bool reset, DateTimeOffset now, CancellationToken ct);

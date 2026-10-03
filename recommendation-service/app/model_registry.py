@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
 import numpy as np
+from botocore.exceptions import ClientError
 
 from app.config import Settings
 from app.data.mapping import IndexMappings
@@ -153,6 +154,9 @@ class ModelRegistry:
                 manifest = store.read_json("collaborative_cf/active.json")
                 if manifest is None:
                     raise FileNotFoundError("No active collaborative CF manifest exists on R2.")
+                if self.loaded is not None and self.manifest == manifest:
+                    self.load_error = None
+                    return
                 loaded = self._load_archive(store, manifest)
                 self.loaded = loaded
                 self.manifest = manifest
@@ -218,8 +222,11 @@ class ModelRegistry:
             raise ValueError("A full SHA-256 digest is required.")
         if not self.update_lock.acquire(blocking=False):
             raise RuntimeError("A model update is already running.")
+        lease = None
+        store = None
         try:
             store = R2Store(self.settings)
+            lease = store.acquire_training_lease()
             csv = store.read(csv_key)
             if len(csv) > 32 * 1024 * 1024:
                 raise ValueError("CSV exceeds the 32 MiB training limit.")
@@ -248,10 +255,62 @@ class ModelRegistry:
                 preview = self._load_archive(store, manifest)
                 # active.json is the publication point. Before this write the old
                 # model remains authoritative, including after process restarts.
+                lease = (lease[0], store.renew_training_lease(*lease))
                 store.write_json("collaborative_cf/active.json", manifest)
                 self.loaded = preview
                 self.manifest = manifest
                 self.load_error = None
                 return manifest
+        finally:
+            if store is not None and lease is not None:
+                try:
+                    store.release_training_lease(*lease)
+                except Exception:
+                    # A newer lease owner must never be overwritten during cleanup.
+                    pass
+            self.update_lock.release()
+
+    def create_job(self, job_id: str, value: dict) -> bool:
+        """Only one replica may own a new job ID and schedule its training."""
+        try:
+            R2Store(self.settings).compare_write_json(f"collaborative_cf/jobs/{job_id}.json", value, None)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in {
+                "PreconditionFailed", "412", "ConditionalRequestConflict", "409"
+            }:
+                return False
+            raise
+        self.update_jobs[job_id] = value
+        return True
+
+    def record_job(self, job_id: str, value: dict) -> None:
+        R2Store(self.settings).write_json(f"collaborative_cf/jobs/{job_id}.json", value)
+        self.update_jobs[job_id] = value
+
+    def get_job(self, job_id: str) -> dict | None:
+        from uuid import UUID
+
+        try:
+            job_id = str(UUID(job_id))
+        except ValueError:
+            return None
+        store = R2Store(self.settings)
+        job = store.read_json(f"collaborative_cf/jobs/{job_id}.json")
+        if job and job["status"] == "running":
+            active = store.read_json("collaborative_cf/active.json")
+            from training.train_hutube import normalize_score_aggregation
+
+            if (active and all(active.get(key) == job.get(key) for key in ("csvKey", "csvSha256"))
+                    and normalize_score_aggregation(active.get("scoreAggregation"))
+                    == normalize_score_aggregation(job.get("scoreAggregation"))):
+                job = {**job, "status": "completed", "manifest": active}
+                self.record_job(job_id, job)
+        return job
+
+    def refresh(self) -> None:
+        if not self.update_lock.acquire(blocking=False):
+            return
+        try:
+            self.load()
         finally:
             self.update_lock.release()

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from typing import Any
+import time
+from uuid import uuid4
 
 import boto3
 from botocore.exceptions import ClientError
@@ -47,3 +49,35 @@ class R2Store:
     def write_json(self, key: str, value: dict[str, Any]) -> None:
         self.write(key, json.dumps(value, separators=(",", ":")).encode("utf-8"),
                    "application/json")
+
+    def read_versioned_json(self, key: str) -> tuple[dict | None, str | None]:
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+            return json.loads(response["Body"].read()), response["ETag"]
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "404"}:
+                return None, None
+            raise
+
+    def compare_write_json(self, key: str, value: dict, etag: str | None) -> str:
+        response = self.client.put_object(
+            Bucket=self.bucket, Key=key, Body=json.dumps(value).encode(),
+            ContentType="application/json", **({"IfMatch": etag} if etag else {"IfNoneMatch": "*"}),
+        )
+        return response["ETag"]
+
+    def acquire_training_lease(self) -> tuple[str, str]:
+        value, etag = self.read_versioned_json("collaborative_cf/training-lease.json")
+        if value and value["expiresAt"] > time.time():
+            raise RuntimeError("Another replica is training the model.")
+        owner = str(uuid4())
+        version = self.compare_write_json("collaborative_cf/training-lease.json",
+                                          {"owner": owner, "expiresAt": time.time() + 1800}, etag)
+        return owner, version
+
+    def renew_training_lease(self, owner: str, version: str) -> str:
+        return self.compare_write_json("collaborative_cf/training-lease.json",
+                                       {"owner": owner, "expiresAt": time.time() + 1800}, version)
+
+    def release_training_lease(self, owner: str, version: str) -> None:
+        self.compare_write_json("collaborative_cf/training-lease.json", {"owner": owner, "expiresAt": 0}, version)
