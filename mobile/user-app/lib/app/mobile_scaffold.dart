@@ -116,7 +116,7 @@ class MobileScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final isDetail = location.startsWith('/watch/');
-    final hideAppBar = location == '/account' || location == '/settings';
+    final hideAppBar = isDetail || location == '/account' || location == '/settings';
     final rawName = (auth.user?['displayName'] as String?) ?? 'H';
     final initial = rawName.isEmpty
         ? 'H'
@@ -133,9 +133,7 @@ class MobileScaffold extends StatelessWidget {
                   onPressed: () => Scaffold.of(drawerContext).openDrawer(),
                 ),
               ),
-        title: isDetail
-            ? Text(AppStrings.t('app.viewVideo'))
-            : HuTubeLogo(
+              title: HuTubeLogo(
                 size: 25,
                 showWordmark: MediaQuery.sizeOf(context).width >= 360,
               ),
@@ -225,18 +223,21 @@ class MobileScaffold extends StatelessWidget {
           ),
         ],
       ),
-      drawer: _Drawer(auth: auth),
+      drawer: isDetail ? null : _Drawer(auth: auth),
       body: SafeArea(
         top: false,
+        left: !isDetail,
+        right: !isDetail,
+        bottom: !isDetail,
         child: Stack(
           fit: StackFit.expand,
           children: [
             child,
-            MiniPlayer(session: playback),
+            if (!isDetail) MiniPlayer(session: playback),
           ],
         ),
       ),
-      bottomNavigationBar: wide
+      bottomNavigationBar: (wide || isDetail)
           ? null
           : NavigationBar(
               selectedIndex: _selectedIndex,

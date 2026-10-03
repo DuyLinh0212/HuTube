@@ -261,7 +261,11 @@ class HuTubeAvatar extends StatelessWidget {
     backgroundColor:
         backgroundColor ?? AppColors.primary.withValues(alpha: .12),
     backgroundImage: url != null && url!.startsWith('http')
-        ? NetworkImage(url!)
+        ? ResizeImage(
+            NetworkImage(url!),
+            width: (radius * 4).round().clamp(48, 256),
+            height: (radius * 4).round().clamp(48, 256),
+          )
         : null,
     child: url != null && url!.startsWith('http')
         ? null

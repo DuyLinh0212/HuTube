@@ -34,20 +34,22 @@ class VideoCardTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: video.thumbnailUrl?.startsWith('http') == true
-                        ? Image.network(
-                            video.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const _VideoFallback(),
-                          )
-                        : const _VideoFallback(),
-                  ),
+            RepaintBoundary(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: video.thumbnailUrl?.startsWith('http') == true
+                          ? Image.network(
+                              video.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                              cacheWidth: 720,
+                              errorBuilder: (_, _, _) => const _VideoFallback(),
+                            )
+                          : const _VideoFallback(),
+                    ),
                   Positioned(
                     right: 8,
                     bottom: 8,
@@ -73,6 +75,7 @@ class VideoCardTile extends StatelessWidget {
                 ],
               ),
             ),
+          ),
             Padding(
               padding: const EdgeInsets.fromLTRB(2, 11, 0, 5),
               child: Row(

@@ -356,6 +356,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final activeFilters = _activeFilterCount;
 
     return ListView(
+      cacheExtent: 600,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       children: [
         HuTubeSectionHeader(

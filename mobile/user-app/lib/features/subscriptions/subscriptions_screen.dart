@@ -236,6 +236,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         onRefresh: () => _load(more: false),
         child: ListView(
           controller: _scroll,
+          cacheExtent: 600,
           padding: const EdgeInsets.only(bottom: 32),
           children: [
             // ================= 1. CHANNELS STORIES BAR (Image 3) =================

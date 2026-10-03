@@ -1021,30 +1021,29 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           widget.playback.minimize();
         }
       },
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
-      children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(16),
-          ),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: AnimatedBuilder(
-              animation: widget.playback,
-              builder: (context, _) => widget.playback.player != null
-                  ? videoStageWidget
-                  : const DecoratedBox(
-                      decoration: BoxDecoration(color: Color(0xff171927)),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryPink,
+      child: SafeArea(
+        top: true,
+        bottom: false,
+        child: ListView(
+          cacheExtent: 500,
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: AnimatedBuilder(
+                animation: widget.playback,
+                builder: (context, _) => widget.playback.player != null
+                    ? videoStageWidget
+                    : const DecoratedBox(
+                        decoration: BoxDecoration(color: Color(0xff171927)),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryPink,
+                          ),
                         ),
                       ),
-                    ),
+              ),
             ),
-          ),
-        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
           child: Text(
@@ -1323,7 +1322,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         ),
       ],
     ),
-  );
+  ),
+);
   }
 }
 
@@ -1395,6 +1395,9 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
   Timer? _singleTapTimer;
   DateTime? _lastTapTime;
   bool? _lastTapForward;
+  double? _dragPosition;
+  String? _zoomFeedbackText;
+  Timer? _zoomFeedbackTimer;
 
   @override
   void initState() {
@@ -1410,11 +1413,24 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
     } catch (_) {}
   }
 
+  void _triggerZoomFeedback(bool zoomToFill) {
+    HapticFeedback.selectionClick();
+    _zoomFeedbackTimer?.cancel();
+    setState(() {
+      _zoomFeedbackText =
+          zoomToFill ? 'Đã thu phóng vừa màn hình' : 'Đã thu nhỏ vừa màn hình';
+    });
+    _zoomFeedbackTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _zoomFeedbackText = null);
+    });
+  }
+
   @override
   void dispose() {
     _controlsTimer?.cancel();
     _pulseTimer?.cancel();
     _singleTapTimer?.cancel();
+    _zoomFeedbackTimer?.cancel();
     super.dispose();
   }
 
@@ -1484,23 +1500,57 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
       final player = widget.session.player;
       if (player == null) return const ColoredBox(color: AppColors.ink);
       final total = widget.session.duration.inMilliseconds;
-      final current = widget.session.position.inMilliseconds
-          .clamp(0, total > 0 ? total : 1)
-          .toDouble();
+      final current = (_dragPosition ??
+              widget.session.position.inMilliseconds.toDouble())
+          .clamp(0.0, total > 0 ? total.toDouble() : 1.0);
       return LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+          final videoSize = player.videoSize;
+          final double videoAspect =
+              (videoSize != null && videoSize.width > 0 && videoSize.height > 0)
+                  ? videoSize.aspectRatio
+                  : (16 / 9);
+
+          double targetWidth = width;
+          double targetHeight = height;
+
+          if (widget.isFullScreen && height > 0) {
+            final double containerAspect = width / height;
+            if (widget.zoomToFill) {
+              if (videoAspect > containerAspect) {
+                targetHeight = height;
+                targetWidth = height * videoAspect;
+              } else {
+                targetWidth = width;
+                targetHeight = width / videoAspect;
+              }
+            } else {
+              if (videoAspect > containerAspect) {
+                targetWidth = width;
+                targetHeight = width / videoAspect;
+              } else {
+                targetHeight = height;
+                targetWidth = height * videoAspect;
+              }
+            }
+          }
+
           return Stack(
             fit: StackFit.expand,
             children: [
-              FittedBox(
-                fit: (widget.isFullScreen && widget.zoomToFill)
-                    ? BoxFit.cover
-                    : BoxFit.contain,
-                child: SizedBox(
-                  width: 16,
-                  height: 9,
-                  child: NativeVideoPlayer(controller: player),
+              ClipRect(
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    width: targetWidth,
+                    height: targetHeight,
+                    child: RepaintBoundary(
+                      child: NativeVideoPlayer(controller: player),
+                    ),
+                  ),
                 ),
               ),
               Positioned.fill(
@@ -1620,6 +1670,41 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                     ),
                   ),
                 ),
+              if (_zoomFeedbackText != null)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          widget.zoomToFill
+                              ? Icons.fit_screen_rounded
+                              : Icons.crop_free_rounded,
+                          color: AppColors.primaryPink,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _zoomFeedbackText!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !_controlsVisible,
@@ -1639,69 +1724,77 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                           stops: [0, .48, 1],
                         ),
                       ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  widget.session.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: widget.isFullScreen
-                                    ? AppStrings.t('watch.exitFullscreen')
-                                    : AppStrings.t('watch.minimize'),
-                                onPressed: widget.onMinimize,
-                                color: Colors.white,
-                                icon: Icon(
-                                  widget.isFullScreen
-                                      ? Icons.arrow_back_rounded
-                                      : Icons.keyboard_arrow_down_rounded,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: AppStrings.t('watch.qualityAndSpeed'),
-                                onPressed: widget.onSettings,
-                                color: Colors.white,
-                                icon: const Icon(Icons.settings_rounded, size: 20),
-                              ),
-                              if (widget.isFullScreen && widget.onToggleZoom != null)
+                      child: SafeArea(
+                        top: widget.isFullScreen,
+                        bottom: widget.isFullScreen,
+                        left: widget.isFullScreen,
+                        right: widget.isFullScreen,
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
                                 IconButton(
-                                  tooltip: widget.zoomToFill
-                                      ? 'Thu nhỏ vừa màn hình'
-                                      : 'Thu phóng vừa với màn hình',
-                                  onPressed: widget.onToggleZoom,
-                                  color: widget.zoomToFill
-                                      ? AppColors.primaryPink
-                                      : Colors.white,
-                                  icon: Icon(
-                                    widget.zoomToFill
-                                        ? Icons.fit_screen_rounded
-                                        : Icons.crop_free_rounded,
-                                    size: 20,
-                                  ),
-                                ),
-                              if (widget.showPictureInPicture)
-                                IconButton(
-                                  tooltip: AppStrings.t('watch.pictureInPicture'),
-                                  onPressed: widget.onPictureInPicture,
+                                  tooltip: widget.isFullScreen
+                                      ? AppStrings.t('watch.exitFullscreen')
+                                      : AppStrings.t('watch.minimize'),
+                                  onPressed: widget.onMinimize,
                                   color: Colors.white,
-                                  icon: const Icon(
-                                    Icons.picture_in_picture_alt_rounded,
-                                    size: 19,
+                                  icon: Icon(
+                                    widget.isFullScreen
+                                        ? Icons.arrow_back_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
                                   ),
                                 ),
-                            ],
-                          ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    widget.session.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: AppStrings.t('watch.qualityAndSpeed'),
+                                  onPressed: widget.onSettings,
+                                  color: Colors.white,
+                                  icon: const Icon(Icons.settings_rounded, size: 20),
+                                ),
+                                if (widget.isFullScreen && widget.onToggleZoom != null)
+                                  IconButton(
+                                    tooltip: widget.zoomToFill
+                                        ? 'Thu nhỏ vừa màn hình'
+                                        : 'Thu phóng vừa màn hình',
+                                    onPressed: () {
+                                      _triggerZoomFeedback(!widget.zoomToFill);
+                                      widget.onToggleZoom!();
+                                    },
+                                    color: widget.zoomToFill
+                                        ? AppColors.primaryPink
+                                        : Colors.white,
+                                    icon: Icon(
+                                      widget.zoomToFill
+                                          ? Icons.fit_screen_rounded
+                                          : Icons.crop_free_rounded,
+                                      size: 20,
+                                    ),
+                                  ),
+                                if (widget.showPictureInPicture)
+                                  IconButton(
+                                    tooltip: AppStrings.t('watch.pictureInPicture'),
+                                    onPressed: widget.onPictureInPicture,
+                                    color: Colors.white,
+                                    icon: const Icon(
+                                      Icons.picture_in_picture_alt_rounded,
+                                      size: 19,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           Expanded(
                             child: Row(
                               children: [
@@ -1791,15 +1884,27 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                                       value: current,
                                       activeColor: AppColors.primaryPink,
                                       inactiveColor: Colors.white38,
+                                      onChangeStart: (val) {
+                                        _controlsTimer?.cancel();
+                                        setState(() => _dragPosition = val);
+                                      },
                                       onChanged: total <= 0
                                           ? null
-                                          : (value) => unawaited(
-                                              widget.session.seekTo(
-                                                Duration(
-                                                  milliseconds: value.round(),
-                                                ),
-                                              ),
+                                          : (value) {
+                                              setState(
+                                                  () => _dragPosition = value);
+                                            },
+                                      onChangeEnd: (val) {
+                                        unawaited(
+                                          widget.session.seekTo(
+                                            Duration(
+                                              milliseconds: val.round(),
                                             ),
+                                          ),
+                                        );
+                                        setState(() => _dragPosition = null);
+                                        _scheduleHide();
+                                      },
                                     ),
                                   ),
                                 ),
@@ -1838,6 +1943,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                   ),
                 ),
               ),
+            ),
             ],
           );
         },
