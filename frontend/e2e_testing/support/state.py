@@ -22,8 +22,16 @@ class Checkpoint:
         self.data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {
             "version": 1, "scope": scope, "account": account, "resources": {}, "flows": {}
         }
-        if self.data["scope"] != scope or self.data["account"]["email"] != account["email"]:
+        saved_scope = self.data["scope"]
+        same_environment = {key: value for key, value in saved_scope.items() if key != "pg_port"} == {
+            key: value for key, value in scope.items() if key != "pg_port"
+        }
+        if not same_environment or self.data["account"]["email"] != account["email"]:
             raise RuntimeError("Checkpoint belongs to another environment/account. Keep its state; use a separate state directory.")
+        # A local PostgreSQL port can change when the configured port is reserved.
+        # The state directory, API URLs and database still identify the same environment.
+        if saved_scope != scope:
+            self.data["scope"] = scope
         # A password changed by a later reset/password flow remains authoritative.
         self.account = self.data["account"]
         self.save()

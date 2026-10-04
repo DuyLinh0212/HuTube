@@ -2,7 +2,7 @@
   "user_url": "http://127.0.0.1:53400",
   "admin_url": "http://127.0.0.1:53401",
   "api_url": "http://127.0.0.1:53480/api/v1",
-  "pg_port": 55439,
+  "pg_port": 15439,
   "postgres_bin": "D:/PostgreSQL/18/bin",
   "account": {
     "email": "hutube.e2e.owner@example.test",
