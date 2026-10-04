@@ -129,6 +129,92 @@ public sealed class PaymentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task InitiateAsync_SameUserAndIdempotencyKey_IsIdempotentAndScoped()
+    {
+        // Arrange
+        var plan = new Plan
+        {
+            PlanId = Guid.NewGuid(),
+            Code = "creator-idempotent",
+            Name = "Creator Plan",
+            Price = 99000,
+            DurationDays = 30,
+            Status = "active"
+        };
+        var otherPlan = new Plan
+        {
+            PlanId = Guid.NewGuid(),
+            Code = "pro-idempotent",
+            Name = "Pro Plan",
+            Price = 199000,
+            DurationDays = 30,
+            Status = "active"
+        };
+        _db.Plans.AddRange(plan, otherPlan);
+        await _db.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        const string key = "same-payment-attempt";
+
+        // Act
+        var first = await _service.InitiateAsync(userId, new CreatePaymentRequest(plan.PlanId, false, key));
+        var replay = await _service.InitiateAsync(userId, new CreatePaymentRequest(plan.PlanId, false, key));
+        var otherUserPayment = await _service.InitiateAsync(otherUserId, new CreatePaymentRequest(plan.PlanId, false, key));
+        var conflict = await Assert.ThrowsAsync<PaymentException>(() =>
+            _service.InitiateAsync(userId, new CreatePaymentRequest(otherPlan.PlanId, false, key)));
+
+        // Assert
+        Assert.Equal(first.PaymentId, replay.PaymentId);
+        Assert.NotEqual(first.PaymentId, otherUserPayment.PaymentId);
+        Assert.Equal("IDEMPOTENCY_CONFLICT", conflict.Code);
+        Assert.Equal(2, await _db.Payments.CountAsync(payment => payment.IdempotencyKey == key));
+    }
+
+    [Fact]
+    public async Task CancelAsync_IsIdempotentForPendingAndRejectsPaidOrForeignPayment()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var foreignUserId = Guid.NewGuid();
+        var planId = Guid.NewGuid();
+        var pendingId = Guid.NewGuid();
+        var paidId = Guid.NewGuid();
+        _db.Payments.AddRange(
+            new Payment
+            {
+                PaymentId = pendingId,
+                UserId = userId,
+                PlanId = planId,
+                Amount = 99000,
+                Status = "pending",
+                TransactionCode = "HUTUBE-CANCEL01",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30)
+            },
+            new Payment
+            {
+                PaymentId = paidId,
+                UserId = userId,
+                PlanId = planId,
+                Amount = 99000,
+                Status = "paid",
+                TransactionCode = "HUTUBE-CANCEL02",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30)
+            });
+        await _db.SaveChangesAsync();
+
+        // Act
+        await _service.CancelAsync(userId, pendingId);
+        await _service.CancelAsync(userId, pendingId);
+        var paidException = await Assert.ThrowsAsync<PaymentException>(() => _service.CancelAsync(userId, paidId));
+        var foreignException = await Assert.ThrowsAsync<PaymentException>(() => _service.CancelAsync(foreignUserId, pendingId));
+
+        // Assert
+        Assert.Equal("cancelled", (await _db.Payments.FindAsync(pendingId))!.Status);
+        Assert.Equal("PAYMENT_CANNOT_BE_CANCELLED", paidException.Code);
+        Assert.Equal("PAYMENT_NOT_FOUND", foreignException.Code);
+    }
+
+    [Fact]
     public async Task HandleSepayWebhookAsync_WhenValidPayment_ActivatesPlanAndMarksPaid()
     {
         var userId = Guid.NewGuid();
@@ -289,6 +375,43 @@ public sealed class PaymentServiceTests : IDisposable
 
         var updated = await _db.Payments.FindAsync(payment.PaymentId);
         Assert.Equal("cancelled", updated!.Status);
+    }
+
+    [Fact]
+    public async Task HandleSepayWebhookAsync_WhenAccountCodeOrDirectionDoesNotMatch_LeavesPaymentPending()
+    {
+        // Arrange
+        var payment = new Payment
+        {
+            PaymentId = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            PlanId = Guid.NewGuid(),
+            Amount = 99000,
+            Status = "pending",
+            TransactionCode = "HUTUBE-REJECT01",
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30)
+        };
+        _db.Payments.Add(payment);
+        await _db.SaveChangesAsync();
+
+        var wrongAccount = new SepayWebhookPayload(20001, "Vietcombank", "2026-09-20 22:00:00", "wrong-account", null,
+            payment.TransactionCode, payment.TransactionCode, "in", 99000, 99000, "FT20001");
+        var outgoing = new SepayWebhookPayload(20002, "Vietcombank", "2026-09-20 22:00:00", _options.AccountNumber, null,
+            payment.TransactionCode, payment.TransactionCode, "out", 99000, 99000, "FT20002");
+        var unknownCode = new SepayWebhookPayload(20003, "Vietcombank", "2026-09-20 22:00:00", _options.AccountNumber, null,
+            "HUTUBE-UNKNOWN", "HUTUBE-UNKNOWN", "in", 99000, 99000, "FT20003");
+
+        // Act
+        var wrongAccountResult = await _service.HandleSepayWebhookAsync(wrongAccount);
+        var outgoingResult = await _service.HandleSepayWebhookAsync(outgoing);
+        var unknownCodeResult = await _service.HandleSepayWebhookAsync(unknownCode);
+
+        // Assert
+        Assert.False(wrongAccountResult);
+        Assert.True(outgoingResult);
+        Assert.True(unknownCodeResult);
+        Assert.False(_mockPlanService.ActivatePaidPlanAsyncCalled);
+        Assert.Equal("pending", (await _db.Payments.FindAsync(payment.PaymentId))!.Status);
     }
 
     [Fact]

@@ -67,6 +67,103 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
     }
 
     [Fact]
+    public async Task NotificationReadAllAndFeedSurfacesRemainScopedAndQueryable()
+    {
+        var (owner, ownerId, channelId) = await CreateUserAndChannelAsync("feed_surface_owner");
+        var (viewer, viewerId, _) = await CreateUserAndChannelAsync("feed_surface_viewer");
+        var video = await CreatePublishedVideoAsync(owner, channelId, "Feed surface video");
+
+        var subscribed = await viewer.PostAsync($"/api/v1/channels/{channelId}/subscribe", null);
+        Assert.Equal(HttpStatusCode.OK, subscribed.StatusCode);
+
+        await using (var db = factory.CreateDb())
+        {
+            db.Notifications.AddRange(
+                new Notification { UserId = viewerId, Type = "test", Title = "Unread 1", Content = "one", CreatedAt = DateTimeOffset.UtcNow },
+                new Notification { UserId = viewerId, Type = "test", Title = "Unread 2", Content = "two", CreatedAt = DateTimeOffset.UtcNow },
+                new Notification { UserId = viewerId, Type = "test", Title = "Already read", Content = "read", IsRead = true, ReadAt = DateTimeOffset.UtcNow, CreatedAt = DateTimeOffset.UtcNow },
+                new Notification { UserId = ownerId, Type = "test", Title = "Other user", Content = "untouched", CreatedAt = DateTimeOffset.UtcNow });
+            await db.SaveChangesAsync();
+        }
+
+        var readAll = await viewer.PostAsync("/api/v1/notifications/read-all", null);
+        var guestExplore = await factory.CreateClient().GetFromJsonAsync<ExploreHubResponse>("/api/v1/feed/explore-hub", JsonOptions);
+        var subscriptions = await viewer.GetFromJsonAsync<PageResult<VideoCardResponse>>(
+            "/api/v1/feed/subscriptions?page=1&pageSize=20", JsonOptions);
+        var subscribedChannels = await viewer.GetFromJsonAsync<List<SubscribedChannelResponse>>(
+            "/api/v1/subscriptions", JsonOptions);
+        var guestSubscriptions = await factory.CreateClient().GetAsync("/api/v1/feed/subscriptions");
+
+        Assert.Equal(HttpStatusCode.NoContent, readAll.StatusCode);
+        Assert.Contains(guestExplore!.Trending.Concat(guestExplore.TopVideos), item => item.VideoId == video.VideoId);
+        Assert.Contains(subscriptions!.Items, item => item.VideoId == video.VideoId && item.ChannelId == channelId);
+        Assert.Contains(subscribedChannels!, item => item.ChannelId == channelId);
+        Assert.Equal(HttpStatusCode.Unauthorized, guestSubscriptions.StatusCode);
+
+        await using var verify = factory.CreateDb();
+        var viewerNotifications = await verify.Notifications.AsNoTracking().Where(x => x.UserId == viewerId).ToListAsync();
+        Assert.All(viewerNotifications, item => Assert.True(item.IsRead && item.ReadAt.HasValue));
+        Assert.Contains(await verify.Notifications.AsNoTracking().ToListAsync(), item => item.Title == "Other user" && !item.IsRead);
+    }
+
+    [Fact]
+    public async Task NotificationRead_IsIdempotentAndRejectsForeignOwner()
+    {
+        // Arrange
+        var (owner, ownerId, _) = await CreateUserAndChannelAsync("notification_read_owner");
+        var (other, otherId, _) = await CreateUserAndChannelAsync("notification_read_other");
+        var ownerNotificationId = Guid.NewGuid();
+        var otherNotificationId = Guid.NewGuid();
+        await using (var db = factory.CreateDb())
+        {
+            db.Notifications.AddRange(
+                new HuTube.Domain.Videos.Notification
+                {
+                    NotificationId = ownerNotificationId,
+                    UserId = ownerId,
+                    Type = "payment",
+                    Title = "Payment completed",
+                    Content = "Gói đã được kích hoạt.",
+                    ActionUrl = "/settings/billing",
+                    CreatedAt = DateTimeOffset.UtcNow
+                },
+                new HuTube.Domain.Videos.Notification
+                {
+                    NotificationId = otherNotificationId,
+                    UserId = otherId,
+                    Type = "test",
+                    Title = "Other user notification",
+                    Content = "Không được truy cập.",
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+            await db.SaveChangesAsync();
+        }
+
+        // Act
+        var firstRead = await owner.PatchAsJsonAsync($"/api/v1/notifications/{ownerNotificationId}/read", new { });
+        var repeatedRead = await owner.PatchAsJsonAsync($"/api/v1/notifications/{ownerNotificationId}/read", new { });
+        var foreignRead = await other.PatchAsJsonAsync($"/api/v1/notifications/{ownerNotificationId}/read", new { });
+        var page = await owner.GetFromJsonAsync<NotificationPage>("/api/v1/notifications", JsonOptions);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, firstRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, repeatedRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreignRead.StatusCode);
+        Assert.NotNull(page);
+        Assert.Equal(0, page!.UnreadCount);
+        Assert.Contains(page.Items, item => item.NotificationId == ownerNotificationId && item.IsRead);
+
+        await using var verify = factory.CreateDb();
+        var ownerNotification = await verify.Notifications.AsNoTracking()
+            .SingleAsync(item => item.NotificationId == ownerNotificationId);
+        var otherNotification = await verify.Notifications.AsNoTracking()
+            .SingleAsync(item => item.NotificationId == otherNotificationId);
+        Assert.True(ownerNotification.IsRead);
+        Assert.NotNull(ownerNotification.ReadAt);
+        Assert.False(otherNotification.IsRead);
+    }
+
+    [Fact]
     public async Task UploadModeratePublish_ExposesVideoInPublicFeedsAndPlayback()
     {
         // Arrange
@@ -96,6 +193,7 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         await ApproveAsync(upload.VideoId);
         var publish = await owner.PostAsync($"/api/v1/videos/{upload.VideoId}/publish", null);
         var anonymous = factory.CreateClient();
+        await WaitForReadyRenditionsAsync(upload.VideoId, expectedReadyCount: 3);
         var home = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>("/api/v1/feed/home", JsonOptions);
         var explore = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>("/api/v1/feed/explore?sort=newest", JsonOptions);
         var playback = await anonymous.GetFromJsonAsync<PlaybackResponse>($"/api/v1/videos/{upload.VideoId}/playback", JsonOptions);
@@ -112,6 +210,42 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         Assert.Contains(playback.Renditions, x => x.Quality == "360p" && x.Url.StartsWith("https://storage.test/"));
         Assert.Equal(watermarkReadUrl, videoDetail!.ChannelWatermarkUrl);
         Assert.NotEmpty(factory.Storage.Objects);
+    }
+
+    [Fact]
+    public async Task VideoThumbnail_ValidImagePersistsAndInvalidTypeDoesNotMutate()
+    {
+        var (owner, _, channelId) = await CreateUserAndChannelAsync("thumbnail_endpoint");
+        var video = await UploadAsync(owner, channelId, "Thumbnail endpoint video");
+        var pngBytes = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ioAAAAASUVORK5CYII=");
+
+        using (var valid = new MultipartFormDataContent())
+        {
+            var file = new ByteArrayContent(pngBytes);
+            file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            valid.Add(file, "thumbnail", "thumb.png");
+            valid.Add(new StringContent("false"), "generate");
+            var response = await owner.PostAsync($"/api/v1/videos/{video.VideoId}/thumbnail", valid);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var body = (await response.Content.ReadFromJsonAsync<VideoResponse>(JsonOptions))!;
+            Assert.StartsWith("https://storage.test/video-thumbnails/", body.ThumbnailUrl);
+        }
+
+        using (var invalid = new MultipartFormDataContent())
+        {
+            var file = new ByteArrayContent(Encoding.UTF8.GetBytes("not an image"));
+            file.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+            invalid.Add(file, "thumbnail", "thumb.txt");
+            invalid.Add(new StringContent("false"), "generate");
+            var response = await owner.PostAsync($"/api/v1/videos/{video.VideoId}/thumbnail", invalid);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("INVALID_FILE_TYPE", await response.Content.ReadAsStringAsync());
+        }
+
+        await using var db = factory.CreateDb();
+        Assert.StartsWith("test://video-thumbnails/",
+            (await db.Videos.AsNoTracking().SingleAsync(x => x.VideoId == video.VideoId)).ThumbnailUrl);
     }
 
     [Fact]
@@ -251,6 +385,16 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         var createDownload = await owner.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/downloads", new { quality = "720p" });
         var deniedDownloadOptions = await other.GetAsync($"/api/v1/videos/{video.VideoId}/download-options");
         var download = await createDownload.Content.ReadFromJsonAsync<DownloadResponse>(JsonOptions);
+        using var file = await owner.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/download-file", new { quality = "720p" });
+        var fileBytes = await file.Content.ReadAsByteArrayAsync();
+        var deniedFile = await other.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/download-file", new { quality = "720p" });
+        var deniedQuality = await owner.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/download-file", new { quality = "2160p" });
+        using var anonymous = factory.CreateClient();
+        var anonymousFile = await anonymous.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/download-file", new { quality = "720p" });
+        using var webOptionsRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/videos/{video.VideoId}/download-options");
+        webOptionsRequest.Headers.Add("X-HuTube-Client", "web");
+        using var webOptionsResponse = await owner.SendAsync(webOptionsRequest);
+        var webOptions = await webOptionsResponse.Content.ReadFromJsonAsync<List<RenditionResponse>>(JsonOptions);
         var downloads = await owner.GetFromJsonAsync<List<DownloadResponse>>("/api/v1/downloads", JsonOptions);
         var forbidden = await other.PatchAsJsonAsync($"/api/v1/videos/{video.VideoId}", new { title = "Không được sửa" });
         var manage = await owner.GetFromJsonAsync<PageResult<VideoResponse>>($"/api/v1/videos/manage?channelId={channelId}", JsonOptions);
@@ -264,6 +408,18 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         await using var db = factory.CreateDb(); var persisted = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == ownerId);
         Assert.Equal("en", persisted.PreferredLanguage); Assert.Equal("dark", persisted.Theme);
         Assert.Contains(options!, x => x.Quality == "720p");
+        Assert.All(webOptions!, x => { Assert.Equal("", x.Url); Assert.Equal(".mp4", x.FileExtension); });
+        Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+        Assert.Equal("video/mp4", file.Content.Headers.ContentType!.MediaType);
+        Assert.Equal("attachment", file.Content.Headers.ContentDisposition!.DispositionType);
+        Assert.Contains("720p.mp4", file.Content.Headers.ContentDisposition.FileNameStar!);
+        Assert.Null(file.Headers.Location);
+        Assert.True(file.Headers.CacheControl!.NoStore);
+        var storedRendition = await db.VideoRenditions.AsNoTracking().SingleAsync(x => x.VideoId == video.VideoId && x.QualityLabel == "720p");
+        Assert.Equal(factory.Storage.Objects[storedRendition.FileUrl], fileBytes);
+        Assert.Equal(HttpStatusCode.Forbidden, deniedFile.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, deniedQuality.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousFile.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, deniedDownloadOptions.StatusCode);
         Assert.Equal(HttpStatusCode.Created, createDownload.StatusCode); Assert.Contains(downloads!, x => x.VideoDownloadId == download.VideoDownloadId);
         Assert.Equal("cancelled", (await cancelDownload.Content.ReadFromJsonAsync<DownloadResponse>(JsonOptions))!.Status);
@@ -271,6 +427,61 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
         Assert.Contains(manage!.Items, x => x.VideoId == video.VideoId);
         Assert.Equal(HttpStatusCode.NoContent, deleteDownload.StatusCode);
+    }
+
+    [Fact]
+    public async Task Downloads_AreActorScopedAndDeletingARecordKeepsSourceMedia()
+    {
+        // Arrange
+        var (owner, ownerId, channelId) = await CreateUserAndChannelAsync("download_scope_owner");
+        var (other, _, _) = await CreateUserAndChannelAsync("download_scope_other");
+        var video = await CreatePublishedVideoAsync(owner, channelId, "Download scope video");
+        var paidPlanId = Guid.Parse("00000000-0000-0000-0000-000000000101");
+        await using (var setup = factory.CreateDb())
+        {
+            (await setup.Users.SingleAsync(user => user.UserId == ownerId)).PlanId = paidPlanId;
+            setup.PlanHistories.Add(new HuTube.Domain.Plans.PlanHistory
+            {
+                UserId = ownerId,
+                OwnerUserId = ownerId,
+                PlanId = paidPlanId,
+                Status = "active",
+                StartedAt = DateTimeOffset.UtcNow,
+                EndedAt = DateTimeOffset.UtcNow.AddDays(30),
+                PaymentReference = "download-scope-fixture"
+            });
+            await setup.SaveChangesAsync();
+        }
+
+        var create = await owner.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/downloads", new { quality = "720p" });
+        var download = (await create.Content.ReadFromJsonAsync<DownloadResponse>(JsonOptions))!;
+        await using var mediaDb = factory.CreateDb();
+        var sourcePath = await mediaDb.VideoRenditions.AsNoTracking()
+            .Where(rendition => rendition.VideoId == video.VideoId && rendition.QualityLabel == "720p")
+            .Select(rendition => rendition.FileUrl)
+            .SingleAsync();
+
+        // Act
+        var otherList = await other.GetFromJsonAsync<List<DownloadResponse>>("/api/v1/downloads", JsonOptions);
+        var foreignDelete = await other.DeleteAsync($"/api/v1/downloads/{download.VideoDownloadId}");
+        var foreignState = await other.PostAsync($"/api/v1/downloads/{download.VideoDownloadId}/cancel", null);
+        using var mixedDelete = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/downloads")
+        {
+            Content = JsonContent.Create(new { ids = new[] { download.VideoDownloadId } })
+        };
+        var otherBulkDelete = await other.SendAsync(mixedDelete);
+        var ownerDelete = await owner.DeleteAsync($"/api/v1/downloads/{download.VideoDownloadId}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        Assert.Empty(otherList!);
+        Assert.Equal(HttpStatusCode.NotFound, foreignDelete.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreignState.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, otherBulkDelete.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, ownerDelete.StatusCode);
+        var remainingDownloads = await owner.GetFromJsonAsync<List<DownloadResponse>>("/api/v1/downloads", JsonOptions);
+        Assert.DoesNotContain(remainingDownloads!, item => item.VideoDownloadId == download.VideoDownloadId);
+        Assert.Contains(sourcePath, factory.Storage.Objects.Keys);
     }
 
     [Fact]
@@ -436,29 +647,42 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
 
     private static SepayOptions PaymentOptions() => new() { SecretKey = "local-test", AccountNumber = "local-test-account", BankCode = "test-bank" };
 
-    [Fact]
-    public async Task PaymentIdempotency_IsScopedToUserAndSurvivesCompletionAndConcurrency()
+    [Theory]
+    [InlineData("cancelled", false)]
+    [InlineData("failed", false)]
+    [InlineData("paid", false)]
+    [InlineData("pending", true)]
+    public async Task PaymentIdempotency_IsScopedToUserAndRejectsFinishedAttempts(string status, bool expired)
     {
         var (_, firstUser, _) = await CreateUserAndChannelAsync("payment_a");
         var (_, secondUser, _) = await CreateUserAndChannelAsync("payment_b");
         var planId = Guid.Parse("00000000-0000-0000-0000-000000000101");
-        async Task<CreatePaymentResponse> Create(Guid userId, bool autoRenew = false)
+        async Task<CreatePaymentResponse> Create(Guid userId, bool autoRenew = false, string key = "shared-key")
         {
             await using var scope = factory.Services.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<HuTubeDbContext>();
             var service = new PaymentService(db, scope.ServiceProvider.GetRequiredService<IPlanService>(), PaymentOptions(), TimeProvider.System);
-            return await service.InitiateAsync(userId, new CreatePaymentRequest(planId, autoRenew, "shared-key"));
+            return await service.InitiateAsync(userId, new CreatePaymentRequest(planId, autoRenew, key));
         }
         var simultaneous = await Task.WhenAll(Create(firstUser), Create(firstUser));
         Assert.Equal(simultaneous[0].PaymentId, simultaneous[1].PaymentId);
         Assert.NotEqual(simultaneous[0].PaymentId, (await Create(secondUser)).PaymentId);
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(expired ? -1 : 5);
+        DateTimeOffset? paidAt = status == "paid" ? DateTimeOffset.UtcNow : null;
         await using (var db = factory.CreateDb())
-            await db.Payments.Where(x => x.PaymentId == simultaneous[0].PaymentId).ExecuteUpdateAsync(x => x.SetProperty(p => p.Status, "cancelled"));
-        Assert.Equal(simultaneous[0].PaymentId, (await Create(firstUser)).PaymentId);
+            await db.Payments.Where(x => x.PaymentId == simultaneous[0].PaymentId).ExecuteUpdateAsync(x => x
+                .SetProperty(p => p.Status, status).SetProperty(p => p.ExpiresAt, expiresAt).SetProperty(p => p.PaidAt, paidAt));
+        var finished = await Assert.ThrowsAsync<PaymentException>(() => Create(firstUser));
+        Assert.Equal(409, finished.Status);
+        Assert.Equal("PAYMENT_REQUEST_ALREADY_PROCESSED", finished.Code);
         var conflict = await Assert.ThrowsAsync<PaymentException>(() => Create(firstUser, true));
         Assert.Equal(409, conflict.Status);
+        Assert.Equal("IDEMPOTENCY_CONFLICT", conflict.Code);
+        var fresh = await Create(firstUser, key: "fresh-key");
+        Assert.NotEqual(simultaneous[0].PaymentId, fresh.PaymentId);
         await using var verify = factory.CreateDb();
         Assert.Equal(1, await verify.Payments.CountAsync(x => x.UserId == firstUser && x.IdempotencyKey == "shared-key"));
+        Assert.Equal(status, (await verify.Payments.SingleAsync(x => x.PaymentId == simultaneous[0].PaymentId)).Status);
     }
 
     [Fact]
@@ -617,6 +841,445 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         var video = await UploadAsync(client, channelId, title); await client.PostAsync($"/api/v1/videos/{video.VideoId}/submit-moderation", null);
         await ApproveAsync(video.VideoId); var response = await client.PostAsync($"/api/v1/videos/{video.VideoId}/publish", null); response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<VideoResponse>(JsonOptions))!;
+    }
+
+    [Fact]
+    public async Task AccountPreferences_RoundTripPartialUpdatesAndRemainUserScoped()
+    {
+        var (owner, ownerId, _) = await CreateUserAndChannelAsync("preferences_owner");
+        var (other, otherId, _) = await CreateUserAndChannelAsync("preferences_other");
+
+        var defaults = await owner.GetFromJsonAsync<UserPreferencesDto>("/api/v1/account/settings", JsonOptions);
+        Assert.Equal(new UserPreferencesDto("vi", "system", true, true, "Việt Nam"), defaults);
+
+        var update = await owner.PutAsJsonAsync("/api/v1/account/settings", new
+        {
+            language = "en",
+            theme = "dark",
+            keepSubscriptionsPrivate = false,
+            keepPlaylistsPrivate = false,
+            location = "  Hà Nội 🏙️  "
+        });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var expected = new UserPreferencesDto("en", "dark", false, false, "Hà Nội 🏙️");
+        Assert.Equal(expected, await update.Content.ReadFromJsonAsync<UserPreferencesDto>(JsonOptions));
+        Assert.Equal(expected, await owner.GetFromJsonAsync<UserPreferencesDto>("/api/v1/account/settings", JsonOptions));
+
+        var clearLocationOnly = await owner.PutAsJsonAsync("/api/v1/account/settings", new { location = "" });
+        Assert.Equal(HttpStatusCode.OK, clearLocationOnly.StatusCode);
+        Assert.Equal(new UserPreferencesDto("en", "dark", false, false, null),
+            await clearLocationOnly.Content.ReadFromJsonAsync<UserPreferencesDto>(JsonOptions));
+        Assert.Equal(new UserPreferencesDto("vi", "system", true, true, "Việt Nam"),
+            await other.GetFromJsonAsync<UserPreferencesDto>("/api/v1/account/settings", JsonOptions));
+
+        await using var db = factory.CreateDb();
+        var persisted = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == ownerId);
+        Assert.Equal("en", persisted.PreferredLanguage);
+        Assert.Equal("dark", persisted.Theme);
+        Assert.False(persisted.KeepSubscriptionsPrivate);
+        Assert.False(persisted.KeepPlaylistsPrivate);
+        Assert.Null(persisted.Location);
+        var untouched = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == otherId);
+        Assert.Equal("vi", untouched.PreferredLanguage);
+        Assert.Equal("Việt Nam", untouched.Location);
+    }
+
+    [Theory]
+    [InlineData("language", "fr", "INVALID_LANGUAGE")]
+    [InlineData("theme", "neon", "INVALID_THEME")]
+    public async Task AccountPreferences_InvalidEnumLeavesPersistedPreferencesUnchanged(string field, string value, string errorCode)
+    {
+        var (owner, ownerId, _) = await CreateUserAndChannelAsync("preferences_invalid");
+        await owner.PutAsJsonAsync("/api/v1/account/settings", new { language = "en", theme = "dark" });
+        var response = await owner.PutAsJsonAsync("/api/v1/account/settings", new Dictionary<string, object?> { [field] = value });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(errorCode, await response.Content.ReadAsStringAsync());
+        await using var db = factory.CreateDb();
+        var persisted = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == ownerId);
+        Assert.Equal("en", persisted.PreferredLanguage);
+        Assert.Equal("dark", persisted.Theme);
+    }
+
+    [Fact]
+    public async Task AccountNotificationSettings_RoundTripAllFieldsAndRemainUserScoped()
+    {
+        var (owner, ownerId, _) = await CreateUserAndChannelAsync("notification_settings_owner");
+        var (other, _, _) = await CreateUserAndChannelAsync("notification_settings_other");
+        var expected = new NotificationSettingsDto(
+            InAppEnabled: false,
+            EmailEnabled: true,
+            NewVideoEnabled: false,
+            CommentReplyEnabled: true,
+            ReportResultEnabled: false,
+            ModerationEnabled: true,
+            PlanEnabled: false,
+            RecommendationEnabled: true,
+            MentionEnabled: false,
+            ChannelActivityEnabled: true,
+            PaymentEnabled: false);
+        var response = await owner.PutAsJsonAsync("/api/v1/account/notifications", expected);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(expected, await response.Content.ReadFromJsonAsync<NotificationSettingsDto>(JsonOptions));
+        Assert.Equal(expected, await owner.GetFromJsonAsync<NotificationSettingsDto>("/api/v1/account/notifications", JsonOptions));
+        Assert.Equal(new NotificationSettingsDto(true, true, true, true, true, true, true, true, true, true, true),
+            await other.GetFromJsonAsync<NotificationSettingsDto>("/api/v1/account/notifications", JsonOptions));
+
+        await using var db = factory.CreateDb();
+        var stored = await db.NotificationSettings.AsNoTracking().SingleAsync(x => x.UserId == ownerId);
+        Assert.Equal(expected, new NotificationSettingsDto(
+            stored.InAppEnabled, stored.EmailEnabled, stored.NewVideoEnabled, stored.CommentReplyEnabled,
+            stored.ReportResultEnabled, stored.ModerationEnabled, stored.PlanEnabled, stored.RecommendationEnabled,
+            stored.MentionEnabled, stored.ChannelActivityEnabled, stored.PaymentEnabled));
+    }
+
+    [Fact]
+    public async Task AccountProfile_PatchIsPartialTrimmedAndDoesNotExposeCredentials()
+    {
+        var (owner, ownerId, _) = await CreateUserAndChannelAsync("profile_patch");
+        var before = await owner.GetFromJsonAsync<UserProfileDto>("/api/v1/account/profile", JsonOptions);
+        var response = await owner.PatchAsJsonAsync("/api/v1/account/profile", new
+        {
+            displayName = "  Tên mới  ",
+            bio = "  Nội dung có dấu 🌱  "
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = (await response.Content.ReadFromJsonAsync<UserProfileDto>(JsonOptions))!;
+        Assert.Equal(ownerId, updated.UserId);
+        Assert.Equal(before!.Username, updated.Username);
+        Assert.Equal(before.Email, updated.Email);
+        Assert.Equal(before.AvatarUrl, updated.AvatarUrl);
+        Assert.Equal("Tên mới", updated.DisplayName);
+        Assert.Equal("Nội dung có dấu 🌱", updated.Bio);
+        var rawProfile = await owner.GetStringAsync("/api/v1/account/profile");
+        Assert.DoesNotContain("passwordHash", rawProfile, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("refreshToken", rawProfile, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("emailVerificationToken", rawProfile, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AccountAvatar_ValidImagePersistsAndInvalidMediaDoesNotCreateObject()
+    {
+        var (owner, ownerId, _) = await CreateUserAndChannelAsync("avatar_upload");
+        using var validForm = new MultipartFormDataContent();
+        var pngBytes = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ioAAAAASUVORK5CYII=");
+        var validFile = new ByteArrayContent(pngBytes);
+        validFile.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        validForm.Add(validFile, "file", "avatar.png");
+        var upload = await owner.PostAsync("/api/v1/account/avatar", validForm);
+
+        Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
+        var profile = (await upload.Content.ReadFromJsonAsync<UserProfileDto>(JsonOptions))!;
+        Assert.Equal(ownerId, profile.UserId);
+        Assert.StartsWith("test://avatars/", profile.AvatarUrl);
+        Assert.Equal(pngBytes, factory.Storage.Objects[profile.AvatarUrl!]);
+        var objectsAfterValidUpload = factory.Storage.Objects.Count;
+
+        using var invalidForm = new MultipartFormDataContent();
+        var invalidFile = new ByteArrayContent(Encoding.UTF8.GetBytes("not an image"));
+        invalidFile.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        invalidForm.Add(invalidFile, "file", "avatar.txt");
+        var rejected = await owner.PostAsync("/api/v1/account/avatar", invalidForm);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Contains("INVALID_FILE_TYPE", await rejected.Content.ReadAsStringAsync());
+        Assert.Equal(objectsAfterValidUpload, factory.Storage.Objects.Count);
+        Assert.Equal(profile, await owner.GetFromJsonAsync<UserProfileDto>("/api/v1/account/profile", JsonOptions));
+    }
+
+    [Fact]
+    public async Task AccountProfile_DisplayNameBoundsAndHtmlBioAreValidatedWithoutPartialMutation()
+    {
+        var (owner, _, _) = await CreateUserAndChannelAsync("profile_bounds");
+        var original = await owner.GetFromJsonAsync<UserProfileDto>("/api/v1/account/profile", JsonOptions);
+
+        var update = await owner.PatchAsJsonAsync("/api/v1/account/profile", new
+        {
+            displayName = "  Tên hiển thị 🌱  ",
+            bio = "<b>literal</b> & không thực thi"
+        });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var updated = (await update.Content.ReadFromJsonAsync<UserProfileDto>(JsonOptions))!;
+        Assert.Equal("Tên hiển thị 🌱", updated.DisplayName);
+        Assert.Equal("<b>literal</b> & không thực thi", updated.Bio);
+
+        foreach (var invalidName in new[] { "", "   ", new string('x', 121) })
+        {
+            var rejected = await owner.PatchAsJsonAsync("/api/v1/account/profile", new { displayName = invalidName });
+            Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+            Assert.Contains("INVALID_DISPLAY_NAME", await rejected.Content.ReadAsStringAsync());
+        }
+
+        var persisted = await owner.GetFromJsonAsync<UserProfileDto>("/api/v1/account/profile", JsonOptions);
+        Assert.NotNull(persisted);
+        Assert.Equal(updated.DisplayName, persisted.DisplayName);
+        Assert.Equal(updated.Bio, persisted.Bio);
+        Assert.Equal(original!.Email, persisted.Email);
+        Assert.Equal(original.UserId, persisted.UserId);
+    }
+
+    [Fact]
+    public async Task AccountProfile_ConcurrentDifferentFieldPatchesPreserveBothFields()
+    {
+        var (owner, _, _) = await CreateUserAndChannelAsync("profile_concurrent");
+        var responses = await Task.WhenAll(
+            owner.PatchAsJsonAsync("/api/v1/account/profile", new { displayName = "Concurrent name" }),
+            owner.PatchAsJsonAsync("/api/v1/account/profile", new { bio = "Concurrent bio" }));
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        var profile = await owner.GetFromJsonAsync<UserProfileDto>("/api/v1/account/profile", JsonOptions);
+        Assert.NotNull(profile);
+        Assert.Equal("Concurrent name", profile.DisplayName);
+        Assert.Equal("Concurrent bio", profile.Bio);
+    }
+
+    [Fact]
+    public async Task AccountAvatar_MissingOversizedAndStorageFailureDoNotChangeProfile()
+    {
+        var (owner, _, _) = await CreateUserAndChannelAsync("avatar_failures");
+        var missing = await owner.PostAsync("/api/v1/account/avatar", null);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        Assert.Contains("INVALID_FILE", await missing.Content.ReadAsStringAsync());
+
+        using var oversized = new MultipartFormDataContent();
+        var largeFile = new ByteArrayContent(new byte[(5 * 1024 * 1024) + 1]);
+        largeFile.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        oversized.Add(largeFile, "file", "large.png");
+        var tooLarge = await owner.PostAsync("/api/v1/account/avatar", oversized);
+        Assert.True(tooLarge.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge,
+            $"Unexpected oversized avatar status: {tooLarge.StatusCode}");
+        if (tooLarge.StatusCode == HttpStatusCode.BadRequest)
+            Assert.Contains("FILE_TOO_LARGE", await tooLarge.Content.ReadAsStringAsync());
+
+        factory.Storage.BeforeSave = (_, _) => throw new IOException("controlled storage failure");
+        try
+        {
+            using var failedForm = new MultipartFormDataContent();
+            var png = new ByteArrayContent(Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ioAAAAASUVORK5CYII="));
+            png.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            failedForm.Add(png, "file", "failed.png");
+            var failed = await owner.PostAsync("/api/v1/account/avatar", failedForm);
+            Assert.False(failed.IsSuccessStatusCode);
+            Assert.Null((await owner.GetFromJsonAsync<UserProfileDto>("/api/v1/account/profile", JsonOptions))!.AvatarUrl);
+        }
+        finally
+        {
+            factory.Storage.BeforeSave = null;
+        }
+    }
+
+    [Fact]
+    public async Task Playlist_LifecycleVisibilityOwnershipDuplicateAndAtomicOrderAreEnforced()
+    {
+        var (owner, _, channelId) = await CreateUserAndChannelAsync("playlist_lifecycle");
+        var (other, _, _) = await CreateUserAndChannelAsync("playlist_other");
+        var firstVideo = await CreatePublishedVideoAsync(owner, channelId, "Playlist first");
+        var secondVideo = await CreatePublishedVideoAsync(owner, channelId, "Playlist second");
+        var guest = factory.CreateClient();
+
+        var create = await owner.PostAsJsonAsync("/api/v1/playlists", new CreatePlaylistRequest("  Saved videos  ", "  mô tả  ", "private"));
+        Assert.Equal(HttpStatusCode.OK, create.StatusCode);
+        var playlist = (await create.Content.ReadFromJsonAsync<PlaylistResponse>(JsonOptions))!;
+        Assert.Equal("Saved videos", playlist.Name);
+        Assert.Equal("private", playlist.Visibility);
+        Assert.False((await guest.GetAsync($"/api/v1/playlists/{playlist.PlaylistId}")).IsSuccessStatusCode);
+
+        var addFirst = await owner.PostAsJsonAsync($"/api/v1/playlists/{playlist.PlaylistId}/videos", new AddPlaylistVideoRequest(firstVideo.VideoId));
+        var addSecond = await owner.PostAsJsonAsync($"/api/v1/playlists/{playlist.PlaylistId}/videos", new AddPlaylistVideoRequest(secondVideo.VideoId));
+        Assert.Equal(HttpStatusCode.OK, addFirst.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, addSecond.StatusCode);
+        var duplicate = await owner.PostAsJsonAsync($"/api/v1/playlists/{playlist.PlaylistId}/videos", new AddPlaylistVideoRequest(firstVideo.VideoId));
+        Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+        Assert.Contains("PLAYLIST_VIDEO_EXISTS", await duplicate.Content.ReadAsStringAsync());
+
+        var invalidOrder = await owner.PutAsJsonAsync($"/api/v1/playlists/{playlist.PlaylistId}/order", new ReorderPlaylistRequest([firstVideo.VideoId, firstVideo.VideoId]));
+        Assert.Equal(HttpStatusCode.BadRequest, invalidOrder.StatusCode);
+        Assert.Contains("INVALID_PLAYLIST_ORDER", await invalidOrder.Content.ReadAsStringAsync());
+        var reordered = await owner.PutAsJsonAsync($"/api/v1/playlists/{playlist.PlaylistId}/order", new ReorderPlaylistRequest([secondVideo.VideoId, firstVideo.VideoId]));
+        Assert.Equal(HttpStatusCode.OK, reordered.StatusCode);
+        Assert.Equal(secondVideo.VideoId, (await reordered.Content.ReadFromJsonAsync<PlaylistResponse>(JsonOptions))!.Items[0].VideoId);
+
+        var update = await owner.PatchAsJsonAsync($"/api/v1/playlists/{playlist.PlaylistId}", new UpdatePlaylistRequest("Public saved", "Description", "public"));
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var publicView = await guest.GetFromJsonAsync<PlaylistResponse>($"/api/v1/playlists/{playlist.PlaylistId}", JsonOptions);
+        Assert.NotNull(publicView);
+        Assert.Equal("public", publicView.Visibility);
+        Assert.Equal(2, publicView.Items.Count);
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.PatchAsJsonAsync($"/api/v1/playlists/{playlist.PlaylistId}", new UpdatePlaylistRequest("No", null, "public"))).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/v1/playlists/{playlist.PlaylistId}/videos/{firstVideo.VideoId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.DeleteAsync($"/api/v1/playlists/{playlist.PlaylistId}/videos/{firstVideo.VideoId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/v1/playlists/{playlist.PlaylistId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await guest.GetAsync($"/api/v1/playlists/{playlist.PlaylistId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Library_HistoryAndLikedAreActorScopedAndDeleteIsIdempotent()
+    {
+        var (owner, _, channelId) = await CreateUserAndChannelAsync("library_owner");
+        var (other, _, _) = await CreateUserAndChannelAsync("library_other");
+        var video = await CreatePublishedVideoAsync(owner, channelId, "Library video");
+
+        var progress = await owner.PutAsJsonAsync($"/api/v1/videos/{video.VideoId}/watch-progress", new { watchedSeconds = 60, saveHistory = true });
+        Assert.Equal(HttpStatusCode.OK, progress.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync($"/api/v1/videos/{video.VideoId}/reaction", new { type = "like" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync($"/api/v1/videos/{video.VideoId}/watch-progress", new { watchedSeconds = 30, saveHistory = true })).StatusCode);
+
+        var history = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>("/api/v1/library/history?page=1&pageSize=50", JsonOptions);
+        var liked = await owner.GetFromJsonAsync<PageResult<LibraryVideoResponse>>("/api/v1/library/liked?page=1&pageSize=50", JsonOptions);
+        Assert.NotNull(history);
+        Assert.NotNull(liked);
+        Assert.Single(history.Items, item => item.VideoId == video.VideoId);
+        Assert.Equal(30, Assert.Single(history.Items).WatchedSeconds);
+        Assert.Single(liked.Items, item => item.VideoId == video.VideoId);
+
+        var otherHistory = await other.GetFromJsonAsync<PageResult<WatchHistoryResponse>>("/api/v1/library/history?page=1&pageSize=50", JsonOptions);
+        var otherLiked = await other.GetFromJsonAsync<PageResult<LibraryVideoResponse>>("/api/v1/library/liked?page=1&pageSize=50", JsonOptions);
+        Assert.Empty(otherHistory!.Items);
+        Assert.Empty(otherLiked!.Items);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/v1/library/history/{video.VideoId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/v1/library/history/{video.VideoId}")).StatusCode);
+        history = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>("/api/v1/library/history?page=1&pageSize=50", JsonOptions);
+        Assert.DoesNotContain(history!.Items, item => item.VideoId == video.VideoId);
+        Assert.Single(liked.Items, item => item.VideoId == video.VideoId);
+    }
+
+    [Fact]
+    public async Task VideoUpload_EmptyUnsupportedAndInvalidQualityFilesCreateNoVideo()
+    {
+        var (owner, _, channelId) = await CreateUserAndChannelAsync("video_invalid");
+        var before = factory.Storage.Objects.Keys.ToHashSet();
+
+        using (var emptyForm = new MultipartFormDataContent())
+        {
+            emptyForm.Add(new ByteArrayContent([]), "Video", "empty.mp4");
+            var response = await owner.PostAsync("/api/v1/videos", emptyForm);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("VIDEO_REQUIRED", await response.Content.ReadAsStringAsync());
+        }
+
+        async Task<HttpResponseMessage> UploadInvalid(string contentType, string fileName, string quality = "720p")
+        {
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(channelId.ToString()), "ChannelId");
+            form.Add(new StringContent("Invalid upload " + Guid.NewGuid().ToString("N")), "Title");
+            form.Add(new StringContent("Invalid upload"), "Description");
+            form.Add(new StringContent("120"), "Duration");
+            form.Add(new StringContent(quality), "SourceQuality");
+            var bytes = new ByteArrayContent(Encoding.UTF8.GetBytes("not a supported media container"));
+            bytes.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            form.Add(bytes, "Video", fileName);
+            return await owner.PostAsync("/api/v1/videos", form);
+        }
+
+        var invalidType = await UploadInvalid("text/plain", "not-video.txt");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidType.StatusCode);
+        Assert.Contains("INVALID_VIDEO_TYPE", await invalidType.Content.ReadAsStringAsync());
+        var invalidQuality = await UploadInvalid("video/mp4", "quality.mp4", "2160p");
+        Assert.Equal(HttpStatusCode.Forbidden, invalidQuality.StatusCode);
+        Assert.Contains("UPLOAD_QUALITY_DENIED", await invalidQuality.Content.ReadAsStringAsync());
+
+        await using var db = factory.CreateDb();
+        Assert.Empty(await db.Videos.Where(item => item.ChannelId == channelId && item.Title.StartsWith("Invalid upload")).ToListAsync());
+        Assert.DoesNotContain(factory.Storage.Objects.Keys, key => !before.Contains(key) && key.Contains("Invalid upload", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Playlist_SaveAndChannelListing_RespectVisibilityOwnershipAndDuplicateRules()
+    {
+        var (owner, ownerId, channelId) = await CreateUserAndChannelAsync("playlist_save_owner");
+        var (other, _, otherChannelId) = await CreateUserAndChannelAsync("playlist_save_other");
+        var video = await CreatePublishedVideoAsync(owner, channelId, "Saved playlist video");
+        var guest = factory.CreateClient();
+
+        var firstSave = await owner.PostAsJsonAsync("/api/v1/playlists/save", new SaveVideoRequest(video.VideoId));
+        Assert.Equal(HttpStatusCode.OK, firstSave.StatusCode);
+        var saved = (await firstSave.Content.ReadFromJsonAsync<PlaylistResponse>(JsonOptions))!;
+        Assert.Equal(ownerId, saved.UserId);
+        Assert.Equal("Video đã lưu", saved.Name);
+        Assert.Equal("private", saved.Visibility);
+        Assert.Single(saved.Items, item => item.VideoId == video.VideoId);
+
+        var duplicateSave = await owner.PostAsJsonAsync("/api/v1/playlists/save", new SaveVideoRequest(video.VideoId));
+        Assert.Equal(HttpStatusCode.Conflict, duplicateSave.StatusCode);
+        Assert.Contains("PLAYLIST_VIDEO_EXISTS", await duplicateSave.Content.ReadAsStringAsync());
+
+        var publicPlaylistResponse = await owner.PostAsJsonAsync(
+            "/api/v1/playlists", new CreatePlaylistRequest("Public channel list", null, "public"));
+        var publicPlaylist = (await publicPlaylistResponse.Content.ReadFromJsonAsync<PlaylistResponse>(JsonOptions))!;
+        (await owner.PostAsJsonAsync($"/api/v1/playlists/{publicPlaylist.PlaylistId}/videos",
+            new AddPlaylistVideoRequest(video.VideoId))).EnsureSuccessStatusCode();
+
+        var publicLists = await guest.GetFromJsonAsync<List<PlaylistSummaryResponse>>(
+            $"/api/v1/playlists/channel/{channelId}", JsonOptions);
+        Assert.NotNull(publicLists);
+        Assert.Contains(publicLists!, item => item.PlaylistId == publicPlaylist.PlaylistId && item.Visibility == "public");
+        Assert.DoesNotContain(publicLists!, item => item.PlaylistId == saved.PlaylistId);
+
+        var ownerLists = await owner.GetFromJsonAsync<List<PlaylistSummaryResponse>>(
+            $"/api/v1/playlists/channel/{channelId}/mine", JsonOptions);
+        Assert.NotNull(ownerLists);
+        Assert.Contains(ownerLists!, item => item.PlaylistId == saved.PlaylistId);
+        Assert.Contains(ownerLists!, item => item.PlaylistId == publicPlaylist.PlaylistId);
+
+        var wrongOwner = await other.GetAsync($"/api/v1/playlists/channel/{channelId}/mine");
+        Assert.Equal(HttpStatusCode.Forbidden, wrongOwner.StatusCode);
+        var otherChannelLists = await guest.GetFromJsonAsync<List<PlaylistSummaryResponse>>(
+            $"/api/v1/playlists/channel/{otherChannelId}", JsonOptions);
+        Assert.NotNull(otherChannelLists);
+        Assert.Empty(otherChannelLists!);
+    }
+
+    [Fact]
+    public async Task Comments_RejectCrossVideoParentsAndNestedReplies()
+    {
+        var (owner, _, ownerChannelId) = await CreateUserAndChannelAsync("comment_parent_owner");
+        var (viewer, _, viewerChannelId) = await CreateUserAndChannelAsync("comment_parent_viewer");
+        var firstVideo = await CreatePublishedVideoAsync(owner, ownerChannelId, "Comment parent video");
+        var secondVideo = await CreatePublishedVideoAsync(viewer, viewerChannelId, "Other comment video");
+
+        var parentResponse = await viewer.PostAsJsonAsync(
+            $"/api/v1/videos/{firstVideo.VideoId}/comments",
+            new { content = "Parent comment", parentCommentId = (Guid?)null });
+        Assert.Equal(HttpStatusCode.Created, parentResponse.StatusCode);
+        var parent = (await parentResponse.Content.ReadFromJsonAsync<CommentResponse>(JsonOptions))!;
+
+        var crossVideo = await owner.PostAsJsonAsync(
+            $"/api/v1/videos/{secondVideo.VideoId}/comments",
+            new { content = "Cross video reply", parentCommentId = parent.CommentId });
+        Assert.Equal(HttpStatusCode.NotFound, crossVideo.StatusCode);
+        Assert.Contains("PARENT_COMMENT_NOT_FOUND", await crossVideo.Content.ReadAsStringAsync());
+
+        var replyResponse = await owner.PostAsJsonAsync(
+            $"/api/v1/videos/{firstVideo.VideoId}/comments",
+            new { content = "First level reply", parentCommentId = parent.CommentId });
+        Assert.Equal(HttpStatusCode.Created, replyResponse.StatusCode);
+        var reply = (await replyResponse.Content.ReadFromJsonAsync<CommentResponse>(JsonOptions))!;
+
+        var nested = await viewer.PostAsJsonAsync(
+            $"/api/v1/videos/{firstVideo.VideoId}/comments",
+            new { content = "Second level reply", parentCommentId = reply.CommentId });
+        Assert.Equal(HttpStatusCode.BadRequest, nested.StatusCode);
+        Assert.Contains("REPLY_DEPTH_EXCEEDED", await nested.Content.ReadAsStringAsync());
+    }
+
+    private async Task WaitForReadyRenditionsAsync(Guid videoId, int expectedReadyCount)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            await using var db = factory.CreateDb();
+            var readyCount = await db.VideoRenditions.AsNoTracking()
+                .CountAsync(x => x.VideoId == videoId && x.Status == "ready");
+            if (readyCount >= expectedReadyCount) return;
+            await Task.Delay(25);
+        }
+
+        throw new TimeoutException($"Video {videoId} did not finish processing {expectedReadyCount} renditions within 10 seconds.");
     }
 
     private async Task ApproveAsync(Guid videoId)
