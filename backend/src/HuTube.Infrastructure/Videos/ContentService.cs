@@ -1401,7 +1401,7 @@ public sealed class ContentService(
             rows = await (from comment in query
                           join likes in likeCounts on comment.CommentId equals likes.CommentId into likeRows
                           from likes in likeRows.DefaultIfEmpty()
-                          orderby (long?)likes.Count descending, comment.CreatedAt descending, comment.CommentId descending
+                          orderby ((long?)likes.Count ?? 0L) descending, comment.CreatedAt descending, comment.CommentId descending
                           select comment)
                 .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         }

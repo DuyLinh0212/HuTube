@@ -235,7 +235,12 @@ public sealed class VideosController(IContentService content) : ControllerBase
     public Task<ShareResponse> ShareAsync(Guid id, ShareRequest request, CancellationToken ct) => content.ShareAsync(UserId, id, request.Method, ct);
 
     [Authorize, HttpGet("{id:guid}/download-options")]
-    public Task<IReadOnlyList<RenditionResponse>> DownloadOptionsAsync(Guid id, CancellationToken ct) => content.GetDownloadOptionsAsync(UserId, id, ct);
+    public async Task<IReadOnlyList<RenditionResponse>> DownloadOptionsAsync(Guid id, CancellationToken ct)
+    {
+        var options = await content.GetDownloadOptionsAsync(UserId, id, ct);
+        return Request.Headers["X-HuTube-Client"] == "web"
+            ? options.Select(x => x with { Url = "" }).ToArray() : options;
+    }
 
     [Authorize, HttpPost("{id:guid}/downloads")]
     public async Task<ActionResult<DownloadResponse>> DownloadAsync(Guid id, CreateDownloadRequest request, CancellationToken ct)
