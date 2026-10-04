@@ -82,10 +82,14 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         _db.Dispose();
     }
 
-    [Fact]
-    public async Task AutoLockRule_FifthVideoRejection_LocksChannelAndCreatesStrike()
+    [Theory]
+    [InlineData(0, 7, false)]
+    [InlineData(1, 14, false)]
+    [InlineData(2, 14, true)]
+    public async Task AutoStrikeRule_FifthVideoRejection_AppliesConfiguredTier(int existingStrikeCount, int restrictionDays, bool suspended)
     {
         // Arrange
+        var beforeRejection = DateTimeOffset.UtcNow;
         var ownerId = Guid.NewGuid();
         var reviewerId = Guid.NewGuid();
         var channel = new Channel
@@ -99,6 +103,22 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
             UpdatedAt = DateTimeOffset.UtcNow
         };
         _db.Channels.Add(channel);
+        _db.StrikePolicyConfigurations.Add(new StrikePolicyConfiguration
+        {
+            RejectedVideosEffectiveAt = beforeRejection.AddDays(-1)
+        });
+        for (var number = 1; number <= existingStrikeCount; number++)
+        {
+            _db.ChannelStrikes.Add(new ChannelStrike
+            {
+                ChannelId = channel.ChannelId,
+                UserId = ownerId,
+                StrikeNumber = number,
+                PolicyCode = "COPYRIGHT",
+                Reason = "Existing active strike",
+                ExpiresAt = beforeRejection.AddDays(90)
+            });
+        }
 
         // Add 4 existing rejected videos
         for (int i = 1; i <= 4; i++)
@@ -156,14 +176,22 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         Assert.Equal("reject", resolution.Decision);
 
         var updatedChannel = await _db.Channels.SingleAsync(c => c.ChannelId == channel.ChannelId);
-        Assert.Equal("suspended", updatedChannel.Status);
+        Assert.Equal(suspended ? "suspended" : "active", updatedChannel.Status);
 
-        var strike = await _db.ChannelStrikes.FirstOrDefaultAsync(s => s.ChannelId == channel.ChannelId);
-        Assert.NotNull(strike);
+        var strike = Assert.Single(await _db.ChannelStrikes.Where(s => s.SourceModerationCaseId == mc.ModerationCaseId).ToListAsync());
+        Assert.Equal(existingStrikeCount + 1, strike.StrikeNumber);
         Assert.Equal(StrikeSeverities.High, strike.Severity);
-        Assert.Contains("5 nội dung vi phạm bị từ chối", strike.Reason);
+        Assert.Equal("SPAM.REPEATED_VIOLATIONS", strike.PolicyCode);
+        Assert.Contains("5 video bị từ chối", strike.Reason);
+        Assert.NotNull(strike.UploadRestrictedUntil);
+        Assert.InRange(strike.UploadRestrictedUntil.Value, beforeRejection.AddDays(restrictionDays), DateTimeOffset.UtcNow.AddDays(restrictionDays));
+        Assert.InRange(strike.ExpiresAt, beforeRejection.AddDays(90), DateTimeOffset.UtcNow.AddDays(90));
 
-        Assert.Contains(_notifications.Notifications, n => n.Type == "channel_suspended" && n.RecipientId == ownerId);
+        Assert.Contains(_notifications.Notifications, n => n.Type == "channel_strike" && n.RecipientId == ownerId);
+        if (suspended)
+            Assert.Contains(_notifications.Notifications, n => n.Type == "channel_suspended" && n.RecipientId == ownerId);
+        else
+            Assert.DoesNotContain(_notifications.Notifications, n => n.Type == "channel_suspended");
     }
 
     [Fact]

@@ -159,9 +159,18 @@ async def train_model(payload: TrainRequest, request: Request,
     if payload.job_id is not None:
         existing = await run_in_threadpool(registry.get_job, job_id)
         if existing is not None:
-            if (existing.get("csvKey") != payload.csv_key or existing.get("csvSha256") != payload.csv_sha256
-                    or normalize_score_aggregation(existing.get("scoreAggregation")) != score_aggregation):
-                raise _error(409, "IDEMPOTENCY_CONFLICT", "Job ID belongs to a different model update.", False)
+            if (
+                existing.get("csvKey") != payload.csv_key
+                or existing.get("csvSha256") != payload.csv_sha256
+                or normalize_score_aggregation(existing.get("scoreAggregation"))
+                != score_aggregation
+            ):
+                raise _error(
+                    409,
+                    "IDEMPOTENCY_CONFLICT",
+                    "Job ID belongs to a different model update.",
+                    False,
+                )
             return {"jobId": job_id, "status": existing["status"]}
     if registry.update_task is not None and not registry.update_task.done():
         raise _error(409, "TRAINING_UNAVAILABLE", "A model update is already running.", True)
@@ -170,22 +179,41 @@ async def train_model(payload: TrainRequest, request: Request,
                                       "scoreAggregation": score_aggregation}
     if not await run_in_threadpool(registry.create_job, job_id, job):
         existing = await run_in_threadpool(registry.get_job, job_id)
-        if (existing is None or existing.get("csvKey") != payload.csv_key
-                or existing.get("csvSha256") != payload.csv_sha256
-                or normalize_score_aggregation(existing.get("scoreAggregation")) != score_aggregation):
-            raise _error(409, "IDEMPOTENCY_CONFLICT", "Job ID belongs to a different model update.", False)
+        if (
+            existing is None
+            or existing.get("csvKey") != payload.csv_key
+            or existing.get("csvSha256") != payload.csv_sha256
+            or normalize_score_aggregation(existing.get("scoreAggregation")) != score_aggregation
+        ):
+            raise _error(
+                409,
+                "IDEMPOTENCY_CONFLICT",
+                "Job ID belongs to a different model update.",
+                False,
+            )
         return {"jobId": job_id, "status": existing["status"]}
 
     async def work() -> None:
         try:
-            manifest = await run_in_threadpool(registry.train_from_r2,
-                                               payload.csv_key, payload.csv_sha256,
-                                               score_aggregation)
-            await run_in_threadpool(registry.record_job, job_id, {**job, "status": "completed", "manifest": manifest})
+            manifest = await run_in_threadpool(
+                registry.train_from_r2,
+                payload.csv_key,
+                payload.csv_sha256,
+                score_aggregation,
+            )
+            await run_in_threadpool(
+                registry.record_job,
+                job_id,
+                {**job, "status": "completed", "manifest": manifest},
+            )
         except Exception as exc:
             reconciled = await run_in_threadpool(registry.get_job, job_id)
             if reconciled is None or reconciled["status"] != "completed":
-                await run_in_threadpool(registry.record_job, job_id, {**job, "status": "failed", "error": str(exc)})
+                await run_in_threadpool(
+                    registry.record_job,
+                    job_id,
+                    {**job, "status": "failed", "error": str(exc)},
+                )
 
     registry.update_task = asyncio.create_task(work())
     return JSONResponse(status_code=202, content={"jobId": job_id, "status": "running"})

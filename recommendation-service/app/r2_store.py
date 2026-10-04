@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 import time
+from typing import Any
 from uuid import uuid4
 
 import boto3
@@ -80,4 +80,8 @@ class R2Store:
                                        {"owner": owner, "expiresAt": time.time() + 1800}, version)
 
     def release_training_lease(self, owner: str, version: str) -> None:
-        self.compare_write_json("collaborative_cf/training-lease.json", {"owner": owner, "expiresAt": 0}, version)
+        self.compare_write_json(
+            "collaborative_cf/training-lease.json",
+            {"owner": owner, "expiresAt": 0},
+            version,
+        )

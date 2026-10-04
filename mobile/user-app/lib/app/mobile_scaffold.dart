@@ -383,15 +383,13 @@ class _CreateNavIcon extends StatelessWidget {
 
 class _CreateAction extends StatelessWidget {
   const _CreateAction({
-    this.icon,
-    this.customIcon,
+    required this.customIcon,
     required this.color,
     required this.title,
     required this.description,
     required this.onTap,
   });
-  final IconData? icon;
-  final Widget? customIcon;
+  final Widget customIcon;
   final Color color;
   final String title;
   final String description;
@@ -408,7 +406,7 @@ class _CreateAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,
-      child: customIcon ?? Icon(icon, color: color),
+      child: customIcon,
     ),
     title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
     subtitle: Text(description),

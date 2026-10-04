@@ -4,9 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../account/screens/profile_screen.dart';
-import '../../account/services/account_service.dart';
-import '../../account/state/account_controller.dart';
 import '../../auth.dart';
 import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/services/channel_service.dart';
@@ -140,49 +137,6 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         );
       }
     }
-  }
-
-  Future<void> _openSessions() async {
-    final controller = AccountController(AccountService(widget.auth));
-    await controller.loadSessions();
-    if (!mounted) return;
-    await _open(
-      Scaffold(
-        appBar: AppBar(),
-        body: SingleChildScrollView(
-          child: ProfileScreen(
-            accountController: controller,
-            auth: widget.auth,
-            notifications: widget.notifications,
-            sessions: controller.sessions,
-            sessionsLoading: controller.loadingSessions,
-            onRefreshSessions: controller.loadSessions,
-            onRevokeSession: (id) async {
-              await controller.revokeSession(id);
-            },
-            onLogoutOthers: () async {
-              await controller.revokeOtherSessions();
-            },
-            onLogoutAll: () async {
-              await AccountService(widget.auth).revokeAllSessions();
-              await widget.auth.logout();
-              if (mounted) context.go('/auth');
-            },
-            onLogout: () async {
-              await widget.auth.logout();
-              if (mounted) context.go('/auth');
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _open(Widget page) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
-    if (mounted) await _loadAll();
   }
 
   void _openSettings() {

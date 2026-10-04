@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 import asyncio
-from contextlib import suppress
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 

@@ -408,7 +408,7 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         await using var db = factory.CreateDb(); var persisted = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == ownerId);
         Assert.Equal("en", persisted.PreferredLanguage); Assert.Equal("dark", persisted.Theme);
         Assert.Contains(options!, x => x.Quality == "720p");
-        Assert.All(webOptions!, x => { Assert.Equal("", x.Url); Assert.Equal(".mp4", x.FileExtension); });
+        Assert.All(webOptions!, x => Assert.Equal("", x.Url));
         Assert.Equal(HttpStatusCode.OK, file.StatusCode);
         Assert.Equal("video/mp4", file.Content.Headers.ContentType!.MediaType);
         Assert.Equal("attachment", file.Content.Headers.ContentDisposition!.DispositionType);

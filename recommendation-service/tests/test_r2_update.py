@@ -4,8 +4,8 @@ import hashlib
 import json
 import time
 
-from fastapi.testclient import TestClient
 from botocore.exceptions import ClientError
+from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
@@ -35,7 +35,11 @@ class FakeR2(R2Store):
 
     def read_versioned_json(self, key: str):
         raw = self.read_optional(key)
-        return (json.loads(raw), hashlib.sha256(raw).hexdigest()) if raw is not None else (None, None)
+        return (
+            (json.loads(raw), hashlib.sha256(raw).hexdigest())
+            if raw is not None
+            else (None, None)
+        )
 
     def compare_write_json(self, key: str, value: dict, etag: str | None) -> str:
         _, current = self.read_versioned_json(key)
@@ -79,12 +83,18 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
                 break
             time.sleep(.05)
         assert progress["status"] == "completed", progress
-        replay = client.post("/internal/model/train", headers={"X-Model-Admin-Token": "admin-secret"},
-                             json={"jobId": job_id, "csvKey": csv_key, "csvSha256": digest})
+        replay = client.post(
+            "/internal/model/train",
+            headers={"X-Model-Admin-Token": "admin-secret"},
+            json={"jobId": job_id, "csvKey": csv_key, "csvSha256": digest},
+        )
         assert replay.status_code == 200
         assert replay.json()["status"] == "completed"
-        conflict = client.post("/internal/model/train", headers={"X-Model-Admin-Token": "admin-secret"},
-                               json={"jobId": job_id, "csvKey": csv_key + "other", "csvSha256": digest})
+        conflict = client.post(
+            "/internal/model/train",
+            headers={"X-Model-Admin-Token": "admin-secret"},
+            json={"jobId": job_id, "csvKey": csv_key + "other", "csvSha256": digest},
+        )
         assert conflict.status_code == 409
         manifest = store.read_json("collaborative_cf/active.json")
         assert manifest is not None
@@ -139,7 +149,9 @@ def test_training_lease_excludes_replicas_and_fences_old_owner():
     store.release_training_lease(*second)
 
 
-def test_job_creation_excludes_other_replica_and_recovers_default_aggregation(tmp_path, monkeypatch):
+def test_job_creation_excludes_other_replica_and_recovers_default_aggregation(
+    tmp_path, monkeypatch
+):
     store = FakeR2()
     monkeypatch.setattr("app.model_registry.R2Store", lambda _: store)
     settings = Settings(model_storage_path=tmp_path)

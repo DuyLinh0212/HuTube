@@ -27,7 +27,11 @@ describe('Active device management', () => {
   it('shows the current device and requires confirmation before revoking another',()=>{
     const {fixture,other}=setup(); expect(fixture.nativeElement.textContent).toContain('Thiết bị này');
     fixture.componentInstance.pendingRevoke.set(other); fixture.detectChanges(); http.expectNone(base+'/auth/sessions/other');
-    expect(fixture.nativeElement.textContent).toContain('Kết thúc phiên trên'); fixture.componentInstance.revoke();
+    const confirmation = fixture.nativeElement.querySelector('.revoke-warning');
+    expect(confirmation.getAttribute('role')).toBe('group');
+    expect(confirmation.textContent).toContain('Bạn muốn kết thúc phiên đăng nhập trên thiết bị');
+    expect(confirmation.textContent).toContain(other.deviceName);
+    fixture.componentInstance.revoke();
     const request=http.expectOne(base+'/auth/sessions/other'); expect(request.request.method).toBe('DELETE'); request.flush({message:'revoked'});
     http.expectOne(base+'/auth/sessions').flush({items:[]}); fixture.detectChanges(); expect(fixture.componentInstance.pendingRevoke()).toBeNull();
   });

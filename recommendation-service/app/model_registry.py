@@ -273,7 +273,9 @@ class ModelRegistry:
     def create_job(self, job_id: str, value: dict) -> bool:
         """Only one replica may own a new job ID and schedule its training."""
         try:
-            R2Store(self.settings).compare_write_json(f"collaborative_cf/jobs/{job_id}.json", value, None)
+            R2Store(self.settings).compare_write_json(
+                f"collaborative_cf/jobs/{job_id}.json", value, None
+            )
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") in {
                 "PreconditionFailed", "412", "ConditionalRequestConflict", "409"

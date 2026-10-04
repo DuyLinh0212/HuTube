@@ -9,7 +9,6 @@ import '../../auth.dart';
 import '../../features/notifications/notification_center.dart';
 import '../localization/app_strings.dart';
 import '../theme/app_theme.dart';
-import '../theme/theme_notifier.dart';
 import 'app_logo.dart';
 import 'google_logo_icon.dart';
 

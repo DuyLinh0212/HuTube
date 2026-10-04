@@ -16,6 +16,7 @@ describe('Authentication boundary', () => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting(), provideRouter([])] });
     TestBed.inject(RuntimeConfig).apiBaseUrl = base;
     auth = TestBed.inject(AuthService); http = TestBed.inject(HttpClient); controller = TestBed.inject(HttpTestingController);
+    spyOnProperty(navigator, 'userAgent', 'get').and.returnValue('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0');
     // Deterministic in-tab tests; production additionally uses the browser lock manager.
     spyOn(navigator.locks, 'request').and.callFake(((_name: string, callback: () => Promise<unknown>) => callback()) as typeof navigator.locks.request);
   });
@@ -40,7 +41,7 @@ describe('Authentication boundary', () => {
     const promise = firstValueFrom(auth.google('google-id-token'));
     const request = controller.expectOne(base + '/auth/google');
     expect(request.request.body).toEqual(jasmine.objectContaining({ credential: 'google-id-token', platform: 'web' }));
-    expect(request.request.body.deviceName).toMatch(/^HuTube Web \/ Google · (Điện thoại|Máy tính)$/);
+    expect(request.request.body.deviceName).toBe('HuTube Web / Google · Microsoft Edge · Windows · Máy tính');
     expect(request.request.body.deviceId).toEqual(jasmine.any(String));
     expect(request.request.withCredentials).toBeTrue();
     request.flush(response);
@@ -62,7 +63,9 @@ describe('Authentication boundary', () => {
   });
   it('restores a session from the HttpOnly cookie and validates current account status', async () => {
     const promise = firstValueFrom(auth.restore());
-    const request = controller.expectOne(base + '/auth/refresh'); expect(request.request.body).toEqual({}); expect(request.request.withCredentials).toBeTrue(); request.flush(response);
+    const request = controller.expectOne(base + '/auth/refresh');
+    expect(request.request.body).toEqual({deviceName: 'HuTube Web · Microsoft Edge · Windows · Máy tính'});
+    expect(request.request.withCredentials).toBeTrue(); request.flush(response);
     await Promise.resolve(); await Promise.resolve();
     controller.expectOne(base + (ADMIN_APP ? '/admin/me' : '/auth/me')).flush(user);
     expect(await promise).toBeTrue();
