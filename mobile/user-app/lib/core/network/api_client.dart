@@ -40,13 +40,15 @@ class MultipartFilePayload {
 class ApiClient {
   ApiClient({http.Client? client, String? baseUrl})
     : client = client ?? http.Client(),
-      baseUrl = baseUrl ?? AppConfig.standard.apiBaseUrl;
+      baseUrl = baseUrl ?? AppConfig.standard.apiBaseUrl,
+      _currentBaseUrl = baseUrl ?? AppConfig.standard.apiBaseUrl;
 
   final http.Client client;
   final String baseUrl;
+  String _currentBaseUrl;
 
   String _buildUrl(String path) {
-    final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final base = _currentBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final cleanPath = path.startsWith('/') ? path : '/$path';
     return '$base$cleanPath';
   }
@@ -196,6 +198,25 @@ class ApiClient {
       NetworkStatus.instance.markUnavailable();
       throw ApiFailure.timeoutError;
     } on SocketException {
+      if (Platform.isAndroid && _currentBaseUrl.contains('127.0.0.1')) {
+        final fallback = _currentBaseUrl.replaceFirst('127.0.0.1', '10.0.2.2');
+        try {
+          final fallbackBase = fallback.replaceAll(RegExp(r'/+$'), '');
+          final cleanPath = path.startsWith('/') ? path : '/$path';
+          final fallbackRequest = http.Request(method, Uri.parse('$fallbackBase$cleanPath'));
+          fallbackRequest.headers.addAll({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-HuTube-Client': AppConfig.standard.clientHeader,
+            if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+          });
+          if (body != null) fallbackRequest.body = jsonEncode(body);
+          final streamed = await client.send(fallbackRequest).timeout(const Duration(seconds: 15));
+          final response = await http.Response.fromStream(streamed).timeout(const Duration(seconds: 15));
+          _currentBaseUrl = fallback;
+          return _decodeResponse(response);
+        } catch (_) {}
+      }
       NetworkStatus.instance.markUnavailable();
       throw ApiFailure.network;
     } on http.ClientException {

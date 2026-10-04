@@ -12,11 +12,13 @@ class VideoCardTile extends StatelessWidget {
     required this.video,
     this.progress,
     this.replaceRoute = false,
+    this.trailing,
   });
 
   final VideoCard video;
   final double? progress;
   final bool replaceRoute;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -32,31 +34,33 @@ class VideoCardTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: video.thumbnailUrl?.startsWith('http') == true
-                        ? Image.network(
-                            video.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const _VideoFallback(),
-                          )
-                        : const _VideoFallback(),
-                  ),
-                  if (video.isPromoted)
-                    Positioned(
-                      left: 8,
-                      top: 8,
-                      child: HuTubePill(
-                        label: AppStrings.t('feed.promoted'),
-                        icon: Icons.campaign_outlined,
-                        color: AppColors.primaryPink,
-                        textColor: Colors.white,
-                      ),
+            RepaintBoundary(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: video.thumbnailUrl?.startsWith('http') == true
+                          ? Image.network(
+                              video.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                              cacheWidth: 720,
+                              errorBuilder: (_, _, _) => const _VideoFallback(),
+                            )
+                          : const _VideoFallback(),
                     ),
+                    if (video.isPromoted)
+                      Positioned(
+                        left: 8,
+                        top: 8,
+                        child: HuTubePill(
+                          label: AppStrings.t('feed.promoted'),
+                          icon: Icons.campaign_outlined,
+                          color: AppColors.primaryPink,
+                          textColor: Colors.white,
+                        ),
+                      ),
                   Positioned(
                     right: 8,
                     bottom: 8,
@@ -82,6 +86,7 @@ class VideoCardTile extends StatelessWidget {
                 ],
               ),
             ),
+          ),
             Padding(
               padding: const EdgeInsets.fromLTRB(2, 11, 0, 5),
               child: Row(
@@ -117,7 +122,7 @@ class VideoCardTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.more_vert_rounded, size: 20),
+                  trailing ?? const Icon(Icons.more_vert_rounded, size: 20),
                 ],
               ),
             ),

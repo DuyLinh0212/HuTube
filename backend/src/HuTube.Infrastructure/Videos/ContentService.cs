@@ -467,14 +467,38 @@ public sealed class ContentService(
         var query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
 
         var term = search.Query?.Trim();
+        var cleanTerm = term?.TrimStart('@');
         if (!string.IsNullOrWhiteSpace(term))
         {
-            query = query.Where(x =>
-                EF.Functions.ILike(x.Title, $"%{term}%") ||
-                (x.Description != null && EF.Functions.ILike(x.Description, $"%{term}%")) ||
-                db.Channels.Any(c => c.ChannelId == x.ChannelId && EF.Functions.ILike(c.Name, $"%{term}%")) ||
-                db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && EF.Functions.ILike(t.Name, $"%{term}%")))
-            );
+            var tokens = term.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (tokens.Length <= 1)
+            {
+                query = query.Where(x =>
+                    EF.Functions.ILike(x.Title, $"%{term}%") ||
+                    (x.Description != null && EF.Functions.ILike(x.Description, $"%{term}%")) ||
+                    db.Channels.Any(c => c.ChannelId == x.ChannelId && (
+                        EF.Functions.ILike(c.Name, $"%{term}%") ||
+                        EF.Functions.ILike(c.Handle, $"%{term}%") ||
+                        (cleanTerm != null && EF.Functions.ILike(c.Handle, $"%{cleanTerm}%")))) ||
+                    db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && EF.Functions.ILike(t.Name, $"%{term}%")))
+                );
+            }
+            else
+            {
+                foreach (var token in tokens)
+                {
+                    var t = token.TrimStart('@');
+                    query = query.Where(x =>
+                        EF.Functions.ILike(x.Title, $"%{token}%") ||
+                        (x.Description != null && EF.Functions.ILike(x.Description, $"%{token}%")) ||
+                        db.Channels.Any(c => c.ChannelId == x.ChannelId && (
+                            EF.Functions.ILike(c.Name, $"%{token}%") ||
+                            EF.Functions.ILike(c.Handle, $"%{token}%") ||
+                            EF.Functions.ILike(c.Handle, $"%{t}%"))) ||
+                        db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(tTag => tTag.TagId == vt.TagId && EF.Functions.ILike(tTag.Name, $"%{token}%")))
+                    );
+                }
+            }
         }
 
         if (search.CategoryId.HasValue)
@@ -565,6 +589,7 @@ public sealed class ContentService(
             _ when !string.IsNullOrWhiteSpace(term) =>
                 rows.OrderByDescending(x => EF.Functions.ILike(x.Title, $"{term}%"))
                     .ThenByDescending(x => EF.Functions.ILike(x.Title, $"%{term}%"))
+                    .ThenByDescending(x => EF.Functions.ILike(x.ChannelName, $"%{term}%") || (cleanTerm != null && EF.Functions.ILike(x.ChannelHandle, $"%{cleanTerm}%")))
                     .ThenByDescending(x => x.Views ?? 0L)
                     .ThenByDescending(x => x.PublishedAt),
             _ => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt)
@@ -625,6 +650,26 @@ public sealed class ContentService(
         }
 
         return new(items, page, pageSize, total);
+    }
+
+    public async Task ClearWatchHistoryAsync(Guid userId, CancellationToken ct = default)
+    {
+        var items = await db.ViewingHistories.Where(x => x.UserId == userId).ToListAsync(ct);
+        if (items.Count > 0)
+        {
+            db.ViewingHistories.RemoveRange(items);
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    public async Task DeleteWatchHistoryItemAsync(Guid userId, Guid videoId, CancellationToken ct = default)
+    {
+        var items = await db.ViewingHistories.Where(x => x.UserId == userId && x.VideoId == videoId).ToListAsync(ct);
+        if (items.Count > 0)
+        {
+            db.ViewingHistories.RemoveRange(items);
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     public async Task<PageResult<LibraryVideoResponse>> GetLikedVideosAsync(Guid userId, int? rating, int page, int pageSize, CancellationToken ct = default)

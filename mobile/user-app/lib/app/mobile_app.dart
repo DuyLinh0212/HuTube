@@ -11,6 +11,7 @@ import '../core/theme/theme_notifier.dart';
 import '../core/widgets/app_shell.dart';
 import '../core/widgets/network_fallback_overlay.dart';
 import '../features/account/account_hub_screen.dart';
+import '../features/account/account_settings_screen.dart';
 import '../features/ai/hu_ai_screen.dart';
 import '../features/content/feed_screen.dart';
 import '../features/content/downloads_screen.dart';
@@ -74,16 +75,15 @@ class _HuTubeAppState extends State<HuTubeApp> {
     redirect: (context, state) {
       final path = state.uri.path;
       if (auth.restoring) return path == '/splash' ? null : '/splash';
-      // Preserve the existing first-run authentication flow. Public pages can
-      // still be opened through a deep link, but a cold start does not issue
-      // unauthenticated feed requests before the user has chosen a session.
+      // Start signed-out users on the public feed. Signing in remains an
+      // explicit action from the account button or a protected destination.
       if (path == '/splash') {
         if (auth.authenticated && _pendingNotificationPath != null) {
           final target = _pendingNotificationPath!;
           _pendingNotificationPath = null;
           return target;
         }
-        return auth.authenticated ? '/home' : '/auth';
+        return '/home';
       }
       // Keep legacy account deep links on the auth shell long enough for its
       // session-management view to complete. Ordinary successful sign-in
@@ -199,6 +199,11 @@ class _HuTubeAppState extends State<HuTubeApp> {
                 AccountHubScreen(auth: auth, notifications: notifications),
           ),
           GoRoute(
+            path: '/settings',
+            builder: (_, _) =>
+                AccountSettingsScreen(auth: auth, notifications: notifications),
+          ),
+          GoRoute(
             path: '/creator',
             builder: (_, _) => CreatorHubScreen(auth: auth),
           ),
@@ -212,7 +217,17 @@ class _HuTubeAppState extends State<HuTubeApp> {
             builder: (_, state) => MobilePlansScreen(
               auth: auth,
               invitationId: state.uri.queryParameters['invitationId'],
-              invitationToken: state.uri.queryParameters['invitationToken'],
+              invitationToken: state.uri.queryParameters['invitationToken'] ??
+                  state.uri.queryParameters['token'],
+            ),
+          ),
+          GoRoute(
+            path: '/plans/accept-invite',
+            builder: (_, state) => MobilePlansScreen(
+              auth: auth,
+              invitationId: state.uri.queryParameters['invitationId'],
+              invitationToken: state.uri.queryParameters['invitationToken'] ??
+                  state.uri.queryParameters['token'],
             ),
           ),
           GoRoute(
@@ -241,6 +256,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
       '/playlists',
       '/subscriptions',
       '/channel-invitations',
+      '/settings',
     ];
     if (!widget.auth.authenticated &&
         protected.any(

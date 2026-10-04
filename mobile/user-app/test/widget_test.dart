@@ -6,14 +6,31 @@ import 'package:http/testing.dart';
 import 'package:user_app/auth.dart';
 import 'package:user_app/main.dart';
 import 'auth_test.dart' show MemoryStore, jsonResponse, session;
+import 'auth_widget_helpers.dart';
 
 void main() {
+  testWidgets('signed-out launch opens home and sign-in is user initiated', (
+    tester,
+  ) async {
+    final auth = AuthController(
+      ApiClient(client: MockClient((_) async => jsonResponse({'items': []}))),
+      MemoryStore(),
+    );
+    await tester.pumpWidget(HuTubeApp(auth: auth));
+    await tester.pumpAndSettle();
+    expect(find.text('Dành cho bạn'), findsOneWidget);
+    expect(find.byKey(const ValueKey('Email')), findsNothing);
+
+    await openSignInFromHome(tester);
+    expect(find.byKey(const ValueKey('Email')), findsOneWidget);
+  });
+
   testWidgets('empty login validates locally without network', (tester) async {
     var requests = 0;
     final auth = AuthController(
       ApiClient(
-        client: MockClient((_) async {
-          requests++;
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/auth/login')) requests++;
           return jsonResponse({});
         }),
       ),
@@ -21,6 +38,7 @@ void main() {
     );
     await tester.pumpWidget(HuTubeApp(auth: auth));
     await tester.pumpAndSettle();
+    await openSignInFromHome(tester);
     await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
     await tester.pumpAndSettle();
     expect(find.text('Nhập địa chỉ email hợp lệ.'), findsOneWidget);
@@ -99,6 +117,7 @@ void main() {
     );
     await tester.pumpWidget(HuTubeApp(auth: auth));
     await tester.pumpAndSettle();
+    await openSignInFromHome(tester);
     await tester.enterText(
       find.byKey(const ValueKey('Email')),
       'linh@example.com',
@@ -109,10 +128,7 @@ void main() {
     );
     await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Tài khoản đang bị tạm khóa.'),
-      findsOneWidget,
-    );
+    expect(find.text('Tài khoản đang bị tạm khóa.'), findsOneWidget);
     expect(auth.authenticated, isFalse);
   });
   testWidgets('register stays scrollable with keyboard on small screen', (
@@ -128,6 +144,7 @@ void main() {
     );
     await tester.pumpWidget(HuTubeApp(auth: auth));
     await tester.pumpAndSettle();
+    await openSignInFromHome(tester);
     await tester.ensureVisible(find.text('Chưa có tài khoản? Đăng ký'));
     await tester.tap(find.text('Chưa có tài khoản? Đăng ký'));
     await tester.pumpAndSettle();

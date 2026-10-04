@@ -8,6 +8,7 @@ import 'package:user_app/auth.dart';
 import 'package:user_app/main.dart';
 
 import 'auth_test.dart' show MemoryStore, jsonResponse;
+import 'auth_widget_helpers.dart';
 
 void main() {
   testWidgets(
@@ -18,14 +19,16 @@ void main() {
       final auth = AuthController(
         ApiClient(
           client: MockClient((request) async {
-            calls.add(request.url.path);
-            final body = jsonDecode(request.body) as Map;
-            if (request.url.path.endsWith('/register')) {
+            final path = request.url.path;
+            if (path.startsWith('/api/v1/auth/')) calls.add(path);
+            if (path.endsWith('/auth/register')) {
+              final body = jsonDecode(request.body) as Map;
               expect(body['username'], 'linh_01');
               expect(body['email'], 'linh@example.com');
               expect(body['displayName'], 'Linh');
               expect(body['password'], 'GoodPassword1');
-            } else {
+            } else if (path.endsWith('/auth/verify-email')) {
+              final body = jsonDecode(request.body) as Map;
               expect(body, {'token': 'secret-verification'});
             }
             return jsonResponse({'message': 'OK'});
@@ -35,6 +38,7 @@ void main() {
       );
       await tester.pumpWidget(HuTubeApp(auth: auth, links: links.stream));
       await tester.pumpAndSettle();
+      await openSignInFromHome(tester);
       final registerLink = find.text('Chưa có tài khoản? Đăng ký');
       await tester.ensureVisible(registerLink);
       await tester.tap(registerLink);
@@ -82,11 +86,13 @@ void main() {
       final auth = AuthController(
         ApiClient(
           client: MockClient((request) async {
-            calls.add(request.url.path);
-            final body = jsonDecode(request.body) as Map;
-            if (request.url.path.endsWith('/forgot-password')) {
+            final path = request.url.path;
+            if (path.startsWith('/api/v1/auth/')) calls.add(path);
+            if (path.endsWith('/auth/forgot-password')) {
+              final body = jsonDecode(request.body) as Map;
               expect(body, {'email': 'linh@example.com'});
-            } else {
+            } else if (path.endsWith('/auth/reset-password')) {
+              final body = jsonDecode(request.body) as Map;
               expect(body, {
                 'token': 'secret-reset',
                 'password': 'NewPassword123',
@@ -99,6 +105,7 @@ void main() {
       );
       await tester.pumpWidget(HuTubeApp(auth: auth, links: links.stream));
       await tester.pumpAndSettle();
+      await openSignInFromHome(tester);
       await tester.tap(find.text('Quên mật khẩu?'));
       await tester.pumpAndSettle();
       await tester.enterText(

@@ -4,6 +4,7 @@ import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/storage/app_preferences.dart';
 import 'content_models.dart';
 import 'content_service.dart';
 import 'media_entitlements.dart';
@@ -34,7 +35,115 @@ class PlaybackSession extends ChangeNotifier {
   bool _initializing = false;
   int _lastSavedSecond = 0;
 
+  // Queue & autoplay state
+  List<VideoCard> queue = [];
+  int queueIndex = -1;
+  bool autoplayNext = true;
+  bool isShuffle = false;
+  bool isLoop = false;
+  bool isHistoryPaused = false;
+  bool _advancing = false;
+  VoidCallback? onVideoCompleted;
+
   bool get hasVideo => player != null && videoId != null;
+
+  bool get hasNext =>
+      isLoop ||
+      (queue.isNotEmpty && (isShuffle || queueIndex + 1 < queue.length));
+
+  VideoCard? get nextVideoCard {
+    if (queue.isEmpty) return null;
+    if (isShuffle) {
+      if (queue.length == 1) return queue.first;
+      final candidates = [
+        for (var i = 0; i < queue.length; i++)
+          if (i != queueIndex) queue[i],
+      ];
+      if (candidates.isEmpty) return null;
+      candidates.shuffle();
+      return candidates.first;
+    }
+    final nextIdx = queueIndex + 1;
+    if (nextIdx < queue.length) return queue[nextIdx];
+    if (isLoop) return queue.first;
+    return null;
+  }
+
+  bool get hasPrevious => queueIndex > 0;
+
+  VideoCard? get previousVideoCard {
+    if (queue.isEmpty || queueIndex <= 0) return null;
+    return queue[queueIndex - 1];
+  }
+
+  void setQueue(List<VideoCard> items, {int initialIndex = 0}) {
+    queue = List.from(items);
+    queueIndex = initialIndex.clamp(0, queue.isEmpty ? 0 : queue.length - 1);
+    notifyListeners();
+  }
+
+  void addToQueue(VideoCard item) {
+    if (!queue.any((element) => element.id == item.id)) {
+      queue.add(item);
+      notifyListeners();
+    }
+  }
+
+  void removeFromQueue(int index) {
+    if (index >= 0 && index < queue.length) {
+      queue.removeAt(index);
+      if (queueIndex >= queue.length) {
+        queueIndex = queue.length - 1;
+      }
+      notifyListeners();
+    }
+  }
+
+  void reorderQueue(int oldIndex, int newIndex) {
+    if (oldIndex < 0 ||
+        oldIndex >= queue.length ||
+        newIndex < 0 ||
+        newIndex > queue.length) {
+      return;
+    }
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final currentPlaying =
+        queueIndex >= 0 && queueIndex < queue.length ? queue[queueIndex] : null;
+    final item = queue.removeAt(oldIndex);
+    queue.insert(newIndex, item);
+    if (currentPlaying != null) {
+      queueIndex = queue.indexOf(currentPlaying);
+    }
+    notifyListeners();
+  }
+
+  void clearQueue() {
+    queue = [];
+    queueIndex = -1;
+    notifyListeners();
+  }
+
+  void toggleAutoplay() {
+    autoplayNext = !autoplayNext;
+    notifyListeners();
+  }
+
+  void toggleShuffle() {
+    isShuffle = !isShuffle;
+    notifyListeners();
+  }
+
+  void toggleLoop() {
+    isLoop = !isLoop;
+    notifyListeners();
+  }
+
+  void setHistoryPaused(bool paused) {
+    isHistoryPaused = paused;
+    notifyListeners();
+  }
 
   Future<NativeVideoPlayerController> start({
     required AuthController auth,
@@ -44,6 +153,12 @@ class PlaybackSession extends ChangeNotifier {
     required String sourceUrl,
     required int resumeAt,
   }) async {
+    _advancing = false;
+    final matchedIdx = queue.indexWhere((item) => item.id == video.id);
+    if (matchedIdx >= 0) {
+      queueIndex = matchedIdx;
+    }
+
     if (videoId == video.id && player != null) {
       title = video.title;
       channelName = video.channelName;
@@ -55,12 +170,20 @@ class PlaybackSession extends ChangeNotifier {
     }
 
     await dismiss(notify: false);
+    final prefs = const AppPreferencesStore();
+    final bgMode = await prefs.readBackgroundPlaybackMode();
+    final pipPref = await prefs.readPipEnabled();
+    final allowBg = bgMode != 'off' &&
+        (mediaEntitlements.backgroundPlayback || bgMode == 'always');
+    final allowPip = mediaEntitlements.pictureInPicture || pipPref;
+    autoplayNext = await prefs.readAutoplayNext();
+
     final controller = NativeVideoPlayerController(
       id: video.id.hashCode & 0x7fffffff,
       autoPlay: false,
       showNativeControls: false,
-      allowsPictureInPicture: mediaEntitlements.pictureInPicture,
-      canStartPictureInPictureAutomatically: mediaEntitlements.pictureInPicture,
+      allowsPictureInPicture: allowPip,
+      canStartPictureInPictureAutomatically: allowPip,
     );
     _auth = auth;
     _content = ContentService(auth);
@@ -81,7 +204,7 @@ class PlaybackSession extends ChangeNotifier {
     player = controller;
     _backgroundGuard = BackgroundPlaybackGuard(
       controller,
-      pauseInBackground: !mediaEntitlements.backgroundPlayback,
+      pauseInBackground: !allowBg,
     );
     _positionSubscription = controller.positionStream.listen((value) {
       position = value;
@@ -89,8 +212,29 @@ class PlaybackSession extends ChangeNotifier {
       if (_auth?.authenticated == true && seconds - _lastSavedSecond >= 10) {
         _lastSavedSecond = seconds;
         final id = videoId;
-        if (id != null) unawaited(_content?.progress(id, seconds));
+        if (id != null) {
+          unawaited(
+            _content?.progress(id, seconds, saveHistory: !isHistoryPaused),
+          );
+        }
       }
+
+      // Detect end of video for loop or autoplay next
+      if (duration > Duration.zero &&
+          position >= duration - const Duration(milliseconds: 400) &&
+          !_advancing) {
+        if (isLoop) {
+          seekTo(Duration.zero);
+          player?.play();
+        } else if (autoplayNext) {
+          _advancing = true;
+          onVideoCompleted?.call();
+          Future.delayed(const Duration(seconds: 2), () {
+            _advancing = false;
+          });
+        }
+      }
+
       notifyListeners();
     });
     _stateSubscription = controller.playerStateStream.listen((state) {
@@ -205,7 +349,13 @@ class PlaybackSession extends ChangeNotifier {
     if (_auth?.authenticated == true &&
         finalVideoId != null &&
         finalSeconds > _lastSavedSecond) {
-      unawaited(_content?.progress(finalVideoId, finalSeconds));
+      unawaited(
+        _content?.progress(
+          finalVideoId,
+          finalSeconds,
+          saveHistory: !isHistoryPaused,
+        ),
+      );
     }
     player = null;
     videoId = null;

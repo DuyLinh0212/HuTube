@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../auth.dart';
 import '../core/localization/app_strings.dart';
+import '../core/theme/app_icons.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_logo.dart';
 import '../core/widgets/hutube_widgets.dart';
@@ -78,7 +79,7 @@ class MobileScaffold extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _CreateAction(
-                  icon: Icons.cloud_upload_outlined,
+                  customIcon: AppIcons.asset(AppIcons.upload, size: 22, color: AppColors.primary),
                   color: AppColors.primary,
                   title: AppStrings.t('app.create.videoTitle'),
                   description: AppStrings.t('app.create.videoDescription'),
@@ -88,7 +89,7 @@ class MobileScaffold extends StatelessWidget {
                   },
                 ),
                 _CreateAction(
-                  icon: Icons.playlist_add_rounded,
+                  customIcon: AppIcons.asset(AppIcons.playlist, size: 22, color: AppColors.violet),
                   color: AppColors.violet,
                   title: AppStrings.t('app.create.playlistTitle'),
                   description: AppStrings.t('app.create.playlistDescription'),
@@ -98,7 +99,7 @@ class MobileScaffold extends StatelessWidget {
                   },
                 ),
                 _CreateAction(
-                  icon: Icons.storefront_outlined,
+                  customIcon: AppIcons.asset(AppIcons.channel, size: 22, color: AppColors.success),
                   color: AppColors.success,
                   title: AppStrings.t('app.create.channelTitle'),
                   description: AppStrings.t('app.create.channelDescription'),
@@ -119,35 +120,43 @@ class MobileScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final isDetail = location.startsWith('/watch/');
+    final hideAppBar = isDetail || location == '/account' || location == '/settings';
     final rawName = (auth.user?['displayName'] as String?) ?? 'H';
     final initial = rawName.isEmpty
         ? 'H'
         : rawName.substring(0, 1).toUpperCase();
     return Scaffold(
-      appBar: AppBar(
-        leadingWidth: wide ? 56 : 52,
-        leading: Builder(
-          builder: (drawerContext) => IconButton(
-            tooltip: AppStrings.t('common.menu'),
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(drawerContext).openDrawer(),
-          ),
-        ),
-        title: isDetail
-            ? Text(AppStrings.t('app.viewVideo'))
-            : const HuTubeLogo(size: 25),
+      appBar: hideAppBar
+          ? null
+          : AppBar(
+              leadingWidth: wide ? 56 : 52,
+              leading: Builder(
+                builder: (drawerContext) => IconButton(
+                  tooltip: AppStrings.t('common.menu'),
+                  icon: const Icon(Icons.menu_rounded),
+                  onPressed: () => Scaffold.of(drawerContext).openDrawer(),
+                ),
+              ),
+              title: HuTubeLogo(
+                size: 25,
+                showWordmark: MediaQuery.sizeOf(context).width >= 360,
+              ),
         actions: [
           if (!isDetail)
             IconButton(
               tooltip: AppStrings.t('common.search'),
               onPressed: () => context.push('/search'),
-              icon: const Icon(Icons.search_rounded),
+              icon: AppIcons.asset(
+                AppIcons.search,
+                size: 24,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           if (!isDetail)
             IconButton(
               tooltip: AppStrings.t('huai.title'),
               onPressed: () => context.push('/huai'),
-              icon: const Icon(Icons.auto_awesome_rounded),
+              icon: AppIcons.asset(AppIcons.huAi, size: 24),
             ),
           if (auth.authenticated)
             AnimatedBuilder(
@@ -162,7 +171,11 @@ class MobileScaffold extends StatelessWidget {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Icon(Icons.notifications_none_rounded),
+                      AppIcons.asset(
+                        AppIcons.notification,
+                        size: 22,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                       if (notifications.unreadCount > 0)
                         Positioned(
                           top: -7,
@@ -214,31 +227,50 @@ class MobileScaffold extends StatelessWidget {
           ),
         ],
       ),
-      drawer: _Drawer(auth: auth),
+      drawer: isDetail ? null : _Drawer(auth: auth),
       body: SafeArea(
         top: false,
+        left: !isDetail,
+        right: !isDetail,
+        bottom: !isDetail,
         child: Stack(
           fit: StackFit.expand,
           children: [
             child,
-            MiniPlayer(session: playback),
+            if (!isDetail) MiniPlayer(session: playback),
           ],
         ),
       ),
-      bottomNavigationBar: wide
+      bottomNavigationBar: (wide || isDetail)
           ? null
           : NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: (value) => _select(context, value),
               destinations: [
                 NavigationDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home_rounded),
+                  icon: AppIcons.asset(
+                    AppIcons.home,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  selectedIcon: AppIcons.asset(
+                    AppIcons.home,
+                    size: 22,
+                    color: AppColors.primaryPink,
+                  ),
                   label: AppStrings.t('nav.home'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.explore_outlined),
-                  selectedIcon: const Icon(Icons.explore_rounded),
+                  icon: AppIcons.asset(
+                    AppIcons.compass,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  selectedIcon: AppIcons.asset(
+                    AppIcons.compass,
+                    size: 22,
+                    color: AppColors.primaryPink,
+                  ),
                   label: AppStrings.t('nav.explore'),
                 ),
                 NavigationDestination(
@@ -247,17 +279,88 @@ class MobileScaffold extends StatelessWidget {
                   label: AppStrings.t('app.createButton'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.subscriptions_outlined),
-                  selectedIcon: const Icon(Icons.subscriptions_rounded),
+                  icon: AppIcons.asset(
+                    AppIcons.myChannel,
+                    size: 22,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  selectedIcon: AppIcons.asset(
+                    AppIcons.myChannel,
+                    size: 22,
+                    color: AppColors.primaryPink,
+                  ),
                   label: AppStrings.t('nav.subscriptions'),
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.person_outline_rounded),
-                  selectedIcon: const Icon(Icons.person_rounded),
+                  icon: _YouNavIcon(auth: auth, selected: false),
+                  selectedIcon: _YouNavIcon(auth: auth, selected: true),
                   label: AppStrings.t('app.navYou'),
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _YouNavIcon extends StatelessWidget {
+  const _YouNavIcon({required this.auth, required this.selected});
+  final AuthController auth;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = auth.user;
+    final avatarUrl = user?['avatarUrl'] as String?;
+    final name = (user?['displayName'] as String?) ?? 'U';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: selected
+            ? Border.all(
+                color: isDark ? Colors.white : AppColors.primaryPink,
+                width: 2,
+              )
+            : Border.all(
+                color: Colors.transparent,
+                width: 2,
+              ),
+      ),
+      child: ClipOval(
+        child: avatarUrl != null && avatarUrl.isNotEmpty
+            ? Image.network(
+                avatarUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: AppColors.primaryPink.withValues(alpha: 0.2),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.primaryPink,
+                    ),
+                  ),
+                ),
+              )
+            : Container(
+                color: AppColors.primaryPink.withValues(alpha: 0.2),
+                alignment: Alignment.center,
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.primaryPink,
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }
@@ -280,13 +383,15 @@ class _CreateNavIcon extends StatelessWidget {
 
 class _CreateAction extends StatelessWidget {
   const _CreateAction({
-    required this.icon,
+    this.icon,
+    this.customIcon,
     required this.color,
     required this.title,
     required this.description,
     required this.onTap,
   });
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
   final Color color;
   final String title;
   final String description;
@@ -302,7 +407,8 @@ class _CreateAction extends StatelessWidget {
         color: color.withValues(alpha: .1),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(icon, color: color),
+      alignment: Alignment.center,
+      child: customIcon ?? Icon(icon, color: color),
     ),
     title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
     subtitle: Text(description),
@@ -317,112 +423,148 @@ class _Drawer extends StatelessWidget {
   final AuthController auth;
 
   @override
-  Widget build(BuildContext context) => Drawer(
-    child: SafeArea(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 22, 16, 14),
-            child: HuTubeLogo(size: 30),
-          ),
-          _item(
-            context,
-            Icons.home_outlined,
-            AppStrings.t('nav.home'),
-            '/home',
-          ),
-          _item(
-            context,
-            Icons.explore_outlined,
-            AppStrings.t('nav.explore'),
-            '/explore',
-          ),
-          _item(
-            context,
-            Icons.subscriptions_outlined,
-            AppStrings.t('nav.subscriptions'),
-            '/subscriptions',
-          ),
-          _item(
-            context,
-            Icons.auto_awesome_outlined,
-            AppStrings.t('huai.title'),
-            '/huai',
-          ),
-          _item(
-            context,
-            Icons.playlist_play_outlined,
-            AppStrings.t('nav.playlists'),
-            '/playlists',
-            protected: true,
-          ),
-          _SectionLabel(AppStrings.t('app.librarySection')),
-          _item(
-            context,
-            Icons.history_rounded,
-            '${AppStrings.t('library.history')} & ${AppStrings.t('library.liked')}',
-            '/library',
-            protected: true,
-          ),
-          _item(
-            context,
-            Icons.download_outlined,
-            AppStrings.t('downloads.title'),
-            '/downloads',
-            protected: true,
-          ),
-          _SectionLabel(AppStrings.t('app.otherSection')),
-          _item(
-            context,
-            Icons.workspace_premium_outlined,
-            AppStrings.t('plans.title'),
-            '/plans',
-          ),
-          _item(
-            context,
-            Icons.gavel_outlined,
-            AppStrings.t('policies.title'),
-            '/policies',
-          ),
-          _item(
-            context,
-            Icons.report_gmailerrorred_outlined,
-            AppStrings.t('moderation.navLabel'),
-            '/moderation',
-            protected: true,
-          ),
-          if (auth.authenticated) ...[
-            _item(
-              context,
-              Icons.dashboard_outlined,
-              AppStrings.t('creator.title'),
-              '/creator',
-              protected: true,
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark ? Colors.white : AppColors.textPrimary;
+    final textColor = isDark ? Colors.white : AppColors.textPrimary;
+
+    return Drawer(
+      width: 260,
+      backgroundColor: isDark ? const Color(0xFF181818) : AppColors.surface,
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 16, 12),
+              child: HuTubeLogo(size: 28),
+
             ),
             _item(
               context,
-              Icons.notifications_outlined,
-              AppStrings.t('common.notifications'),
-              '/notifications',
-              protected: true,
+              null,
+              AppStrings.t('nav.home'),
+              '/home',
+              customIcon: AppIcons.asset(AppIcons.home, size: 20, color: iconColor),
+              textColor: textColor,
             ),
+            _item(
+              context,
+              null,
+              AppStrings.t('nav.explore'),
+              '/explore',
+              customIcon: AppIcons.asset(AppIcons.compass, size: 20, color: iconColor),
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('nav.subscriptions'),
+              '/subscriptions',
+              customIcon: AppIcons.asset(AppIcons.channel, size: 20, color: iconColor),
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('huai.title'),
+              '/huai',
+              customIcon: AppIcons.asset(AppIcons.huAi, size: 20),
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('nav.playlists'),
+              '/playlists',
+              customIcon: AppIcons.asset(AppIcons.playlist, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            _SectionLabel(AppStrings.t('app.librarySection')),
+            _item(
+              context,
+              null,
+              '${AppStrings.t('library.history')} & ${AppStrings.t('library.liked')}',
+              '/library',
+              customIcon: AppIcons.asset(AppIcons.history, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('downloads.title'),
+              '/downloads',
+              customIcon: AppIcons.asset(AppIcons.download, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            _SectionLabel(AppStrings.t('app.otherSection')),
+            _item(
+              context,
+              null,
+              AppStrings.t('plans.title'),
+              '/plans',
+              customIcon: AppIcons.asset(AppIcons.plan, size: 20, color: iconColor),
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('policies.title'),
+              '/policies',
+              customIcon: AppIcons.asset(AppIcons.appeals, size: 20, color: iconColor),
+              textColor: textColor,
+            ),
+            _item(
+              context,
+              null,
+              AppStrings.t('moderation.navLabel'),
+              '/moderation',
+              customIcon: AppIcons.asset(AppIcons.warningStrike, size: 20, color: iconColor),
+              protected: true,
+              textColor: textColor,
+            ),
+            if (auth.authenticated) ...[
+              _item(
+                context,
+                null,
+                AppStrings.t('creator.title'),
+                '/creator',
+                customIcon: AppIcons.asset(AppIcons.dashboard, size: 20, color: iconColor),
+                protected: true,
+                textColor: textColor,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _item(
     BuildContext context,
-    IconData icon,
+    IconData? icon,
     String label,
     String route, {
+    Widget? customIcon,
     bool protected = false,
+    Color? textColor,
   }) => ListTile(
-    leading: Icon(icon),
-    title: Text(label),
-    minLeadingWidth: 26,
+    dense: true,
+    visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+    leading: customIcon ?? (icon != null ? Icon(icon, color: textColor) : null),
+    title: Text(
+      label,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: textColor,
+      ),
+    ),
+    minLeadingWidth: 24,
     onTap: () {
       Navigator.of(context).pop();
       context.go(protected && !auth.authenticated ? '/auth' : route);
@@ -435,14 +577,19 @@ class _SectionLabel extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(28, 20, 16, 6),
-    child: Text(
-      text,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.1,
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 16, 4),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+          fontSize: 11,
+          color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

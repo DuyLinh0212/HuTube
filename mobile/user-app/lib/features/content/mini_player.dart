@@ -56,7 +56,9 @@ class MiniPlayer extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        NativeVideoPlayer(controller: player),
+                        IgnorePointer(
+                          child: NativeVideoPlayer(controller: player),
+                        ),
                         Positioned(
                           top: 3,
                           right: 3,

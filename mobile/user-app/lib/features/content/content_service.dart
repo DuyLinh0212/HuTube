@@ -48,6 +48,8 @@ class ContentService {
   Future<PageResult<VideoCard>> searchVideos({
     required String query,
     String? channelId,
+    String? dateRange,
+    String? duration,
     int page = 1,
     int pageSize = 20,
     String sort = 'relevance',
@@ -55,6 +57,8 @@ class ContentService {
     final endpoint = _query('/videos/search', {
       'q': query.trim(),
       'channelId': channelId,
+      'dateRange': dateRange,
+      'duration': duration,
       'sort': sort,
       'page': page,
       'pageSize': pageSize,
@@ -166,11 +170,15 @@ class ContentService {
     );
   }
 
-  Future<void> progress(String videoId, int watchedSeconds) async {
+  Future<void> progress(
+    String videoId,
+    int watchedSeconds, {
+    bool saveHistory = true,
+  }) async {
     await auth.protected(
       'PUT',
       '/videos/${Uri.encodeComponent(videoId)}/watch-progress',
-      body: {'watchedSeconds': watchedSeconds, 'saveHistory': true},
+      body: {'watchedSeconds': watchedSeconds, 'saveHistory': saveHistory},
     );
   }
 
@@ -243,6 +251,20 @@ class ContentService {
           body: {'type': type},
         );
 
+  Future<CommentItem> setCommentVisibility(
+    String id,
+    bool hidden, {
+    String? reason,
+  }) async =>
+      CommentItem.fromJson(
+        await auth.protected(
+          'PUT',
+          '/comments/${Uri.encodeComponent(id)}/visibility',
+          // ignore: use_null_aware_elements
+          body: {'hidden': hidden, if (reason != null) 'reason': reason},
+        ),
+      );
+
   Future<List<Rendition>> downloadOptions(String videoId) async {
     final items = await auth.protectedList(
       '/videos/${Uri.encodeComponent(videoId)}/download-options',
@@ -303,6 +325,18 @@ class ContentService {
 
   Future<PageResult<LibraryVideo>> history({int page = 1}) =>
       _library('history', page: page);
+
+  Future<void> deleteHistoryItem(String videoId) async {
+    await auth.protected(
+      'DELETE',
+      '/library/history/${Uri.encodeComponent(videoId)}',
+    );
+  }
+
+  Future<void> clearHistory() async {
+    await auth.protected('DELETE', '/library/history');
+  }
+
   Future<PageResult<LibraryVideo>> liked({int page = 1, int? rating}) =>
       _library('liked', page: page, rating: rating);
 

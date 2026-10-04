@@ -4,12 +4,16 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:better_native_video_player/better_native_video_player.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/storage/app_preferences.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../../channel/services/channel_service.dart';
@@ -20,6 +24,7 @@ import 'local_download_manager.dart';
 import 'media_entitlements.dart';
 import 'playback_session.dart';
 import 'video_card.dart';
+import 'widgets/playlist_queue_sheet.dart';
 import '../moderation/report_dialog.dart';
 
 class WatchScreen extends StatefulWidget {
@@ -37,9 +42,11 @@ class WatchScreen extends StatefulWidget {
   State<WatchScreen> createState() => _WatchScreenState();
 }
 
-class _WatchScreenState extends State<WatchScreen> {
+class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   late final ContentService _content;
   final _comment = TextEditingController();
+  final _prefs = const AppPreferencesStore();
+  Timer? _metricsDebounce;
   VideoDetail? _video;
   List<Rendition> _renditions = const [];
   MediaEntitlements _entitlements = const MediaEntitlements.none();
@@ -48,24 +55,137 @@ class _WatchScreenState extends State<WatchScreen> {
   int _generation = 0;
   bool _loading = true;
   bool _sendingComment = false;
+  bool _isOwner = false;
+  bool _isFullScreen = false;
+  bool _changingFullScreen = false;
+  bool _controlsLocked = false;
+  bool _zoomToFill = false;
+  bool _pipEnabled = false;
+  String _commentSort = 'top';
+  String? _pinnedCommentId;
+  final Set<String> _heartedCommentIds = <String>{};
   String? _error;
   String? _actionMessage;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _content = ContentService(widget.auth);
+    widget.playback.onVideoCompleted = _handleVideoCompleted;
+    _prefs.readZoomToFill().then((v) {
+      if (mounted) setState(() => _zoomToFill = v);
+    });
+    _prefs.readPipEnabled().then((v) {
+      if (mounted) setState(() => _pipEnabled = v);
+    });
     _load();
   }
 
   @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (!mounted || _changingFullScreen) return;
+    _metricsDebounce?.cancel();
+    _metricsDebounce = Timer(const Duration(milliseconds: 60), () {
+      if (!mounted || _changingFullScreen) return;
+      final view = View.of(context);
+      if (view.physicalSize.width <= 0 || view.physicalSize.height <= 0) return;
+      final isLandscapeNow = view.physicalSize.width > view.physicalSize.height;
+      if (isLandscapeNow && !_isFullScreen) {
+        _toggleFullScreen(toFullScreen: true, userInitiated: false);
+      } else if (!isLandscapeNow && _isFullScreen) {
+        _toggleFullScreen(toFullScreen: false, userInitiated: false);
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _metricsDebounce?.cancel();
+    if (_isFullScreen) {
+      _isFullScreen = false;
+    }
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _comment.dispose();
-    if (widget.playback.videoId == widget.videoId &&
-        !widget.playback.minimized) {
-      unawaited(widget.playback.dismiss());
+    if (widget.playback.onVideoCompleted == _handleVideoCompleted) {
+      widget.playback.onVideoCompleted = null;
+    }
+    if (widget.playback.videoId == widget.videoId && widget.playback.ready) {
+      widget.playback.minimize();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if ((state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.paused) &&
+        _pipEnabled &&
+        widget.playback.isPlaying &&
+        widget.playback.ready) {
+      _enterPictureInPicture();
+    }
+  }
+
+  Future<void> _toggleFullScreen({
+    bool? toFullScreen,
+    bool userInitiated = true,
+  }) async {
+    final entering = toFullScreen ?? !_isFullScreen;
+    if (_changingFullScreen || !mounted || _isFullScreen == entering) return;
+    _changingFullScreen = true;
+    setState(() => _isFullScreen = entering);
+    try {
+      if (userInitiated) {
+        if (entering) {
+          // Specifying landscape directly commands Android's WindowManager to rotate
+          await SystemChrome.setPreferredOrientations([
+            DeviceOrientation.landscapeRight,
+            DeviceOrientation.landscapeLeft,
+          ]);
+          await SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.immersiveSticky,
+          );
+        } else {
+          await SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+          ]);
+          await SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.edgeToEdge,
+          );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted && !_isFullScreen) {
+              SystemChrome.setPreferredOrientations([
+                DeviceOrientation.portraitUp,
+                DeviceOrientation.landscapeLeft,
+                DeviceOrientation.landscapeRight,
+              ]);
+            }
+          });
+        }
+      } else {
+        // Physical sensor rotation: orientations are already aligned.
+        // Update immersive UI mode without overriding device orientation.
+        await SystemChrome.setEnabledSystemUIMode(
+          entering ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isFullScreen = !entering);
+    } finally {
+      if (mounted) {
+        _changingFullScreen = false;
+      }
+    }
   }
 
   @override
@@ -98,9 +218,22 @@ class _WatchScreenState extends State<WatchScreen> {
         pageSize: 12,
         sort: 'popular',
       );
+      bool isOwner = false;
+      if (widget.auth.authenticated) {
+        try {
+          final myChannel = await ChannelService(widget.auth).getMyChannel();
+          if (myChannel != null &&
+              (myChannel.id == detail.channelId ||
+                  myChannel.handle == detail.channelHandle ||
+                  widget.auth.user?['userId'] == detail.channelId)) {
+            isOwner = true;
+          }
+        } catch (_) {}
+      }
       if (!mounted || generation != _generation) return;
       setState(() {
         _video = detail;
+        _isOwner = isOwner;
         _renditions = [...playback.renditions]
           ..sort((a, b) => a.height.compareTo(b.height));
         _entitlements = entitlements;
@@ -111,6 +244,22 @@ class _WatchScreenState extends State<WatchScreen> {
             .toList();
         _loading = false;
       });
+
+      if (widget.playback.queue.isEmpty) {
+        final currentCard = VideoCard(
+          id: detail.id,
+          channelId: detail.channelId,
+          channelName: detail.channelName,
+          channelHandle: detail.channelHandle,
+          title: detail.title,
+          thumbnailUrl: detail.thumbnailUrl,
+          duration: detail.duration,
+          visibility: detail.visibility,
+          publishedAt: detail.publishedAt,
+          views: detail.views,
+        );
+        widget.playback.setQueue([currentCard, ..._related], initialIndex: 0);
+      }
       final resumeAt = playback.resumeAt > 0
           ? playback.resumeAt
           : detail.viewerState.resumeAt;
@@ -133,31 +282,35 @@ class _WatchScreenState extends State<WatchScreen> {
           ? candidates.last.url
           : _renditions.isNotEmpty
           ? _renditions.first.url
-          : '';
-      if (source.isEmpty) throw StateError('No authorized rendition');
-      await widget.playback.start(
-        auth: widget.auth,
-        video: detail,
-        videoRenditions: _renditions,
-        mediaEntitlements: entitlements,
-        sourceUrl: source,
-        resumeAt: resumeAt,
-      );
-      if (!mounted || generation != _generation) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || generation != _generation) return;
-        unawaited(
-          widget.playback.initialize(source, resumeAt: resumeAt).catchError((
-            _,
-          ) {
-            if (mounted && generation == _generation) {
-              setState(
-                () => _actionMessage = AppStrings.t('watch.playerError'),
-              );
-            }
-          }),
+          : detail.videoUrl;
+      if (widget.playback.videoId == widget.videoId && widget.playback.ready) {
+        widget.playback.restore();
+      } else {
+        if (source.isEmpty) throw StateError('No authorized rendition');
+        await widget.playback.start(
+          auth: widget.auth,
+          video: detail,
+          videoRenditions: _renditions,
+          mediaEntitlements: entitlements,
+          sourceUrl: source,
+          resumeAt: resumeAt,
         );
-      });
+        if (!mounted || generation != _generation) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || generation != _generation) return;
+          unawaited(
+            widget.playback.initialize(source, resumeAt: resumeAt).catchError((
+              _,
+            ) {
+              if (mounted && generation == _generation) {
+                setState(
+                  () => _actionMessage = AppStrings.t('watch.playerError'),
+                );
+              }
+            }),
+          );
+        });
+      }
     } on ApiFailure catch (error) {
       if (mounted && generation == _generation) {
         setState(() {
@@ -173,6 +326,46 @@ class _WatchScreenState extends State<WatchScreen> {
         });
       }
     }
+  }
+
+  void _handleVideoCompleted() {
+    if (!mounted) return;
+    final next = widget.playback.nextVideoCard;
+    if (next != null && next.id != widget.videoId) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppStrings.format('watch.autoPlayingNext', {'seconds': '2'}),
+          ),
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: AppStrings.t('common.cancel'),
+            onPressed: () {
+              widget.playback.toggleAutoplay();
+            },
+          ),
+        ),
+      );
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted && widget.playback.autoplayNext) {
+          context.pushReplacement('/watch/${next.id}');
+        }
+      });
+    }
+  }
+
+  void _openQueueSheet() {
+    HapticFeedback.lightImpact();
+    PlaylistQueueSheet.show(
+      context,
+      playback: widget.playback,
+      onSelectVideo: (video) {
+        if (video.id != widget.videoId) {
+          context.pushReplacement('/watch/${video.id}');
+        }
+      },
+    );
   }
 
   Future<void> _enterPictureInPicture() async {
@@ -191,12 +384,94 @@ class _WatchScreenState extends State<WatchScreen> {
     }
   }
 
+  Future<bool> _requireAuth({required String action}) async {
+    if (widget.auth.authenticated) return true;
+    final proceed = await showModalBottomSheet<bool>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Icon(
+                Icons.account_circle_outlined,
+                size: 52,
+                color: AppColors.primaryPink,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Bạn muốn $action?',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Đăng nhập để tương tác với video, đăng ký kênh và lưu nội dung yêu thích của bạn.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Để sau'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primaryPink,
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Đăng nhập'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (proceed == true && mounted) {
+      context.push('/auth');
+    }
+    return false;
+  }
+
   Future<void> _react(String type) async {
     final generation = _generation;
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginInteract'));
+    HapticFeedback.lightImpact();
+    if (!await _requireAuth(action: 'bày tỏ cảm xúc')) {
+      if (mounted && !widget.auth.authenticated) {
+        setState(() => _actionMessage = AppStrings.t('watch.loginInteract'));
+      }
       return;
     }
+    if (!mounted || generation != _generation) return;
     final video = _video;
     if (video == null) return;
     try {
@@ -248,42 +523,128 @@ class _WatchScreenState extends State<WatchScreen> {
   Future<void> _rate() async {
     final generation = _generation;
     final videoId = widget.videoId;
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginRate'));
+    HapticFeedback.lightImpact();
+    if (!await _requireAuth(action: 'đánh giá video này')) {
+      if (mounted && !widget.auth.authenticated) {
+        setState(() => _actionMessage = AppStrings.t('watch.loginRate'));
+      }
       return;
     }
+    if (!mounted || generation != _generation) return;
     final originalVideo = _video;
+    if (originalVideo == null) return;
+    final currentRating = originalVideo.viewerState.rating;
     final score = await showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => ScrollableSheet(
-        child: SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(title: Text(AppStrings.t('watch.ratingTitle'))),
-              for (var value = 1; value <= 5; value++)
-                ListTile(
-                  leading: Icon(
-                    Icons.star_rounded,
-                    color: Colors.amber.shade700,
-                  ),
-                  title: Text(
-                    AppStrings.format('watch.ratingStars', {
-                      'count': AppStrings.number(value),
-                    }),
-                  ),
-                  onTap: () => Navigator.pop(context, value),
-                ),
-            ],
-          ),
-        ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        int selected = currentRating ?? 0;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Text(
+                    AppStrings.t('watch.ratingTitle'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    selected > 0
+                        ? '$selected / 5 sao'
+                        : 'Chạm vào sao để đánh giá',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: selected > 0
+                          ? Colors.amber.shade700
+                          : AppColors.textMuted,
+                      fontWeight: selected > 0
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var i = 1; i <= 5; i++)
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setSheetState(() => selected = i);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              i <= selected
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              size: 42,
+                              color: i <= selected
+                                  ? Colors.amber.shade600
+                                  : Colors.grey.shade400,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      if (currentRating != null) ...[
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, 0),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                          ),
+                          child: const Text('Xóa đánh giá'),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primaryPink,
+                          ),
+                          onPressed: selected > 0
+                              ? () => Navigator.pop(ctx, selected)
+                              : null,
+                          child: const Text('Gửi đánh giá'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
-    if (score == null || _video == null) return;
+    if (score == null || generation != _generation) return;
     try {
-      final result = await _content.rate(videoId, score);
+      final result = await _content.rate(
+        videoId,
+        score == 0 ? null : score,
+      );
       final old = originalVideo;
-      if (old == null) return;
       if (!mounted || generation != _generation) return;
       setState(() {
         _video = VideoDetail(
@@ -317,7 +678,9 @@ class _WatchScreenState extends State<WatchScreen> {
           moderationStatus: old.moderationStatus,
           processingStatus: old.processingStatus,
         );
-        _actionMessage = AppStrings.t('watch.ratingSaved');
+        _actionMessage = score == 0
+            ? 'Đã xóa đánh giá của bạn'
+            : AppStrings.t('watch.ratingSaved');
       });
     } on ApiFailure catch (error) {
       if (mounted && generation == _generation) {
@@ -326,25 +689,104 @@ class _WatchScreenState extends State<WatchScreen> {
     }
   }
 
+  String _formatDuration(Duration value) {
+    final seconds = value.inSeconds;
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final rest = seconds % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${rest.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${rest.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _share() async {
+    HapticFeedback.lightImpact();
     final video = _video;
     if (video == null) return;
     if (widget.auth.authenticated) unawaited(_content.share(video.id));
-    await Share.share(
-      AppStrings.format('watch.shareText', {
-        'title': video.title,
-        'id': video.id,
-      }),
-    );
+    final currentPos = widget.playback.position.inSeconds;
+    if (currentPos > 5) {
+      final withTimestamp = await showModalBottomSheet<bool>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Chia sẻ: ${video.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(
+                    Icons.timer_outlined,
+                    color: AppColors.primaryPink,
+                  ),
+                  title: Text(
+                    'Bắt đầu tại ${_formatDuration(widget.playback.position)}',
+                  ),
+                  subtitle: const Text(
+                    'Người xem sẽ mở video ngay tại mốc thời gian này',
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  tileColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  onTap: () => Navigator.pop(ctx, true),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.play_circle_outline_rounded),
+                  title: const Text('Bắt đầu từ đầu video'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  tileColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  onTap: () => Navigator.pop(ctx, false),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (withTimestamp == null) return;
+      final url = withTimestamp
+          ? 'https://hutube.app/watch/${video.id}?t=$currentPos'
+          : 'https://hutube.app/watch/${video.id}';
+      await Share.share('Xem "${video.title}" trên HuTube:\n$url');
+    } else {
+      await Share.share(
+        AppStrings.format('watch.shareText', {
+          'title': video.title,
+          'id': video.id,
+        }),
+      );
+    }
   }
 
   Future<void> _download() async {
     final generation = _generation;
     final videoId = widget.videoId;
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginDownload'));
+    HapticFeedback.lightImpact();
+    if (!await _requireAuth(action: 'tải xuống video này')) {
+      if (mounted && !widget.auth.authenticated) {
+        setState(() => _actionMessage = AppStrings.t('watch.loginDownload'));
+      }
       return;
     }
+    if (!mounted || generation != _generation) return;
     try {
       final options = await _content.downloadOptions(videoId);
       if (!mounted || generation != _generation) return;
@@ -398,59 +840,115 @@ class _WatchScreenState extends State<WatchScreen> {
   Future<void> _saveToPlaylist() async {
     final generation = _generation;
     final videoId = widget.videoId;
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginPlaylist'));
+    HapticFeedback.lightImpact();
+    if (!await _requireAuth(action: 'lưu video vào danh sách phát')) {
+      if (mounted && !widget.auth.authenticated) {
+        setState(() => _actionMessage = AppStrings.t('watch.loginPlaylist'));
+      }
       return;
     }
+    if (!mounted || generation != _generation) return;
+    final session = widget.auth.sessionGeneration;
+
     try {
       final service = PlaylistService(widget.auth);
       final playlists = await service.mine();
-      if (!mounted || generation != _generation) return;
+      if (!mounted ||
+          generation != _generation ||
+          session != widget.auth.sessionGeneration) {
+        return;
+      }
       final selected = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
-        builder: (context) => ScrollableSheet(
+        builder: (sheetContext) => ScrollableSheet(
           child: SafeArea(
             child: ListView(
               shrinkWrap: true,
               children: [
-                ListTile(title: Text(AppStrings.t('watch.saveVideo'))),
                 ListTile(
-                  leading: const Icon(Icons.bookmark_add_outlined),
+                  title: Text(
+                    AppStrings.t('watch.saveVideo'),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                ListTile(
+                  leading: AppIcons.asset(AppIcons.bookmark, size: 22),
                   title: Text(AppStrings.t('watch.savedVideo')),
-                  onTap: () => Navigator.pop(context, '__saved__'),
+                  onTap: () => Navigator.pop(sheetContext, '__saved__'),
                 ),
                 for (final playlist in playlists)
                   ListTile(
-                    leading: const Icon(Icons.playlist_play_rounded),
+                    leading: AppIcons.asset(AppIcons.playlist, size: 22),
                     title: Text(playlist.name),
                     subtitle: Text(
                       AppStrings.format('channel.videoCount', {
                         'count': AppStrings.number(playlist.itemCount),
                       }),
                     ),
-                    onTap: () => Navigator.pop(context, playlist.id),
+                    onTap: () => Navigator.pop(sheetContext, playlist.id),
                   ),
                 ListTile(
                   leading: const Icon(Icons.add_rounded),
                   title: Text(AppStrings.t('watch.createPlaylist')),
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push('/playlists');
-                  },
+                  onTap: () => Navigator.pop(sheetContext, '__create__'),
                 ),
               ],
             ),
           ),
         ),
       );
-      if (selected == null) return;
-      if (selected == '__saved__') {
+      if (selected == null ||
+          !mounted ||
+          generation != _generation ||
+          session != widget.auth.sessionGeneration) {
+        return;
+      }
+      if (selected == '__create__') {
+        final nameController = TextEditingController();
+        final created = await showDialog<String>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(AppStrings.t('watch.createPlaylist')),
+            content: TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: AppStrings.t('playlists.namePlaceholder'),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(AppStrings.t('common.cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(
+                  dialogContext,
+                  nameController.text.trim(),
+                ),
+                child: Text(AppStrings.t('common.create')),
+              ),
+            ],
+          ),
+        );
+        nameController.dispose();
+        if (created == null || created.trim().isEmpty) return;
+        final playlist = await service.create(name: created.trim());
+        if (!mounted ||
+            generation != _generation ||
+            session != widget.auth.sessionGeneration) {
+          return;
+        }
+        await service.addVideo(playlist.id, videoId);
+      } else if (selected == '__saved__') {
         await service.saveVideo(videoId);
       } else {
         await service.addVideo(selected, videoId);
       }
-      if (mounted && generation == _generation) {
+      if (mounted &&
+          generation == _generation &&
+          session == widget.auth.sessionGeneration) {
         setState(() => _actionMessage = AppStrings.t('watch.savedToPlaylist'));
       }
     } on ApiFailure catch (error) {
@@ -459,90 +957,426 @@ class _WatchScreenState extends State<WatchScreen> {
       }
     }
   }
+  Future<T?> _showAdaptivePlaybackModal<T>({
+    required BuildContext context,
+    required Widget Function(BuildContext) builder,
+  }) {
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape = _isFullScreen || size.width > size.height;
+
+    if (isLandscape) {
+      return showDialog<T>(
+        context: context,
+        useRootNavigator: true,
+        barrierColor: Colors.black54,
+        builder: (dialogCtx) => Dialog(
+          backgroundColor: const Color(0xff212121),
+          elevation: 10,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 360,
+              maxHeight: 310,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Material(
+                color: const Color(0xff212121),
+                child: builder(dialogCtx),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      return showModalBottomSheet<T>(
+        context: context,
+        useRootNavigator: true,
+        backgroundColor: const Color(0xff212121),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetCtx) => SafeArea(
+          child: Material(
+            color: const Color(0xff212121),
+            child: builder(sheetCtx),
+          ),
+        ),
+      );
+    }
+  }
 
   Future<void> _showPlaybackSettings() async {
     final player = widget.playback.player;
     if (player == null || !widget.playback.ready) return;
-    await showModalBottomSheet<void>(
+    final quality = widget.playback.selectedRendition;
+    final qualityText =
+        quality != null ? 'Tự động (${quality.quality})' : 'Tự động';
+    final speedText =
+        '${player.speed.toStringAsFixed(player.speed == 1 ? 0 : 2)}x';
+
+    await _showAdaptivePlaybackModal<void>(
       context: context,
-      isScrollControlled: true,
-      builder: (context) => ScrollableSheet(
-        child: SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                title: Text(
-                  AppStrings.t('watch.quality'),
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-                subtitle: Text(AppStrings.t('watch.chooseResolution')),
+      builder: (modalContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: 8),
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
-              if (_renditions.isEmpty)
-                ListTile(title: Text(AppStrings.t('watch.originalQuality')))
-              else
-                for (final rendition in _renditions)
-                  ListTile(
-                    title: Text(rendition.quality),
-                    subtitle: Text('${rendition.width} × ${rendition.height}'),
-                    trailing:
-                        widget.playback.selectedRendition?.url == rendition.url
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: AppColors.primary,
-                          )
-                        : null,
-                    onTap: () async {
-                      Navigator.pop(context);
-                      try {
-                        await widget.playback.changeQuality(rendition);
-                      } on Object catch (_) {
-                        if (mounted) {
-                          setState(
-                            () => _actionMessage = AppStrings.t(
-                              'watch.playerError',
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
-              const Divider(),
-              ListTile(
-                title: Text(
-                  AppStrings.t('watch.playbackSpeed'),
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-                subtitle: Text(AppStrings.t('watch.changePlaybackSpeed')),
-              ),
-              for (final speed in const [
-                0.25,
-                0.5,
-                0.75,
-                1.0,
-                1.25,
-                1.5,
-                1.75,
-                2.0,
-              ])
-                ListTile(
-                  title: Text(
-                    speed == 1 ? AppStrings.t('watch.normalSpeed') : '$speed×',
-                  ),
-                  trailing: (player.speed - speed).abs() < .01
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: AppColors.primary,
-                        )
-                      : null,
-                  onTap: () {
-                    Navigator.pop(context);
-                    unawaited(widget.playback.setSpeed(speed));
-                  },
+            ),
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.tune_rounded,
+            title: 'Chất lượng',
+            value: qualityText,
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showQualityChoices();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.slow_motion_video_rounded,
+            title: 'Tốc độ phát',
+            value: speedText,
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showSpeedChoices();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.closed_caption_rounded,
+            title: 'Phụ đề',
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showSubtitleChoices();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.lock_outline_rounded,
+            title: 'Khóa màn hình',
+            onTap: () {
+              Navigator.pop(modalContext);
+              widget.playback.player?.lockOverlay();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.headphones_rounded,
+            title: 'Trên đường đi',
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showOnTheGoOptions();
+            },
+          ),
+          _PlaybackSettingTile(
+            dense: true,
+            icon: Icons.settings_outlined,
+            title: 'Tùy chọn khác',
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white70,
+              size: 20,
+            ),
+            onTap: () {
+              Navigator.pop(modalContext);
+              _showMoreOptions();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showQualityChoices() async {
+    await _showPlaybackChoiceSheet(
+      title: 'Chất lượng',
+      choices: _renditions.isEmpty
+          ? const [(value: null, label: 'Chất lượng gốc', detail: '')]
+          : [
+              for (final rendition in _renditions)
+                (
+                  value: rendition,
+                  label: rendition.quality,
+                  detail: '${rendition.width} × ${rendition.height}',
                 ),
             ],
+      isSelected: (value) =>
+          value is Rendition &&
+          widget.playback.selectedRendition?.url == value.url,
+      onSelected: (value) async {
+        if (value is! Rendition) return;
+        try {
+          await widget.playback.changeQuality(value);
+        } catch (_) {
+          if (mounted) {
+            setState(() => _actionMessage = AppStrings.t('watch.playerError'));
+          }
+        }
+      },
+    );
+  }
+
+  Future<void> _showSpeedChoices() async {
+    final player = widget.playback.player;
+    if (player == null) return;
+    const speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+    await _showPlaybackChoiceSheet<double>(
+      title: 'Tốc độ phát',
+      choices: [
+        for (final speed in speeds)
+          (
+            value: speed,
+            label: speed == 1 ? 'Bình thường' : '${speed}x',
+            detail: '',
           ),
+      ],
+      isSelected: (value) => (player.speed - value).abs() < .01,
+      onSelected: widget.playback.setSpeed,
+    );
+  }
+
+  Future<void> _showSubtitleChoices() async {
+    final player = widget.playback.player;
+    if (player == null) return;
+    List<NativeVideoPlayerSubtitleTrack> tracks = const [];
+    try {
+      tracks = await player.getAvailableSubtitleTracks();
+    } catch (_) {}
+    await _showPlaybackChoiceSheet<NativeVideoPlayerSubtitleTrack>(
+      title: 'Phụ đề',
+      choices: [
+        (value: NativeVideoPlayerSubtitleTrack.off(), label: 'Tắt', detail: ''),
+        for (final track in tracks)
+          (value: track, label: track.displayName, detail: track.language),
+      ],
+      isSelected: (track) => track.isOff
+          ? !tracks.any((item) => item.isSelected)
+          : tracks.any(
+              (item) =>
+                  item.index == track.index &&
+                  item.source == track.source &&
+                  item.isSelected,
+            ),
+      onSelected: player.setSubtitleTrack,
+    );
+  }
+
+  Future<void> _showOnTheGoOptions() async {
+    final mode = await _prefs.readBackgroundPlaybackMode();
+    if (!mounted) return;
+    final selected = await _showAdaptivePlaybackModal<String>(
+      context: context,
+      builder: (modalContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: 8),
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Phát trong nền',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Thay đổi này có hiệu lực khi phát video tiếp theo.',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final option in const [
+            (value: 'always', label: 'Luôn cho phép'),
+            (value: 'headphones', label: 'Chỉ khi dùng tai nghe'),
+            (value: 'off', label: 'Tắt'),
+          ])
+            ListTile(
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              title: Text(
+                option.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              trailing: mode == option.value
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.primaryPink,
+                      size: 20,
+                    )
+                  : null,
+              onTap: () => Navigator.pop(modalContext, option.value),
+            ),
+        ],
+      ),
+    );
+    if (selected != null) await _prefs.writeBackgroundPlaybackMode(selected);
+  }
+
+  Future<void> _showMoreOptions() async {
+    await _showAdaptivePlaybackModal<void>(
+      context: context,
+      builder: (modalContext) => StatefulBuilder(
+        builder: (context, setSheetState) => ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 8),
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Text(
+                'Tùy chọn phát',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+
+            SwitchListTile(
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              secondary: const Icon(
+                Icons.picture_in_picture_alt_rounded,
+                color: Colors.white70,
+                size: 20,
+              ),
+              title: const Text(
+                'Hình trong hình',
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
+              value: _pipEnabled,
+              onChanged: (value) {
+                setSheetState(() => _pipEnabled = value);
+                setState(() => _pipEnabled = value);
+                unawaited(_prefs.writePipEnabled(value));
+              },
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showPlaybackChoiceSheet<T>({
+    required String title,
+    required List<({T value, String label, String detail})> choices,
+    required bool Function(T value) isSelected,
+    required Future<void> Function(T value) onSelected,
+  }) async {
+    await _showAdaptivePlaybackModal<void>(
+      context: context,
+      builder: (modalContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: 8),
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          for (final choice in choices)
+            ListTile(
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              title: Text(
+                choice.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: choice.detail.isEmpty
+                  ? null
+                  : Text(
+                      choice.detail,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+              trailing: isSelected(choice.value)
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.primaryPink,
+                      size: 20,
+                    )
+                  : null,
+              onTap: () {
+                Navigator.pop(modalContext);
+                unawaited(onSelected(choice.value));
+              },
+            ),
+        ],
       ),
     );
   }
@@ -552,10 +1386,8 @@ class _WatchScreenState extends State<WatchScreen> {
     final videoId = widget.videoId;
     final text = _comment.text.trim();
     if (text.isEmpty || _sendingComment) return;
-    if (!widget.auth.authenticated) {
-      setState(() => _actionMessage = AppStrings.t('watch.loginCommentHint'));
-      return;
-    }
+    if (!await _requireAuth(action: 'bình luận về video này')) return;
+    HapticFeedback.lightImpact();
     setState(() => _sendingComment = true);
     try {
       final comment = await _content.createComment(videoId, text);
@@ -572,6 +1404,65 @@ class _WatchScreenState extends State<WatchScreen> {
           _actionMessage = AppStrings.apiError(error);
           _sendingComment = false;
         });
+      }
+    }
+  }
+
+  void _togglePinComment(CommentItem item) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      if (_pinnedCommentId == item.id || item.isPinned) {
+        _pinnedCommentId = null;
+        _comments = _comments
+            .map((c) => c.id == item.id ? c.copyWith(isPinned: false) : c)
+            .toList();
+      } else {
+        _pinnedCommentId = item.id;
+        _comments = _comments
+            .map((c) => c.copyWith(isPinned: c.id == item.id))
+            .toList();
+      }
+    });
+  }
+
+  void _toggleHeartComment(CommentItem item) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      final isHearted =
+          _heartedCommentIds.contains(item.id) || item.hasCreatorHeart;
+      if (isHearted) {
+        _heartedCommentIds.remove(item.id);
+        _comments = _comments
+            .map(
+              (c) => c.id == item.id ? c.copyWith(hasCreatorHeart: false) : c,
+            )
+            .toList();
+      } else {
+        _heartedCommentIds.add(item.id);
+        _comments = _comments
+            .map((c) => c.id == item.id ? c.copyWith(hasCreatorHeart: true) : c)
+            .toList();
+      }
+    });
+  }
+
+  Future<void> _toggleHideComment(CommentItem item) async {
+    HapticFeedback.lightImpact();
+    final isHidden = item.status == 'hidden';
+    try {
+      final updated = await _content.setCommentVisibility(item.id, !isHidden);
+      if (mounted) {
+        setState(() {
+          _comments = _comments
+              .map((c) => c.id == item.id ? updated : c)
+              .toList();
+        });
+      }
+    } on ApiFailure catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(e))));
       }
     }
   }
@@ -597,255 +1488,381 @@ class _WatchScreenState extends State<WatchScreen> {
       );
     }
     final video = _video!;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
-      children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(16),
-          ),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: AnimatedBuilder(
-              animation: widget.playback,
-              builder: (context, _) => widget.playback.player != null
-                  ? _CustomVideoStage(
-                      session: widget.playback,
-                      onMinimize: () {
-                        widget.playback.minimize();
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go('/home');
-                        }
-                      },
-                      onSettings: _showPlaybackSettings,
-                      onPictureInPicture: _enterPictureInPicture,
-                      showPictureInPicture: _entitlements.pictureInPicture,
-                    )
-                  : const DecoratedBox(
-                      decoration: BoxDecoration(color: Color(0xff171927)),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryPink,
-                        ),
-                      ),
+    final videoStage = _CustomVideoStage(
+      session: widget.playback,
+      isFullScreen: _isFullScreen,
+      controlsLocked: _controlsLocked,
+      onUnlockControls: () => setState(() => _controlsLocked = false),
+      zoomToFill: _zoomToFill,
+      onToggleFullScreen: () => _toggleFullScreen(),
+      onToggleZoom: (value) {
+        setState(() => _zoomToFill = value);
+        _prefs.writeZoomToFill(value);
+      },
+      onMinimize: () {
+        if (_isFullScreen) {
+          _toggleFullScreen(toFullScreen: false);
+        } else {
+          widget.playback.minimize();
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        }
+      },
+      onSettings: _showPlaybackSettings,
+      onPictureInPicture: _enterPictureInPicture,
+      showPictureInPicture: _entitlements.pictureInPicture,
+    );
+
+    return PopScope(
+      canPop: !_isFullScreen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _isFullScreen) {
+          _toggleFullScreen(toFullScreen: false);
+        } else if (didPop) {
+          if (widget.playback.videoId == widget.videoId &&
+              widget.playback.ready) {
+            widget.playback.minimize();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: _isFullScreen
+            ? Colors.black
+            : Theme.of(context).scaffoldBackgroundColor,
+        body: _isFullScreen
+            ? ColoredBox(
+                color: Colors.black,
+                child: SizedBox.expand(child: videoStage),
+              )
+            : SafeArea(
+                top: true,
+                bottom: false,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: videoStage,
                     ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-          child: Text(
-            video.title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              letterSpacing: -.45,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 7, 20, 0),
-          child: Text(
-            AppStrings.format('watch.viewsAndChannel', {
-              'views': AppStrings.number(video.stats.views),
-              'channel': video.channelName,
-            }),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-        const SizedBox(height: 14),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              _ActionChip(
-                icon: Icons.thumb_up_outlined,
-                label: AppStrings.number(video.stats.likes),
-                active: video.viewerState.reaction == 'like',
-                onTap: () => _react('like'),
-              ),
-              _ActionChip(
-                icon: Icons.thumb_down_outlined,
-                label: AppStrings.number(video.stats.dislikes),
-                active: video.viewerState.reaction == 'dislike',
-                onTap: () => _react('dislike'),
-              ),
-              _ActionChip(
-                icon: Icons.star_outline_rounded,
-                label: AppStrings.t('watch.rateAction'),
-                onTap: _rate,
-              ),
-              _ActionChip(
-                icon: Icons.share_outlined,
-                label: AppStrings.t('watch.shareAction'),
-                onTap: _share,
-              ),
-              _ActionChip(
-                icon: Icons.download_outlined,
-                label: AppStrings.t('watch.downloadAction'),
-                onTap: _download,
-              ),
-              _ActionChip(
-                icon: Icons.playlist_add_rounded,
-                label: AppStrings.t('watch.savePlaylist'),
-                onTap: _saveToPlaylist,
-              ),
-              _ActionChip(
-                icon: Icons.flag_outlined,
-                label: AppStrings.t('watch.report'),
-                onTap: () => showContentReportDialog(
-                  context,
-                  auth: widget.auth,
-                  targetType: 'video',
-                  targetId: video.id,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+              child: Text(
+                video.title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -.45,
                 ),
               ),
-              if (_entitlements.pictureInPicture)
-                _ActionChip(
-                  icon: Icons.picture_in_picture_alt_outlined,
-                  label: AppStrings.t('watch.pipAction'),
-                  onTap: _enterPictureInPicture,
-                ),
-              if (_entitlements.backgroundPlayback)
-                Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Chip(
-                    avatar: Icon(Icons.headphones_outlined, size: 18),
-                    label: Text(AppStrings.t('watch.background')),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        if (_actionMessage != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: Text(
-              _actionMessage!,
-              style: const TextStyle(color: AppColors.primaryPink),
             ),
-          ),
-        const SizedBox(height: 18),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: _ChannelSummary(video: video, auth: widget.auth),
-        ),
-        if ((video.description ?? '').isNotEmpty || video.tags.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: HuTubeSurface(
-              color: AppColors.surfaceAltFor(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 7, 20, 0),
+              child: Text(
+                AppStrings.format('watch.viewsAndChannel', {
+                  'views': AppStrings.number(video.stats.views),
+                  'channel': video.channelName,
+                }),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(height: 14),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
                 children: [
-                  if ((video.description ?? '').isNotEmpty)
-                    Text(
-                      video.description!,
-                      style: const TextStyle(height: 1.5),
+                  _ActionChip(
+                    icon: Icons.thumb_up_outlined,
+                    label: AppStrings.number(video.stats.likes),
+                    active: video.viewerState.reaction == 'like',
+                    onTap: () => _react('like'),
+                  ),
+                  _ActionChip(
+                    icon: Icons.thumb_down_outlined,
+                    label: AppStrings.number(video.stats.dislikes),
+                    active: video.viewerState.reaction == 'dislike',
+                    onTap: () => _react('dislike'),
+                  ),
+                  _ActionChip(
+                    customIcon: AppIcons.asset(AppIcons.star, size: 18),
+                    label: video.viewerState.rating != null
+                        ? '${video.viewerState.rating} ★'
+                        : AppStrings.t('watch.rateAction'),
+                    active: video.viewerState.rating != null,
+                    onTap: _rate,
+                  ),
+                  _ActionChip(
+                    customIcon: AppIcons.asset(AppIcons.share, size: 18),
+                    label: AppStrings.t('watch.shareAction'),
+                    onTap: _share,
+                  ),
+                  _ActionChip(
+                    customIcon: AppIcons.asset(AppIcons.download, size: 18),
+                    label: AppStrings.t('watch.downloadAction'),
+                    onTap: _download,
+                  ),
+                  _ActionChip(
+                    customIcon: AppIcons.asset(AppIcons.playlist, size: 18),
+                    label: AppStrings.t('watch.savePlaylist'),
+                    onTap: _saveToPlaylist,
+                  ),
+                  _ActionChip(
+                    customIcon: AppIcons.asset(AppIcons.queue, size: 18),
+                    label: AppStrings.t('watch.queue'),
+                    active: widget.playback.queue.isNotEmpty,
+                    onTap: _openQueueSheet,
+                  ),
+                  _ActionChip(
+                    customIcon: AppIcons.asset(AppIcons.report, size: 18),
+                    label: AppStrings.t('watch.report'),
+                    onTap: () => showContentReportDialog(
+                      context,
+                      auth: widget.auth,
+                      targetType: 'video',
+                      targetId: video.id,
                     ),
-                  if (video.tags.isNotEmpty)
+                  ),
+                  if (_entitlements.pictureInPicture)
+                    _ActionChip(
+                      icon: Icons.picture_in_picture_alt_outlined,
+                      label: AppStrings.t('watch.pipAction'),
+                      onTap: _enterPictureInPicture,
+                    ),
+                  if (_entitlements.backgroundPlayback)
                     Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Wrap(
-                        spacing: 6,
-                        children: video.tags
-                            .map((tag) => Chip(label: Text('#$tag')))
-                            .toList(),
+                      padding: EdgeInsets.only(right: 8),
+                      child: Chip(
+                        avatar: Icon(Icons.headphones_outlined, size: 18),
+                        label: Text(AppStrings.t('watch.background')),
                       ),
                     ),
                 ],
               ),
             ),
-          ),
-        ],
-        if (video.chapters.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(
-            AppStrings.t('watch.chapters'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          ...video.chapters.map(
-            (chapter) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.play_circle_outline_rounded),
-              title: Text(chapter.title),
-              subtitle: Text(
-                '${chapter.startSeconds ~/ 60}:${(chapter.startSeconds % 60).toString().padLeft(2, '0')}',
+            if (_actionMessage != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Text(
+                  _actionMessage!,
+                  style: const TextStyle(color: AppColors.primaryPink),
+                ),
               ),
-              onTap: () => widget.playback.seekTo(
-                Duration(seconds: chapter.startSeconds),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _ChannelSummary(video: video, auth: widget.auth),
+            ),
+            if ((video.description ?? '').isNotEmpty ||
+                video.tags.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: HuTubeSurface(
+                  color: AppColors.surfaceAltFor(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if ((video.description ?? '').isNotEmpty)
+                        Text(
+                          video.description!,
+                          style: const TextStyle(height: 1.5),
+                        ),
+                      if (video.tags.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Wrap(
+                            spacing: 6,
+                            children: video.tags
+                                .map((tag) => Chip(label: Text('#$tag')))
+                                .toList(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (video.chapters.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                AppStrings.t('watch.chapters'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              ...video.chapters.map(
+                (chapter) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.play_circle_outline_rounded),
+                  title: Text(chapter.title),
+                  subtitle: Text(
+                    '${chapter.startSeconds ~/ 60}:${(chapter.startSeconds % 60).toString().padLeft(2, '0')}',
+                  ),
+                  onTap: () => widget.playback.seekTo(
+                    Duration(seconds: chapter.startSeconds),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: HuTubeSectionHeader(
+                      title: AppStrings.format('watch.comments', {
+                        'count': AppStrings.number(video.stats.comments),
+                      }),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Sắp xếp bình luận',
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.sort_rounded, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            _commentSort == 'top' ? 'Hàng đầu' : 'Mới nhất',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    onSelected: (val) {
+                      setState(() => _commentSort = val);
+                    },
+                    itemBuilder: (ctx) => const [
+                      PopupMenuItem(
+                        value: 'top',
+                        child: Text('Bình luận hàng đầu'),
+                      ),
+                      PopupMenuItem(
+                        value: 'newest',
+                        child: Text('Mới nhất trước'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
-        const SizedBox(height: 22),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: HuTubeSectionHeader(
-            title: AppStrings.format('watch.comments', {
-              'count': AppStrings.number(video.stats.comments),
-            }),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: TextField(
-            controller: _comment,
-            maxLines: 3,
-            decoration: InputDecoration(
-              hintText: widget.auth.authenticated
-                  ? AppStrings.t('watch.commentHint')
-                  : AppStrings.t('watch.loginCommentHint'),
-              suffixIcon: IconButton(
-                onPressed: _sendingComment ? null : _sendComment,
-                icon: const Icon(Icons.send_rounded),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: InkWell(
+                onTap: widget.auth.authenticated
+                    ? null
+                    : () => _requireAuth(action: 'bình luận về video này'),
+                borderRadius: BorderRadius.circular(12),
+                child: IgnorePointer(
+                  ignoring: !widget.auth.authenticated,
+                  child: TextField(
+                    controller: _comment,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: widget.auth.authenticated
+                          ? AppStrings.t('watch.commentHint')
+                          : 'Đăng nhập để thêm bình luận...',
+                      suffixIcon: IconButton(
+                        onPressed: _sendingComment ? null : _sendComment,
+                        icon: AppIcons.asset(
+                          AppIcons.send,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-            enabled: widget.auth.authenticated,
-          ),
+            const SizedBox(height: 8),
+            ...() {
+              final pinned = _comments
+                  .where((c) => c.id == _pinnedCommentId || c.isPinned)
+                  .firstOrNull;
+              final others = _comments
+                  .where((c) => c.id != pinned?.id)
+                  .toList();
+              if (_commentSort == 'top') {
+                others.sort(
+                  (a, b) =>
+                      (b.likes - b.dislikes).compareTo(a.likes - a.dislikes),
+                );
+              } else {
+                others.sort(
+                  (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+                    a.createdAt ?? DateTime(0),
+                  ),
+                );
+              }
+              final list = [?pinned, ...others];
+              return list.map(
+                (item) => _CommentTile(
+                  key: ValueKey(item.id),
+                  item: item,
+                  content: _content,
+                  signedIn: widget.auth.authenticated,
+                  auth: widget.auth,
+                  channelName: video.channelName,
+                  isOwner: _isOwner,
+                  isPinned: item.id == _pinnedCommentId || item.isPinned,
+                  isHearted:
+                      _heartedCommentIds.contains(item.id) ||
+                      item.hasCreatorHeart,
+                  onTogglePin: () => _togglePinComment(item),
+                  onToggleHeart: () => _toggleHeartComment(item),
+                  onToggleHide: () => _toggleHideComment(item),
+                ),
+              );
+            }(),
+            const SizedBox(height: 22),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: HuTubeSectionHeader(title: AppStrings.t('watch.related')),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: _related
+                    .map(
+                      (item) => VideoCardTile(video: item, replaceRoute: true),
+                    )
+                    .toList(),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        ..._comments.map(
-          (item) => _CommentTile(
-            key: ValueKey(item.id),
-            item: item,
-            content: _content,
-            signedIn: widget.auth.authenticated,
-            auth: widget.auth,
-          ),
-        ),
-        const SizedBox(height: 22),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: HuTubeSectionHeader(title: AppStrings.t('watch.related')),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: _related
-                .map((item) => VideoCardTile(video: item, replaceRoute: true))
-                .toList(),
-          ),
-        ),
-      ],
-    );
+      ),
+    ),
+  );
   }
 }
 
 class _ActionChip extends StatelessWidget {
   const _ActionChip({
-    required this.icon,
+    this.icon,
+    this.customIcon,
     required this.label,
     required this.onTap,
     this.active = false,
   });
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
   final String label;
   final VoidCallback onTap;
   final bool active;
@@ -853,14 +1870,81 @@ class _ActionChip extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(right: 8),
     child: ActionChip(
-      avatar: Icon(
-        icon,
-        size: 18,
-        color: active ? AppColors.primaryPink : null,
-      ),
+      avatar:
+          customIcon ??
+          (icon != null
+              ? Icon(
+                  icon,
+                  size: 18,
+                  color: active ? AppColors.primaryPink : null,
+                )
+              : null),
       label: Text(label),
       onPressed: onTap,
     ),
+  );
+}
+
+class _PlaybackSettingTile extends StatelessWidget {
+  const _PlaybackSettingTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.value,
+    this.trailing,
+    this.dense = true,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? value;
+  final Widget? trailing;
+  final VoidCallback onTap;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: dense,
+    visualDensity: dense
+        ? const VisualDensity(horizontal: 0, vertical: -2.5)
+        : VisualDensity.standard,
+    contentPadding: EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: dense ? 0 : 2,
+    ),
+    minLeadingWidth: 26,
+    leading: Icon(icon, color: Colors.white, size: dense ? 20 : 22),
+    title: Text(
+      title,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: dense ? 13.5 : 14.5,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+    trailing:
+        trailing ??
+        (value == null
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value!,
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: dense ? 12.5 : 13.5,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.white60,
+                    size: 18,
+                  ),
+                ],
+              )),
+    onTap: onTap,
   );
 }
 
@@ -871,6 +1955,12 @@ class _CustomVideoStage extends StatefulWidget {
     required this.onSettings,
     required this.onPictureInPicture,
     required this.showPictureInPicture,
+    this.isFullScreen = false,
+    this.controlsLocked = false,
+    this.onUnlockControls,
+    this.zoomToFill = false,
+    this.onToggleFullScreen,
+    this.onToggleZoom,
   });
 
   final PlaybackSession session;
@@ -878,6 +1968,12 @@ class _CustomVideoStage extends StatefulWidget {
   final VoidCallback onSettings;
   final VoidCallback onPictureInPicture;
   final bool showPictureInPicture;
+  final bool isFullScreen;
+  final bool controlsLocked;
+  final VoidCallback? onUnlockControls;
+  final bool zoomToFill;
+  final VoidCallback? onToggleFullScreen;
+  final ValueChanged<bool>? onToggleZoom;
 
   @override
   State<_CustomVideoStage> createState() => _CustomVideoStageState();
@@ -885,21 +1981,54 @@ class _CustomVideoStage extends StatefulWidget {
 
 class _CustomVideoStageState extends State<_CustomVideoStage> {
   bool _controlsVisible = true;
-  bool? _seekForward;
-  double _tapX = 0;
   Timer? _controlsTimer;
+  bool? _seekForward;
+  int _seekStep = 10;
+  int _accumulatedSeekSeconds = 0;
   Timer? _pulseTimer;
+  Timer? _singleTapTimer;
+  DateTime? _lastTapTime;
+  bool? _lastTapForward;
+  double? _dragPosition;
+  String? _lastLoggedLayout;
+  String? _zoomFeedbackText;
+  Timer? _zoomFeedbackTimer;
+  bool _isPinching = false;
+  double _pinchScaleDelta = 1.0;
 
   @override
   void initState() {
     super.initState();
+    _loadSeekStep();
     _scheduleHide();
+  }
+
+  Future<void> _loadSeekStep() async {
+    try {
+      final step = await const AppPreferencesStore().readDoubleTapSeek();
+      if (mounted) setState(() => _seekStep = step);
+    } catch (_) {}
+  }
+
+  void _triggerZoomFeedback(bool zoomToFill) {
+    HapticFeedback.selectionClick();
+    _zoomFeedbackTimer?.cancel();
+    setState(() {
+      _zoomFeedbackText = zoomToFill
+          ? 'Đã phóng to để lấp đầy màn hình'
+          : 'Nguyên bản';
+    });
+    _zoomFeedbackTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _zoomFeedbackText = null);
+    });
   }
 
   @override
   void dispose() {
     _controlsTimer?.cancel();
     _pulseTimer?.cancel();
+    _singleTapTimer?.cancel();
+    _zoomFeedbackTimer?.cancel();
     super.dispose();
   }
 
@@ -916,18 +2045,51 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
     if (_controlsVisible) _scheduleHide();
   }
 
-  void _seek() {
-    final forward = _tapX >= MediaQuery.sizeOf(context).width / 2;
-    unawaited(widget.session.seekBy(forward ? 10 : -10));
-    setState(() {
-      _seekForward = forward;
-      _controlsVisible = true;
-    });
-    _scheduleHide();
-    _pulseTimer?.cancel();
-    _pulseTimer = Timer(const Duration(milliseconds: 850), () {
-      if (mounted) setState(() => _seekForward = null);
-    });
+  void _handleSideTap(bool forward) {
+    final now = DateTime.now();
+    final isSameSide = _lastTapForward == forward;
+    final isQuickConsecutiveTap =
+        isSameSide &&
+        _lastTapTime != null &&
+        now.difference(_lastTapTime!).inMilliseconds <
+            (_seekForward != null ? 650 : 280);
+
+    _lastTapTime = now;
+    _lastTapForward = forward;
+
+    if (isQuickConsecutiveTap || _seekForward == forward) {
+      _singleTapTimer?.cancel();
+      _singleTapTimer = null;
+
+      _accumulatedSeekSeconds += _seekStep;
+      unawaited(widget.session.seekBy(forward ? _seekStep : -_seekStep));
+
+      setState(() {
+        _seekForward = forward;
+        _controlsVisible = false;
+      });
+
+      _pulseTimer?.cancel();
+      _pulseTimer = Timer(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          setState(() {
+            _seekForward = null;
+            _accumulatedSeekSeconds = 0;
+            _lastTapTime = null;
+            _lastTapForward = null;
+          });
+        }
+      });
+    } else {
+      _singleTapTimer?.cancel();
+      _singleTapTimer = Timer(const Duration(milliseconds: 280), () {
+        if (mounted && _seekForward == null) {
+          _lastTapTime = null;
+          _lastTapForward = null;
+          _toggleControls();
+        }
+      });
+    }
   }
 
   @override
@@ -937,223 +2099,512 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
       final player = widget.session.player;
       if (player == null) return const ColoredBox(color: AppColors.ink);
       final total = widget.session.duration.inMilliseconds;
-      final current = widget.session.position.inMilliseconds
-          .clamp(0, total > 0 ? total : 1)
-          .toDouble();
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          NativeVideoPlayer(controller: player),
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _toggleControls,
-              onDoubleTapDown: (details) => _tapX = details.localPosition.dx,
-              onDoubleTap: _seek,
-              onVerticalDragEnd: (details) {
-                if ((details.primaryVelocity ?? 0) > 240) widget.onMinimize();
-              },
-            ),
-          ),
-          if (!widget.session.ready)
-            const Positioned.fill(
-              child: ColoredBox(
-                color: Color(0x9917111F),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryPink,
-                  ),
-                ),
-              ),
-            ),
-          if (_seekForward != null)
-            Align(
-              alignment: _seekForward!
-                  ? Alignment.centerRight
-                  : Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 25),
-                child: Container(
-                  width: 74,
-                  height: 74,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: .68),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _seekForward!
-                            ? Icons.forward_10_rounded
-                            : Icons.replay_10_rounded,
-                        color: Colors.white,
-                        size: 31,
-                      ),
-                      Text(
-                        AppStrings.t('watch.skipSeconds'),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+      final current =
+          (_dragPosition ?? widget.session.position.inMilliseconds.toDouble())
+              .clamp(0.0, total > 0 ? total.toDouble() : 1.0);
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+          final videoSize = player.videoSize;
+          final double videoAspect =
+              (videoSize != null && videoSize.width > 0 && videoSize.height > 0)
+                  ? videoSize.aspectRatio
+                  : (16 / 9);
+
+          final double scale;
+          if (widget.zoomToFill && widget.isFullScreen && height > 0) {
+            final double containerAspect = width / height;
+            scale = containerAspect > videoAspect
+                ? (containerAspect / videoAspect)
+                : (videoAspect / containerAspect);
+          } else {
+            scale = 1.0;
+          }
+
+          final layoutSignature =
+              'fullscreen=${widget.isFullScreen} '
+              'constraints=${width.toStringAsFixed(1)}x${height.toStringAsFixed(1)} '
+              'video=${videoSize?.width}x${videoSize?.height}';
+          if (kDebugMode && layoutSignature != _lastLoggedLayout) {
+            _lastLoggedLayout = layoutSignature;
+            debugPrint('[HuTube player] $layoutSignature');
+          }
+
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onScaleStart: (details) {
+              if (details.pointerCount >= 2) {
+                _isPinching = true;
+                _pinchScaleDelta = 1.0;
+              }
+            },
+            onScaleUpdate: (details) {
+              if (details.pointerCount >= 2) {
+                _isPinching = true;
+                _pinchScaleDelta = details.scale;
+              }
+            },
+            onScaleEnd: (details) {
+              if (_isPinching) {
+                _isPinching = false;
+                if (widget.isFullScreen) {
+                  if (_pinchScaleDelta > 1.06) {
+                    if (!widget.zoomToFill) {
+                      _triggerZoomFeedback(true);
+                      widget.onToggleZoom?.call(true);
+                    } else {
+                      _triggerZoomFeedback(true);
+                    }
+                  } else if (_pinchScaleDelta < 0.94) {
+                    if (widget.zoomToFill) {
+                      _triggerZoomFeedback(false);
+                      widget.onToggleZoom?.call(false);
+                    } else if (_pinchScaleDelta < 0.80) {
+                      widget.onMinimize();
+                    } else {
+                      _triggerZoomFeedback(false);
+                    }
+                  }
+                } else {
+                  if (_pinchScaleDelta > 1.15) {
+                    widget.onToggleFullScreen?.call();
+                  }
+                }
+              }
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRect(
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: scale,
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      child: AspectRatio(
+                        aspectRatio: videoAspect,
+                        child: RepaintBoundary(
+                          child: NativeVideoPlayer(controller: player),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !_controlsVisible,
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xB8000000),
-                        Colors.transparent,
-                        Color(0xD9000000),
-                      ],
-                      stops: [0, .48, 1],
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.session.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: AppStrings.t('watch.minimize'),
-                            onPressed: widget.onMinimize,
-                            color: Colors.white,
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                          ),
-                          IconButton(
-                            tooltip: AppStrings.t('watch.qualityAndSpeed'),
-                            onPressed: widget.onSettings,
-                            color: Colors.white,
-                            icon: const Icon(Icons.settings_rounded, size: 20),
-                          ),
-                          if (widget.showPictureInPicture)
-                            IconButton(
-                              tooltip: AppStrings.t('watch.pictureInPicture'),
-                              onPressed: widget.onPictureInPicture,
-                              color: Colors.white,
-                              icon: const Icon(
-                                Icons.picture_in_picture_alt_rounded,
-                                size: 19,
-                              ),
-                            ),
-                        ],
+                ),
+              Positioned.fill(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _handleSideTap(false),
+                        onVerticalDragEnd: (details) {
+                          if (_isPinching) return;
+                          if ((details.primaryVelocity ?? 0) > 240) {
+                            widget.onMinimize();
+                          }
+                        },
+                        child: const SizedBox.expand(),
                       ),
-                      const Spacer(),
-                      if (!widget.session.isPlaying)
-                        IconButton.filled(
-                          tooltip: AppStrings.t('watch.playVideo'),
-                          onPressed: () {
-                            unawaited(widget.session.togglePlayback());
-                            _scheduleHide();
-                          },
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(
-                              alpha: .58,
-                            ),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(58, 58),
-                          ),
-                          icon: const Icon(Icons.play_arrow_rounded, size: 36),
-                        )
-                      else
-                        IconButton.filled(
-                          tooltip: AppStrings.t('watch.pauseVideo'),
-                          onPressed: () =>
-                              unawaited(widget.session.togglePlayback()),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(
-                              alpha: .58,
-                            ),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(52, 52),
-                          ),
-                          icon: const Icon(Icons.pause_rounded, size: 30),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _handleSideTap(true),
+                        onVerticalDragEnd: (details) {
+                          if (_isPinching) return;
+                          if ((details.primaryVelocity ?? 0) > 240) {
+                            widget.onMinimize();
+                          }
+                        },
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!widget.session.ready)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Color(0x9917111F),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryPink,
+                      ),
+                    ),
+                  ),
+                ),
+              if (_seekForward == true)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: width * 0.42,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.elliptical(90, 200),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.fast_forward_rounded,
+                          color: Colors.white,
+                          size: 38,
                         ),
-                      const Spacer(),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 0, 10, 5),
-                        child: Row(
+                        const SizedBox(height: 4),
+                        Text(
+                          '+$_accumulatedSeekSeconds giây',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(blurRadius: 4, color: Colors.black87),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (_seekForward == false)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: width * 0.42,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.elliptical(90, 200),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.fast_rewind_rounded,
+                          color: Colors.white,
+                          size: 38,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '-$_accumulatedSeekSeconds giây',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(blurRadius: 4, color: Colors.black87),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (_zoomFeedbackText != null)
+                Positioned(
+                  top: widget.isFullScreen ? 28 : 16,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _zoomFeedbackText!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  child: IgnorePointer(
+                    ignoring: !_controlsVisible || widget.controlsLocked,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0xB8000000),
+                            Colors.transparent,
+                            Color(0xD9000000),
+                          ],
+                          stops: [0, .48, 1],
+                        ),
+                      ),
+                      child: SafeArea(
+                        top: widget.isFullScreen,
+                        bottom: widget.isFullScreen,
+                        left: widget.isFullScreen,
+                        right: widget.isFullScreen,
+                        child: Column(
                           children: [
-                            Text(
-                              _time(widget.session.position),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  tooltip: widget.isFullScreen
+                                      ? AppStrings.t('watch.exitFullscreen')
+                                      : AppStrings.t('watch.minimize'),
+                                  onPressed: widget.onMinimize,
+                                  color: Colors.white,
+                                  icon: Icon(
+                                    widget.isFullScreen
+                                        ? Icons.arrow_back_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    widget.session.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: AppStrings.t('watch.qualityAndSpeed'),
+                                  onPressed: () {
+                                    _controlsTimer?.cancel();
+                                    widget.onSettings();
+                                  },
+                                  color: Colors.white,
+                                  icon: const Icon(
+                                    Icons.settings_rounded,
+                                    size: 20,
+                                  ),
+                                ),
+                                if (widget.showPictureInPicture)
+                                  IconButton(
+                                    tooltip: AppStrings.t(
+                                      'watch.pictureInPicture',
+                                    ),
+                                    onPressed: widget.onPictureInPicture,
+                                    color: Colors.white,
+                                    icon: const Icon(
+                                      Icons.picture_in_picture_alt_rounded,
+                                      size: 19,
+                                    ),
+                                  ),
+                              ],
                             ),
                             Expanded(
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 2.5,
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 5,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _handleSideTap(false),
+                                      onVerticalDragEnd: (details) {
+                                        if (_isPinching) return;
+                                        if ((details.primaryVelocity ?? 0) >
+                                            240) {
+                                          widget.onMinimize();
+                                        }
+                                      },
+                                      child: const SizedBox.expand(),
+                                    ),
                                   ),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 13,
-                                  ),
-                                ),
-                                child: Slider(
-                                  min: 0,
-                                  max: total > 0 ? total.toDouble() : 1,
-                                  value: current,
-                                  activeColor: AppColors.primaryPink,
-                                  inactiveColor: Colors.white38,
-                                  onChanged: total <= 0
-                                      ? null
-                                      : (value) => unawaited(
-                                          widget.session.seekTo(
-                                            Duration(
-                                              milliseconds: value.round(),
-                                            ),
-                                          ),
+                                  if (!widget.session.isPlaying)
+                                    IconButton.filled(
+                                      tooltip: AppStrings.t('watch.playVideo'),
+                                      onPressed: () {
+                                        unawaited(
+                                          widget.session.togglePlayback(),
+                                        );
+                                        _scheduleHide();
+                                      },
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: Colors.black.withValues(
+                                          alpha: .58,
                                         ),
-                                ),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(58, 58),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                        size: 36,
+                                      ),
+                                    )
+                                  else
+                                    IconButton.filled(
+                                      tooltip: AppStrings.t('watch.pauseVideo'),
+                                      onPressed: () {
+                                        unawaited(
+                                          widget.session.togglePlayback(),
+                                        );
+                                        _scheduleHide();
+                                      },
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: Colors.black.withValues(
+                                          alpha: .58,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(52, 52),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.pause_rounded,
+                                        size: 30,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _handleSideTap(true),
+                                      onVerticalDragEnd: (details) {
+                                        if (_isPinching) return;
+                                        if ((details.primaryVelocity ?? 0) >
+                                            240) {
+                                          widget.onMinimize();
+                                        }
+                                      },
+                                      child: const SizedBox.expand(),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            Text(
-                              _time(widget.session.duration),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(10, 0, 10, 5),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    _time(widget.session.position),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        trackHeight: 2.5,
+                                        thumbShape: const RoundSliderThumbShape(
+                                          enabledThumbRadius: 5,
+                                        ),
+                                        overlayShape:
+                                            const RoundSliderOverlayShape(
+                                              overlayRadius: 13,
+                                            ),
+                                      ),
+                                      child: Slider(
+                                        min: 0,
+                                        max: total > 0 ? total.toDouble() : 1,
+                                        value: current,
+                                        activeColor: AppColors.primaryPink,
+                                        inactiveColor: Colors.white38,
+                                        onChangeStart: (val) {
+                                          _controlsTimer?.cancel();
+                                          setState(() => _dragPosition = val);
+                                        },
+                                        onChanged: total <= 0
+                                            ? null
+                                            : (value) {
+                                                setState(
+                                                  () => _dragPosition = value,
+                                                );
+                                              },
+                                        onChangeEnd: (val) {
+                                          unawaited(
+                                            widget.session.seekTo(
+                                              Duration(
+                                                milliseconds: val.round(),
+                                              ),
+                                            ),
+                                          );
+                                          setState(() => _dragPosition = null);
+                                          _scheduleHide();
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _time(widget.session.duration),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  if (widget.onToggleFullScreen != null) ...[
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      tooltip: widget.isFullScreen
+                                          ? AppStrings.t('watch.exitFullscreen')
+                                          : AppStrings.t('watch.fullscreen'),
+                                      onPressed: widget.onToggleFullScreen,
+                                      iconSize: 22,
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(),
+                                      color: Colors.white,
+                                      icon: Icon(
+                                        widget.isFullScreen
+                                            ? Icons.fullscreen_exit_rounded
+                                            : Icons.fullscreen_rounded,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+              if (widget.controlsLocked)
+                Positioned(
+                  top: widget.isFullScreen ? 12 : 4,
+                  left: 8,
+                  child: SafeArea(
+                    child: IconButton.filledTonal(
+                      tooltip: 'Mở khóa màn hình',
+                      onPressed: widget.onUnlockControls,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withValues(alpha: .62),
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.lock_open_rounded),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
+        );
+      },
       );
     },
   );
@@ -1202,7 +2653,76 @@ class _ChannelSummaryState extends State<_ChannelSummary> {
 
   Future<void> _toggleSubscription() async {
     if (!widget.auth.authenticated) {
-      context.go('/auth');
+      final proceed = await showModalBottomSheet<bool>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Icon(
+                  Icons.subscriptions_outlined,
+                  size: 52,
+                  color: AppColors.primaryPink,
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Bạn muốn đăng ký kênh này?',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Đăng nhập để đăng ký kênh và nhận thông báo về video mới nhất.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Để sau'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primaryPink,
+                        ),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Đăng nhập'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (proceed == true && mounted) {
+        context.push('/auth');
+      }
       return;
     }
     if (_busy) return;
@@ -1312,11 +2832,26 @@ class _CommentTile extends StatefulWidget {
     required this.content,
     required this.signedIn,
     required this.auth,
+    required this.channelName,
+    required this.isOwner,
+    required this.isPinned,
+    required this.isHearted,
+    required this.onTogglePin,
+    required this.onToggleHeart,
+    required this.onToggleHide,
   });
   final CommentItem item;
   final ContentService content;
   final bool signedIn;
   final AuthController auth;
+  final String channelName;
+  final bool isOwner;
+  final bool isPinned;
+  final bool isHearted;
+  final VoidCallback onTogglePin;
+  final VoidCallback onToggleHeart;
+  final VoidCallback onToggleHide;
+
   @override
   State<_CommentTile> createState() => _CommentTileState();
 }
@@ -1376,6 +2911,7 @@ class _CommentTileState extends State<_CommentTile> {
 
   Future<void> _reply() async {
     final generation = _generation;
+    HapticFeedback.lightImpact();
     if (!widget.signedIn) return;
     final controller = TextEditingController();
     final text = await showDialog<String>(
@@ -1398,9 +2934,10 @@ class _CommentTileState extends State<_CommentTile> {
             onPressed: () => Navigator.pop(dialogContext),
             child: Text(AppStrings.t('common.cancel')),
           ),
-          FilledButton(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: Text(AppStrings.t('common.send')),
+            icon: AppIcons.asset(AppIcons.send, size: 16, color: Colors.white),
+            label: Text(AppStrings.t('common.send')),
           ),
         ],
       ),
@@ -1534,6 +3071,32 @@ class _CommentTileState extends State<_CommentTile> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.isPinned || _item.isPinned)
+          Padding(
+            padding: const EdgeInsets.only(left: 43, bottom: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.push_pin_rounded,
+                  size: 14,
+                  color: AppColors.primaryPink,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  AppStrings.format('watch.pinnedBy', {
+                    'channel': widget.channelName.isEmpty
+                        ? AppStrings.t('channel.owner')
+                        : widget.channelName,
+                  }),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryPink,
+                  ),
+                ),
+              ],
+            ),
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1550,12 +3113,46 @@ class _CommentTileState extends State<_CommentTile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _item.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  Row(
+                    children: [
+                      Text(
+                        _item.displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      if (_item.status == 'hidden') ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            AppStrings.t('watch.hideComment'),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.amber,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 3),
-                  Text(_item.content),
+                  Text(
+                    _item.content,
+                    style: TextStyle(
+                      color: _item.status == 'hidden'
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.5)
+                          : null,
+                    ),
+                  ),
                   Row(
                     children: [
                       TextButton.icon(
@@ -1567,22 +3164,143 @@ class _CommentTileState extends State<_CommentTile> {
                         onPressed: _reply,
                         child: Text(AppStrings.t('common.reply')),
                       ),
-                      if (_item.userId == widget.auth.user?['userId'])
+                      if (widget.isHearted || _item.hasCreatorHeart)
+                        Container(
+                          margin: const EdgeInsets.only(left: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.favorite_rounded,
+                                size: 13,
+                                color: Colors.redAccent,
+                              ),
+                              const SizedBox(width: 4),
+                              CircleAvatar(
+                                radius: 8,
+                                backgroundColor: AppColors.primaryPink,
+                                child: Text(
+                                  widget.channelName.isNotEmpty
+                                      ? widget.channelName[0].toUpperCase()
+                                      : 'H',
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const Spacer(),
+                      if (_item.userId == widget.auth.user?['userId'] ||
+                          widget.isOwner)
                         PopupMenuButton<String>(
                           tooltip: AppStrings.t('watch.commentOptions'),
                           onSelected: (choice) {
+                            if (choice == 'pin') widget.onTogglePin();
+                            if (choice == 'heart') widget.onToggleHeart();
+                            if (choice == 'hide') widget.onToggleHide();
                             if (choice == 'edit') _edit();
                             if (choice == 'delete') _delete();
                           },
                           itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Text(AppStrings.t('common.edit')),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text(AppStrings.t('common.delete')),
-                            ),
+                            if (widget.isOwner) ...[
+                              PopupMenuItem(
+                                value: 'pin',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      widget.isPinned
+                                          ? Icons.push_pin_rounded
+                                          : Icons.push_pin_outlined,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      widget.isPinned
+                                          ? AppStrings.t('watch.unpinComment')
+                                          : AppStrings.t('watch.pinComment'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'heart',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      widget.isHearted
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 18,
+                                      color: Colors.redAccent,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      widget.isHearted
+                                          ? AppStrings.t('watch.unheartComment')
+                                          : AppStrings.t('watch.heartComment'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'hide',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _item.status == 'hidden'
+                                          ? Icons.visibility_rounded
+                                          : Icons.visibility_off_outlined,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _item.status == 'hidden'
+                                          ? AppStrings.t('watch.unhideComment')
+                                          : AppStrings.t('watch.hideComment'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (_item.userId ==
+                                widget.auth.user?['userId']) ...[
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.edit_outlined, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(AppStrings.t('common.edit')),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: Colors.redAccent,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(AppStrings.t('common.delete')),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         )
                       else if (widget.signedIn && _item.status != 'deleted')

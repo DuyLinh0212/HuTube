@@ -10,12 +10,14 @@ class HuTubeSectionHeader extends StatelessWidget {
     this.subtitle,
     this.action,
     this.onAction,
+    this.compact = false,
   });
 
   final String title;
   final String? subtitle;
   final String? action;
   final VoidCallback? onAction;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -27,14 +29,24 @@ class HuTubeSectionHeader extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-                letterSpacing: -.35,
-              ),
+              style: (compact
+                      ? Theme.of(context).textTheme.titleMedium
+                      : Theme.of(context).textTheme.titleLarge)
+                  ?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: compact ? -.2 : -.35,
+                    fontSize: compact ? 18 : null,
+                  ),
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 3),
-              Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+              SizedBox(height: compact ? 2 : 3),
+              Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: compact ? 12 : null,
+                  color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.85),
+                ),
+              ),
             ],
           ],
         ),
@@ -252,7 +264,11 @@ class HuTubeAvatar extends StatelessWidget {
     backgroundColor:
         backgroundColor ?? AppColors.primary.withValues(alpha: .12),
     backgroundImage: url != null && url!.startsWith('http')
-        ? NetworkImage(url!)
+        ? ResizeImage(
+            NetworkImage(url!),
+            width: (radius * 4).round().clamp(48, 256),
+            height: (radius * 4).round().clamp(48, 256),
+          )
         : null,
     child: url != null && url!.startsWith('http')
         ? null

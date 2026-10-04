@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../auth.dart';
@@ -29,11 +30,13 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _inviteEmailController;
+  late final TextEditingController _trailerController;
   late final ChannelService _channelService;
   late ChannelDetail _channel;
   final ImagePicker _picker = ImagePicker();
   List<ChannelRole> _roles = const [];
   List<ChannelInvitation> _pendingInvitations = const [];
+  List<Map<String, String>> _links = [];
   String _inviteRole = 'editor';
 
   bool _busy = false;
@@ -52,7 +55,28 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       text: _channel.description ?? '',
     );
     _inviteEmailController = TextEditingController();
+    _trailerController = TextEditingController();
+    _parseSettings();
     _loadInviteData();
+  }
+
+  void _parseSettings() {
+    final s = _channel.settings;
+    if (s != null && s.isNotEmpty) {
+      try {
+        final map = jsonDecode(s) as Map<String, dynamic>;
+        if (map['links'] is List) {
+          _links = (map['links'] as List).whereType<Map>().map((l) => {
+            'platform': '${l['platform'] ?? 'website'}',
+            'title': '${l['title'] ?? ''}',
+            'url': '${l['url'] ?? ''}',
+          }).toList();
+        }
+        if (map['trailerVideoId'] != null) {
+          _trailerController.text = '${map['trailerVideoId']}';
+        }
+      } catch (_) {}
+    }
   }
 
   @override
@@ -60,6 +84,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _inviteEmailController.dispose();
+    _trailerController.dispose();
     super.dispose();
   }
 
@@ -324,10 +349,27 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     });
 
     try {
+      final validLinks = _links
+          .where((l) => (l['url'] ?? '').trim().isNotEmpty)
+          .map((l) => {
+            'platform': l['platform'] ?? 'website',
+            'title': (l['title'] ?? '').trim().isEmpty
+                ? (l['platform'] ?? 'website')
+                : (l['title'] ?? '').trim(),
+            'url': (l['url'] ?? '').trim(),
+          })
+          .toList();
+      final settingsJson = jsonEncode({
+        'links': validLinks,
+        if (_trailerController.text.trim().isNotEmpty)
+          'trailerVideoId': _trailerController.text.trim(),
+      });
+
       await _channelService.updateChannel(
         _channel.id,
         name: name,
         description: _descriptionController.text.trim(),
+        settings: settingsJson,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -729,6 +771,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   hintText: AppStrings.t('channel.descriptionHintEdit'),
                 ),
               ),
+              _socialLinksAndTrailerSection(),
               const SizedBox(height: 24),
 
               FilledButton(
@@ -885,6 +928,145 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _socialLinksAndTrailerSection() {
+    const platforms = [
+      {'id': 'facebook', 'name': 'Facebook'},
+      {'id': 'tiktok', 'name': 'TikTok'},
+      {'id': 'instagram', 'name': 'Instagram'},
+      {'id': 'twitter', 'name': 'X / Twitter'},
+      {'id': 'youtube', 'name': 'YouTube'},
+      {'id': 'discord', 'name': 'Discord'},
+      {'id': 'website', 'name': 'Website / Khác'},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 24),
+        const Text(
+          'Liên kết mạng xã hội (Social Links)',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Thêm các trang mạng xã hội để người xem dễ dàng tìm kiếm và theo dõi bạn.',
+          style: TextStyle(
+            color: AppColors.textSecondaryFor(context),
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < _links.length; i++)
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: Theme.of(context).dividerColor.withValues(alpha: .2),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _links[i]['platform'] ?? 'website',
+                          decoration: const InputDecoration(
+                            labelText: 'Nền tảng',
+                            isDense: true,
+                          ),
+                          items: platforms
+                              .map(
+                                (p) => DropdownMenuItem(
+                                  value: p['id'],
+                                  child: Text(p['name']!),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _links[i]['platform'] = val);
+                            }
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.redAccent,
+                        ),
+                        onPressed: () => setState(() => _links.removeAt(i)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: _links[i]['title'],
+                    decoration: const InputDecoration(
+                      labelText: 'Tiêu đề hiển thị (vd: Facebook, TikTok)',
+                      isDense: true,
+                    ),
+                    onChanged: (val) => _links[i]['title'] = val,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: _links[i]['url'],
+                    keyboardType: TextInputType.url,
+                    decoration: const InputDecoration(
+                      labelText: 'Đường dẫn URL (https://...)',
+                      isDense: true,
+                    ),
+                    onChanged: (val) => _links[i]['url'] = val,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        OutlinedButton.icon(
+          onPressed: _links.length >= 14
+              ? null
+              : () {
+                  setState(() {
+                    _links.add({
+                      'platform': 'facebook',
+                      'title': 'Facebook',
+                      'url': '',
+                    });
+                  });
+                },
+          icon: const Icon(Icons.add_link_rounded),
+          label: const Text('Thêm liên kết mới'),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Video giới thiệu kênh (Channel Trailer)',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Video nổi bật phát ở đầu trang kênh dành cho người xem mới.',
+          style: TextStyle(
+            color: AppColors.textSecondaryFor(context),
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _trailerController,
+          enabled: !_busy,
+          decoration: const InputDecoration(
+            labelText: 'ID video giới thiệu',
+            hintText: 'Nhập ID video nổi bật làm trailer',
+            prefixIcon: Icon(Icons.play_circle_outline_rounded),
+          ),
+        ),
+      ],
     );
   }
 }

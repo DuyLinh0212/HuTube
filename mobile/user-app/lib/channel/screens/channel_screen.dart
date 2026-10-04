@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
@@ -408,6 +410,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                                 ),
                               ),
                             ],
+                            _socialLinksChips(c),
                           ],
                         ),
                       ),
@@ -532,9 +535,69 @@ class _ChannelScreenState extends State<ChannelScreen>
   }
 
   Widget _homeTab(ChannelDetail c) {
+    final trailerId = _parseTrailerVideoId(c.settings);
+    VideoCard? trailerVideo;
+    if (trailerId != null) {
+      trailerVideo = _videos.where((v) => v.id == trailerId).firstOrNull;
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (trailerVideo != null) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.violet.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.violet.withValues(alpha: .25),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.violet,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'VIDEO GIỚI THIỆU',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        trailerVideo.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                VideoCardTile(video: trailerVideo),
+              ],
+            ),
+          ),
+        ],
         Text(
           AppStrings.t('channel.latestVideo'),
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -546,7 +609,8 @@ class _ChannelScreenState extends State<ChannelScreen>
             style: TextStyle(color: AppColors.textSecondaryFor(context)),
           )
         else
-          for (final video in _videos.take(5)) VideoCardTile(video: video),
+          for (final video in _videos.where((v) => v.id != trailerId).take(5))
+            VideoCardTile(video: video),
       ],
     );
   }
@@ -667,8 +731,150 @@ class _ChannelScreenState extends State<ChannelScreen>
             'date': _formatDate(c.createdAt),
           }),
         ),
+        _socialLinksAbout(c),
       ],
     );
+  }
+
+  Widget _socialLinksChips(ChannelDetail c) {
+    final links = _parseLinks(c.settings);
+    if (links.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: links.map((l) {
+            final platform = l['platform'] ?? 'website';
+            final title = (l['title'] ?? '').isEmpty ? platform : l['title']!;
+            final url = l['url']!;
+            return Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ActionChip(
+                avatar: _platformIcon(platform),
+                label: Text(
+                  title,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+                visualDensity: VisualDensity.compact,
+                onPressed: () async {
+                  final uri = Uri.tryParse(url);
+                  if (uri != null) {
+                    try {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } catch (_) {}
+                  }
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _socialLinksAbout(ChannelDetail c) {
+    final links = _parseLinks(c.settings);
+    if (links.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 16),
+        const Text(
+          'Liên kết mạng xã hội',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+        for (final link in links)
+          InkWell(
+            onTap: () async {
+              final uri = Uri.tryParse(link['url'] ?? '');
+              if (uri != null) {
+                try {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  _platformIcon(link['platform'] ?? 'website'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          link['title'] ?? 'Liên kết',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          link['url'] ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.violet,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<Map<String, String>> _parseLinks(String? settings) {
+    if (settings == null || settings.isEmpty) return const [];
+    try {
+      final json = jsonDecode(settings) as Map<String, dynamic>;
+      final links = json['links'];
+      if (links is List) {
+        return links
+            .whereType<Map>()
+            .map((l) => {
+                  'platform': '${l['platform'] ?? 'website'}',
+                  'title': '${l['title'] ?? ''}',
+                  'url': '${l['url'] ?? ''}',
+                })
+            .where((l) => l['url']!.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  String? _parseTrailerVideoId(String? settings) {
+    if (settings == null || settings.isEmpty) return null;
+    try {
+      final json = jsonDecode(settings) as Map<String, dynamic>;
+      final id = json['trailerVideoId'];
+      if (id is String && id.trim().isNotEmpty) return id.trim();
+    } catch (_) {}
+    return null;
+  }
+
+  Widget _platformIcon(String platform) {
+    return switch (platform.toLowerCase()) {
+      'facebook' => const Icon(Icons.facebook, size: 16, color: Colors.blue),
+      'tiktok' => const Icon(Icons.music_note, size: 16, color: Colors.pinkAccent),
+      'instagram' => const Icon(Icons.camera_alt, size: 16, color: Colors.purpleAccent),
+      'twitter' => const Icon(Icons.alternate_email, size: 16, color: Colors.lightBlue),
+      'youtube' => const Icon(Icons.play_circle_filled, size: 16, color: Colors.red),
+      'discord' => const Icon(Icons.forum, size: 16, color: Colors.indigo),
+      _ => const Icon(Icons.language, size: 16, color: Colors.teal),
+    };
   }
 
   Widget _aboutRow(IconData icon, String text) {

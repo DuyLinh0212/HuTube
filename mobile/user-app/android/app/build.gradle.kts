@@ -32,11 +32,40 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        getByName("debug") {
+            val localKeystore = file("debug.keystore")
+            if (localKeystore.exists()) {
+                storeFile = localKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+        create("release") {
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (keystorePath != null && file(keystorePath).exists()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "android"
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "androiddebugkey"
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: "android"
+            } else {
+                val localKeystore = file("debug.keystore")
+                if (localKeystore.exists()) {
+                    storeFile = localKeystore
+                    storePassword = "android"
+                    keyAlias = "androiddebugkey"
+                    keyPassword = "android"
+                } else {
+                    initWith(getByName("debug"))
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
@@ -47,4 +76,23 @@ dependencies {
 
 flutter {
     source = "../.."
+}
+
+val adbReverseTask = tasks.register("adbReverse") {
+    doLast {
+        try {
+            val adb = android.adbExecutable.absolutePath
+            project.exec {
+                commandLine(adb, "reverse", "tcp:5080", "tcp:5080")
+                isIgnoreExitValue = true
+            }
+            println("[HuTube] adb reverse tcp:5080 tcp:5080 thanh cong.")
+        } catch (e: Exception) {
+            println("[HuTube] Bo qua adb reverse: ${e.message}")
+        }
+    }
+}
+
+afterEvaluate {
+    tasks.findByName("preBuild")?.dependsOn(adbReverseTask)
 }

@@ -77,26 +77,33 @@ class CreatorService {
     required int duration,
     required String quality,
     required List<String> tags,
+    List<Map<String, dynamic>> chapters = const [],
     required MultipartFilePayload video,
     MultipartFilePayload? thumbnail,
   }) async {
     final idempotencyKey =
         '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    final fields = <String, String>{
+      'ChannelId': channelId,
+      'Title': title.trim(),
+      'Description': description.trim(),
+      if (categoryId != null && categoryId.isNotEmpty) 'CategoryId': categoryId,
+      'LanguageCode': 'vi',
+      'Visibility': visibility,
+      'AgeRestricted': '$ageRestricted',
+      'Duration': '$duration',
+      'SourceQuality': quality,
+    };
+    for (var index = 0; index < tags.length; index++) {
+      fields['Tags[$index]'] = tags[index];
+    }
+    for (var index = 0; index < chapters.length; index++) {
+      fields['Chapters[$index].StartSeconds'] = '${chapters[index]['startSeconds']}';
+      fields['Chapters[$index].Title'] = '${chapters[index]['title']}';
+    }
     final json = await auth.protectedMultipart(
       '/videos',
-      fields: {
-        'ChannelId': channelId,
-        'Title': title.trim(),
-        'Description': description.trim(),
-        'CategoryId': ?categoryId,
-        'LanguageCode': 'vi',
-        'Visibility': visibility,
-        'AgeRestricted': '$ageRestricted',
-        'Duration': '$duration',
-        'SourceQuality': quality,
-        for (var index = 0; index < tags.length; index++)
-          'Tags[$index]': tags[index],
-      },
+      fields: fields,
       files: [video, ?thumbnail],
       headers: {'Idempotency-Key': idempotencyKey},
     );
@@ -137,6 +144,10 @@ class CreatorService {
     String? visibility,
     String? title,
     String? description,
+    String? categoryId,
+    bool clearCategory = false,
+    List<String>? tags,
+    List<Map<String, dynamic>>? chapters,
   }) async {
     final json = await auth.protected(
       'PATCH',
@@ -144,14 +155,14 @@ class CreatorService {
       body: {
         'title': title,
         'description': description,
-        'categoryId': null,
-        'clearCategory': false,
+        'categoryId': categoryId,
+        'clearCategory': clearCategory,
         'languageCode': null,
         'visibility': visibility,
         'ageRestricted': null,
         'thumbnailUrl': null,
-        'tags': null,
-        'chapters': null,
+        'tags': tags,
+        'chapters': chapters,
       },
     );
     return VideoDetail.fromJson(json);

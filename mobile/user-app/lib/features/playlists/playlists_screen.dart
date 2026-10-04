@@ -229,6 +229,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   Future<void> _reorder(int oldIndex, int newIndex) async {
     final current = _detail;
     if (current == null) return;
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
     final items = [...current.items];
     final moved = items.removeAt(oldIndex);
     items.insert(newIndex, moved);
@@ -401,6 +404,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             : ReorderableListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 itemCount: detail.items.length,
+                // ignore: deprecated_member_use
                 onReorder: (oldIndex, newIndex) => _reorder(
                   oldIndex,
                   newIndex > oldIndex ? newIndex - 1 : newIndex,
