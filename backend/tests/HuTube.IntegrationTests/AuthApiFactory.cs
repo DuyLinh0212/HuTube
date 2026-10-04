@@ -38,6 +38,8 @@ public sealed class TestObjectStorage : IObjectStorage
         using var buffer = new MemoryStream(); await content.CopyToAsync(buffer, ct); Objects[path] = buffer.ToArray(); return path;
     }
     public Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default) => Task.FromResult(storedPath.Replace("test://", "https://storage.test/"));
+    public Task<Stream> OpenReadAsync(string storedPath, CancellationToken ct = default) =>
+        Task.FromResult<Stream>(new MemoryStream(Objects.TryGetValue(storedPath, out var bytes) ? bytes : throw new FileNotFoundException(), writable: false));
     public Task DeleteFileAsync(string relativePath, CancellationToken ct = default) { Objects.TryRemove(relativePath, out _); return Task.CompletedTask; }
 }
 

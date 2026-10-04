@@ -65,6 +65,7 @@ public sealed record ViolationTypeResponse(Guid ViolationTypeId, string Code, st
 public sealed record CreateDownloadRequest(string Quality);
 public sealed record DownloadResponse(Guid VideoDownloadId, Guid VideoId, string Title, string Quality,
     string FileUrl, long FileSize, string Status, DateTimeOffset CreatedAt);
+public sealed record DownloadFileResponse(Stream Content, string FileName, string ContentType);
 public sealed record UploadPreflightRequest(Guid ChannelId, long FileSize, int Duration, string ContentType, string SourceQuality);
 public sealed record UploadPreflightResponse(bool Allowed, long MaxUploadSize, int MaxDuration, string MaxQuality,
     long StorageLimit, long StorageUsed, long StorageRemaining);
@@ -143,6 +144,7 @@ public interface IContentService
     Task<CommentResponse> SetCommentHiddenAsync(Guid actorId, Guid commentId, bool hidden, string? reason, CancellationToken ct = default);
     Task<IReadOnlyList<RenditionResponse>> GetDownloadOptionsAsync(Guid userId, Guid videoId, CancellationToken ct = default);
     Task<DownloadResponse> CreateDownloadAsync(Guid userId, Guid videoId, string quality, CancellationToken ct = default);
+    Task<DownloadFileResponse> OpenDownloadFileAsync(Guid userId, Guid videoId, string quality, CancellationToken ct = default);
     Task<IReadOnlyList<DownloadResponse>> GetDownloadsAsync(Guid userId, CancellationToken ct = default);
     Task DeleteDownloadAsync(Guid userId, Guid downloadId, CancellationToken ct = default);
     Task<DownloadResponse> SetDownloadStateAsync(Guid userId, Guid downloadId, string action, CancellationToken ct = default);

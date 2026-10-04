@@ -242,6 +242,15 @@ public sealed class VideosController(IContentService content) : ControllerBase
             ? options.Select(x => x with { Url = "" }).ToArray() : options;
     }
 
+    [Authorize, HttpPost("{id:guid}/download-file")]
+    public async Task<IActionResult> DownloadFileAsync(Guid id, CreateDownloadRequest request, CancellationToken ct)
+    {
+        var file = await content.OpenDownloadFileAsync(UserId, id, request.Quality, ct);
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(file.Content, file.ContentType, file.FileName);
+    }
+
     [Authorize, HttpPost("{id:guid}/downloads")]
     public async Task<ActionResult<DownloadResponse>> DownloadAsync(Guid id, CreateDownloadRequest request, CancellationToken ct)
     {

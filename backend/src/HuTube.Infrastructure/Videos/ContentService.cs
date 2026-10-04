@@ -1554,7 +1554,43 @@ public sealed class ContentService(
             item = new VideoDownload { UserId = userId, VideoId = videoId, QualityLabel = selected.QualityLabel, FileUrl = selected.FileUrl, FileSize = selected.FileSize, Status = "ready", CreatedAt = Now, UpdatedAt = Now };
             db.VideoDownloads.Add(item); await db.SaveChangesAsync(ct);
         }
+        else
+        {
+            item.FileUrl = selected.FileUrl;
+            item.FileSize = selected.FileSize;
+            item.Status = "ready";
+            item.UpdatedAt = Now;
+            await db.SaveChangesAsync(ct);
+        }
         return new(item.VideoDownloadId, videoId, video.Title, item.QualityLabel, await ReadUrlAsync(item.FileUrl, ct), item.FileSize, item.Status, item.CreatedAt);
+    }
+
+    public async Task<DownloadFileResponse> OpenDownloadFileAsync(Guid userId, Guid videoId, string quality, CancellationToken ct = default)
+    {
+        // Reuse the same visibility, plan and rendition checks as download creation.
+        var download = await CreateDownloadAsync(userId, videoId, quality, ct);
+        var storedPath = await db.VideoDownloads.AsNoTracking()
+            .Where(x => x.VideoDownloadId == download.VideoDownloadId && x.UserId == userId)
+            .Select(x => x.FileUrl).SingleAsync(ct);
+        var extension = DownloadExtension(storedPath);
+        var contentType = extension switch
+        {
+            ".webm" => "video/webm",
+            ".mov" => "video/quicktime",
+            ".mkv" => "video/x-matroska",
+            _ => "video/mp4"
+        };
+        var title = new string(download.Title.Where(c => !char.IsControl(c) && !"<>:\"/\\|?*".Contains(c)).Take(120).ToArray()).Trim().TrimEnd('.');
+        if (title.Length == 0) title = "HuTube";
+        var stream = await storage.OpenReadAsync(storedPath, ct);
+        return new(stream, $"{title}-{download.Quality}{extension}", contentType);
+    }
+
+    private static string DownloadExtension(string storedPath)
+    {
+        var path = Uri.TryCreate(storedPath, UriKind.Absolute, out var uri) ? uri.AbsolutePath : storedPath;
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        return extension is ".webm" or ".mov" or ".mkv" ? extension : ".mp4";
     }
 
     public async Task<IReadOnlyList<DownloadResponse>> GetDownloadsAsync(Guid userId, CancellationToken ct = default)
