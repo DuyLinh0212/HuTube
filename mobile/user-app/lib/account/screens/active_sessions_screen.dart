@@ -4,6 +4,7 @@ import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../state/account_controller.dart';
 import '../widgets/session_card.dart';
+import 'login_history_screen.dart';
 
 class ActiveSessionsScreen extends StatelessWidget {
   const ActiveSessionsScreen({
@@ -20,7 +21,20 @@ class ActiveSessionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(AppStrings.t('account.sessionsHeading'))),
+      appBar: AppBar(
+        title: Text(AppStrings.t('account.sessionsHeading')),
+        actions: [
+          IconButton(
+            tooltip: AppStrings.t('account.loginHistoryButton'),
+            icon: const Icon(Icons.history_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => LoginHistoryScreen(service: controller.service),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: controller,

@@ -18,7 +18,7 @@ void main() {
     );
     await tester.pumpWidget(HuTubeApp(auth: auth));
     await tester.pumpAndSettle();
-    expect(find.text('Dành cho bạn'), findsOneWidget);
+    expect(find.text('Chưa có video để hiển thị.'), findsOneWidget);
     expect(find.byKey(const ValueKey('Email')), findsNothing);
 
     await openSignInFromHome(tester);

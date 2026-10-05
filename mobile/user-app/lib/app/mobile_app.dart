@@ -13,7 +13,8 @@ import '../core/widgets/network_fallback_overlay.dart';
 import '../features/account/account_hub_screen.dart';
 import '../features/account/account_settings_screen.dart';
 import '../features/ai/hu_ai_screen.dart';
-import '../features/content/feed_screen.dart';
+import '../features/content/home_screen.dart';
+import '../features/content/explore_screen.dart';
 import '../features/content/downloads_screen.dart';
 import '../features/content/library_screen.dart';
 import '../features/content/playback_session.dart';
@@ -98,6 +99,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
       }
       const protected = <String>{
         '/library',
+        '/history',
+        '/liked',
         '/account',
         '/notifications',
         '/creator',
@@ -133,11 +136,11 @@ class _HuTubeAppState extends State<HuTubeApp> {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (_, _) => FeedScreen(auth: auth),
+            builder: (_, _) => HomeScreen(auth: auth),
           ),
           GoRoute(
             path: '/explore',
-            builder: (_, _) => FeedScreen(auth: auth, explore: true),
+            builder: (_, _) => ExploreScreen(auth: auth),
           ),
           GoRoute(
             path: '/subscriptions',
@@ -157,6 +160,13 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/playlists/:playlistId',
+            builder: (_, state) => PlaylistsScreen(
+              auth: auth,
+              playlistId: state.pathParameters['playlistId'],
+            ),
+          ),
+          GoRoute(
+            path: '/channels/:handle/playlists/:playlistId',
             builder: (_, state) => PlaylistsScreen(
               auth: auth,
               playlistId: state.pathParameters['playlistId'],
@@ -188,6 +198,14 @@ class _HuTubeAppState extends State<HuTubeApp> {
           GoRoute(
             path: '/library',
             builder: (_, _) => LibraryScreen(auth: auth),
+          ),
+          GoRoute(
+            path: '/history',
+            builder: (_, _) => LibraryScreen(auth: auth, initialTab: 0),
+          ),
+          GoRoute(
+            path: '/liked',
+            builder: (_, _) => LibraryScreen(auth: auth, initialTab: 1),
           ),
           GoRoute(
             path: '/downloads',
@@ -251,6 +269,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
       '/creator',
       '/downloads',
       '/library',
+      '/history',
+      '/liked',
       '/moderation',
       '/notifications',
       '/playlists',
@@ -292,6 +312,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
       '/creator',
       '/downloads',
       '/library',
+      '/history',
+      '/liked',
       '/notifications',
       '/plans',
       '/policies',

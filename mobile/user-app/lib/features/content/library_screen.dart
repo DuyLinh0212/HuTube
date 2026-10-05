@@ -13,8 +13,9 @@ import 'content_service.dart';
 import 'video_card.dart';
 
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key, required this.auth});
+  const LibraryScreen({super.key, required this.auth, this.initialTab = 0});
   final AuthController auth;
+  final int initialTab;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -28,12 +29,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   String? _error;
   List<LibraryVideo> _history = [];
   List<LibraryVideo> _liked = [];
-  int _tab = 0;
+  late int _tab;
   int? _rating;
 
   @override
   void initState() {
     super.initState();
+    _tab = widget.initialTab.clamp(0, 1);
     _content = ContentService(widget.auth);
     _prefs.readHistoryPaused().then((val) {
       if (mounted) setState(() => _historyPaused = val);

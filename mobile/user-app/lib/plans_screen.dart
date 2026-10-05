@@ -1067,6 +1067,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   late Map<String, dynamic> _payment = widget.payment;
   Timer? _pollTimer;
   bool _checking = false;
+  bool _cancelling = false;
 
   String get _status => '${_payment['status'] ?? 'pending'}'.toLowerCase();
   bool get _paid =>
@@ -1100,6 +1101,41 @@ class _PaymentDialogState extends State<_PaymentDialog> {
       // Keep the pending payment visible; the user can retry by reopening it.
     } finally {
       _checking = false;
+    }
+  }
+
+  Future<void> _cancel() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppStrings.t('plans.paymentCancel')),
+        content: Text(AppStrings.t('plans.paymentCancelConfirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(AppStrings.t('plans.paymentCancel')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _cancelling = true);
+    try {
+      await widget.service.cancelPayment('${_payment['paymentId']}');
+      _pollTimer?.cancel();
+      if (!mounted) return;
+      setState(() => _payment = {..._payment, 'status': 'cancelled'});
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.t('plans.paymentCancelError'))),
+      );
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
     }
   }
 
@@ -1207,6 +1243,11 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         TextButton(
           onPressed: _poll,
           child: Text(AppStrings.t('plans.checkPayment')),
+        ),
+      if (!_paid && !_expired)
+        TextButton(
+          onPressed: _cancelling ? null : _cancel,
+          child: Text(AppStrings.t('plans.paymentCancel')),
         ),
       TextButton(
         onPressed: () => Navigator.pop(context, _paid),

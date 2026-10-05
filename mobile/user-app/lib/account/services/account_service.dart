@@ -122,6 +122,14 @@ class AccountService {
     return list.whereType<Map<String, dynamic>>().toList();
   }
 
+  Future<Map<String, dynamic>> getLoginHistory({
+    int page = 1,
+    int pageSize = 20,
+  }) => auth.protected(
+    'GET',
+    '/auth/login-history?page=$page&pageSize=$pageSize',
+  );
+
   Future<void> revokeSession(String sessionId) async {
     await auth.protected('DELETE', '/auth/sessions/$sessionId');
   }

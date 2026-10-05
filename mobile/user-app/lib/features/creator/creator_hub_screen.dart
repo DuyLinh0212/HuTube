@@ -13,6 +13,7 @@ import '../../core/widgets/hutube_widgets.dart';
 import 'creator_analytics_screen.dart';
 import 'creator_comments_screen.dart';
 import 'creator_content_screen.dart';
+import 'creator_subtitles_screen.dart';
 import 'video_upload_screen.dart';
 
 class CreatorHubScreen extends StatefulWidget {
@@ -257,6 +258,14 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
           detail: AppStrings.t('creator.commentsDescription'),
           onTap: () =>
               _open(CreatorCommentsScreen(auth: widget.auth, channel: channel)),
+        ),
+        _CreatorAction(
+          icon: Icons.subtitles_outlined,
+          title: AppStrings.t('creator.subtitles'),
+          detail: AppStrings.t('creator.subtitlesDescription'),
+          onTap: () => _open(
+            CreatorSubtitlesScreen(auth: widget.auth, channel: channel),
+          ),
         ),
         _CreatorAction(
           customIcon: AppIcons.asset(

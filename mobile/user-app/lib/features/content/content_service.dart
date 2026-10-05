@@ -47,6 +47,7 @@ class ContentService {
 
   Future<PageResult<VideoCard>> searchVideos({
     required String query,
+    String? categoryId,
     String? channelId,
     String? dateRange,
     String? duration,
@@ -56,6 +57,7 @@ class ContentService {
   }) async {
     final endpoint = _query('/videos/search', {
       'q': query.trim(),
+      'categoryId': categoryId,
       'channelId': channelId,
       'dateRange': dateRange,
       'duration': duration,
@@ -65,6 +67,11 @@ class ContentService {
     });
     final json = await auth.api.request('GET', endpoint);
     return _videoPage(json, page, pageSize);
+  }
+
+  Future<ExploreHub> exploreHub() async {
+    final json = await auth.api.request('GET', '/feed/explore-hub');
+    return ExploreHub.fromJson(json);
   }
 
   Future<PageResult<VideoCard>> subscriptionsFeed({

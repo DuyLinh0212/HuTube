@@ -7,7 +7,6 @@ import '../core/localization/app_strings.dart';
 import '../core/theme/app_icons.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/app_logo.dart';
-import '../core/widgets/hutube_widgets.dart';
 import '../features/content/mini_player.dart';
 import '../features/content/playback_session.dart';
 import '../features/notifications/notification_center.dart';
@@ -121,10 +120,6 @@ class MobileScaffold extends StatelessWidget {
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final isDetail = location.startsWith('/watch/');
     final hideAppBar = isDetail || location == '/account' || location == '/settings';
-    final rawName = (auth.user?['displayName'] as String?) ?? 'H';
-    final initial = rawName.isEmpty
-        ? 'H'
-        : rawName.substring(0, 1).toUpperCase();
     return Scaffold(
       appBar: hideAppBar
           ? null
@@ -142,6 +137,12 @@ class MobileScaffold extends StatelessWidget {
                 showWordmark: MediaQuery.sizeOf(context).width >= 360,
               ),
         actions: [
+          if (!auth.authenticated && wide)
+            IconButton(
+              tooltip: AppStrings.t('common.signIn'),
+              onPressed: () => context.go('/auth'),
+              icon: const Icon(Icons.login_rounded),
+            ),
           if (!isDetail)
             IconButton(
               tooltip: AppStrings.t('common.search'),
@@ -210,21 +211,6 @@ class MobileScaffold extends StatelessWidget {
                 ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              tooltip: auth.authenticated
-                  ? AppStrings.t('common.account')
-                  : AppStrings.t('common.signIn'),
-              onPressed: () =>
-                  context.go(auth.authenticated ? '/account' : '/auth'),
-              icon: HuTubeAvatar(
-                label: initial,
-                radius: 15,
-                backgroundColor: AppColors.primary.withValues(alpha: .12),
-              ),
-            ),
-          ),
         ],
       ),
       drawer: isDetail ? null : _Drawer(auth: auth),
@@ -315,7 +301,11 @@ class _YouNavIcon extends StatelessWidget {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return Tooltip(
+      message: AppStrings.t(
+        auth.authenticated ? 'common.account' : 'common.signIn',
+      ),
+      child: Container(
       width: 26,
       height: 26,
       decoration: BoxDecoration(
@@ -360,6 +350,7 @@ class _YouNavIcon extends StatelessWidget {
                   ),
                 ),
               ),
+      ),
       ),
     );
   }

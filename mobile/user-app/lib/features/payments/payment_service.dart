@@ -19,4 +19,12 @@ class PaymentService {
 
   Future<Map<String, dynamic>> get(String paymentId) =>
       auth.protected('GET', '/payments/${Uri.encodeComponent(paymentId)}');
+
+  Future<void> cancelPayment(String paymentId) async {
+    await auth.protected(
+      'POST',
+      '/payments/${Uri.encodeComponent(paymentId)}/cancel',
+      body: const {},
+    );
+  }
 }
