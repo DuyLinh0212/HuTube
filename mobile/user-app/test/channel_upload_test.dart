@@ -161,6 +161,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(picks, 2);
     expect(uploadedPaths, [
+      '/api/v1/channels/channel-1',
       '/api/v1/channels/channel-1/avatar',
       '/api/v1/channels/channel-1/banner',
     ]);
