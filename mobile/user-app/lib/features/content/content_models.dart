@@ -473,11 +473,13 @@ class LibraryVideo extends VideoCard {
     required super.views,
     required this.progress,
     required this.myRating,
+    this.watchedSeconds = 0,
     this.activityAt,
   });
 
   final double progress;
   final int? myRating;
+  final int watchedSeconds;
   final DateTime? activityAt;
 
   factory LibraryVideo.fromJson(Map<String, dynamic> json) => LibraryVideo(
@@ -493,6 +495,32 @@ class LibraryVideo extends VideoCard {
     views: asInt(json['views']),
     progress: (json['progress'] as num?)?.toDouble() ?? 0,
     myRating: json['myRating'] as int?,
-    activityAt: DateTime.tryParse('${json['activityAt'] ?? ''}'),
+    watchedSeconds: asInt(json['watchedSeconds'] ?? json['watchDuration']),
+    activityAt: DateTime.tryParse(
+      '${json['activityAt'] ?? json['viewedAt'] ?? ''}',
+    ),
   );
+
+  /// The history endpoint intentionally returns a smaller DTO than `/liked`.
+  /// Keep that contract explicit so absent library-only fields never mask the
+  /// history-specific watched time or activity timestamp.
+  factory LibraryVideo.fromHistoryJson(Map<String, dynamic> json) =>
+      LibraryVideo(
+        id: '${json['videoId'] ?? ''}',
+        channelId: '${json['channelId'] ?? ''}',
+        channelName: '${json['channelName'] ?? ''}',
+        channelHandle: '${json['channelHandle'] ?? ''}',
+        title: '${json['title'] ?? ''}',
+        thumbnailUrl: json['thumbnailUrl'] as String?,
+        duration: asInt(json['duration']),
+        visibility: '',
+        publishedAt: null,
+        views: 0,
+        progress: (json['progress'] as num?)?.toDouble() ?? 0,
+        myRating: null,
+        watchedSeconds: asInt(json['watchedSeconds'] ?? json['watchDuration']),
+        activityAt: DateTime.tryParse(
+          '${json['activityAt'] ?? json['viewedAt'] ?? ''}',
+        ),
+      );
 }

@@ -309,134 +309,6 @@ class _PlansScreenState extends State<PlansScreen> {
     }
   }
 
-  Future<void> _editMemberStorage(Map<String, dynamic> member) async {
-    final controller = TextEditingController(
-      text: '${member['allocatedStorage'] ?? ''}',
-    );
-    final raw = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('plans.memberStorageTitle')),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: AppStrings.t('plans.byteInputHint'),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: Text(AppStrings.t('common.save')),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (raw == null) return;
-    final value = int.tryParse(raw.trim());
-    if (raw.trim().isNotEmpty && value == null) return;
-    try {
-      await _planService.updateMemberStorage(
-        '${member['planMemberId']}',
-        value,
-      );
-      await _load();
-    } on ApiFailure catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
-      }
-    }
-  }
-
-  Future<void> _editOwnerStorage() async {
-    final currentBytes = _number(_myPlan?['ownerAllocatedStorage']);
-    final currentGb = currentBytes > 0
-        ? currentBytes / (1024 * 1024 * 1024)
-        : null;
-    final controller = TextEditingController(
-      text: currentGb == null
-          ? ''
-          : (currentGb == currentGb.roundToDouble()
-                ? currentGb.toStringAsFixed(0)
-                : currentGb.toStringAsFixed(2)),
-    );
-    final raw = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('plans.editOwnerStorage')),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: AppStrings.t('plans.storageGBPlaceholder'),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: Text(AppStrings.t('common.save')),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (raw == null) return;
-    final input = raw.trim().replaceAll(',', '.');
-    int? value;
-    if (input.isNotEmpty) {
-      final gb = double.tryParse(input);
-      if (gb == null || !gb.isFinite || gb <= 0) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppStrings.t('plans.invalidQuota'))),
-          );
-        }
-        return;
-      }
-      value = (gb * 1024 * 1024 * 1024).round();
-      final used = _number(_myPlan?['usedStorage']).round();
-      if (value < used) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppStrings.t('plans.quotaBelowUsed'))),
-          );
-        }
-        return;
-      }
-    }
-    try {
-      await _planService.updateOwnerStorage(value);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.t('plans.storageUpdated'))),
-        );
-        await _load();
-      }
-    } on ApiFailure catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppStrings.apiError(error, fallback: 'plans.storageUpdateError'),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _showPaymentDetails(String paymentId) async {
     try {
       final payment = await _paymentService.get(paymentId);
@@ -761,11 +633,6 @@ class _PlansScreenState extends State<PlansScreen> {
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
-                onPressed: _editOwnerStorage,
-                icon: const Icon(Icons.storage_outlined),
-                label: Text(AppStrings.t('plans.editOwnerStorage')),
-              ),
-              OutlinedButton.icon(
                 onPressed: _inviteMember,
                 icon: const Icon(Icons.person_add_alt_1_outlined),
                 label: Text(AppStrings.t('plans.invite')),
@@ -802,14 +669,9 @@ class _PlansScreenState extends State<PlansScreen> {
                       : PopupMenuButton<String>(
                           iconColor: Colors.white,
                           onSelected: (choice) {
-                            if (choice == 'storage') _editMemberStorage(member);
                             if (choice == 'remove') _removeMember(member);
                           },
                           itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'storage',
-                              child: Text(AppStrings.t('plans.editStorage')),
-                            ),
                             PopupMenuItem(
                               value: 'remove',
                               child: Text(AppStrings.t('plans.removeMember')),

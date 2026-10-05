@@ -144,11 +144,15 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
         children: [
           if (_recommendations.isNotEmpty)
-            _HomeSection(title: null, videos: _recommendations),
+            _HomeSection(
+              title: AppStrings.t('home.forYouTitle'),
+              videos: _recommendations,
+            ),
           if (_subscriptions.isNotEmpty) ...[
             const SizedBox(height: 26),
             _HomeSection(
               title: AppStrings.t('home.followingTitle'),
+              kicker: AppStrings.t('home.followingKicker'),
               videos: _subscriptions,
               horizontal: true,
             ),
@@ -157,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 26),
             _HomeSection(
               title: AppStrings.t('home.popularTitle'),
+              kicker: AppStrings.t('home.popularKicker'),
               videos: _popular,
             ),
           ],
@@ -164,6 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 26),
             _HomeSection(
               title: AppStrings.t('home.randomTitle'),
+              kicker: AppStrings.t('home.randomKicker'),
               videos: _random,
             ),
           ],
@@ -174,18 +180,6 @@ class _HomeScreenState extends State<HomeScreen> {
               message: AppStrings.t('feed.homeDescription'),
               compact: true,
             ),
-          if (_allVideos.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            Center(
-              child: Text(
-                AppStrings.t('home.noMore'),
-                style: TextStyle(
-                  color: AppColors.textMutedFor(context),
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -195,11 +189,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HomeSection extends StatelessWidget {
   const _HomeSection({
     this.title,
+    this.kicker,
     required this.videos,
     this.horizontal = false,
   });
 
   final String? title;
+  final String? kicker;
   final List<VideoCard> videos;
   final bool horizontal;
 
@@ -208,14 +204,27 @@ class _HomeSection extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (title != null) ...[
+        if (kicker != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              kicker!,
+              style: TextStyle(
+                color: AppColors.textMutedFor(context),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
         Text(
           title!,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w900,
-            letterSpacing: -.2,
+            letterSpacing: -.45,
           ),
         ),
-        const SizedBox(height: 11),
+        const SizedBox(height: 12),
       ],
       if (horizontal)
         SizedBox(
@@ -266,14 +275,30 @@ class _HomeCompactCard extends StatelessWidget {
               child: SizedBox(
                 height: 126,
                 width: double.infinity,
-                child: video.thumbnailUrl?.startsWith('http') == true
-                    ? Image.network(
-                        video.thumbnailUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            const _HomeThumbnailFallback(),
-                      )
-                    : const _HomeThumbnailFallback(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    video.thumbnailUrl?.startsWith('http') == true
+                        ? Image.network(
+                            video.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) =>
+                                const _HomeThumbnailFallback(),
+                          )
+                        : const _HomeThumbnailFallback(),
+                    if (video.isPromoted)
+                      Positioned(
+                        left: 8,
+                        top: 8,
+                        child: HuTubePill(
+                          label: AppStrings.t('home.promoted'),
+                          icon: Icons.campaign_outlined,
+                          color: AppColors.primaryPink,
+                          textColor: Colors.white,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
             Padding(

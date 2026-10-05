@@ -262,15 +262,14 @@ class ContentService {
     String id,
     bool hidden, {
     String? reason,
-  }) async =>
-      CommentItem.fromJson(
-        await auth.protected(
-          'PUT',
-          '/comments/${Uri.encodeComponent(id)}/visibility',
-          // ignore: use_null_aware_elements
-          body: {'hidden': hidden, if (reason != null) 'reason': reason},
-        ),
-      );
+  }) async => CommentItem.fromJson(
+    await auth.protected(
+      'PUT',
+      '/comments/${Uri.encodeComponent(id)}/visibility',
+      // ignore: use_null_aware_elements
+      body: {'hidden': hidden, if (reason != null) 'reason': reason},
+    ),
+  );
 
   Future<List<Rendition>> downloadOptions(String videoId) async {
     final items = await auth.protectedList(
@@ -331,7 +330,7 @@ class ContentService {
   );
 
   Future<PageResult<LibraryVideo>> history({int page = 1}) =>
-      _library('history', page: page);
+      _library('history', page: page, fromHistory: true);
 
   Future<void> deleteHistoryItem(String videoId) async {
     await auth.protected(
@@ -351,6 +350,7 @@ class ContentService {
     String kind, {
     required int page,
     int? rating,
+    bool fromHistory = false,
   }) async {
     final path = _query('/library/$kind', {
       'page': page,
@@ -359,12 +359,12 @@ class ContentService {
     });
     final json = await auth.protected('GET', path);
     return PageResult(
-      items: (json['items'] as List? ?? const [])
-          .whereType<Map>()
-          .map(
-            (value) => LibraryVideo.fromJson(Map<String, dynamic>.from(value)),
-          )
-          .toList(),
+      items: (json['items'] as List? ?? const []).whereType<Map>().map((value) {
+        final row = Map<String, dynamic>.from(value);
+        return fromHistory
+            ? LibraryVideo.fromHistoryJson(row)
+            : LibraryVideo.fromJson(row);
+      }).toList(),
       page: asInt(json['page']) == 0 ? page : asInt(json['page']),
       pageSize: asInt(json['pageSize']) == 0 ? 20 : asInt(json['pageSize']),
       total: asInt(json['total']),

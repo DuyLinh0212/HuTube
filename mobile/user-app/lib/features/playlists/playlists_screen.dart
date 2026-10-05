@@ -62,7 +62,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           });
         }
       } else {
-        final playlists = await _service.mine();
+        final playlists = (await _service.mine())
+            .where(
+              (playlist) => !const {
+                'Video đã lưu',
+                'Xem sau',
+                'Watch later',
+              }.contains(playlist.name.trim()),
+            )
+            .toList();
         final previews = <String, PlaylistDetail>{};
         final results = await Future.wait(
           playlists
@@ -887,7 +895,12 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   ) => ListTile(
     key: ValueKey(item.videoId),
     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 3),
-    leading: _thumbnail(item.thumbnailUrl, width: 88, height: 55),
+    leading: _canManage
+        ? ReorderableDragStartListener(
+            index: index,
+            child: _thumbnail(item.thumbnailUrl, width: 88, height: 55),
+          )
+        : _thumbnail(item.thumbnailUrl, width: 88, height: 55),
     title: Text(
       item.title ?? AppStrings.t('playlists.videoUnavailable'),
       maxLines: 2,

@@ -109,8 +109,9 @@ class PlaybackSession extends ChangeNotifier {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
-    final currentPlaying =
-        queueIndex >= 0 && queueIndex < queue.length ? queue[queueIndex] : null;
+    final currentPlaying = queueIndex >= 0 && queueIndex < queue.length
+        ? queue[queueIndex]
+        : null;
     final item = queue.removeAt(oldIndex);
     queue.insert(newIndex, item);
     if (currentPlaying != null) {
@@ -173,7 +174,8 @@ class PlaybackSession extends ChangeNotifier {
     final prefs = const AppPreferencesStore();
     final bgMode = await prefs.readBackgroundPlaybackMode();
     final pipPref = await prefs.readPipEnabled();
-    final allowBg = bgMode != 'off' &&
+    final allowBg =
+        bgMode != 'off' &&
         (mediaEntitlements.backgroundPlayback || bgMode == 'always');
     final allowPip = mediaEntitlements.pictureInPicture || pipPref;
     autoplayNext = await prefs.readAutoplayNext();
@@ -182,6 +184,11 @@ class PlaybackSession extends ChangeNotifier {
       id: video.id.hashCode & 0x7fffffff,
       autoPlay: false,
       showNativeControls: false,
+      mediaInfo: NativeVideoPlayerMediaInfo(
+        title: video.title,
+        subtitle: video.channelName,
+        artworkUrl: video.thumbnailUrl,
+      ),
       allowsPictureInPicture: allowPip,
       canStartPictureInPictureAutomatically: allowPip,
     );
