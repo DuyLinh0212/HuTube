@@ -143,7 +143,7 @@
           <aside class="preview-column">
             <div class="preview-heading"><div><span>{{ 'plans.preview' | translate }}</span><small><i></i>{{ 'plans.livePreview' | translate }}</small></div></div>
             <article class="plan-pass" [class.is-free]="draft.price === 0">
-              <div class="pass-topline"><span class="pass-brand"><img src="/assets/logo-mark.png" alt="" />HuTube</span><span class="pass-status" [class.is-inactive]="draft.status === 'inactive' || draft.status === 'archived'">{{ statusLabel(draft.status || 'active') }}</span></div>
+              <div class="pass-topline"><span class="pass-brand"><img src="/assets/logo-mark.png?v=hutube-mark-20261005" alt="" />HuTube</span><span class="pass-status" [class.is-inactive]="draft.status === 'inactive' || draft.status === 'archived'">{{ statusLabel(draft.status || 'active') }}</span></div>
               <div class="pass-name"><small>{{ draft.code || ('plans.codePlaceholder' | translate) }}</small><h3>{{ draft.name || ('plans.namePlaceholder' | translate) }}</h3><p>{{ draft.description || ('plans.previewDescription' | translate) }}</p></div>
               <div class="pass-price"><strong>{{ (draft.price || 0) | number:'1.0-0' }} <small>{{ 'plans.currency' | translate }}</small></strong><span>/ {{ draft.durationDays || 0 }} {{ 'plans.dayUnit' | translate }}</span></div>
               <div class="pass-perforation"><i></i><span></span><i></i></div>

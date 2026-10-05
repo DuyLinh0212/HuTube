@@ -404,14 +404,21 @@ public sealed class RecommendationAdminService(
 
     public async Task<RecommendationJob> QueueSimulatorAsync(Guid actorId, SimulatorRequest request, CancellationToken ct)
     {
-        if (request.UserIds is not { Count: >= 1 and <= 200 }
-            || request.VideoIds is not { Count: >= 1 and <= MaxSimulationVideoCount }
-            || request.ActionsPerUser is < 1 or > 1000 || request.UserIds.Count * request.ActionsPerUser > 10000
-            || request.DelayMs is < 0 or > 5000
-            || request.Mode is not ("target" or "cluster") || request.CommentTemplates is null
-            || request.CommentTemplates.Count > 100
+        if (request.UserIds is not { Count: >= 1 and <= 200 })
+            throw Error(400, "INVALID_SIMULATION_USERS", "Mô phỏng cần từ 1 đến 200 user.");
+        if (request.VideoIds is not { Count: >= 1 and <= MaxSimulationVideoCount })
+            throw Error(400, "INVALID_SIMULATION_VIDEOS", $"Mô phỏng cần từ 1 đến {MaxSimulationVideoCount:N0} video.");
+        if (request.ActionsPerUser is < 1 or > 1000)
+            throw Error(400, "INVALID_SIMULATION_ACTIONS", "Số video tương tác mỗi user cần từ 1 đến 1.000.");
+        if ((long)request.UserIds.Count * request.ActionsPerUser > 10_000)
+            throw Error(400, "SIMULATION_ACTION_LIMIT", "Một lượt mô phỏng không thể vượt quá 10.000 hành động; hãy giảm số user hoặc số video mỗi user.");
+        if (request.DelayMs is < 0 or > 5000)
+            throw Error(400, "INVALID_SIMULATION_DELAY", "Độ trễ cần nằm trong khoảng 0 đến 5.000 ms.");
+        if (request.Mode is not ("target" or "cluster"))
+            throw Error(400, "INVALID_SIMULATION_MODE", "Kịch bản mô phỏng không hợp lệ.");
+        if (request.CommentTemplates is null || request.CommentTemplates.Count > 100
             || request.CommentTemplates.Any(x => x is null || x.Length is < 3 or > 5000))
-            throw Error(400, "INVALID_SIMULATION", "Cấu hình mô phỏng không hợp lệ.");
+            throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mỗi mẫu bình luận cần từ 3 đến 5.000 ký tự và tối đa 100 mẫu.");
         if (new[] { request.ViewRate, request.LikeRate, request.DislikeRate, request.RatingRate,
                 request.CommentRate, request.SubscribeRate, request.VideoSkipRate }.Any(x => x is < 0 or > 100))
             throw Error(400, "INVALID_SIMULATION_RATE", "Tỷ lệ hành vi phải từ 0 đến 100.");

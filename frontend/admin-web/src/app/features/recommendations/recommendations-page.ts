@@ -28,6 +28,11 @@ interface Job {
   jobId: string; kind: string; status: string; step: string;
   completed: number; total: number; logsJson: string; error: string | null;
 }
+const MAX_SIMULATION_USERS = 200;
+const MAX_SIMULATION_VIDEOS = 10_000;
+const MAX_SIMULATION_ACTIONS_PER_USER = 1_000;
+const MAX_SIMULATION_ACTIONS = 10_000;
+
 type SimulatorTab = 'target' | 'cluster' | 'comments';
 type PageTab = 'model' | 'simulation';
 type ScoreMode = 'average' | 'weighted';
@@ -557,6 +562,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       this.error.set(this.i18n.t('recommendations.selectRequired'));
       return;
     }
+    if (!this.validateSimulation(userIds.length, videoIds.length, 'target')) return;
     if (this.hasRealUsers() && !this.confirmRealUsers) {
       this.error.set(this.i18n.t('recommendations.confirmRequired'));
       return;
@@ -575,6 +581,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       this.error.set(this.i18n.t('recommendations.botCountRange'));
       return;
     }
+    if (!this.validateSimulation(this.botCount, videoIds.length, 'cluster')) return;
     this.busy.set(true);
     this.error.set('');
     this.notice.set('');
@@ -592,6 +599,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   }
 
   private startSimulation(userIds: string[], videoIds: string[], mode: 'target' | 'cluster'): void {
+    if (!this.validateSimulation(userIds.length, videoIds.length, mode)) return;
     this.busy.set(true);
     this.error.set('');
     this.notice.set('');
@@ -611,6 +619,32 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       next: value => { this.busy.set(false); this.watch(value.jobId); },
       error: err => { this.error.set(errorMessage(err, this.i18n)); this.busy.set(false); },
     });
+  }
+
+  private validateSimulation(userCount: number, videoCount: number, mode: 'target' | 'cluster'): boolean {
+    const actionsPerUser = Number(mode === 'cluster' ? this.videosPerBot : this.actionsPerUser);
+    const delayMs = Number(this.delayMs);
+    if (!Number.isInteger(userCount) || userCount < 1 || userCount > MAX_SIMULATION_USERS) {
+      this.error.set(this.i18n.t('recommendations.simulationUserLimit'));
+      return false;
+    }
+    if (!Number.isInteger(videoCount) || videoCount < 1 || videoCount > MAX_SIMULATION_VIDEOS) {
+      this.error.set(this.i18n.t('recommendations.simulationVideoLimit'));
+      return false;
+    }
+    if (!Number.isInteger(actionsPerUser) || actionsPerUser < 1 || actionsPerUser > MAX_SIMULATION_ACTIONS_PER_USER) {
+      this.error.set(this.i18n.t('recommendations.simulationActionsRange'));
+      return false;
+    }
+    if (userCount * actionsPerUser > MAX_SIMULATION_ACTIONS) {
+      this.error.set(this.i18n.t('recommendations.simulationActionLimit'));
+      return false;
+    }
+    if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 5000) {
+      this.error.set(this.i18n.t('recommendations.simulationDelayRange'));
+      return false;
+    }
+    return true;
   }
 
   stop(): void {
