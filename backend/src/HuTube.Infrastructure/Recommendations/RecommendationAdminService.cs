@@ -25,6 +25,7 @@ public sealed record AdminUserOption(Guid UserId, string Username, string Displa
 public sealed record AdminCategoryOption(Guid CategoryId, string Name, string Slug);
 public sealed record AdminVideoOption(Guid VideoId, Guid ChannelId, string Title, int Duration,
     Guid? CategoryId, string CategoryName, string CategorySlug);
+public sealed record AdminVideoPage(IReadOnlyList<AdminVideoOption> Items, int Page, int PageSize, int Total);
 public sealed record CreateBotsRequest(int Count, string Prefix, string? DisplayName = null);
 public sealed record SimulationCategoryRate(Guid CategoryId, int Rate);
 // Nullable for compatibility with queued payloads from the previous fixed-percent UI;
@@ -48,6 +49,8 @@ public sealed class RecommendationAdminService(
     IPasswordService passwords, IContentService content, ChannelService channels,
     ILogger<RecommendationAdminService> logger)
 {
+    private const int VideoPickerPageSize = 200;
+    private const int MaxSimulationVideoCount = 10_000;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ScoreFeatures = ["rating", "like", "dislike", "watch", "comment", "subscribe"];
     private static ContentException Error(int status, string code, string message) => new(status, code, message);
@@ -341,8 +344,8 @@ public sealed class RecommendationAdminService(
             .Select(x => new AdminCategoryOption(x.CategoryId, x.Name, x.Slug))
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<AdminVideoOption>> VideosAsync(string? search, Guid? categoryId,
-        string? categoryIds, CancellationToken ct)
+    public async Task<AdminVideoPage> VideosAsync(string? search, Guid? categoryId,
+        string? categoryIds, int page, CancellationToken ct)
     {
         var query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(x => EF.Functions.ILike(x.Title, $"%{search.Trim()}%"));
@@ -351,17 +354,22 @@ public sealed class RecommendationAdminService(
             .Select(value => Guid.TryParse(value, out var id) ? id : (Guid?)null)
             .Where(value => value.HasValue).Select(value => value!.Value).Distinct().ToArray();
         if (categoryIdList.Length > 0) query = query.Where(x => x.CategoryId.HasValue && categoryIdList.Contains(x.CategoryId.Value));
-        var videos = await query.OrderByDescending(x => x.PublishedAt).Take(200)
+        var total = await query.CountAsync(ct);
+        var normalizedPage = Math.Max(1, page);
+        var offset = (int)Math.Min(int.MaxValue, (long)(normalizedPage - 1) * VideoPickerPageSize);
+        var videos = await query.OrderByDescending(x => x.PublishedAt).ThenBy(x => x.VideoId)
+            .Skip(offset).Take(VideoPickerPageSize)
             .Select(x => new { x.VideoId, x.ChannelId, x.Title, x.Duration, x.CategoryId }).ToListAsync(ct);
         var videoCategoryIds = videos.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).Distinct().ToArray();
         var categories = await db.Categories.AsNoTracking().Where(x => videoCategoryIds.Contains(x.CategoryId))
             .ToDictionaryAsync(x => x.CategoryId, x => new { x.Name, x.Slug }, ct);
-        return videos.Select(x =>
+        var items = videos.Select(x =>
         {
             var category = x.CategoryId is Guid id && categories.TryGetValue(id, out var found) ? found : null;
             return new AdminVideoOption(x.VideoId, x.ChannelId, x.Title, x.Duration,
                 x.CategoryId, category?.Name ?? "", category?.Slug ?? "default");
         }).ToList();
+        return new AdminVideoPage(items, normalizedPage, VideoPickerPageSize, total);
     }
 
     private sealed record SimulationVideo(Guid VideoId, Guid ChannelId, Guid UploadedByUserId,
@@ -396,7 +404,8 @@ public sealed class RecommendationAdminService(
 
     public async Task<RecommendationJob> QueueSimulatorAsync(Guid actorId, SimulatorRequest request, CancellationToken ct)
     {
-        if (request.UserIds is not { Count: >= 1 and <= 200 } || request.VideoIds is not { Count: >= 1 and <= 200 }
+        if (request.UserIds is not { Count: >= 1 and <= 200 }
+            || request.VideoIds is not { Count: >= 1 and <= MaxSimulationVideoCount }
             || request.ActionsPerUser is < 1 or > 1000 || request.UserIds.Count * request.ActionsPerUser > 10000
             || request.DelayMs is < 0 or > 5000
             || request.Mode is not ("target" or "cluster") || request.CommentTemplates is null

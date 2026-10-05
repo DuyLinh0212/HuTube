@@ -38,9 +38,10 @@ public sealed class RecommendationAdminController(RecommendationAdminService adm
     public Task<IReadOnlyList<AdminCategoryOption>> CategoriesAsync(CancellationToken ct) => admin.CategoriesAsync(ct);
 
     [HttpGet("videos")]
-    public Task<IReadOnlyList<AdminVideoOption>> VideosAsync([FromQuery] string? search,
-        [FromQuery] Guid? categoryId, [FromQuery] string? categoryIds, CancellationToken ct) =>
-        admin.VideosAsync(search, categoryId, categoryIds, ct);
+    public Task<AdminVideoPage> VideosAsync([FromQuery] string? search,
+        [FromQuery] Guid? categoryId, [FromQuery] string? categoryIds,
+        [FromQuery] int page = 1, CancellationToken ct = default) =>
+        admin.VideosAsync(search, categoryId, categoryIds, page, ct);
 
     [HttpPost("bots")]
     public Task<IReadOnlyList<AdminUserOption>> BotsAsync([FromBody] CreateBotsRequest request, CancellationToken ct) => admin.CreateBotsAsync(ActorId, request, ct);

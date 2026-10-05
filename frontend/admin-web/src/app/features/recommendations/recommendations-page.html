@@ -242,6 +242,14 @@
               </div>
               <div class="video-picker-head"><label class="search-label">{{ 'recommendations.targetVideos' | translate }} <span class="selected-count">{{ selectedVideos.size }} {{ 'recommendations.selected' | translate }}</span></label><button type="button" class="text-button" (click)="toggleAllVideos()">{{ (allVisibleVideosSelected() ? 'recommendations.clearVisibleVideos' : 'recommendations.selectAllVideos') | translate }}</button></div>
               <div class="video-search-row"><input [(ngModel)]="videoSearch" [placeholder]="'recommendations.searchVideo' | translate" (keyup.enter)="loadVideos()" /><button type="button" (click)="loadVideos()">{{ 'recommendations.search' | translate }}</button></div>
+              @if (videoTotal() > 0) {
+                <div class="video-picker-foot">
+                  <small>{{ 'recommendations.showingVideos' | translate:{ shown: videos().length, total: videoTotal() } }}</small>
+                  @if (videoHasMore() || loadingVideos()) {
+                    <button type="button" class="text-button" [disabled]="loadingVideos()" (click)="loadMoreVideos()">{{ (loadingVideos() ? 'recommendations.loadingVideos' : 'recommendations.loadMoreVideos') | translate }}</button>
+                  }
+                </div>
+              }
               <div class="video-list" role="group" [attr.aria-label]="'recommendations.chooseVideo' | translate">
                 @for (video of videos(); track video.videoId) {
                   <label class="video-option"><input type="checkbox" [checked]="selectedVideos.has(video.videoId)" (change)="toggleVideo(video.videoId)" /><span><strong>{{ video.title }}</strong><small>{{ categoryName(video) || ('recommendations.uncategorized' | translate) }} · {{ video.duration }}s</small></span></label>

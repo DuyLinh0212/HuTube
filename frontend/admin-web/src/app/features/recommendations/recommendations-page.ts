@@ -23,6 +23,7 @@ interface Video {
   videoId: string; channelId: string; title: string; duration: number;
   categoryId?: string | null; categoryName?: string; categorySlug?: string;
 }
+interface VideoPage { items: Video[]; page: number; pageSize: number; total: number; }
 interface Job {
   jobId: string; kind: string; status: string; step: string;
   completed: number; total: number; logsJson: string; error: string | null;
@@ -54,6 +55,9 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   readonly categories = signal<Category[]>([]);
   readonly videos = signal<Video[]>([]);
   readonly loadingVideos = signal(false);
+  readonly videoPage = signal(0);
+  readonly videoTotal = signal(0);
+  readonly videoHasMore = signal(false);
   readonly job = signal<Job | null>(null);
   readonly activePageTab = signal<PageTab>('model');
   readonly activeSimulatorTab = signal<SimulatorTab>('target');
@@ -67,6 +71,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   private readonly selectedPeople = new Map<string, Person>();
   readonly selectedVideos = new Set<string>();
   private readonly videoLookup = new Map<string, Video>();
+  private videoLoadRequest = 0;
   private readonly commentBankStorageKey = 'hutube.admin.recommendations.comment-bank.v1';
 
   userSearch = '';
@@ -149,18 +154,40 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   }
 
   loadVideos(): void {
+    this.videoPage.set(0);
+    this.videoTotal.set(0);
+    this.videoHasMore.set(false);
+    this.videos.set([]);
+    this.loadVideoPage(1, false);
+  }
+
+  loadMoreVideos(): void {
+    if (this.loadingVideos() || !this.videoHasMore()) return;
+    this.loadVideoPage(this.videoPage() + 1, true);
+  }
+
+  private loadVideoPage(page: number, append: boolean): void {
     const params: Record<string, string> = { search: this.videoSearch };
     if (this.mode === 'target' && this.selectedCategoryIds.size > 0)
       params['categoryIds'] = [...this.selectedCategoryIds].join(',');
+    params['page'] = String(page);
     this.loadingVideos.set(true);
-    this.videos.set([]);
-    this.http.get<Video[]>(`${this.base()}/videos`, { params }).subscribe({
-      next: value => {
-        this.videos.set(value);
-        value.forEach(video => this.videoLookup.set(video.videoId, video));
+    const requestId = ++this.videoLoadRequest;
+    this.http.get<VideoPage>(`${this.base()}/videos`, { params }).subscribe({
+      next: result => {
+        if (requestId !== this.videoLoadRequest) return;
+        this.videos.set(append ? [...this.videos(), ...result.items] : result.items);
+        result.items.forEach(video => this.videoLookup.set(video.videoId, video));
+        this.videoPage.set(result.page);
+        this.videoTotal.set(result.total);
+        this.videoHasMore.set(result.page * result.pageSize < result.total);
         this.loadingVideos.set(false);
       },
-      error: err => { this.error.set(errorMessage(err, this.i18n)); this.loadingVideos.set(false); },
+      error: err => {
+        if (requestId !== this.videoLoadRequest) return;
+        this.error.set(errorMessage(err, this.i18n));
+        this.loadingVideos.set(false);
+      },
     });
   }
 
