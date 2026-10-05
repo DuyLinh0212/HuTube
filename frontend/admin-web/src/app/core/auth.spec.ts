@@ -51,7 +51,7 @@ describe('Authentication boundary', () => {
   });
   it('restores a session from the HttpOnly cookie and validates current account status', async () => {
     const promise = firstValueFrom(auth.restore());
-    const request = controller.expectOne(base + '/auth/refresh'); expect(request.request.body).toEqual({}); expect(request.request.withCredentials).toBeTrue(); request.flush(response);
+    const request = controller.expectOne(base + '/auth/refresh'); expect(request.request.body.deviceName).toEqual(jasmine.any(String)); expect(request.request.withCredentials).toBeTrue(); request.flush(response);
     await Promise.resolve(); await Promise.resolve();
     controller.expectOne(base + (ADMIN_APP ? '/admin/me' : '/auth/me')).flush(user);
     expect(await promise).toBeTrue();

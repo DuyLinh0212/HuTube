@@ -1,6 +1,6 @@
 import { HttpBackend, HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, catchError, defer, finalize, firstValueFrom, map, of, shareReplay, switchMap, tap, throwError } from 'rxjs';
+import { Observable, TimeoutError, catchError, defer, finalize, firstValueFrom, map, of, retry, shareReplay, switchMap, timer, tap, throwError, timeout } from 'rxjs';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
 import { I18nService } from './i18n.service';
 
@@ -46,8 +46,13 @@ export class AuthService {
     if (ADMIN_APP) headers = headers.set('X-HuTube-App', 'admin');
     return headers;
   }
+  private isTransientNetworkError(error: unknown): boolean {
+    return error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0);
+  }
   private post<T>(path: string, body: unknown): Observable<T> {
-    return this.raw.post<T>(this.config.apiBaseUrl + path, body, { withCredentials: true, headers: this.headers });
+    return this.raw.post<T>(this.config.apiBaseUrl + path, body, { withCredentials: true, headers: this.headers }).pipe(
+      timeout({ first: 15_000 }),
+    );
   }
   clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); }
   private accept(response: LoginResponse): void { this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true; }
@@ -63,12 +68,17 @@ export class AuthService {
     if (!this.refreshFlight) {
       const generation = this.generation;
       // Serialize refresh cookie rotation across same-origin tabs as well as within this tab.
-      const request = () => firstValueFrom(this.post<LoginResponse>('/auth/refresh', {}));
+      const request = () => firstValueFrom(this.post<LoginResponse>('/auth/refresh', {
+        deviceName: browserDeviceName(this.i18n),
+      }));
       this.refreshFlight = defer(async () => typeof navigator !== 'undefined' && navigator.locks
         ? await navigator.locks.request('hutube-refresh-' + (ADMIN_APP ? 'admin' : 'web'), request)
         : await request()).pipe(
         tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.error.sessionEnded')); this.accept(response); }),
-        catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); }),
+        catchError(error => {
+          if (generation === this.generation && !this.isTransientNetworkError(error)) this.clear();
+          return throwError(() => error);
+        }),
         finalize(() => { this.refreshFlight = undefined; }),
         shareReplay({ bufferSize: 1, refCount: false })
       );
@@ -78,12 +88,18 @@ export class AuthService {
   restore(): Observable<boolean> {
     const generation = this.generation;
     const denied = () => { if (generation === this.generation) this.clear(); return of(false); };
-    if (this.accessToken()) return this.me().pipe(map(() => true), catchError(denied));
-    if (this.restored) return of(false);
+    if (this.restored && !this.accessToken()) return of(false);
     if (!this.restoreFlight) {
-      this.restoreFlight = this.refresh().pipe(
-        switchMap(() => this.me()),
-        map(() => true),
+      const restoreAttempt = () => {
+        if (generation !== this.generation || (this.restored && !this.accessToken())) return of(false);
+        return this.accessToken()
+          ? this.me().pipe(map(() => true))
+          : this.refresh().pipe(switchMap(() => this.me()), map(() => true));
+      };
+      this.restoreFlight = defer(restoreAttempt).pipe(
+        retry({ delay: error => this.isTransientNetworkError(error) && generation === this.generation
+          ? timer(5_000)
+          : throwError(() => error) }),
         catchError(denied),
         finalize(() => { this.restoreFlight = undefined; }),
         shareReplay({ bufferSize: 1, refCount: false })
