@@ -1788,14 +1788,40 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                               hintText: widget.auth.authenticated
                                   ? AppStrings.t('watch.commentHint')
                                   : 'Đăng nhập để thêm bình luận...',
-                              suffixIcon: IconButton(
-                                onPressed: _sendingComment
-                                    ? null
-                                    : _sendComment,
-                                icon: AppIcons.asset(
-                                  AppIcons.send,
-                                  size: 20,
-                                  color: Theme.of(context).colorScheme.primary,
+                              suffixIconConstraints: const BoxConstraints(
+                                minWidth: 60,
+                                minHeight: 60,
+                              ),
+                              suffixIcon: Padding(
+                                padding: const EdgeInsets.only(
+                                  right: 10,
+                                  bottom: 10,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: Material(
+                                    color: _sendingComment
+                                        ? Theme.of(context).colorScheme.primary
+                                              .withValues(alpha: 0.45)
+                                        : Theme.of(context).colorScheme.primary,
+                                    shape: const CircleBorder(),
+                                    child: IconButton(
+                                      constraints:
+                                          const BoxConstraints.tightFor(
+                                            width: 46,
+                                            height: 46,
+                                          ),
+                                      padding: EdgeInsets.zero,
+                                      onPressed: _sendingComment
+                                          ? null
+                                          : _sendComment,
+                                      icon: AppIcons.asset(
+                                        AppIcons.send,
+                                        size: 22,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
