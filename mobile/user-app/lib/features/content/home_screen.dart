@@ -145,12 +145,14 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           if (_recommendations.isNotEmpty)
             _HomeSection(
+              auth: widget.auth,
               title: AppStrings.t('home.forYouTitle'),
               videos: _recommendations,
             ),
           if (_subscriptions.isNotEmpty) ...[
             const SizedBox(height: 26),
             _HomeSection(
+              auth: widget.auth,
               title: AppStrings.t('home.followingTitle'),
               kicker: AppStrings.t('home.followingKicker'),
               videos: _subscriptions,
@@ -160,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_popular.isNotEmpty) ...[
             const SizedBox(height: 26),
             _HomeSection(
+              auth: widget.auth,
               title: AppStrings.t('home.popularTitle'),
               kicker: AppStrings.t('home.popularKicker'),
               videos: _popular,
@@ -168,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_random.isNotEmpty) ...[
             const SizedBox(height: 26),
             _HomeSection(
+              auth: widget.auth,
               title: AppStrings.t('home.randomTitle'),
               kicker: AppStrings.t('home.randomKicker'),
               videos: _random,
@@ -188,12 +192,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _HomeSection extends StatelessWidget {
   const _HomeSection({
+    required this.auth,
     this.title,
     this.kicker,
     required this.videos,
     this.horizontal = false,
   });
 
+  final AuthController auth;
   final String? title;
   final String? kicker;
   final List<VideoCard> videos;
@@ -241,7 +247,7 @@ class _HomeSection extends StatelessWidget {
         ...videos.map(
           (video) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: VideoCardTile(video: video, auth: widget.auth),
+            child: VideoCardTile(video: video, auth: auth),
           ),
         ),
     ],
