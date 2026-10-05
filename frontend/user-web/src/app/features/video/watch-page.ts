@@ -37,6 +37,7 @@ export class WatchPage {
   readonly relatedVideos = signal<VideoCard[]>([]);
   readonly channel = signal<ChannelDetail | null>(null);
   readonly comments = signal<CommentItem[]>([]);
+  readonly commentSort = signal<'newest' | 'top'>('newest');
   readonly repliesByComment = signal<Record<string, CommentItem[]>>({});
   readonly expandedReplies = signal<Record<string, boolean>>({});
   readonly repliesLoading = signal<Record<string, boolean>>({});
@@ -91,6 +92,7 @@ export class WatchPage {
   replyText = '';
   private readonly destroyRef = inject(DestroyRef);
   private readonly videoChanged = new Subject<void>();
+  private readonly commentsChanged = new Subject<void>();
   private playlistId: string | null = null;
   private videoId = '';
   private lastSaved = 0;
@@ -219,14 +221,26 @@ export class WatchPage {
       error: () => this.actionMessage.set(this.i18n.t('watch.playbackQualityError'))
     });
 
-    this.content.comments(this.videoId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.loadComments();
+  }
+
+  private loadComments() {
+    const requestVideoId = this.videoId;
+    this.content.comments(requestVideoId, 1, 20, this.commentSort()).pipe(
+      takeUntil(this.videoChanged),
+      takeUntil(this.commentsChanged),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
       next: value => {
+        if (requestVideoId !== this.videoId) return;
         const items = value.items ?? [];
         this.comments.set(items);
         // Keep existing replies visible after navigating directly to a video.
         for (const comment of items.filter(item => item.replyCount > 0)) this.loadReplies(comment, true);
       },
-      error: () => this.comments.set([])
+      error: () => {
+        if (requestVideoId === this.videoId) this.comments.set([]);
+      }
     });
   }
 
@@ -583,6 +597,16 @@ export class WatchPage {
     });
   }
 
+  setCommentSort(sort: 'newest' | 'top') {
+    if (sort === this.commentSort()) return;
+    this.commentSort.set(sort);
+    this.commentsChanged.next();
+    this.repliesByComment.set({});
+    this.expandedReplies.set({});
+    this.repliesLoading.set({});
+    this.loadComments();
+  }
+
   repliesFor(commentId: string): CommentItem[] {
     return this.repliesByComment()[commentId] ?? [];
   }
@@ -611,7 +635,11 @@ export class WatchPage {
     if (this.isRepliesLoading(comment.commentId)) return;
     this.repliesLoading.update(state => ({ ...state, [comment.commentId]: true }));
     if (expand) this.expandedReplies.update(state => ({ ...state, [comment.commentId]: true }));
-    this.content.replies(comment.commentId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.content.replies(comment.commentId).pipe(
+      takeUntil(this.videoChanged),
+      takeUntil(this.commentsChanged),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
       next: value => {
         this.repliesByComment.update(groups => ({ ...groups, [comment.commentId]: value.items ?? [] }));
         this.repliesLoading.update(state => ({ ...state, [comment.commentId]: false }));

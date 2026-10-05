@@ -856,11 +856,40 @@
   font-size: .7rem;
 }
 
-.section-heading > span,
 .comments-sort {
+  display: inline-flex;
+  align-items: center;
   color: var(--text-muted);
   font-size: .7rem;
   white-space: nowrap;
+}
+
+.comments-sort select {
+  padding: 5px 24px 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  background: var(--surface);
+  font: inherit;
+  cursor: pointer;
+}
+
+.comments-sort select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.comments-sort .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .chapter-list {

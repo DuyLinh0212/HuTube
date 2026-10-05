@@ -1355,11 +1355,18 @@ public sealed class ContentService(
             var likeCounts = db.CommentReactions.AsNoTracking().Where(reaction => reaction.Type == "like")
                 .GroupBy(reaction => reaction.CommentId)
                 .Select(group => new { CommentId = group.Key, Count = group.LongCount() });
+            var replyCounts = db.Comments.AsNoTracking()
+                .Where(reply => reply.ParentCommentId.HasValue && reply.Status == "visible")
+                .GroupBy(reply => reply.ParentCommentId!.Value)
+                .Select(group => new { CommentId = group.Key, Count = group.LongCount() });
             comments = await (from comment in query
                               join likes in likeCounts on comment.CommentId equals likes.CommentId into likeRows
                               from likes in likeRows.DefaultIfEmpty()
+                              join replies in replyCounts on comment.CommentId equals replies.CommentId into replyRows
+                              from replies in replyRows.DefaultIfEmpty()
                               let likeCount = (long?)likes.Count
-                              orderby (likeCount ?? 0L) descending, comment.CreatedAt descending
+                              let replyCount = (long?)replies.Count
+                              orderby ((likeCount ?? 0L) + (replyCount ?? 0L)) descending, comment.CreatedAt descending, comment.CommentId descending
                               select comment)
                 .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         }

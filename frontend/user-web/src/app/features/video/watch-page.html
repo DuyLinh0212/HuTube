@@ -243,7 +243,7 @@
         </div>
 
         <section class="comments-section">
-          <header class="section-heading comments-heading"><div><h2>{{ 'watch.comments' | translate }}</h2><p>{{ countLabel('watch.commentCount', item.stats.comments) }}</p></div><span class="comments-sort">{{ 'watch.newest' | translate }}</span></header>
+          <header class="section-heading comments-heading"><div><h2>{{ 'watch.comments' | translate }}</h2><p>{{ countLabel('watch.commentCount', item.stats.comments) }}</p></div><label class="comments-sort"><span class="visually-hidden">{{ 'watch.commentSortLabel' | translate }}</span><select [ngModel]="commentSort()" (ngModelChange)="setCommentSort($event)"><option value="newest">{{ 'watch.newest' | translate }}</option><option value="top">{{ 'watch.topComments' | translate }}</option></select></label></header>
           @if (auth.user()) {
             <form class="comment-composer" (ngSubmit)="comment()">
               <span class="comment-avatar comment-avatar--self">{{ initials(auth.user()?.displayName) }}</span>

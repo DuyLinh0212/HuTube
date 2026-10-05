@@ -1839,8 +1839,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                           .toList();
                       if (_commentSort == 'top') {
                         others.sort(
-                          (a, b) => (b.likes - b.dislikes).compareTo(
-                            a.likes - a.dislikes,
+                          (a, b) => (b.likes + b.replyCount).compareTo(
+                            a.likes + a.replyCount,
                           ),
                         );
                       } else {
