@@ -67,6 +67,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.unknown': 'Không rõ',
     'common.discardChanges': 'Hủy thay đổi',
     'common.skipToContent': 'Bỏ qua để đến nội dung chính',
+    'common.moreOptions': 'Tùy chọn khác',
+    'watch.savePlaylist': 'Thêm vào playlist',
+    'playlists.videos': 'video',
 
     // Navigation & Topbar / Sidebar
     'nav.home': 'Trang chủ',
@@ -2116,6 +2119,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'common.unknown': 'Unknown',
     'common.discardChanges': 'Discard changes',
     'common.skipToContent': 'Skip to main content',
+    'common.moreOptions': 'More options',
+    'watch.savePlaylist': 'Add to playlist',
+    'playlists.videos': 'videos',
 
     // Navigation & Topbar / Sidebar
     'nav.home': 'Home',

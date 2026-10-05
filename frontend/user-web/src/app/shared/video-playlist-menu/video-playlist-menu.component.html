@@ -1,0 +1,44 @@
+<div class="video-playlist-menu" (click)="stop($event)">
+  <button
+    type="button"
+    class="video-playlist-menu__trigger"
+    [attr.aria-label]="'common.moreOptions' | translate"
+    [attr.aria-expanded]="open()"
+    (click)="toggle($event)"
+  >
+    <span aria-hidden="true">⋮</span>
+  </button>
+
+  @if (open()) {
+    <div class="video-playlist-menu__panel" role="menu" (click)="stop($event)">
+      <div class="video-playlist-menu__heading">{{ 'watch.savePlaylist' | translate }}</div>
+      <p class="video-playlist-menu__hint">{{ 'watch.choosePlaylistToSave' | translate }}</p>
+
+      @if (loading()) {
+        <div class="video-playlist-menu__state" role="status">{{ 'common.loading' | translate }}</div>
+      } @else if (playlists().length === 0 && !message()) {
+        <div class="video-playlist-menu__state">{{ 'watchPlaylist.emptyTitle' | translate }}</div>
+      } @else {
+        @for (playlist of playlists(); track playlist.playlistId) {
+          <button
+            type="button"
+            class="video-playlist-menu__item"
+            role="menuitem"
+            [disabled]="addingId() !== null"
+            (click)="addToPlaylist($event, playlist)"
+          >
+            <span class="video-playlist-menu__item-copy">
+              <strong>{{ playlist.name }}</strong>
+              <small>{{ playlist.itemCount }} {{ 'playlists.videos' | translate }}</small>
+            </span>
+            <span class="video-playlist-menu__item-action">
+              @if (addingId() === playlist.playlistId) { {{ 'watchPlaylist.addingLabel' | translate }} } @else { + }
+            </span>
+          </button>
+        }
+      }
+
+      @if (message()) { <p class="video-playlist-menu__message" role="status">{{ message() }}</p> }
+    </div>
+  }
+</div>

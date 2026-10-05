@@ -194,7 +194,7 @@ class _FeedScreenState extends State<FeedScreen> {
               message: AppStrings.t('feed.tryAnotherTopic'),
               compact: true,
             ),
-          ..._videos.map((video) => VideoCardTile(video: video)),
+          ..._videos.map((video) => VideoCardTile(video: video, auth: widget.auth)),
           if (_moreLoading)
             const Padding(
               padding: EdgeInsets.all(22),

@@ -96,7 +96,7 @@
                 {{ video.channelName.charAt(0).toUpperCase() }}
               </span>
               <div class="search-video-meta">
-                <h2>{{ video.title }}</h2>
+                <div class="video-title-row"><h2>{{ video.title }}</h2><app-video-playlist-menu [videoId]="video.videoId" /></div>
                 <p class="channel-name">{{ video.channelName }}</p>
                 <p class="video-stats">
                   {{ video.views | localeNumber }} {{ 'home.views' | translate }}
@@ -206,7 +206,7 @@
                   <span class="category-top-duration">{{ duration(video.duration) }}</span>
                 </div>
                 <div class="category-top-info">
-                  <h3 [title]="video.title">{{ video.title }}</h3>
+                  <div class="video-title-row"><h3 [title]="video.title">{{ video.title }}</h3><app-video-playlist-menu [videoId]="video.videoId" /></div>
                   <p class="channel-name">{{ video.channelName }}</p>
                   <p class="views-count">{{ video.views | localeNumber }} {{ 'home.views' | translate }}</p>
                 </div>
@@ -248,7 +248,7 @@
                     <span class="category-top-duration">{{ duration(video.duration) }}</span>
                   </div>
                   <div class="category-top-info">
-                    <h3 [title]="video.title">{{ video.title }}</h3>
+                    <div class="video-title-row"><h3 [title]="video.title">{{ video.title }}</h3><app-video-playlist-menu [videoId]="video.videoId" /></div>
                     <p class="channel-name">{{ video.channelName }}</p>
                     <p class="views-count">{{ video.views | localeNumber }} {{ 'home.views' | translate }}</p>
                   </div>
@@ -382,10 +382,9 @@
                     }
                     <span class="trending-duration">{{ duration(video.duration) }}</span>
                   </div>
-
                   <!-- Content Meta -->
                   <div class="trending-content">
-                    <h3 class="trending-video-title" [title]="video.title">{{ video.title }}</h3>
+                    <div class="video-title-row"><h3 class="trending-video-title" [title]="video.title">{{ video.title }}</h3><app-video-playlist-menu [videoId]="video.videoId" /></div>
 
                     <!-- Channel line -->
                     <div class="trending-channel-line">

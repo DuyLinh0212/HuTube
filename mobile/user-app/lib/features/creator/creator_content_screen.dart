@@ -322,7 +322,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                         clipBehavior: Clip.antiAlias,
                         child: Column(
                           children: [
-                            VideoCardTile(video: video),
+                            VideoCardTile(video: video, auth: widget.auth),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 0, 8, 8),
                               child: Row(

@@ -312,9 +312,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                   onSelected: (val) {
                                     if (val == 'remove') {
                                       _removeHistoryItem(item);
+                                    } else if (val == 'playlist') {
+                                      showAddVideoToPlaylistSheet(
+                                        context,
+                                        auth: widget.auth,
+                                        videoId: item.id,
+                                      );
                                     }
                                   },
                                   itemBuilder: (ctx) => [
+                                    PopupMenuItem(
+                                      value: 'playlist',
+                                      child: Row(
+                                        children: [
+                                          AppIcons.asset(AppIcons.playlist, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(AppStrings.t('watch.savePlaylist')),
+                                        ],
+                                      ),
+                                    ),
                                     PopupMenuItem(
                                       value: 'remove',
                                       child: Row(

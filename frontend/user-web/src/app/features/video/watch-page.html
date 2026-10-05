@@ -320,7 +320,7 @@
             @for (recommended of visibleRelatedVideos(); track recommended.videoId) {
               <a class="recommendation-card" [routerLink]="['/watch', recommended.videoId]">
                 <div class="recommendation-thumb">@if (recommended.thumbnailUrl) { <img [src]="recommended.thumbnailUrl" alt="" /> } @else { <span aria-hidden="true">▶</span> }<time>{{ duration(recommended.duration) }}</time></div>
-                <div class="recommendation-copy"><h3>{{ recommended.title }}</h3><p>{{ recommended.channelName }}</p><small>{{ countLabel('watch.recommendationViews', recommended.views) }}<span aria-hidden="true"> · </span>{{ recommended.publishedAt ? (recommended.publishedAt | localeDate:'d MMM y') : ('watch.newlyPosted' | translate) }}</small></div>
+                <div class="recommendation-copy"><div class="video-title-row"><h3>{{ recommended.title }}</h3><app-video-playlist-menu [videoId]="recommended.videoId" /></div><p>{{ recommended.channelName }}</p><small>{{ countLabel('watch.recommendationViews', recommended.views) }}<span aria-hidden="true"> · </span>{{ recommended.publishedAt ? (recommended.publishedAt | localeDate:'d MMM y') : ('watch.newlyPosted' | translate) }}</small></div>
               </a>
             }
           </div>

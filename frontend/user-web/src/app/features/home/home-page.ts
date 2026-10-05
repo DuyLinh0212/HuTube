@@ -10,10 +10,11 @@ import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/video-playlist-menu.component';
 
 @Component({
   selector: 'app-home-page',
-  imports: [NgTemplateOutlet, RouterLink, LocaleDatePipe, LocaleNumberPipe, TranslatePipe],
+  imports: [NgTemplateOutlet, RouterLink, LocaleDatePipe, LocaleNumberPipe, TranslatePipe, VideoPlaylistMenuComponent],
   templateUrl: './home-page.html',
   styleUrl: './home-page.scss',
 })

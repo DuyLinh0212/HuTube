@@ -505,7 +505,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               for (final video in videosToDisplay)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                  child: VideoCardTile(video: video),
+                  child: VideoCardTile(video: video, auth: widget.auth),
                 ),
               if (_loadingMore)
                 const Padding(

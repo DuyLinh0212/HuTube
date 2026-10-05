@@ -133,6 +133,7 @@
 }
 
 .category-top-item {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -709,6 +710,7 @@
 }
 
 .trending-card {
+  position: relative;
   flex: 0 0 calc((100% - 64px) / 5);
   min-width: 220px;
   text-decoration: none;
@@ -999,6 +1001,7 @@
 }
 
 .search-video-card {
+  position: relative;
   display: block;
   text-decoration: none;
   color: inherit;
@@ -1013,6 +1016,10 @@
     }
   }
 }
+
+.video-title-row { display: flex; align-items: flex-start; gap: 4px; }
+.video-title-row > h2,
+.video-title-row > h3 { flex: 1; min-width: 0; }
 
 .search-video-thumb {
   position: relative;

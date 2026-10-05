@@ -13,10 +13,11 @@ import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { PictureInPictureService } from '../../core/picture-in-picture.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
+import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/video-playlist-menu.component';
 
 @Component({
   selector: 'app-watch-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent],
+  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })

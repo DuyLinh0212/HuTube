@@ -1911,6 +1911,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                               (item) => VideoCardTile(
                                 video: item,
                                 replaceRoute: true,
+                                auth: widget.auth,
                               ),
                             )
                             .toList(),

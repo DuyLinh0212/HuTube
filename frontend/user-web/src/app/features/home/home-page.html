@@ -93,7 +93,7 @@
     <time>{{ duration(video.duration) }}</time>
   </div>
   <div class="copy">
-    <h2>{{ video.title }}</h2>
+    <div class="video-title-row"><h2>{{ video.title }}</h2><app-video-playlist-menu [videoId]="video.videoId" /></div>
     <p>{{ video.channelName }}</p>
     <small>{{ video.views | localeNumber }} {{ 'home.views' | translate }} · {{ video.publishedAt | localeDate:'dd/MM/yyyy' }}</small>
   </div>

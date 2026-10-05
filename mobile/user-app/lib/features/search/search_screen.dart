@@ -603,7 +603,7 @@ class _SearchScreenState extends State<SearchScreen> {
           for (final video in _results)
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
-              child: VideoCardTile(video: video),
+              child: VideoCardTile(video: video, auth: widget.auth),
             ),
           if (_hasMore)
             OutlinedButton(

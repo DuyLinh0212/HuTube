@@ -241,7 +241,7 @@ class _HomeSection extends StatelessWidget {
         ...videos.map(
           (video) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: VideoCardTile(video: video),
+            child: VideoCardTile(video: video, auth: widget.auth),
           ),
         ),
     ],

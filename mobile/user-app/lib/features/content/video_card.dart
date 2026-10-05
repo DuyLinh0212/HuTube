@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../auth.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/widgets/hutube_widgets.dart';
+import '../playlists/playlist_service.dart';
 import 'content_models.dart';
 
 class VideoCardTile extends StatelessWidget {
@@ -14,12 +17,14 @@ class VideoCardTile extends StatelessWidget {
     this.progress,
     this.replaceRoute = false,
     this.trailing,
+    this.auth,
   });
 
   final VideoCard video;
   final double? progress;
   final bool replaceRoute;
   final Widget? trailing;
+  final AuthController? auth;
 
   @override
   Widget build(BuildContext context) {
@@ -133,15 +138,37 @@ class VideoCardTile extends StatelessWidget {
                     trailing ??
                         PopupMenuButton<String>(
                           tooltip: AppStrings.t('common.moreOptions'),
-                          icon: const Icon(Icons.more_vert_rounded, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                          icon: const Icon(Icons.more_vert_rounded, size: 18),
                           onSelected: (action) {
                             if (action == 'share') {
                               Share.share(
                                 'Xem "${video.title}" trên HuTube:\nhttps://hutube.app/watch/${video.id}',
                               );
+                            } else if (action == 'playlist' && auth != null) {
+                              showAddVideoToPlaylistSheet(
+                                context,
+                                auth: auth!,
+                                videoId: video.id,
+                              );
                             }
                           },
                           itemBuilder: (_) => [
+                            if (auth != null)
+                              PopupMenuItem(
+                                value: 'playlist',
+                                child: Row(
+                                  children: [
+                                    AppIcons.asset(AppIcons.playlist, size: 18),
+                                    const SizedBox(width: 10),
+                                    Text(AppStrings.t('watch.savePlaylist')),
+                                  ],
+                                ),
+                              ),
                             PopupMenuItem(
                               value: 'share',
                               child: Row(
@@ -170,6 +197,72 @@ class VideoCardTile extends StatelessWidget {
   static String _dateSuffix(DateTime? date) {
     if (date == null) return '';
     return ' · ${AppStrings.relativeDate(date)}';
+  }
+}
+
+Future<void> showAddVideoToPlaylistSheet(
+  BuildContext context, {
+  required AuthController auth,
+  required String videoId,
+}) async {
+  if (!auth.authenticated) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.t('watch.loginPlaylist'))),
+    );
+    return;
+  }
+
+  final service = PlaylistService(auth);
+  try {
+    final playlists = await service.mine();
+    if (!context.mounted) return;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: Text(
+                AppStrings.t('watch.savePlaylist'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(AppStrings.t('playlists.subtitle')),
+            ),
+            if (playlists.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: Text(AppStrings.t('playlists.emptyTitle')),
+              ),
+            for (final playlist in playlists)
+              ListTile(
+                leading: AppIcons.asset(AppIcons.playlist, size: 22),
+                title: Text(playlist.name),
+                subtitle: Text(
+                  AppStrings.format('channel.videoCount', {
+                    'count': AppStrings.number(playlist.itemCount),
+                  }),
+                ),
+                onTap: () => Navigator.pop(sheetContext, playlist.id),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !context.mounted) return;
+    await service.addVideo(selected, videoId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.t('watch.savedToPlaylist'))),
+      );
+    }
+  } on ApiFailure catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    }
   }
 }
 
