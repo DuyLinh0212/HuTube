@@ -67,6 +67,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   bool _controlsLocked = false;
   bool _zoomToFill = false;
   bool _pipEnabled = false;
+  bool _backgroundPlaybackEnabled = false;
   String _commentSort = 'top';
   String? _pinnedCommentId;
   final Set<String> _heartedCommentIds = <String>{};
@@ -128,18 +129,6 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       widget.playback.minimize();
     }
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if ((state == AppLifecycleState.inactive ||
-            state == AppLifecycleState.paused) &&
-        _pipEnabled &&
-        widget.playback.isPlaying &&
-        widget.playback.ready) {
-      _enterPictureInPicture();
-    }
   }
 
   Future<void> _toggleFullScreen({
@@ -209,6 +198,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       _related = [];
       _actionMessage = null;
       _sendingComment = false;
+      _backgroundPlaybackEnabled = false;
     });
     try {
       final detail = await _content.detail(videoId);
@@ -355,6 +345,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
             }),
           );
         });
+      }
+      if (mounted && generation == _generation) {
+        setState(
+          () => _backgroundPlaybackEnabled =
+              widget.playback.backgroundPlaybackEnabled,
+        );
       }
     } on ApiFailure catch (error) {
       if (mounted && generation == _generation) {
@@ -1130,10 +1126,10 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           _PlaybackSettingTile(
             dense: true,
             icon: Icons.headphones_rounded,
-            title: 'Trên đường đi',
+            title: AppStrings.t('watch.background'),
             onTap: () {
               Navigator.pop(modalContext);
-              _showOnTheGoOptions();
+              unawaited(_toggleBackgroundPlayback());
             },
           ),
           _PlaybackSettingTile(
@@ -1229,77 +1225,26 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _showOnTheGoOptions() async {
-    final mode = await _prefs.readBackgroundPlaybackMode();
+  Future<void> _toggleBackgroundPlayback() async {
+    if (!_entitlements.backgroundPlayback) {
+      if (mounted) {
+        setState(
+          () => _actionMessage = AppStrings.t('watch.backgroundUnavailable'),
+        );
+      }
+      return;
+    }
+    final enabled = !_backgroundPlaybackEnabled;
+    final changed = await widget.playback.setBackgroundPlaybackEnabled(enabled);
     if (!mounted) return;
-    final selected = await _showAdaptivePlaybackModal<String>(
-      context: context,
-      builder: (modalContext) => ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.only(bottom: 8),
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(top: 10, bottom: 6),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Phát trong nền',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-                SizedBox(height: 3),
-                Text(
-                  'Thay đổi này có hiệu lực khi phát video tiếp theo.',
-                  style: TextStyle(color: Colors.white60, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          for (final option in const [
-            (value: 'always', label: 'Luôn cho phép'),
-            (value: 'headphones', label: 'Chỉ khi dùng tai nghe'),
-            (value: 'off', label: 'Tắt'),
-          ])
-            ListTile(
-              dense: true,
-              visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              title: Text(
-                option.label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-              ),
-              trailing: mode == option.value
-                  ? const Icon(
-                      Icons.check_rounded,
-                      color: AppColors.primaryPink,
-                      size: 20,
-                    )
-                  : null,
-              onTap: () => Navigator.pop(modalContext, option.value),
-            ),
-        ],
-      ),
-    );
-    if (selected != null) await _prefs.writeBackgroundPlaybackMode(selected);
+    setState(() {
+      if (changed) _backgroundPlaybackEnabled = enabled;
+      _actionMessage = changed
+          ? AppStrings.t(
+              enabled ? 'watch.backgroundEnabled' : 'watch.backgroundDisabled',
+            )
+          : AppStrings.t('watch.backgroundUnavailable');
+    });
   }
 
   Future<void> _showMoreOptions() async {
@@ -1695,15 +1640,13 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                               onTap: _enterPictureInPicture,
                             ),
                           if (_entitlements.backgroundPlayback)
-                            Padding(
-                              padding: EdgeInsets.only(right: 8),
-                              child: Chip(
-                                avatar: Icon(
-                                  Icons.headphones_outlined,
-                                  size: 18,
-                                ),
-                                label: Text(AppStrings.t('watch.background')),
-                              ),
+                            _ActionChip(
+                              icon: Icons.headphones_outlined,
+                              label: _backgroundPlaybackEnabled
+                                  ? AppStrings.t('watch.backgroundEnabledShort')
+                                  : AppStrings.t('watch.background'),
+                              active: _backgroundPlaybackEnabled,
+                              onTap: _toggleBackgroundPlayback,
                             ),
                         ],
                       ),

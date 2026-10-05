@@ -68,7 +68,7 @@ class AppPreferencesStore {
       _storage.write(key: playbackPipKey, value: '$value');
 
   Future<String> readBackgroundPlaybackMode() async =>
-      (await _storage.read(key: backgroundPlaybackModeKey)) ?? 'always';
+      (await _storage.read(key: backgroundPlaybackModeKey)) ?? 'off';
 
   Future<void> writeBackgroundPlaybackMode(String mode) =>
       _storage.write(key: backgroundPlaybackModeKey, value: mode);

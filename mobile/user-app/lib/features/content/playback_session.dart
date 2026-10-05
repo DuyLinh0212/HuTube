@@ -32,6 +32,7 @@ class PlaybackSession extends ChangeNotifier {
   bool ready = false;
   bool minimized = false;
   bool isPlaying = false;
+  bool backgroundPlaybackEnabled = false;
   bool _initializing = false;
   int _lastSavedSecond = 0;
 
@@ -172,11 +173,7 @@ class PlaybackSession extends ChangeNotifier {
 
     await dismiss(notify: false);
     final prefs = const AppPreferencesStore();
-    final bgMode = await prefs.readBackgroundPlaybackMode();
     final pipPref = await prefs.readPipEnabled();
-    final allowBg =
-        bgMode != 'off' &&
-        (mediaEntitlements.backgroundPlayback || bgMode == 'always');
     final allowPip = mediaEntitlements.pictureInPicture || pipPref;
     autoplayNext = await prefs.readAutoplayNext();
 
@@ -206,12 +203,17 @@ class PlaybackSession extends ChangeNotifier {
     ready = false;
     minimized = false;
     isPlaying = false;
+    backgroundPlaybackEnabled = false;
     _initializing = false;
     _lastSavedSecond = resumeAt;
     player = controller;
     _backgroundGuard = BackgroundPlaybackGuard(
       controller,
-      pauseInBackground: !allowBg,
+      // Background playback is opt-in for each active video. The native
+      // player will still publish its MediaSession when it is playing, but
+      // this guard keeps normal video playback from continuing silently when
+      // the user leaves the app.
+      pauseInBackground: true,
     );
     _positionSubscription = controller.positionStream.listen((value) {
       position = value;
@@ -321,6 +323,20 @@ class PlaybackSession extends ChangeNotifier {
     }
   }
 
+  /// Enables background audio for the current video after an explicit user
+  /// action. The native player already owns the Android MediaSession/iOS Now
+  /// Playing integration, so changing the guard is enough to keep its audio
+  /// alive when the app is backgrounded.
+  Future<bool> setBackgroundPlaybackEnabled(bool enabled) async {
+    if (enabled && !entitlements.backgroundPlayback) return false;
+    final guard = _backgroundGuard;
+    if (guard == null || !hasVideo) return false;
+    guard.pauseInBackground = !enabled;
+    backgroundPlaybackEnabled = enabled;
+    notifyListeners();
+    return true;
+  }
+
   Future<void> seekBy(int seconds) async {
     final controller = player;
     if (controller == null || !ready) return;
@@ -369,6 +385,7 @@ class PlaybackSession extends ChangeNotifier {
     minimized = false;
     ready = false;
     isPlaying = false;
+    backgroundPlaybackEnabled = false;
     title = '';
     channelName = '';
     thumbnailUrl = null;
