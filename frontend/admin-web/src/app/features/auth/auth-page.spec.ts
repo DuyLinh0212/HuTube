@@ -19,7 +19,11 @@ describe('Vietnamese auth forms', () => {
     for (const [name,value] of Object.entries(values)) { const input=harness.routeNativeElement!.querySelector<HTMLInputElement>('[name="'+name+'"]')!; input.value=value; input.dispatchEvent(new Event('input')); }
     harness.detectChanges(); await harness.fixture.whenStable();
   }
-  async function submit(harness: RouterTestingHarness) { harness.routeNativeElement!.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})); harness.detectChanges(); await harness.fixture.whenStable(); }
+  function submit(harness: RouterTestingHarness) {
+    harness.routeNativeElement!.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+    harness.detectChanges();
+    // Flush the mocked HTTP request before waiting for Angular to become stable.
+  }
   it('prevents empty login submissions and provides an actionable error', async()=>{
     const harness=await RouterTestingHarness.create('/login'); await submit(harness);
     controller.expectNone(base+'/auth/login'); expect(harness.routeNativeElement!.textContent).toContain('Vui lòng kiểm tra');
