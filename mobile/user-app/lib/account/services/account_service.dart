@@ -118,8 +118,13 @@ class AccountService {
   }
 
   Future<List<Map<String, dynamic>>> getSessions() async {
-    final list = await auth.protectedList('/auth/sessions');
-    return list.whereType<Map<String, dynamic>>().toList();
+    final response = await auth.protected('GET', '/auth/sessions');
+    final items = response['items'];
+    if (items is! List) return const [];
+    return items
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
   }
 
   Future<Map<String, dynamic>> getLoginHistory({

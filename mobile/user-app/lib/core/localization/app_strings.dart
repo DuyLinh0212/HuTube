@@ -502,7 +502,8 @@ class AppStrings {
       'profile.refreshDevices': 'Tải lại thiết bị',
       'profile.sessionsDescription':
           'Thu hồi phiên trên thiết bị bạn không còn sử dụng.',
-      'profile.sessionsEmpty': 'Chưa tải được danh sách thiết bị.',
+      'profile.sessionsEmpty': 'Chưa có thiết bị đăng nhập đang hoạt động.',
+      'profile.sessionsLoadError': 'Không thể tải danh sách thiết bị.',
       'profile.logoutOthers': 'Đăng xuất thiết bị khác',
       'profile.logoutAll': 'Đăng xuất mọi thiết bị',
       'profile.logout': 'Đăng xuất',
@@ -1839,7 +1840,8 @@ class AppStrings {
       'profile.refreshDevices': 'Refresh devices',
       'profile.sessionsDescription':
           'Revoke sessions on devices you no longer use.',
-      'profile.sessionsEmpty': 'Unable to load your devices.',
+      'profile.sessionsEmpty': 'There are no active signed-in devices.',
+      'profile.sessionsLoadError': 'Unable to load your devices.',
       'profile.logoutOthers': 'Sign out other devices',
       'profile.logoutAll': 'Sign out all devices',
       'profile.logout': 'Sign out',

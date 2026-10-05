@@ -185,9 +185,9 @@ class AccountController extends ChangeNotifier {
     try {
       sessions = await service.getSessions();
     } on AppError catch (e) {
-      errorMessage = _error(e, 'profile.sessionsEmpty');
+      errorMessage = _error(e, 'profile.sessionsLoadError');
     } catch (_) {
-      errorMessage = AppStrings.t('profile.sessionsEmpty');
+      errorMessage = AppStrings.t('profile.sessionsLoadError');
     } finally {
       loadingSessions = false;
       notifyListeners();
