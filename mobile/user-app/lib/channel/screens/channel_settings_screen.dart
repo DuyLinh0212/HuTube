@@ -805,40 +805,34 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           const SizedBox(height: 18),
           _avatarEditor(),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppStrings.t('channel.watermarkTitle'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      AppStrings.t('channel.watermarkDescription'),
-                      style: TextStyle(
-                        color: AppColors.textSecondaryFor(context),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _busy || _uploadingWatermark
-                    ? null
-                    : _pickAndUploadWatermark,
-                icon: _uploadingWatermark
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.branding_watermark_outlined),
-                label: Text(AppStrings.t('channel.uploadWatermark')),
-              ),
-            ],
+          Text(
+            AppStrings.t('channel.watermarkTitle'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            AppStrings.t('channel.watermarkDescription'),
+            style: TextStyle(
+              color: AppColors.textSecondaryFor(context),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _busy || _uploadingWatermark
+                  ? null
+                  : _pickAndUploadWatermark,
+              icon: _uploadingWatermark
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.branding_watermark_outlined),
+              label: Text(AppStrings.t('channel.uploadWatermark')),
+            ),
           ),
           const SizedBox(height: 10),
           Container(

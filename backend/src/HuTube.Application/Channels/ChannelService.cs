@@ -77,7 +77,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     public async Task<ChannelResponse?> GetMyChannelAsync(Guid userId, CancellationToken ct = default)
     {
         var channel = await store.FindOwnedChannelAsync(userId, ct);
-        return channel == null ? null : ToResponse(channel, ChannelRoles.Owner);
+        return channel == null ? null : await ToResponseWithStatsAsync(channel, ChannelRoles.Owner, ct);
     }
 
     public async Task<IReadOnlyList<ChannelResponse>> GetAccessibleChannelsAsync(Guid userId, CancellationToken ct = default)
@@ -87,7 +87,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         foreach (var channel in channels)
         {
             var role = await ResolveRoleAsync(channel, userId, ct);
-            if (role != null) result.Add(ToResponse(channel, role));
+            if (role != null) result.Add(await ToResponseWithStatsAsync(channel, role, ct));
         }
         return result;
     }
@@ -95,9 +95,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
     public async Task<ChannelResponse> GetChannelAsync(Guid channelId, Guid? actorUserId = null, CancellationToken ct = default)
     {
         var channel = await RequireChannelAsync(channelId, ct);
-        var subCount = await store.CountSubscribersAsync(channelId, ct);
-        var videoCount = await store.CountPublishedVideosAsync(channelId, ct);
-        return ToResponse(channel, await ResolveRoleAsync(channel, actorUserId, ct), subCount, videoCount);
+        return await ToResponseWithStatsAsync(channel, await ResolveRoleAsync(channel, actorUserId, ct), ct);
     }
 
     public async Task<ChannelResponse> GetChannelByHandleAsync(string handle, Guid? actorUserId = null, CancellationToken ct = default)
@@ -107,9 +105,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
 
         var channel = await store.FindChannelByHandleAsync(Channel.NormalizeHandle(handle), ct)
             ?? throw new ChannelException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
-        var subCount = await store.CountSubscribersAsync(channel.ChannelId, ct);
-        var videoCount = await store.CountPublishedVideosAsync(channel.ChannelId, ct);
-        return ToResponse(channel, await ResolveRoleAsync(channel, actorUserId, ct), subCount, videoCount);
+        return await ToResponseWithStatsAsync(channel, await ResolveRoleAsync(channel, actorUserId, ct), ct);
     }
 
     public async Task<CheckHandleResponse> CheckHandleAsync(string handle, Guid? currentChannelId = null, CancellationToken ct = default)
@@ -163,7 +159,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         channel.UpdatedAt = DateTimeOffset.UtcNow;
         await store.SaveAsync(ct);
         await WriteAuditAsync(actorUserId, "channel.updated", channel.ChannelId, null, ct);
-        return ToResponse(channel, role);
+        return await ToResponseWithStatsAsync(channel, role, ct);
     }
 
     public async Task EnsureBrandingPermissionAsync(Guid channelId, Guid actorUserId, CancellationToken ct = default)
@@ -509,11 +505,21 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, action, "channel", channelId, reason), ct);
     }
 
-    private static ChannelResponse ToResponse(Channel channel, string? roleCode, long subscriberCount = 0, long videoCount = 0) =>
+    private async Task<ChannelResponse> ToResponseWithStatsAsync(Channel channel, string? roleCode, CancellationToken ct)
+    {
+        var subscriberCount = await store.CountSubscribersAsync(channel.ChannelId, ct);
+        var videoCount = await store.CountPublishedVideosAsync(channel.ChannelId, ct);
+        var viewCount = await store.CountPublishedVideoViewsAsync(channel.ChannelId, ct);
+        return ToResponse(channel, roleCode, subscriberCount, videoCount, viewCount);
+    }
+
+    private static ChannelResponse ToResponse(Channel channel, string? roleCode, long subscriberCount = 0,
+        long videoCount = 0, long viewCount = 0) =>
         new(channel.ChannelId, channel.OwnerUserId, channel.Name, channel.Handle, channel.Description,
             channel.AvatarUrl, channel.BannerUrl, channel.ContactEmail, channel.WatermarkUrl, channel.Settings,
             channel.Status, subscriberCount, videoCount, roleCode == ChannelRoles.Owner, roleCode,
-            ChannelPermissions.ForRole(roleCode), channel.CreatedAt, roleCode == ChannelRoles.Owner ? channel.StatusReason : null);
+            ChannelPermissions.ForRole(roleCode), channel.CreatedAt,
+            roleCode == ChannelRoles.Owner ? channel.StatusReason : null, viewCount);
 
     private static ChannelMemberResponse ToMemberResponse(ChannelMember member, string username, string email, string displayName, string? avatarUrl) =>
         new(member.ChannelMemberId, member.ChannelId, member.UserId, username, email, displayName, avatarUrl,

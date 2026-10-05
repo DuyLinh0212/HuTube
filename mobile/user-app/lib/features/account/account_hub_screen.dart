@@ -152,93 +152,6 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     });
   }
 
-  void _showAccountSwitcherSheet(BuildContext context) {
-    final user = widget.auth.user;
-    final name = (user?['displayName'] as String?) ?? 'Người dùng HuTube';
-    final email = (user?['email'] as String?) ?? '';
-    final username = (user?['username'] as String?) ?? '';
-    final avatarUrl = user?['avatarUrl'] as String?;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: isDark ? const Color(0xFF1F1F1F) : Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  children: [
-                    HuTubeAvatar(
-                      url: avatarUrl,
-                      label: name,
-                      radius: 26,
-                      backgroundColor: AppColors.primaryPink.withValues(alpha: 0.2),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            email.isNotEmpty ? email : '@$username',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 24),
-              ListTile(
-                leading: const Icon(Icons.manage_accounts_outlined),
-                title: const Text('Quản lý Tài khoản HuTube'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openSettings();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.switch_account_outlined),
-                title: const Text('Chuyển đổi tài khoản / Phiên đăng nhập'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openSettings();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-                title: const Text('Đăng xuất', style: TextStyle(color: Colors.redAccent)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await widget.auth.logout();
-                  if (!context.mounted) return;
-                  context.go('/home');
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   String _formatDuration(int seconds) {
     if (seconds <= 0) return '00:00';
     final m = seconds ~/ 60;
@@ -362,38 +275,12 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 16,
-        title: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => _showAccountSwitcherSheet(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isDark ? const Color(0xFF3F3F3F) : AppColors.borderSubtle,
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Tài khoản',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 18,
-                  color: isDark ? Colors.white : AppColors.textPrimary,
-                ),
-              ],
-            ),
+        title: Text(
+          'Bạn',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : AppColors.textPrimary,
           ),
         ),
         actions: [

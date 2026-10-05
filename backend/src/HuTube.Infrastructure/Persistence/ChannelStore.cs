@@ -101,6 +101,13 @@ public sealed class ChannelStore(HuTubeDbContext db) : IChannelStore
         db.Videos.LongCountAsync(x => x.ChannelId == channelId && x.Status == "published" &&
             x.Visibility == "public" && x.ModerationStatus == "approved", ct);
 
+    public Task<long> CountPublishedVideoViewsAsync(Guid channelId, CancellationToken ct) =>
+        db.ViewingHistories
+            .Where(history => db.Videos.Any(video => video.VideoId == history.VideoId &&
+                video.ChannelId == channelId && video.Status == "published" &&
+                video.Visibility == "public" && video.ModerationStatus == "approved"))
+            .LongCountAsync(ct);
+
     public async Task<List<SubscribedChannelResponse>> GetSubscribedChannelsAsync(Guid userId, CancellationToken ct)
     {
         return await db.Subscriptions

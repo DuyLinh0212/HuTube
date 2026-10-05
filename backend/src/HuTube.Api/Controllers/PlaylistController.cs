@@ -37,6 +37,21 @@ public sealed class PlaylistController(IPlaylistService playlists) : ControllerB
     [Authorize, HttpPatch("{id:guid}")]
     public Task<PlaylistResponse> UpdateAsync(Guid id, UpdatePlaylistRequest request, CancellationToken ct) => playlists.UpdateAsync(UserId, id, request, ct);
 
+    [Authorize, HttpPost("{id:guid}/cover")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<PlaylistResponse> UploadCoverAsync(Guid id, IFormFile? file, CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+            throw new PlaylistException(400, "INVALID_FILE", "Vui lòng chọn một ảnh playlist.");
+        if (file.Length > 5 * 1024 * 1024)
+            throw new PlaylistException(400, "FILE_TOO_LARGE", "Ảnh playlist tối đa 5MB.");
+        var allowed = new HashSet<string>(["image/jpeg", "image/png", "image/webp"], StringComparer.OrdinalIgnoreCase);
+        if (!allowed.Contains(file.ContentType))
+            throw new PlaylistException(400, "INVALID_FILE_TYPE", "Ảnh playlist chỉ hỗ trợ JPG, PNG hoặc WEBP.");
+        await using var stream = file.OpenReadStream();
+        return await playlists.UploadCoverAsync(UserId, id, stream, file.FileName, file.ContentType, ct);
+    }
+
     [Authorize, HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken ct) { await playlists.DeleteAsync(UserId, id, ct); return NoContent(); }
 

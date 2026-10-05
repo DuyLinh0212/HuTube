@@ -201,7 +201,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasIndex(x => x.TransactionCode).IsUnique().HasDatabaseName("uq_payments_transaction");
             b.HasIndex(x => new { x.UserId, x.IdempotencyKey }).IsUnique().HasDatabaseName("ux_payments_idempotency").HasFilter("idempotency_key IS NOT NULL");
         });
-        model.Entity<Playlist>(b => { b.ToTable("playlists"); b.HasKey(x => x.PlaylistId); b.HasIndex(x => x.UserId); b.HasIndex(x => x.Status); });
+        model.Entity<Playlist>(b => { b.ToTable("playlists"); b.HasKey(x => x.PlaylistId); b.Property(x => x.CoverUrl).HasColumnName("cover_url"); b.HasIndex(x => x.UserId); b.HasIndex(x => x.Status); });
         model.Entity<PlaylistVideo>(b => { b.ToTable("playlist_videos"); b.HasKey(x => x.PlaylistVideoId); b.HasIndex(x => new { x.PlaylistId, x.VideoId }).IsUnique(); b.HasIndex(x => new { x.PlaylistId, x.Position }).IsUnique(); });
         model.Entity<Category>(b => { b.ToTable("categories"); b.HasKey(x => x.CategoryId); b.HasIndex(x => x.Slug).IsUnique(); });
         model.Entity<Video>(b => {

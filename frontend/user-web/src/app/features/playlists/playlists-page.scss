@@ -53,6 +53,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .card-mosaic img { width: 100%; height: 100%; object-fit: cover; border: 1px solid color-mix(in srgb, var(--card-bg) 72%, transparent); }
 .card-mosaic img:first-of-type { grid-row: 1 / span 2; }
 .card-mosaic img:only-of-type { grid-column: 1 / -1; }
+.card-mosaic .playlist-cover-image { grid-column: 1 / -1; grid-row: 1 / -1; }
 .card-mosaic--empty { display: grid; place-items: center; background: linear-gradient(142deg, #dfe9ef 0 52%, #f4d8d4 52%); isolation: isolate; }
 .mosaic-letter { z-index: 2; display: grid; width: 58px; height: 58px; place-items: center; color: var(--text-on-primary); background: var(--primary-gradient); border-radius: 18px 18px 18px 4px; box-shadow: 0 10px 22px var(--primary-glow); font-size: 1.6rem; font-weight: 900; }
 .mosaic-line { position: absolute; z-index: 1; width: 145%; height: 12px; background: rgba(255,255,255,.66); transform: rotate(-13deg); }
@@ -109,6 +110,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .hero-mosaic img { width: 100%; height: 100%; min-height: 0; object-fit: cover; border: 1px solid color-mix(in srgb, var(--card-bg) 74%, transparent); }
 .hero-mosaic img:first-of-type { grid-row: 1 / span 2; }
 .hero-mosaic img:only-of-type { grid-column: 1 / -1; }
+.hero-mosaic .playlist-cover-image { grid-column: 1 / -1; grid-row: 1 / -1; }
 .hero-mosaic--empty { display: grid; place-items: center; overflow: hidden; background: linear-gradient(145deg, #284b59, #9ab9ab); isolation: isolate; }
 .hero-mosaic--empty::before { content: ''; position: absolute; z-index: -1; width: 135%; height: 70%; left: -15%; bottom: -23%; background: rgba(255,255,255,.14); border-radius: 50% 50% 0 0; transform: rotate(-8deg); }
 .hero-letter { color: var(--text-on-primary); font-size: 5.2rem; font-weight: 900; text-shadow: 0 5px 15px rgba(0,0,0,.12); }

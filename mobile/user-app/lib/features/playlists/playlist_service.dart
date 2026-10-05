@@ -7,6 +7,7 @@ class PlaylistSummary {
     required this.visibility,
     required this.itemCount,
     this.description,
+    this.coverUrl,
     this.updatedAt,
   });
 
@@ -15,6 +16,7 @@ class PlaylistSummary {
   final String visibility;
   final int itemCount;
   final String? description;
+  final String? coverUrl;
   final DateTime? updatedAt;
 
   factory PlaylistSummary.fromJson(Map<String, dynamic> json) =>
@@ -26,6 +28,7 @@ class PlaylistSummary {
             ? (json['itemCount'] as num).toInt()
             : 0,
         description: json['description'] as String?,
+        coverUrl: json['coverUrl'] as String?,
         updatedAt: DateTime.tryParse('${json['updatedAt'] ?? ''}'),
       );
 }
@@ -61,6 +64,8 @@ class PlaylistDetail {
     required this.visibility,
     required this.items,
     this.description,
+    this.userId = '',
+    this.coverUrl,
   });
 
   final String id;
@@ -68,12 +73,16 @@ class PlaylistDetail {
   final String visibility;
   final List<PlaylistItem> items;
   final String? description;
+  final String userId;
+  final String? coverUrl;
 
   factory PlaylistDetail.fromJson(Map<String, dynamic> json) => PlaylistDetail(
     id: '${json['playlistId'] ?? ''}',
     name: '${json['name'] ?? ''}',
     visibility: '${json['visibility'] ?? 'private'}',
     description: json['description'] as String?,
+    userId: '${json['userId'] ?? ''}',
+    coverUrl: json['coverUrl'] as String?,
     items: (json['items'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => PlaylistItem.fromJson(Map<String, dynamic>.from(item)))
@@ -159,6 +168,16 @@ class PlaylistService {
   Future<void> delete(String id) async {
     await auth.protected('DELETE', '/playlists/${Uri.encodeComponent(id)}');
   }
+
+  Future<PlaylistDetail> uploadCover(
+    String playlistId,
+    UploadPayload payload,
+  ) async => PlaylistDetail.fromJson(
+    await auth.protectedUpload(
+      '/playlists/${Uri.encodeComponent(playlistId)}/cover',
+      payload,
+    ),
+  );
 
   Future<PlaylistDetail> saveVideo(String videoId) async =>
       PlaylistDetail.fromJson(

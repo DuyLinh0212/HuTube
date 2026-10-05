@@ -55,9 +55,13 @@ class PlansScreen extends StatefulWidget {
 class _PlansScreenState extends State<PlansScreen> {
   late final PlanService _planService = PlanService(widget.auth);
   late final PaymentService _paymentService = PaymentService(widget.auth);
+  late final PageController _planController = PageController(
+    viewportFraction: .82,
+  );
   List<Map<String, dynamic>> _plans = [];
   List<Map<String, dynamic>> _payments = [];
   Map<String, dynamic>? _myPlan;
+  int _selectedPlanIndex = 0;
   bool _loading = true;
   String? _error;
 
@@ -68,6 +72,12 @@ class _PlansScreenState extends State<PlansScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvitation());
     }
     _load();
+  }
+
+  @override
+  void dispose() {
+    _planController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -93,6 +103,7 @@ class _PlansScreenState extends State<PlansScreen> {
       }
       setState(() {
         _plans = plans;
+        _selectedPlanIndex = 0;
         _myPlan = myPlan;
         _payments = payments;
         _loading = false;
@@ -345,18 +356,27 @@ class _PlansScreenState extends State<PlansScreen> {
   }
 
   Future<void> _editOwnerStorage() async {
+    final currentBytes = _number(_myPlan?['ownerAllocatedStorage']);
+    final currentGb = currentBytes > 0
+        ? currentBytes / (1024 * 1024 * 1024)
+        : null;
     final controller = TextEditingController(
-      text: '${_myPlan?['ownerAllocatedStorage'] ?? ''}',
+      text: currentGb == null
+          ? ''
+          : (currentGb == currentGb.roundToDouble()
+                ? currentGb.toStringAsFixed(0)
+                : currentGb.toStringAsFixed(2)),
     );
     final raw = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('plans.ownerStorageTitle')),
+        title: Text(AppStrings.t('plans.editOwnerStorage')),
         content: TextField(
           controller: controller,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
           decoration: InputDecoration(
-            labelText: AppStrings.t('plans.byteInputHint'),
+            labelText: AppStrings.t('plans.storageGBPlaceholder'),
           ),
         ),
         actions: [
@@ -373,16 +393,46 @@ class _PlansScreenState extends State<PlansScreen> {
     );
     controller.dispose();
     if (raw == null) return;
-    final value = int.tryParse(raw.trim());
-    if (raw.trim().isNotEmpty && value == null) return;
+    final input = raw.trim().replaceAll(',', '.');
+    int? value;
+    if (input.isNotEmpty) {
+      final gb = double.tryParse(input);
+      if (gb == null || !gb.isFinite || gb <= 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppStrings.t('plans.invalidQuota'))),
+          );
+        }
+        return;
+      }
+      value = (gb * 1024 * 1024 * 1024).round();
+      final used = _number(_myPlan?['usedStorage']).round();
+      if (value < used) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppStrings.t('plans.quotaBelowUsed'))),
+          );
+        }
+        return;
+      }
+    }
     try {
       await _planService.updateOwnerStorage(value);
-      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('plans.storageUpdated'))),
+        );
+        await _load();
+      }
     } on ApiFailure catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.apiError(error, fallback: 'plans.storageUpdateError'),
+            ),
+          ),
+        );
       }
     }
   }
@@ -432,20 +482,7 @@ class _PlansScreenState extends State<PlansScreen> {
           title: Text('${plan['name'] ?? AppStrings.t('plans.planFallback')}'),
           content: SingleChildScrollView(
             child: Text(
-              '${plan['description'] ?? ''}\n\n${AppStrings.format('plans.planDetailInfo', {
-                'price': plan['price'] ?? 0,
-                'days': plan['durationDays'] ?? 0,
-                'storage': _formatBytes(plan['storageLimit']),
-                'upload': _formatBytes(plan['maxUploadSize']),
-                'duration': plan['maxVideoDuration'] ?? 0,
-                'quality': plan['maxVideoQuality'] ?? '—',
-                'members': plan['maxMembers'] ?? 1,
-                'promotion': AppStrings.t(
-                  _features(plan['features'])['video_promotion'] == true
-                      ? 'common.yes'
-                      : 'common.no',
-                ),
-              })}',
+              '${plan['description'] ?? ''}\n\n${AppStrings.format('plans.planDetailInfo', {'price': plan['price'] ?? 0, 'days': plan['durationDays'] ?? 0, 'storage': _formatBytes(plan['storageLimit']), 'upload': _formatBytes(plan['maxUploadSize']), 'duration': plan['maxVideoDuration'] ?? 0, 'quality': plan['maxVideoQuality'] ?? '—', 'members': plan['maxMembers'] ?? 1, 'promotion': AppStrings.t(_features(plan['features'])['video_promotion'] == true ? 'common.yes' : 'common.no')})}',
             ),
           ),
           actions: [
@@ -515,6 +552,93 @@ class _PlansScreenState extends State<PlansScreen> {
     });
   }
 
+  String _priceText(Map<String, dynamic> plan) {
+    final price = _number(plan['price']);
+    if (price <= 0) return AppStrings.t('plans.free');
+    final currency = '${plan['currency'] ?? 'VND'}';
+    final amount = price == price.roundToDouble()
+        ? price.toStringAsFixed(0)
+        : price.toStringAsFixed(2);
+    return '$amount $currency';
+  }
+
+  Widget _planCarousel(BuildContext context) {
+    if (_plans.isEmpty) return const SizedBox.shrink();
+    final selected = _plans[_selectedPlanIndex.clamp(0, _plans.length - 1)];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 405,
+          child: PageView.builder(
+            controller: _planController,
+            itemCount: _plans.length,
+            onPageChanged: (index) =>
+                setState(() => _selectedPlanIndex = index),
+            itemBuilder: (context, index) {
+              final distance = (index - _selectedPlanIndex).abs();
+              return AnimatedPadding(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                padding: EdgeInsets.fromLTRB(
+                  6,
+                  distance == 0 ? 0 : 18,
+                  6,
+                  distance == 0 ? 0 : 18,
+                ),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 220),
+                  opacity: distance == 0 ? 1 : .7,
+                  child: _PlanCard(
+                    plan: _plans[index],
+                    index: index,
+                    isFeatured: distance == 0,
+                    onShare: () => _sharePlan(_plans[index]),
+                    onDetails: () =>
+                        _showPlanDetails('${_plans[index]['planId']}'),
+                    onSubscribe: widget.auth.authenticated
+                        ? () => _subscribe(_plans[index]['planId'] as String)
+                        : null,
+                    formatBytes: _formatBytes,
+                    qualityText: _qualityText,
+                    featureText: _featureText,
+                    priceText: _priceText,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_plans.length, (index) {
+            final active = index == _selectedPlanIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 22 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: active
+                    ? AppColors.primary
+                    : AppColors.borderFor(context),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            '${selected['name'] ?? AppStrings.t('plans.planFallback')} · ${AppStrings.t('plans.swipeHint')}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _currentPlanCard(BuildContext context) {
     final plan = _myPlan;
     if (plan == null) {
@@ -524,6 +648,7 @@ class _PlansScreenState extends State<PlansScreen> {
     final total = _number(plan['storageLimit']);
     final used = _number(plan['usedStorage']);
     final remaining = _number(plan['remainingStorage']);
+    final ownerAllocated = _number(plan['ownerAllocatedStorage']);
     final progress = total <= 0
         ? 0.0
         : (used / total).clamp(0.0, 1.0).toDouble();
@@ -611,6 +736,30 @@ class _PlansScreenState extends State<PlansScreen> {
             ),
             if (plan['isSharedMember'] != true) ...[
               const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.storage_rounded,
+                    size: 18,
+                    color: Colors.white.withValues(alpha: .75),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      ownerAllocated > 0
+                          ? AppStrings.format('plans.ownerQuotaValue', {
+                              'size': _formatBytes(ownerAllocated),
+                            })
+                          : AppStrings.t('plans.sharedQuota'),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: .82),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _editOwnerStorage,
                 icon: const Icon(Icons.storage_outlined),
@@ -704,16 +853,20 @@ class _PlansScreenState extends State<PlansScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          HuTubeSectionHeader(
-            title: AppStrings.t('plans.title'),
-            subtitle: AppStrings.t('plans.description'),
-          ),
-          const SizedBox(height: 20),
+          _planCarousel(context),
+          const SizedBox(height: 22),
           _currentPlanCard(context),
           if (_payments.isNotEmpty) ...[
-            HuTubeSectionHeader(
-              title: AppStrings.t('plans.paymentHistory'),
-              subtitle: AppStrings.t('plans.paymentHistoryDescription'),
+            Text(
+              AppStrings.t('plans.paymentHistory'),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              AppStrings.t('plans.paymentHistoryDescription'),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
             for (final payment in _payments.take(5))
@@ -747,20 +900,6 @@ class _PlansScreenState extends State<PlansScreen> {
               compact: true,
               accent: AppColors.violet,
             ),
-          ..._plans.asMap().entries.map(
-            (entry) => _PlanCard(
-              plan: entry.value,
-              index: entry.key,
-              onShare: () => _sharePlan(entry.value),
-              onDetails: () => _showPlanDetails('${entry.value['planId']}'),
-              onSubscribe: widget.auth.authenticated
-                  ? () => _subscribe(entry.value['planId'] as String)
-                  : null,
-              formatBytes: _formatBytes,
-              qualityText: _qualityText,
-              featureText: _featureText,
-            ),
-          ),
         ],
       ),
     );
@@ -771,33 +910,55 @@ class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
     required this.index,
+    required this.isFeatured,
     required this.onShare,
     required this.onDetails,
     required this.onSubscribe,
     required this.formatBytes,
     required this.qualityText,
     required this.featureText,
+    required this.priceText,
   });
   final Map<String, dynamic> plan;
   final int index;
+  final bool isFeatured;
   final VoidCallback onShare;
   final VoidCallback onDetails;
   final VoidCallback? onSubscribe;
   final String Function(dynamic) formatBytes;
   final String Function(Map<String, dynamic>) qualityText;
   final String Function(Map<String, dynamic>) featureText;
+  final String Function(Map<String, dynamic>) priceText;
 
   @override
   Widget build(BuildContext context) {
     final accents = [AppColors.primary, AppColors.violet, AppColors.success];
     final accent = accents[index % accents.length];
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+    final price = priceText(plan);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: .07),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withValues(alpha: .2)),
+        color: isFeatured
+            ? accent.withValues(alpha: .09)
+            : AppColors.surfaceFor(context),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isFeatured
+              ? accent.withValues(alpha: .6)
+              : AppColors.borderFor(context),
+          width: isFeatured ? 1.5 : 1,
+        ),
+        boxShadow: isFeatured
+            ? [
+                BoxShadow(
+                  color: accent.withValues(alpha: .18),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ]
+            : const [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,11 +966,28 @@ class _PlanCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  plan['name'] as String? ?? AppStrings.t('common.appName'),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isFeatured)
+                      Text(
+                        AppStrings.t('plans.explorePlans'),
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    const SizedBox(height: 3),
+                    Text(
+                      plan['name'] as String? ?? AppStrings.t('common.appName'),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               InkWell(
@@ -822,6 +1000,15 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            price,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -.8,
+            ),
           ),
           const SizedBox(height: 8),
           Text(

@@ -10,12 +10,12 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
     private DateTimeOffset Now => clock.GetUtcNow();
 
     public async Task<IReadOnlyList<PlaylistSummaryResponse>> GetMineAsync(Guid userId, CancellationToken ct = default) =>
-        await db.Playlists.AsNoTracking().Where(x => x.UserId == userId)
+        await SummariesAsync(await db.Playlists.AsNoTracking().Where(x => x.UserId == userId)
             .OrderByDescending(x => x.UpdatedAt)
             .Take(200)
-            .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
+            .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.CoverUrl, x.Visibility,
                 db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
-            .ToListAsync(ct);
+            .ToListAsync(ct), ct);
 
     public async Task<IReadOnlyList<PlaylistSummaryResponse>> GetPublicByChannelAsync(Guid channelId, CancellationToken ct = default)
     {
@@ -25,26 +25,26 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
             .SingleOrDefaultAsync(ct)
             ?? throw Error(404, "CHANNEL_NOT_FOUND", "Khong tim thay kenh.");
 
-        return await db.Playlists.AsNoTracking()
+        return await SummariesAsync(await db.Playlists.AsNoTracking()
             .Where(x => x.UserId == ownerUserId && x.Visibility == "public")
             .OrderByDescending(x => x.UpdatedAt)
             .Take(200)
-            .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
+            .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.CoverUrl, x.Visibility,
                 db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
-            .ToListAsync(ct);
+            .ToListAsync(ct), ct);
     }
 
     public async Task<IReadOnlyList<PlaylistSummaryResponse>> GetChannelMineAsync(Guid userId, Guid channelId, CancellationToken ct = default)
     {
         var ownsChannel = await db.Channels.AsNoTracking().AnyAsync(x => x.ChannelId == channelId && x.OwnerUserId == userId && x.Status == "active", ct);
         if (!ownsChannel) throw Error(403, "CHANNEL_OWNER_REQUIRED", "Chi chu kenh moi duoc xem playlist kenh.");
-        return await db.Playlists.AsNoTracking()
+        return await SummariesAsync(await db.Playlists.AsNoTracking()
             .Where(x => x.UserId == userId)
             .OrderByDescending(x => x.UpdatedAt)
             .Take(200)
-            .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.Visibility,
+            .Select(x => new PlaylistSummaryResponse(x.PlaylistId, x.UserId, x.Name, x.Description, x.CoverUrl, x.Visibility,
                 db.PlaylistVideos.Count(v => v.PlaylistId == x.PlaylistId), x.UpdatedAt))
-            .ToListAsync(ct);
+            .ToListAsync(ct), ct);
     }
 
     public async Task<PlaylistResponse> GetAsync(Guid playlistId, Guid? viewerId, CancellationToken ct = default)
@@ -75,7 +75,8 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
                 available ? video?.Duration ?? 0 : 0, available ? video?.Visibility : null, available ? video?.Status : null,
                 available ? video?.ModerationStatus : null, available, available ? null : "unavailable"));
         }
-        return new(playlist.PlaylistId, playlist.UserId, playlist.Name, playlist.Description, playlist.Visibility,
+        var coverUrl = playlist.CoverUrl == null ? null : await storage.GetReadUrlAsync(playlist.CoverUrl, TimeSpan.FromMinutes(60), ct);
+        return new(playlist.PlaylistId, playlist.UserId, playlist.Name, playlist.Description, coverUrl, playlist.Visibility,
             playlist.CreatedAt, playlist.UpdatedAt, items);
     }
 
@@ -109,6 +110,21 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
         if (name.Length is 0 or > 150) throw Error(400, "INVALID_PLAYLIST_NAME", "Ten playlist khong hop le.");
         playlist.Name = name; playlist.Description = Clean(request.Description); playlist.Visibility = NormalizeVisibility(request.Visibility); playlist.UpdatedAt = Now;
         await db.SaveChangesAsync(ct);
+        return await GetAsync(playlistId, userId, ct);
+    }
+
+    public async Task<PlaylistResponse> UploadCoverAsync(Guid userId, Guid playlistId, Stream content, string fileName, string contentType, CancellationToken ct = default)
+    {
+        var playlist = await OwnedAsync(userId, playlistId, ct);
+        var previous = playlist.CoverUrl;
+        playlist.CoverUrl = await storage.SaveFileAsync("playlist-covers", fileName, content, contentType, ct);
+        playlist.UpdatedAt = Now;
+        await db.SaveChangesAsync(ct);
+        if (!string.IsNullOrWhiteSpace(previous) && previous != playlist.CoverUrl)
+        {
+            try { await storage.DeleteFileAsync(previous, CancellationToken.None); }
+            catch { /* The new cover is already active; cleanup can be retried later. */ }
+        }
         return await GetAsync(playlistId, userId, ct);
     }
 
@@ -180,6 +196,11 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
     private async Task<HuTube.Domain.Playlists.Playlist> OwnedAsync(Guid userId, Guid playlistId, CancellationToken ct) =>
         await db.Playlists.SingleOrDefaultAsync(x => x.PlaylistId == playlistId && x.UserId == userId, ct)
         ?? throw Error(403, "PLAYLIST_OWNER_REQUIRED", "Chi chu playlist moi duoc thao tac.");
+    private async Task<IReadOnlyList<PlaylistSummaryResponse>> SummariesAsync(IReadOnlyList<PlaylistSummaryResponse> summaries, CancellationToken ct) =>
+        await Task.WhenAll(summaries.Select(async summary => summary with
+        {
+            CoverUrl = summary.CoverUrl == null ? null : await storage.GetReadUrlAsync(summary.CoverUrl, TimeSpan.FromMinutes(60), ct),
+        }));
     private static string NormalizeVisibility(string value) => value.Trim().ToLowerInvariant() switch { "public" => "public", "unlisted" => "unlisted", _ => "private" };
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static PlaylistException Error(int status, string code, string message) => new(status, code, message);

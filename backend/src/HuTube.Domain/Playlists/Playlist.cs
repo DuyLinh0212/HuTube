@@ -6,6 +6,7 @@ public sealed class Playlist
     public Guid UserId { get; set; }
     public string Name { get; set; } = "";
     public string? Description { get; set; }
+    public string? CoverUrl { get; set; }
     public string Visibility { get; set; } = "private";
     public string Status { get; set; } = "active";
     public DateTimeOffset? DeletedAt { get; set; }

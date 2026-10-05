@@ -18,8 +18,11 @@
           <div class="playlist-grid">
             @for (item of lists(); track item.playlistId) {
               <a class="playlist-card" [routerLink]="['/playlists', item.playlistId]">
-                <div class="card-mosaic" [class.card-mosaic--empty]="!previewItems(item).length">
-                  @for (video of previewItems(item); track video.playlistVideoId) {
+                <div class="card-mosaic" [class.card-mosaic--empty]="!item.coverUrl && !previewItems(item).length">
+                  @if (item.coverUrl) {
+                    <img class="playlist-cover-image" [src]="item.coverUrl" [alt]="item.name" />
+                  }
+                  @for (video of item.coverUrl ? [] : previewItems(item); track video.playlistVideoId) {
                     @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title || item.name" /> }
                   }
                   @if (!previewItems(item).length) {
@@ -76,8 +79,11 @@
     @if (playlist(); as current) {
       <a class="back-link" [routerLink]="listBackLink()"><span aria-hidden="true">←</span> {{ (channelHandle ? 'playlists.backToChannel' : 'playlists.backToPlaylists') | translate }}</a>
       <header class="playlist-hero">
-        <div class="hero-mosaic" [class.hero-mosaic--empty]="!heroItems(current).length">
-          @for (video of heroItems(current); track video.playlistVideoId) {
+        <div class="hero-mosaic" [class.hero-mosaic--empty]="!current.coverUrl && !heroItems(current).length">
+          @if (current.coverUrl) {
+            <img class="playlist-cover-image" [src]="current.coverUrl" [alt]="current.name" />
+          }
+          @for (video of current.coverUrl ? [] : heroItems(current); track video.playlistVideoId) {
             @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title || current.name" /> }
           }
           @if (!heroItems(current).length) {

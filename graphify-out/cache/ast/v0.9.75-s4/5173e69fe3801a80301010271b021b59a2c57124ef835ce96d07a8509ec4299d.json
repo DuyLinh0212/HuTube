@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_database_scripts_grant_local_admin_sql", "label": "grant-local-admin.sql", "file_type": "code", "source_file": "database/scripts/grant-local-admin.sql", "source_location": null}], "edges": []}

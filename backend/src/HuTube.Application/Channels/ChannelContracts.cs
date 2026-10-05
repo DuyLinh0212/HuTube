@@ -38,7 +38,8 @@ public sealed record ChannelResponse(
     string? MyRole,
     IReadOnlyList<string> Permissions,
     DateTimeOffset CreatedAt,
-    string? StatusReason = null);
+    string? StatusReason = null,
+    long ViewCount = 0);
 
 public sealed record CheckHandleResponse(
     string Handle,

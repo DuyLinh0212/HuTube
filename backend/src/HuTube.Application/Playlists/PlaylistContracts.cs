@@ -2,9 +2,9 @@ namespace HuTube.Application.Playlists;
 
 public sealed record PlaylistItemResponse(Guid PlaylistVideoId, Guid VideoId, int Position, string? Title, string? ThumbnailUrl,
     int Duration, string? Visibility, string? Status, string? ModerationStatus, bool Available, string? UnavailableReason);
-public sealed record PlaylistResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string Visibility,
+public sealed record PlaylistResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string? CoverUrl, string Visibility,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, IReadOnlyList<PlaylistItemResponse> Items);
-public sealed record PlaylistSummaryResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string Visibility,
+public sealed record PlaylistSummaryResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string? CoverUrl, string Visibility,
     int ItemCount, DateTimeOffset UpdatedAt);
 public sealed record CreatePlaylistRequest(string Name, string? Description = null, string Visibility = "private");
 public sealed record UpdatePlaylistRequest(string Name, string? Description, string Visibility);
@@ -27,6 +27,7 @@ public interface IPlaylistService
     Task<PlaylistResponse> CreateAsync(Guid userId, CreatePlaylistRequest request, CancellationToken ct = default);
     Task<PlaylistResponse> SaveVideoAsync(Guid userId, SaveVideoRequest request, CancellationToken ct = default);
     Task<PlaylistResponse> UpdateAsync(Guid userId, Guid playlistId, UpdatePlaylistRequest request, CancellationToken ct = default);
+    Task<PlaylistResponse> UploadCoverAsync(Guid userId, Guid playlistId, Stream content, string fileName, string contentType, CancellationToken ct = default);
     Task DeleteAsync(Guid userId, Guid playlistId, CancellationToken ct = default);
     Task<PlaylistResponse> AddVideoAsync(Guid userId, Guid playlistId, AddPlaylistVideoRequest request, CancellationToken ct = default);
     Task RemoveVideoAsync(Guid userId, Guid playlistId, Guid videoId, CancellationToken ct = default);

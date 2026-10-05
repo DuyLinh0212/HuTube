@@ -15,7 +15,7 @@ import '../../account/screens/change_password_screen.dart';
 import '../../account/screens/edit_profile_screen.dart';
 import '../../account/screens/notification_settings_screen.dart';
 import '../../account/screens/preferences_screen.dart';
-import '../../account/screens/profile_screen.dart';
+import '../../account/screens/active_sessions_screen.dart';
 import '../../account/services/account_service.dart';
 import '../../account/state/account_controller.dart';
 import '../../channel/models/channel_models.dart';
@@ -125,20 +125,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   Future<void> _openSessions() async {
     final controller = AccountController(_accountService);
     await controller.loadSessions();
-    if (!mounted) return;
+    if (!mounted) {
+      controller.dispose();
+      return;
+    }
     await _open(
-      ProfileScreen(
-        auth: widget.auth,
-        notifications: widget.notifications,
-        sessions: controller.sessions,
-        sessionsLoading: controller.loadingSessions,
-        onRefreshSessions: controller.loadSessions,
-        onRevokeSession: (id) async {
-          await controller.revokeSession(id);
-        },
-        onLogoutOthers: () async {
-          await controller.revokeOtherSessions();
-        },
+      ActiveSessionsScreen(
+        controller: controller,
         onLogoutAll: () async {
           await _accountService.revokeAllSessions();
           await widget.auth.logout();

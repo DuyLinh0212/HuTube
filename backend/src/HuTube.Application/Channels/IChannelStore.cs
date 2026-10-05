@@ -27,6 +27,7 @@ public interface IChannelStore
     void AddSubscription(Subscription subscription);
     Task<long> CountSubscribersAsync(Guid channelId, CancellationToken ct);
     Task<long> CountPublishedVideosAsync(Guid channelId, CancellationToken ct) => Task.FromResult(0L);
+    Task<long> CountPublishedVideoViewsAsync(Guid channelId, CancellationToken ct) => Task.FromResult(0L);
     Task<List<SubscribedChannelResponse>> GetSubscribedChannelsAsync(Guid userId, CancellationToken ct);
     Task SaveAsync(CancellationToken ct);
 }

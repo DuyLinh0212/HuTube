@@ -21,6 +21,7 @@ export interface Playlist {
   userId: string;
   name: string;
   description: string | null;
+  coverUrl: string | null;
   visibility: string;
   createdAt: string;
   updatedAt: string;
@@ -32,6 +33,7 @@ export interface PlaylistSummary {
   userId: string;
   name: string;
   description: string | null;
+  coverUrl: string | null;
   visibility: string;
   itemCount: number;
   updatedAt: string;
