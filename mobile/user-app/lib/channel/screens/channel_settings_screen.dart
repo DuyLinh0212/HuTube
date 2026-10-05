@@ -30,7 +30,6 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _inviteEmailController;
-  late final TextEditingController _trailerController;
   late final ChannelService _channelService;
   late ChannelDetail _channel;
   final ImagePicker _picker = ImagePicker();
@@ -43,6 +42,8 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   String? _revokingInvitationId;
   bool _uploadingAvatar = false;
   bool _uploadingBanner = false;
+  bool _uploadingWatermark = false;
+  bool _loadingChannelSettings = true;
   String? _error;
 
   @override
@@ -55,36 +56,94 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       text: _channel.description ?? '',
     );
     _inviteEmailController = TextEditingController();
-    _trailerController = TextEditingController();
     _parseSettings();
+    _loadFreshChannel();
     _loadInviteData();
   }
 
+  Future<void> _loadFreshChannel() async {
+    try {
+      final current = await _channelService.getChannelById(_channel.id);
+      if (!mounted) return;
+      setState(() {
+        _channel = current;
+        _nameController.text = current.name;
+        _descriptionController.text = current.description ?? '';
+        _parseSettings();
+        _loadingChannelSettings = false;
+      });
+    } on ApiFailure {
+      // Continue with the channel data passed by Studio if refresh is unavailable.
+      if (mounted) setState(() => _loadingChannelSettings = false);
+    } catch (_) {
+      // Channel metadata is still editable from the cached Studio entry.
+      if (mounted) setState(() => _loadingChannelSettings = false);
+    }
+  }
+
   void _parseSettings() {
+    _links = [];
     final s = _channel.settings;
     if (s != null && s.isNotEmpty) {
       try {
-        final map = jsonDecode(s) as Map<String, dynamic>;
-        if (map['links'] is List) {
-          _links = (map['links'] as List).whereType<Map>().map((l) => {
-            'platform': '${l['platform'] ?? 'website'}',
-            'title': '${l['title'] ?? ''}',
-            'url': '${l['url'] ?? ''}',
+        final dynamic decoded = jsonDecode(s);
+        final links = decoded is List
+            ? decoded
+            : decoded is Map
+            ? decoded['links']
+            : null;
+        if (links is List) {
+          _links = links.whereType<Map>().map((link) {
+            final url = '${link['url'] ?? ''}';
+            final rawPlatform = '${link['platform'] ?? ''}'.toLowerCase();
+            final platform = switch (rawPlatform) {
+              'facebook' || 'instagram' || 'tiktok' || 'x' => rawPlatform,
+              'twitter' => 'x',
+              _ => _detectPlatform(url),
+            };
+            return {
+              'platform': platform,
+              'title': '${link['title'] ?? ''}'.trim().isEmpty
+                  ? _platformTitle(platform)
+                  : '${link['title']}',
+              'url': url,
+            };
           }).toList();
-        }
-        if (map['trailerVideoId'] != null) {
-          _trailerController.text = '${map['trailerVideoId']}';
         }
       } catch (_) {}
     }
   }
+
+  String _detectPlatform(String url) {
+    final lower = url.toLowerCase();
+    if (lower.contains('facebook.com') || lower.contains('fb.me')) {
+      return 'facebook';
+    }
+    if (lower.contains('instagram.com')) {
+      return 'instagram';
+    }
+    if (lower.contains('tiktok.com')) {
+      return 'tiktok';
+    }
+    if (lower.contains('twitter.com') || lower.contains('x.com')) {
+      return 'x';
+    }
+    return 'other';
+  }
+
+  String _platformTitle(String platform) => switch (platform) {
+    'facebook' => AppStrings.t('channel.platformFacebook'),
+    'instagram' => AppStrings.t('channel.platformInstagram'),
+    'tiktok' => AppStrings.t('channel.platformTiktok'),
+    'x' => AppStrings.t('channel.platformX'),
+    _ => AppStrings.t('channel.otherLink'),
+  };
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
     _inviteEmailController.dispose();
-    _trailerController.dispose();
     super.dispose();
   }
 
@@ -342,6 +401,17 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       setState(() => _error = AppStrings.t('channel.nameEmpty'));
       return;
     }
+    for (final link in _links) {
+      final url = (link['url'] ?? '').trim();
+      if (url.isEmpty) continue;
+      final uri = Uri.tryParse(url);
+      if (uri == null ||
+          !{'http', 'https'}.contains(uri.scheme) ||
+          uri.host.isEmpty) {
+        setState(() => _error = AppStrings.t('channel.linkUrlError'));
+        return;
+      }
+    }
 
     setState(() {
       _busy = true;
@@ -351,19 +421,27 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     try {
       final validLinks = _links
           .where((l) => (l['url'] ?? '').trim().isNotEmpty)
-          .map((l) => {
-            'platform': l['platform'] ?? 'website',
-            'title': (l['title'] ?? '').trim().isEmpty
-                ? (l['platform'] ?? 'website')
-                : (l['title'] ?? '').trim(),
-            'url': (l['url'] ?? '').trim(),
-          })
+          .map(
+            (l) => {
+              'platform': l['platform'] ?? 'other',
+              'title': (l['title'] ?? '').trim().isEmpty
+                  ? _platformTitle(l['platform'] ?? 'other')
+                  : (l['title'] ?? '').trim(),
+              'url': (l['url'] ?? '').trim(),
+            },
+          )
           .toList();
-      final settingsJson = jsonEncode({
-        'links': validLinks,
-        if (_trailerController.text.trim().isNotEmpty)
-          'trailerVideoId': _trailerController.text.trim(),
-      });
+      Map<String, dynamic> existingSettings = {};
+      try {
+        final decoded = jsonDecode(_channel.settings ?? '{}');
+        if (decoded is Map) {
+          existingSettings = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
+      existingSettings
+        ..remove('trailerVideoId')
+        ..['links'] = validLinks;
+      final settingsJson = jsonEncode(existingSettings);
 
       await _channelService.updateChannel(
         _channel.id,
@@ -465,6 +543,45 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           }
         });
       }
+    }
+  }
+
+  Future<void> _pickAndUploadWatermark() async {
+    if (!_canEditBranding || _busy || _uploadingWatermark) return;
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        requestFullMetadata: false,
+      );
+      if (file == null || !mounted) return;
+      setState(() {
+        _error = null;
+        _uploadingWatermark = true;
+      });
+      final updated = await _channelService.uploadWatermark(_channel.id, file);
+      if (!mounted) return;
+      setState(() => _channel = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.t('channel.watermarkSaved')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = AppStrings.apiError(
+            error,
+            fallback: 'channel.imageError',
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = AppStrings.t('channel.imageReadError'));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingWatermark = false);
     }
   }
 
@@ -687,6 +804,79 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           _bannerEditor(),
           const SizedBox(height: 18),
           _avatarEditor(),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppStrings.t('channel.watermarkTitle'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      AppStrings.t('channel.watermarkDescription'),
+                      style: TextStyle(
+                        color: AppColors.textSecondaryFor(context),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy || _uploadingWatermark
+                    ? null
+                    : _pickAndUploadWatermark,
+                icon: _uploadingWatermark
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.branding_watermark_outlined),
+                label: Text(AppStrings.t('channel.uploadWatermark')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: 116,
+            decoration: BoxDecoration(
+              color: const Color(0xFF11131A),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Stack(
+              children: [
+                const Center(
+                  child: Icon(
+                    Icons.play_circle_outline,
+                    size: 42,
+                    color: Colors.white70,
+                  ),
+                ),
+                if (_channel.watermarkUrl?.isNotEmpty == true)
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: Image.network(
+                      _channel.watermarkUrl!,
+                      width: 48,
+                      height: 36,
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                else
+                  Center(
+                    child: Text(
+                      AppStrings.t('channel.watermarkPreviewEmpty'),
+                      style: const TextStyle(color: Colors.white60),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -771,12 +961,12 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   hintText: AppStrings.t('channel.descriptionHintEdit'),
                 ),
               ),
-              _socialLinksAndTrailerSection(),
+              _socialLinksSection(),
               const SizedBox(height: 24),
 
               FilledButton(
-                onPressed: _busy ? null : _save,
-                child: _busy
+                onPressed: _busy || _loadingChannelSettings ? null : _save,
+                child: _busy || _loadingChannelSettings
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -931,28 +1121,26 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     );
   }
 
-  Widget _socialLinksAndTrailerSection() {
-    const platforms = [
-      {'id': 'facebook', 'name': 'Facebook'},
-      {'id': 'tiktok', 'name': 'TikTok'},
-      {'id': 'instagram', 'name': 'Instagram'},
-      {'id': 'twitter', 'name': 'X / Twitter'},
-      {'id': 'youtube', 'name': 'YouTube'},
-      {'id': 'discord', 'name': 'Discord'},
-      {'id': 'website', 'name': 'Website / Khác'},
+  Widget _socialLinksSection() {
+    final platforms = [
+      {'id': 'facebook', 'name': AppStrings.t('channel.platformFacebook')},
+      {'id': 'tiktok', 'name': AppStrings.t('channel.platformTiktok')},
+      {'id': 'instagram', 'name': AppStrings.t('channel.platformInstagram')},
+      {'id': 'x', 'name': AppStrings.t('channel.platformX')},
+      {'id': 'other', 'name': AppStrings.t('channel.otherLink')},
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 24),
-        const Text(
-          'Liên kết mạng xã hội (Social Links)',
+        Text(
+          AppStrings.t('channel.links'),
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 4),
         Text(
-          'Thêm các trang mạng xã hội để người xem dễ dàng tìm kiếm và theo dõi bạn.',
+          AppStrings.t('channel.linksDescription'),
           style: TextStyle(
             color: AppColors.textSecondaryFor(context),
             fontSize: 12,
@@ -976,9 +1164,12 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          initialValue: _links[i]['platform'] ?? 'website',
-                          decoration: const InputDecoration(
-                            labelText: 'Nền tảng',
+                          key: ValueKey(
+                            'link-platform-$i-${_links[i]['platform']}',
+                          ),
+                          initialValue: _links[i]['platform'] ?? 'other',
+                          decoration: InputDecoration(
+                            labelText: AppStrings.t('channel.platformLabel'),
                             isDense: true,
                           ),
                           items: platforms
@@ -991,7 +1182,10 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                               .toList(),
                           onChanged: (val) {
                             if (val != null) {
-                              setState(() => _links[i]['platform'] = val);
+                              setState(() {
+                                _links[i]['platform'] = val;
+                                _links[i]['title'] = _platformTitle(val);
+                              });
                             }
                           },
                         ),
@@ -1008,8 +1202,8 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   const SizedBox(height: 8),
                   TextFormField(
                     initialValue: _links[i]['title'],
-                    decoration: const InputDecoration(
-                      labelText: 'Tiêu đề hiển thị (vd: Facebook, TikTok)',
+                    decoration: InputDecoration(
+                      labelText: AppStrings.t('channel.linkTitle'),
                       isDense: true,
                     ),
                     onChanged: (val) => _links[i]['title'] = val,
@@ -1018,8 +1212,8 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   TextFormField(
                     initialValue: _links[i]['url'],
                     keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: 'Đường dẫn URL (https://...)',
+                    decoration: InputDecoration(
+                      labelText: AppStrings.t('channel.linkUrl'),
                       isDense: true,
                     ),
                     onChanged: (val) => _links[i]['url'] = val,
@@ -1034,37 +1228,14 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               : () {
                   setState(() {
                     _links.add({
-                      'platform': 'facebook',
-                      'title': 'Facebook',
+                      'platform': 'other',
+                      'title': AppStrings.t('channel.otherLink'),
                       'url': '',
                     });
                   });
                 },
           icon: const Icon(Icons.add_link_rounded),
-          label: const Text('Thêm liên kết mới'),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Video giới thiệu kênh (Channel Trailer)',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Video nổi bật phát ở đầu trang kênh dành cho người xem mới.',
-          style: TextStyle(
-            color: AppColors.textSecondaryFor(context),
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 10),
-        TextFormField(
-          controller: _trailerController,
-          enabled: !_busy,
-          decoration: const InputDecoration(
-            labelText: 'ID video giới thiệu',
-            hintText: 'Nhập ID video nổi bật làm trailer',
-            prefixIcon: Icon(Icons.play_circle_outline_rounded),
-          ),
+          label: Text(AppStrings.t('channel.addLink')),
         ),
       ],
     );

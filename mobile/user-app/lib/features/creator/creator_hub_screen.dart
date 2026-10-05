@@ -13,7 +13,6 @@ import '../../core/widgets/hutube_widgets.dart';
 import 'creator_analytics_screen.dart';
 import 'creator_comments_screen.dart';
 import 'creator_content_screen.dart';
-import 'creator_subtitles_screen.dart';
 import 'video_upload_screen.dart';
 
 class CreatorHubScreen extends StatefulWidget {
@@ -36,24 +35,25 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
   }
 
   Future<void> _load() async {
+    final selectedChannelId = _channel?.id;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final service = ChannelService(widget.auth);
-      final results = await Future.wait([
-        service.getMyChannel(),
-        service.getAccessibleChannels(),
-      ]);
-      final ownedChannel = results[0] as ChannelDetail?;
-      final accessibleChannels = results[1] as List<ChannelDetail>;
+      final accessibleChannels = await service.getAccessibleChannels();
+      final selectedChannel = accessibleChannels
+          .where((channel) => channel.id == selectedChannelId)
+          .firstOrNull;
+      final ownedChannel = accessibleChannels
+          .where((channel) => channel.isOwner)
+          .firstOrNull;
       if (mounted) {
         setState(() {
           _accessibleChannels = accessibleChannels;
           _channel =
-              ownedChannel ??
-              (accessibleChannels.isEmpty ? null : accessibleChannels.first);
+              selectedChannel ?? ownedChannel ?? accessibleChannels.firstOrNull;
           _loading = false;
         });
       }
@@ -115,15 +115,8 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
     }
     final channel = _channel!;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        HuTubeSectionHeader(
-          title: AppStrings.t('creator.title'),
-          subtitle: AppStrings.format('creator.manageDescription', {
-            'name': channel.name,
-          }),
-        ),
-        const SizedBox(height: 18),
         if (_accessibleChannels.length > 1)
           DropdownButtonFormField<String>(
             initialValue: channel.id,
@@ -195,7 +188,6 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.more_horiz_rounded, color: Colors.white70),
                 ],
               ),
               const SizedBox(height: 18),
@@ -226,25 +218,38 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
         ),
         const SizedBox(height: 12),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.upload, size: 20, color: AppColors.primaryPink),
+          customIcon: AppIcons.asset(
+            AppIcons.upload,
+            size: 20,
+            color: AppColors.primaryPink,
+          ),
           title: AppStrings.t('creator.upload'),
           detail: AppStrings.t('creator.uploadDescription'),
           onTap: () =>
               _open(VideoUploadScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.myVideo, size: 20, color: AppColors.primaryPink),
+          customIcon: AppIcons.asset(
+            AppIcons.myVideo,
+            size: 20,
+            color: AppColors.primaryPink,
+          ),
           title: AppStrings.t('creator.content'),
           detail: AppStrings.t('creator.contentDescription'),
           onTap: () =>
               _open(CreatorContentScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.statistics, size: 20, color: AppColors.primaryPink),
+          customIcon: AppIcons.asset(
+            AppIcons.statistics,
+            size: 20,
+            color: AppColors.primaryPink,
+          ),
           title: AppStrings.t('creator.analytics'),
           detail: AppStrings.t('creator.analyticsDescription'),
-          onTap: () =>
-              _open(CreatorAnalyticsScreen(auth: widget.auth, channel: channel)),
+          onTap: () => _open(
+            CreatorAnalyticsScreen(auth: widget.auth, channel: channel),
+          ),
         ),
         _CreatorAction(
           icon: Icons.forum_outlined,
@@ -254,7 +259,11 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
               _open(CreatorCommentsScreen(auth: widget.auth, channel: channel)),
         ),
         _CreatorAction(
-          customIcon: AppIcons.asset(AppIcons.setting, size: 20, color: AppColors.primaryPink),
+          customIcon: AppIcons.asset(
+            AppIcons.setting,
+            size: 20,
+            color: AppColors.primaryPink,
+          ),
           title: AppStrings.t('creator.settings'),
           detail: AppStrings.t('creator.settingsDescription'),
           onTap: () =>
@@ -265,13 +274,6 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
           title: AppStrings.t('creator.invitations'),
           detail: AppStrings.t('creator.invitationsDescription'),
           onTap: () => _open(ChannelInvitationsScreen(auth: widget.auth)),
-        ),
-        _CreatorAction(
-          icon: Icons.subtitles_outlined,
-          title: AppStrings.t('creator.subtitles'),
-          detail: AppStrings.t('creator.subtitlesDescription'),
-          onTap: () =>
-              _open(CreatorSubtitlesScreen(auth: widget.auth, channel: channel)),
         ),
       ],
     );
@@ -327,7 +329,8 @@ class _CreatorAction extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
-          child: customIcon ?? Icon(icon, color: AppColors.primaryPink, size: 20),
+          child:
+              customIcon ?? Icon(icon, color: AppColors.primaryPink, size: 20),
         ),
         title: Text(
           title,

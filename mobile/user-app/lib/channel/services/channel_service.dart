@@ -36,6 +36,19 @@ class ChannelService {
     return ChannelDetail.fromJson(res);
   }
 
+  Future<ChannelDetail> getChannelById(String channelId) async {
+    final res = auth.authenticated
+        ? await auth.protected(
+            'GET',
+            '/channels/${Uri.encodeComponent(channelId)}',
+          )
+        : await auth.api.request(
+            'GET',
+            '/channels/${Uri.encodeComponent(channelId)}',
+          );
+    return ChannelDetail.fromJson(res);
+  }
+
   Future<bool> checkHandle(String handle) async {
     final clean = handle.startsWith('@') ? handle.substring(1) : handle;
     try {
@@ -92,6 +105,40 @@ class ChannelService {
   Future<ChannelDetail> uploadBanner(String channelId, XFile file) =>
       _uploadImage(channelId, file, avatar: false);
 
+  Future<ChannelDetail> uploadWatermark(String channelId, XFile file) async {
+    final contentType = file.mimeType ?? _contentTypeFromName(file.name);
+    if (!const {
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    }.contains(contentType)) {
+      throw ApiFailure(
+        400,
+        'INVALID_FILE_TYPE',
+        AppStrings.t('channel.watermarkTypes'),
+      );
+    }
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 2 * 1024 * 1024) {
+      throw ApiFailure(
+        400,
+        'FILE_TOO_LARGE',
+        AppStrings.t('channel.watermarkSize'),
+      );
+    }
+    final response = await auth.protectedUpload(
+      '/channels/${Uri.encodeComponent(channelId)}/watermark',
+      UploadPayload(
+        bytes: bytes,
+        fileName: file.name.trim().isEmpty
+            ? 'channel-watermark.png'
+            : file.name,
+        contentType: contentType,
+      ),
+    );
+    return ChannelDetail.fromJson(response);
+  }
+
   Future<ChannelDetail> _uploadImage(
     String channelId,
     XFile file, {
@@ -103,7 +150,9 @@ class ChannelService {
       throw ApiFailure(
         400,
         'INVALID_FILE_TYPE',
-        AppStrings.t(avatar ? 'common.imageTypesAvatar' : 'common.imageTypesBanner'),
+        AppStrings.t(
+          avatar ? 'common.imageTypesAvatar' : 'common.imageTypesBanner',
+        ),
       );
     }
     final bytes = await file.readAsBytes();

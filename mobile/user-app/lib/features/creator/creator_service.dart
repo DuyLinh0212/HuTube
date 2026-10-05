@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:image_picker/image_picker.dart';
@@ -78,6 +79,8 @@ class CreatorService {
     required String quality,
     required List<String> tags,
     List<Map<String, dynamic>> chapters = const [],
+    List<Map<String, dynamic>> videoCards = const [],
+    bool promotionEnabled = false,
     required MultipartFilePayload video,
     MultipartFilePayload? thumbnail,
   }) async {
@@ -93,12 +96,15 @@ class CreatorService {
       'AgeRestricted': '$ageRestricted',
       'Duration': '$duration',
       'SourceQuality': quality,
+      'PromotionEnabled': '$promotionEnabled',
+      if (videoCards.isNotEmpty) 'VideoCardsJson': jsonEncode(videoCards),
     };
     for (var index = 0; index < tags.length; index++) {
       fields['Tags[$index]'] = tags[index];
     }
     for (var index = 0; index < chapters.length; index++) {
-      fields['Chapters[$index].StartSeconds'] = '${chapters[index]['startSeconds']}';
+      fields['Chapters[$index].StartSeconds'] =
+          '${chapters[index]['startSeconds']}';
       fields['Chapters[$index].Title'] = '${chapters[index]['title']}';
     }
     final json = await auth.protectedMultipart(
@@ -148,6 +154,8 @@ class CreatorService {
     bool clearCategory = false,
     List<String>? tags,
     List<Map<String, dynamic>>? chapters,
+    List<Map<String, dynamic>>? videoCards,
+    bool? promotionEnabled,
   }) async {
     final json = await auth.protected(
       'PATCH',
@@ -163,6 +171,8 @@ class CreatorService {
         'thumbnailUrl': null,
         'tags': tags,
         'chapters': chapters,
+        'videoCards': videoCards,
+        'promotionEnabled': promotionEnabled,
       },
     );
     return VideoDetail.fromJson(json);
@@ -251,10 +261,17 @@ class CreatorService {
   Future<PageResult<CommentItem>> managedComments(
     String channelId, {
     int page = 1,
+    String? status,
+    String sort = 'newest',
   }) async {
     final json = await auth.protected(
       'GET',
-      '/channels/${Uri.encodeComponent(channelId)}/comments/manage?page=$page&pageSize=50',
+      _path('/channels/${Uri.encodeComponent(channelId)}/comments/manage', {
+        'status': status,
+        'sort': sort,
+        'page': page,
+        'pageSize': 50,
+      }),
     );
     return PageResult(
       items: (json['items'] as List? ?? const [])

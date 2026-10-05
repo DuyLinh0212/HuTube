@@ -51,6 +51,99 @@ class Category {
   );
 }
 
+class CategoryRankingGroup {
+  const CategoryRankingGroup({
+    required this.id,
+    required this.name,
+    required this.slug,
+    required this.videos,
+  });
+
+  final String id;
+  final String name;
+  final String slug;
+  final List<VideoCard> videos;
+
+  factory CategoryRankingGroup.fromJson(Map<String, dynamic> json) =>
+      CategoryRankingGroup(
+        id: '${json['categoryId'] ?? ''}',
+        name: '${json['categoryName'] ?? ''}',
+        slug: '${json['slug'] ?? ''}',
+        videos: (json['videos'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (value) => VideoCard.fromJson(Map<String, dynamic>.from(value)),
+            )
+            .toList(),
+      );
+}
+
+class FeaturedCreator {
+  const FeaturedCreator({
+    required this.id,
+    required this.name,
+    required this.handle,
+    required this.avatarUrl,
+    required this.subscriberCount,
+    required this.verified,
+  });
+
+  final String id;
+  final String name;
+  final String handle;
+  final String? avatarUrl;
+  final int subscriberCount;
+  final bool verified;
+
+  factory FeaturedCreator.fromJson(Map<String, dynamic> json) =>
+      FeaturedCreator(
+        id: '${json['channelId'] ?? ''}',
+        name: '${json['name'] ?? ''}',
+        handle: '${json['handle'] ?? ''}',
+        avatarUrl: json['avatarUrl'] as String?,
+        subscriberCount: asInt(json['subscriberCount']),
+        verified: json['verified'] == true,
+      );
+}
+
+class ExploreHub {
+  const ExploreHub({
+    required this.rankings,
+    required this.creators,
+    required this.trending,
+    required this.topVideos,
+  });
+
+  final List<CategoryRankingGroup> rankings;
+  final List<FeaturedCreator> creators;
+  final List<VideoCard> trending;
+  final List<VideoCard> topVideos;
+
+  factory ExploreHub.fromJson(Map<String, dynamic> json) => ExploreHub(
+    rankings: (json['rankings'] as List? ?? const [])
+        .whereType<Map>()
+        .map(
+          (value) =>
+              CategoryRankingGroup.fromJson(Map<String, dynamic>.from(value)),
+        )
+        .toList(),
+    creators: (json['creators'] as List? ?? const [])
+        .whereType<Map>()
+        .map(
+          (value) => FeaturedCreator.fromJson(Map<String, dynamic>.from(value)),
+        )
+        .toList(),
+    trending: (json['trending'] as List? ?? const [])
+        .whereType<Map>()
+        .map((value) => VideoCard.fromJson(Map<String, dynamic>.from(value)))
+        .toList(),
+    topVideos: (json['topVideos'] as List? ?? const [])
+        .whereType<Map>()
+        .map((value) => VideoCard.fromJson(Map<String, dynamic>.from(value)))
+        .toList(),
+  );
+}
+
 class VideoCard {
   const VideoCard({
     required this.id,
@@ -101,6 +194,7 @@ class VideoStats {
     required this.comments,
     required this.averageRating,
     required this.ratingCount,
+    this.watchSeconds = 0,
   });
 
   final int views;
@@ -109,6 +203,7 @@ class VideoStats {
   final int comments;
   final double? averageRating;
   final int ratingCount;
+  final int watchSeconds;
 
   factory VideoStats.fromJson(Map<String, dynamic> json) => VideoStats(
     views: asInt(json['views']),
@@ -117,6 +212,28 @@ class VideoStats {
     comments: asInt(json['comments']),
     averageRating: (json['averageRating'] as num?)?.toDouble(),
     ratingCount: asInt(json['ratingCount']),
+    watchSeconds: asInt(json['watchSeconds']),
+  );
+}
+
+class VideoCardLink {
+  const VideoCardLink({
+    required this.videoId,
+    required this.startSeconds,
+    required this.title,
+    this.thumbnailUrl,
+  });
+
+  final String videoId;
+  final int startSeconds;
+  final String title;
+  final String? thumbnailUrl;
+
+  factory VideoCardLink.fromJson(Map<String, dynamic> json) => VideoCardLink(
+    videoId: '${json['videoId'] ?? ''}',
+    startSeconds: asInt(json['startSeconds']),
+    title: '${json['title'] ?? ''}',
+    thumbnailUrl: json['thumbnailUrl'] as String?,
   );
 }
 
@@ -165,6 +282,8 @@ class VideoDetail extends VideoCard {
     required this.moderationStatus,
     this.processingStatus = '',
     this.categoryId,
+    this.promotionEnabled = false,
+    this.videoCards = const [],
   });
 
   final String? description;
@@ -176,6 +295,8 @@ class VideoDetail extends VideoCard {
   final String moderationStatus;
   final String processingStatus;
   final String? categoryId;
+  final bool promotionEnabled;
+  final List<VideoCardLink> videoCards;
 
   factory VideoDetail.fromJson(Map<String, dynamic> json) => VideoDetail(
     id: '${json['videoId'] ?? ''}',
@@ -206,6 +327,13 @@ class VideoDetail extends VideoCard {
     ),
     moderationStatus: '${json['moderationStatus'] ?? ''}',
     processingStatus: '${json['status'] ?? ''}',
+    promotionEnabled: json['promotionEnabled'] == true,
+    videoCards: (json['videoCards'] as List? ?? const [])
+        .whereType<Map>()
+        .map(
+          (value) => VideoCardLink.fromJson(Map<String, dynamic>.from(value)),
+        )
+        .toList(),
   );
 }
 
@@ -259,6 +387,7 @@ class CommentItem {
     required this.replyCount,
     this.userId,
     this.status,
+    this.videoTitle,
     this.isPinned = false,
     this.hasCreatorHeart = false,
   });
@@ -274,6 +403,7 @@ class CommentItem {
   final int replyCount;
   final String? userId;
   final String? status;
+  final String? videoTitle;
   final bool isPinned;
   final bool hasCreatorHeart;
 
@@ -289,6 +419,7 @@ class CommentItem {
     int? replyCount,
     String? userId,
     String? status,
+    String? videoTitle,
     bool? isPinned,
     bool? hasCreatorHeart,
   }) {
@@ -304,6 +435,7 @@ class CommentItem {
       replyCount: replyCount ?? this.replyCount,
       userId: userId ?? this.userId,
       status: status ?? this.status,
+      videoTitle: videoTitle ?? this.videoTitle,
       isPinned: isPinned ?? this.isPinned,
       hasCreatorHeart: hasCreatorHeart ?? this.hasCreatorHeart,
     );
@@ -321,6 +453,7 @@ class CommentItem {
     replyCount: asInt(json['replyCount']),
     userId: json['userId'] as String?,
     status: json['status'] as String?,
+    videoTitle: json['videoTitle'] as String?,
     isPinned: json['isPinned'] == true,
     hasCreatorHeart: json['hasCreatorHeart'] == true,
   );
@@ -340,10 +473,12 @@ class LibraryVideo extends VideoCard {
     required super.views,
     required this.progress,
     required this.myRating,
+    this.activityAt,
   });
 
   final double progress;
   final int? myRating;
+  final DateTime? activityAt;
 
   factory LibraryVideo.fromJson(Map<String, dynamic> json) => LibraryVideo(
     id: '${json['videoId'] ?? ''}',
@@ -358,5 +493,6 @@ class LibraryVideo extends VideoCard {
     views: asInt(json['views']),
     progress: (json['progress'] as num?)?.toDouble() ?? 0,
     myRating: json['myRating'] as int?,
+    activityAt: DateTime.tryParse('${json['activityAt'] ?? ''}'),
   );
 }

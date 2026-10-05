@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -11,6 +13,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
 import '../content/content_service.dart';
+import '../plans/plan_service.dart';
 import 'creator_service.dart';
 
 class VideoUploadScreen extends StatefulWidget {
@@ -31,21 +34,35 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   final _picker = ImagePicker();
   final _title = TextEditingController();
   final _description = TextEditingController();
-  final _duration = TextEditingController();
   final _tags = TextEditingController();
   late final CreatorService _creator = CreatorService(widget.auth);
   late final ContentService _content = ContentService(widget.auth);
   List<Category> _categories = const [];
   XFile? _video;
   XFile? _thumbnail;
+  NativeVideoPlayerController? _previewPlayer;
+  int _durationSeconds = 0;
   String? _categoryId;
+  List<VideoDetail> _relatedVideos = const [];
+  final List<Map<String, dynamic>> _videoCards = [];
+  String? _selectedRelatedVideoId;
+  final _relatedTime = TextEditingController(text: '0:00');
   String _visibility = 'private';
   bool _ageRestricted = false;
+  bool _canPromote = false;
+  bool _promotionEnabled = false;
   bool _policyAccepted = false;
   bool _loadingCategories = true;
+  bool _loadingRelatedVideos = true;
   bool _uploading = false;
   String? _error;
   final List<Map<String, dynamic>> _chapters = [];
+
+  List<VideoDetail> get _availableRelatedVideos => _relatedVideos
+      .where(
+        (item) => !_videoCards.any((card) => card['videoId'] == item.id),
+      )
+      .toList();
 
   void _addChapter() {
     setState(() {
@@ -63,14 +80,17 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   void initState() {
     super.initState();
     _loadCategories();
+    _loadRelatedVideos();
+    _loadPromotionEntitlement();
   }
 
   @override
   void dispose() {
     _title.dispose();
     _description.dispose();
-    _duration.dispose();
     _tags.dispose();
+    _relatedTime.dispose();
+    unawaited(_previewPlayer?.dispose());
     super.dispose();
   }
 
@@ -90,18 +110,122 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
 
   Future<void> _pickVideo() async {
     final file = await _picker.pickVideo(source: ImageSource.gallery);
-    if (file != null && mounted) {
-      setState(() {
-        _video = file;
-        if (_title.text.trim().isEmpty) {
-          final rawName = file.name.split('.').first;
-          _title.text = rawName.replaceAll('_', ' ').replaceAll('-', ' ');
-        }
-        if (_duration.text.trim().isEmpty || _duration.text.trim() == '0') {
-          _duration.text = '60';
-        }
-      });
+    if (file == null || !mounted) return;
+    final oldPlayer = _previewPlayer;
+    setState(() {
+      _video = file;
+      _previewPlayer = null;
+      _durationSeconds = 0;
+      _error = null;
+      if (_title.text.trim().isEmpty) {
+        final rawName = file.name.split('.').first;
+        _title.text = rawName.replaceAll('_', ' ').replaceAll('-', ' ');
+      }
+    });
+    unawaited(oldPlayer?.dispose());
+    final player = NativeVideoPlayerController(
+      id: DateTime.now().microsecondsSinceEpoch & 0x7fffffff,
+      autoPlay: false,
+      showNativeControls: true,
+    );
+    setState(() => _previewPlayer = player);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(_previewPlayer, player)) {
+        unawaited(_initializePreview(player, file));
+      }
+    });
+  }
+
+  Future<void> _initializePreview(
+    NativeVideoPlayerController player,
+    XFile file,
+  ) async {
+    try {
+      final durationFuture = player.durationStream
+          .firstWhere((duration) => duration > Duration.zero)
+          .timeout(const Duration(seconds: 20));
+      await player.initialize();
+      await player.loadFile(path: file.path);
+      final duration = await durationFuture;
+      if (!mounted || !identical(_previewPlayer, player) || _video != file) {
+        return;
+      }
+      setState(() => _durationSeconds = duration.inSeconds);
+    } catch (_) {
+      if (mounted && identical(_previewPlayer, player)) {
+        setState(() => _error = AppStrings.t('upload.previewError'));
+      }
     }
+  }
+
+  Future<void> _loadRelatedVideos() async {
+    try {
+      final result = await loadAllPages(
+        (page) => _creator.managedVideos(widget.channel.id, page: page),
+      );
+      if (!mounted) return;
+      setState(() {
+        _relatedVideos = result.items
+            .where(
+              (item) =>
+                  item.processingStatus == 'published' &&
+                  item.moderationStatus == 'approved' &&
+                  item.visibility == 'public' &&
+                  item.publishedAt != null,
+            )
+            .toList();
+        _loadingRelatedVideos = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingRelatedVideos = false);
+    }
+  }
+
+  Future<void> _loadPromotionEntitlement() async {
+    try {
+      final plan = await PlanService(widget.auth).myPlan();
+      final features = plan?['features'];
+      final allowed = features is Map && features['video_promotion'] == true;
+      if (mounted) setState(() => _canPromote = allowed);
+    } catch (_) {
+      if (mounted) setState(() => _canPromote = false);
+    }
+  }
+
+  static int _parseVideoCardTime(String value) {
+    final match = RegExp(r'^(\d+):([0-5]?\d)$').firstMatch(value.trim());
+    if (match == null) return -1;
+    return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
+  }
+
+  static String _formatVideoCardTime(int seconds) =>
+      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+  void _addVideoCard() {
+    final videoId = _selectedRelatedVideoId;
+    final seconds = _parseVideoCardTime(_relatedTime.text);
+    if (videoId == null ||
+        seconds < 0 ||
+        seconds >= _durationSeconds ||
+        _videoCards.length >= 5 ||
+        _videoCards.any(
+          (card) =>
+              card['videoId'] == videoId || card['startSeconds'] == seconds,
+        )) {
+      setState(() => _error = AppStrings.t('upload.videoCardFieldsInvalid'));
+      return;
+    }
+    setState(() {
+      _videoCards.add({'videoId': videoId, 'startSeconds': seconds});
+      _videoCards.sort(
+        (left, right) => (left['startSeconds'] as int).compareTo(
+          right['startSeconds'] as int,
+        ),
+      );
+      _selectedRelatedVideoId = null;
+      _relatedTime.text = '0:00';
+      _error = null;
+    });
   }
 
   Future<void> _pickThumbnail() async {
@@ -136,9 +260,16 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
       setState(() => _error = AppStrings.t('upload.policyRequired'));
       return;
     }
-    final duration = int.tryParse(_duration.text.trim());
-    if (duration == null || duration <= 0) {
+    final duration = _durationSeconds;
+    if (duration <= 0) {
       setState(() => _error = AppStrings.t('upload.durationInvalid'));
+      return;
+    }
+    if (_videoCards.any((card) {
+      final seconds = card['startSeconds'] as int;
+      return seconds < 0 || seconds >= duration;
+    })) {
+      setState(() => _error = AppStrings.t('upload.videoCardsInvalid'));
       return;
     }
     final video = _video!;
@@ -182,6 +313,8 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
         quality: '720p',
         tags: tags,
         chapters: _chapters,
+        videoCards: _videoCards,
+        promotionEnabled: _canPromote && _promotionEnabled,
         video: MultipartFilePayload(
           field: 'Video',
           path: video.path,
@@ -239,13 +372,8 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
       child: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            HuTubeSectionHeader(
-              title: AppStrings.t('upload.title'),
-              subtitle: AppStrings.t('upload.subtitle'),
-            ),
-            const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -283,6 +411,18 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                   : AppStrings.t('upload.selectedVideo'),
               onTap: _uploading ? null : _pickVideo,
             ),
+            if (_video != null) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: _previewPlayer == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : NativeVideoPlayer(controller: _previewPlayer!),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             _FilePicker(
               icon: Icons.image_outlined,
@@ -316,17 +456,21 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _duration,
-              enabled: !_uploading,
-              keyboardType: TextInputType.number,
+            InputDecorator(
               decoration: InputDecoration(
                 labelText: AppStrings.t('upload.durationField'),
                 helperText: AppStrings.t('upload.durationHint'),
               ),
-              validator: (value) => int.tryParse(value ?? '') == null
-                  ? AppStrings.t('upload.durationInvalid')
-                  : null,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _durationSeconds > 0
+                      ? _formatVideoCardTime(_durationSeconds)
+                      : _video == null
+                      ? AppStrings.t('upload.durationWaitingForVideo')
+                      : AppStrings.t('upload.preparing'),
+                ),
+              ),
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String?>(
@@ -422,6 +566,113 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                   ),
                 );
               }),
+            const SizedBox(height: 14),
+            Text(
+              AppStrings.t('upload.relatedVideos'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              AppStrings.t('upload.relatedVideosHint'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (_loadingRelatedVideos)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: LinearProgressIndicator(),
+              )
+            else if (_availableRelatedVideos.isNotEmpty &&
+                _videoCards.length < 5) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedRelatedVideoId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('upload.relatedVideoSelect'),
+                ),
+                items: _availableRelatedVideos
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.id,
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _uploading || _durationSeconds <= 0
+                    ? null
+                    : (value) =>
+                          setState(() => _selectedRelatedVideoId = value),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _relatedTime,
+                      enabled: !_uploading,
+                      keyboardType: TextInputType.datetime,
+                      decoration: InputDecoration(
+                        labelText: AppStrings.t('upload.relatedVideoTime'),
+                        hintText: '0:00',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: _uploading ||
+                            _durationSeconds <= 0 ||
+                            _selectedRelatedVideoId == null
+                        ? null
+                        : _addVideoCard,
+                    icon: const Icon(Icons.add),
+                    label: Text(AppStrings.t('upload.addRelatedVideo')),
+                  ),
+                ],
+              ),
+            ] else if (_relatedVideos.isEmpty && !_loadingRelatedVideos)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(AppStrings.t('upload.noRelatedVideos')),
+              ),
+            if (_videoCards.isNotEmpty)
+              ..._videoCards.map((card) {
+                final relatedVideo = _relatedVideos
+                    .where((item) => item.id == card['videoId'])
+                    .firstOrNull;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(
+                    relatedVideo?.title ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    _formatVideoCardTime(card['startSeconds'] as int),
+                  ),
+                  trailing: IconButton(
+                    tooltip: AppStrings.t('upload.removeRelatedVideo'),
+                    icon: const Icon(Icons.close),
+                    onPressed: _uploading
+                        ? null
+                        : () => setState(() => _videoCards.remove(card)),
+                  ),
+                );
+              }),
+            if (_canPromote)
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _promotionEnabled,
+                onChanged: _uploading
+                    ? null
+                    : (value) => setState(() => _promotionEnabled = value),
+                title: Text(AppStrings.t('upload.promoteVideo')),
+                subtitle: Text(AppStrings.t('upload.promoteVideoHint')),
+              ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               initialValue: _visibility,

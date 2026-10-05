@@ -5,6 +5,7 @@ class ChannelSummary {
     required this.handle,
     this.avatarUrl,
     this.bannerUrl,
+    this.watermarkUrl,
     required this.subscriberCount,
     required this.videoCount,
     this.isOwner = false,
@@ -15,6 +16,7 @@ class ChannelSummary {
   final String handle;
   final String? avatarUrl;
   final String? bannerUrl;
+  final String? watermarkUrl;
   final int subscriberCount;
   final int videoCount;
   final bool isOwner;
@@ -26,6 +28,7 @@ class ChannelSummary {
       handle: json['handle'] as String? ?? '',
       avatarUrl: json['avatarUrl'] as String?,
       bannerUrl: json['bannerUrl'] as String?,
+      watermarkUrl: json['watermarkUrl'] as String?,
       subscriberCount: json['subscriberCount'] as int? ?? 0,
       videoCount: json['videoCount'] as int? ?? 0,
       isOwner: json['isOwner'] as bool? ?? false,
@@ -38,6 +41,7 @@ class ChannelSummary {
     'handle': handle,
     'avatarUrl': avatarUrl,
     'bannerUrl': bannerUrl,
+    'watermarkUrl': watermarkUrl,
     'subscriberCount': subscriberCount,
     'videoCount': videoCount,
     'isOwner': isOwner,
@@ -52,6 +56,7 @@ class ChannelDetail {
     this.description,
     this.avatarUrl,
     this.bannerUrl,
+    this.watermarkUrl,
     this.settings,
     required this.subscriberCount,
     required this.videoCount,
@@ -69,6 +74,7 @@ class ChannelDetail {
   final String? description;
   final String? avatarUrl;
   final String? bannerUrl;
+  final String? watermarkUrl;
   final String? settings;
   final int subscriberCount;
   final int videoCount;
@@ -87,6 +93,7 @@ class ChannelDetail {
       description: json['description'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       bannerUrl: json['bannerUrl'] as String?,
+      watermarkUrl: json['watermarkUrl'] as String?,
       settings: json['settings'] as String?,
       subscriberCount: json['subscriberCount'] as int? ?? 0,
       videoCount: json['videoCount'] as int? ?? 0,
@@ -108,6 +115,7 @@ class ChannelDetail {
     'description': description,
     'avatarUrl': avatarUrl,
     'bannerUrl': bannerUrl,
+    'watermarkUrl': watermarkUrl,
     'settings': settings,
     'subscriberCount': subscriberCount,
     'videoCount': videoCount,
@@ -124,6 +132,7 @@ class ChannelDetail {
     String? description,
     String? avatarUrl,
     String? bannerUrl,
+    String? watermarkUrl,
     String? settings,
     bool? isSubscribed,
     int? subscriberCount,
@@ -135,6 +144,7 @@ class ChannelDetail {
       description: description ?? this.description,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       bannerUrl: bannerUrl ?? this.bannerUrl,
+      watermarkUrl: watermarkUrl ?? this.watermarkUrl,
       settings: settings ?? this.settings,
       subscriberCount: subscriberCount ?? this.subscriberCount,
       videoCount: videoCount,

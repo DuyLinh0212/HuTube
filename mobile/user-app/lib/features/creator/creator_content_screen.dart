@@ -9,6 +9,7 @@ import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
 import '../content/content_service.dart';
 import '../content/video_card.dart';
+import '../plans/plan_service.dart';
 import 'creator_service.dart';
 
 class CreatorContentScreen extends StatefulWidget {
@@ -88,6 +89,8 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         categoryId: result.categoryId,
         tags: result.tags,
         chapters: result.chapters,
+        videoCards: result.videoCards,
+        promotionEnabled: result.promotionEnabled,
       );
       await _load();
     } on ApiFailure catch (error) {
@@ -422,6 +425,8 @@ class _VideoEdit {
     this.categoryId,
     this.tags = const [],
     this.chapters = const [],
+    this.videoCards = const [],
+    this.promotionEnabled,
   });
 
   final String title;
@@ -430,6 +435,8 @@ class _VideoEdit {
   final String? categoryId;
   final List<String> tags;
   final List<Map<String, dynamic>> chapters;
+  final List<Map<String, dynamic>> videoCards;
+  final bool? promotionEnabled;
 }
 
 class _VideoEditor extends StatefulWidget {
@@ -453,15 +460,168 @@ class _VideoEditorState extends State<_VideoEditor> {
   late final List<Map<String, dynamic>> _chapters = widget.item.chapters
       .map((c) => {'startSeconds': c.startSeconds, 'title': c.title})
       .toList();
+  late final List<Map<String, dynamic>> _videoCards = widget.item.videoCards
+      .map(
+        (card) => {
+          'videoId': card.videoId,
+          'startSeconds': card.startSeconds,
+          'time': _formatVideoCardTime(card.startSeconds),
+        },
+      )
+      .toList();
+  final _relatedTime = TextEditingController(text: '0:00');
   final _tagInput = TextEditingController();
 
   List<Category> _categories = const [];
+  List<VideoDetail> _relatedVideos = const [];
   bool _loadingCategories = true;
+  bool _loadingRelatedVideos = true;
+  bool _canPromote = false;
+  late bool _promotionEnabled = widget.item.promotionEnabled;
+  String? _selectedRelatedVideoId;
+  String? _error;
+
+  List<VideoDetail> get _availableRelatedVideos => _relatedVideos
+      .where((video) => !_videoCards.any((card) => card['videoId'] == video.id))
+      .toList();
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _loadRelatedVideos();
+    _loadPromotionEntitlement();
+  }
+
+  Future<void> _loadRelatedVideos() async {
+    try {
+      final result = await loadAllPages(
+        (page) => CreatorService(
+          widget.auth,
+        ).managedVideos(widget.item.channelId, page: page),
+      );
+      if (!mounted) return;
+      setState(() {
+        _relatedVideos = result.items
+            .where(
+              (video) =>
+                  video.id != widget.item.id &&
+                  video.processingStatus == 'published' &&
+                  video.moderationStatus == 'approved' &&
+                  video.visibility == 'public' &&
+                  video.publishedAt != null,
+            )
+            .toList();
+        _loadingRelatedVideos = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingRelatedVideos = false);
+    }
+  }
+
+  Future<void> _loadPromotionEntitlement() async {
+    try {
+      final plan = await PlanService(widget.auth).myPlan();
+      final features = plan?['features'];
+      if (mounted) {
+        setState(
+          () => _canPromote =
+              features is Map && features['video_promotion'] == true,
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => _canPromote = false);
+    }
+  }
+
+  static int _parseVideoCardTime(String value) {
+    final match = RegExp(r'^(\d+):([0-5]?\d)$').firstMatch(value.trim());
+    if (match == null) return -1;
+    return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
+  }
+
+  static String _formatVideoCardTime(int seconds) =>
+      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+  void _addVideoCard() {
+    final videoId = _selectedRelatedVideoId;
+    final startSeconds = _parseVideoCardTime(_relatedTime.text);
+    if (videoId == null ||
+        startSeconds < 0 ||
+        startSeconds >= widget.item.duration ||
+        _videoCards.length >= 5 ||
+        _videoCards.any(
+          (card) =>
+              card['videoId'] == videoId ||
+              card['startSeconds'] == startSeconds,
+        )) {
+      setState(() => _error = AppStrings.t('upload.videoCardFieldsInvalid'));
+      return;
+    }
+    setState(() {
+      _videoCards.add({
+        'videoId': videoId,
+        'startSeconds': startSeconds,
+        'time': _formatVideoCardTime(startSeconds),
+      });
+      _videoCards.sort(
+        (left, right) => (left['startSeconds'] as int).compareTo(
+          right['startSeconds'] as int,
+        ),
+      );
+      _selectedRelatedVideoId = null;
+      _relatedTime.text = '0:00';
+      _error = null;
+    });
+  }
+
+  String _relatedVideoTitle(String videoId) {
+    final managedVideo = _relatedVideos
+        .where((video) => video.id == videoId)
+        .firstOrNull;
+    if (managedVideo != null) return managedVideo.title;
+    return widget.item.videoCards
+            .where((card) => card.videoId == videoId)
+            .firstOrNull
+            ?.title ??
+        videoId;
+  }
+
+  void _save() {
+    final startTimes = _videoCards
+        .map((card) => card['startSeconds'] as int)
+        .toList();
+    final videoIds = _videoCards.map((card) => card['videoId']).toSet();
+    if (_videoCards.length > 5 ||
+        videoIds.length != _videoCards.length ||
+        startTimes.toSet().length != startTimes.length ||
+        _videoCards.any((card) {
+          final second = card['startSeconds'] as int;
+          return second < 0 || second >= widget.item.duration;
+        })) {
+      setState(() => _error = AppStrings.t('upload.videoCardsInvalid'));
+      return;
+    }
+    Navigator.pop(
+      context,
+      _VideoEdit(
+        title: _title.text.trim(),
+        description: _description.text.trim(),
+        visibility: _visibility,
+        categoryId: _categoryId,
+        tags: _tags,
+        chapters: _chapters,
+        videoCards: _videoCards
+            .map(
+              (card) => {
+                'videoId': card['videoId'],
+                'startSeconds': card['startSeconds'],
+              },
+            )
+            .toList(),
+        promotionEnabled: _canPromote ? _promotionEnabled : null,
+      ),
+    );
   }
 
   Future<void> _loadCategories() async {
@@ -505,6 +665,7 @@ class _VideoEditorState extends State<_VideoEditor> {
     _title.dispose();
     _description.dispose();
     _tagInput.dispose();
+    _relatedTime.dispose();
     super.dispose();
   }
 
@@ -531,10 +692,9 @@ class _VideoEditorState extends State<_VideoEditor> {
                 children: [
                   Text(
                     AppStrings.t('creator.editTitle'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
@@ -598,7 +758,10 @@ class _VideoEditorState extends State<_VideoEditor> {
                   children: _tags
                       .map(
                         (tag) => Chip(
-                          label: Text(tag, style: const TextStyle(fontSize: 12)),
+                          label: Text(
+                            tag,
+                            style: const TextStyle(fontSize: 12),
+                          ),
                           deleteIcon: const Icon(Icons.close, size: 14),
                           onDeleted: () => setState(() => _tags.remove(tag)),
                         ),
@@ -695,6 +858,131 @@ class _VideoEditorState extends State<_VideoEditor> {
                 }),
               const SizedBox(height: 14),
 
+              Text(
+                AppStrings.t('upload.relatedVideos'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                AppStrings.t('upload.relatedVideosHint'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (_loadingRelatedVideos)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: LinearProgressIndicator(),
+                )
+              else if (_availableRelatedVideos.isNotEmpty &&
+                  _videoCards.length < 5) ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedRelatedVideoId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('upload.relatedVideoSelect'),
+                  ),
+                  items: _availableRelatedVideos
+                      .map(
+                        (video) => DropdownMenuItem(
+                          value: video.id,
+                          child: Text(
+                            video.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => _selectedRelatedVideoId = value),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _relatedTime,
+                        keyboardType: TextInputType.datetime,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.t('upload.relatedVideoTime'),
+                          hintText: '0:00',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: _selectedRelatedVideoId == null
+                          ? null
+                          : _addVideoCard,
+                      icon: const Icon(Icons.add),
+                      label: Text(AppStrings.t('upload.addRelatedVideo')),
+                    ),
+                  ],
+                ),
+              ] else if (_relatedVideos.isEmpty && !_loadingRelatedVideos)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Text(AppStrings.t('upload.noRelatedVideos')),
+                ),
+              if (_videoCards.isNotEmpty)
+                ..._videoCards.map((card) {
+                  final videoId = '${card['videoId']}';
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                      _relatedVideoTitle(videoId),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: SizedBox(
+                      width: 170,
+                      child: TextFormField(
+                        key: ValueKey('related-time-$videoId'),
+                        initialValue: '${card['time']}',
+                        keyboardType: TextInputType.datetime,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.t('upload.relatedVideoTime'),
+                          hintText: '0:00',
+                          isDense: true,
+                        ),
+                        onChanged: (value) {
+                          card['time'] = value;
+                          card['startSeconds'] = _parseVideoCardTime(value);
+                        },
+                      ),
+                    ),
+                    trailing: IconButton(
+                      tooltip: AppStrings.t('upload.removeRelatedVideo'),
+                      icon: const Icon(Icons.close),
+                      onPressed: () => setState(() => _videoCards.remove(card)),
+                    ),
+                  );
+                }),
+              if (_canPromote)
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _promotionEnabled,
+                  onChanged: (value) =>
+                      setState(() => _promotionEnabled = value),
+                  title: Text(AppStrings.t('upload.promoteVideo')),
+                  subtitle: Text(AppStrings.t('upload.promoteVideoHint')),
+                ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 14),
+
               DropdownButtonFormField<String>(
                 initialValue: _visibility,
                 decoration: InputDecoration(
@@ -718,17 +1006,7 @@ class _VideoEditorState extends State<_VideoEditor> {
               ),
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: () => Navigator.pop(
-                  context,
-                  _VideoEdit(
-                    title: _title.text.trim(),
-                    description: _description.text.trim(),
-                    visibility: _visibility,
-                    categoryId: _categoryId,
-                    tags: _tags,
-                    chapters: _chapters,
-                  ),
-                ),
+                onPressed: _save,
                 child: Text(AppStrings.t('creator.save')),
               ),
             ],
@@ -737,5 +1015,4 @@ class _VideoEditorState extends State<_VideoEditor> {
       ),
     ),
   );
-
 }

@@ -33,10 +33,16 @@ class WatchScreen extends StatefulWidget {
     required this.auth,
     required this.playback,
     required this.videoId,
+    this.playlistId,
+    this.playlistIndex,
+    this.playlistShuffle = false,
   });
   final AuthController auth;
   final PlaybackSession playback;
   final String videoId;
+  final String? playlistId;
+  final int? playlistIndex;
+  final bool playlistShuffle;
 
   @override
   State<WatchScreen> createState() => _WatchScreenState();
@@ -159,9 +165,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           await SystemChrome.setPreferredOrientations([
             DeviceOrientation.portraitUp,
           ]);
-          await SystemChrome.setEnabledSystemUIMode(
-            SystemUiMode.edgeToEdge,
-          );
+          await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted && !_isFullScreen) {
               SystemChrome.setPreferredOrientations([
@@ -245,7 +249,48 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         _loading = false;
       });
 
-      if (widget.playback.queue.isEmpty) {
+      PlaylistDetail? playlist;
+      if (widget.playlistId != null) {
+        try {
+          playlist = await PlaylistService(widget.auth).get(widget.playlistId!);
+        } catch (_) {
+          playlist = null;
+        }
+      }
+      if (widget.playlistId != null && playlist != null) {
+        final queue = playlist.items
+            .where((item) => item.available)
+            .map(
+              (item) => VideoCard(
+                id: item.videoId,
+                channelId: '',
+                channelName: '',
+                channelHandle: '',
+                title: item.title ?? AppStrings.t('playlists.videoUnavailable'),
+                thumbnailUrl: item.thumbnailUrl,
+                duration: item.duration,
+                visibility: 'public',
+                publishedAt: null,
+                views: 0,
+              ),
+            )
+            .toList();
+        final requestedIndex = widget.playlistIndex;
+        final initialIndex =
+            requestedIndex != null &&
+                requestedIndex >= 0 &&
+                requestedIndex < queue.length &&
+                queue[requestedIndex].id == detail.id
+            ? requestedIndex
+            : queue.indexWhere((item) => item.id == detail.id);
+        if (queue.isNotEmpty) {
+          widget.playback.setQueue(
+            queue,
+            initialIndex: initialIndex < 0 ? 0 : initialIndex,
+          );
+          widget.playback.isShuffle = widget.playlistShuffle;
+        }
+      } else if (widget.playback.queue.isEmpty) {
         final currentCard = VideoCard(
           id: detail.id,
           channelId: detail.channelId,
@@ -349,7 +394,13 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       );
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted && widget.playback.autoplayNext) {
-          context.pushReplacement('/watch/${next.id}');
+          final playlist = widget.playlistId;
+          final nextIndex = widget.playback.queue.indexWhere(
+            (item) => item.id == next.id,
+          );
+          context.pushReplacement(
+            '/watch/${next.id}${playlist == null ? '' : '?playlist=${Uri.encodeComponent(playlist)}&index=$nextIndex${widget.playback.isShuffle ? '&shuffle=true' : ''}'}',
+          );
         }
       });
     }
@@ -503,6 +554,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
             comments: video.stats.comments,
             averageRating: video.stats.averageRating,
             ratingCount: video.stats.ratingCount,
+            watchSeconds: video.stats.watchSeconds,
           ),
           viewerState: ViewerState(
             reaction: result['myReaction'] as String?,
@@ -511,6 +563,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           ),
           moderationStatus: video.moderationStatus,
           processingStatus: video.processingStatus,
+          promotionEnabled: video.promotionEnabled,
+          videoCards: video.videoCards,
         );
       });
     } on ApiFailure catch (error) {
@@ -640,10 +694,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     );
     if (score == null || generation != _generation) return;
     try {
-      final result = await _content.rate(
-        videoId,
-        score == 0 ? null : score,
-      );
+      final result = await _content.rate(videoId, score == 0 ? null : score);
       final old = originalVideo;
       if (!mounted || generation != _generation) return;
       setState(() {
@@ -669,6 +720,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
             comments: old.stats.comments,
             averageRating: (result['average'] as num?)?.toDouble(),
             ratingCount: asInt(result['count']),
+            watchSeconds: old.stats.watchSeconds,
           ),
           viewerState: ViewerState(
             reaction: old.viewerState.reaction,
@@ -677,6 +729,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           ),
           moderationStatus: old.moderationStatus,
           processingStatus: old.processingStatus,
+          promotionEnabled: old.promotionEnabled,
+          videoCards: old.videoCards,
         );
         _actionMessage = score == 0
             ? 'Đã xóa đánh giá của bạn'
@@ -923,10 +977,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                 child: Text(AppStrings.t('common.cancel')),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(
-                  dialogContext,
-                  nameController.text.trim(),
-                ),
+                onPressed: () =>
+                    Navigator.pop(dialogContext, nameController.text.trim()),
                 child: Text(AppStrings.t('common.create')),
               ),
             ],
@@ -957,6 +1009,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       }
     }
   }
+
   Future<T?> _showAdaptivePlaybackModal<T>({
     required BuildContext context,
     required Widget Function(BuildContext) builder,
@@ -975,12 +1028,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 12,
+          ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 360,
-              maxHeight: 310,
-            ),
+            constraints: const BoxConstraints(maxWidth: 360, maxHeight: 310),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
               child: Material(
@@ -1013,8 +1066,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     final player = widget.playback.player;
     if (player == null || !widget.playback.ready) return;
     final quality = widget.playback.selectedRendition;
-    final qualityText =
-        quality != null ? 'Tự động (${quality.quality})' : 'Tự động';
+    final qualityText = quality != null
+        ? 'Tự động (${quality.quality})'
+        : 'Tự động';
     final speedText =
         '${player.speed.toStringAsFixed(player.speed == 1 ? 0 : 2)}x';
 
@@ -1211,10 +1265,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                 SizedBox(height: 3),
                 Text(
                   'Thay đổi này có hiệu lực khi phát video tiếp theo.',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white60, fontSize: 12),
                 ),
               ],
             ),
@@ -1543,313 +1594,333 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
                   children: [
-                    AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: videoStage,
-                    ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-              child: Text(
-                video.title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -.45,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 7, 20, 0),
-              child: Text(
-                AppStrings.format('watch.viewsAndChannel', {
-                  'views': AppStrings.number(video.stats.views),
-                  'channel': video.channelName,
-                }),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            const SizedBox(height: 14),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  _ActionChip(
-                    icon: Icons.thumb_up_outlined,
-                    label: AppStrings.number(video.stats.likes),
-                    active: video.viewerState.reaction == 'like',
-                    onTap: () => _react('like'),
-                  ),
-                  _ActionChip(
-                    icon: Icons.thumb_down_outlined,
-                    label: AppStrings.number(video.stats.dislikes),
-                    active: video.viewerState.reaction == 'dislike',
-                    onTap: () => _react('dislike'),
-                  ),
-                  _ActionChip(
-                    customIcon: AppIcons.asset(AppIcons.star, size: 18),
-                    label: video.viewerState.rating != null
-                        ? '${video.viewerState.rating} ★'
-                        : AppStrings.t('watch.rateAction'),
-                    active: video.viewerState.rating != null,
-                    onTap: _rate,
-                  ),
-                  _ActionChip(
-                    customIcon: AppIcons.asset(AppIcons.share, size: 18),
-                    label: AppStrings.t('watch.shareAction'),
-                    onTap: _share,
-                  ),
-                  _ActionChip(
-                    customIcon: AppIcons.asset(AppIcons.download, size: 18),
-                    label: AppStrings.t('watch.downloadAction'),
-                    onTap: _download,
-                  ),
-                  _ActionChip(
-                    customIcon: AppIcons.asset(AppIcons.playlist, size: 18),
-                    label: AppStrings.t('watch.savePlaylist'),
-                    onTap: _saveToPlaylist,
-                  ),
-                  _ActionChip(
-                    customIcon: AppIcons.asset(AppIcons.queue, size: 18),
-                    label: AppStrings.t('watch.queue'),
-                    active: widget.playback.queue.isNotEmpty,
-                    onTap: _openQueueSheet,
-                  ),
-                  _ActionChip(
-                    customIcon: AppIcons.asset(AppIcons.report, size: 18),
-                    label: AppStrings.t('watch.report'),
-                    onTap: () => showContentReportDialog(
-                      context,
-                      auth: widget.auth,
-                      targetType: 'video',
-                      targetId: video.id,
-                    ),
-                  ),
-                  if (_entitlements.pictureInPicture)
-                    _ActionChip(
-                      icon: Icons.picture_in_picture_alt_outlined,
-                      label: AppStrings.t('watch.pipAction'),
-                      onTap: _enterPictureInPicture,
-                    ),
-                  if (_entitlements.backgroundPlayback)
+                    AspectRatio(aspectRatio: 16 / 9, child: videoStage),
                     Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: Chip(
-                        avatar: Icon(Icons.headphones_outlined, size: 18),
-                        label: Text(AppStrings.t('watch.background')),
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                      child: Text(
+                        video.title,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -.45,
+                            ),
                       ),
                     ),
-                ],
-              ),
-            ),
-            if (_actionMessage != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Text(
-                  _actionMessage!,
-                  style: const TextStyle(color: AppColors.primaryPink),
-                ),
-              ),
-            const SizedBox(height: 18),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _ChannelSummary(video: video, auth: widget.auth),
-            ),
-            if ((video.description ?? '').isNotEmpty ||
-                video.tags.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: HuTubeSurface(
-                  color: AppColors.surfaceAltFor(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if ((video.description ?? '').isNotEmpty)
-                        Text(
-                          video.description!,
-                          style: const TextStyle(height: 1.5),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 7, 20, 0),
+                      child: Text(
+                        AppStrings.format('watch.viewsAndChannel', {
+                          'views': AppStrings.number(video.stats.views),
+                          'channel': video.channelName,
+                        }),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          _ActionChip(
+                            icon: Icons.thumb_up_outlined,
+                            label: AppStrings.number(video.stats.likes),
+                            active: video.viewerState.reaction == 'like',
+                            onTap: () => _react('like'),
+                          ),
+                          _ActionChip(
+                            icon: Icons.thumb_down_outlined,
+                            label: AppStrings.number(video.stats.dislikes),
+                            active: video.viewerState.reaction == 'dislike',
+                            onTap: () => _react('dislike'),
+                          ),
+                          _ActionChip(
+                            customIcon: AppIcons.asset(AppIcons.star, size: 18),
+                            label: video.viewerState.rating != null
+                                ? '${video.viewerState.rating} ★'
+                                : AppStrings.t('watch.rateAction'),
+                            active: video.viewerState.rating != null,
+                            onTap: _rate,
+                          ),
+                          _ActionChip(
+                            customIcon: AppIcons.asset(
+                              AppIcons.share,
+                              size: 18,
+                            ),
+                            label: AppStrings.t('watch.shareAction'),
+                            onTap: _share,
+                          ),
+                          _ActionChip(
+                            customIcon: AppIcons.asset(
+                              AppIcons.download,
+                              size: 18,
+                            ),
+                            label: AppStrings.t('watch.downloadAction'),
+                            onTap: _download,
+                          ),
+                          _ActionChip(
+                            customIcon: AppIcons.asset(
+                              AppIcons.playlist,
+                              size: 18,
+                            ),
+                            label: AppStrings.t('watch.savePlaylist'),
+                            onTap: _saveToPlaylist,
+                          ),
+                          _ActionChip(
+                            customIcon: AppIcons.asset(
+                              AppIcons.queue,
+                              size: 18,
+                            ),
+                            label: AppStrings.t('watch.queue'),
+                            active: widget.playback.queue.isNotEmpty,
+                            onTap: _openQueueSheet,
+                          ),
+                          _ActionChip(
+                            customIcon: AppIcons.asset(
+                              AppIcons.report,
+                              size: 18,
+                            ),
+                            label: AppStrings.t('watch.report'),
+                            onTap: () => showContentReportDialog(
+                              context,
+                              auth: widget.auth,
+                              targetType: 'video',
+                              targetId: video.id,
+                            ),
+                          ),
+                          if (_entitlements.pictureInPicture)
+                            _ActionChip(
+                              icon: Icons.picture_in_picture_alt_outlined,
+                              label: AppStrings.t('watch.pipAction'),
+                              onTap: _enterPictureInPicture,
+                            ),
+                          if (_entitlements.backgroundPlayback)
+                            Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Chip(
+                                avatar: Icon(
+                                  Icons.headphones_outlined,
+                                  size: 18,
+                                ),
+                                label: Text(AppStrings.t('watch.background')),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (_actionMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                        child: Text(
+                          _actionMessage!,
+                          style: const TextStyle(color: AppColors.primaryPink),
                         ),
-                      if (video.tags.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: Wrap(
-                            spacing: 6,
-                            children: video.tags
-                                .map((tag) => Chip(label: Text('#$tag')))
-                                .toList(),
+                      ),
+                    const SizedBox(height: 18),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _ChannelSummary(video: video, auth: widget.auth),
+                    ),
+                    if ((video.description ?? '').isNotEmpty ||
+                        video.tags.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: HuTubeSurface(
+                          color: AppColors.surfaceAltFor(context),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if ((video.description ?? '').isNotEmpty)
+                                Text(
+                                  video.description!,
+                                  style: const TextStyle(height: 1.5),
+                                ),
+                              if (video.tags.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Wrap(
+                                    spacing: 6,
+                                    children: video.tags
+                                        .map(
+                                          (tag) => Chip(label: Text('#$tag')),
+                                        )
+                                        .toList(),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            if (video.chapters.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(
-                AppStrings.t('watch.chapters'),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              ...video.chapters.map(
-                (chapter) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.play_circle_outline_rounded),
-                  title: Text(chapter.title),
-                  subtitle: Text(
-                    '${chapter.startSeconds ~/ 60}:${(chapter.startSeconds % 60).toString().padLeft(2, '0')}',
-                  ),
-                  onTap: () => widget.playback.seekTo(
-                    Duration(seconds: chapter.startSeconds),
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 22),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: HuTubeSectionHeader(
-                      title: AppStrings.format('watch.comments', {
-                        'count': AppStrings.number(video.stats.comments),
-                      }),
-                    ),
-                  ),
-                  PopupMenuButton<String>(
-                    tooltip: 'Sắp xếp bình luận',
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
                       ),
+                    ],
+                    if (video.chapters.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        AppStrings.t('watch.chapters'),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      ...video.chapters.map(
+                        (chapter) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(
+                            Icons.play_circle_outline_rounded,
+                          ),
+                          title: Text(chapter.title),
+                          subtitle: Text(
+                            '${chapter.startSeconds ~/ 60}:${(chapter.startSeconds % 60).toString().padLeft(2, '0')}',
+                          ),
+                          onTap: () => widget.playback.seekTo(
+                            Duration(seconds: chapter.startSeconds),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          const Icon(Icons.sort_rounded, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            _commentSort == 'top' ? 'Hàng đầu' : 'Mới nhất',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                          PopupMenuButton<String>(
+                            tooltip: 'Sắp xếp bình luận',
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.sort_rounded, size: 18),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _commentSort == 'top'
+                                        ? 'Hàng đầu'
+                                        : 'Mới nhất',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            onSelected: (val) {
+                              setState(() => _commentSort = val);
+                            },
+                            itemBuilder: (ctx) => const [
+                              PopupMenuItem(
+                                value: 'top',
+                                child: Text('Bình luận hàng đầu'),
+                              ),
+                              PopupMenuItem(
+                                value: 'newest',
+                                child: Text('Mới nhất trước'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                    onSelected: (val) {
-                      setState(() => _commentSort = val);
-                    },
-                    itemBuilder: (ctx) => const [
-                      PopupMenuItem(
-                        value: 'top',
-                        child: Text('Bình luận hàng đầu'),
-                      ),
-                      PopupMenuItem(
-                        value: 'newest',
-                        child: Text('Mới nhất trước'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: InkWell(
-                onTap: widget.auth.authenticated
-                    ? null
-                    : () => _requireAuth(action: 'bình luận về video này'),
-                borderRadius: BorderRadius.circular(12),
-                child: IgnorePointer(
-                  ignoring: !widget.auth.authenticated,
-                  child: TextField(
-                    controller: _comment,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: widget.auth.authenticated
-                          ? AppStrings.t('watch.commentHint')
-                          : 'Đăng nhập để thêm bình luận...',
-                      suffixIcon: IconButton(
-                        onPressed: _sendingComment ? null : _sendComment,
-                        icon: AppIcons.asset(
-                          AppIcons.send,
-                          size: 20,
-                          color: Theme.of(context).colorScheme.primary,
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: InkWell(
+                        onTap: widget.auth.authenticated
+                            ? null
+                            : () => _requireAuth(
+                                action: 'bình luận về video này',
+                              ),
+                        borderRadius: BorderRadius.circular(12),
+                        child: IgnorePointer(
+                          ignoring: !widget.auth.authenticated,
+                          child: TextField(
+                            controller: _comment,
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              hintText: widget.auth.authenticated
+                                  ? AppStrings.t('watch.commentHint')
+                                  : 'Đăng nhập để thêm bình luận...',
+                              suffixIcon: IconButton(
+                                onPressed: _sendingComment
+                                    ? null
+                                    : _sendComment,
+                                icon: AppIcons.asset(
+                                  AppIcons.send,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    ...() {
+                      final pinned = _comments
+                          .where((c) => c.id == _pinnedCommentId || c.isPinned)
+                          .firstOrNull;
+                      final others = _comments
+                          .where((c) => c.id != pinned?.id)
+                          .toList();
+                      if (_commentSort == 'top') {
+                        others.sort(
+                          (a, b) => (b.likes - b.dislikes).compareTo(
+                            a.likes - a.dislikes,
+                          ),
+                        );
+                      } else {
+                        others.sort(
+                          (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+                            a.createdAt ?? DateTime(0),
+                          ),
+                        );
+                      }
+                      final list = [?pinned, ...others];
+                      return list.map(
+                        (item) => _CommentTile(
+                          key: ValueKey(item.id),
+                          item: item,
+                          content: _content,
+                          signedIn: widget.auth.authenticated,
+                          auth: widget.auth,
+                          channelName: video.channelName,
+                          isOwner: _isOwner,
+                          isPinned:
+                              item.id == _pinnedCommentId || item.isPinned,
+                          isHearted:
+                              _heartedCommentIds.contains(item.id) ||
+                              item.hasCreatorHeart,
+                          onTogglePin: () => _togglePinComment(item),
+                          onToggleHeart: () => _toggleHeartComment(item),
+                          onToggleHide: () => _toggleHideComment(item),
+                        ),
+                      );
+                    }(),
+                    const SizedBox(height: 22),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: _related
+                            .map(
+                              (item) => VideoCardTile(
+                                video: item,
+                                replaceRoute: true,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            ...() {
-              final pinned = _comments
-                  .where((c) => c.id == _pinnedCommentId || c.isPinned)
-                  .firstOrNull;
-              final others = _comments
-                  .where((c) => c.id != pinned?.id)
-                  .toList();
-              if (_commentSort == 'top') {
-                others.sort(
-                  (a, b) =>
-                      (b.likes - b.dislikes).compareTo(a.likes - a.dislikes),
-                );
-              } else {
-                others.sort(
-                  (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
-                    a.createdAt ?? DateTime(0),
-                  ),
-                );
-              }
-              final list = [?pinned, ...others];
-              return list.map(
-                (item) => _CommentTile(
-                  key: ValueKey(item.id),
-                  item: item,
-                  content: _content,
-                  signedIn: widget.auth.authenticated,
-                  auth: widget.auth,
-                  channelName: video.channelName,
-                  isOwner: _isOwner,
-                  isPinned: item.id == _pinnedCommentId || item.isPinned,
-                  isHearted:
-                      _heartedCommentIds.contains(item.id) ||
-                      item.hasCreatorHeart,
-                  onTogglePin: () => _togglePinComment(item),
-                  onToggleHeart: () => _toggleHeartComment(item),
-                  onToggleHide: () => _toggleHideComment(item),
-                ),
-              );
-            }(),
-            const SizedBox(height: 22),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: HuTubeSectionHeader(title: AppStrings.t('watch.related')),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: _related
-                    .map(
-                      (item) => VideoCardTile(video: item, replaceRoute: true),
-                    )
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -2109,8 +2180,8 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
           final videoSize = player.videoSize;
           final double videoAspect =
               (videoSize != null && videoSize.width > 0 && videoSize.height > 0)
-                  ? videoSize.aspectRatio
-                  : (16 / 9);
+              ? videoSize.aspectRatio
+              : (16 / 9);
 
           final double scale;
           if (widget.zoomToFill && widget.isFullScreen && height > 0) {
@@ -2191,420 +2262,434 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                     ),
                   ),
                 ),
-              Positioned.fill(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _handleSideTap(false),
-                        onVerticalDragEnd: (details) {
-                          if (_isPinching) return;
-                          if ((details.primaryVelocity ?? 0) > 240) {
-                            widget.onMinimize();
-                          }
-                        },
-                        child: const SizedBox.expand(),
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _handleSideTap(false),
+                          onVerticalDragEnd: (details) {
+                            if (_isPinching) return;
+                            if ((details.primaryVelocity ?? 0) > 240) {
+                              widget.onMinimize();
+                            }
+                          },
+                          child: const SizedBox.expand(),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _handleSideTap(true),
-                        onVerticalDragEnd: (details) {
-                          if (_isPinching) return;
-                          if ((details.primaryVelocity ?? 0) > 240) {
-                            widget.onMinimize();
-                          }
-                        },
-                        child: const SizedBox.expand(),
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _handleSideTap(true),
+                          onVerticalDragEnd: (details) {
+                            if (_isPinching) return;
+                            if ((details.primaryVelocity ?? 0) > 240) {
+                              widget.onMinimize();
+                            }
+                          },
+                          child: const SizedBox.expand(),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (!widget.session.ready)
-                const Positioned.fill(
-                  child: ColoredBox(
-                    color: Color(0x9917111F),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryPink,
+                if (!widget.session.ready)
+                  const Positioned.fill(
+                    child: ColoredBox(
+                      color: Color(0x9917111F),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryPink,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              if (_seekForward == true)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: width * 0.42,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: const BorderRadius.horizontal(
-                        left: Radius.elliptical(90, 200),
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.fast_forward_rounded,
-                          color: Colors.white,
-                          size: 38,
+                if (_seekForward == true)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: width * 0.42,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.elliptical(90, 200),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '+$_accumulatedSeekSeconds giây',
-                          style: const TextStyle(
+                      ),
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.fast_forward_rounded,
                             color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            shadows: [
-                              Shadow(blurRadius: 4, color: Colors.black87),
-                            ],
+                            size: 38,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (_seekForward == false)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: width * 0.42,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: const BorderRadius.horizontal(
-                        right: Radius.elliptical(90, 200),
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.fast_rewind_rounded,
-                          color: Colors.white,
-                          size: 38,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '-$_accumulatedSeekSeconds giây',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            shadows: [
-                              Shadow(blurRadius: 4, color: Colors.black87),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (_zoomFeedbackText != null)
-                Positioned(
-                  top: widget.isFullScreen ? 28 : 16,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _zoomFeedbackText!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              Positioned.fill(
-                child: AnimatedOpacity(
-                  opacity: _controlsVisible ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 180),
-                  child: IgnorePointer(
-                    ignoring: !_controlsVisible || widget.controlsLocked,
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0xB8000000),
-                            Colors.transparent,
-                            Color(0xD9000000),
-                          ],
-                          stops: [0, .48, 1],
-                        ),
-                      ),
-                      child: SafeArea(
-                        top: widget.isFullScreen,
-                        bottom: widget.isFullScreen,
-                        left: widget.isFullScreen,
-                        right: widget.isFullScreen,
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                IconButton(
-                                  tooltip: widget.isFullScreen
-                                      ? AppStrings.t('watch.exitFullscreen')
-                                      : AppStrings.t('watch.minimize'),
-                                  onPressed: widget.onMinimize,
-                                  color: Colors.white,
-                                  icon: Icon(
-                                    widget.isFullScreen
-                                        ? Icons.arrow_back_rounded
-                                        : Icons.keyboard_arrow_down_rounded,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    widget.session.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: AppStrings.t('watch.qualityAndSpeed'),
-                                  onPressed: () {
-                                    _controlsTimer?.cancel();
-                                    widget.onSettings();
-                                  },
-                                  color: Colors.white,
-                                  icon: const Icon(
-                                    Icons.settings_rounded,
-                                    size: 20,
-                                  ),
-                                ),
-                                if (widget.showPictureInPicture)
-                                  IconButton(
-                                    tooltip: AppStrings.t(
-                                      'watch.pictureInPicture',
-                                    ),
-                                    onPressed: widget.onPictureInPicture,
-                                    color: Colors.white,
-                                    icon: const Icon(
-                                      Icons.picture_in_picture_alt_rounded,
-                                      size: 19,
-                                    ),
-                                  ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '+$_accumulatedSeekSeconds giây',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              shadows: [
+                                Shadow(blurRadius: 4, color: Colors.black87),
                               ],
                             ),
-                            Expanded(
-                              child: Row(
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (_seekForward == false)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: width * 0.42,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.elliptical(90, 200),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.fast_rewind_rounded,
+                            color: Colors.white,
+                            size: 38,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '-$_accumulatedSeekSeconds giây',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              shadows: [
+                                Shadow(blurRadius: 4, color: Colors.black87),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (_zoomFeedbackText != null)
+                  Positioned(
+                    top: widget.isFullScreen ? 28 : 16,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _zoomFeedbackText!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned.fill(
+                  child: AnimatedOpacity(
+                    opacity: _controlsVisible ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 180),
+                    child: IgnorePointer(
+                      ignoring: !_controlsVisible || widget.controlsLocked,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0xB8000000),
+                              Colors.transparent,
+                              Color(0xD9000000),
+                            ],
+                            stops: [0, .48, 1],
+                          ),
+                        ),
+                        child: SafeArea(
+                          top: widget.isFullScreen,
+                          bottom: widget.isFullScreen,
+                          left: widget.isFullScreen,
+                          right: widget.isFullScreen,
+                          child: Column(
+                            children: [
+                              Row(
                                 children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () => _handleSideTap(false),
-                                      onVerticalDragEnd: (details) {
-                                        if (_isPinching) return;
-                                        if ((details.primaryVelocity ?? 0) >
-                                            240) {
-                                          widget.onMinimize();
-                                        }
-                                      },
-                                      child: const SizedBox.expand(),
+                                  IconButton(
+                                    tooltip: widget.isFullScreen
+                                        ? AppStrings.t('watch.exitFullscreen')
+                                        : AppStrings.t('watch.minimize'),
+                                    onPressed: widget.onMinimize,
+                                    color: Colors.white,
+                                    icon: Icon(
+                                      widget.isFullScreen
+                                          ? Icons.arrow_back_rounded
+                                          : Icons.keyboard_arrow_down_rounded,
                                     ),
                                   ),
-                                  if (!widget.session.isPlaying)
-                                    IconButton.filled(
-                                      tooltip: AppStrings.t('watch.playVideo'),
-                                      onPressed: () {
-                                        unawaited(
-                                          widget.session.togglePlayback(),
-                                        );
-                                        _scheduleHide();
-                                      },
-                                      style: IconButton.styleFrom(
-                                        backgroundColor: Colors.black.withValues(
-                                          alpha: .58,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(58, 58),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.play_arrow_rounded,
-                                        size: 36,
-                                      ),
-                                    )
-                                  else
-                                    IconButton.filled(
-                                      tooltip: AppStrings.t('watch.pauseVideo'),
-                                      onPressed: () {
-                                        unawaited(
-                                          widget.session.togglePlayback(),
-                                        );
-                                        _scheduleHide();
-                                      },
-                                      style: IconButton.styleFrom(
-                                        backgroundColor: Colors.black.withValues(
-                                          alpha: .58,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(52, 52),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.pause_rounded,
-                                        size: 30,
-                                      ),
-                                    ),
+                                  const SizedBox(width: 4),
                                   Expanded(
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () => _handleSideTap(true),
-                                      onVerticalDragEnd: (details) {
-                                        if (_isPinching) return;
-                                        if ((details.primaryVelocity ?? 0) >
-                                            240) {
-                                          widget.onMinimize();
-                                        }
-                                      },
-                                      child: const SizedBox.expand(),
+                                    child: Text(
+                                      widget.session.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
+                                  IconButton(
+                                    tooltip: AppStrings.t(
+                                      'watch.qualityAndSpeed',
+                                    ),
+                                    onPressed: () {
+                                      _controlsTimer?.cancel();
+                                      widget.onSettings();
+                                    },
+                                    color: Colors.white,
+                                    icon: const Icon(
+                                      Icons.settings_rounded,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  if (widget.showPictureInPicture)
+                                    IconButton(
+                                      tooltip: AppStrings.t(
+                                        'watch.pictureInPicture',
+                                      ),
+                                      onPressed: widget.onPictureInPicture,
+                                      color: Colors.white,
+                                      icon: const Icon(
+                                        Icons.picture_in_picture_alt_rounded,
+                                        size: 19,
+                                      ),
+                                    ),
                                 ],
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(10, 0, 10, 5),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    _time(widget.session.position),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        trackHeight: 2.5,
-                                        thumbShape: const RoundSliderThumbShape(
-                                          enabledThumbRadius: 5,
-                                        ),
-                                        overlayShape:
-                                            const RoundSliderOverlayShape(
-                                              overlayRadius: 13,
-                                            ),
-                                      ),
-                                      child: Slider(
-                                        min: 0,
-                                        max: total > 0 ? total.toDouble() : 1,
-                                        value: current,
-                                        activeColor: AppColors.primaryPink,
-                                        inactiveColor: Colors.white38,
-                                        onChangeStart: (val) {
-                                          _controlsTimer?.cancel();
-                                          setState(() => _dragPosition = val);
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => _handleSideTap(false),
+                                        onVerticalDragEnd: (details) {
+                                          if (_isPinching) return;
+                                          if ((details.primaryVelocity ?? 0) >
+                                              240) {
+                                            widget.onMinimize();
+                                          }
                                         },
-                                        onChanged: total <= 0
-                                            ? null
-                                            : (value) {
-                                                setState(
-                                                  () => _dragPosition = value,
-                                                );
-                                              },
-                                        onChangeEnd: (val) {
+                                        child: const SizedBox.expand(),
+                                      ),
+                                    ),
+                                    if (!widget.session.isPlaying)
+                                      IconButton.filled(
+                                        tooltip: AppStrings.t(
+                                          'watch.playVideo',
+                                        ),
+                                        onPressed: () {
                                           unawaited(
-                                            widget.session.seekTo(
-                                              Duration(
-                                                milliseconds: val.round(),
-                                              ),
-                                            ),
+                                            widget.session.togglePlayback(),
                                           );
-                                          setState(() => _dragPosition = null);
                                           _scheduleHide();
                                         },
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: Colors.black
+                                              .withValues(alpha: .58),
+                                          foregroundColor: Colors.white,
+                                          minimumSize: const Size(58, 58),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.play_arrow_rounded,
+                                          size: 36,
+                                        ),
+                                      )
+                                    else
+                                      IconButton.filled(
+                                        tooltip: AppStrings.t(
+                                          'watch.pauseVideo',
+                                        ),
+                                        onPressed: () {
+                                          unawaited(
+                                            widget.session.togglePlayback(),
+                                          );
+                                          _scheduleHide();
+                                        },
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: Colors.black
+                                              .withValues(alpha: .58),
+                                          foregroundColor: Colors.white,
+                                          minimumSize: const Size(52, 52),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.pause_rounded,
+                                          size: 30,
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _time(widget.session.duration),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  if (widget.onToggleFullScreen != null) ...[
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      tooltip: widget.isFullScreen
-                                          ? AppStrings.t('watch.exitFullscreen')
-                                          : AppStrings.t('watch.fullscreen'),
-                                      onPressed: widget.onToggleFullScreen,
-                                      iconSize: 22,
-                                      padding: const EdgeInsets.all(4),
-                                      constraints: const BoxConstraints(),
-                                      color: Colors.white,
-                                      icon: Icon(
-                                        widget.isFullScreen
-                                            ? Icons.fullscreen_exit_rounded
-                                            : Icons.fullscreen_rounded,
+                                    Expanded(
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => _handleSideTap(true),
+                                        onVerticalDragEnd: (details) {
+                                          if (_isPinching) return;
+                                          if ((details.primaryVelocity ?? 0) >
+                                              240) {
+                                            widget.onMinimize();
+                                          }
+                                        },
+                                        child: const SizedBox.expand(),
                                       ),
                                     ),
                                   ],
-                                ],
+                                ),
                               ),
-                            ),
-                          ],
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  10,
+                                  0,
+                                  10,
+                                  5,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      _time(widget.session.position),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: SliderTheme(
+                                        data: SliderTheme.of(context).copyWith(
+                                          trackHeight: 2.5,
+                                          thumbShape:
+                                              const RoundSliderThumbShape(
+                                                enabledThumbRadius: 5,
+                                              ),
+                                          overlayShape:
+                                              const RoundSliderOverlayShape(
+                                                overlayRadius: 13,
+                                              ),
+                                        ),
+                                        child: Slider(
+                                          min: 0,
+                                          max: total > 0 ? total.toDouble() : 1,
+                                          value: current,
+                                          activeColor: AppColors.primaryPink,
+                                          inactiveColor: Colors.white38,
+                                          onChangeStart: (val) {
+                                            _controlsTimer?.cancel();
+                                            setState(() => _dragPosition = val);
+                                          },
+                                          onChanged: total <= 0
+                                              ? null
+                                              : (value) {
+                                                  setState(
+                                                    () => _dragPosition = value,
+                                                  );
+                                                },
+                                          onChangeEnd: (val) {
+                                            unawaited(
+                                              widget.session.seekTo(
+                                                Duration(
+                                                  milliseconds: val.round(),
+                                                ),
+                                              ),
+                                            );
+                                            setState(
+                                              () => _dragPosition = null,
+                                            );
+                                            _scheduleHide();
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      _time(widget.session.duration),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if (widget.onToggleFullScreen != null) ...[
+                                      const SizedBox(width: 4),
+                                      IconButton(
+                                        tooltip: widget.isFullScreen
+                                            ? AppStrings.t(
+                                                'watch.exitFullscreen',
+                                              )
+                                            : AppStrings.t('watch.fullscreen'),
+                                        onPressed: widget.onToggleFullScreen,
+                                        iconSize: 22,
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        color: Colors.white,
+                                        icon: Icon(
+                                          widget.isFullScreen
+                                              ? Icons.fullscreen_exit_rounded
+                                              : Icons.fullscreen_rounded,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (widget.controlsLocked)
-                Positioned(
-                  top: widget.isFullScreen ? 12 : 4,
-                  left: 8,
-                  child: SafeArea(
-                    child: IconButton.filledTonal(
-                      tooltip: 'Mở khóa màn hình',
-                      onPressed: widget.onUnlockControls,
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withValues(alpha: .62),
-                        foregroundColor: Colors.white,
+                if (widget.controlsLocked)
+                  Positioned(
+                    top: widget.isFullScreen ? 12 : 4,
+                    left: 8,
+                    child: SafeArea(
+                      child: IconButton.filledTonal(
+                        tooltip: 'Mở khóa màn hình',
+                        onPressed: widget.onUnlockControls,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black.withValues(alpha: .62),
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.lock_open_rounded),
                       ),
-                      icon: const Icon(Icons.lock_open_rounded),
                     ),
                   ),
-                ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
       );
     },
   );
