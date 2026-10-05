@@ -57,13 +57,28 @@ class _HuTubeAppState extends State<HuTubeApp> {
     _router = _buildRouter(widget.auth, _playback, _notifications);
     unawaited(_notifications.initialize(onOpenNotification: _openNotification));
     _linkSubscription = widget.links?.listen(_openDeepLink);
-    unawaited(widget.auth.api.checkConnection());
     _networkRetryTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (NetworkStatus.instance.unavailable) {
-        unawaited(widget.auth.api.checkConnection());
+        unawaited(_checkNetworkAndRestoreSession());
+      } else if (widget.auth.hasStoredSession &&
+          !widget.auth.authenticated &&
+          !widget.auth.restoring) {
+        // A transient startup failure must not turn into a permanent signed
+        // out state while the app remains open.
+        unawaited(widget.auth.restore());
       }
     });
     unawaited(widget.auth.restore());
+  }
+
+  Future<void> _checkNetworkAndRestoreSession() async {
+    final available = await widget.auth.api.checkConnection();
+    if (available &&
+        widget.auth.hasStoredSession &&
+        !widget.auth.authenticated &&
+        !widget.auth.restoring) {
+      unawaited(widget.auth.restore());
+    }
   }
 
   GoRouter _buildRouter(

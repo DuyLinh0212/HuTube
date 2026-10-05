@@ -30,6 +30,7 @@ class AuthController extends ChangeNotifier {
   Future<void> Function()? beforeSessionCleared;
   int _generation = 0;
   Future<void>? _refreshing;
+  Future<void>? _restoring;
   Future<void> _storageWork = Future.value();
   bool _disposed = false;
   Future<void>? _googleInitialization;
@@ -42,6 +43,8 @@ class AuthController extends ChangeNotifier {
     'GOOGLE_IOS_CLIENT_ID',
   );
   bool get authenticated => user != null;
+  bool _hasStoredSession = false;
+  bool get hasStoredSession => _hasStoredSession;
   String? get accessToken => _accessToken;
   int get sessionGeneration => _generation;
 
@@ -72,7 +75,10 @@ class AuthController extends ChangeNotifier {
     return next;
   }
 
-  Future<void> restore() async {
+  Future<void> restore() =>
+      _restoring ??= _restore().whenComplete(() => _restoring = null);
+
+  Future<void> _restore() async {
     final generation = _generation;
     restoring = true;
     _changed();
@@ -80,7 +86,8 @@ class AuthController extends ChangeNotifier {
       final token = await store.read();
       if (generation != _generation) return;
       _refreshToken = token;
-      if (token != null) await refresh();
+      _hasStoredSession = token != null && token.trim().isNotEmpty;
+      if (_hasStoredSession) await _restoreWithRetry(generation);
     } on ApiFailure catch (error) {
       notice = error.status == 401
           ? AppStrings.t('auth.sessionExpired')
@@ -90,6 +97,22 @@ class AuthController extends ChangeNotifier {
     } finally {
       restoring = false;
       _changed();
+    }
+  }
+
+  Future<void> _restoreWithRetry(int generation) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (generation != _generation) return;
+      try {
+        await refresh();
+        return;
+      } on ApiFailure catch (error) {
+        final transient =
+            error.kind == AppErrorKind.networkUnavailable ||
+            error.kind == AppErrorKind.timeout;
+        if (!transient || attempt == 2) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 700 * (attempt + 1)));
+      }
     }
   }
 
@@ -123,6 +146,7 @@ class AuthController extends ChangeNotifier {
     }
     _refreshToken = refreshToken;
     _accessToken = response['accessToken'] as String;
+    _hasStoredSession = true;
     user = response['user'] as Map<String, dynamic>;
     notice = null;
     _changed();
@@ -529,6 +553,7 @@ class AuthController extends ChangeNotifier {
     ++_generation;
     _accessToken = null;
     _refreshToken = null;
+    _hasStoredSession = false;
     user = null;
     notice = message;
     _changed();

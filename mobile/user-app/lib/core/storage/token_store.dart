@@ -14,7 +14,22 @@ abstract interface class DeviceIdStore {
 }
 
 class SecureTokenStore implements TokenStore, DeviceIdStore {
-  const SecureTokenStore([this._storage = const FlutterSecureStorage()]);
+  const SecureTokenStore([
+    this._storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(
+        // Never wipe the refresh token just because a new app build changed
+        // the Android crypto implementation. Let the plugin migrate it or
+        // surface the storage error so the user can recover explicitly.
+        resetOnError: false,
+        migrateOnAlgorithmChange: true,
+      ),
+      iOptions: IOSOptions(
+        // The token must remain readable after an app update/restart before
+        // the device has been unlocked again.
+        accessibility: KeychainAccessibility.first_unlock,
+      ),
+    ),
+  ]);
   final FlutterSecureStorage _storage;
   static const _key = 'hutube.refreshToken';
   static const _deviceIdKey = 'hutube.deviceId';

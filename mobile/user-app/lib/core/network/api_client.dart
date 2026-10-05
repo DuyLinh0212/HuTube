@@ -177,6 +177,42 @@ class ApiClient {
     Map<String, dynamic>? body,
     String? accessToken,
   }) async {
+    // GET requests are safe to retry once while the app/API connection is
+    // warming up after a cold start. Never retry writes automatically because
+    // a timeout can happen after the server has already applied the change.
+    if (method.toUpperCase() != 'GET') {
+      return _requestJsonOnce(
+        method,
+        path,
+        body: body,
+        accessToken: accessToken,
+      );
+    }
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await _requestJsonOnce(
+          method,
+          path,
+          body: body,
+          accessToken: accessToken,
+        );
+      } on ApiFailure catch (error) {
+        final transient =
+            error.kind == AppErrorKind.networkUnavailable ||
+            error.kind == AppErrorKind.timeout;
+        if (!transient || attempt == 1) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+      }
+    }
+    throw StateError('GET request retry loop completed unexpectedly');
+  }
+
+  Future<dynamic> _requestJsonOnce(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    String? accessToken,
+  }) async {
     try {
       final request = http.Request(method, Uri.parse(_buildUrl(path)));
       request.headers.addAll({
