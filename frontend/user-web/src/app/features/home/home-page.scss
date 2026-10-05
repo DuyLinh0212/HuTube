@@ -150,10 +150,14 @@
 }
 
 .copy h2 {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 11px 0 5px;
   color: var(--ink);
   font-size: 0.94rem;
   line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .video-title-row { display: flex; align-items: flex-start; gap: 4px; }
