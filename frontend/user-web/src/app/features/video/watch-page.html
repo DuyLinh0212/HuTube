@@ -104,7 +104,7 @@
           @if (auth.user()) {
           <div class="reaction-group">
               <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'like'" [attr.aria-pressed]="item.viewerState?.reaction === 'like'" (click)="react('like')" [attr.aria-label]="'watch.like' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.94-1.53l1.5-6A2 2 0 0 0 17.9 10H14l.7-3.5A2.05 2.05 0 0 0 12.7 4L7 10v10Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.likes | localeNumber }}</span></button>
-              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'dislike'" [attr.aria-pressed]="item.viewerState?.reaction === 'dislike'" (click)="react('dislike')" [attr.aria-label]="'watch.dislike' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3ZM17 4H7.6a2 2 0 0 0-1.94 1.53l-1.5 6A2 2 0 0 0 6.1 14H10l-.7 3.5A2.05 2.05 0 0 0 11.3 20L17 14V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.dislikes | localeNumber }}</span></button>
+              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'dislike'" [attr.aria-pressed]="item.viewerState?.reaction === 'dislike'" (click)="react('dislike')" [attr.aria-label]="'watch.dislike' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3ZM17 4H7.6a2 2 0 0 0-1.94 1.53l-1.5 6A2 2 0 0 0 6.1 14H10l-.7 3.5A2.05 2.05 0 0 0 11.3 20L17 14V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
           </div>
           } @else {
             <a class="action-button" routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }">{{ 'watch.loginInteract' | translate }}</a>
@@ -265,7 +265,7 @@
                   <div class="comment-actions">
                     @if (!auth.user()) { <a routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }" class="comment-login-link">{{ 'watch.loginCommentInteraction' | translate }}</a> }
                       <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" (click)="reactComment(comment, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ comment.likes | localeNumber }}</span></button>
-                      <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" (click)="reactComment(comment, 'dislike')">{{ 'watch.dislikeComment' | translate }} <span>{{ comment.dislikes | localeNumber }}</span></button>
+                      <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" (click)="reactComment(comment, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
                     <button type="button" [disabled]="!auth.user()" (click)="replyTo.set(comment.commentId)">{{ 'watch.reply' | translate }}</button>
                     @if (comment.replyCount > 0) {
                       <button type="button" class="reply-toggle" [attr.aria-expanded]="isRepliesOpen(comment.commentId)" (click)="toggleReplies(comment)">
@@ -289,7 +289,7 @@
                             <p>{{ replyItem.content }}</p>
                             <div class="comment-actions">
                               <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" (click)="reactComment(replyItem, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ replyItem.likes | localeNumber }}</span></button>
-                              <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" (click)="reactComment(replyItem, 'dislike')">{{ 'watch.dislikeComment' | translate }} <span>{{ replyItem.dislikes | localeNumber }}</span></button>
+                              <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" (click)="reactComment(replyItem, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
                               @if (isOwner()) { <button type="button" (click)="hide(replyItem)">{{ commentStatusLabel(replyItem.status === 'hidden') }}</button> }
                               @if (isOwnComment(replyItem)) { <button type="button" class="is-danger" (click)="remove(replyItem)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(replyItem)">{{ 'watch.report' | translate }}</button> }
                             </div>
