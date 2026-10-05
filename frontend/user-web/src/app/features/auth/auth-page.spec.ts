@@ -5,13 +5,15 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { RuntimeConfig } from '../../core/runtime-config';
 import { authInterceptor } from '../../core/auth.interceptor';
+import { NetworkStatusService } from '../../core/network/network-status.service';
 import { AuthPage } from './auth-page';
 
 describe('Vietnamese auth forms', () => {
   const base='http://localhost:5080/api/v1';
+  const networkStatusMock = { markAvailable: () => undefined, markUnavailable: () => undefined };
   let controller: HttpTestingController;
   beforeEach(() => {
-    TestBed.configureTestingModule({providers:[provideRouter(['login','register','forgot-password','reset-password','verify-email'].map(path=>({path,component:AuthPage}))),provideHttpClient(withInterceptors([authInterceptor])),provideHttpClientTesting()]});
+    TestBed.configureTestingModule({providers:[provideRouter(['login','register','forgot-password','reset-password','verify-email'].map(path=>({path,component:AuthPage}))),provideHttpClient(withInterceptors([authInterceptor])),provideHttpClientTesting(),{provide:NetworkStatusService,useValue:networkStatusMock}]});
     TestBed.inject(RuntimeConfig).apiBaseUrl=base; controller=TestBed.inject(HttpTestingController);
   });
   afterEach(()=>controller.verify());
