@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import shlex
 import shutil
 import socket
 import subprocess
@@ -110,7 +111,17 @@ def main():
                 checked([executable("initdb"), "-D", str(pg_root), "-U", DB_USER, "--auth=trust", "--encoding=UTF8", "--locale=C"], "postgres-init.log")
             status = subprocess.run([executable("pg_ctl"), "-D", str(pg_root), "status"], capture_output=True, creationflags=HIDDEN)
             if status.returncode == 3:
-                checked([executable("pg_ctl"), "-D", str(pg_root), "-l", str(run / "postgres.log"), "-o", f"-h 127.0.0.1 -p {config['pg_port']}", "-w", "-t", "30", "start"], "postgres-start.log", timeout=40)
+                # Distribution packages can default to a postgres-owned Unix socket directory.
+                # This cluster belongs to the current user; all clients connect over TCP.
+                options = f"-h 127.0.0.1 -p {config['pg_port']}"
+                if os.name != "nt":
+                    options += f" -k {shlex.quote(str(pg_root))}"
+                try:
+                    checked([executable("pg_ctl"), "-D", str(pg_root), "-l", str(run / "postgres.log"), "-o", options, "-w", "-t", "30", "start"], "postgres-start.log", timeout=40)
+                except (RuntimeError, subprocess.TimeoutExpired) as exc:
+                    server_log = run / "postgres.log"
+                    details = server_log.read_text(encoding="utf-8", errors="replace")[-3000:] if server_log.exists() else "PostgreSQL produced no server log."
+                    raise RuntimeError(f"{exc}\nPostgreSQL server log:\n{details}") from exc
                 pg_started = True
             elif status.returncode != 0:
                 raise RuntimeError("Cannot inspect managed PostgreSQL cluster.")
