@@ -50,6 +50,12 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
 
   @HostListener('window:keydown', ['$event'])
   onGlobalKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      this.searchInputRef?.nativeElement.focus();
+      this.searchInputRef?.nativeElement.select();
+      return;
+    }
     if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
       e.preventDefault();
       this.searchInputRef?.nativeElement.focus();

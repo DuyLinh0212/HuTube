@@ -111,7 +111,6 @@
           <div class="hero-actions">
             <button type="button" class="primary-button" (click)="playAll()"><span aria-hidden="true">▶</span> {{ 'playlists.playAll' | translate }}</button>
             <button type="button" class="secondary-button" (click)="shuffle()"><span aria-hidden="true">⌘</span> {{ 'playlists.shuffle' | translate }}</button>
-            @if (canManage()) { <button type="button" class="secondary-button" (click)="focusAddVideo()"><span aria-hidden="true">＋</span> {{ 'playlists.addVideo' | translate }}</button> }
             <button type="button" class="icon-button" (click)="share()" [attr.aria-label]="(copied() ? 'common.copied' : 'playlists.share') | translate" [title]="(copied() ? 'common.copied' : 'playlists.share') | translate">{{ copied() ? '✓' : '↗' }}</button>
           </div>
         </div>
@@ -159,44 +158,12 @@
               <div class="empty-items">
                 <span aria-hidden="true">▶</span><h3>{{ 'playlists.emptyItemsTitle' | translate }}</h3>
                 <p>{{ (canManage() ? 'playlists.emptyItemsManage' : 'playlists.emptyItemsVisitor') | translate }}</p>
-                @if (canManage()) { <button type="button" class="secondary-button" (click)="focusAddVideo()">{{ 'playlists.addVideo' | translate }}</button> }
               </div>
             }
           </div>
         </section>
 
       </div>
-
-      @if (addVideoOpen() && canManage()) {
-        <div class="playlist-modal-backdrop" role="presentation" (click)="closeAddVideoDialog()">
-          <section class="playlist-modal playlist-modal--add" role="dialog" aria-modal="true" aria-labelledby="add-video-dialog-title" (click)="$event.stopPropagation()">
-            <header class="playlist-modal__header">
-              <div><span class="modal-kicker">{{ 'playlists.expandWatching' | translate }}</span><h2 id="add-video-dialog-title">{{ 'playlists.addVideoToPlaylist' | translate }}</h2><p>{{ 'playlists.addVideoDescription' | translate }}</p></div>
-              <button type="button" class="modal-close" (click)="closeAddVideoDialog()" [attr.aria-label]="'common.close' | translate">×</button>
-            </header>
-            <div class="playlist-modal__body">
-              <div class="modal-search-row">
-                <label class="sr-only" for="playlist-video-search">{{ 'playlists.searchVideoToAdd' | translate }}</label>
-                <input id="playlist-video-search" [(ngModel)]="videoSearch" (keyup.enter)="searchVideos()" [placeholder]="'playlists.searchVideoPlaceholder' | translate" />
-                <button type="button" class="primary-button" (click)="searchVideos()" [disabled]="videoLoading()">{{ 'common.search' | translate }}</button>
-              </div>
-              @if (videoLoading()) { <p class="modal-status">{{ 'playlists.searchingVideos' | translate }}</p> } @else {
-                <div class="modal-video-list">
-                  @for (video of videoOptions(); track video.videoId) {
-                    <article class="modal-video-row">
-                      <div class="modal-video-thumb">@if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title" /> } @else { <span>{{ video.title.slice(0, 1).toUpperCase() }}</span> }</div>
-                      <div class="modal-video-copy"><strong>{{ video.title }}</strong><span>{{ video.channelName }}</span></div>
-                      <button type="button" class="secondary-button modal-add-button" (click)="add(video.videoId)" [disabled]="busy">＋ {{ 'playlists.add' | translate }}</button>
-                    </article>
-                  } @empty {
-                    <div class="modal-empty"><span aria-hidden="true">⌕</span><strong>{{ 'playlists.noMatchingVideos' | translate }}</strong><p>{{ 'playlists.tryAnotherKeyword' | translate }}</p></div>
-                  }
-                </div>
-              }
-            </div>
-          </section>
-        </div>
-      }
 
       @if (editOpen() && canManage()) {
         <div class="playlist-modal-backdrop" role="presentation" (click)="closeEditDialog()">

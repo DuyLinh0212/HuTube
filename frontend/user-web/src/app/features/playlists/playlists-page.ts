@@ -4,7 +4,6 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ChannelService } from '../../core/channel.service';
-import { ContentService, VideoCard, VideoDetail } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { Playlist, PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -17,7 +16,6 @@ import { TranslatePipe } from '../../core/translate.pipe';
 })
 export class PlaylistsPage {
   private readonly service = inject(PlaylistService);
-  private readonly content = inject(ContentService);
   private readonly channels = inject(ChannelService);
   readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
@@ -29,16 +27,12 @@ export class PlaylistsPage {
   readonly previewById = signal<Record<string, Playlist | null>>({});
   readonly loading = signal(true);
   readonly error = signal('');
-  readonly videoOptions = signal<Array<VideoCard | VideoDetail>>([]);
-  readonly videoLoading = signal(false);
   readonly canManage = signal(false);
   readonly copied = signal(false);
-  readonly addVideoOpen = signal(false);
   readonly editOpen = signal(false);
   name = '';
   description = '';
   visibility = 'private';
-  videoSearch = '';
   channelHandle: string | null = null;
   channelId: string | null = null;
   busy = false;
@@ -98,31 +92,6 @@ export class PlaylistsPage {
     });
   }
 
-  searchVideos() {
-    if (!this.playlist()) return;
-    this.videoLoading.set(true);
-    const query = this.videoSearch.trim();
-    const request = this.channelHandle
-      ? this.channels.getMyChannel().pipe(switchMap(channel => this.content.managed(channel.channelId, 1, 50, query)))
-      : this.content.search({ q: query || undefined, sort: 'newest', page: 1, pageSize: 50 });
-    request.subscribe({
-      next: value => {
-        const existing = new Set(this.playlist()?.items.map(item => item.videoId));
-        this.videoOptions.set(value.items.filter(video => {
-          if (existing.has(video.videoId) || video.visibility !== 'public') return false;
-          const managedVideo = video as { status?: string; moderationStatus?: string };
-          return managedVideo.status === undefined || (managedVideo.status === 'published' && managedVideo.moderationStatus === 'approved');
-        }));
-        this.videoLoading.set(false);
-      },
-      error: () => {
-        this.videoOptions.set([]);
-        this.videoLoading.set(false);
-        this.error.set(this.i18n.t(this.channelHandle ? 'playlists.channelVideosError' : 'playlists.publicVideosError'));
-      }
-    });
-  }
-
   create() {
     if (!this.name.trim() || this.busy) return;
     this.busy = true;
@@ -155,17 +124,6 @@ export class PlaylistsPage {
     if (!this.busy) this.editOpen.set(false);
   }
 
-  openAddVideoDialog() {
-    if (!this.canManage()) return;
-    this.addVideoOpen.set(true);
-    this.searchVideos();
-    window.setTimeout(() => document.querySelector<HTMLInputElement>('#playlist-video-search')?.focus());
-  }
-
-  closeAddVideoDialog() {
-    if (!this.busy) this.addVideoOpen.set(false);
-  }
-
   deletePlaylist() {
     const value = this.playlist();
     if (!value || !this.canManage() || this.busy || !confirm(this.i18n.t('playlists.deleteConfirm'))) return;
@@ -173,16 +131,6 @@ export class PlaylistsPage {
     this.service.remove(value.playlistId).subscribe({
       next: () => void this.router.navigate(['/playlists']),
       error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.deleteError')); }
-    });
-  }
-
-  add(videoId: string) {
-    const value = this.playlist();
-    if (!value || !this.canManage() || !videoId || this.busy) return;
-    this.busy = true;
-    this.service.addVideo(value.playlistId, videoId).subscribe({
-      next: updated => { this.playlist.set(updated); this.busy = false; this.searchVideos(); },
-      error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.addVideoError')); }
     });
   }
 
@@ -244,12 +192,10 @@ export class PlaylistsPage {
     });
   }
   focusCreateForm() { document.querySelector<HTMLInputElement>('#playlist-name')?.focus(); }
-  focusAddVideo() { this.openAddVideoDialog(); }
   listBackLink() { return this.channelHandle ? ['/channel', this.channelHandle] : ['/home']; }
 
   @HostListener('document:keydown.escape')
   closeDialogsOnEscape() {
     if (this.editOpen()) this.closeEditDialog();
-    else if (this.addVideoOpen()) this.closeAddVideoDialog();
   }
 }

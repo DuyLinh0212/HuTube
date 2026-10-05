@@ -10,8 +10,6 @@ import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../../core/widgets/scrollable_sheet.dart';
-import '../content/content_models.dart';
-import '../content/content_service.dart';
 import 'playlist_service.dart';
 
 class PlaylistsScreen extends StatefulWidget {
@@ -25,13 +23,9 @@ class PlaylistsScreen extends StatefulWidget {
 
 class _PlaylistsScreenState extends State<PlaylistsScreen> {
   late final PlaylistService _service = PlaylistService(widget.auth);
-  late final ContentService _content = ContentService(widget.auth);
   List<PlaylistSummary> _playlists = const [];
   Map<String, PlaylistDetail> _previews = const {};
   PlaylistDetail? _detail;
-  List<VideoCard> _videoOptions = const [];
-  String _videoSearch = '';
-  bool _videoLoading = false;
   bool _loading = true;
   bool _busy = false;
   bool _canManage = false;
@@ -367,142 +361,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     }
   }
 
-  Future<void> _searchVideos(String query) async {
-    setState(() {
-      _videoSearch = query;
-      _videoLoading = true;
-    });
-    try {
-      final result = await _content.searchVideos(
-        query: query,
-        page: 1,
-        pageSize: 30,
-        sort: 'newest',
-      );
-      final existing = _detail?.items.map((item) => item.videoId).toSet() ?? {};
-      if (mounted) {
-        setState(() {
-          _videoOptions = result.items
-              .where((video) => !existing.contains(video.id))
-              .toList();
-          _videoLoading = false;
-        });
-      }
-    } on ApiFailure catch (error) {
-      if (mounted) setState(() => _videoLoading = false);
-      _message(AppStrings.apiError(error, fallback: 'playlists.searchError'));
-    }
-  }
-
-  Future<void> _addVideo(VideoCard video) async {
-    final id = widget.playlistId;
-    if (id == null || _busy) return;
-    setState(() => _busy = true);
-    try {
-      final updated = await _service.addVideo(id, video.id);
-      if (mounted) {
-        setState(() {
-          _detail = updated;
-          _busy = false;
-        });
-        _message(AppStrings.t('common.saved'));
-      }
-    } on ApiFailure catch (error) {
-      if (mounted) setState(() => _busy = false);
-      _message(AppStrings.apiError(error, fallback: 'playlists.addVideoError'));
-    }
-  }
-
-  Future<void> _openAddVideo() async {
-    _videoOptions = const [];
-    _videoSearch = '';
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, refresh) => SizedBox(
-          height: MediaQuery.sizeOf(context).height * .82,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  AppStrings.t('playlists.addVideoToPlaylist'),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 6),
-                Text(AppStrings.t('playlists.addVideoDescription')),
-                const SizedBox(height: 14),
-                TextField(
-                  autofocus: true,
-                  onChanged: (value) {
-                    refresh(() {});
-                    _searchVideos(value);
-                  },
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    hintText: AppStrings.t('playlists.searchVideoPlaceholder'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _videoLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _videoOptions.isEmpty
-                      ? Center(
-                          child: Text(
-                            _videoSearch.isEmpty
-                                ? AppStrings.t(
-                                    'playlists.searchVideoPlaceholder',
-                                  )
-                                : AppStrings.t('playlists.noMatchingVideos'),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: _videoOptions.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (_, index) {
-                            final video = _videoOptions[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: _thumbnail(
-                                video.thumbnailUrl,
-                                width: 82,
-                                height: 50,
-                              ),
-                              title: Text(
-                                video.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(video.channelName),
-                              trailing: IconButton(
-                                tooltip: AppStrings.t('playlists.addVideo'),
-                                onPressed: () async {
-                                  await _addVideo(video);
-                                  if (context.mounted) {
-                                    Navigator.pop(sheetContext);
-                                  }
-                                },
-                                icon: const Icon(
-                                  Icons.add_circle_outline_rounded,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _play(PlaylistDetail detail, {bool shuffle = false}) {
     final playable = detail.items
         .asMap()
@@ -749,17 +607,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                   icon: Icons.playlist_add_rounded,
                   title: AppStrings.t('playlists.noVideosTitle'),
                   message: AppStrings.t('playlists.noVideosDescription'),
-                  actionLabel: _canManage
-                      ? AppStrings.t('playlists.addVideo')
-                      : null,
-                  onAction: _canManage ? _openAddVideo : null,
+                  actionLabel: null,
+                  onAction: null,
                   accent: AppColors.primary,
                 ),
               )
             else
               SliverReorderableList(
                 itemCount: detail.items.length,
-                onReorderItem: _reorder,
+                onReorder: _reorder,
                 itemBuilder: (context, index) =>
                     _videoRow(detail, detail.items[index], index),
               ),
@@ -875,12 +731,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
               icon: const Icon(Icons.share_outlined),
               label: Text(AppStrings.t('playlists.share')),
             ),
-            if (_canManage)
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _openAddVideo,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(AppStrings.t('playlists.addVideo')),
-              ),
           ],
         ),
         const Divider(height: 28),
