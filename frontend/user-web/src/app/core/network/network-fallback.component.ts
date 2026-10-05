@@ -14,4 +14,8 @@ export class NetworkFallbackComponent {
   retry(): void {
     void this.network.checkConnection();
   }
+
+  dismiss(): void {
+    this.network.dismiss();
+  }
 }

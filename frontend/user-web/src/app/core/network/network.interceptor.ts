@@ -24,7 +24,7 @@ export const networkInterceptor: HttpInterceptorFn = (request, next) => {
     }),
     catchError((error: unknown) => {
       if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0)) {
-        networkStatus.markUnavailable();
+        void networkStatus.checkConnection();
       } else if (error instanceof HttpErrorResponse && error.status > 0) {
         networkStatus.markAvailable();
       }

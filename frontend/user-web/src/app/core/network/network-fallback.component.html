@@ -1,27 +1,27 @@
-@if (network.unavailable()) {
-  <section class="network-screen" role="alertdialog" aria-modal="true" aria-labelledby="network-title" aria-describedby="network-description">
-    <div class="network-card">
-      <div class="network-mark" aria-hidden="true">
-        <svg viewBox="0 0 72 72" fill="none">
-          <path d="M13 27a34 34 0 0 1 46 0" />
-          <path d="M22 37a20 20 0 0 1 27-1" />
-          <path d="M31 47a7 7 0 0 1 8-2" />
-          <path class="network-mark__break" d="m25 55 24-27" />
-          <circle cx="36" cy="58" r="2.5" />
-        </svg>
-      </div>
-      <p class="network-kicker">HuTube</p>
-      <h1 id="network-title">{{ 'network.title' | translate }}</h1>
-      <p id="network-description" class="network-description">{{ 'network.description' | translate }}</p>
-      <button type="button" class="network-retry" [disabled]="network.checking()" (click)="retry()">
-        @if (network.checking()) {
-          <span class="network-spinner" aria-hidden="true"></span>
-          {{ 'network.checking' | translate }}
-        } @else {
-          <span class="network-retry__icon" aria-hidden="true">↻</span>
-          {{ 'common.retry' | translate }}
-        }
-      </button>
+@if (network.shouldNotify()) {
+  <section class="network-notice" role="status" aria-live="polite" aria-labelledby="network-title" aria-describedby="network-description">
+    <div class="network-mark" aria-hidden="true">
+      <svg viewBox="0 0 72 72" fill="none">
+        <path d="M13 27a34 34 0 0 1 46 0" />
+        <path d="M22 37a20 20 0 0 1 27-1" />
+        <path d="M31 47a7 7 0 0 1 8-2" />
+        <path class="network-mark__break" d="m25 55 24-27" />
+        <circle cx="36" cy="58" r="2.5" />
+      </svg>
     </div>
+    <div class="network-copy">
+      <strong id="network-title">{{ 'network.title' | translate }}</strong>
+      <span id="network-description">{{ 'network.description' | translate }}</span>
+    </div>
+    <button type="button" class="network-retry" [disabled]="network.checking()" (click)="retry()">
+      @if (network.checking()) {
+        <span class="network-spinner" aria-hidden="true"></span>
+        {{ 'network.checking' | translate }}
+      } @else {
+        <span class="network-retry__icon" aria-hidden="true">↻</span>
+        {{ 'common.retry' | translate }}
+      }
+    </button>
+    <button type="button" class="network-close" [attr.aria-label]="'common.close' | translate" (click)="dismiss()">×</button>
   </section>
 }

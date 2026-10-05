@@ -46,6 +46,7 @@ class ApiClient {
   final http.Client client;
   final String baseUrl;
   String _currentBaseUrl;
+  Future<bool>? _connectionCheck;
 
   String _buildUrl(String path) {
     final base = _currentBaseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -82,13 +83,13 @@ class ApiClient {
     } on AppError {
       rethrow;
     } on TimeoutException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.timeoutError;
     } on SocketException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.network;
     } on http.ClientException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.network;
     }
   }
@@ -129,13 +130,13 @@ class ApiClient {
     } on AppError {
       rethrow;
     } on TimeoutException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.timeoutError;
     } on SocketException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.network;
     } on http.ClientException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.network;
     }
   }
@@ -195,7 +196,7 @@ class ApiClient {
     } on AppError {
       rethrow;
     } on TimeoutException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.timeoutError;
     } on SocketException {
       if (Platform.isAndroid && _currentBaseUrl.contains('127.0.0.1')) {
@@ -214,18 +215,27 @@ class ApiClient {
           final streamed = await client.send(fallbackRequest).timeout(const Duration(seconds: 15));
           final response = await http.Response.fromStream(streamed).timeout(const Duration(seconds: 15));
           _currentBaseUrl = fallback;
+          NetworkStatus.instance.markAvailable();
           return _decodeResponse(response);
         } catch (_) {}
       }
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.network;
     } on http.ClientException {
-      NetworkStatus.instance.markUnavailable();
+      unawaited(checkConnection());
       throw ApiFailure.network;
     }
   }
 
   Future<bool> checkConnection() async {
+    final inFlight = _connectionCheck;
+    if (inFlight != null) return inFlight;
+    final flight = _performConnectionCheck();
+    _connectionCheck = flight.whenComplete(() => _connectionCheck = null);
+    return _connectionCheck!;
+  }
+
+  Future<bool> _performConnectionCheck() async {
     final status = NetworkStatus.instance;
     status.beginCheck();
     try {

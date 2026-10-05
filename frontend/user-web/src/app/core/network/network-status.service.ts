@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy, inject, signal } from '@angular/core';
+import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
 import { RuntimeConfig } from '../runtime-config';
 
 @Injectable({ providedIn: 'root' })
@@ -9,6 +9,8 @@ export class NetworkStatusService implements OnDestroy {
 
   readonly unavailable = signal(typeof navigator !== 'undefined' && !navigator.onLine);
   readonly checking = signal(false);
+  readonly dismissed = signal(false);
+  readonly shouldNotify = computed(() => this.unavailable() && !this.dismissed());
 
   constructor() {
     if (typeof window === 'undefined') return;
@@ -30,11 +32,18 @@ export class NetworkStatusService implements OnDestroy {
   }
 
   markUnavailable(): void {
+    if (!this.unavailable()) this.dismissed.set(false);
     this.unavailable.set(true);
   }
 
   markAvailable(): void {
     this.unavailable.set(false);
+    this.dismissed.set(false);
+  }
+
+  dismiss(): void {
+    if (!this.unavailable()) return;
+    this.dismissed.set(true);
   }
 
   async checkConnection(): Promise<boolean> {
