@@ -12,7 +12,6 @@ class AppPreferencesStore {
 
   static const languageKey = 'hutube.language';
   static const themeKey = 'hutube.theme';
-  static const historyPausedKey = 'hutube.history_paused';
   static const recentSearchesKey = 'hutube.recent_searches';
   static const playbackAutoplayNextKey = 'hutube.playback_autoplay_next';
   static const playbackDoubleTapSeekKey = 'hutube.playback_double_tap_seek';
@@ -34,12 +33,6 @@ class AppPreferencesStore {
 
   Future<void> writeTheme(String theme) =>
       _storage.write(key: themeKey, value: theme);
-
-  Future<bool> readHistoryPaused() async =>
-      (await _storage.read(key: historyPausedKey)) == 'true';
-
-  Future<void> writeHistoryPaused(bool paused) =>
-      _storage.write(key: historyPausedKey, value: '$paused');
 
   Future<bool> readAutoplayNext() async =>
       (await _storage.read(key: playbackAutoplayNextKey)) != 'false';

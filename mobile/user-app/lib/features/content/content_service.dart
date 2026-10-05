@@ -332,17 +332,6 @@ class ContentService {
   Future<PageResult<LibraryVideo>> history({int page = 1}) =>
       _library('history', page: page, fromHistory: true);
 
-  Future<void> deleteHistoryItem(String videoId) async {
-    await auth.protected(
-      'DELETE',
-      '/library/history/${Uri.encodeComponent(videoId)}',
-    );
-  }
-
-  Future<void> clearHistory() async {
-    await auth.protected('DELETE', '/library/history');
-  }
-
   Future<PageResult<LibraryVideo>> liked({int page = 1, int? rating}) =>
       _library('liked', page: page, rating: rating);
 

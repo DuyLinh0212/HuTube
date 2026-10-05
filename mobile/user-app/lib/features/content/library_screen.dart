@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
-import '../../core/storage/app_preferences.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
@@ -23,9 +21,7 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   late final ContentService _content;
-  final _prefs = const AppPreferencesStore();
   bool _loading = true;
-  bool _historyPaused = false;
   String? _error;
   List<LibraryVideo> _history = [];
   List<LibraryVideo> _liked = [];
@@ -37,9 +33,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.initState();
     _tab = widget.initialTab.clamp(0, 1);
     _content = ContentService(widget.auth);
-    _prefs.readHistoryPaused().then((val) {
-      if (mounted) setState(() => _historyPaused = val);
-    });
     _load();
   }
 
@@ -76,79 +69,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _loading = false;
         });
       }
-    }
-  }
-
-  Future<void> _clearAllHistory() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppStrings.t('library.clearAllHistory')),
-        content: Text(AppStrings.t('library.clearConfirm')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-    HapticFeedback.mediumImpact();
-    try {
-      await _content.clearHistory();
-      if (!mounted) return;
-      setState(() => _history = []);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.t('library.clearSuccess'))),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.t('common.error'))),
-      );
-    }
-  }
-
-  Future<void> _togglePauseHistory() async {
-    HapticFeedback.selectionClick();
-    final next = !_historyPaused;
-    setState(() => _historyPaused = next);
-    await _prefs.writeHistoryPaused(next);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          next
-              ? AppStrings.t('library.historyPaused')
-              : AppStrings.t('library.historyResumed'),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _removeHistoryItem(LibraryVideo video) async {
-    HapticFeedback.lightImpact();
-    try {
-      await _content.deleteHistoryItem(video.id);
-      if (!mounted) return;
-      setState(() {
-        _history.removeWhere((item) => item.id == video.id);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.t('library.removedSuccess'))),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.t('common.error'))),
-      );
     }
   }
 
@@ -202,49 +122,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ],
           ),
-          if (_tab == 0)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Row(
-                children: [
-                  FilterChip(
-                    avatar: Icon(
-                      _historyPaused
-                          ? Icons.play_arrow_rounded
-                          : Icons.pause_rounded,
-                      size: 16,
-                      color: _historyPaused
-                          ? AppColors.warning
-                          : AppColors.textMuted,
-                    ),
-                    label: Text(
-                      _historyPaused
-                          ? AppStrings.t('library.resumeHistory')
-                          : AppStrings.t('library.pauseHistory'),
-                    ),
-                    selected: _historyPaused,
-                    selectedColor: AppColors.warning.withValues(alpha: 0.15),
-                    onSelected: (_) => _togglePauseHistory(),
-                  ),
-                  if (_history.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    ActionChip(
-                      avatar: const Icon(
-                        Icons.delete_sweep_outlined,
-                        size: 16,
-                        color: AppColors.danger,
-                      ),
-                      label: Text(
-                        AppStrings.t('library.clearAllHistory'),
-                        style: const TextStyle(color: AppColors.danger),
-                      ),
-                      onPressed: _clearAllHistory,
-                    ),
-                  ],
-                ],
-              ),
-            ),
           if (_tab == 1)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -303,57 +180,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         return VideoCardTile(
                           video: item,
                           progress: _tab == 0 ? item.progress : null,
-                          trailing: _tab == 0
-                              ? PopupMenuButton<String>(
-                                  icon: const Icon(
-                                    Icons.more_vert_rounded,
-                                    size: 20,
-                                  ),
-                                  onSelected: (val) {
-                                    if (val == 'remove') {
-                                      _removeHistoryItem(item);
-                                    } else if (val == 'playlist') {
-                                      showAddVideoToPlaylistSheet(
-                                        context,
-                                        auth: widget.auth,
-                                        videoId: item.id,
-                                      );
-                                    }
-                                  },
-                                  itemBuilder: (ctx) => [
-                                    PopupMenuItem(
-                                      value: 'playlist',
-                                      child: Row(
-                                        children: [
-                                          AppIcons.asset(AppIcons.playlist, size: 18),
-                                          const SizedBox(width: 8),
-                                          Text(AppStrings.t('watch.savePlaylist')),
-                                        ],
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'remove',
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.delete_outline_rounded,
-                                            size: 18,
-                                            color: AppColors.danger,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            AppStrings.t(
-                                              'library.removeFromHistory',
-                                            ),
-                                            style: const TextStyle(
-                                              color: AppColors.danger,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                )
+                          trailing: _tab == 1
+                              ? const SizedBox(width: 28)
                               : null,
                         );
                       },

@@ -28,7 +28,7 @@ class PlaylistSummary {
             ? (json['itemCount'] as num).toInt()
             : 0,
         description: json['description'] as String?,
-        coverUrl: json['coverUrl'] as String?,
+        coverUrl: (json['coverUrl'] ?? json['cover_url']) as String?,
         updatedAt: DateTime.tryParse('${json['updatedAt'] ?? ''}'),
       );
 }
@@ -82,7 +82,7 @@ class PlaylistDetail {
     visibility: '${json['visibility'] ?? 'private'}',
     description: json['description'] as String?,
     userId: '${json['userId'] ?? ''}',
-    coverUrl: json['coverUrl'] as String?,
+    coverUrl: (json['coverUrl'] ?? json['cover_url']) as String?,
     items: (json['items'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => PlaylistItem.fromJson(Map<String, dynamic>.from(item)))

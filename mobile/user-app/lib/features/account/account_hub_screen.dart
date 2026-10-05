@@ -95,7 +95,34 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
 
   Future<void> _loadPlaylists() async {
     try {
-      final res = await _playlistService.mine();
+      final summaries = (await _playlistService.mine())
+          .where(
+            (playlist) => !const {
+              'Video đã lưu',
+              'Xem sau',
+              'Watch later',
+            }.contains(playlist.name.trim()),
+          )
+          .toList();
+      final res = await Future.wait(
+        summaries.map((playlist) async {
+          if (playlist.coverUrl?.isNotEmpty == true) return playlist;
+          try {
+            final detail = await _playlistService.get(playlist.id);
+            return PlaylistSummary(
+              id: playlist.id,
+              name: playlist.name,
+              visibility: playlist.visibility,
+              itemCount: playlist.itemCount,
+              description: playlist.description,
+              coverUrl: detail.coverUrl ?? playlist.coverUrl,
+              updatedAt: playlist.updatedAt,
+            );
+          } catch (_) {
+            return playlist;
+          }
+        }),
+      );
       if (mounted) {
         setState(() => _playlists = res);
       }
@@ -112,28 +139,51 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     } catch (_) {}
   }
 
-  Future<void> _deleteHistoryItem(LibraryVideo video) async {
-    try {
-      await _content.deleteHistoryItem(video.id);
-      if (mounted) {
-        setState(() {
-          _history.removeWhere((item) => item.id == video.id);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã xóa khỏi nhật ký xem'),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
+  Future<void> _sharePlaylist(PlaylistSummary playlist) async {
+    await Share.share('${playlist.name}\nhutube://playlists/${playlist.id}');
+  }
+
+  Future<void> _deletePlaylist(PlaylistSummary playlist) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppStrings.t('playlists.deleteTitle')),
+        content: Text(
+          AppStrings.format('playlists.deleteDescription', {
+            'name': playlist.name,
+          }),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(AppStrings.t('common.cancel')),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(AppStrings.t('common.delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _playlistService.delete(playlist.id);
+      if (mounted) {
+        setState(() => _playlists.removeWhere((item) => item.id == playlist.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('playlists.deleted'))),
+        );
+      }
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.apiError(error))),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không thể xóa video khỏi nhật ký xem'),
-            behavior: SnackBarBehavior.floating,
-          ),
+          SnackBar(content: Text(AppStrings.t('playlists.deleteError'))),
         );
       }
     }
@@ -607,7 +657,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
 
             const SizedBox(height: 14),
 
-            // Library items list: "Video đã thích", "Watch later", and user playlists
+            // Library items list: liked videos and user playlists.
             _buildPlaylistTile(
               title: 'Video đã thích',
               subtitle: 'Riêng tư',
@@ -618,23 +668,30 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
               onTap: () => context.push('/library'),
             ),
 
-            _buildPlaylistTile(
-              title: 'Watch later',
-              subtitle: 'Riêng tư',
-              fallbackIcon: Icons.watch_later_outlined,
-              isDark: isDark,
-              onTap: () => context.push('/library'),
-            ),
-
             // Custom playlists from user
             for (final p in _playlists)
               _buildPlaylistTile(
                 title: p.name,
                 subtitle: p.visibility == 'public' ? 'Công khai' : 'Riêng tư',
                 countText: '${p.itemCount} video',
+                thumbnailUrl: p.coverUrl,
                 fallbackIcon: Icons.playlist_play_rounded,
                 isDark: isDark,
                 onTap: () => context.push('/playlists/${p.id}'),
+                menuItems: [
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Text(AppStrings.t('common.share')),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(AppStrings.t('common.delete')),
+                  ),
+                ],
+                onMenuSelected: (value) {
+                  if (value == 'share') _sharePlaylist(p);
+                  if (value == 'delete') _deletePlaylist(p);
+                },
               ),
           ],
         ),
@@ -783,23 +840,11 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                   color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
                 ),
                 onSelected: (val) {
-                  if (val == 'delete') {
-                    _deleteHistoryItem(video);
-                  } else if (val == 'share') {
+                  if (val == 'share') {
                     Share.share('https://hutube.app/watch/${video.id}');
                   }
                 },
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline_rounded, size: 20, color: Colors.redAccent),
-                        SizedBox(width: 10),
-                        Text('Xóa khỏi nhật ký xem'),
-                      ],
-                    ),
-                  ),
                   const PopupMenuItem(
                     value: 'share',
                     child: Row(
@@ -837,6 +882,8 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     required IconData fallbackIcon,
     required bool isDark,
     required VoidCallback onTap,
+    List<PopupMenuEntry<String>>? menuItems,
+    ValueChanged<String>? onMenuSelected,
   }) => InkWell(
     onTap: onTap,
     child: Padding(
@@ -919,15 +966,19 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
               ],
             ),
           ),
-          // 3 dots menu
-          IconButton(
-            icon: Icon(
-              Icons.more_vert_rounded,
-              color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
-              size: 20,
-            ),
-            onPressed: () {},
-          ),
+          if (menuItems != null && menuItems.isNotEmpty)
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                Icons.more_vert_rounded,
+                color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+                size: 20,
+              ),
+              onSelected: onMenuSelected,
+              itemBuilder: (_) => menuItems,
+            )
+          else
+            const SizedBox(width: 8),
         ],
       ),
     ),

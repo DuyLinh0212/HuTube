@@ -1121,6 +1121,7 @@ class AppStrings {
       'playlists.unlisted': 'Không công khai',
       'playlists.save': 'Lưu thay đổi',
       'playlists.deleteTitle': 'Xóa playlist?',
+      'playlists.deleted': 'Đã xóa playlist.',
       'playlists.deleteDescription':
           '“{name}” sẽ bị xóa khỏi thư viện của bạn.',
       'playlists.noVideosTitle': 'Playlist chưa có video',
@@ -2473,6 +2474,7 @@ class AppStrings {
       'playlists.unlisted': 'Unlisted',
       'playlists.save': 'Save changes',
       'playlists.deleteTitle': 'Delete playlist?',
+      'playlists.deleted': 'Playlist deleted.',
       'playlists.deleteDescription':
           '“{name}” will be removed from your library.',
       'playlists.noVideosTitle': 'This playlist has no videos',
