@@ -27,6 +27,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
   BackgroundPlaybackGuard? _backgroundPlaybackGuard;
   MediaEntitlements _entitlements = const MediaEntitlements.none();
   bool _ready = false;
+  bool _backgroundPlaybackEnabled = false;
   String? _error;
   @override
   void initState() {
@@ -72,7 +73,8 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
     );
     final guard = BackgroundPlaybackGuard(
       player,
-      pauseInBackground: !entitlements.backgroundPlayback,
+      // Background playback is opt-in for each offline video as well.
+      pauseInBackground: true,
     );
     setState(() {
       _entitlements = entitlements;
@@ -120,6 +122,24 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
     }
   }
 
+  void _toggleBackgroundPlayback() {
+    if (!_entitlements.backgroundPlayback || _backgroundPlaybackGuard == null) {
+      return;
+    }
+    final enabled = !_backgroundPlaybackEnabled;
+    _backgroundPlaybackGuard!.pauseInBackground = !enabled;
+    setState(() => _backgroundPlaybackEnabled = enabled);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          enabled
+              ? AppStrings.t('watch.backgroundEnabled')
+              : AppStrings.t('watch.backgroundDisabled'),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _backgroundPlaybackGuard?.dispose();
@@ -134,6 +154,16 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
       appBar: AppBar(
         title: Text(widget.download.title),
         actions: [
+          if (_entitlements.backgroundPlayback)
+            IconButton(
+              tooltip: AppStrings.t('watch.background'),
+              icon: Icon(
+                _backgroundPlaybackEnabled
+                    ? Icons.headphones_rounded
+                    : Icons.headphones_outlined,
+              ),
+              onPressed: _ready ? _toggleBackgroundPlayback : null,
+            ),
           if (_entitlements.pictureInPicture)
             IconButton(
               tooltip: AppStrings.t('offline.pipTooltip'),
@@ -171,10 +201,19 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
                 ),
                 if (_entitlements.backgroundPlayback)
                   Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Chip(
-                      avatar: Icon(Icons.headphones_outlined),
-                      label: Text(AppStrings.t('offline.backgroundAvailable')),
+                    padding: const EdgeInsets.all(16),
+                    child: OutlinedButton.icon(
+                      onPressed: _ready ? _toggleBackgroundPlayback : null,
+                      icon: Icon(
+                        _backgroundPlaybackEnabled
+                            ? Icons.headphones_rounded
+                            : Icons.headphones_outlined,
+                      ),
+                      label: Text(
+                        _backgroundPlaybackEnabled
+                            ? AppStrings.t('watch.backgroundEnabledShort')
+                            : AppStrings.t('watch.background'),
+                      ),
                     ),
                   ),
               ],
