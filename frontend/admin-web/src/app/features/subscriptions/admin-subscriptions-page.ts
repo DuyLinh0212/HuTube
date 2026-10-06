@@ -286,10 +286,11 @@ export class AdminSubscriptionsPage implements OnInit {
     const headers = [
       this.i18n.t('subscriptions.colId'), this.i18n.t('subscriptions.colUser'), this.i18n.t('subscriptions.colPlan'),
       this.i18n.t('subscriptions.colStatus'), this.i18n.t('subscriptions.colCycle'), this.i18n.t('subscriptions.colStart'),
-      this.i18n.t('subscriptions.colEnd'), this.i18n.t('subscriptions.colAutoRenew'), this.i18n.t('subscriptions.colLastPayment'),
+      this.i18n.t('subscriptions.colStorageQuota'), this.i18n.t('subscriptions.colEnd'), this.i18n.t('subscriptions.colAutoRenew'), this.i18n.t('subscriptions.colLastPayment'),
     ];
     const rows = items.map(item => [item.planHistoryId, item.userName, item.planName, this.statusLabel(item.status), this.cycleLabel(item.cycle),
-      this.formatDate(item.startedAt, true), this.formatDate(item.expiresAt, true), item.autoRenew ? this.i18n.t('subscriptions.yes') : this.i18n.t('subscriptions.no'),
+      this.formatDate(item.startedAt, true), item.isStorageOverLimit ? this.i18n.t('subscriptions.storageOverLimit') : this.i18n.t('subscriptions.storageWithinLimit'),
+      this.formatDate(item.expiresAt, true), item.autoRenew ? this.i18n.t('subscriptions.yes') : this.i18n.t('subscriptions.no'),
       item.lastPaymentAmount == null ? '' : this.formatMoney(item.lastPaymentAmount)]);
     const csv = '\ufeff' + [headers, ...rows].map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

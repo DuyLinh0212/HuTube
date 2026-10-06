@@ -63,7 +63,7 @@
               <thead><tr>
                 <th class="select-col"></th>
                 <th>{{ 'subscriptions.colId' | translate }}</th><th>{{ 'subscriptions.colUser' | translate }}</th><th>{{ 'subscriptions.colPlan' | translate }}</th>
-                <th>{{ 'subscriptions.colStatus' | translate }}</th><th>{{ 'subscriptions.colCycle' | translate }}</th><th>{{ 'subscriptions.colStart' | translate }}</th>
+                <th>{{ 'subscriptions.colStatus' | translate }}</th><th>{{ 'subscriptions.colCycle' | translate }}</th><th>{{ 'subscriptions.colStart' | translate }}</th><th>{{ 'subscriptions.colStorageQuota' | translate }}</th>
                 <th>{{ 'subscriptions.colEnd' | translate }}</th><th>{{ 'subscriptions.colAutoRenew' | translate }}</th><th>{{ 'subscriptions.colLastPayment' | translate }}</th><th>{{ 'subscriptions.colActions' | translate }}</th>
               </tr></thead>
               <tbody>
@@ -76,13 +76,14 @@
                     <td><span class="status-pill" [class]="'status-pill ' + statusClass(item.status)"><i></i>{{ statusLabel(item.status) }}</span></td>
                     <td>{{ cycleLabel(item.cycle) }}</td>
                     <td>{{ formatDate(item.startedAt) }}</td>
+                    <td><span class="quota-pill" [class.is-over-limit]="item.isStorageOverLimit" [class.is-within-limit]="!item.isStorageOverLimit"><i></i>{{ (item.isStorageOverLimit ? 'subscriptions.storageOverLimit' : 'subscriptions.storageWithinLimit') | translate }}</span></td>
                     <td><span class="expiry-cell">{{ formatDate(item.expiresAt) }} @if (item.expiresAt && item.status !== 'expired') { <small>{{ item.status === 'expiring' ? ('subscriptions.expiresSoon' | translate) : ' ' }}</small> }</span></td>
                     <td><span class="renew-indicator" [class.is-on]="item.autoRenew"><i></i>{{ item.autoRenew ? ('subscriptions.yes' | translate) : ('subscriptions.no' | translate) }}</span></td>
                     <td><span class="payment-cell">{{ item.lastPaymentAmount === null ? '—' : formatMoney(item.lastPaymentAmount) }}<small>{{ formatDate(item.lastPaymentAt) }}</small></span></td>
                     <td><button type="button" class="row-more" (click)="$event.stopPropagation(); select(item)" [attr.aria-label]="('subscriptions.openDetails' | translate) + ' ' + item.userName">···</button></td>
                   </tr>
                 } @empty {
-                  @if (!loading()) { <tr><td colspan="11" class="empty-row"><span aria-hidden="true">⌕</span><strong>{{ 'subscriptions.noResults' | translate }}</strong><small>{{ 'subscriptions.noResultsHint' | translate }}</small></td></tr> }
+                  @if (!loading()) { <tr><td colspan="12" class="empty-row"><span aria-hidden="true">⌕</span><strong>{{ 'subscriptions.noResults' | translate }}</strong><small>{{ 'subscriptions.noResultsHint' | translate }}</small></td></tr> }
                 }
               </tbody>
             </table>

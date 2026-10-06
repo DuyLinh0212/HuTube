@@ -21,6 +21,7 @@ export interface AdminSubscription {
   lastPaymentAt: string | null;
   lastPaymentAmount: number | null;
   lastPaymentStatus: string | null;
+  isStorageOverLimit: boolean;
 }
 
 export interface AdminSubscriptionPayment {

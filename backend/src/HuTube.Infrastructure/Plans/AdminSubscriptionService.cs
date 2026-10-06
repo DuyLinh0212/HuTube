@@ -29,7 +29,8 @@ public sealed class AdminSubscriptionService(HuTubeDbContext db, TimeProvider cl
             .ToListAsync(ct);
 
         var paymentsByHistory = await GetLatestPaymentsAsync(rows, ct);
-        var items = rows.Select(row => ToResponse(row, paymentsByHistory.GetValueOrDefault(row.PlanHistoryId))).ToList();
+        var overQuotaUsers = await GetOverQuotaUserIdsAsync(rows, ct);
+        var items = rows.Select(row => ToResponse(row, paymentsByHistory.GetValueOrDefault(row.PlanHistoryId), overQuotaUsers.Contains(row.UserId))).ToList();
         return new AdminSubscriptionPageResponse(items, page, pageSize, total, page * pageSize < total, await GetStatsAsync(now, ct));
     }
 
@@ -40,7 +41,8 @@ public sealed class AdminSubscriptionService(HuTubeDbContext db, TimeProvider cl
         var histories = FilterQuery(search, status, planId, cycle, autoRenew, fromDate, toDate, Now);
         var rows = await CreateSubscriptionRowsQuery(histories).ToListAsync(ct);
         var payments = await GetLatestPaymentsAsync(rows, ct);
-        return rows.Select(row => ToResponse(row, payments.GetValueOrDefault(row.PlanHistoryId))).ToList();
+        var overQuotaUsers = await GetOverQuotaUserIdsAsync(rows, ct);
+        return rows.Select(row => ToResponse(row, payments.GetValueOrDefault(row.PlanHistoryId), overQuotaUsers.Contains(row.UserId))).ToList();
     }
 
     public async Task<AdminSubscriptionDetailResponse> GetSubscriptionAsync(Guid historyId, CancellationToken ct)
@@ -61,7 +63,8 @@ public sealed class AdminSubscriptionService(HuTubeDbContext db, TimeProvider cl
                                   payment.Amount, payment.Currency, payment.Status, payment.CreatedAt, payment.PaidAt))
             .Take(50).ToListAsync(ct);
         var latest = payments.FirstOrDefault();
-        return new AdminSubscriptionDetailResponse(ToResponse(row, latest == null ? null : new LatestPayment(latest.PaidAt, latest.Amount, latest.Status)), payments);
+        var overQuotaUsers = await GetOverQuotaUserIdsAsync([row], ct);
+        return new AdminSubscriptionDetailResponse(ToResponse(row, latest == null ? null : new LatestPayment(latest.PaidAt, latest.Amount, latest.Status), overQuotaUsers.Contains(row.UserId)), payments);
     }
 
     public async Task<AdminSubscriptionItemResponse> SetAutoRenewAsync(Guid actorId, Guid historyId, AdminSubscriptionAutoRenewRequest request, CancellationToken ct)
@@ -292,7 +295,19 @@ public sealed class AdminSubscriptionService(HuTubeDbContext db, TimeProvider cl
             await histories.CountAsync(history => history.CreatedAt >= monthStart && history.CreatedAt < monthStart.AddMonths(1), ct));
     }
 
-    private AdminSubscriptionItemResponse ToResponse(SubscriptionRow row, LatestPayment? payment)
+    private async Task<HashSet<Guid>> GetOverQuotaUserIdsAsync(IReadOnlyCollection<SubscriptionRow> rows, CancellationToken ct)
+    {
+        var userIds = rows.Select(row => row.UserId).Distinct().ToArray();
+        if (userIds.Length == 0) return [];
+
+        return (await (from channel in db.Channels.AsNoTracking()
+                       join quota in db.ChannelQuotas.AsNoTracking() on channel.ChannelId equals quota.ChannelId
+                       where userIds.Contains(channel.OwnerUserId) && channel.Status == "active"
+                           && quota.StorageUsed > quota.StorageLimit
+                       select channel.OwnerUserId).Distinct().ToListAsync(ct)).ToHashSet();
+    }
+
+    private AdminSubscriptionItemResponse ToResponse(SubscriptionRow row, LatestPayment? payment, bool isStorageOverLimit)
     {
         var status = row.Status;
         if (status == "active" && row.ExpiresAt.HasValue)
@@ -304,7 +319,7 @@ public sealed class AdminSubscriptionService(HuTubeDbContext db, TimeProvider cl
         var cycle = row.DurationDays >= 360 ? "yearly" : row.DurationDays <= 35 ? "monthly" : "custom";
         return new AdminSubscriptionItemResponse(row.PlanHistoryId, row.UserId, row.UserName, row.Email, row.AvatarUrl,
             row.PlanId, row.PlanCode, row.PlanName, row.Price, row.DurationDays, cycle, status, row.StartedAt, row.ExpiresAt,
-            row.AutoRenew, payment?.At, payment?.Amount, payment?.Status);
+            row.AutoRenew, payment?.At, payment?.Amount, payment?.Status, isStorageOverLimit);
     }
 
     private sealed record SubscriptionRow(Guid PlanHistoryId, Guid UserId, string UserName, string Email, string? AvatarUrl,

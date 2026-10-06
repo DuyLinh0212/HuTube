@@ -91,6 +91,10 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .status-pill.is-active { background: #e8f8f0; color: #249568; }
 .status-pill.is-expiring { background: #fff3e7; color: #e58237; }
 .status-pill.is-expired { background: #eff2f6; color: #728097; }
+.quota-pill { display: inline-flex; align-items: center; gap: 5px; width: max-content; padding: 4px 7px; border-radius: 20px; font-size: .55rem; font-weight: 650; }
+.quota-pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.quota-pill.is-over-limit { background: #fff0f0; color: #c64242; }
+.quota-pill.is-within-limit { background: #e8f8f0; color: #249568; }
 .renew-indicator { display: inline-flex; align-items: center; gap: 5px; color: #7d8798; font-size: .56rem; }
 .renew-indicator > i { width: 7px; height: 7px; border-radius: 50%; background: #c6cdd7; }
 .renew-indicator.is-on { color: #278c64; }

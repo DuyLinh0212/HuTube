@@ -29,7 +29,8 @@ public sealed record AdminSubscriptionItemResponse(
     bool AutoRenew,
     DateTimeOffset? LastPaymentAt,
     decimal? LastPaymentAmount,
-    string? LastPaymentStatus);
+    string? LastPaymentStatus,
+    bool IsStorageOverLimit);
 
 public sealed record AdminSubscriptionStatsResponse(
     int TotalSubscriptions,
