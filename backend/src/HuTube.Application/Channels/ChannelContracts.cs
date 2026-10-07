@@ -16,9 +16,17 @@ public sealed record UpdateChannelRequest(
     [StringLength(2048)] string? AvatarUrl,
     [StringLength(2048)] string? BannerUrl,
     [RegularExpression(@"^@?[a-zA-Z0-9_.-]{3,50}$")] string? Handle = null,
-    [EmailAddress, StringLength(254)] string? ContactEmail = null,
+    [OptionalEmailAddress, StringLength(254)] string? ContactEmail = null,
     [StringLength(2048)] string? WatermarkUrl = null,
     string? Settings = null);
+
+// Empty optional email clears the contact field; null keeps PATCH unchanged.
+public sealed class OptionalEmailAddressAttribute : ValidationAttribute
+{
+    private static readonly EmailAddressAttribute EmailValidator = new();
+    public override bool IsValid(object? value) =>
+        value is string text && string.IsNullOrWhiteSpace(text) || EmailValidator.IsValid(value);
+}
 
 public sealed record ChannelResponse(
     Guid ChannelId,

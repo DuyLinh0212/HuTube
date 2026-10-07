@@ -246,7 +246,7 @@
                     <span class="role-badge">{{ roleName(member.roleCode) }}</span>
                   } @else {
                     <label class="sr-only" [for]="'role-' + member.userId">{{ 'channel.memberRole' | translate:{ member: member.displayName } }}</label>
-                    <select class="role-select" [id]="'role-' + member.userId" [value]="member.roleCode" [disabled]="busy()" (change)="changeRole(member, $any($event.target).value)">
+                    <select class="role-select" [id]="'role-' + member.userId" [ngModel]="member.roleCode" [disabled]="busy()" (ngModelChange)="changeRole(member, $event)">
                       @for (role of roles(); track role.code) {
                         <option [value]="role.code">{{ roleName(role.code) }}</option>
                       }

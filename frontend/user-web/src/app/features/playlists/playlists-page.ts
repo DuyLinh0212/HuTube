@@ -79,7 +79,7 @@ export class PlaylistsPage {
   loadDetail(id: string) {
     this.loading.set(true);
     this.playlist.set(null);
-    this.service.get(id).subscribe({
+    this.auth.restore().pipe(switchMap(() => this.service.get(id))).subscribe({
       next: value => {
         this.playlist.set(value);
         this.canManage.set(this.auth.user()?.userId === value.userId);
