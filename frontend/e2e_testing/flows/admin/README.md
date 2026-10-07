@@ -1,3 +1,3 @@
-# Flow Admin dự kiến
+# Flow Admin
 
-Chưa có script full Admin. Các nhóm A-ACCOUNT/USERS/CHANNELS/VIDEOS/RBAC/PLANS/TOPICS/POLICY/CF/RECOMMENDATION/MODERATION có bước và expected trong `docs/WEB_TEST_SCENARIOS.md`. Cần actor quyền cố định riêng cho full suite; fixture cấp admin tạm trong auth không thay thế kiểm thử RBAC UI. Kiểm tra persist/audit/permission, không coi toast thành bằng chứng mutation.
+Users (search/filter, 55-row pagination, lock/unlock), Channels (list/detail/CSV), Topics, Plans, Policies và RBAC có script riêng; Account ở `tests/admin_account.py`. Duyệt video ở `flows/cross_app/moderation.py`. Xem [Web suite](../../tests/WEB_SUITE.md) để chạy và xem phần còn PLANNED. Mutation được đối chiếu API/reload; toast không thay bằng chứng persist. CF Seeder và simulation được loại khỏi phạm vi theo yêu cầu người dùng.

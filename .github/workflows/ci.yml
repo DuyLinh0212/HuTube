@@ -218,7 +218,7 @@ jobs:
             "$VERSION_CODENAME" "$(dpkg --print-architecture)" \
             | sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null
           sudo apt-get update
-          sudo apt-get install --yes postgresql-18
+          sudo apt-get install --yes postgresql-18 ffmpeg
           test -x /usr/lib/postgresql/18/bin/initdb
           echo 'E2E_POSTGRES_BIN=/usr/lib/postgresql/18/bin' >> "$GITHUB_ENV"
       - name: Install browser and project dependencies
@@ -227,15 +227,28 @@ jobs:
           npm ci --prefix frontend/user-web
           npm ci --prefix frontend/admin-web
           python -m pip install --requirement frontend/e2e_testing/requirements.txt
+          python -m pip install openpyxl==3.1.5
           python -m playwright install --with-deps chromium
-      - name: Run User and Admin browser E2E
+      - name: Run existing authentication E2E
         run: python frontend/e2e_testing/run_local.py
+      - name: Run User and Admin Web functional E2E
+        if: ${{ !cancelled() }}
+        run: python frontend/e2e_testing/run_local.py --suite web --reuse-build
+      - name: Export User and Admin Excel report
+        if: ${{ !cancelled() }}
+        run: python frontend/e2e_testing/coverage/export_ci_report.py
+      - name: Verify Web result and screenshot consistency
+        if: ${{ !cancelled() }}
+        run: python frontend/e2e_testing/coverage/verify_web_evidence.py
       - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: hutube-e2e-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            frontend/e2e_testing/artifacts/runs/*/report.json
+            frontend/e2e_testing/artifacts/runs/*/*report.json
+            frontend/e2e_testing/artifacts/runs/*/*.xlsx
+            frontend/e2e_testing/artifacts/runs/*/downloads/*.csv
+            frontend/e2e_testing/artifacts/web-latest.json
             frontend/e2e_testing/screenshots/20*/**
           if-no-files-found: warn
           retention-days: 14

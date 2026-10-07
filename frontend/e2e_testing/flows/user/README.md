@@ -1,3 +1,3 @@
-# Flow User dự kiến
+# Flow User
 
-Chưa có script full User. Thứ tự theo `docs/WEB_TEST_SCENARIOS.md`: account → channel/membership → upload thật → watch/interactions → discovery/library/subscriptions → playlists → plans/payment sandbox. Dùng checkpoint ID để các bước sau dùng lại dữ liệu, tránh account/upload spam. Auth đang ở `tests/auth.py`.
+Xem [Web suite](../../tests/WEB_SUITE.md) để chạy các script chức năng hiện có. Dùng checkpoint và database E2E riêng. Các nhánh chưa có assertion giữ PLANNED theo `docs/WEB_TEST_SCENARIOS.md`; SMOKE chỉ kiểm tra route. Auth nằm ở `tests/auth.py`.

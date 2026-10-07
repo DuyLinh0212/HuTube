@@ -22,6 +22,7 @@ API = {'Auth': 'B-AUTH', 'Account': 'B-ACCOUNT', 'Channel': 'B-CHANNEL', 'Videos
        'UserModeration': 'B-MODERATION', 'Policy': 'B-TAXONOMY', 'Categories': 'B-TAXONOMY',
        'ViolationTypes': 'B-TAXONOMY', 'Downloads': 'B-DOWNLOAD', 'Subscriptions': 'B-SUBSCRIPTION',
        'CfSeeder': 'B-CF', 'RecommendationAdmin': 'B-RECOMMENDATION', 'Admin': 'B-ADMIN',
+       'AdminOperations': 'B-ADMIN', 'AdminPayments': 'B-ADMIN',
        'HuTube.Api': 'B-SYSTEM'}
 
 

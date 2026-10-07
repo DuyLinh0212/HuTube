@@ -2,6 +2,7 @@
 .state/
 artifacts/runs/
 artifacts/latest.json
+artifacts/web-latest.json
 screenshots/20*/
 config.local.json
 __pycache__/

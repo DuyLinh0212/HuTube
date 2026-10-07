@@ -65,6 +65,7 @@ def stop_process(process):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "config.example.json")
+    parser.add_argument("--suite", choices=("auth", "web"), default="auth", help="Run auth or independent Web functional suites.")
     parser.add_argument("--reuse-build", action="store_true", help="Use existing backend binaries and Angular builds; do not use after source edits.")
     parser.add_argument("--state-dir", type=Path, default=ROOT / ".state", help="Keep the same folder across runs to reuse the account.")
     args = parser.parse_args()
@@ -139,7 +140,11 @@ def main():
                        Auth__WebBaseUrl=config["user_url"], Auth__AdminBaseUrl=config["admin_url"],
                        Google__ClientId="", Recommendation__Enabled="false", Storage__Provider="Local",
                        Storage__R2__CredentialsFile=str(state / "unused-r2-credentials"),
-                       VideoProcessing__Enabled="false", CfSeedUpload__Directory=str(state / "chunks"))
+                       VideoProcessing__Enabled="true" if args.suite == "web" else "false", CfSeedUpload__Directory=str(state / "chunks"))
+            if args.suite == "web":
+                # Route suites deliberately reload many pages. Auth rate-limit behavior
+                # belongs to auth tests; keep it from throttling functional Web setup.
+                env["RateLimit__AuthPermitLimit"] = "1000"
             api_project = REPO / "backend/src/HuTube.Api"
             dll = api_project / "bin/Debug/net10.0/HuTube.Api.dll"
             if not args.reuse_build:
@@ -162,17 +167,37 @@ def main():
                     raise RuntimeError(f"Missing {app} Angular build.")
                 web = server([sys.executable, str(ROOT / "support/serve.py"), "--root", str(web_root), "--port", str(urlsplit(config[app + '_url']).port), "--api-url", config["api_url"], "--user-url", config["user_url"]], f"{app}-server.log")
                 wait_health(config[app + "_url"] + "/login", web, config["startup_seconds"])
-            child = server([sys.executable, str(ROOT / "tests/auth.py"), "--config", str(runtime)], "auth.log", ROOT, {**os.environ, "PYTHONIOENCODING": "utf-8"})
+            script = ROOT / ("tests/auth.py" if args.suite == "auth" else "tests/web_all.py")
+            child = server([sys.executable, str(script), "--config", str(runtime)], args.suite + ".log", ROOT, {**os.environ, "PYTHONIOENCODING": "utf-8"})
             try:
-                code = child.wait(timeout=config["suite_seconds"])
+                code = child.wait(timeout=config["suite_seconds"] if args.suite == "auth" else max(1200, config["suite_seconds"]))
             except subprocess.TimeoutExpired:
                 stop_process(child)
-                raise TimeoutError("Auth suite exceeded its wall-clock budget; state is retained for recovery.") from None
+                raise TimeoutError(f"{args.suite} suite exceeded its wall-clock budget; state is retained for recovery.") from None
             print(f"Artifacts: {run}", flush=True)
             if code:
-                raise RuntimeError("Auth cases failed; inspect report.json, screenshots and auth.log.")
+                raise RuntimeError(f"{args.suite} cases failed; inspect report.json, screenshots and {args.suite}.log.")
             report = json.loads((run / "report.json").read_text(encoding="utf-8"))
-            print(f"PASS: {report['passed']} cases; {report['reused']} prerequisites reused; account_count={report['account_count']}", flush=True)
+            print(f"PASS: {report['passed']} cases; {report.get('reused', 0)} prerequisites reused; account_count={report.get('account_count', 'n/a')}", flush=True)
+        except Exception as error:
+            if args.suite == 'web':
+                report_path = run / 'report.json'
+                report = json.loads(report_path.read_text(encoding='utf-8')) if report_path.exists() else {
+                    'suite': 'web', 'run_id': run.name, 'cases': [], 'page_errors': [],
+                    'setup': [{'status': 'failed', 'phase': 'runner', 'error_type': type(error).__name__}]}
+                for status in ('passed', 'failed', 'blocked', 'reused'):
+                    report[status] = sum(case['status'] == status for case in report['cases'])
+                if not report.get('finished_at') or not report['cases'] or not (report['failed'] or report['blocked']):
+                    report['run_error'] = report.get('run_error') or type(error).__name__
+                atomic_json(report_path, report)
+                for application in ('user', 'admin'):
+                    atomic_json(run / (application + '-report.json'), {
+                        'suite': application + '-web', 'run_id': run.name,
+                        'cases': [case for case in report['cases'] if case['application'] == application]})
+                atomic_json(ROOT / 'artifacts/web-latest.json', {'run_dir': str(run),
+                    **{key: report[key] for key in ('passed', 'failed', 'blocked', 'reused')},
+                    'run_error': report.get('run_error')})
+            raise
         finally:
             for process in reversed(programs):
                 stop_process(process)

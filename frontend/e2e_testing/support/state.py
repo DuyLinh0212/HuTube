@@ -1,6 +1,7 @@
 """Persistent account checkpoint and a process lock; never generate random accounts."""
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,7 +14,16 @@ def atomic_json(path: Path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(temporary, path)
+    # Windows readers/indexers can briefly hold a destination without delete
+    # sharing. Keep atomic replacement, retry only this transient lock.
+    for attempt in range(10):
+        try:
+            os.replace(temporary, path)
+            break
+        except PermissionError:
+            if os.name != 'nt' or attempt == 9:
+                raise
+            time.sleep(0.05)
 
 
 class Checkpoint:

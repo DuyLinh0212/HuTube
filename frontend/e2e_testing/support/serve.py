@@ -33,7 +33,13 @@ def main():
         def log_message(self, *args):
             pass
 
-    ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
+    class SpaServer(ThreadingHTTPServer):
+        # Angular modulepreload opens a burst of parallel connections. The
+        # stdlib's default backlog of 5 can refuse JS assets on Windows before
+        # their handler starts, leaving an otherwise healthy SPA blank.
+        request_queue_size = 128
+
+    SpaServer(("127.0.0.1", args.port), Handler).serve_forever()
 
 
 if __name__ == "__main__":

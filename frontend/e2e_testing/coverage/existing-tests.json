@@ -269,7 +269,28 @@
     {
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "NotificationReadAllAndFeedSurfacesRemainScopedAndQueryable",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "NotificationRead_IsIdempotentAndRejectsForeignOwner",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
       "method": "UploadModeratePublish_ExposesVideoInPublicFeedsAndPlayback",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "VideoThumbnail_ValidImagePersistsAndInvalidTypeDoesNotMutate",
       "kind": "Fact",
       "inline_data_rows": 0
     },
@@ -298,6 +319,13 @@
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
       "method": "SettingsDownloadsAndCreatorManagement_PersistAndEnforceOwnership",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "Downloads_AreActorScopedAndDeletingARecordKeepsSourceMedia",
       "kind": "Fact",
       "inline_data_rows": 0
     },
@@ -353,9 +381,9 @@
     {
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
-      "method": "PaymentIdempotency_IsScopedToUserAndSurvivesCompletionAndConcurrency",
-      "kind": "Fact",
-      "inline_data_rows": 0
+      "method": "PaymentIdempotency_IsScopedToUserAndRejectsFinishedAttempts",
+      "kind": "Theory",
+      "inline_data_rows": 4
     },
     {
       "project": "HuTube.IntegrationTests",
@@ -382,6 +410,97 @@
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
       "method": "UploadProbeOverridesClientClaims_AndRevalidatesActualDuration",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountPreferences_RoundTripPartialUpdatesAndRemainUserScoped",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountPreferences_InvalidEnumLeavesPersistedPreferencesUnchanged",
+      "kind": "Theory",
+      "inline_data_rows": 2
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountNotificationSettings_RoundTripAllFieldsAndRemainUserScoped",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountProfile_PatchIsPartialTrimmedAndDoesNotExposeCredentials",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountAvatar_ValidImagePersistsAndInvalidMediaDoesNotCreateObject",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountProfile_DisplayNameBoundsAndHtmlBioAreValidatedWithoutPartialMutation",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountProfile_ConcurrentDifferentFieldPatchesPreserveBothFields",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "AccountAvatar_MissingOversizedAndStorageFailureDoNotChangeProfile",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "Playlist_LifecycleVisibilityOwnershipDuplicateAndAtomicOrderAreEnforced",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "Library_HistoryAndLikedAreActorScopedAndDeleteIsIdempotent",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "VideoUpload_EmptyUnsupportedAndInvalidQualityFilesCreateNoVideo",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "Playlist_SaveAndChannelListing_RespectVisibilityOwnershipAndDuplicateRules",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/ContentApiIntegrationTests.cs",
+      "method": "Comments_RejectCrossVideoParentsAndNestedReplies",
       "kind": "Fact",
       "inline_data_rows": 0
     },
@@ -459,6 +578,41 @@
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/RbacAndChannelIntegrationTests.cs",
       "method": "INT_S4_04_ChannelMembership_OwnerAndEditor_PermissionEnforcement",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RbacAndChannelIntegrationTests.cs",
+      "method": "ChannelHandle_IsNormalizedAcrossCheckCreateAndLookup_AndRemainsUnique",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RbacAndChannelIntegrationTests.cs",
+      "method": "ChannelSubscription_IsIdempotentAndNotificationPreferenceRoundTrips",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RbacAndChannelIntegrationTests.cs",
+      "method": "SubscriptionsEndpoint_ReturnsOnlyActiveSubscriptionsForCurrentActor",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RbacAndChannelIntegrationTests.cs",
+      "method": "ChannelInvitation_NormalizesDuplicateEmailAndRejectsWrongActor",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RbacAndChannelIntegrationTests.cs",
+      "method": "ChannelManagement_ExposesOwnerViewsBrandingRolesAndMemberLifecycle",
       "kind": "Fact",
       "inline_data_rows": 0
     },
@@ -794,9 +948,9 @@
     {
       "project": "HuTube.UnitTests",
       "file": "backend/tests/HuTube.UnitTests/ModerationStrikeAndAppealTests.cs",
-      "method": "AutoLockRule_FifthVideoRejection_LocksChannelAndCreatesStrike",
-      "kind": "Fact",
-      "inline_data_rows": 0
+      "method": "AutoStrikeRule_FifthVideoRejection_AppliesConfiguredTier",
+      "kind": "Theory",
+      "inline_data_rows": 3
     },
     {
       "project": "HuTube.UnitTests",
@@ -836,6 +990,20 @@
     {
       "project": "HuTube.UnitTests",
       "file": "backend/tests/HuTube.UnitTests/PaymentServiceTests.cs",
+      "method": "InitiateAsync_SameUserAndIdempotencyKey_IsIdempotentAndScoped",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/PaymentServiceTests.cs",
+      "method": "CancelAsync_IsIdempotentForPendingAndRejectsPaidOrForeignPayment",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/PaymentServiceTests.cs",
       "method": "HandleSepayWebhookAsync_WhenValidPayment_ActivatesPlanAndMarksPaid",
       "kind": "Fact",
       "inline_data_rows": 0
@@ -858,6 +1026,13 @@
       "project": "HuTube.UnitTests",
       "file": "backend/tests/HuTube.UnitTests/PaymentServiceTests.cs",
       "method": "HandleSepayWebhookAsync_WhenPaymentExpired_CancelsPayment",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/PaymentServiceTests.cs",
+      "method": "HandleSepayWebhookAsync_WhenAccountCodeOrDirectionDoesNotMatch_LeavesPaymentPending",
       "kind": "Fact",
       "inline_data_rows": 0
     },
