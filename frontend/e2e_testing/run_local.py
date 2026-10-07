@@ -34,6 +34,20 @@ def validate(config):
         raise ValueError("Managed local tests require a synthetic @example.test account.")
 
 
+def assert_port_available(port):
+    with socket.socket() as sock:
+        if os.name == "nt":
+            # Windows SO_REUSEADDR can take over an occupied address. Keep the
+            # exclusive check there; POSIX reuse only ignores closed connections.
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(("127.0.0.1", port))
+        except OSError as error:
+            raise RuntimeError(f"E2E port {port} is unavailable; stop its listener or choose another port.") from error
+
+
 def wait_health(url, process, timeout):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -102,13 +116,11 @@ def main():
         try:
             # Refuse to connect to an API/web service already occupying our ports.
             for key in ("user_url", "admin_url", "api_url"):
-                with socket.socket() as sock:
-                    sock.bind(("127.0.0.1", urlsplit(config[key]).port))
+                assert_port_available(urlsplit(config[key]).port)
             if not (pg_bin / ("pg_ctl.exe" if os.name == "nt" else "pg_ctl")).is_file():
                 raise RuntimeError("PostgreSQL binaries missing. Set E2E_POSTGRES_BIN.")
             if not (pg_root / "PG_VERSION").exists():
-                with socket.socket() as sock:
-                    sock.bind(("127.0.0.1", config["pg_port"]))
+                assert_port_available(config["pg_port"])
                 checked([executable("initdb"), "-D", str(pg_root), "-U", DB_USER, "--auth=trust", "--encoding=UTF8", "--locale=C"], "postgres-init.log")
             status = subprocess.run([executable("pg_ctl"), "-D", str(pg_root), "status"], capture_output=True, creationflags=HIDDEN)
             if status.returncode == 3:

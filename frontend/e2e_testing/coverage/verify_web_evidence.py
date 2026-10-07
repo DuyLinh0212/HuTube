@@ -11,9 +11,10 @@ def main():
     args=parser.parse_args()
     run=args.run or Path(json.loads((root/'artifacts/web-latest.json').read_text(encoding='utf-8'))['run_dir'])
     report=json.loads((run/'report.json').read_text(encoding='utf-8'))
-    assert report['suite']=='web' and report['cases'], 'No Web cases executed'
+    assert report['suite']=='web', 'Expected Web suite report'
+    assert not report.get('run_error'), 'Suite setup or execution incomplete: ' + str(report.get('run_error'))
+    assert report['cases'], 'No Web cases executed'
     assert not report['page_errors'], 'JavaScript page errors recorded'
-    assert not report.get('run_error'), 'Suite setup or execution incomplete'
     identifiers=[(case['application'],case['id']) for case in report['cases']]
     assert len(identifiers)==len(set(identifiers)), 'Duplicate case identifiers'
     for status in ('passed','failed','blocked','reused'):

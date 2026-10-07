@@ -229,6 +229,8 @@ jobs:
           python -m pip install --requirement frontend/e2e_testing/requirements.txt
           python -m pip install openpyxl==3.1.5
           python -m playwright install --with-deps chromium
+      - name: Verify runner port lifecycle
+        run: python -m unittest discover -s frontend/e2e_testing/tests -p test_runner_ports.py -v
       - name: Run existing authentication E2E
         run: python frontend/e2e_testing/run_local.py
       - name: Run User and Admin Web functional E2E
