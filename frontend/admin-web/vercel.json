@@ -1,5 +1,5 @@
 {
-  "outputDirectory": "dist/admin-web",
+  "outputDirectory": "dist/admin-web/browser",
   "rewrites": [
     {
       "source": "/((?!.*\\.).*)",

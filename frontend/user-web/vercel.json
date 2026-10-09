@@ -1,5 +1,5 @@
 {
-  "outputDirectory": "dist/user-web",
+  "outputDirectory": "dist/user-web/browser",
   "rewrites": [
     {
       "source": "/((?!.*\\.).*)",
