@@ -5,6 +5,7 @@ using HuTube.Application.Payments;
 using HuTube.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
@@ -23,7 +24,7 @@ public sealed class PaymentsController(
     /// Khởi tạo đơn hàng thanh toán mua gói trả phí bằng SePay.
     /// </summary>
     [Authorize]
-    [HttpPost]
+    [HttpPost, EnableRateLimiting("payment-initiate")]
     public async Task<ActionResult<CreatePaymentResponse>> InitiateAsync(
         [FromBody] CreatePaymentRequest request,
         CancellationToken ct)
@@ -67,7 +68,7 @@ public sealed class PaymentsController(
     /// Webhook nhận thông báo chuyển khoản tự động từ SePay.
     /// SePay yêu cầu trả về HTTP 200/201 với body {"success": true}.
     /// </summary>
-    [HttpPost("webhook/sepay")]
+    [HttpPost("webhook/sepay"), EnableRateLimiting("payment-webhook")]
     [AllowAnonymous]
     public async Task<IActionResult> HandleSepayWebhookAsync(CancellationToken ct)
     {

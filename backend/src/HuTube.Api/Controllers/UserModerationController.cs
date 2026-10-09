@@ -5,12 +5,13 @@ using HuTube.Application.Videos;
 using HuTube.Infrastructure.Videos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
 public sealed record ReportTargetRequest(Guid ViolationTypeId, string Description);
 
-[ApiController, Route("api/v1"), Authorize]
+[ApiController, Route("api/v1"), Authorize, EnableRateLimiting("moderation")]
 public sealed class UserModerationController(
     ReportService reportService,
     AppealService appealService,

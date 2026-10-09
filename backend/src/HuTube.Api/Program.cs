@@ -2,6 +2,7 @@ using System.Text;
 using System.Net;
 using System.Threading.RateLimiting;
 using HuTube.Api.Middleware;
+using HuTube.Api.RateLimiting;
 using HuTube.Api.Services;
 using HuTube.Application.Account;
 using HuTube.Application.Auth;
@@ -50,6 +51,8 @@ var featureOptions = builder.Configuration.GetSection("Features").Get<FeatureOpt
 var videoProcessingOptions = builder.Configuration.GetSection("VideoProcessing").Get<VideoProcessingOptions>() ?? new();
 var sepayOptions = builder.Configuration.GetSection("SePay").Get<SepayOptions>() ?? new();
 var recommendationOptions = builder.Configuration.GetSection("Recommendation").Get<RecommendationOptions>() ?? new();
+var rateLimitOptions = builder.Configuration.GetSection("RateLimit").Get<RateLimitOptions>() ?? new();
+rateLimitOptions.Validate();
 if (builder.Environment.IsDevelopment())
     R2OptionsLoader.LoadDevelopmentFile(r2Options, builder.Environment.ContentRootPath, builder.Configuration["Storage:R2:CredentialsFile"]);
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
@@ -79,7 +82,7 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
     || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
     throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(recommendationOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(recommendationOptions); builder.Services.AddSingleton(rateLimitOptions);
 builder.Services.AddSingleton<SepaySignatureVerifier>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024);
@@ -205,11 +208,26 @@ builder.Services.Configure<ForwardedHeadersOptions>(options => {
         if (IPAddress.TryParse(value, out var proxy)) options.KnownProxies.Add(proxy);
 });
 builder.Services.AddRateLimiter(options => {
-    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new() {
-        PermitLimit = builder.Configuration.GetValue("RateLimit:AuthPermitLimit", 60), Window = TimeSpan.FromMinutes(1), QueueLimit = 0
-    }));
+    options.AddPolicy("auth", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.AuthPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("feed", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.FeedPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("search", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.SearchPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("playback", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PlaybackPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("upload", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("upload-preflight", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadPreflightPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("upload-chunk", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadChunkPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("payment-initiate", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentInitiatePermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("payment-webhook", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentWebhookPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("admin", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.AdminPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("moderation", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.ModerationPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("cf-seeder", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.CfSeederPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("cf-seeder-upload", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.CfSeederUploadPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("recommendation-job", _ => RateLimitPolicies.GlobalRecommendationJobs(
+        rateLimitOptions.RecommendationJobPermitLimit,
+        rateLimitOptions.Window,
+        rateLimitOptions.RecommendationJobConcurrencyLimit,
+        rateLimitOptions.RecommendationJobQueueLimit));
     options.OnRejected = async (context, _) => {
-        context.HttpContext.Response.Headers.RetryAfter = "60";
+        context.HttpContext.Response.Headers.RetryAfter = rateLimitOptions.WindowSeconds.ToString();
         await ApiErrors.WriteAsync(context.HttpContext, 429, "RATE_LIMIT_EXCEEDED", "Yêu cầu quá nhanh. Vui lòng thử lại sau một phút.");
     };
 });
@@ -238,6 +256,7 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseRouting();
 app.UseRateLimiter(); app.UseAuthentication(); app.UseMiddleware<AdminApiAuditMiddleware>(); app.UseAuthorization();
 app.UseStatusCodePages(context => ApiErrors.WriteAsync(context.HttpContext, context.HttpContext.Response.StatusCode, "HTTP_ERROR", "Yêu cầu không được xử lý."));
 if (!app.Environment.IsProduction()) {

@@ -4,10 +4,11 @@ using HuTube.Domain.Rbac;
 using HuTube.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
-[ApiController, Authorize, Route("api/v1/admin/payments")]
+[ApiController, Authorize, Route("api/v1/admin/payments"), EnableRateLimiting("admin")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AdminPaymentsController(AdminPaymentService payments) : ControllerBase
 {
