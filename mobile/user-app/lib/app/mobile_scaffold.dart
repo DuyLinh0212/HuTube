@@ -115,12 +115,24 @@ class MobileScaffold extends StatelessWidget {
     );
   }
 
+  void _restoreMinimizedVideo(BuildContext context) {
+    final videoId = playback.videoId;
+    if (!playback.minimized || videoId == null || !playback.hasVideo) return;
+
+    // A bottom-nav change uses context.go(), which intentionally replaces the
+    // shell route and removes the old watch page from the navigator stack.
+    // Keep the playback session alive, but recreate its watch route when the
+    // user presses Back so the video is never lost from the navigation flow.
+    playback.restore();
+    context.push('/watch/$videoId');
+  }
+
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final isDetail = location.startsWith('/watch/');
     final hideAppBar = isDetail || location == '/account' || location == '/settings';
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: hideAppBar
           ? null
           : AppBar(
@@ -284,6 +296,22 @@ class MobileScaffold extends StatelessWidget {
                 ),
               ],
             ),
+    );
+    return AnimatedBuilder(
+      animation: playback,
+      builder: (context, _) {
+        final canRestoreMinimizedVideo =
+            !isDetail && playback.minimized && playback.hasVideo;
+        return PopScope(
+          canPop: !canRestoreMinimizedVideo,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && canRestoreMinimizedVideo) {
+              _restoreMinimizedVideo(context);
+            }
+          },
+          child: scaffold,
+        );
+      },
     );
   }
 }
