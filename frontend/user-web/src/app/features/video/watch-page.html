@@ -38,7 +38,7 @@
               @if (activeVideoCard(); as card) {
                 <button type="button" class="video-related-banner" (click)="$event.stopPropagation(); openVideoCard(card)" [attr.aria-label]="'watch.openRelatedVideo' | translate:{ title: card.title }">
                   <span class="video-related-mark" aria-hidden="true">▶</span>
-                  <span class="video-related-copy"><small>{{ 'watch.relatedVideo' | translate }}</small><strong>{{ card.title }}</strong></span>
+                  <span class="video-related-copy"><small>{{ 'watch.relatedVideo' | translate }}</small><span class="video-related-title"><strong>{{ card.title }}</strong></span></span>
                   <span class="video-related-chevron" aria-hidden="true">›</span>
                 </button>
               }
@@ -78,15 +78,15 @@
                   </div>
                   <div class="player-control-group player-control-group--right">
                     @if (playback()?.renditions?.length) {
-                      <label class="player-option"><span>{{ 'watch.quality' | translate }}</span><select [ngModel]="quality()" (ngModelChange)="changeQuality($event)" [attr.aria-label]="'watch.videoQuality' | translate">
+                      <label class="player-option player-quality-option"><span>{{ 'watch.quality' | translate }}</span><select [ngModel]="quality()" (ngModelChange)="changeQuality($event)" [attr.aria-label]="'watch.videoQuality' | translate">
                         @for (rendition of playback()!.renditions; track rendition.quality) { <option [value]="rendition.quality">{{ rendition.quality }}</option> }
                       </select></label>
                     }
-                    <label class="player-option"><span>{{ 'watch.speed' | translate }}</span><select [ngModel]="speed()" (ngModelChange)="changeSpeed($event)" [attr.aria-label]="'watch.speed' | translate">
+                    <label class="player-option player-speed-option"><span>{{ 'watch.speed' | translate }}</span><select [ngModel]="speed()" (ngModelChange)="changeSpeed($event)" [attr.aria-label]="'watch.speed' | translate">
                       @for (value of speeds; track value) { <option [ngValue]="value">{{ value }}×</option> }
                     </select></label>
-                    <button type="button" class="player-icon-button" (click)="togglePictureInPicture()" [disabled]="!supportsPictureInPicture()" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
-                     <button type="button" class="player-icon-button" (click)="toggleFullscreen()" [attr.aria-label]="'watch.fullscreen' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button type="button" class="player-icon-button player-pip-button" (click)="togglePictureInPicture()" [disabled]="!supportsPictureInPicture()" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
+                    <button type="button" class="player-icon-button player-fullscreen-button" (click)="toggleFullscreen()" [attr.aria-label]="'watch.fullscreen' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                   </div>
                 </div>
               </div>
