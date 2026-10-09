@@ -62,8 +62,12 @@ export class WatchPage {
   readonly activeVideoCard = computed(() => {
     if (this.videoCardDrawer()) return null;
     const current = this.currentTime();
-    return (this.video()?.videoCards ?? []).find(card => current >= card.startSeconds
-      && current < card.startSeconds + 12 && !this.dismissedVideoCardIds().includes(card.videoId)) ?? null;
+    const visibleCards = (this.video()?.videoCards ?? []).filter(card => current >= card.startSeconds
+      && current < card.startSeconds + this.videoCardDisplaySeconds
+      && !this.dismissedVideoCardIds().includes(card.videoId));
+    // If two cards are configured close together, the newest cue wins instead
+    // of keeping the previous banner on screen over the next cue.
+    return visibleCards.sort((a, b) => b.startSeconds - a.startSeconds)[0] ?? null;
   });
   readonly progressPercent = computed(() => {
     const duration = this.totalDuration();
@@ -101,6 +105,7 @@ export class WatchPage {
   private resumeApplied = false;
   private continuePlaying = false;
   private autoPlayAttempted = false;
+  private readonly videoCardDisplaySeconds = 8;
   private playerTapTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPlayerTapAt = 0;
   private lastPlayerTapX = 0;
