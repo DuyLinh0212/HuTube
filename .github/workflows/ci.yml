@@ -2,9 +2,9 @@ name: HuTube CI
 
 on:
   push:
-    branches: [develop, "feature/**", "fix/**", "ci/**", "test/**", "db/**"]
+    branches: [main, develop, "feature/**", "fix/**", "ci/**", "test/**", "db/**"]
   pull_request:
-    branches: [develop]
+    branches: [main, develop]
   workflow_dispatch:
     inputs:
       deploy_staging:
