@@ -212,6 +212,12 @@ public sealed class RbacAndChannelIntegrationTests(AuthApiFactory factory) : ICl
             new CreateChannelRequest("Subscribed channel", "subscribed-channel", null));
         var channel = (await channelResponse.Content.ReadFromJsonAsync<ChannelResponse>(JsonOptions))!;
 
+        var initialStatusResponse = await viewerClient.GetAsync($"/api/v1/channels/{channel.ChannelId}/subscribe-status");
+        Assert.Equal(HttpStatusCode.OK, initialStatusResponse.StatusCode);
+        var initialStatus = (await initialStatusResponse.Content.ReadFromJsonAsync<SubscriptionStatusResponse>(JsonOptions))!;
+        Assert.False(initialStatus.IsSubscribed);
+        Assert.Equal("none", initialStatus.Status);
+
         var first = await viewerClient.PostAsync($"/api/v1/channels/{channel.ChannelId}/subscribe", null);
         var firstBody = (await first.Content.ReadFromJsonAsync<SubscriptionResponse>(JsonOptions))!;
         var second = await viewerClient.PostAsync($"/api/v1/channels/{channel.ChannelId}/subscribe", null);
@@ -223,13 +229,18 @@ public sealed class RbacAndChannelIntegrationTests(AuthApiFactory factory) : ICl
         var preference = await viewerClient.PatchAsJsonAsync($"/api/v1/channels/{channel.ChannelId}/subscribe-notifications", new { enabled = false });
         Assert.Equal(HttpStatusCode.OK, preference.StatusCode);
         Assert.False((await preference.Content.ReadFromJsonAsync<SubscriptionResponse>(JsonOptions))!.NotificationsEnabled);
-        var status = await viewerClient.GetFromJsonAsync<SubscriptionResponse>($"/api/v1/channels/{channel.ChannelId}/subscribe-status", JsonOptions);
+        var status = await viewerClient.GetFromJsonAsync<SubscriptionStatusResponse>($"/api/v1/channels/{channel.ChannelId}/subscribe-status", JsonOptions);
         Assert.NotNull(status);
-        Assert.Equal(viewer.UserId, status.UserId);
+        Assert.Equal(channel.ChannelId, status.ChannelId);
+        Assert.True(status.IsSubscribed);
         Assert.False(status.NotificationsEnabled);
 
         Assert.Equal(HttpStatusCode.NoContent, (await viewerClient.DeleteAsync($"/api/v1/channels/{channel.ChannelId}/subscribe")).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await viewerClient.DeleteAsync($"/api/v1/channels/{channel.ChannelId}/subscribe")).StatusCode);
+        var inactiveStatus = await viewerClient.GetFromJsonAsync<SubscriptionStatusResponse>($"/api/v1/channels/{channel.ChannelId}/subscribe-status", JsonOptions);
+        Assert.NotNull(inactiveStatus);
+        Assert.False(inactiveStatus.IsSubscribed);
+        Assert.Equal("paused", inactiveStatus.Status);
         await using var db = factory.CreateDb();
         Assert.Equal(1, await db.Subscriptions.CountAsync(item => item.UserId == viewer.UserId && item.ChannelId == channel.ChannelId));
         Assert.Equal("paused", await db.Subscriptions.Where(item => item.SubscriptionId == firstBody.SubscriptionId).Select(item => item.Status).SingleAsync());

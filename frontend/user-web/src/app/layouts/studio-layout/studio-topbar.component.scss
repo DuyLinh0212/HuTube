@@ -333,3 +333,15 @@
     overscroll-behavior: contain;
   }
 }
+
+@media (max-width: 960px) and (orientation: landscape) {
+  .studio-topbar {
+    height: 56px;
+    gap: 8px;
+    padding-inline: 12px;
+  }
+
+  .btn-create-studio,
+  .creator-capsule .capsule-text { display: none; }
+  .topbar-actions { gap: 6px; }
+}

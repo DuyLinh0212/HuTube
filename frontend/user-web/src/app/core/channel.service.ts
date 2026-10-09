@@ -209,8 +209,8 @@ export class ChannelService {
     return this.http.delete<void>(`${this.base}/${channelId}/subscribe`);
   }
 
-  getSubscriptionStatus(channelId: string): Observable<SubscriptionResponse> {
-    return this.http.get<SubscriptionResponse>(`${this.base}/${channelId}/subscribe-status`);
+  getSubscriptionStatus(channelId: string): Observable<SubscriptionStatusResponse> {
+    return this.http.get<SubscriptionStatusResponse>(`${this.base}/${channelId}/subscribe-status`);
   }
 
   updateSubscriptionNotifications(channelId: string, enabled: boolean): Observable<SubscriptionResponse> {
@@ -227,6 +227,13 @@ export interface SubscriptionResponse {
   channelId: string;
   userId: string;
   subscribedAt: string;
+  notificationsEnabled: boolean;
+  status: string;
+}
+
+export interface SubscriptionStatusResponse {
+  channelId: string;
+  isSubscribed: boolean;
   notificationsEnabled: boolean;
   status: string;
 }
