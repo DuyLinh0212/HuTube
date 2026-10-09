@@ -14,6 +14,15 @@ Bộ tài liệu kỹ thuật HuTube hiện được tách thành các phần ri
 4. [DATABASE_CHANGE_MANAGEMENT.md](./DATABASE_CHANGE_MANAGEMENT.md)  
    Quy định migration, database update, seed, script, rollback và quy trình thay đổi Database.
 
+5. [BUG.md](./BUG.md)  
+   Báo cáo và danh sách các lỗi đã phát hiện trong dự án.
+
+6. [CHANGELOG.md](./CHANGELOG.md)  
+   Lịch sử thay đổi của dự án.
+
+7. [PRODUCT.md](./PRODUCT.md)  
+   Mô tả sản phẩm và phạm vi chức năng.
+
 Các tài liệu này có thể đặt trong:
 
 ```text
@@ -21,7 +30,10 @@ docs/
 ├── TECH_STACK.md
 ├── PROJECT_ARCHITECTURE.md
 ├── DEVELOPMENT_CONVENTIONS.md
-└── DATABASE_CHANGE_MANAGEMENT.md
+├── DATABASE_CHANGE_MANAGEMENT.md
+├── BUG.md
+├── CHANGELOG.md
+└── PRODUCT.md
 ```
 
 hoặc phân sâu hơn sau này nếu lượng tài liệu tăng.
