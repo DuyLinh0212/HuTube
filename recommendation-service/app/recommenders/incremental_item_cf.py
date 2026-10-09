@@ -113,9 +113,9 @@ class IncrementalItemBasedCF(ItemBasedCF):
             raise ValueError(f"Missing update columns: {', '.join(sorted(missing))}")
         touched: set[int] = set()
         for row in updates.itertuples(index=False):
-            user = int(getattr(row, "user_index"))
-            item = int(getattr(row, "item_index"))
-            new_value = float(getattr(row, "rating"))
+            user = int(row.user_index)
+            item = int(row.item_index)
+            new_value = float(row.rating)
             if not 0 <= user < self.user_count or not 0 <= item < self.item_count:
                 raise ValueError("Update index is outside the model's fixed mappings.")
             if not np.isfinite(new_value) or new_value < 0:
