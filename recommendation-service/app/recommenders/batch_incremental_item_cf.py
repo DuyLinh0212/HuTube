@@ -47,7 +47,9 @@ class BatchIncrementalItemBasedCF(IncrementalItemBasedCF):
 
         changed_user_rows: set[int] = set()
         dirty_mean_items: set[int] = set()
-        for position, (local_user, item, value) in enumerate(zip(inverse, item_ids, values, strict=True)):
+        for local_user, item, value in zip(
+            inverse, item_ids, values, strict=True
+        ):
             local = int(local_user)
             item = int(item)
             previous = float(new_rows[local, item]) if new_observed[local, item] else 0.0
