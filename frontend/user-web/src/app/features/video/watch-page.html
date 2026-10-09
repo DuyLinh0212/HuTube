@@ -34,7 +34,32 @@
             @if (activeRendition()) {
               @if (item.channelWatermarkUrl) { <img class="channel-watermark" [src]="item.channelWatermarkUrl" alt="" aria-hidden="true" /> }
               <div class="player-brand" aria-hidden="true"><span class="player-brand__mark">▶</span><span>{{ 'watch.originalBadge' | translate }}</span></div>
-              <button type="button" class="player-info" [title]="'watch.videoInfo' | translate" [attr.aria-label]="'watch.videoInfo' | translate">i</button>
+              <button type="button" class="player-info" [class.is-open]="videoInfoOpen()" [title]="'watch.videoInfo' | translate" [attr.aria-label]="'watch.videoInfo' | translate" [attr.aria-expanded]="videoInfoOpen()" aria-controls="video-info-panel" (click)="$event.stopPropagation(); toggleVideoInfo()">i</button>
+              @if (videoInfoOpen()) {
+                <section id="video-info-panel" class="video-info-panel video-card-drawer" role="dialog" [attr.aria-label]="'watch.videoInfo' | translate" (click)="$event.stopPropagation()">
+                  <header class="video-info-panel__header">
+                    <div>
+                      <small>{{ 'watch.relatedVideo' | translate }}</small>
+                      <strong>{{ item.channelName }}</strong>
+                    </div>
+                    <button type="button" class="video-info-panel__close video-card-drawer-close" (click)="closeVideoInfo()" [attr.aria-label]="'watch.closeRelatedVideo' | translate">×</button>
+                  </header>
+                  @if (videoCardLinks().length) {
+                    <div class="video-info-list">
+                      @for (linked of videoCardLinks(); track linked.videoId) {
+                        <button type="button" class="video-info-item video-card-drawer-open" [class.is-current]="activeVideoCard()?.videoId === linked.videoId" (click)="openVideoCard(linked)" [attr.aria-label]="'watch.openRelatedVideo' | translate:{ title: linked.title }">
+                          @if (linked.thumbnailUrl) { <img class="video-card-drawer-thumbnail" [src]="linked.thumbnailUrl" alt="" /> }
+                          @else { <span class="video-card-drawer-thumbnail video-info-item__placeholder" aria-hidden="true">▶</span> }
+                          <span class="video-info-item__copy video-card-drawer-copy"><strong>{{ linked.title }}</strong><small>{{ duration(linked.startSeconds) }}</small></span>
+                          <span class="video-info-item__chevron" aria-hidden="true">›</span>
+                        </button>
+                      }
+                    </div>
+                  } @else {
+                    <p class="video-info-panel__empty">{{ 'watch.noRelatedVideoCards' | translate }}</p>
+                  }
+                </section>
+              }
               @if (activeVideoCard(); as card) {
                 <button type="button" class="video-related-banner" (click)="$event.stopPropagation(); openVideoCard(card)" [attr.aria-label]="'watch.openRelatedVideo' | translate:{ title: card.title }">
                   <span class="video-related-mark" aria-hidden="true">▶</span>
