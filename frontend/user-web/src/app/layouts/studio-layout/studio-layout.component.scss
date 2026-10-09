@@ -1,7 +1,11 @@
 .studio-shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 100dvh;
+  overflow-x: clip;
   background: var(--surface);
   color: var(--ink);
   transition: grid-template-columns 240ms cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
@@ -14,13 +18,18 @@
 .studio-stage {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 100dvh;
 }
 
 .studio-content-frame {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow-x: clip;
   background: var(--surface);
 }
 

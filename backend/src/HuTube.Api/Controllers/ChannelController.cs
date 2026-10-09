@@ -161,11 +161,16 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
     }
 
     [Authorize, HttpGet("{id:guid}/subscribe-status")]
-    public async Task<ActionResult<SubscriptionResponse>> GetSubscriptionStatusAsync(Guid id, CancellationToken ct)
+    public async Task<ActionResult<SubscriptionStatusResponse>> GetSubscriptionStatusAsync(Guid id, CancellationToken ct)
     {
-        var result = await channelService.GetSubscriptionStatusAsync(id, UserId, ct);
-        if (result == null) return NotFound(new { code = "NOT_SUBSCRIBED", message = "Chưa đăng ký kênh này." });
-        return Ok(result);
+        var subscription = await channelService.GetSubscriptionStatusAsync(id, UserId, ct);
+        return Ok(subscription == null
+            ? new SubscriptionStatusResponse(id, false, false, "none")
+            : new SubscriptionStatusResponse(
+                subscription.ChannelId,
+                subscription.Status == "active",
+                subscription.NotificationsEnabled,
+                subscription.Status));
     }
 
     [Authorize, HttpPatch("{id:guid}/subscribe-notifications")]
