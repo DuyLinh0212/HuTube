@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "dist/admin-web",
   "rewrites": [
     {
       "source": "/((?!.*\\.).*)",
