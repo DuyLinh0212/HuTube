@@ -37,7 +37,7 @@ class QualityGateResult:
 
 
 def _finite_non_negative(value: Any, label: str) -> list[str]:
-    if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+    if not isinstance(value, int | float) or not math.isfinite(float(value)):
         return [f"{label} must be a finite number."]
     if float(value) < 0:
         return [f"{label} must be non-negative."]
