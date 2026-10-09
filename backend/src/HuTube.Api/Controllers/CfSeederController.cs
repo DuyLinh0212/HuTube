@@ -5,6 +5,7 @@ using HuTube.Application.Videos;
 using HuTube.Domain.Rbac;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
@@ -53,20 +54,20 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
 {
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
 
-    [HttpPost("accounts")]
+    [HttpPost("accounts"), EnableRateLimiting("cf-seeder")]
     public Task<CfSeedProvisionResponse> CreateAccountsAsync(
         [FromBody] CreateCfSeedAccountsRequest request, CancellationToken ct) =>
         seeder.CreateAccountsAsync(UserId, request, ct);
 
-    [HttpGet("users")]
+    [HttpGet("users"), EnableRateLimiting("cf-seeder")]
     public Task<IReadOnlyList<CfSeedAccountResponse>> GetExistingAccountsAsync(
         [FromQuery] string? search, CancellationToken ct) => seeder.GetExistingAccountsAsync(search, ct);
 
-    [HttpGet("videos/{videoId:guid}/processing")]
+    [HttpGet("videos/{videoId:guid}/processing"), EnableRateLimiting("cf-seeder")]
     public Task<CfSeedVideoProcessingResponse> GetVideoProcessingAsync(Guid videoId, CancellationToken ct) =>
         seeder.GetVideoProcessingAsync(videoId, ct);
 
-    [HttpPost("videos"), DisableRequestSizeLimit,
+    [HttpPost("videos"), DisableRequestSizeLimit, EnableRateLimiting("cf-seeder-upload"),
         RequestFormLimits(MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024)]
     public async Task<ActionResult<CfSeedVideoResponse>> UploadVideoAsync(
         [FromForm] UploadCfSeedVideoForm form, CancellationToken ct)
@@ -82,7 +83,7 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
         return Created($"/api/v1/videos/{result.VideoId}", result);
     }
 
-    [HttpPost("videos/{videoId:guid}/renditions"), DisableRequestSizeLimit,
+    [HttpPost("videos/{videoId:guid}/renditions"), DisableRequestSizeLimit, EnableRateLimiting("cf-seeder-upload"),
         RequestFormLimits(MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024)]
     public async Task<ActionResult<CfSeedRenditionResponse>> UploadRenditionAsync(Guid videoId,
         [FromForm] UploadCfSeedRenditionForm form, CancellationToken ct)
@@ -96,7 +97,7 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
         return Ok(result);
     }
 
-    [HttpPost("upload-sessions")]
+    [HttpPost("upload-sessions"), EnableRateLimiting("cf-seeder")]
     public ActionResult<StartCfSeedUploadResponse> StartUpload([FromBody] StartCfSeedUploadRequest request)
     {
         var session = chunks.Start(UserId, request.UploadId, request.FileName, request.ContentType, request.FileSize, request.TotalChunks);
@@ -104,7 +105,7 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
     }
 
     [HttpPost("upload-sessions/{uploadId:guid}/chunks/{chunkIndex:int}")]
-    [RequestSizeLimit(32L * 1024 * 1024)]
+    [RequestSizeLimit(32L * 1024 * 1024), EnableRateLimiting("upload-chunk")]
     public async Task<ActionResult<CfSeedChunkResponse>> UploadChunk(Guid uploadId, int chunkIndex,
         IFormFile? chunk, CancellationToken ct)
     {
@@ -114,7 +115,7 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
         return Ok(new CfSeedChunkResponse(next));
     }
 
-    [HttpPost("upload-sessions/{uploadId:guid}/complete")]
+    [HttpPost("upload-sessions/{uploadId:guid}/complete"), EnableRateLimiting("cf-seeder")]
     public async Task<ActionResult<CfSeedVideoResponse>> CompleteUpload(Guid uploadId,
         [FromBody] CompleteCfSeedUploadRequest request, CancellationToken ct)
     {
@@ -142,7 +143,7 @@ public sealed class CfSeederController(ICfSeederService seeder, CfSeedChunkUploa
         }
     }
 
-    [HttpPost("upload-sessions/{uploadId:guid}/complete-rendition")]
+    [HttpPost("upload-sessions/{uploadId:guid}/complete-rendition"), EnableRateLimiting("cf-seeder")]
     public async Task<ActionResult<CfSeedRenditionResponse>> CompleteRenditionUpload(Guid uploadId,
         [FromBody] CompleteCfSeedRenditionUploadRequest request, CancellationToken ct)
     {

@@ -3,6 +3,7 @@ using System.Text.Json;
 using HuTube.Application.Videos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
@@ -13,7 +14,7 @@ public sealed class CategoriesController(IContentService content) : ControllerBa
     public Task<IReadOnlyList<CategoryResponse>> GetAsync(CancellationToken ct) => content.GetCategoriesAsync(ct);
 }
 
-[ApiController, Route("api/v1/feed")]
+[ApiController, Route("api/v1/feed"), EnableRateLimiting("feed")]
 public sealed class FeedController(IContentService content) : ControllerBase
 {
     [HttpGet("home")]
@@ -126,7 +127,7 @@ public sealed class VideosController(IContentService content) : ControllerBase
     private Guid? CurrentUserId => Guid.TryParse(User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
     private Guid UserId => CurrentUserId ?? throw new ContentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
 
-    [HttpGet("search")]
+    [HttpGet("search"), EnableRateLimiting("search")]
     public Task<PageResult<VideoCardResponse>> SearchAsync(
         [FromQuery] string? q = null,
         [FromQuery] Guid? categoryId = null,
@@ -143,10 +144,10 @@ public sealed class VideosController(IContentService content) : ControllerBase
     [HttpGet("{id:guid}")]
     public Task<VideoResponse> GetAsync(Guid id, CancellationToken ct) => content.GetVideoAsync(id, CurrentUserId, ct);
 
-    [HttpGet("{id:guid}/playback")]
+    [HttpGet("{id:guid}/playback"), EnableRateLimiting("playback")]
     public Task<PlaybackResponse> PlaybackAsync(Guid id, CancellationToken ct) => content.GetPlaybackAsync(id, CurrentUserId, ct);
 
-    [Authorize, HttpPost, DisableRequestSizeLimit]
+    [Authorize, HttpPost, DisableRequestSizeLimit, EnableRateLimiting("upload")]
     public async Task<ActionResult<VideoResponse>> UploadAsync([FromForm] UploadVideoForm form, [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey, CancellationToken ct)
     {
         if (form.Video == null || form.Video.Length == 0) throw new ContentException(400, "VIDEO_REQUIRED", "Vui lòng chọn file video.");
@@ -171,7 +172,7 @@ public sealed class VideosController(IContentService content) : ControllerBase
         return Created($"/api/v1/videos/{result.VideoId}", result);
     }
 
-    [Authorize, HttpPost("upload-preflight")]
+    [Authorize, HttpPost("upload-preflight"), EnableRateLimiting("upload-preflight")]
     public Task<UploadPreflightResponse> PreflightAsync(UploadPreflightRequest request, CancellationToken ct) => content.PreflightAsync(UserId, request, ct);
 
     [Authorize, HttpGet("manage")]

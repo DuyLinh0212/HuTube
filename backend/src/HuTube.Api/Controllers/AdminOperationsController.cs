@@ -4,10 +4,11 @@ using HuTube.Domain.Rbac;
 using HuTube.Infrastructure.Operations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
-[ApiController, Authorize, Route("api/v1/admin/operations")]
+[ApiController, Authorize, Route("api/v1/admin/operations"), EnableRateLimiting("admin")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AdminOperationsController(AdminOperationsService operations) : ControllerBase
 {

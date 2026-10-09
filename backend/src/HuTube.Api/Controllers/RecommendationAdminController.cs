@@ -2,6 +2,7 @@ using HuTube.Api.Authorization;
 using HuTube.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
@@ -21,7 +22,7 @@ public sealed class RecommendationAdminController(RecommendationAdminService adm
     [HttpGet("matrix-preview")]
     public Task<MatrixPreviewResponse> MatrixPreviewAsync(CancellationToken ct) => admin.PreviewMatrixAsync(ct);
 
-    [HttpPost("model-jobs")]
+    [HttpPost("model-jobs"), EnableRateLimiting("recommendation-job")]
     public async Task<IActionResult> UpdateModelAsync([FromBody] ModelUpdateRequest? request, CancellationToken ct)
     {
         var job = await admin.QueueModelAsync(ActorId, request, ct);
@@ -43,17 +44,17 @@ public sealed class RecommendationAdminController(RecommendationAdminService adm
         [FromQuery] int page = 1, CancellationToken ct = default) =>
         admin.VideosAsync(search, categoryId, categoryIds, page, ct);
 
-    [HttpPost("bots")]
+    [HttpPost("bots"), EnableRateLimiting("recommendation-job")]
     public Task<IReadOnlyList<AdminUserOption>> BotsAsync([FromBody] CreateBotsRequest request, CancellationToken ct) => admin.CreateBotsAsync(ActorId, request, ct);
 
-    [HttpPost("simulation-jobs")]
+    [HttpPost("simulation-jobs"), EnableRateLimiting("recommendation-job")]
     public async Task<IActionResult> SimulateAsync([FromBody] SimulatorRequest request, CancellationToken ct)
     {
         var job = await admin.QueueSimulatorAsync(ActorId, request, ct);
         return Accepted($"/api/v1/admin/recommendations/jobs/{job.JobId}", new { jobId = job.JobId });
     }
 
-    [HttpPost("jobs/{jobId:guid}/stop")]
+    [HttpPost("jobs/{jobId:guid}/stop"), EnableRateLimiting("recommendation-job")]
     public async Task<IActionResult> StopAsync(Guid jobId, CancellationToken ct)
     {
         await admin.StopAsync(jobId, ct);

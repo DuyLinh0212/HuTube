@@ -15,10 +15,11 @@ using HuTube.Infrastructure.Videos;
 using HuTube.Infrastructure.Plans;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
-[ApiController, Authorize, Route("api/v1/admin")]
+[ApiController, Authorize, Route("api/v1/admin"), EnableRateLimiting("admin")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AdminController(
     RbacService rbac,
