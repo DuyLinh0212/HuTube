@@ -311,14 +311,17 @@
                   <p class="creator-subs">{{ creator.subscriberCount | localeNumber }} {{ 'explore.subscribers' | translate }}</p>
                 </div>
 
-                <button
-                  type="button"
-                  class="creator-subscribe-btn"
-                  [class.is-subscribed]="isCreatorSubscribed(creator.channelId)"
-                  (click)="toggleSubscribe(creator.channelId, $event)"
-                >
-                  {{ (isCreatorSubscribed(creator.channelId) ? 'explore.subscribed' : 'explore.subscribe') | translate }}
-                </button>
+                @if (canShowCreatorSubscribe(creator.channelId)) {
+                  <button
+                    type="button"
+                    class="creator-subscribe-btn"
+                    [class.is-subscribed]="isCreatorSubscribed(creator.channelId)"
+                    [disabled]="isCreatorSubscriptionBusy(creator.channelId)"
+                    (click)="toggleSubscribe(creator.channelId, $event)"
+                  >
+                    {{ (isCreatorSubscribed(creator.channelId) ? 'explore.subscribed' : 'explore.subscribe') | translate }}
+                  </button>
+                }
               </div>
             }
           </div>
