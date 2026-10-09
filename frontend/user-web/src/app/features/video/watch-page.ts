@@ -56,6 +56,7 @@ export class WatchPage {
   readonly volume = signal(1);
   readonly currentTime = signal(0);
   readonly totalDuration = signal(0);
+  readonly seekFeedback = signal<'backward' | 'forward' | null>(null);
   readonly videoCardDrawer = signal<VideoCardLink | null>(null);
   readonly dismissedVideoCardIds = signal<string[]>([]);
   readonly activeVideoCard = computed(() => {
@@ -100,6 +101,10 @@ export class WatchPage {
   private resumeApplied = false;
   private continuePlaying = false;
   private autoPlayAttempted = false;
+  private playerTapTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastPlayerTapAt = 0;
+  private lastPlayerTapX = 0;
+  private seekFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private playlistQueue: PlaylistItem[] = [];
   private playlistIndex = -1;
 
@@ -107,6 +112,11 @@ export class WatchPage {
   @ViewChild('playerStage') playerStageRef?: ElementRef<HTMLElement>;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.clearPlayerTapTimer();
+      this.clearSeekFeedbackTimer();
+    });
+
     this.videoId = this.route.snapshot.paramMap.get('id') ?? '';
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       const id = params.get('id') ?? '';
@@ -141,6 +151,9 @@ export class WatchPage {
 
   private resetPlayerState() {
     this.videoChanged.next();
+    this.clearPlayerTapTimer();
+    this.clearSeekFeedbackTimer();
+    this.lastPlayerTapAt = 0;
     this.repliesByComment.set({});
     this.expandedReplies.set({});
     this.repliesLoading.set({});
@@ -407,6 +420,63 @@ export class WatchPage {
     const player = this.playerRef?.nativeElement;
     if (!player) return;
     this.seekFromSlider(player.currentTime + seconds);
+  }
+
+  onPlayerPointerUp(event: PointerEvent) {
+    if (event.pointerType && !['mouse', 'pen', 'touch'].includes(event.pointerType)) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const player = this.playerRef?.nativeElement;
+    if (!player) return;
+
+    const now = performance.now();
+    const rect = player.getBoundingClientRect();
+    const tapGap = now - this.lastPlayerTapAt;
+    const tapDistance = Math.abs(event.clientX - this.lastPlayerTapX);
+    const isDoubleTap = tapGap > 0 && tapGap <= 320 && tapDistance <= Math.max(72, rect.width * .12);
+
+    if (isDoubleTap) {
+      this.clearPlayerTapTimer();
+      this.lastPlayerTapAt = 0;
+      const seconds = event.clientX - rect.left < rect.width / 2 ? -10 : 10;
+      this.seekBy(seconds);
+      this.showSeekFeedback(seconds < 0 ? 'backward' : 'forward');
+      return;
+    }
+
+    this.lastPlayerTapAt = now;
+    this.lastPlayerTapX = event.clientX;
+    this.clearPlayerTapTimer();
+    this.playerTapTimer = setTimeout(() => {
+      this.playerTapTimer = null;
+      this.togglePlayback();
+    }, 250);
+  }
+
+  onPlayerPointerCancel() {
+    this.clearPlayerTapTimer();
+    this.lastPlayerTapAt = 0;
+  }
+
+  private showSeekFeedback(direction: 'backward' | 'forward') {
+    this.clearSeekFeedbackTimer();
+    this.seekFeedback.set(direction);
+    this.seekFeedbackTimer = setTimeout(() => {
+      this.seekFeedback.set(null);
+      this.seekFeedbackTimer = null;
+    }, 650);
+  }
+
+  private clearPlayerTapTimer() {
+    if (this.playerTapTimer === null) return;
+    clearTimeout(this.playerTapTimer);
+    this.playerTapTimer = null;
+  }
+
+  private clearSeekFeedbackTimer() {
+    if (this.seekFeedbackTimer === null) return;
+    clearTimeout(this.seekFeedbackTimer);
+    this.seekFeedbackTimer = null;
+    this.seekFeedback.set(null);
   }
 
   toggleFullscreen() {
