@@ -327,4 +327,9 @@
     gap: 10px;
   }
   .creator-capsule .capsule-text { display: none; }
+  .studio-dropdown {
+    max-height: calc(100dvh - 76px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }

@@ -79,9 +79,12 @@
                   <span>{{ profile()?.email || auth.user()?.email || '@user' }}</span>
                 </div>
               </div>
-              <button class="account-drawer__logout" type="button" [attr.aria-label]="'nav.logout' | translate" [title]="'nav.logout' | translate" (click)="openLogoutConfirm()">
-                <span class="logout-lottie" #logoutAnimation aria-hidden="true"></span>
-              </button>
+              <div class="account-drawer__header-actions">
+                <button class="account-drawer__logout" type="button" [attr.aria-label]="'nav.logout' | translate" [title]="'nav.logout' | translate" (click)="openLogoutConfirm()">
+                  <span class="logout-lottie" #logoutAnimation aria-hidden="true"></span>
+                </button>
+                <button class="account-drawer__close" type="button" [attr.aria-label]="'ui.closeAccountMenu' | translate" [title]="'ui.closeAccountMenu' | translate" (click)="closeAccountDrawer()">×</button>
+              </div>
             </header>
 
             @if (logoutConfirmOpen()) {
