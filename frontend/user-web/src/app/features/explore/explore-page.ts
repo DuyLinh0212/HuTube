@@ -1,7 +1,8 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, of, Subject } from 'rxjs';
-import { catchError, takeUntil } from 'rxjs/operators';
+import { catchError, finalize, map, takeUntil } from 'rxjs/operators';
+import { AuthService } from '../../core/auth.service';
 import { ChannelService } from '../../core/channel.service';
 import { CategoryRankingGroup, ContentService, FeaturedCreator, VideoCard } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
@@ -19,6 +20,7 @@ import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/vid
 export class ExplorePage implements OnInit, OnDestroy {
   private readonly content = inject(ContentService);
   private readonly channelService = inject(ChannelService);
+  private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
@@ -48,6 +50,10 @@ export class ExplorePage implements OnInit, OnDestroy {
   readonly overallRankingVideos = signal<VideoCard[]>([]);
   readonly featuredCreators = signal<FeaturedCreator[]>([]);
   readonly trendingVideos = signal<VideoCard[]>([]);
+  readonly authReady = signal(false);
+  readonly myChannelId = signal<string | null>(null);
+  readonly ownChannelReady = signal(false);
+  readonly creatorSubscriptionBusy = signal<Record<string, boolean>>({});
 
   // Single-category top-12 view
   readonly categoryVideos = signal<VideoCard[]>([]);
@@ -101,6 +107,20 @@ export class ExplorePage implements OnInit, OnDestroy {
     return this.subscribedMap.get(channelId) ?? false;
   }
 
+  isOwnCreator(channelId: string): boolean {
+    return this.authReady() && !!this.auth.user() && this.ownChannelReady() && this.myChannelId() === channelId;
+  }
+
+  canShowCreatorSubscribe(channelId: string): boolean {
+    if (!this.authReady()) return false;
+    if (this.auth.user() && !this.ownChannelReady()) return false;
+    return !this.isOwnCreator(channelId);
+  }
+
+  isCreatorSubscriptionBusy(channelId: string): boolean {
+    return this.creatorSubscriptionBusy()[channelId] === true;
+  }
+
   get isSearchMode(): boolean {
     return !!(this.hasSearchQuery() || this.selectedCategoryId() || this.selectedDuration() || this.selectedDateRange());
   }
@@ -112,6 +132,8 @@ export class ExplorePage implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.restoreAuthContext();
+
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
       const q = params.get('q') ?? '';
       const categoryId = params.get('categoryId') ?? '';
@@ -178,6 +200,7 @@ export class ExplorePage implements OnInit, OnDestroy {
         this.rankingGroups.set(rankingGroups);
         this.featuredCreators.set(hub.creators ?? []);
         this.trendingVideos.set(hub.trending ?? []);
+        this.loadSubscriptionStates();
 
         if (hub.topVideos?.length) {
           this.overallRankingVideos.set(hub.topVideos.slice(0, 12));
@@ -235,9 +258,47 @@ export class ExplorePage implements OnInit, OnDestroy {
   toggleSubscribe(channelId: string, event: Event) {
     event.preventDefault();
     event.stopPropagation();
-    this.subscribedMap.set(channelId, !this.subscribedMap.get(channelId));
-    // Trigger signal re-render
-    this.featuredCreators.update(list => [...list]);
+
+    const run = () => {
+      if (this.isOwnCreator(channelId) || (this.auth.user() && !this.ownChannelReady()) || this.isCreatorSubscriptionBusy(channelId)) return;
+
+      const subscribed = this.isCreatorSubscribed(channelId);
+      this.setCreatorSubscriptionBusy(channelId, true);
+      const request = subscribed
+        ? this.channelService.unsubscribe(channelId).pipe(map(() => false))
+        : this.channelService.subscribe(channelId).pipe(map(() => true));
+
+      request.pipe(
+        takeUntil(this.destroy$),
+        finalize(() => this.setCreatorSubscriptionBusy(channelId, false)),
+      ).subscribe({
+        next: subscribedNow => {
+          this.subscribedMap.set(channelId, subscribedNow);
+          // Trigger signal re-render after the server confirms the change.
+          this.featuredCreators.update(list => [...list]);
+        },
+        error: () => alert(this.i18n.t(subscribed ? 'watch.unsubscribeError' : 'watch.subscribeError')),
+      });
+    };
+
+    if (this.authReady()) {
+      if (!this.auth.user()) this.goToLogin();
+      else if (!this.ownChannelReady()) this.loadMyChannel(run);
+      else run();
+      return;
+    }
+
+    this.auth.restore().pipe(
+      catchError(() => of(false)),
+      takeUntil(this.destroy$),
+    ).subscribe(authenticated => {
+      this.authReady.set(true);
+      if (authenticated && this.auth.user()) {
+        this.loadMyChannel(run);
+      } else {
+        this.goToLogin();
+      }
+    });
   }
 
   scrollTrending(direction: 'left' | 'right') {
@@ -328,5 +389,69 @@ export class ExplorePage implements OnInit, OnDestroy {
       dateRange: this.selectedDateRange() || null,
       page: this.currentPage() > 1 ? this.currentPage() : null,
     };
+  }
+
+  private restoreAuthContext() {
+    this.auth.restore().pipe(
+      catchError(() => of(false)),
+      takeUntil(this.destroy$),
+    ).subscribe(authenticated => {
+      this.authReady.set(true);
+      if (authenticated && this.auth.user()) {
+        this.loadMyChannel();
+        this.loadSubscriptionStates();
+      } else {
+        this.myChannelId.set(null);
+        this.ownChannelReady.set(true);
+      }
+    });
+  }
+
+  private loadMyChannel(onReady?: () => void) {
+    if (!this.auth.user()) {
+      this.myChannelId.set(null);
+      this.ownChannelReady.set(true);
+      onReady?.();
+      return;
+    }
+
+    this.ownChannelReady.set(false);
+    this.channelService.getMyChannel().pipe(
+      catchError(() => of(null)),
+      takeUntil(this.destroy$),
+    ).subscribe(channel => {
+      this.myChannelId.set(channel?.channelId ?? null);
+      this.ownChannelReady.set(true);
+      this.loadSubscriptionStates();
+      onReady?.();
+    });
+  }
+
+  private loadSubscriptionStates() {
+    if (!this.authReady() || !this.auth.user()) return;
+    const creators = this.featuredCreators();
+    if (!creators.length) return;
+
+    forkJoin(creators.map(creator => this.channelService.getSubscriptionStatus(creator.channelId).pipe(
+      catchError(() => of(null)),
+    ))).pipe(takeUntil(this.destroy$)).subscribe(statuses => {
+      statuses.forEach((status, index) => {
+        if (status) this.subscribedMap.set(creators[index].channelId, status.status === 'active');
+      });
+      this.featuredCreators.update(list => [...list]);
+    });
+  }
+
+  private setCreatorSubscriptionBusy(channelId: string, busy: boolean) {
+    this.creatorSubscriptionBusy.update(state => {
+      const next = { ...state };
+      if (busy) next[channelId] = true;
+      else delete next[channelId];
+      return next;
+    });
+  }
+
+  private goToLogin() {
+    void this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
   }
 }
