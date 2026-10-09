@@ -693,6 +693,11 @@
 }
 
 @media (max-width: 760px) {
+  .settings-page-container { padding: 22px 14px 48px; }
+  .settings-tabs-nav { gap: 4px; overflow-x: auto; margin-bottom: 20px; padding-bottom: 2px; scrollbar-width: thin; }
+  .settings-tabs-nav .tab-btn { flex: 0 0 auto; padding: 10px 12px; font-size: 13px; white-space: nowrap; }
+  .settings-tabs-nav .settings-view-channel { flex: 0 0 auto; margin-left: 0; min-height: 36px; padding: 0 12px; font-size: 13px; }
+  .settings-tab-content { padding: 20px 16px; border-radius: 16px; }
   .invite-form { grid-template-columns: 1fr; }
   .member-row,
   .invitation-row { align-items: flex-start; flex-direction: column; }

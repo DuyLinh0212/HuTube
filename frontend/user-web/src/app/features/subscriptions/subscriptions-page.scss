@@ -252,3 +252,10 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@media (max-width: 600px) {
+  .subscriptions-page { padding: 22px 14px 40px; }
+  .channels-strip { margin-bottom: 24px; }
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .guest-prompt, .empty-state, .empty-videos, .state-wrap { padding: 44px 10px; }
+}

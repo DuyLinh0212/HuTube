@@ -55,7 +55,8 @@
 .primary:hover:not(:disabled) { filter: saturate(1.1) brightness(1.03); box-shadow: 0 12px 24px -5px rgba(255,43,102,0.48); transform: translateY(-1px); }
 .oauth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; color: #a58e98; font-size: 0.7rem; }
 .oauth-divider::before, .oauth-divider::after { flex: 1; border-top: 1px solid var(--line); content: ''; }
-.google-login { display: flex; justify-content: center; min-height: 40px; }
+.google-login { display: flex; justify-content: center; width: 100%; max-width: 100%; min-width: 0; min-height: 40px; overflow: hidden; }
+.google-login > *, .google-login iframe { max-width: 100%; }
 .notice { margin: 0 0 12px; padding: 11px 13px; overflow-wrap: anywhere; border-radius: 11px; font-size: 0.76rem; line-height: 1.5; }
 .notice.success { color: var(--success); background: rgba(14,159,110,0.1); }
 .notice.error { color: var(--danger); background: rgba(220,61,79,0.1); }

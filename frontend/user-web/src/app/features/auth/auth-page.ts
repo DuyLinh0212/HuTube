@@ -93,7 +93,9 @@ export class AuthPage implements AfterViewChecked {
         if (!response.credential) { this.error.set(this.i18n.t('auth.googleCredentialMissing')); return; }
         this.run(this.auth.google(response.credential), () => void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'))));
       }});
-      window.google.accounts.id.renderButton(this.googleButton.nativeElement, { theme: 'outline', size: 'large', width: 360 });
+      const availableWidth = this.googleButton.nativeElement.clientWidth;
+      const googleButtonWidth = availableWidth > 0 ? Math.min(360, availableWidth) : 360;
+      window.google.accounts.id.renderButton(this.googleButton.nativeElement, { theme: 'outline', size: 'large', width: Math.round(googleButtonWidth) });
       this.googleRendered = true;
     }).catch(() => this.error.set(this.i18n.t('auth.googleLoadError'))).finally(() => this.googleLoading = false);
   }

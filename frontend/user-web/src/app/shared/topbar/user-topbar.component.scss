@@ -326,13 +326,30 @@
     height: 64px;
     padding: 0 12px;
   }
-  .topbar-brand-group { flex: none; min-width: 0; }
-  .mobile-mark img { width: 32px; height: 32px; }
+  .topbar-brand-group { flex: 0 0 auto; min-width: 0; gap: 6px; }
+  .menu-button { width: 36px; height: 36px; flex: 0 0 36px; }
+  .topbar-brand img { width: 32px; height: 32px; }
+  .topbar-brand .brand-text,
+  .topbar-brand .country-badge { display: none; }
   .search-box { flex: 1 1 0; width: 0; min-width: 0; min-height: 38px; padding: 0 10px; }
   .search-box input::placeholder { color: transparent; }
   .search-box kbd, .create-action { display: none; }
-  .icon-action { width: 36px; min-height: 36px; }
+  .top-actions { gap: 6px; }
+  .icon-action,
+  .auth-login-btn { width: 36px; min-height: 36px; flex: 0 0 36px; }
+  .auth-login-btn { padding: 0; border-radius: 50%; }
+  .auth-login-btn span { display: none; }
   .top-avatar { width: 36px; height: 36px; font-size: 0.78rem; }
+}
+
+@media (max-width: 380px) {
+  .topbar { gap: 6px; padding-inline: 8px; }
+  .topbar-brand img { width: 30px; height: 30px; }
+  .menu-button { width: 34px; height: 34px; flex-basis: 34px; }
+  .top-actions { gap: 4px; }
+  .icon-action,
+  .auth-login-btn { width: 34px; min-height: 34px; flex-basis: 34px; }
+  .top-avatar { width: 34px; height: 34px; }
 }
 
 
