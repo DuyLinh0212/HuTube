@@ -47,6 +47,23 @@
   background: #090b10;
   object-fit: contain;
   cursor: pointer;
+  touch-action: manipulation;
+}
+
+.player-stage:fullscreen,
+.player-stage:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  aspect-ratio: auto;
+  background: #000;
+}
+
+/* Keep a viewport-height fallback for browsers without dynamic viewport units. */
+.player-stage:fullscreen,
+.player-stage:-webkit-full-screen {
+  height: 100dvh;
 }
 
 .player-stage::after {
@@ -107,6 +124,36 @@
 .player-info:focus-visible {
   background: var(--primary);
   outline: 0;
+}
+
+.player-seek-feedback {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  display: grid;
+  min-width: 78px;
+  justify-items: center;
+  gap: 3px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(13, 17, 26, .74);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
+  pointer-events: none;
+  transform: translateY(-50%);
+  animation: player-seek-feedback 650ms ease-out both;
+}
+
+.player-seek-feedback--backward { left: 15%; }
+.player-seek-feedback--forward { right: 15%; }
+.player-seek-feedback span { font-size: 1.02rem; font-weight: 850; line-height: 1; }
+.player-seek-feedback strong { font-size: .57rem; font-weight: 700; white-space: nowrap; }
+
+@keyframes player-seek-feedback {
+  0% { opacity: 0; transform: translateY(-50%) scale(.78); }
+  18%, 74% { opacity: 1; transform: translateY(-50%) scale(1); }
+  100% { opacity: 0; transform: translateY(-50%) scale(1.06); }
 }
 
 .video-related-banner { position: absolute; z-index: 4; top: 14px; left: 50%; display: flex; width: min(480px, calc(100% - 106px)); min-width: 0; align-items: center; gap: 10px; padding: 7px 11px; overflow: hidden; border: 1px solid rgba(255,255,255,.22); border-radius: 9px; color: #fff; background: rgba(15,19,29,.7); text-align: left; box-shadow: 0 5px 18px rgba(0,0,0,.2); backdrop-filter: blur(9px); cursor: pointer; transform: translateX(-50%); transition: background 150ms ease, border-color 150ms ease; }
@@ -1592,12 +1639,67 @@
   }
 }
 
+@media (max-width: 900px) and (orientation: landscape) {
+  .watch-page {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+  }
+
+  .watch-layout {
+    display: block;
+  }
+
+  .player-shell {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    border: 0;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .player-stage {
+    width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
+    aspect-ratio: auto;
+  }
+
+  .player-shell,
+  .player-stage {
+    height: 100dvh;
+  }
+
+  .player-stage {
+    min-height: 100dvh;
+  }
+
+  .player-brand {
+    top: max(14px, env(safe-area-inset-top));
+    left: max(15px, env(safe-area-inset-left));
+  }
+
+  .player-info {
+    top: max(14px, env(safe-area-inset-top));
+    right: max(15px, env(safe-area-inset-right));
+  }
+
+  .player-controls {
+    padding: 26px max(15px, env(safe-area-inset-right)) max(11px, env(safe-area-inset-bottom)) max(15px, env(safe-area-inset-left));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton,
   .action-button,
   .rating-control,
   .recommendation-card,
-  .primary-button {
+  .primary-button,
+  .player-seek-feedback {
     animation: none;
     transition: none;
   }

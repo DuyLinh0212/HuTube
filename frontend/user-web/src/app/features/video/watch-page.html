@@ -27,7 +27,7 @@
         <div class="player-shell">
           <div #playerStage class="player-stage">
             @if (activeRendition(); as source) {
-              <video #player class="video-player" playsinline autoplay preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (click)="togglePlayback()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()"></video>
+              <video #player class="video-player" playsinline autoplay preload="metadata" [poster]="item.thumbnailUrl || ''" [src]="source.url" (pointerup)="onPlayerPointerUp($event)" (pointercancel)="onPlayerPointerCancel()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="muted.set(player.muted); volume.set(player.volume)" (ended)="onEnded()" (error)="onPlayerError()"></video>
             } @else {
               <div class="player-empty"><span aria-hidden="true">▶</span><p>{{ 'watch.notReady' | translate }}</p></div>
             }
@@ -90,6 +90,12 @@
                   </div>
                 </div>
               </div>
+              @if (seekFeedback(); as feedback) {
+                <div class="player-seek-feedback" [class.player-seek-feedback--backward]="feedback === 'backward'" [class.player-seek-feedback--forward]="feedback === 'forward'" role="status" aria-live="polite">
+                  <span aria-hidden="true">{{ feedback === 'backward' ? '−10' : '+10' }}</span>
+                  <strong>{{ (feedback === 'backward' ? 'watch.back10' : 'watch.forward10') | translate }}</strong>
+                </div>
+              }
             }
           </div>
         </div>
