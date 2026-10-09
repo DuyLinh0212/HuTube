@@ -1,242 +1,772 @@
-# Kịch bản kiểm thử Web User và Web Admin HuTube
+# HuTube Web E2E — Master Test Plan và Evidence Checklist
 
-Ngày đối chiếu mã nguồn: 02/10/2026 (Asia/Bangkok). Phạm vi: hai ứng dụng Angular, các route, component dùng chung, thao tác biểu mẫu, API được gọi và các flow xuyên User–Admin. Chỉ bộ đăng ký/đăng nhập trong `frontend/e2e_testing/tests/auth.py` đã được triển khai và chạy. Các kịch bản còn lại bên dưới là kế hoạch, chưa có kết quả PASS. Performance cũng mới là kế hoạch.
+> Tài liệu này là checklist và đặc tả kiểm thử. Nội dung trong file không phải là
+> lệnh để chạy tự động. Người test dùng nó để biết phải kiểm tra gì, bằng chứng
+> nào cần lưu và khi nào một case được phép đánh dấu PASS.
 
-## 1. Tài liệu và bằng chứng
+**Ngày cấu trúc lại tài liệu:** 09/10/2026 (Asia/Bangkok)
+**Phạm vi:** User Web, Admin Web và các flow xuyên hai ứng dụng User → Admin → User.
+**Môi trường chuẩn:** UI Angular thật, API thật, PostgreSQL E2E riêng; không mock API.
 
-- [Hướng dẫn chạy auth và xem ảnh](../frontend/e2e_testing/README.md).
-- [Kết quả thực thi auth](../frontend/e2e_testing/artifacts/auth-results.md).
-- [Danh mục giao diện](../frontend/e2e_testing/coverage/web-inventory.json): 69 khai báo route, 854 event bindings, 160 navigation references và 263 form controls; ghi ứng dụng, file, dòng, sự kiện/biểu thức và nhóm kịch bản. Bao gồm inline template trong TypeScript. Đây là danh mục nghĩa vụ kiểm thử, không phải báo cáo coverage đã đạt.
-- [Kịch bản backend](BACKEND_TEST_SCENARIOS.md) và [danh mục endpoint](../frontend/e2e_testing/coverage/backend-endpoints.json).
+## 0. Quy tắc đọc và cập nhật checklist
 
-Mỗi binding trong danh mục phải có một case cụ thể khi triển khai flow: mở component, tạo điều kiện để thao tác hiện ra, kích hoạt bằng UI, đối chiếu kết quả với dữ liệu thật, chụp ảnh. Hai nhánh của điều kiện, các tab/modal/drawer và toàn bộ lựa chọn của enum phải được kiểm tra. Việc trang mở được chưa chứng minh các nút trên trang hoạt động. Thư mục `studio/upload copy/` được ghi riêng là bản sao không được router sử dụng; không tính thành một màn hình sản phẩm.
+### 0.1 Nguồn sự thật
 
-## 2. Môi trường, tài khoản và dữ liệu xuyên suốt
-
-| Thành phần | Giá trị chạy auth local |
+| Nguồn | Vai trò |
 | --- | --- |
-| User | `http://127.0.0.1:53400` |
-| Admin | `http://127.0.0.1:53401` |
-| API | `http://127.0.0.1:53480/api/v1` |
-| PostgreSQL | localhost port `55439`, database `hutube_e2e_runner` |
-| Email | Pickup trong `frontend/e2e_testing/.state/mail`, không gửi SMTP |
-| Tài khoản chính | `hutube.e2e.owner@example.test` |
-| Username / tên hiển thị | `hutube_e2e_owner` / `HuTube — Người sáng tạo nội dung kiểm thử` |
-| Mật khẩu ban đầu | `HuTubeE2e2026!` (chỉ dữ liệu test local) |
+| frontend/e2e_testing/coverage/web-inventory.json | Danh mục route, event binding, navigation reference và form control phải được rà soát |
+| docs/WEB_E2E_PROGRESS.md | Kết quả những case đã chạy và phạm vi còn lại |
+| frontend/e2e_testing/artifacts/web-latest.json + artifacts/runs/<run-id>/report.json | Bằng chứng của lần chạy Web mới nhất |
+| frontend/e2e_testing/artifacts/auth-results.md | Bằng chứng Auth đã chạy bằng Email Pickup |
+| File này | Expected, precondition, data, steps, validation, evidence và trạng thái cần đạt |
 
-Giữ nguyên `.state`, email và scope môi trường qua mọi lần chạy. Runner dùng khóa hệ điều hành, chỉ một worker được sửa tài khoản này. Trước đăng ký, truy vấn tài khoản trong database test; nếu đã có thì lưu/reconcile `user_id` và dùng lại. Không thêm timestamp/random vào email, không xóa database để chạy lại. Checkpoint ghi nguyên tử sau từng bước có tác dụng, giữ bằng chứng PASS đầu tiên. Crash sau đăng ký nhưng trước ghi checkpoint được phục hồi bằng email cố định. Scope URL/port/database thay đổi phải dùng môi trường riêng có chủ đích, không tự ghi đè checkpoint cũ.
+Inventory hiện tại trong repository là:
 
-Flow đổi/reset mật khẩu sau này phải cập nhật mật khẩu trong checkpoint ngay sau thành công rồi dùng mật khẩu mới cho login; nếu crash giữa hai bước, xác định trạng thái thật trước retry, không đoán và thử hàng loạt. Tài khoản chính được dùng cho tất cả flow owner. Để kiểm tra người dùng khác, thành viên, phân quyền và reviewer không tự duyệt, cần tối thiểu các actor cố định sau; chỉ tạo một lần khi triển khai full suite, lưu ID/password/role trong checkpoint và tái sử dụng:
+| Hạng mục | Số lượng | Cách hiểu |
+| --- | ---: | --- |
+| Route declaration | 75 | Bao gồm alias, redirect, conditional route và route trùng khai báo |
+| Event binding | 1.022 | Mỗi binding phải được gắn vào ít nhất một executable case có assertion |
+| Navigation reference | 172 | Link, routerLink, href, back/forward và điều hướng gián tiếp cần được rà soát |
+| Form control | 307 | Input, select, textarea, checkbox, file input và các validation liên quan |
 
-| Actor dự kiến, chưa được tạo bởi bộ auth | Email | Mật khẩu local dự kiến | Vai trò |
+Snapshot cũ ngày 02/10 có số 69/854/160/263; không dùng snapshot cũ để kết luận
+coverage hiện tại.
+
+### 0.2 Trạng thái và checkbox
+
+Checkbox biểu thị trạng thái đã được ghi nhận trong ledger; nó không có nghĩa là
+mọi case con của cùng một flow đã hoàn tất.
+
+| Ký hiệu | Trạng thái | Ý nghĩa |
+| --- | --- | --- |
+| [x] PASS | PASS | Case đã chạy, expected/observed khớp, có evidence đủ |
+| [x] REUSED | REUSED | Bằng chứng từ lần trước được tái sử dụng; không phải chạy lại thao tác tạo mới |
+| [ ] PLANNED | PLANNED | Chưa có evidence đạt yêu cầu |
+| [ ] BLOCKED | BLOCKED | Có dependency hoặc môi trường chưa cung cấp; không được tính PASS |
+| [ ] FAIL | FAIL | Đã chạy nhưng observed khác expected hoặc phát hiện lỗi sản phẩm |
+| [ ] OUT_OF_SCOPE | OUT_OF_SCOPE | Bị loại khỏi scope theo quyết định rõ ràng; không tính coverage |
+| [ ] RESPONSIVE-PENDING | RESPONSIVE-PENDING | Chức năng đã có evidence nhưng thiếu một hoặc nhiều viewport bắt buộc; chưa phải release PASS |
+| PARTIAL | Roll-up | Chỉ dùng ở cấp flow/route; không phải trạng thái PASS của case |
+
+Một flow cha chỉ được đổi từ PARTIAL sang PASS khi tất cả case con, nhánh quyền,
+validation, persistence và evidence bắt buộc đều hoàn thành.
+
+### 0.3 Baseline kết quả hiện có
+
+| Phạm vi | Kết quả đã ghi nhận | Lưu ý |
+| --- | --- | --- |
+| Scenario cards trong tài liệu | 85 flow cha | 14 Auth core + 5 Auth-EXT + 40 User + 20 Admin + 6 Moderation; đây không phải số binding |
+| Web E2E | 108 case: 98 PASS, 10 REUSED | 34 case chỉ là SMOKE route; report JSON có thể đếm REUSED như passed |
+| Responsive evidence của artifact Web hiện tại | 106 desktop, 2 mobile, 0 tablet | Chưa case nào có đủ bộ desktop + mobile + tablet |
+| Auth E2E | 14 case: 11 PASS, 3 REUSED | Có Email Pickup và ảnh browser; chưa có ảnh email do người test tự chụp |
+| Mail manual | 0 case hoàn tất | Email Pickup tự động không thay thế checklist chụp mailbox thủ công |
+| Full Web | Chưa hoàn tất | Chưa được tuyên bố full route/binding/permission coverage |
+
+WEB_E2E_PROGRESS.md khai báo run 20261007T095524.751804Z; file
+artifacts/web-latest.json hiện trỏ tới artifact directory
+20261007T131759.748829Z. Khi dùng làm release evidence phải ghi đúng run ID
+đang được mở và cập nhật lại bảng này, không gộp hai run một cách im lặng.
+
+### 0.4 Chuẩn responsive bắt buộc
+
+Mọi case có UI phải có đủ ba viewport sau. Đây là điều kiện của evidence, không
+phải chỉ là một bài smoke riêng:
+
+| Tên viewport | Kích thước chuẩn | Tối thiểu |
+| --- | ---: | --- |
+| Desktop | 1440 × 960 | 1 screenshot sau mỗi trạng thái/assertion quan trọng |
+| Mobile | 390 × 844 | 1 screenshot sau mỗi trạng thái/assertion quan trọng |
+| Tablet | 768 × 1024 | 1 screenshot sau mỗi trạng thái/assertion quan trọng |
+
+Case chỉ có API/DB và không có UI được ghi N/A kèm lý do. Với mọi case còn lại,
+thiếu một trong ba viewport thì responsive evidence là PLANNED và case chưa đạt
+release PASS. Artifact hiện tại mới có 106 desktop và 2 mobile; chưa có tablet.
+
+## 1. Tiêu chuẩn để đánh dấu một case PASS
+
+Một case chỉ được đánh [x] PASS nếu có đủ các mục sau:
+
+- [ ] Case ID, parent scenario, app, module, route, actor và run ID được ghi rõ.
+- [ ] Precondition và fixture ID đã được kiểm tra trước khi thao tác.
+- [ ] Từng bước trong flow được thực hiện đúng thứ tự; không bỏ qua bước chỉ vì
+      UI đã hiển thị sẵn.
+- [ ] Có assertion UI có ý nghĩa: text, state, disabled, focus, route, modal,
+      loading, empty, error hoặc giá trị thực tế.
+- [ ] Có assertion API/DB/resource ID sau mutation; status code, response và
+      ownership đúng.
+- [ ] Sau mỗi save/mutation có reload hoặc đọc API để kiểm tra persistence.
+- [ ] Có screenshot sau khi DOM/trạng thái ổn định ở đủ Desktop 1440×960,
+      Mobile 390×844 và Tablet 768×1024. Ảnh phải thuộc đúng
+      application/module/flow/case/viewport/step.
+- [ ] Nếu flow có email, đã hoàn thành mục MAIL-MANUAL tương ứng hoặc case được
+      giữ PARTIAL/PLANNED; Email Pickup tự động không đủ để đánh PASS manual.
+- [ ] Đã kiểm tra cleanup/restore và không tạo duplicate resource ngoài dự kiến.
+- [ ] Không có page error, success giả, retry vô hạn, request mutation trùng hoặc
+      dữ liệu rò sang actor khác.
+
+### 1.1 Hồ sơ tối thiểu của một case
+
+Mỗi case trong report hoặc sổ tay phải có các trường:
+
+~~~text
+ID
+Parent scenario
+Application / module / route
+Status
+Run ID và người test
+Actor
+Precondition / fixture / checkpoint
+Input data
+Steps
+Expected
+Observed
+UI assertion
+API status / endpoint / resource ID
+DB hoặc storage assertion nếu có
+Screenshot paths
+MAIL-MANUAL status và screenshot paths nếu có
+Cleanup / restore
+Issue link nếu FAIL hoặc BLOCKED
+~~~
+
+### 1.2 Quy ước evidence
+
+Evidence tự động:
+
+~~~text
+frontend/e2e_testing/screenshots/<run-id>/<user|admin>/<module>/<flow>/<case-id>/<viewport>/<step>.png
+frontend/e2e_testing/artifacts/runs/<run-id>/report.json
+frontend/e2e_testing/artifacts/runs/<run-id>/http-statuses.json
+~~~
+
+Evidence mail thủ công:
+
+~~~text
+frontend/e2e_testing/manual-evidence/<run-id>/mail/<case-id>/01-inbox-row.png
+frontend/e2e_testing/manual-evidence/<run-id>/mail/<case-id>/02-message-body.png
+frontend/e2e_testing/manual-evidence/<run-id>/mail/<case-id>/03-link-result.png
+~~~
+
+Thư mục manual evidence có thể nằm ngoài artifact tự động, nhưng phải được link
+trong case record và backup cùng run. Không commit password, cookie, JWT,
+verification token đầy đủ hoặc thông tin người dùng thật.
+
+## 2. Actor, môi trường và dữ liệu
+
+### 2.1 Actor bắt buộc
+
+| Actor | Mục đích | Trạng thái chuẩn bị |
+| --- | --- | --- |
+| GUEST | Route public, guard, CTA yêu cầu login | Có thể dùng browser context chưa đăng nhập |
+| MEMBER | User đã verify, không sở hữu resource | Có fixture riêng cho full suite |
+| OWNER | Tạo channel, video, playlist và sửa resource của mình | Runner hiện có account synthetic owner |
+| REVIEWER_1 | Claim và xử lý moderation/report | Cần actor riêng |
+| REVIEWER_2 | Appeal và separation of duties | Cần actor riêng |
+| ADMIN | Admin thường, không tự động là super admin | Cần kiểm tra permission bị thu hồi |
+| SUPER_ADMIN | RBAC, recommendation config, system-level operation | Cần actor riêng |
+
+Runner hiện tại có thể tạm cấp role Admin cho cùng một user_id rồi restore.
+Điều đó chỉ phục vụ fixture đăng nhập, không chứng minh full RBAC. Không đánh
+PASS cho case multi-actor nếu vẫn dùng một account.
+
+### 2.2 Dữ liệu fixture
+
+| Fixture | Yêu cầu |
+| --- | --- |
+| Owner account | Email synthetic cố định, verified sau AUTH-VERIFY-01, ID lưu checkpoint |
+| Member account | Khác owner; dùng để kiểm tra không leak và permission |
+| Reviewer 1/2 | Hai identity khác nhau để kiểm tra claim conflict và SoD |
+| Channel chính | Giữ xuyên các flow; không xóa trong cleanup |
+| Channel phụ | Dùng cho delete, suspend, ban và restore |
+| Video ready | Có duration, dimensions, audio/frame và playback thật |
+| Video private/unlisted/hidden/removed/processing | Mỗi state phải có resource ID riêng |
+| Playlist chính/phụ | Playlist phụ dùng cho delete; video nguồn không bị xóa theo |
+| User dataset > 50 | Dùng cho pagination, total, filter, duplicate và reset page |
+| Email mailbox | Mailbox synthetic do người test chỉ định; không dùng mail production |
+
+Quy tắc dữ liệu:
+
+- Không hardcode ID ngẫu nhiên; lấy ID từ checkpoint hoặc fixture manifest.
+- Mỗi mutation phải ghi resource ID trước và sau.
+- Không retry create bằng email/resource mới chỉ vì timeout.
+- Cleanup phải có cancel trước confirm ở các destructive action.
+- Sau test lỗi hoặc bị kill phải chạy restore fixture trước khi kết luận.
+
+## 3. Quy trình kiểm tra email thủ công
+
+Các case có email bắt buộc có hai lớp evidence:
+
+1. Automation kiểm tra trigger, API response, Email Pickup hoặc trạng thái backend.
+2. Người test mở mailbox thật của môi trường test và tự chụp ảnh email.
+
+Ảnh browser hiển thị trang verify thành công **không** phải ảnh email. Không đánh
+MAIL-MANUAL PASS chỉ vì Email Pickup đã nhận được message.
+
+### 3.1 Các bước người test phải làm
+
+1. Ghi case ID, run ID, timezone và mailbox synthetic.
+2. Xóa hoặc tách các message cũ cùng subject để không đọc nhầm email.
+3. Trigger flow từ UI thật; ghi thời điểm bấm submit.
+4. Mở mailbox bằng UI; không dùng ảnh dựng, HTML tự tạo hoặc chỉ đọc database.
+5. Chụp hàng email có sender, recipient, subject, timestamp và message ID nếu
+   mailbox hiển thị.
+6. Mở đúng message, chụp body có nội dung, CTA/link, cảnh báo hết hạn và
+   footer/sender.
+7. Mask password, cookie và phần lớn verification token. Nếu cần chứng minh link,
+   giữ domain/path và 4 ký tự cuối token, không công khai token đầy đủ.
+8. Mở link bằng browser test context; chụp trạng thái thành công hoặc lỗi.
+9. Với link hết hạn, sai hoặc dùng lại, chụp email/link result và ghi status code
+   hoặc message hiển thị.
+10. Ghi screenshot path vào case record; nếu không nhận được email, đánh FAIL hoặc
+    BLOCKED theo nguyên nhân, không đánh PASS vì UI có toast.
+
+### 3.2.1 Responsive evidence cho case có email
+
+- [ ] Trang UI khởi tạo email có screenshot Desktop 1440×960.
+- [ ] Trang UI khởi tạo email có screenshot Mobile 390×844.
+- [ ] Trang UI khởi tạo email có screenshot Tablet 768×1024.
+- [ ] Mailbox/message body được chụp thủ công; nếu mailbox hỗ trợ responsive thì
+      chụp ít nhất Desktop và Mobile, ghi N/A có lý do nếu Tablet không khả dụng.
+- [ ] Trang kết quả khi bấm link email có đủ ba viewport như một UI case bình thường.
+
+### 3.3 Sổ email phải kiểm tra thủ công
+
+| Checkbox | Case | Trigger cần kiểm tra | Evidence bắt buộc | Status |
+| --- | --- | --- | --- | --- |
+| [ ] | AUTH-REG-03 | Đăng ký thành công gửi verification mail | Inbox row, full body, verify result | PLANNED |
+| [ ] | AUTH-VERIFY-01 | Link verify đúng recipient | Body/link, success, DB verified | PLANNED |
+| [ ] | AUTH-EXT-01 | Forgot password gửi reset mail | Inbox row, body, reset success | PLANNED |
+| [ ] | AUTH-EXT-02 | Reset link hết hạn/sai/replay | Email và từng error result | PLANNED |
+| [ ] | U-CHANNEL.04 | Owner invite member/editor | Invite mail, accept/decline, invitation ID | PLANNED |
+| [ ] | U-CHANNEL.05 | Notification/report/appeal nếu sản phẩm gửi mail | Mail và target/status đúng | PLANNED |
+| [ ] | A-USERS.02 | Lock/unlock hoặc role change notification nếu có | Mail recipient đúng actor | PLANNED |
+| [ ] | A-MODERATION.02 | Reject/escalate thông báo creator | Mail, reason/policy/version, status | PLANNED |
+| [ ] | A-MODERATION.04 | Appeal decision thông báo owner | Mail, evidence/result, effective state | PLANNED |
+| [ ] | A-MODERATION.05 | Strike/lock notification nếu có | Mail, severity, expiry, target | PLANNED |
+| [ ] | U-PLAN.02 | Payment/entitlement notification nếu có | Mail, payment ID, entitlement state | BLOCKED nếu thiếu sandbox |
+
+Nếu feature không hề có email binding, người test phải ghi N/A — verified no
+email contract kèm source/API evidence. Không tự động coi thiếu email là PASS.
+## 4. Ma trận route và guard
+
+Mỗi route/dynamic route phải kiểm tra đủ: direct URL, link UI, reload,
+back, forward, guard với guest/đủ quyền/thiếu quyền, ID không tồn tại và API
+error. Route public không có permission branch thì ghi rõ N/A kèm lý do.
+
+| App | Route group | Flow liên quan | Status roll-up | Bằng chứng hiện có / thiếu |
+| --- | --- | --- | --- | --- |
+| User | /login, /register, /verify-email, /forgot-password, /reset-password | AUTH, AUTH-EXT | PARTIAL | Core auth có evidence; forgot/reset và manual mail còn thiếu |
+| User | /, /home, /explore, /search, wildcard | U-DISCOVERY | PARTIAL | Smoke và empty search có; filters/pagination/recommendation còn thiếu |
+| User | /subscriptions | U-SUBSCRIPTION | PARTIAL | Route smoke và subscribe cơ bản có; đầy đủ tab/ownership còn thiếu |
+| User | /playlists, /playlists/:id, /channel/:handle/playlists, /channel/:handle/playlists/:id | U-PLAYLIST | PARTIAL | Create/edit/access/item/remove/visibility có; multi-item reorder và pagination còn thiếu |
+| User | /channel/create, /channel/:handle, /channel/:handle/customize | U-CHANNEL | PARTIAL | Basic/public/branding/invite có; toàn bộ role/restriction/delete còn thiếu |
+| User | /watch/:id | U-WATCH | PARTIAL | Playback/private/reaction/comment/rating có; toàn bộ state/download/report còn thiếu |
+| User | /terms, /privacy, /guidelines, /policies | U-POLICY | PARTIAL | Smoke/API policy có; UI current-version và PDF/keyboard/mobile còn thiếu |
+| User | /plans, /plans/accept-invite, /plans/:planId, /my-plan | U-PLAN | BLOCKED/PARTIAL | Catalog cơ bản có; payment/webhook/entitlement bị BLOCKED |
+| User | /account, /profile, /history, /liked, /library | U-ACCOUNT, U-LIBRARY | PARTIAL | Account và smoke có; session/download/library pagination còn thiếu |
+| User | /channel-invitations, /studio/invitations | U-CHANNEL | PARTIAL | Invite/accept có; mail/đủ permission matrix còn thiếu |
+| User | /studio, /studio/setup, /studio/overview, /studio/content, /studio/content/:id/edit, /studio/upload, /studio/analytics, /studio/comments, /studio/subtitles, /studio/settings | U-STUDIO | PARTIAL | Route smoke và upload fixture có; wizard nâng cao/chunk/captions/settings còn thiếu |
+| Admin | /login, /verify-email, /forgot-password, /reset-password, /forbidden | AUTH, X-ACCESS | PARTIAL | Admin deny/login/logout có; reset/permission matrix còn thiếu |
+| Admin | /users, /channels, /videos, /roles, /plans, /topics, /policies | A-* | PARTIAL | Smoke và một số CRUD/list có; mutation đầy đủ còn thiếu |
+| Admin | /moderation/videos, /moderation/reports, /moderation/appeals, /moderation/strikes | A-MODERATION | PARTIAL | Approve cơ bản có; report/appeal/strike/SoD còn thiếu |
+| Admin | /cf-seeder, /recommendations, /account, root/wildcard | A-CF, A-RECOMMENDATION | BLOCKED/OUT_OF_SCOPE | CF Seeder/simulation bị loại; recommendation jobs thiếu service |
+
+Checklist route cho từng route group:
+
+- [ ] Mở bằng direct URL khi guest.
+- [ ] Mở qua link/menu UI và xác nhận active route đúng.
+- [ ] Reload tại route đó, giữ đúng identity và resource.
+- [ ] Back rồi forward; không mất query, filter, tab hoặc checkpoint.
+- [ ] Actor đủ quyền thấy đúng dữ liệu và action.
+- [ ] Actor thiếu quyền nhận 401/403 đúng; không lộ body/sourceURL/thumbnail nhạy cảm.
+- [ ] Resource ID không tồn tại nhận 404/empty state đúng.
+- [ ] API 4xx/5xx kết thúc loading, có error và retry bounded.
+- [ ] Alias/redirect/wildcard đi đúng đích và không tạo history loop.
+
+## 5. AUTH — đã có evidence và phần mở rộng
+
+### 5.1 Auth core
+
+| Checkbox | ID | Actor/route | Luồng và validation bắt buộc | Evidence hiện có |
+| --- | --- | --- | --- | --- |
+| [x] | AUTH-REG-01 | Guest /register | Để trống tất cả; submit; aria-invalid/required hiển thị; không POST | PASS |
+| [x] | AUTH-REG-02 | Guest /register | Điền confirm password khác; lỗi mismatch; không tạo user/không POST thành công | PASS |
+| [x] | AUTH-REG-03 | Guest /register | Điền dữ liệu hợp lệ; POST 201 đúng một user pending; ghi account ID; trigger email | REUSED; automation evidence có, MAIL-MANUAL còn PLANNED |
+| [x] | AUTH-LOGIN-01 | Unverified user /login | Login trước verify; 403 đúng contract; không vào account | REUSED |
+| [x] | AUTH-VERIFY-01 | Guest /verify-email?token=... | Mở link từ email Pickup; DB verified; UI success; token không được log đầy đủ | REUSED; MAIL-MANUAL còn PLANNED |
+| [x] | AUTH-REG-04 | Existing email/username | Submit lại cùng data; 409 EMAIL_ALREADY_EXISTS hoặc USERNAME_ALREADY_EXISTS; account count vẫn 1 | PASS |
+| [x] | AUTH-LOGIN-02 | Guest /login | Bỏ trống; required error; không POST | PASS |
+| [x] | AUTH-LOGIN-03 | User /login | Password sai một lần; 401 INVALID_CREDENTIALS; không spam lockout | PASS |
+| [x] | AUTH-LOGIN-04 | Verified user /login | 200 đúng user ID; HttpOnly cookie; không token/password trong storage; desktop/mobile | PASS |
+| [x] | AUTH-LOGIN-05 | User /account | Reload; session/identity phục hồi đúng; không rơi về login | PASS |
+| [x] | AUTH-LOGIN-06 | User account/logout | Logout và mở lại protected route; redirect login; cookie/session bị xóa | PASS |
+| [x] | AUTH-ADMIN-01 | Normal user → Admin login | 403 ADMIN_ACCESS_DENIED; không vào Admin | PASS |
+| [x] | AUTH-ADMIN-02 | Temporary admin fixture | Admin login đúng ID; admin cookie HttpOnly; profile đúng; role restore sau flow | PASS |
+| [x] | AUTH-ADMIN-03 | Admin logout | Logout rồi mở /users; guard về login; role fixture restore | PASS |
+
+### 5.2 AUTH-EXT — chưa đủ evidence
+
+| Checkbox | ID | Luồng chi tiết | Validation bắt buộc | Status |
+| --- | --- | --- | --- | --- |
+| [ ] | AUTH-EXT-01 | Forgot password bằng email đã có và email chưa có; mở mail; reset mật khẩu; login bằng mật khẩu mới/cũ | Không leak account existence; link đúng recipient; reset success; password cũ fail; manual mail screenshot | PLANNED |
+| [ ] | AUTH-EXT-02 | Password/email boundary, hoa-thường, whitespace, email invalid, password ngắn/dài, confirm/show-hide, double click, network fail | Không duplicate; không success giả; lỗi đúng field; request count đúng | PLANNED |
+| [ ] | AUTH-EXT-03 | Verify token sai, thiếu, hết hạn, đã dùng; back/forward; return URL | Không replay; không open external origin; admin không mở registration | PLANNED |
+| [ ] | AUTH-EXT-04 | Lock/suspend/delete sau khi login; revoke session; đổi role giữa session; hai tab User/Admin | Refresh/current route/API bị chặn đúng; không leak dữ liệu; cookie không trộn platform | PLANNED |
+| [ ] | AUTH-EXT-05 | Google OAuth sandbox: cancel, credential sai/expired, unverified, linked, blocked | Nếu thiếu dependency đánh BLOCKED; local auth tắt Google không được tính OAuth PASS | BLOCKED nếu chưa có sandbox |
+
+## 6. User Web — scenario cards
+
+Status của các dòng dưới là roll-up. Evidence atomics đã chạy được liệt kê ở
+Section 10; không lấy một case con để đánh PASS cho cả dòng.
+
+### 6.1 Account và profile
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| U-ACCOUNT.01 | OWNER /account, fixture owner | Đọc profile; mở edit; nhập tên/bio Unicode; cancel; mở lại; save; upload avatar hợp lệ/sai type/sai size; reload. Cancel không persist; save lưu DB; ảnh lỗi không đổi avatar; loading/error đúng. | Read/cancel/validation/save/restore/mobile | PARTIAL |
+| U-ACCOUNT.02 | OWNER account tabs | Lần lượt notifications, privacy, downloads, billing, advanced; đổi từng option; save; reload; kiểm tra language/theme, subscription privacy, notification group, copy ID. Nút chưa hỗ trợ phải disabled/giải thích. | Notifications và privacy | PARTIAL |
+| U-ACCOUNT.03 | OWNER hai browser context | Đổi password; revoke session khác/current; logout others; refresh cả hai context. Chỉ session mục tiêu bị revoke; current revoke logout; không revoke ID người khác. | Chưa có full session evidence | PLANNED |
+| U-ACCOUNT.04 | OWNER downloads/plans | Chọn từng quality, smart download; delete one/all/cancel; đổi plan. Download state xóa đúng; entitlement/quota kiểm soát; không tạo download giả. | Chưa có | PLANNED |
+
+### 6.2 Channel, membership và branding
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| U-CHANNEL.01 | OWNER chưa có channel | Nhập name/handle; duplicate, ký tự sai, whitespace; validate; create; lưu channel ID; chạy lại mở fixture cũ. Chỉ một channel đúng owner; route handle đúng. | Create reused, validation | PARTIAL |
+| U-CHANNEL.02 | OWNER customize/settings | Avatar/banner/watermark PNG hợp lệ; sai MIME/size/zero byte; title/description/links thêm/sửa/reorder/remove; cancel/save/reload. Không báo toàn bộ thành công nếu một upload fail. | Basic metadata, contact clear, PNG branding | PARTIAL |
+| U-CHANNEL.03 | GUEST/MEMBER public channel | Home/Videos/Playlists; search/sort/page/share/copy; handle sai; private/deleted/empty/loading/notfound. Không leak nội dung private; totals và pagination đúng. | Public channel cơ bản | PARTIAL |
+| U-CHANNEL.04 | OWNER + MEMBER + REVIEWER | Owner invite bằng email; member accept/decline; owner đổi role/remove/revoke; kiểm tra từng permission upload/edit/comments/analytics/settings ở UI và API. Invitation replay bị chặn; owner không mất quyền. | Invite/accept/role/remove | PARTIAL; manual mail PLANNED |
+| U-CHANNEL.05 | MEMBER/OWNER/GUEST | Subscribe và từng notification setting; report channel/video/comment; appeal moderation; kiểm tra guest CTA login. Count không cộng lặp; target/status đúng. | Subscribe | PARTIAL |
+| U-CHANNEL.06 | Channel phụ và channel chính | Delete cancel/confirm; suspended/blocked channel thử upload/play; dữ liệu account khác không đổi. | Chưa có | PLANNED |
+
+### 6.3 Discovery và subscriptions
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| U-DISCOVERY.01 | GUEST/OWNER /home | Recommendation personalized/anonymous; mở watch rồi back; tắt service; fallback dùng data thật; không hiện private/hidden. | Home smoke | PLANNED |
+| U-DISCOVERY.02 | GUEST/MEMBER /explore, /search | Query có dấu/không dấu; category/sort/duration/date; reset; next/previous/pageSize; empty; Unicode/XSS text. Query params, result, count và page reset đúng. | Empty query | PARTIAL |
+| U-DISCOVERY.03 | GUEST/MEMBER trending/carousel | Prev/next không vượt biên; creator card → channel → subscribe; gõ filter nhanh; response cũ không ghi đè query mới; focus/scroll đúng. | Chưa có | PLANNED |
+| U-SUBSCRIPTION.01 | GUEST/MEMBER /subscriptions | Guest CTA login; member subscribe/unsubscribe; tab/video/notification; dữ liệu chỉ thuộc member; private subscription không leak. | Route smoke và subscribe cơ bản | PARTIAL |
+
+### 6.4 Playlist và library
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| U-PLAYLIST.01 | OWNER /playlists | Create với public/private/unlisted; name empty/duplicate/double click; edit cancel/save/reload. Retry không tạo duplicate; URL/API enforce visibility. | Create reused, edit, visibility, cancel | PARTIAL |
+| U-PLAYLIST.02 | OWNER playlist + video fixtures | Add từ Watch picker; add trùng; reorder nhiều item lên/xuống; remove/cancel/add lại; reload; tombstone video. Thứ tự persist; user khác không sửa. | Add/remove | PARTIAL; reorder nhiều item PLANNED |
+| U-PLAYLIST.03 | GUEST/MEMBER public playlist | Play all/shuffle/next/previous/onEnded; share/copy; chuyển nhanh A→B; empty/private/removed. Không phát sai stream; order hợp lệ. | Chưa có | PLANNED |
+| U-PLAYLIST.04 | OWNER playlist phụ | Delete cancel/confirm; nhiều playlist; pagination/filter; chỉ xóa playlist phụ, không xóa video nguồn; total/page đúng. | Delete | PARTIAL |
+| U-LIBRARY.01 | OWNER history/liked | Xem video tới mốc; history sort/search/filter/page; mở lại; liked theo rating. watchSeconds hữu hạn và đúng; count không cộng lặp. | History/liked smoke | PARTIAL |
+| U-LIBRARY.02 | OWNER + other user | Like/dislike/clear; reload aliases /library và /profile; private/hidden/deleted không lộ source URL. | Chưa có full evidence | PLANNED |
+
+### 6.5 Policy và plan
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| U-POLICY.01 | GUEST/MEMBER policy routes | Mở terms/privacy/guidelines/policies; group/search/detail; version/severity; print/download PDF nếu có. Nội dung phải là version published; PDF có data thật. | Smoke và API v2 | PARTIAL |
+| U-POLICY.02 | GUEST/MEMBER desktop/mobile/keyboard | Privacy toggle disabled; support/legal links; keyboard focus/target. Không toast save giả; disabled phải giải thích. | Chưa có | PLANNED |
+| U-PLAN.01 | GUEST/MEMBER /plans | Từng active/inactive plan; detail; feature/price/duration/max member; current plan; copy/share. Giá/đơn vị từ API; inactive không mua. | Plan catalog | PARTIAL |
+| U-PLAN.02 | MEMBER payment sandbox | Create payment; lưu payment ID; QR; pending→paid webhook; close/reopen; expired/canceled/failed. Chỉ paid mới cấp entitlement, đúng một lần; không chuyển tiền thật. | Chưa có sandbox | BLOCKED |
+| U-PLAN.03 | OWNER + MEMBER | Invite member; accept-invite; allocate/edit/remove/revoke; renew. Tổng quota không vượt; không giảm dưới usedBytes; invite sai/expired/replay bị chặn. | Chưa có | PLANNED |
+| U-PLAN.04 | OWNER downgrade/expiry fixture | Thử upload/download/background/PiP sau downgrade/expiry; reload; backend và UI cùng enforce. | Chưa có | BLOCKED nếu thiếu payment dependency |
+
+### 6.6 Studio
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| U-STUDIO.01 | OWNER /studio/upload, video thật | File input thật; đọc duration/dimensions bằng ffprobe/browser metadata; lưu upload ID/video ID. | Upload reused | PARTIAL |
+| U-STUDIO.02 | OWNER upload wizard | Next/back/cancel qua title, description, category, tags, language, thumbnail upload/frame/seek, chapters, privacy, comments, playlist, review. Required/biên/quá dài/trùng/out-of-duration/sai ảnh lỗi đúng field; scheduled/auto subtitle disabled đúng. | Upload required/schedule disabled | PARTIAL |
+| U-STUDIO.03 | OWNER draft/publish | Draft → reload → restore/cancel; publish một lần; lưu ID ngay; progress; poll processing→ready; GET playback; quality không vượt source; chunkSize lấy từ response. | Playback/transcode fixture | PARTIAL |
+| U-STUDIO.04 | OWNER và thiếu role/quota | Missing file, wrong extension, zero byte, quota, role, cancel trước/trong upload, offline, duplicate request, restart, probe/FFmpeg/storage fail, retry cùng upload ID. Không success giả/duplicate manifest. | Chưa có | PLANNED |
+| U-STUDIO.05 | OWNER content/edit | Filter status/visibility/category/search/page; edit metadata/thumbnail/tags/playlist; save/reload; chuyển video nhanh không nhận stale response; playlist lỗi tách success/fail. | Chưa có full | PLANNED |
+| U-STUDIO.06 | OWNER moderation states | Pending/processing/rejected/ready/removed; retry/delete/cancel; appeal reason/evidence; purge không restore. | Chưa có | PLANNED |
+| U-STUDIO.07 | OWNER analytics | Mọi tab/time range/chart; dataset nhiều trang; views khác watchSeconds; export file/header/row/value và CSV formula escaping; empty/loading/error không dùng số mẫu. | Analytics smoke | PARTIAL |
+| U-STUDIO.08 | OWNER/MEMBER/GUEST comments | Filter/status/sort/page; reply/edit/hide/delete/moderation theo permission; reload/watch phía member; disabled comments chặn API mutation. | Comments cơ bản | PARTIAL |
+| U-STUDIO.09 | OWNER subtitles/settings/invitations | Tất cả button hiện/disabled; placeholder báo đúng; settings/invitations dùng đủ/thiếu từng studio permission. | Route smoke | PARTIAL |
+
+### 6.7 Watch và tương tác
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| U-WATCH.01 | GUEST/MEMBER ready video | Metadata; play/pause, seek, volume/mute, speed, từng quality/chapter, fullscreen/PiP theo entitlement. So currentTime/duration/paused/rendition thật, không chỉ icon. | Playback | PARTIAL |
+| U-WATCH.02 | MEMBER playlist/history fixture | Watch tới mốc; pause/navigate/resume; history/progress; view count/rating/watchSeconds; reload/retry; playlist A→B next/previous/onEnded. Không double count hoặc phát nhầm stream. | Chưa có full | PLANNED |
+| U-WATCH.03 | MEMBER/GUEST | Like/dislike/clear; subscribe/notification/unsubscribe; share/copy; add/remove playlist; download từng quality/quota/plan; guest mutation CTA login giữ context. | Reaction | PARTIAL |
+| U-WATCH.04 | OWNER/MEMBER/GUEST comment | Reply/edit/cancel/save/delete/cancel; reaction/sort/page; report comment/video/channel; owner/member khác bị chặn đúng. | Comment/create/delete/access | PARTIAL; reply/report/pagination PLANNED |
+| U-WATCH.05 | GUEST/MEMBER/OWNER mọi video state | Public/private/unlisted/age-restricted/hidden/removed/deleted/channel suspended/processing/missing rendition/network. Auth đúng; không leak sourceURL/thumbnail; retry không loop. | Private playback | PARTIAL |
+
+## 7. Admin Web — scenario cards
+
+Admin phải chạy với actor cố định có đủ quyền và actor bị thu hồi quyền. Admin
+không đồng nghĩa Super Admin. Mọi action cần kiểm tra cả direct URL và API.
+
+| ID | Actor/route và precondition | Flow, validation và expected | Evidence hiện có | Status |
+| --- | --- | --- | --- | --- |
+| A-ACCOUNT.01 | ADMIN account/preferences/sessions | Profile, theme, language; reload; revoke/cancel/current/logout others. Session mục tiêu đúng; guard đúng sau revoke. | Read/reload/mobile | PARTIAL |
+| A-USERS.01 | ADMIN /users, dataset > 50 | Search; mọi role/status/filter; pageSize/page; detail; statistics date range/custom. Total/page/filter reset đúng; drawer không stale. | Search/filter/pagination | PARTIAL |
+| A-USERS.02 | ADMIN + MEMBER fixture | Lock/unlock reason; role change; notification; refresh phiên User; không self-elevate. | Lock/unlock | PARTIAL |
+| A-CHANNELS.01 | ADMIN /channels | Status/tab/search/sort/pageSize/page/detail/export CSV; Unicode/formula escape; time filter disabled nếu chưa hỗ trợ. | List/detail/CSV | PARTIAL |
+| A-CHANNELS.02 | ADMIN channel phụ | Ban/suspend/unban/delete với reason/cancel; User reload/watch/upload; channel chính không bị ảnh hưởng. | Chưa có | PLANNED |
+| A-VIDEOS.01 | ADMIN /videos | Mọi status/visibility/category/date/sort/pageSize; detail/preview/statistics/export. Totals và CSV đúng định nghĩa. | Smoke only | PLANNED |
+| A-VIDEOS.02 | ADMIN video fixture | Edit title/description/category; clear hợp lệ; chuyển video nhanh; cancel/save/reload; permission/audit đúng. | Chưa có | PLANNED |
+| A-VIDEOS.03 | ADMIN video phụ | Hide/unhide/remove/restore từng reason/cancel; User watch/creator state; purged không restore. | Chưa có | PLANNED |
+| A-VIDEOS.04 | ADMIN Add Video nếu button hiện | Nhập title/visibility; submit; DB/list phải có record. Nếu submitAddVideo() chỉ đóng modal/notice và không gọi API thì ghi FAIL/issue, không coi toast là PASS. | Chưa có | PLANNED |
+| A-RBAC.01 | SUPER_ADMIN /roles | Search; create role; code/name/description/reason; permission search/toggle; save; assign member; login lại. API allow/deny theo matrix; session update/revoke. | Create/edit | PARTIAL |
+| A-RBAC.02 | SUPER_ADMIN role phụ | Edit/delete; code trùng; system role/in-use; missing permission; self-elevation; cancel. Constraint/error rõ; channel permission không nhầm global permission. | Chưa có full | PLANNED |
+| A-PLANS.01 | ADMIN plans | Từng tab/template; create price/duration/quota/maxMembers/features/order; edit/archive/reload. Một lần tạo một ID; inactive không mua. | Create/edit/archive | PARTIAL |
+| A-PLANS.02 | ADMIN + User | Mỗi feature download/background/PiP/upload; numeric 0/negative/overflow/decimal; User catalog/entitlement. | Unit conversion/feature partial | PARTIAL |
+| A-TOPICS.01 | ADMIN topics/tags | Search; create/edit/status/archive/delete; unique/biên/permission; item đang dùng không mất liên kết. | Category/tag CRUD | PARTIAL |
+| A-POLICY.01 | ADMIN policies | Group/search/detail; draft/version; create/edit/publish; User policy UI/API; published immutable; moderation decision giữ version. | Create/publish/API | PARTIAL |
+| A-CF.01 | ADMIN CF Seeder | Existing account pool; import JSON/template; picker/folder fallback; category/quality; invalid JSON/duplicate/missing permission. | User excluded | OUT_OF_SCOPE |
+| A-CF.02 | ADMIN CF Seeder | Upload seed; chunk/status/history/log; cancel/reset/download; restart/recover; không tạo lại data khi chỉ poll. | User excluded | OUT_OF_SCOPE |
+| A-RECOMMENDATION.01 | SUPER_ADMIN recommendation | Registry/model; active average/weighted; weights; save/reload; non-super admin denied; config thực sự feed. | Smoke only | BLOCKED |
+| A-RECOMMENDATION.02 | SUPER_ADMIN jobs/matrix | Preview/page/export CSV; update job/poll/history/log/error/cancel; job ID persist; thiếu service BLOCKED. | Smoke only | BLOCKED |
+| A-RECOMMENDATION.03 | SUPER_ADMIN simulation | Fixed manifest; từng signal/rate/cluster/comment; start/stop/history; không bot/duplicate khi reload. | User excluded | OUT_OF_SCOPE |
+
+## 8. Moderation xuyên User → Admin → User
+
+Mỗi flow phải dùng resource ID xuyên suốt và chụp evidence ở cả User lẫn Admin.
+Không dùng một reviewer cho cả quyết định moderation và appeal của cùng target.
+
+| ID | Luồng chi tiết | Validation / evidence | Status |
 | --- | --- | --- | --- |
-| Member | `hutube.e2e.member@example.test` | `HuTubeMember2026!` | Khách đăng nhập khác owner, thành viên kênh/gói |
-| Reviewer 1 | `hutube.e2e.reviewer1@example.test` | `HuTubeReviewer12026!` | Claim và quyết định kiểm duyệt |
-| Reviewer 2 | `hutube.e2e.reviewer2@example.test` | `HuTubeReviewer22026!` | Appeal và xung đột claim/SoD |
-| Super admin | `hutube.e2e.superadmin@example.test` | `HuTubeSuperAdmin2026!` | RBAC/cấu hình recommendation |
+| A-MODERATION.01 | Video pending → REVIEWER_1 queue/filter/page → claim → policy/reason/notes → approve → User thấy ready và watch được | Claim idempotent; reviewer2 concurrent không ghi đè; bulk partial failure; User/Admin cùng video ID | PARTIAL; approve cơ bản REUSED |
+| A-MODERATION.02 | Video phụ → reject/escalate từng decision/policy/version → User nhận notice và creator status | Reason/policy bắt buộc; release/claim giữ history; manual mail nếu có | PLANNED |
+| A-MODERATION.03 | Member report video/comment/channel → reviewer claim/release/classify/resolve | Dismiss, warn, age_restrict, recommendation_restricted, hide, remove, upload_restriction, strike, lock_channel, escalate; target/effective/audit/idempotent đúng | PLANNED |
+| A-MODERATION.04 | OWNER appeal reason/evidence → REVIEWER_2 claim → mở đúng target → approve/reject/escalate | SoD; reviewer đã quyết định không tự duyệt appeal; evidence hết quyền/broken; purge không restore; mail nếu có | PLANNED |
+| A-MODERATION.05 | Strike create/revoke severity/policy/note/restriction days → lock/unlock channel → User upload/watch | Active/expired/revoked không âm; dùng backend clock; audit và notice đúng | PLANNED |
+| X-MODERATION.01 | Claim hết hạn, reviewer conflict, duplicate decision, locked/deleted channel, legacy report, duplicate/processed appeal, DB rollback | Không success giả; rollback không mất history; evidence hai app cùng resource ID | PLANNED |
 
-Bộ auth hiện tại dùng **một tài khoản**: sau khi kiểm tra user thường bị từ chối Admin, fixture SQL chỉ trong database local tạm cấp role admin cho cùng `user_id`, thực hiện login/logout Admin thật rồi phục hồi role cũ trong `finally`. Checkpoint ghi role trước cấp để phục hồi ở lần chạy sau nếu crash. Đây là chuẩn bị fixture cho auth, không chứng minh UI quản lý vai trò đã được test. Full suite phải dùng actor riêng để kiểm tra tương tác nhiều vai trò.
+## 9. Ma trận validation dùng cho mọi nhóm
 
-| Dữ liệu có ý nghĩa | Giá trị / quy tắc |
-| --- | --- |
-| Kênh | `HuTube — Lao động và sáng tạo`, handle `hutube_e2e_laodong` |
-| Video nguồn | `F:\NgDuyLinh\Khoa_Luan_Tot_Nghiep\Em Làm Thì Em Mới Có Ăn_ Không Làm Mà Đòi Có Ăn Thì…_720p.mp4` |
-| File đã xác nhận | 99.009.115 byte; kiểm tra tồn tại và đọc metadata trước flow upload; chưa upload trong bộ auth |
-| Tiêu đề video | `Em làm thì em mới có ăn — Giá trị của lao động` |
-| Mô tả | `Tư liệu kiểm thử về nỗ lực, trách nhiệm và kết quả lao động; dùng kiểm tra phát video, chương và tương tác.` |
-| Category / tags | Giáo dục (dùng category tương ứng nếu tồn tại); `lao-dong`, `ky-nang-song` |
-| Chapters | `Mở đầu` tại 0; `Nỗ lực và kết quả`, `Bài học thực hành` tại khoảng 1/3 và 2/3 duration thật; không dùng mốc vượt duration |
-| Playlist | `Bài học về lao động và trách nhiệm` |
-| Comment / reply | `Đoạn giải thích về nỗ lực và kết quả rất rõ; mình sẽ áp dụng vào lịch học.` / `Mình cũng sẽ thử lập kế hoạch học theo từng tuần.` |
-| Lý do quản trị | `Tình huống kiểm thử: cần đối chiếu nội dung với chính sách đã chọn.`; không bịa lý do vi phạm thật |
-| Tài nguyên checkpoint | `channel_id`, `video_id`, `playlist_id`, `comment_id`, `invitation_id`, `payment_id`, `report_id`, `case_id`, `appeal_id`, `strike_id`, `job_id`, trạng thái và hash/metadata file |
+Các bảng scenario chỉ nêu dữ liệu đặc thù. Những mục dưới đây vẫn phải được
+áp dụng cho từng binding phù hợp trong inventory.
 
-Trước tạo tài nguyên, đọc ID đã lưu và xác nhận trạng thái/owner. Retry update tài nguyên đó; chỉ tạo lại nếu đã xác nhận không tồn tại và flow yêu cầu. Khi kiểm tra xóa hoặc purge, dùng một fixture phụ có tên nêu rõ mục đích và lưu ID; giữ video chính cho các flow kế tiếp. Không upload file 99 MB hàng chục lần chỉ để tạo pagination. Dataset nhiều trang có manifest, nguồn và chủ đề rõ ràng, được seed một lần vào database test riêng; không được tính metadata seed là bằng chứng upload thành công.
+### X-SHELL — shell/header/navigation
 
-## 3. Quy tắc thời gian, ghi nhận và tiêu chí hoàn tất
+- [ ] Header, sidebar, menu, drawer, search, notification, avatar.
+- [ ] Open/close/cancel/dismiss, backdrop, Escape, active route.
+- [ ] Notification read, read-all và link target đúng.
+- [ ] Reconnect realtime không nhân duplicate item.
+- [ ] Copy dùng clipboard thật; download/export tạo file thật khi binding có tồn tại.
 
-| Loại bước | Budget và cách chờ |
-| --- | --- |
-| Click/fill/assert | 15 giây, locator có tên/label ổn định; chờ element đúng trạng thái |
-| Điều hướng | 45 giây; auth hữu hạn dùng `networkidle` để khảo sát ban đầu |
-| API auth / email Pickup | 30 giây; bắt response đúng method/path trước click; email đúng recipient/origin |
-| Full suite auth | 300 giây phần browser; vượt budget fail, giữ checkpoint và dừng process được runner tạo |
-| Build/migration | Mỗi lệnh tối đa 180 giây; startup mỗi server 120 giây; lần đầu có thể lâu hơn warm run |
-| Upload 99 MB | Bắt đầu với timeout 300 giây, điều chỉnh từ uplink đo được; ghi byte/giây và tiến độ. Không áp timeout 15 giây cho toàn file |
-| Probe/transcode | Poll trạng thái nghiệp vụ mỗi 2–5 giây, deadline cấu hình 20 phút; thành công phải có rendition/playback thật |
-| Payment | Chờ QR/pending trong 30 giây, poll status có deadline; không chờ hết hạn 30 phút trong mỗi test, dùng fixture thời gian cho backend |
-| Recommendation job | Request tạo job nhanh; poll ID đã lưu tối đa 30 phút, dừng khi failed/canceled/succeeded; không POST lại khi poll timeout |
-| Timer/worker/expiry | Backend dùng clock/fixture có kiểm soát; một flow tích hợp thật kiểm tra worker, không sleep hàng giờ |
+### X-ACCESS — permission và data isolation
 
-Các budget upload/job là điểm khởi đầu kế hoạch, chưa được đo. Player, SSE/SignalR, polling và download không dùng `networkidle` để kết luận xong. Chờ `loadedmetadata`, response cụ thể, phần tử kết quả hoặc trạng thái DB/API. Không dùng `sleep(60)` thay assert. Retry có giới hạn cho đọc trạng thái; thao tác tạo chỉ retry khi có idempotency/reconciliation. Báo riêng timeout do môi trường và lỗi ứng dụng.
+- [ ] Guest, owner, member, reviewer1, reviewer2, admin thiếu quyền và super_admin.
+- [ ] Direct URL, link UI và API đều enforce cùng permission.
+- [ ] 401/403/404 đúng; không leak private data, source URL, thumbnail, IDs không cần thiết.
+- [ ] Revoke quyền khi đang mở tab; refresh và mutation sau revoke đều bị chặn.
+- [ ] User A không đọc/sửa/xóa resource của User B qua URL, API hoặc stale drawer.
 
-Mỗi case ghi ID, actor, tiền điều kiện, bước, dữ liệu, expected, observed, thời gian, screenshot, API status và resource ID. Trạng thái: `PLANNED`, `PASS`, `FAIL`, `BLOCKED`, `REUSED`. REUSED là tiền điều kiện đã hoàn tất có bằng chứng trước đó, không phải thực hiện lại đăng ký. Không gộp BLOCKED hoặc tính năng giả thành PASS. Full Web chỉ hoàn tất khi tất cả route/binding/nhánh quyền được đối chiếu và case liên quan có bằng chứng; không tuyên bố bao phủ toàn hệ thống từ 14 case auth.
+### X-FORM — input và mutation
 
-Ảnh desktop 1440×960 và mobile 390×844; thêm tablet 768×1024 cho full suite. Phân theo `screenshots/<run-id>/user|admin/<module>/<flow>/<case-id>/<step>.png`; mỗi case là một mục, tên bước phân biệt trạng thái và viewport. Flow xuyên app giữ chung case/resource ID nhưng ảnh đặt riêng User/Admin. Ảnh cũ đã được sắp xếp theo hierarchy này; baseline có cùng cấu trúc. Chụp trạng thái trước/đang lỗi/sau thành công/modal khi cần, mask password. Mỗi lỗi tự chụp ảnh và trace. Trace có thể chứa token/cookie/body: chỉ lưu local bị gitignore, không chia sẻ nguyên trace có bí mật. Kiểm tra console/pageerror, overflow ngang, focus, keyboard Enter/Space/Escape/Tab, label lỗi, loading và ngôn ngữ/theme.
+- [ ] Required, empty, whitespace đầu/cuối, min/max length, Unicode, emoji.
+- [ ] Enum từng lựa chọn; negative, zero, overflow, decimal và sai unit.
+- [ ] URL invalid, javascript: hoặc external-origin, XSS text được render như text.
+- [ ] CSV/spreadsheet formula escape cho value bắt đầu bằng =, +, -, @.
+- [ ] Double click, Enter, cancel giữa request, retry và request lặp không duplicate.
+- [ ] Stale response khi đổi resource/filter nhanh không ghi nhầm resource mới.
+- [ ] File missing, zero byte, MIME sai, extension sai, size/quota vượt giới hạn.
 
-## 4. Flow auth đã triển khai
+### X-ERROR — network và trạng thái request
 
-Các bước thao tác bằng Chromium headless qua UI Angular production, API thật và PostgreSQL riêng. Không mock route API. Các case đánh dấu thực thi có ảnh trong báo cáo auth.
+- [ ] Timeout và offline; loading kết thúc, không spinner vô hạn.
+- [ ] 400, 401, 403, 404, 409, 422, 429, 500; message không lộ stack/secret.
+- [ ] Retry bounded, retry đúng endpoint/resource, không duplicate mutation.
+- [ ] Partial failure hiển thị phần thành công/thất bại riêng.
+- [ ] Reload sau lỗi không biến error thành success giả.
 
-| Case | Các bước với tài khoản mục 2 | Kết quả cần đối chiếu |
+### X-UI — viewport, accessibility và localization
+
+- [ ] Desktop 1440×960, mobile 390×844 và tablet 768×1024.
+- [ ] Chụp screenshot ở cả ba viewport; thiếu một viewport thì không đánh responsive PASS.
+- [ ] Không overflow ngang; modal/drawer không bị cắt; button không bị che hoặc tràn.
+- [ ] Light/dark; vi/en; long text; zoom.
+- [ ] Keyboard order, focus visible, Escape, label/aria, disabled state.
+- [ ] Empty, loading, error, no permission, processing và deleted state.
+- [ ] Screenshot mỗi viewport chỉ khi assertion state đã ổn định.
+
+### X-DATA — pagination và consistency
+
+- [ ] Dataset một trang, nhiều trang, hơn 50 rows.
+- [ ] Total/count/pageSize/page; first/last/next/previous.
+- [ ] Filter, sort, reset filter trả về page đầu.
+- [ ] Tất cả enum/status/order cần thiết.
+- [ ] Cross-user isolation, duplicate, deleted/tombstone resource.
+- [ ] Export có đúng scope được UI công bố, không tự đoán export toàn dataset.
+
+### X-STATE — navigation/session/persistence
+
+- [ ] Reload, back, forward, new tab, new browser context.
+- [ ] Storage/auth restore; logout/revoke/role change giữa các tab.
+- [ ] Crash/restart/resume dùng checkpoint; không tạo resource thứ hai.
+- [ ] Sau mỗi save đọc lại API/DB cùng resource ID.
+- [ ] Sau cancel/close/dismiss không persist dữ liệu chưa save.
+
+### X-PERF — kế hoạch chưa chạy
+
+- [ ] LCP/CLS, long task, interaction p95.
+- [ ] Heap leak sau chuyển route và mở/đóng modal nhiều lần.
+- [ ] Video startup/seek/buffering trên fixture thật.
+- [ ] Không chờ networkidle vô hạn cho realtime/player.
+
+## 10. Execution ledger — Web 108 case hiện có
+
+Danh sách dưới đây lấy theo docs/WEB_E2E_PROGRESS.md. REUSED được đánh riêng
+dù artifact JSON của runner có thể ghi status tổng là passed. Không dùng ledger
+này để suy ra rằng các case PLANNED trong Section 6–9 đã hoàn tất.
+Các PASS trong ledger là PASS chức năng của run lịch sử. Sau khi áp dụng chuẩn
+responsive ở Section 0.4, mọi case vẫn phải hoàn thiện responsive evidence trước
+khi được xem là release PASS.
+
+### 10.1 Web — PASS chức năng, responsive còn pending
+
+| Checkbox | App | Evidence case ID |
 | --- | --- | --- |
-| AUTH-REG-01 | User `/register` → để trống → Đăng ký | `aria-invalid`, không POST register |
-| AUTH-REG-02 | Điền tên/username/email/password; confirm `HuTubeE2e2026!Different` → submit | Lỗi chưa khớp, không POST |
-| AUTH-REG-03 | Điền đúng, chụp desktop/mobile → kiểm tra checkpoint/database → chỉ submit nếu chưa có | Lần đầu 201, một user pending, thông báo đã tạo; lần sau REUSED đúng ID |
-| AUTH-LOGIN-01 | Ngay sau đăng ký, `/login` → email/password đúng → submit | 403 chưa xác minh, không vào account; lần sau REUSED khi đã verified |
-| AUTH-VERIFY-01 | Đọc liên kết email Pickup đúng recipient → mở `/verify-email?token=…` bằng browser | UI báo thành công và DB verified; lần sau giữ bằng chứng đầu |
-| AUTH-REG-04 | Submit lại đúng bộ đăng ký | 409 `EMAIL_ALREADY_EXISTS`/`USERNAME_ALREADY_EXISTS`, UI lỗi, account_count vẫn 1 |
-| AUTH-LOGIN-02 | `/login` → để trống → submit | Lỗi bắt buộc, không POST login |
-| AUTH-LOGIN-03 | Email đúng, password `HuTubeE2e2026!Wrong` → submit một lần | 401 `INVALID_CREDENTIALS`, có alert; tránh lockout bởi spam |
-| AUTH-LOGIN-04 | Email đúng, mật khẩu hiện tại → Đăng nhập | 200 đúng user_id, `/account` đúng tên; HttpOnly cookie đúng path, không lưu token/password trong storage; ảnh desktop/mobile |
-| AUTH-LOGIN-05 | Reload `/account` | Phục hồi đúng session/identity, không rơi về login |
-| AUTH-LOGIN-06 | Avatar → Đăng xuất → xác nhận → mở `/account` | Chuyển login; route được bảo vệ yêu cầu login |
-| AUTH-ADMIN-01 | Admin `/login`, dùng user role bình thường | 403 `ADMIN_ACCESS_DENIED`, alert |
-| AUTH-ADMIN-02 | Fixture cấp admin tạm → Admin login → reload | 200 isAdmin đúng ID, profile đúng email, cookie `hutube_admin_refresh` HttpOnly; ảnh desktop/mobile |
-| AUTH-ADMIN-03 | Admin account → Đăng xuất → mở `/users` | Route guard về login; fixture khôi phục role user |
+| [x] | user | U-ACCOUNT-READ-01 |
+| [x] | user | U-ACCOUNT-CANCEL-01 |
+| [x] | user | U-ACCOUNT-MOBILE-01 |
+| [x] | user | U-ACCOUNT-VALIDATION-01 |
+| [x] | user | U-ACCOUNT-VALIDATION-02 |
+| [x] | user | U-ACCOUNT-BIO-LIMIT-01 |
+| [x] | user | U-ACCOUNT-SAVE-01 |
+| [x] | user | U-ACCOUNT-RESTORE-01 |
+| [x] | admin | A-ACCOUNT-READ-01 |
+| [x] | admin | A-ACCOUNT-RELOAD-01 |
+| [x] | admin | A-ACCOUNT-MOBILE-01 |
+| [x] | user | U-CHANNEL-PUBLIC-01 |
+| [x] | user | U-CHANNEL-SUBSCRIBE-01 |
+| [x] | user | U-PLAYLIST-EDIT-01 |
+| [x] | user | U-PLAYLIST-ACCESS-01 |
+| [x] | user | U-HOME-SMOKE-01 |
+| [x] | user | U-EXPLORE-SMOKE-01 |
+| [x] | user | U-SUBSCRIPTIONS-SMOKE-01 |
+| [x] | user | U-HISTORY-SMOKE-01 |
+| [x] | user | U-LIKED-SMOKE-01 |
+| [x] | user | U-PLANS-SMOKE-01 |
+| [x] | user | U-TERMS-SMOKE-01 |
+| [x] | user | U-PRIVACY-SMOKE-01 |
+| [x] | user | U-GUIDELINES-SMOKE-01 |
+| [x] | user | U-POLICIES-SMOKE-01 |
+| [x] | user | U-DISCOVERY-EMPTY-01 |
+| [x] | user | U-STUDIO-OVERVIEW-SMOKE-01 |
+| [x] | user | U-STUDIO-CONTENT-SMOKE-01 |
+| [x] | user | U-STUDIO-ANALYTICS-SMOKE-01 |
+| [x] | user | U-STUDIO-COMMENTS-SMOKE-01 |
+| [x] | user | U-STUDIO-SUBTITLES-SMOKE-01 |
+| [x] | user | U-STUDIO-SETTINGS-SMOKE-01 |
+| [x] | user | U-STUDIO-INVITATIONS-SMOKE-01 |
+| [x] | user | U-ACCOUNT-NOTIFICATIONS-01 |
+| [x] | user | U-ACCOUNT-PRIVACY-01 |
+| [x] | user | U-WATCH-PLAYBACK-01 |
+| [x] | user | U-WATCH-PRIVATE-01 |
+| [x] | user | U-WATCH-REACTION-01 |
+| [x] | user | U-WATCH-COMMENT-01 |
+| [x] | user | X-COMMENT-ACCESS-01 |
+| [x] | user | U-WATCH-COMMENT-DELETE-01 |
+| [x] | user | U-CHANNEL-INVITE-01 |
+| [x] | user | U-CHANNEL-ACCEPT-01 |
+| [x] | user | U-CHANNEL-ROLE-01 |
+| [x] | user | U-CHANNEL-REMOVE-01 |
+| [x] | user | X-ERROR-SEARCH-01 |
+| [x] | admin | A-USERS-SMOKE-01 |
+| [x] | admin | A-CHANNELS-SMOKE-01 |
+| [x] | admin | A-VIDEOS-SMOKE-01 |
+| [x] | admin | A-RBAC-SMOKE-01 |
+| [x] | admin | A-PLANS-SMOKE-01 |
+| [x] | admin | A-SUBSCRIPTIONS-SMOKE-01 |
+| [x] | admin | A-PAYMENTS-SMOKE-01 |
+| [x] | admin | A-TOPICS-SMOKE-01 |
+| [x] | admin | A-POLICY-SMOKE-01 |
+| [x] | admin | A-MODERATION-SMOKE-01 |
+| [x] | admin | A-REPORTS-SMOKE-01 |
+| [x] | admin | A-APPEALS-SMOKE-01 |
+| [x] | admin | A-STRIKES-SMOKE-01 |
+| [x] | admin | A-NOTIFICATIONS-SMOKE-01 |
+| [x] | admin | A-SYSTEM-REPORTS-SMOKE-01 |
+| [x] | admin | A-LOGS-SMOKE-01 |
+| [x] | admin | A-RECOMMENDATION-SMOKE-01 |
+| [x] | admin | A-USERS-SEARCH-01 |
+| [x] | admin | A-USERS-FILTER-01 |
+| [x] | admin | A-TOPICS-EDIT-01 |
+| [x] | admin | A-TOPICS-CANCEL-01 |
+| [x] | admin | A-TOPICS-ARCHIVE-01 |
+| [x] | user | X-TOPICS-ACCESS-01 |
+| [x] | admin | A-TAGS-CREATE-01 |
+| [x] | admin | A-TAGS-DELETE-01 |
+| [x] | admin | A-PLANS-EDIT-01 |
+| [x] | user | X-PLANS-CATALOG-01 |
+| [x] | admin | A-PLANS-ARCHIVE-01 |
+| [x] | admin | A-RBAC-EDIT-01 |
+| [x] | user | X-RBAC-ACCESS-01 |
+| [x] | user | X-MODERATION-WATCH-01 |
+| [x] | user | U-PLAYLIST-ITEM-01 |
+| [x] | user | X-PLAYLIST-EDIT-01 |
+| [x] | user | U-PLAYLIST-REMOVE-01 |
+| [x] | user | X-MODERATION-RESTORE-01 |
+| [x] | admin | A-USERS-LOCK-01 |
+| [x] | admin | A-USERS-UNLOCK-01 |
+| [x] | user | X-POLICY-API-01 |
+| [x] | admin | A-USERS-PAGINATION-01 |
+| [x] | admin | A-CHANNELS-LIST-01 |
+| [x] | admin | A-CHANNELS-CSV-01 |
+| [x] | user | U-CHANNEL-VALIDATION-01 |
+| [x] | user | U-CHANNEL-BASIC-01 |
+| [x] | user | U-CHANNEL-CONTACT-CLEAR-01 |
+| [x] | user | U-CHANNEL-BASIC-RESTORE-01 |
+| [x] | user | U-CHANNEL-AVATAR-01 |
+| [x] | user | U-CHANNEL-BANNER-01 |
+| [x] | user | U-CHANNEL-WATERMARK-01 |
+| [x] | user | U-PLAYLIST-VISIBILITY-01 |
+| [x] | user | U-PLAYLIST-CANCEL-01 |
+| [x] | user | U-PLAYLIST-DELETE-01 |
+| [x] | user | U-WATCH-RATING-01 |
 
-### AUTH-EXT — mở rộng auth, chưa triển khai
+### 10.2 Web — REUSED, phải chạy lại nếu cần regression mới
 
-1. Dùng cùng email, forgot-password; xác nhận thông báo không tiết lộ account tồn tại; đọc email Pickup → reset mật khẩu thành `HuTubeE2e2026!Reset` → lưu checkpoint → login bằng mật khẩu mới; mật khẩu cũ thất bại. Link hết hạn, sai, dùng hai lần phải bị từ chối. Không tạo user mới.
-2. Username/email hoa-thường, khoảng trắng, email sai, password quá ngắn/dài, thiếu đồng ý nếu UI có; thử biên đúng constraint backend và confirm show/hide password. Double-click không tạo hai record; network lỗi không giả thành công.
-3. Verify link thiếu/sai/hết hạn/đã dùng; back/forward và return URL nội bộ; URL ngoài origin không được điều hướng tự do. Admin không mở registration dù route khai báo có điều kiện.
-4. Khóa/suspend/delete user sau login, thu hồi session và đổi quyền giữa phiên: refresh/current route/API bị chặn đúng, UI hết loading, không giữ dữ liệu nhạy cảm. Hai tab, phiên User/Admin, mobile API không trộn cookie/platform.
-5. Google login cần sandbox cấu hình hợp lệ: popup cancel, credential sai/expired, email unverified, account liên kết sẵn và blocked. Ghi BLOCKED nếu thiếu dependency; auth local tắt Google, không coi đã test OAuth thật.
+| Checkbox | App | Evidence case ID | Lý do |
+| --- | --- | --- | --- |
+| [x] | user | U-CHANNEL-CREATE-01 | Fixture channel đã tồn tại; không create lại trong run |
+| [x] | user | U-PLAYLIST-CREATE-01 | Fixture playlist đã tồn tại; không create lại trong run |
+| [x] | user | U-STUDIO-UPLOAD-01 | Upload fixture đã tồn tại; không upload lại do timeout |
+| [x] | admin | A-TOPICS-CREATE-01 | Topic fixture đã tồn tại |
+| [x] | admin | A-PLANS-CREATE-01 | Plan fixture đã tồn tại |
+| [x] | admin | A-RBAC-CREATE-01 | Role fixture đã tồn tại |
+| [x] | user | X-MODERATION-PUBLISH-01 | Publish state đã có từ flow trước |
+| [x] | admin | A-MODERATION-APPROVE-01 | Approve evidence được giữ từ flow trước |
+| [x] | admin | A-POLICY-CREATE-01 | Policy v1 đã tồn tại |
+| [x] | admin | A-POLICY-PUBLISH-01 | Policy v2 đã tồn tại |
 
-## 5. Ma trận route
+### 10.3 Auth — evidence tách khỏi 108 Web case
 
-Mọi route sau phải kiểm tra điều hướng trực tiếp, link UI, reload, back/forward, guard khi guest/đủ quyền/thiếu quyền, ID không tồn tại và lỗi API. Dynamic ID dùng checkpoint, không hardcode ID ngẫu nhiên. `X-ROUTES` áp dụng cho tất cả các dòng trong inventory.
+| Checkbox | ID | Status | Evidence |
+| --- | --- | --- | --- |
+| [x] | AUTH-REG-01 | PASS | auth-results.md và screenshot |
+| [x] | AUTH-REG-02 | PASS | auth-results.md và screenshot |
+| [x] | AUTH-REG-03 | REUSED | Run đầu có 201 và ảnh; run sau không tạo lại |
+| [x] | AUTH-LOGIN-01 | REUSED | Bằng chứng login unverified từ run đầu |
+| [x] | AUTH-VERIFY-01 | REUSED | Email Pickup + browser verify từ run đầu; manual mail còn PLANNED |
+| [x] | AUTH-REG-04 | PASS | 409 duplicate, account count vẫn 1 |
+| [x] | AUTH-LOGIN-02 | PASS | Required validation |
+| [x] | AUTH-LOGIN-03 | PASS | Wrong password 401 |
+| [x] | AUTH-LOGIN-04 | PASS | Login success desktop/mobile |
+| [x] | AUTH-LOGIN-05 | PASS | Reload session restore |
+| [x] | AUTH-LOGIN-06 | PASS | Logout/guard |
+| [x] | AUTH-ADMIN-01 | PASS | Normal user bị từ chối Admin |
+| [x] | AUTH-ADMIN-02 | PASS | Temporary admin login |
+| [x] | AUTH-ADMIN-03 | PASS | Admin logout/guard |
 
-| App | Route | Nhóm flow |
-| --- | --- | --- |
-| User | `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password` | AUTH, AUTH-EXT |
-| User | `/`, `/home`, `/explore`, `/search`, wildcard → home | U-DISCOVERY, X-ROUTES |
-| User | `/subscriptions` | U-SUBSCRIPTION; guest thấy yêu cầu login |
-| User | `/playlists`, `/playlists/:id`, `/channel/:handle/playlists`, `/channel/:handle/playlists/:id` | U-PLAYLIST |
-| User | `/channel/create`, `/channel/:handle`, `/channel/:handle/customize` | U-CHANNEL |
-| User | `/watch/:id` | U-WATCH |
-| User | `/terms`, `/privacy`, `/guidelines`, `/policies` | U-POLICY |
-| User | `/plans`, `/plans/accept-invite`, `/plans/:planId`, alias `/my-plan` | U-PLAN |
-| User | `/account`, alias `/profile`, `/history`, `/liked`, alias `/library` | U-ACCOUNT, U-LIBRARY |
-| User | `/channel-invitations`, `/studio/invitations` | U-CHANNEL, alias đúng |
-| User | `/studio`, `/studio/setup`, `/studio/overview`, `/studio/content`, `/studio/content/:id/edit`, `/studio/upload`, `/studio/analytics`, `/studio/comments`, `/studio/subtitles`, `/studio/settings` | U-STUDIO; channel guard và từng studio permission |
-| Admin | `/login`, `/verify-email`, `/forgot-password`, `/reset-password`, `/forbidden` | AUTH, AUTH-EXT, X-ACCESS |
-| Admin | `/users`, `/channels`, `/videos`, `/roles`, `/plans`, `/topics`, `/policies` | A-USERS, A-CHANNELS, A-VIDEOS, A-RBAC, A-PLANS, A-TOPICS, A-POLICY |
-| Admin | `/moderation/videos`, `/moderation/reports`, `/moderation/appeals`, `/moderation/strikes` | A-MODERATION |
-| Admin | `/cf-seeder`, `/recommendations`, `/account`, root/wildcard → account | A-CF, A-RECOMMENDATION, A-ACCOUNT, X-ROUTES |
+## 11. Binding và endpoint reconciliation
 
-## 6. Flow Web User — kế hoạch chi tiết
+web-inventory.json là nghĩa vụ rà soát, không phải báo cáo coverage. Mỗi dòng
+binding phải được mapping sang executable case ID. Có thể nhiều binding dùng chung
+một case nếu case đó thực sự kích hoạt và assert từng binding; không được ghi
+covered chỉ vì component render được.
 
-Các dòng con `.01`, `.02` là case riêng trong nhóm được inventory tham chiếu. Sau mỗi save, reload và đọc API để kiểm tra persist; đối chiếu trước/sau với cùng resource ID. Mọi nút cancel/close/dismiss/copy/download/export và keyboard tương ứng trong inventory đều phải có assertion, không chỉ chụp ảnh.
+### 11.1 Checklist mapping
 
-| ID | Tiền điều kiện → các bước | Expected và bằng chứng |
-| --- | --- | --- |
-| U-ACCOUNT.01 | Login owner → account tab → sửa tên/bio `Tìm hiểu về lao động, học tập và sáng tạo.` → cancel → mở lại/save → avatar file ảnh hợp lệ | Cancel không persist; save đúng DB, reload giữ bio; ảnh lỗi type/size không thay avatar; preview/error/loading đúng |
-| U-ACCOUNT.02 | Từng tab notifications/privacy/downloads/billing/advanced → đổi mỗi lựa chọn → save nếu có → reload | Preference/language/theme, subscription privacy và nhóm notification đúng trạng thái; copy user/channel ID đúng clipboard; nút chưa hỗ trợ phải báo rõ |
-| U-ACCOUNT.03 | Tạo 2 browser context cùng owner → advanced → đổi password → checkpoint; revoke session khác/cancel/current; logout others | Chỉ session mục tiêu bị revoke; phiên còn lại bị chặn sau refresh; current revoke logout; không revoke ID người khác |
-| U-ACCOUNT.04 | Downloads → từng chất lượng, smart download → xóa một/xóa tất cả/cancel → billing chuyển plans | Preference đúng, dữ liệu download bị xóa có chủ đích; quyền gói kiểm soát chất lượng, không tạo download giả |
-| U-CHANNEL.01 | Owner chưa có channel → `/channel/create` hoặc studio/setup → tên/handle ở mục 2 → kiểm tra handle → create → lưu ID | Một channel đúng owner, route handle đúng; handle trùng/ký tự sai lỗi rõ; chạy lại mở channel đã có |
-| U-CHANNEL.02 | Customize/settings → avatar/banner/watermark → tiêu đề/mô tả/links → thêm, sửa, reorder, remove → save/reload | Branding và link đúng public page, MIME/size/URL validation; hủy không thay đổi; lỗi một upload không báo mọi thứ thành công |
-| U-CHANNEL.03 | Public channel → Home/Videos/Playlists → sort/page/search nếu hiện → share/copy → mở handle sai | Dữ liệu cùng channel, totals đúng; không leak nội dung private/deleted; empty/notfound/loading có UI |
-| U-CHANNEL.04 | Owner invite member bằng email cố định → member `/studio/invitations` accept/decline → owner đổi role/remove/revoke | Checkpoint invitation ID; từng permission upload/edit/comments/analytics/settings có allow/deny UI và API; invitation đã xử lý không làm lại; owner không bị mất quyền bởi member |
-| U-CHANNEL.05 | Member subscribe, chọn từng notification setting; owner report đối tượng khác theo fixture; mở trạng thái moderation/appeal | Subscription count chính xác không cộng lặp; report/appeal đúng target và status; khách phải login |
-| U-CHANNEL.06 | Dùng channel phụ dành cho delete → delete cancel/confirm; channel chính thử blocked/suspended fixture | Không xóa tài nguyên xuyên suốt; bị chặn upload/play theo trạng thái; dữ liệu/account người khác không được sửa |
-| U-DISCOVERY.01 | Guest/owner `/home` → chọn recommendation → mở watch → back; tắt/failed recommendation service theo fixture | Cards đúng video có thể xem; fallback có nguồn dữ liệu thật; không hiện hidden/private; personalized và anonymous được phân biệt |
-| U-DISCOVERY.02 | Explore/search → tìm `lao động` và không dấu → từng category/sort/duration/date → reset → next/previous/pageSize | Query params và result khớp điều kiện, reset về trang đầu; empty không dùng dữ liệu mẫu; unicode/XSS hiển thị dưới dạng text |
-| U-DISCOVERY.03 | Trending hub/carousel previous/next, creator cards → channel → subscribe; gõ nhanh đổi filter liên tục | Không vượt biên carousel; response cũ không ghi đè query mới; giữ scroll/focus hợp lý |
-| U-SUBSCRIPTION.01 | Guest → subscriptions CTA login; member subscribe kênh → subscriptions → chọn tab, video và notification | Danh sách thuộc member, subscribe/unsubscribe cập nhật đúng; không lộ private subscription của owner |
-| U-PLAYLIST.01 | Owner `/playlists` → create tên mục 2, từng visibility → lưu ID → edit/cancel/save | Trùng retry không sinh playlist mới; public/private/unlisted được kiểm soát đúng URL/API |
-| U-PLAYLIST.02 | Add video search chọn video checkpoint → reorder lên/xuống → remove/cancel → add lại → reload | Không trùng item, thứ tự persist, tombstone video bị xóa được xử lý đúng; user khác không sửa |
-| U-PLAYLIST.03 | Public/channel playlist → play all/shuffle → next/previous → share/copy → quay lại | Query playlist/index đúng, không phát sai nguồn khi chuyển nhanh; shuffled order hợp lệ không mất bài; ảnh empty/private/removed |
-| U-PLAYLIST.04 | Playlist phụ → delete cancel/confirm; account có nhiều playlist fixture → pagination/filter | Chỉ xóa playlist phụ; video không bị xóa theo; số trang/tổng và quyền từng row đúng |
-| U-LIBRARY.01 | Owner watch video → `/history` → sort/search/filter/page → mở lại → chuyển `/liked` | History lấy tương tác thật, watchSeconds hữu hạn đúng; liked xuất hiện/biến mất theo rating, không lẫn user |
-| U-LIBRARY.02 | Like/dislike/clear trên video → reload liked/history; alias library/profile | Không cộng lượt lặp; video private/hidden/deleted không hiện URL nguồn trái quyền |
-| U-POLICY.01 | Mở từng terms/privacy/guidelines/policies → nhóm/search/detail → print/download PDF nếu UI có | Nội dung version công bố và severity/group đúng; không dùng modal rỗng; PDF/download thực sự có dữ liệu |
-| U-POLICY.02 | Privacy toggle chưa hỗ trợ và liên kết hỗ trợ/pháp lý → keyboard/mobile | Disabled/giải thích rõ, không thông báo lưu giả; link hoạt động đúng đích |
-| U-PLAN.01 | Catalog → từng gói → detail → so feature/giá/duration/max member; current plan → share/copy | Giá/đơn vị/thời hạn từ API; gói inactive không mua được; free plan của account đã đăng ký đúng |
-| U-PLAN.02 | Chọn gói sandbox → create payment → lưu payment ID → QR → poll → close/reopen bằng ID → webhook sandbox hợp lệ | Pending→paid cấp entitlement đúng một lần; close không được coi đã thanh toán; expired/canceled/failed không cấp gói; không chuyển tiền thật |
-| U-PLAN.03 | Owner có gói hỗ trợ member → invite cố định → member accept-invite → owner allocate storage/edit/remove/revoke → renew setting | Quyền owner, tổng allocation không vượt quota, không giảm dưới usedBytes; invite sai/expired/đã dùng bị chặn; state persist |
-| U-PLAN.04 | Downgrade/expiry fixture → thử upload/download/background/PiP → reload | Giới hạn áp dụng ở backend và UI, không chỉ ẩn nút; thiếu dependency thanh toán ghi BLOCKED |
+- [ ] Mọi route trong inventory có parent scenario và case ID.
+- [ ] Mọi event binding có step kích hoạt cụ thể và expected riêng.
+- [ ] Mọi nhánh if, disabled, conditional template, tab, modal, drawer có
+      ít nhất một case cho mỗi nhánh.
+- [ ] Mọi enum option đã được chọn ít nhất một lần hoặc ghi N/A có lý do.
+- [ ] Mọi navigation reference đã test target, query/path parameter và alias.
+- [ ] Mọi form control có required/boundary/invalid/persistence phù hợp.
+- [ ] Mọi API mutation có status, resource ID, duplicate/idempotency và restore.
+- [ ] Dynamic route không dùng ID random không tồn tại trong checkpoint.
+- [ ] Service side effect như mail, storage, FFmpeg, webhook, realtime có evidence
+      riêng; không chỉ assert toast.
+- [ ] Sau inventory regeneration, không còn row PLANNED bị bỏ quên ngoài scope.
 
-### U-STUDIO — flow upload → xử lý → xuất bản → quản lý
+### 11.2 Cách ghi mapping
 
-1. **U-STUDIO.01**: owner login → tạo/dùng kênh checkpoint → `/studio/upload`. Dùng đúng file mục 2 bằng file input. Đọc duration/dimensions thật (ffprobe/browser metadata), chụp file và preview. Lần sau nếu `video_id` đã ready thì dùng lại cho downstream; test upload riêng dùng phiên upload ID đã lưu, không tự upload lại do timeout.
-2. **U-STUDIO.02**: đi qua toàn bộ bước wizard, next/back/cancel: tiêu đề, mô tả, category, tags, language; thumbnail upload/chọn frame/seek; chapters hợp lệ; privacy và allowComments; playlist; trang review. Trống/biên/quá dài/chapters trùng/ngoài duration/ảnh sai loại phải lỗi đúng trường. Scheduled publish và tự tạo phụ đề đang disabled phải kiểm tra disabled/giải thích, không ghi PASS cho xử lý chưa có.
-3. **U-STUDIO.03**: lưu draft → reload → restore/cancel restore; publish đúng một lần → lưu upload/video ID ngay khi có → tiến độ từng giai đoạn → poll processing tới ready → GET playback và phát thật. Không tin duration/quality client nếu server probe khác. Nguồn 720p không được giả có rendition chất lượng cao hơn nguồn. Với protocol dùng chunk, lấy `chunkSize` từ response (CF store hiện 24 MiB: file này cần 4 chunk); không hardcode số chunk cho mọi endpoint.
-4. **U-STUDIO.04**: file không tồn tại/sai extension/zero byte, quá quota, không đủ role, hủy trước/trong upload, gián đoạn mạng, request lặp, server restart, lỗi probe/FFmpeg/storage, retry đúng upload ID. UI không giữ success giả; DB/storage/manifest không có bản hoàn tất trùng; thông báo riêng lỗi có thể phục hồi. Auth runner hiện tắt video processing, không dùng cấu hình này để chạy media suite.
-5. **U-STUDIO.05**: content lọc mọi status/visibility/category/search/page → mở edit video checkpoint → sửa metadata/thumbnail/tags/playlist → save/reload. Response cũ khi chuyển video nhanh không được ghi vào video mới; lỗi playlist sau save metadata báo phần thành công/thất bại đúng.
-6. **U-STUDIO.06**: content/detail xem pending/processing/rejected/ready/removed, retry hợp lệ, delete fixture phụ/cancel/confirm; creator moderation notice → appeal lý do/evidence → xem kết quả. Video purge không được restore bằng UI dù appeal đã accept.
-7. **U-STUDIO.07**: overview/analytics → chọn mọi khoảng thời gian/tab/chart → kiểm tra totals với API ở dataset nhiều trang; views khác watchSeconds, không chỉ cộng trang đầu. Export nếu có binding phải kiểm tra file/header/row/value và spreadsheet formula escaping. Empty/loading/error không điền số mẫu.
-8. **U-STUDIO.08**: comments → video/filter/status/sort/page → view replies/edit/reply/hide/delete/moderation theo permission → reload/watch phía member. Disable comments phải chặn mutation ở API; moderation visibility đúng giữa owner/member/guest.
-9. **U-STUDIO.09**: subtitles → trạng thái tính năng hiện có, toàn bộ button hiện/disabled. Nếu chỉ placeholder thì kiểm tra thông báo và mở issue phần chưa thực hiện; không coi là dịch/phụ đề thành công. Settings/invitations áp dụng U-CHANNEL.02/.04 với đủ và thiếu từng studio permission.
+Mỗi mapping nên có format:
 
-### U-WATCH — flow xem và tương tác
+~~~text
+binding: frontend/<app>/<file>:<line>
+event: click/change/submit/key/route
+scenario: U-... hoặc A-... hoặc X-...
+case: <executable-case-id>
+actor: <actor>
+expected: <assertion cụ thể>
+evidence: <screenshot/report path>
+status: PASS/REUSED/PLANNED/BLOCKED/FAIL
+~~~
 
-1. **U-WATCH.01**: guest/member `/watch/<video_id>` ready → chờ metadata → play/pause, seek, volume/mute, speed, từng quality có thật, chapters; fullscreen, mini player/PiP theo khả năng browser và entitlement. So currentTime/duration/paused và rendition URL/status, không chỉ kiểm tra icon đổi. Không giữ browser fullscreen quá deadline.
-2. **U-WATCH.02**: xem đến một mốc có ý nghĩa → pause/navigate → history/progress → resume. View count/rating/watchSeconds không tăng sai khi reload/gửi lặp hoặc out-of-range. Playlist A→B nhanh, next/previous và onEnded không phát stream A cho video B.
-3. **U-WATCH.03**: member like→dislike→clear, subscribe→notification setting→unsubscribe; share/copy, add/remove playlist, download từng chất lượng được phép. Kiểm tra clipboard/download file thật, quota/plan; guest chọn mutation được dẫn login, không làm mất context.
-4. **U-WATCH.04**: comment có ý nghĩa ở mục 2 → reply → edit/cancel/save/delete/cancel, reaction, sort, pagination → report comment/video/channel đúng loại → lưu report ID. Owner/member khác không edit/delete trái quyền; blocked/disabledComments/hidden state có UI và API nhất quán.
-5. **U-WATCH.05**: guest/member/owner với public/private/unlisted/age-restricted/hidden/removed/deleted và channel suspended. Kiểm tra authorization, không lộ sourceURL/thumbnail nhạy cảm qua JSON. Video đang processing không có play giả; missing rendition/media 404 có retry/error; network gián đoạn không chạy vô hạn.
+## 12. Release gate và Definition of Done
 
-## 7. Flow Web Admin — kế hoạch chi tiết
+Không tuyên bố đã cover toàn bộ Web nếu còn một trong các điều kiện sau:
 
-Login bằng actor đã cấp quyền cố định. Chạy mỗi nhóm với đủ quyền và với permission bị thu hồi; direct URL và API đều kiểm tra. Role admin không đồng nghĩa super_admin. Restore fixture sau flow; không thao tác trên user thật.
+- [ ] Còn PLANNED, BLOCKED hoặc FAIL trong phạm vi release.
+- [ ] Còn binding/route/navigation/form control chưa có case mapping.
+- [ ] Còn parent flow PARTIAL ở channel permission, Studio nâng cao, watch
+      state, admin mutation hoặc moderation SoD.
+- [ ] Chưa chạy actor riêng cho Member, Reviewer 1, Reviewer 2 và Super Admin.
+- [ ] Chưa có manual email screenshot cho các case có email contract.
+- [ ] Chưa có đủ screenshot Desktop 1440×960, Mobile 390×844 và Tablet 768×1024
+      cho từng case có UI.
+- [ ] Chưa có persistence/API/resource ID assertion sau mutation.
+- [ ] Chỉ có smoke route nhưng chưa assert button, modal, drawer, tab và enum.
+- [ ] Payment webhook, recommendation service, R2/storage, FFmpeg hoặc mail
+      dependency chưa được cung cấp nhưng vẫn ghi PASS.
+- [ ] Responsive/keyboard/theme/language/performance chưa được chạy mà vẫn claim
+      full UI coverage.
+- [ ] Artifact run ID trong report không khớp run ID được ghi trong checklist.
 
-| ID | Các bước | Expected |
-| --- | --- | --- |
-| A-ACCOUNT.01 | Login → account profile/preferences/theme/language → reload; sessions → revoke/cancel/current/logout others/logout | Read-only profile phản ánh API, preference persist; session mục tiêu đúng; guard đúng sau revoke |
-| A-USERS.01 | Users → search email owner → mọi role/status/filter → pageSize/page → detail → statistics từng range/custom | Tổng/trang đúng, clear filter reset; drawer đúng ID khi chọn nhanh; empty/error hiển thị |
-| A-USERS.02 | Chọn fixture member → lock/unlock với reason → đổi role theo permission → xem notification User | Guard/API bị khóa giữa phiên; audit actor/target/reason, notification đúng người; không tự nâng quyền |
-| A-CHANNELS.01 | Channels → các status/tab/search/sort/pageSize/page → menu/detail → export CSV | Sort/tổng/filter đúng; menu không bị cắt trên mobile; CSV Unicode/formula escaped; time filter chưa hỗ trợ disabled |
-| A-CHANNELS.02 | Fixture channel phụ → ban/suspend/unban/delete có reason và cancel → User reload/watch/upload | Trạng thái và quyền xem/tải lên thống nhất, thông báo gửi đúng owner; delete không phá channel chính |
-| A-VIDEOS.01 | Videos → toàn bộ status/visibility/category/date/sort/pageSize → detail/preview/statistics → export | Không dùng row stale, totals đúng, CSV có nội dung đúng trang/định nghĩa export |
-| A-VIDEOS.02 | Edit metadata → thử clear description, category, title và chuyển video nhanh → cancel/save/reload | Giá trị rỗng được persist nếu hợp lệ, không ghi video trước vào video sau; permission và audit đúng |
-| A-VIDEOS.03 | Video phụ → hide/unhide/remove/restore từng reason/cancel → watch/creator phía User | Luồng trạng thái hợp lệ, không restore purged; UI phản ánh hiệu lực thực tế |
-| A-VIDEOS.04 | Nếu nút Add Video hiện → title/visibility → submit → truy vấn DB/list | Hiện `submitAddVideo()` chỉ đóng modal và báo notice, không gọi API. Case phải phát hiện không persist và ghi FAIL/issue nếu yêu cầu tạo thật; không chấp nhận toast là bằng chứng đã tạo video |
-| A-RBAC.01 | Roles → search → create role code/name/description/reason → permissions search/toggle → save → assign member → login lại | Role và permission persist; từng API được allow/deny như ma trận; session cũ cập nhật/revoke đúng |
-| A-RBAC.02 | Edit/delete role phụ; thử code trùng, role hệ thống/đang được dùng, missing permission, tự nâng quyền | Constraint và lỗi rõ; cancel không thay đổi; permission tổng và permission thành viên kênh không bị nhầm |
-| A-PLANS.01 | Plans → từng tab/template → create gói test có giá/thời hạn/quota/maxMembers/features/order → edit/archive/reload | Gói chỉ tạo một lần lưu ID; giá/byte/time units đúng; inactive không hiển thị mua, gói đang dùng có ràng buộc |
-| A-PLANS.02 | Mỗi feature download/background/PiP/upload, numeric 0/negative/overflow/decimal → User plans | Không parse sai/hạ quota dưới used; feature card và entitlement backend khớp |
-| A-TOPICS.01 | Categories/tags → search → create tên chủ đề có ý nghĩa nếu thiếu → edit/status/archive/delete | Unique/biên/permission; category/tag đang được video dùng không mất liên kết sai; reload đúng |
-| A-POLICY.01 | Groups/search/details → create code/group/severity/text → edit draft/version → publish new version → User policies | Version/code/status persist; published immutable theo contract; policy lưu trong moderation decision đúng version |
-| A-CF.01 | Seeder → chọn existing account pool từ manifest → import JSON/template → file picker/folder fallback → category/quality settings → preview | Không chạy chế độ tạo account mới mỗi lần; invalid JSON/duplicate/thiếu quyền rõ; đúng account/video IDs |
-| A-CF.02 | Chạy upload seed dùng file mục 2 → chunk/status/history/log → cancel/reset/download history → restart/recover | Dữ liệu persist và đúng nguồn, tiến độ không mất ID; không gọi lại job tạo dữ liệu khi chỉ cần poll; reset UI không xóa checkpoint |
-| A-RECOMMENDATION.01 | Super admin → status/registry → từng model được API công bố → active average/weighted và toàn bộ weight → save/reload | Non-super admin bị chặn; weight normalize/decimal/zero/negative hợp lệ đúng constraint; cấu hình thực sự được feed sử dụng |
-| A-RECOMMENDATION.02 | Matrix preview/page/export CSV → model update job → polling/history/log → error/cancel | Dữ liệu/headers/order Unicode đúng; job ID persist, không làm treo request; thiếu service ghi BLOCKED |
-| A-RECOMMENDATION.03 | Simulation → fixed manifest users/videos/categories → mỗi signal/rate/cluster/comment template → start/stop/history | Tương tác có ý nghĩa, không account spam; không tạo bot mới do reload; job canceled không tiếp tục mutation |
+### 12.1 Mẫu ghi một case mới
 
-### A-MODERATION và X-MODERATION — chuỗi User → Admin → User
+~~~text
+## CASE: <ID>
 
-1. **A-MODERATION.01**: video checkpoint pending → reviewer1 queue video, filter/page → claim → detail chính sách/reason/notes → approve. User content thấy ready đúng và watch phát được; request release/claim lặp, claim reviewer2 đồng thời không ghi đè ownership. Các action bulk nếu hiển thị phải kiểm tra tất cả row được chọn, partial failure và role.
-2. **A-MODERATION.02**: video fixture phụ → reject/escalate với từng decision hiện trong UI và policy/version hợp lệ → User nhận notice/creator status. Quyết định không có reason/policy khi bắt buộc phải bị chặn; release/claim lại giữ lịch sử.
-3. **A-MODERATION.03**: member tạo report video/comment/channel → reviewer1 reports filter/group → claim/release/classify → xử lý. Kiểm tra từng decision hiện có: dismiss, warn, age_restrict, recommendation_restricted, hide, remove, upload_restriction, strike, lock_channel, escalate; đúng target, đúng hiệu lực, idempotent và audit. Không chọn action không phù hợp target.
-4. **A-MODERATION.04**: owner tạo appeal bằng lý do và evidence (ảnh/video hợp lệ) → reviewer2 appeals claim → xem evidence/open target về đúng User origin → approve/reject/escalate. Reviewer đã quyết định không tự duyệt appeal trái SoD; evidence hết quyền/broken có error; video purge không khôi phục; effective state và thông báo đúng.
-5. **A-MODERATION.05**: strikes → create/revoke với severity/policy/note/restriction days → channel lock/unlock → User upload/watch. Đối chiếu số strike active/expired/revoked và ràng buộc không âm; thời gian hết hạn kiểm tra bằng backend clock, không đợi hàng ngày trong browser.
-6. **X-MODERATION.01**: claim hết hạn, hai reviewer conflict, quyết định lặp, channel đã bị lock/deleted, report legacy, appeal trùng/đã xử lý, action rollback khi lưu DB lỗi. UI không success giả; bằng chứng cả trang Admin và User sau quyết định cùng resource ID.
+- Status: [ ] PLANNED
+- Parent scenario:
+- Application / module / route:
+- Actor:
+- Run ID / tester / time:
+- Precondition:
+- Fixture/checkpoint/resource ID:
+- Input:
 
-## 8. Các kiểm tra chung không được bỏ qua
+### Steps
+1.
+2.
+3.
 
-| Nhóm | Kịch bản áp dụng mọi màn hình/thao tác liên quan |
-| --- | --- |
-| X-SHELL | Header/sidebar/menu/drawer/search/notification/avatar, open/close/cancel/dismiss, active route, backdrop/Escape, notification read/read-all và link target đúng; realtime reconnect không nhân đôi item |
-| X-ACCESS | Guest, owner, member, reviewer1/2, admin thiếu permission, super_admin; direct URL/ID, không dựa chỉ vào nút ẩn; 401/403/404 không leak dữ liệu |
-| X-FORM | Mọi input/select/checkbox/upload: required, min/max, Unicode/space, enum sai, negative/overflow, URL, double click, cancel, Enter, stale response; XSS dạng text, CSV công thức bị escape |
-| X-ERROR | API timeout/offline/400/401/403/404/409/422/429/500 theo contract; loading kết thúc, thông báo cụ thể, retry có giới hạn, không mutation trùng. Fault injection riêng phải gắn nhãn không phải backend happy path thật |
-| X-UI | Desktop/mobile/tablet, light/dark, vi/en nếu hỗ trợ; keyboard/focus/label, dài tên/tiêu đề, zoom, không overflow, modal không bị che/cắt, empty và disabled rõ |
-| X-DATA | Pagination > 1 trang và >50 rows với dataset riêng, mọi enum/order/filter/reset, query params và counts; cross-user/cross-channel không lẫn |
-| X-STATE | Reload/back/forward/tab mới, storage/auth restore, crash/restart sau bước tạo, checkpoint reuse không làm mất bằng chứng đầu; không test destructive song song trên account chính |
+### Expected
+-
 
-## 9. Performance frontend — kế hoạch, chưa chạy
+### Validation
+- [ ] UI:
+- [ ] API status/endpoint:
+- [ ] DB/storage/resource ID:
+- [ ] Reload/read-back:
+- [ ] Negative/duplicate/retry:
+- [ ] Permission/data isolation:
+- [ ] Responsive/keyboard if applicable:
 
-Production build như runner; cold cache rồi warm cache trên home/search/watch/account và Admin users/videos/moderation/recommendations. Ghi cấu hình máy, browser, build, mạng, số rows, API latency và kích thước asset. Đo navigation, LCP/CLS, long task, phản hồi click/filter/scroll, heap trước/sau 20 lần chuyển route; video đo time-to-first-frame, seek/buffering riêng, không gộp tải cả file vào page latency.
+### Evidence
+- [ ] Screenshot Desktop 1440×960:
+- [ ] Screenshot Mobile 390×844:
+- [ ] Screenshot Tablet 768×1024:
+- [ ] Report:
+- [ ] Mail manual:
+- [ ] API/DB note:
 
-Ngưỡng nội bộ đề xuất để bắt đầu: LCP ≤2,5 giây, CLS ≤0,1, phản hồi interaction p95 ≤200 ms với mạng/máy baseline đã ghi; không có pageerror; heap không tăng liên tục sau các vòng route. Đây là mục tiêu cần hiệu chỉnh, không phải kết quả đo hay cam kết hiện đạt. Chạy thêm profile mạng chậm với deadline riêng; ảnh screenshot không dùng làm thước đo performance. Danh sách lớn kiểm tra render/filter không block UI; realtime nhiều event không nhân đôi listener; export/job không khóa trang. Backend load và profile xem tài liệu backend.
+### Observed
 
-## 10. Thứ tự triển khai và cổng kiểm tra bao phủ
+### Cleanup/restore
 
-1. Auth hiện đã triển khai → account/preferences/sessions → channel/membership → upload một nguồn → ready/watch.
-2. Discovery/library/subscriptions → playlist/comments/download → plan/payment sandbox/membership.
-3. Admin RBAC/users/channels/videos/topics/policies → moderation/report/appeal/strike xuyên hai ứng dụng.
-4. Seeder/recommendation/simulation → toàn bộ negative/role matrix/responsive → performance.
+### Issue
+~~~
 
-Regenerate inventory khi code đổi. Đối chiếu mọi route và binding với case chi tiết và status, thêm case cho thao tác mới; rà thủ công dynamic templates, href/routerLink, service side effect và feature flag mà regex không biểu diễn đủ. Endpoint mới đối chiếu backend inventory. Chưa triển khai các flow trên thì giữ PLANNED; dependency thiếu ghi BLOCKED kèm lý do. Chỉ công bố không bỏ sót khi inventory được reconcile, tất cả case yêu cầu đã có assertion và evidence, không có nhánh placeholder được nhận thành công giả.
+## 13. Việc cần làm tiếp theo
+
+1. Cập nhật run ID trong Section 0 sau khi xác nhận artifact pointer.
+2. Tách actor thật cho Member, Reviewer 1, Reviewer 2, Admin và Super Admin.
+3. Chạy manual mail evidence cho Section 3 trước khi đánh PASS auth/invitation/
+   moderation email.
+4. Hoàn tất các dòng PARTIAL theo thứ tự: channel permission → playlist/library
+   → Studio upload/recovery → watch states → Admin mutation → moderation SoD.
+5. Cung cấp payment sandbox/webhook và recommendation test service; nếu chưa có
+   thì giữ BLOCKED.
+6. Regenerate inventory, cập nhật binding mapping và chạy validator.
+7. Chỉ sau khi toàn bộ gate ở Section 12 được tick mới chốt full coverage.
