@@ -108,8 +108,8 @@
 .player-info {
   right: 15px;
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, .75);
@@ -121,7 +121,8 @@
 }
 
 .player-info:hover,
-.player-info:focus-visible {
+.player-info:focus-visible,
+.player-info.is-open {
   background: var(--primary);
   outline: 0;
 }
@@ -214,6 +215,12 @@
 }
 
 @media (max-width: 640px) {
+  .player-info {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+
   .video-related-banner {
     --video-related-banner-shift: 0px;
     --video-related-banner-width: calc(100% - 26px);
