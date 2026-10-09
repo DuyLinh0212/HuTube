@@ -37,6 +37,7 @@
 .topbar-brand-group {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 14px;
 }
 
@@ -68,6 +69,7 @@
 .topbar-brand {
   display: inline-flex;
   align-items: center;
+  min-width: 0;
   gap: 6px;
   text-decoration: none;
   color: var(--ink);
@@ -350,6 +352,38 @@
   .icon-action,
   .auth-login-btn { width: 34px; min-height: 34px; flex-basis: 34px; }
   .top-avatar { width: 34px; height: 34px; }
+}
+
+/* A phone rotated sideways is wider than the portrait breakpoint but still
+   needs the compact mobile header. Keep the content area usable without
+   letting desktop-only controls consume the video width. */
+@media (max-width: 960px) and (orientation: landscape) {
+  .topbar {
+    height: 56px;
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .topbar-brand-group { gap: 6px; }
+  .topbar-brand .brand-text,
+  .topbar-brand .country-badge { display: none; }
+  .menu-button { width: 36px; height: 36px; flex: 0 0 36px; }
+  .topbar-brand img { width: 32px; height: 32px; }
+  .search-box {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    min-height: 38px;
+  }
+  .search-box kbd,
+  .create-action { display: none; }
+  .top-actions { gap: 6px; }
+  .icon-action,
+  .auth-login-btn { width: 36px; min-height: 36px; flex: 0 0 36px; }
+  .auth-login-btn { padding: 0; border-radius: 50%; }
+  .auth-login-btn span { display: none; }
+  .top-avatar { width: 36px; height: 36px; }
 }
 
 

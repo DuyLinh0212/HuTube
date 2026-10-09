@@ -574,6 +574,9 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
 
     public async Task<SubscriptionResponse?> GetSubscriptionStatusAsync(Guid channelId, Guid actorUserId, CancellationToken ct = default)
     {
+        // A missing subscription is a valid status result; a missing or
+        // inactive channel is still an API error and must remain distinguishable.
+        await RequireActiveChannelAsync(channelId, ct);
         var subscription = await store.FindSubscriptionAsync(actorUserId, channelId, ct);
         return subscription != null ? ToSubscriptionResponse(subscription) : null;
     }

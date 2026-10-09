@@ -62,6 +62,7 @@ export class ExplorePage implements OnInit, OnDestroy {
 
   // Local subscribe state: channelId -> boolean
   private readonly subscribedMap = new Map<string, boolean>();
+  private subscriptionStateRequestKey = '';
 
   // Active Category Tab in Showcase
   readonly overallTabId = '__overall__';
@@ -428,15 +429,22 @@ export class ExplorePage implements OnInit, OnDestroy {
   }
 
   private loadSubscriptionStates() {
-    if (!this.authReady() || !this.auth.user()) return;
-    const creators = this.featuredCreators();
+    if (!this.authReady() || !this.auth.user() || !this.ownChannelReady()) return;
+    const ownChannelId = this.myChannelId();
+    const creators = this.featuredCreators().filter(creator => creator.channelId !== ownChannelId);
     if (!creators.length) return;
+    const requestKey = `${ownChannelId ?? ''}:${creators.map(creator => creator.channelId).join('|')}`;
+    if (requestKey === this.subscriptionStateRequestKey) return;
+    // Hub data can arrive before/after session restoration. Remember the
+    // in-flight batch so those two paths cannot issue duplicate requests for
+    // every featured creator.
+    this.subscriptionStateRequestKey = requestKey;
 
     forkJoin(creators.map(creator => this.channelService.getSubscriptionStatus(creator.channelId).pipe(
       catchError(() => of(null)),
     ))).pipe(takeUntil(this.destroy$)).subscribe(statuses => {
       statuses.forEach((status, index) => {
-        if (status) this.subscribedMap.set(creators[index].channelId, status.status === 'active');
+        if (status) this.subscribedMap.set(creators[index].channelId, status.isSubscribed);
       });
       this.featuredCreators.update(list => [...list]);
     });

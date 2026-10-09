@@ -3,6 +3,8 @@
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 100dvh;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: clip;
   background: var(--surface);
   transition: background-color 0.2s ease;
@@ -23,6 +25,8 @@
 .shell-body {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 0;
   grid-column: 1;
@@ -37,6 +41,8 @@
 .shell-stage, .content-frame {
   min-width: 0;
   width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
   background: var(--surface);
 }
 
@@ -66,6 +72,10 @@
     backdrop-filter: blur(4px);
     animation: fadeIn 200ms ease;
   }
+}
+
+@media (max-width: 960px) and (orientation: landscape) {
+  .app-shell > app-user-topbar { height: 56px; }
 }
 
 @keyframes fadeIn {
