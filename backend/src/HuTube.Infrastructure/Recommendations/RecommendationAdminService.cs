@@ -20,7 +20,7 @@ public sealed record MatrixPreviewResponse(string[] Columns, IReadOnlyList<strin
     string[]? DisplayColumns = null, IReadOnlyList<string[]>? DisplayRows = null);
 public sealed record MatrixDiffResponse(string State, string? ModelVersion, string? CsvKey,
     string? CsvSha256, DateTimeOffset? UpdatedAt, MatrixCounts Active, MatrixCounts Current,
-    int Added, int Changed, int Removed, double ChangeRate);
+    int Added, int Changed, int Removed, double ChangeRate, string? ModelAlgorithm = null);
 public sealed record AdminUserOption(Guid UserId, string Username, string DisplayName, bool IsBot);
 public sealed record AdminCategoryOption(Guid CategoryId, string Name, string Slug);
 public sealed record AdminVideoOption(Guid VideoId, Guid ChannelId, string Title, int Duration,
@@ -37,11 +37,12 @@ public sealed record SimulatorRequest(IReadOnlyList<Guid> UserIds, IReadOnlyList
     Guid? PreferredCategoryId = null, int PreferredCategoryRatio = 80,
     IReadOnlyList<SimulationCategoryRate>? CategoryRates = null,
     int VideoSkipRate = 0);
-public sealed record ModelUpdateRequest(string? Mode = null, Dictionary<string, decimal>? Weights = null);
+public sealed record ModelUpdateRequest(string? Mode = null, Dictionary<string, decimal>? Weights = null,
+    string? ModelAlgorithm = null);
 public sealed record ScoreAggregationConfig(string Mode, Dictionary<string, decimal> Weights);
 public sealed record ModelManifest(string ModelVersion, string CsvKey, string CsvSha256,
     string ArtifactKey, string ArtifactSha256, DateTimeOffset UpdatedAt,
-    ScoreAggregationConfig? ScoreAggregation = null);
+    ScoreAggregationConfig? ScoreAggregation = null, string ModelAlgorithm = "item_based");
 
 public sealed class RecommendationAdminService(
     HuTubeDbContext db, IRecommendationSnapshotStore snapshots,
@@ -53,12 +54,24 @@ public sealed class RecommendationAdminService(
     private const int MaxSimulationVideoCount = 10_000;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ScoreFeatures = ["rating", "like", "dislike", "watch", "comment", "subscribe"];
+    private static readonly string[] ModelAlgorithms = [
+        "item_based", "incremental", "batch_incremental", "batch_incremental_partial_topk"];
     private static ContentException Error(int status, string code, string message) => new(status, code, message);
     private static string Serialize(object value) => JsonSerializer.Serialize(value, JsonOptions);
 
     private static ScoreAggregationConfig DefaultScoreAggregation() =>
         new("average", ScoreFeatures.ToDictionary(feature => feature, _ => 1m,
             StringComparer.OrdinalIgnoreCase));
+
+    private static string NormalizeModelAlgorithm(ModelUpdateRequest? request)
+    {
+        var value = string.IsNullOrWhiteSpace(request?.ModelAlgorithm)
+            ? "item_based"
+            : request.ModelAlgorithm.Trim().ToLowerInvariant();
+        if (!ModelAlgorithms.Contains(value, StringComparer.Ordinal))
+            throw Error(400, "INVALID_MODEL_ALGORITHM", "Thuật toán model không hợp lệ.");
+        return value;
+    }
 
     private static ScoreAggregationConfig NormalizeScoreAggregation(ModelUpdateRequest? request)
     {
@@ -84,8 +97,10 @@ public sealed class RecommendationAdminService(
         return new(mode, weights.ToDictionary(x => x.Key, x => x.Value / maximum, StringComparer.OrdinalIgnoreCase));
     }
 
-    private static bool MatchesPublishedModel(ModelManifest? manifest, string key, string hash, ScoreAggregationConfig requested) =>
+    private static bool MatchesPublishedModel(ModelManifest? manifest, string key, string hash,
+        ScoreAggregationConfig requested, string requestedAlgorithm = "item_based") =>
         manifest?.CsvKey == key && string.Equals(manifest.CsvSha256, hash, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(manifest.ModelAlgorithm ?? "item_based", requestedAlgorithm, StringComparison.Ordinal)
         && (manifest.ScoreAggregation ?? DefaultScoreAggregation()).Mode == requested.Mode
         && ScoreFeatures.All(feature => Math.Abs((manifest.ScoreAggregation ?? DefaultScoreAggregation()).Weights.GetValueOrDefault(feature) - requested.Weights.GetValueOrDefault(feature)) <= 0.000000000001m);
 
@@ -95,6 +110,14 @@ public sealed class RecommendationAdminService(
         var request = JsonSerializer.Deserialize<ModelUpdateRequest>(payloadJson, JsonOptions)
             ?? new ModelUpdateRequest();
         return NormalizeScoreAggregation(request);
+    }
+
+    private static string ModelAlgorithmFromPayload(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson) || payloadJson == "{}") return "item_based";
+        var request = JsonSerializer.Deserialize<ModelUpdateRequest>(payloadJson, JsonOptions)
+            ?? new ModelUpdateRequest();
+        return NormalizeModelAlgorithm(request);
     }
 
     private sealed class Signal(Guid userId, Guid videoId)
@@ -254,7 +277,8 @@ public sealed class RecommendationAdminService(
         var changed = newMap.Count(x => oldMap.TryGetValue(x.Key, out var old) && old != x.Value);
         return new("ready", active.ModelVersion, active.CsvKey, active.CsvSha256, active.UpdatedAt,
             Count(oldLines), current, added, changed, removed,
-            oldMap.Count == 0 ? 0 : (double)(added + changed + removed) / oldMap.Count);
+            oldMap.Count == 0 ? 0 : (double)(added + changed + removed) / oldMap.Count,
+            active.ModelAlgorithm);
     }
 
     private static MatrixCounts Count(IEnumerable<string> lines)
@@ -312,10 +336,15 @@ public sealed class RecommendationAdminService(
         if (await db.RecommendationJobs.AnyAsync(x => x.Kind == "model_update" && (x.Status == "queued" || x.Status == "running"), ct))
             throw Error(409, "MODEL_UPDATE_RUNNING", "Một lượt cập nhật model đang chạy.");
         var scoreAggregation = NormalizeScoreAggregation(request);
+        var modelAlgorithm = NormalizeModelAlgorithm(request);
         var job = new RecommendationJob {
             ActorUserId = actorId,
             Kind = "model_update",
-            PayloadJson = Serialize(scoreAggregation)
+            PayloadJson = Serialize(new {
+                modelAlgorithm,
+                mode = scoreAggregation.Mode,
+                weights = scoreAggregation.Weights,
+            })
         };
         db.RecommendationJobs.Add(job);
         await db.SaveChangesAsync(ct);
@@ -508,6 +537,7 @@ public sealed class RecommendationAdminService(
     private async Task ProcessModelAsync(RecommendationJob job, CancellationToken ct)
     {
         var scoreAggregation = ScoreAggregationFromPayload(job.PayloadJson);
+        var modelAlgorithm = ModelAlgorithmFromPayload(job.PayloadJson);
         var key = job.ModelCsvKey;
         var hash = job.ModelCsvSha256;
         if (key == null || hash == null)
@@ -535,12 +565,13 @@ public sealed class RecommendationAdminService(
         using var client = clients.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(30);
         using var request = new HttpRequestMessage(HttpMethod.Post, options.ServiceUrl.TrimEnd('/') + "/internal/model/train") {
-            Content = System.Net.Http.Json.JsonContent.Create(new {
-                jobId = job.ServiceJobId,
-                csvKey = key,
-                csvSha256 = hash,
-                scoreAggregation
-            }) };
+                Content = System.Net.Http.Json.JsonContent.Create(new {
+                    jobId = job.ServiceJobId,
+                    csvKey = key,
+                    csvSha256 = hash,
+                    modelAlgorithm,
+                    scoreAggregation
+                }) };
         request.Headers.Add("X-Model-Admin-Token", options.AdminToken);
         var serviceJobId = job.ServiceJobId;
         HttpResponseMessage? response = null;
@@ -573,7 +604,7 @@ public sealed class RecommendationAdminService(
             catch (Exception ex) when (!ct.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException)
             {
                 var reconciled = await ActiveAsync(ct);
-                if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation)) break;
+                if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation, modelAlgorithm)) break;
                 continue;
             }
             using var progressLifetime = progress;
@@ -581,7 +612,7 @@ public sealed class RecommendationAdminService(
             if (!progress.IsSuccessStatusCode)
             {
                 var reconciled = await ActiveAsync(ct);
-                if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation)) break;
+                if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation, modelAlgorithm)) break;
                 if (progress.StatusCode == System.Net.HttpStatusCode.NotFound || (int)progress.StatusCode >= 500) continue;
                 throw new InvalidOperationException($"Model job polling returned {(int)progress.StatusCode}: {progressBody[..Math.Min(500, progressBody.Length)]}");
             }
@@ -595,7 +626,7 @@ public sealed class RecommendationAdminService(
             throw new TimeoutException("Model training exceeded the 20-minute job limit.");
         job.Step = "verify_manifest"; await db.SaveChangesAsync(ct);
         var active = await ActiveAsync(ct);
-        if (!MatchesPublishedModel(active, key, hash, scoreAggregation))
+        if (!MatchesPublishedModel(active, key, hash, scoreAggregation, modelAlgorithm))
             throw new InvalidOperationException("Recommendation Service did not publish the requested CSV manifest.");
         var publishedModel = active!;
         var cleanupMessage = "Các CSV ma trận cũ đã được dọn khỏi R2.";
@@ -614,6 +645,7 @@ public sealed class RecommendationAdminService(
             $"Model {publishedModel.ModelVersion} đang hoạt động.",
             $"CSV: {key}",
             $"SHA-256: {hash}",
+            $"Model algorithm: {modelAlgorithm}.",
             $"Score aggregation: {scoreAggregation.Mode}.",
             cleanupMessage
         });

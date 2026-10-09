@@ -198,9 +198,11 @@ class ModelRegistry:
                 zf.extractall(root)
             loaded = load_artifact_directory(root, model_type="item_based_cosine")
         if (loaded.metadata.get("modelVersion") != manifest["modelVersion"]
-                or loaded.metadata.get("csvKey") != manifest["csvKey"]
-                or loaded.metadata.get("csvSha256") != manifest["csvSha256"]
-                or loaded.metadata.get("scoreAggregation") != manifest.get("scoreAggregation")
+            or loaded.metadata.get("csvKey") != manifest["csvKey"]
+            or loaded.metadata.get("csvSha256") != manifest["csvSha256"]
+            or loaded.metadata.get("modelAlgorithm", "item_based")
+            != manifest.get("modelAlgorithm", "item_based")
+            or loaded.metadata.get("scoreAggregation") != manifest.get("scoreAggregation")
                 or loaded.metadata.get("deployable") is not True
                 or loaded.metadata.get("source") != "HUTUBE"):
             raise ValueError("Active artifact metadata does not match the manifest.")
@@ -211,6 +213,7 @@ class ModelRegistry:
         csv_key: str,
         csv_sha256: str,
         score_aggregation: dict[str, Any] | None = None,
+        model_algorithm: str = "item_based",
     ) -> dict:
         from datetime import UTC, datetime
 
@@ -233,7 +236,8 @@ class ModelRegistry:
             with TemporaryDirectory() as folder:
                 artifact_dir = train_csv_bytes(csv, Path(folder), csv_key=csv_key,
                                                csv_sha256=csv_sha256,
-                                               score_aggregation=score_aggregation)
+                                               score_aggregation=score_aggregation,
+                                               model_algorithm=model_algorithm)
                 packed = io.BytesIO()
                 with zipfile.ZipFile(packed, "w", compression=zipfile.ZIP_DEFLATED) as zf:
                     for file in artifact_dir.iterdir():
@@ -249,6 +253,7 @@ class ModelRegistry:
                     "artifactKey": f"collaborative_cf/artifacts/{metadata['modelVersion']}.zip",
                     "artifactSha256": hashlib.sha256(archive).hexdigest(),
                     "updatedAt": datetime.now(UTC).isoformat(),
+                    "modelAlgorithm": metadata.get("modelAlgorithm", "item_based"),
                     "scoreAggregation": metadata.get("scoreAggregation"),
                 }
                 store.write(manifest["artifactKey"], archive, "application/zip")
@@ -301,8 +306,11 @@ class ModelRegistry:
         if job and job["status"] == "running":
             active = store.read_json("collaborative_cf/active.json")
             from training.train_hutube import normalize_score_aggregation
+            from training.trainer import normalize_model_algorithm
 
             if (active and all(active.get(key) == job.get(key) for key in ("csvKey", "csvSha256"))
+                    and normalize_model_algorithm(active.get("modelAlgorithm"))
+                    == normalize_model_algorithm(job.get("modelAlgorithm"))
                     and normalize_score_aggregation(active.get("scoreAggregation"))
                     == normalize_score_aggregation(job.get("scoreAggregation"))):
                 job = {**job, "status": "completed", "manifest": active}

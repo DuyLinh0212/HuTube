@@ -15,7 +15,7 @@ interface MatrixPreview {
 interface MatrixDiff {
   state: 'ready' | 'uninitialized'; modelVersion: string | null; csvKey: string | null;
   csvSha256: string | null; updatedAt: string | null; active: Counts; current: Counts;
-  added: number; changed: number; removed: number; changeRate: number;
+  added: number; changed: number; removed: number; changeRate: number; modelAlgorithm: string | null;
 }
 interface Person { userId: string; username: string; displayName: string; isBot: boolean; }
 interface Category { categoryId: string; name: string; slug: string; }
@@ -37,6 +37,7 @@ type SimulatorTab = 'target' | 'cluster' | 'comments';
 type PageTab = 'model' | 'simulation';
 type ScoreMode = 'average' | 'weighted';
 type ScoreFeature = 'rating' | 'like' | 'dislike' | 'watch' | 'comment' | 'subscribe';
+type ModelAlgorithm = 'item_based' | 'incremental' | 'batch_incremental' | 'batch_incremental_partial_topk';
 interface ConsoleEntry {
   timestamp: string; userId: string; behavior: string; videoId: string | null; watchPercent: number | null; error: string;
 }
@@ -104,6 +105,13 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   newCommentTemplate = '';
   confirmRealUsers = false;
   scoreMode: ScoreMode = 'average';
+  modelAlgorithm: ModelAlgorithm = 'batch_incremental_partial_topk';
+  readonly modelAlgorithms: Array<{ value: ModelAlgorithm; labelKey: string; hintKey: string }> = [
+    { value: 'item_based', labelKey: 'recommendations.algorithm.itemBased', hintKey: 'recommendations.algorithm.itemBasedHint' },
+    { value: 'incremental', labelKey: 'recommendations.algorithm.incremental', hintKey: 'recommendations.algorithm.incrementalHint' },
+    { value: 'batch_incremental', labelKey: 'recommendations.algorithm.batchIncremental', hintKey: 'recommendations.algorithm.batchIncrementalHint' },
+    { value: 'batch_incremental_partial_topk', labelKey: 'recommendations.algorithm.partialTopK', hintKey: 'recommendations.algorithm.partialTopKHint' },
+  ];
   readonly scoreFeatures: ScoreFeature[] = ['rating', 'like', 'dislike', 'watch', 'comment', 'subscribe'];
   scoreWeights: Record<ScoreFeature, number> = {
     rating: 1, like: 1, dislike: 1, watch: 1, comment: 1, subscribe: 1,
@@ -337,6 +345,17 @@ export class RecommendationsPage implements OnInit, OnDestroy {
     this.activePageTab.set(tab);
   }
 
+  modelAlgorithmLabel(value: string | null): string {
+    const normalized = value || 'item_based';
+    const option = this.modelAlgorithms.find(item => item.value === normalized);
+    return option ? this.i18n.t(option.labelKey) : normalized;
+  }
+
+  modelAlgorithmHint(): string {
+    const option = this.modelAlgorithms.find(item => item.value === this.modelAlgorithm);
+    return option ? this.i18n.t(option.hintKey) : '';
+  }
+
   toggleModelPreview(): void {
     this.modelPreviewVisible.update(value => !value);
   }
@@ -512,8 +531,8 @@ export class RecommendationsPage implements OnInit, OnDestroy {
     this.error.set('');
     this.notice.set('');
     const payload = this.scoreMode === 'weighted'
-      ? { mode: this.scoreMode, weights: this.scoreWeights }
-      : { mode: this.scoreMode };
+      ? { modelAlgorithm: this.modelAlgorithm, mode: this.scoreMode, weights: this.scoreWeights }
+      : { modelAlgorithm: this.modelAlgorithm, mode: this.scoreMode };
     this.http.post<{ jobId: string }>(`${this.base()}/model-jobs`, payload).subscribe({
       next: value => { this.busy.set(false); this.watch(value.jobId); },
       error: err => { this.error.set(errorMessage(err, this.i18n)); this.busy.set(false); },

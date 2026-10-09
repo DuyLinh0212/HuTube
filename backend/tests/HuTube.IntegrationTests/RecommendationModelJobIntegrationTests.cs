@@ -37,6 +37,7 @@ public sealed class FakeModelHttpFactory(TestRecommendationSnapshots snapshots) 
 {
     public bool FailTraining { get; set; }
     public string? LastScoreMode { get; private set; }
+    public string? LastModelAlgorithm { get; private set; }
     public HttpClient CreateClient(string name) => new(new Handler(this, snapshots));
 
     private sealed class Handler(FakeModelHttpFactory parent, TestRecommendationSnapshots snapshots) : HttpMessageHandler
@@ -55,9 +56,11 @@ public sealed class FakeModelHttpFactory(TestRecommendationSnapshots snapshots) 
                 var hash = json.RootElement.GetProperty("csvSha256").GetString()!;
                 parent.LastScoreMode = json.RootElement.GetProperty("scoreAggregation")
                     .GetProperty("mode").GetString();
+                parent.LastModelAlgorithm = json.RootElement.GetProperty("modelAlgorithm").GetString();
                 var active = new ModelManifest("fake-model-v1", csvKey, hash,
                     "collaborative_cf/artifacts/fake-model-v1.zip", "fake-artifact-hash", DateTimeOffset.UtcNow,
                     JsonSerializer.Deserialize<ScoreAggregationConfig>(json.RootElement.GetProperty("scoreAggregation").GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+                active = active with { ModelAlgorithm = parent.LastModelAlgorithm ?? "item_based" };
                 snapshots.Objects["collaborative_cf/active.json"] =
                     JsonSerializer.SerializeToUtf8Bytes(active, new JsonSerializerOptions(JsonSerializerDefaults.Web));
                 return new HttpResponseMessage(HttpStatusCode.Accepted) {
@@ -127,16 +130,19 @@ public sealed class RecommendationModelJobIntegrationTests(RecommendationModelFa
                 new ViewingHistory { UserId = bots[1].UserId, VideoId = first.VideoId, WatchDuration = 60, Progress = 50 });
             await db.SaveChangesAsync();
         }
-        var queued = await client.PostAsJsonAsync("/api/v1/admin/recommendations/model-jobs", new { });
+        var queued = await client.PostAsJsonAsync("/api/v1/admin/recommendations/model-jobs",
+            new { modelAlgorithm = "batch_incremental_partial_topk" });
         Assert.Equal(HttpStatusCode.Accepted, queued.StatusCode);
         var jobId = (await queued.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetGuid();
         var completed = await AwaitJob(client, jobId);
         Assert.Equal("completed", completed.Status);
         Assert.Equal("average", factory.ModelHttp.LastScoreMode);
+        Assert.Equal("batch_incremental_partial_topk", factory.ModelHttp.LastModelAlgorithm);
         var manifest = JsonSerializer.Deserialize<ModelManifest>(
             factory.Snapshots.Objects["collaborative_cf/active.json"],
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
         Assert.Matches(@"^collaborative_cf/\d{4}/\d{2}/\d{2}/interactions_\d{8}T\d{6}Z_[a-f0-9]{12}\.csv$", manifest.CsvKey);
+        Assert.Equal("batch_incremental_partial_topk", manifest.ModelAlgorithm);
         var csv = factory.Snapshots.Objects[manifest.CsvKey];
         Assert.Equal(Convert.ToHexString(SHA256.HashData(csv)).ToLowerInvariant(), manifest.CsvSha256);
         Assert.DoesNotContain("email", Encoding.UTF8.GetString(csv), StringComparison.OrdinalIgnoreCase);

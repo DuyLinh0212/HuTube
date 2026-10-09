@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train deployed Item-Based Cosine from an explicit interaction CSV.
+"""Train a deployed Item-Based model from an explicit interaction CSV.
 
 The six-variant local benchmark remains in ``training/train.py``. Production
 never manufactures interaction data or reads the retired bot simulator.
@@ -26,7 +26,7 @@ if str(SERVICE_ROOT) not in sys.path:
 from app.data.mapping import build_mappings, encode_interactions  # noqa: E402
 from training.artifacts import save_artifact  # noqa: E402
 from training.config import TrainConfig  # noqa: E402
-from training.trainer import fit_model  # noqa: E402
+from training.trainer import fit_deployable_model, normalize_model_algorithm  # noqa: E402
 
 REQUIRED_COLUMNS = {"user_id", "video_id", "score"}
 SCORE_FEATURES = ("rating", "like", "dislike", "watch", "comment", "subscribe")
@@ -62,10 +62,12 @@ def normalize_score_aggregation(value: dict[str, Any] | None) -> dict[str, Any]:
 
 def train_csv_bytes(csv_bytes: bytes, artifact_root: Path, *, csv_key: str,
                     csv_sha256: str,
-                    score_aggregation: dict[str, Any] | None = None) -> Path:
+                    score_aggregation: dict[str, Any] | None = None,
+                    model_algorithm: str | None = None) -> Path:
     if hashlib.sha256(csv_bytes).hexdigest() != csv_sha256:
         raise ValueError("CSV SHA-256 does not match the requested snapshot.")
     score_config = normalize_score_aggregation(score_aggregation)
+    selected_algorithm = normalize_model_algorithm(model_algorithm)
     df = pd.read_csv(io.BytesIO(csv_bytes), dtype={"user_id": str, "video_id": str})
     if not REQUIRED_COLUMNS.issubset(df.columns):
         raise ValueError("CSV requires user_id, video_id and score columns.")
@@ -94,7 +96,12 @@ def train_csv_bytes(csv_bytes: bytes, artifact_root: Path, *, csv_key: str,
         model={"similarities": ["cosine"], "interaction_mode": "rating", "neighbor_count": 50},
         output={"artifact_root": artifact_root, "report_root": Path("reports")},
     )
-    fitted = fit_model("item_based_cosine", encoded, config=config, mappings=mappings)
+    fitted = fit_deployable_model(
+        selected_algorithm,
+        encoded,
+        config=config,
+        mappings=mappings,
+    )
     version = (
         f"cf_hutube_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
         f"_{csv_sha256[:12]}_{uuid4().hex[:8]}"
@@ -105,13 +112,14 @@ def train_csv_bytes(csv_bytes: bytes, artifact_root: Path, *, csv_key: str,
                  "trainedAt": datetime.now(UTC).isoformat(), "usersCount": users,
                  "itemsCount": items, "interactionsCount": len(df),
                  "csvKey": csv_key, "csvSha256": csv_sha256,
+                 "modelAlgorithm": selected_algorithm,
                  "scoreAggregation": score_config}
     return save_artifact(
         artifact_root=artifact_root, model_version=version,
         models={"item_based_cosine": fitted.model}, config=config,
         mappings=mappings, fit_interactions=encoded, items=items_frame,
         genre_names=[], metrics={"totalInteractions": len(df)},
-        history=[{"model": "item_based_cosine", "fit_seconds": fitted.fit_seconds}],
+        history=[{"model": selected_algorithm, "fit_seconds": fitted.fit_seconds}],
         metadata=metadata,
     )
 

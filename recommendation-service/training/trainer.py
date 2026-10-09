@@ -8,6 +8,11 @@ import pandas as pd
 
 from app.data.mapping import IndexMappings
 from app.recommenders.base import CollaborativeFilter
+from app.recommenders.batch_incremental_item_cf import (
+    BatchIncrementalItemBasedCF,
+    BatchIncrementalItemBasedCFPartialTopK,
+)
+from app.recommenders.incremental_item_cf import IncrementalItemBasedCF
 from app.recommenders.item_cf import ItemBasedCF
 from app.recommenders.user_cf import UserBasedCF
 from training.config import TrainConfig
@@ -18,6 +23,12 @@ MODEL_FAMILIES: tuple[ModelFamily, ModelFamily] = ("user_based", "item_based")
 # Legacy names remain valid aliases for the cosine variant used by the API.
 MODEL_TYPES: tuple[ModelFamily, ModelFamily] = MODEL_FAMILIES
 SIMILARITY_NAMES = ("cosine", "jaccard", "pearson")
+MODEL_ALGORITHMS = (
+    "item_based",
+    "incremental",
+    "batch_incremental",
+    "batch_incremental_partial_topk",
+)
 
 
 def configured_model_types(config: TrainConfig) -> tuple[str, ...]:
@@ -73,6 +84,50 @@ def fit_model(
     )
     return FitResult(
         model_type=model_type,
+        model=model,
+        fit_seconds=perf_counter() - started,
+    )
+
+
+def normalize_model_algorithm(value: str | None) -> str:
+    algorithm = (value or "item_based").strip().lower()
+    if algorithm not in MODEL_ALGORITHMS:
+        allowed = ", ".join(MODEL_ALGORITHMS)
+        raise ValueError(f"Unsupported model algorithm: {algorithm}. Allowed: {allowed}.")
+    return algorithm
+
+
+def fit_deployable_model(
+    model_algorithm: str,
+    interactions: pd.DataFrame,
+    *,
+    config: TrainConfig,
+    mappings: IndexMappings,
+) -> FitResult:
+    """Fit one deployable Item-Based model using the selected update strategy.
+
+    All strategies produce the same serialized Item-Based inference contract. The
+    selected implementation controls construction and Top-K selection; the active
+    artifact keeps the algorithm name in metadata for Admin observability.
+    """
+    algorithm = normalize_model_algorithm(model_algorithm)
+    model_class = {
+        "item_based": ItemBasedCF,
+        "incremental": IncrementalItemBasedCF,
+        "batch_incremental": BatchIncrementalItemBasedCF,
+        "batch_incremental_partial_topk": BatchIncrementalItemBasedCFPartialTopK,
+    }[algorithm]
+    started = perf_counter()
+    model = model_class.fit(
+        interactions,
+        user_count=len(mappings.user_to_index),
+        item_count=len(mappings.item_to_index),
+        neighbor_count=config.model.neighbor_count,
+        interaction_mode=config.model.interaction_mode,
+        similarity="cosine",
+    )
+    return FitResult(
+        model_type=algorithm,
         model=model,
         fit_seconds=perf_counter() - started,
     )

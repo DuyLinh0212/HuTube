@@ -37,6 +37,21 @@ def test_train_only_item_based_cosine(tmp_path) -> None:
     assert (folder / "seen_items.npz").is_file()
 
 
+def test_selected_batch_incremental_partial_topk_is_persisted(tmp_path) -> None:
+    raw = (b"user_id,video_id,score\n"
+           b"u1,v1,1\nu1,v2,0.8\nu2,v1,0.8\nu2,v2,1\n")
+    folder = train_csv_bytes(
+        raw,
+        tmp_path,
+        csv_key="collaborative_cf/test.csv",
+        csv_sha256=hashlib.sha256(raw).hexdigest(),
+        model_algorithm="batch_incremental_partial_topk",
+    )
+    metadata = json.loads((folder / "metadata.json").read_text())
+    assert metadata["modelAlgorithm"] == "batch_incremental_partial_topk"
+    assert (folder / "item_based_cosine.npz").is_file()
+
+
 def test_weighted_score_configuration_is_persisted(tmp_path) -> None:
     raw = (b"user_id,video_id,score\n"
            b"u1,v1,1\nu1,v2,0.8\nu2,v1,0.8\nu2,v2,1\n")

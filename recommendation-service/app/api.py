@@ -21,6 +21,14 @@ class ScoreAggregationRequest(BaseModel):
     weights: dict[str, float] = Field(default_factory=dict)
 
 
+ModelAlgorithm = Literal[
+    "item_based",
+    "incremental",
+    "batch_incremental",
+    "batch_incremental_partial_topk",
+]
+
+
 class TrainRequest(BaseModel):
     job_id: UUID | None = Field(default=None, alias="jobId")
     csv_key: str = Field(alias="csvKey", min_length=1)
@@ -29,6 +37,7 @@ class TrainRequest(BaseModel):
         default_factory=ScoreAggregationRequest,
         alias="scoreAggregation",
     )
+    model_algorithm: ModelAlgorithm = Field(default="item_based", alias="modelAlgorithm")
 
 
 def _require_admin(request: Request, token: str | None) -> None:
@@ -153,8 +162,10 @@ async def train_model(payload: TrainRequest, request: Request,
     _require_admin(request, admin_token)
     registry = request.app.state.registry
     from training.train_hutube import normalize_score_aggregation
+    from training.trainer import normalize_model_algorithm
 
     score_aggregation = normalize_score_aggregation(payload.score_aggregation.model_dump())
+    model_algorithm = normalize_model_algorithm(payload.model_algorithm)
     job_id = str(payload.job_id or uuid4())
     if payload.job_id is not None:
         existing = await run_in_threadpool(registry.get_job, job_id)
@@ -162,6 +173,8 @@ async def train_model(payload: TrainRequest, request: Request,
             if (
                 existing.get("csvKey") != payload.csv_key
                 or existing.get("csvSha256") != payload.csv_sha256
+                or normalize_model_algorithm(existing.get("modelAlgorithm"))
+                != model_algorithm
                 or normalize_score_aggregation(existing.get("scoreAggregation"))
                 != score_aggregation
             ):
@@ -175,14 +188,16 @@ async def train_model(payload: TrainRequest, request: Request,
     if registry.update_task is not None and not registry.update_task.done():
         raise _error(409, "TRAINING_UNAVAILABLE", "A model update is already running.", True)
     job = {"jobId": job_id, "status": "running",
-                                      "csvKey": payload.csv_key, "csvSha256": payload.csv_sha256,
-                                      "scoreAggregation": score_aggregation}
+                                       "csvKey": payload.csv_key, "csvSha256": payload.csv_sha256,
+                                       "modelAlgorithm": model_algorithm,
+                                       "scoreAggregation": score_aggregation}
     if not await run_in_threadpool(registry.create_job, job_id, job):
         existing = await run_in_threadpool(registry.get_job, job_id)
         if (
             existing is None
             or existing.get("csvKey") != payload.csv_key
             or existing.get("csvSha256") != payload.csv_sha256
+            or normalize_model_algorithm(existing.get("modelAlgorithm")) != model_algorithm
             or normalize_score_aggregation(existing.get("scoreAggregation")) != score_aggregation
         ):
             raise _error(
@@ -200,6 +215,7 @@ async def train_model(payload: TrainRequest, request: Request,
                 payload.csv_key,
                 payload.csv_sha256,
                 score_aggregation,
+                model_algorithm,
             )
             await run_in_threadpool(
                 registry.record_job,

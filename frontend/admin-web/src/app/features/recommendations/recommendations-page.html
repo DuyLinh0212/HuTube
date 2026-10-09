@@ -49,6 +49,7 @@
       </div>
       <div class="model-meta">
         <span>{{ 'recommendations.version' | translate }} <strong>{{ status.modelVersion || ('recommendations.notInitialized' | translate) }}</strong></span>
+        <span>{{ 'recommendations.algorithm.active' | translate }} <strong>{{ modelAlgorithmLabel(status.modelAlgorithm) }}</strong></span>
         <span>{{ 'recommendations.lastUpdated' | translate }} <strong>{{ status.updatedAt ? (status.updatedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</strong></span>
         <span>{{ 'recommendations.csvFileLabel' | translate }} <code>{{ status.csvKey || '—' }}</code></span>
         <span>{{ 'recommendations.hashLabel' | translate }} <code>{{ status.csvSha256 || '—' }}</code></span>
@@ -83,6 +84,17 @@
       <button type="button" class="primary" [disabled]="busy() || job()?.status === 'running' || job()?.status === 'queued'" (click)="updateModel()">{{ 'recommendations.updateModel' | translate }}</button>
     </div>
     <p>{{ 'recommendations.updateDescription' | translate }}</p>
+    <div class="algorithm-config">
+      <label class="score-mode-field">
+        <span>{{ 'recommendations.algorithm.label' | translate }}</span>
+        <select [(ngModel)]="modelAlgorithm">
+          @for (option of modelAlgorithms; track option.value) {
+            <option [value]="option.value">{{ option.labelKey | translate }}</option>
+          }
+        </select>
+      </label>
+      <p class="score-hint">{{ modelAlgorithmHint() }}</p>
+    </div>
     <div class="score-config">
       <div class="score-config-head">
         <div>
