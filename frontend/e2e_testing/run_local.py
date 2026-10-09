@@ -154,9 +154,29 @@ def main():
                        Storage__R2__CredentialsFile=str(state / "unused-r2-credentials"),
                        VideoProcessing__Enabled="true" if args.suite == "web" else "false", CfSeedUpload__Directory=str(state / "chunks"))
             if args.suite == "web":
-                # Route suites deliberately reload many pages. Auth rate-limit behavior
-                # belongs to auth tests; keep it from throttling functional Web setup.
-                env["RateLimit__AuthPermitLimit"] = "1000"
+                # The functional Web suite deliberately reloads many pages and uses
+                # several synthetic actors behind the same loopback IP. Keep the
+                # resource rate-limit behavior covered by backend integration tests
+                # instead of making unrelated UI cases compete for one local bucket.
+                for policy in (
+                    "Auth",
+                    "Feed",
+                    "Search",
+                    "Playback",
+                    "Upload",
+                    "UploadPreflight",
+                    "UploadChunk",
+                    "PaymentInitiate",
+                    "PaymentWebhook",
+                    "Admin",
+                    "Moderation",
+                    "CfSeeder",
+                    "CfSeederUpload",
+                    "RecommendationJob",
+                ):
+                    env[f"RateLimit__{policy}PermitLimit"] = "10000"
+                env["RateLimit__RecommendationJobConcurrencyLimit"] = "1000"
+                env["RateLimit__RecommendationJobQueueLimit"] = "1000"
             api_project = REPO / "backend/src/HuTube.Api"
             dll = api_project / "bin/Debug/net10.0/HuTube.Api.dll"
             if not args.reuse_build:
