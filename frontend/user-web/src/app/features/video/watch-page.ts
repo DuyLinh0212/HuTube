@@ -58,9 +58,11 @@ export class WatchPage {
   readonly totalDuration = signal(0);
   readonly seekFeedback = signal<'backward' | 'forward' | null>(null);
   readonly videoCardDrawer = signal<VideoCardLink | null>(null);
+  readonly videoInfoOpen = signal(false);
   readonly dismissedVideoCardIds = signal<string[]>([]);
+  readonly videoCardLinks = computed(() => [...(this.video()?.videoCards ?? [])].sort((a, b) => a.startSeconds - b.startSeconds));
   readonly activeVideoCard = computed(() => {
-    if (this.videoCardDrawer()) return null;
+    if (this.videoCardDrawer() || this.videoInfoOpen()) return null;
     const current = this.currentTime();
     const visibleCards = (this.video()?.videoCards ?? []).filter(card => current >= card.startSeconds
       && current < card.startSeconds + this.videoCardDisplaySeconds
@@ -168,6 +170,7 @@ export class WatchPage {
     this.error.set('');
     this.video.set(null);
     this.videoCardDrawer.set(null);
+    this.videoInfoOpen.set(false);
     this.dismissedVideoCardIds.set([]);
     this.playback.set(null);
     this.activeRendition.set(null);
@@ -522,9 +525,19 @@ export class WatchPage {
   }
 
   openVideoCard(card: VideoCardLink): void {
+    this.videoInfoOpen.set(false);
     this.playerRef?.nativeElement.pause();
     this.isPlaying.set(false);
     this.videoCardDrawer.set(card);
+  }
+
+  toggleVideoInfo(): void {
+    if (this.videoCardDrawer()) this.videoCardDrawer.set(null);
+    this.videoInfoOpen.update(open => !open);
+  }
+
+  closeVideoInfo(): void {
+    this.videoInfoOpen.set(false);
   }
 
   closeVideoCard(): void {

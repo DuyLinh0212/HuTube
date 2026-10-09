@@ -682,3 +682,28 @@ select:-webkit-autofill {
   to { opacity: 0; }
 }
 
+/* Related-video list opened from the player info cue. */
+#video-info-panel.video-info-panel.video-card-drawer { top: 52px; right: 14px; bottom: auto; width: min(330px, calc(100% - 28px)); grid-template-columns: minmax(0, 1fr); max-height: calc(100% - 64px); overflow: hidden; animation: related-card-enter 160ms ease-out; }
+.video-info-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.video-info-panel__header > div { display: grid; min-width: 0; gap: 3px; }
+.video-info-panel__header small { color: rgba(255, 255, 255, .68); font-size: .6rem; font-weight: 700; }
+.video-info-panel__header strong { overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
+.video-info-list { display: grid; min-height: 0; max-height: 280px; gap: 6px; overflow-y: auto; }
+#video-info-panel .video-info-item { display: grid; width: 100%; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 0; padding: 6px; border: 1px solid transparent; border-radius: 8px; color: #fff; background: rgba(255, 255, 255, .06); text-align: left; cursor: pointer; }
+#video-info-panel .video-info-item:hover, #video-info-panel .video-info-item:focus-visible, #video-info-panel .video-info-item.is-current { border-color: rgba(255, 255, 255, .32); background: rgba(255, 255, 255, .12); outline: 0; }
+#video-info-panel .video-card-drawer-thumbnail { width: 64px; height: 38px; border-radius: 5px; object-fit: cover; }
+#video-info-panel .video-info-item__placeholder { display: grid; place-items: center; color: rgba(255, 255, 255, .85); background: #252d3e; }
+#video-info-panel .video-card-drawer-copy { gap: 3px; padding-right: 0; }
+.video-info-item__chevron { color: rgba(255, 255, 255, .72); font-size: 1.2rem; line-height: 1; }
+.video-info-panel__empty { margin: 0; color: rgba(255, 255, 255, .72); font-size: .7rem; line-height: 1.45; }
+
+@media (max-width: 640px) {
+  #video-info-panel.video-info-panel.video-card-drawer { top: 42px; right: 8px; width: calc(100% - 16px); max-height: calc(100% - 50px); }
+  #video-info-panel .video-info-item { grid-template-columns: 56px minmax(0, 1fr) auto; gap: 6px; padding: 4px; }
+  #video-info-panel .video-card-drawer-thumbnail { width: 56px; height: 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #video-info-panel.video-info-panel.video-card-drawer { animation: none; }
+}
+
