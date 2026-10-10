@@ -269,10 +269,30 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         return true;
     }
 
-    public async Task<SessionListResponse> GetSessionsAsync(Guid userId, Guid current, CancellationToken ct = default) =>
-        new((await store.GetActiveSessionsAsync(userId, Now, ct))
+    public async Task<SessionListResponse> GetSessionsAsync(Guid userId, Guid current, CancellationToken ct = default)
+    {
+        var sessions = (await store.GetActiveSessionsAsync(userId, Now, ct))
             .Where(s => s.LastActiveAt > Now.AddDays(-options.SessionInactivityDays))
-            .Select(s => new SessionResponse(s.SessionId, s.DeviceName, s.Platform, s.IssuedAt, s.LastActiveAt, s.ExpiresAt, s.SessionId == current, s.IpAddress, s.DeviceId)).ToList());
+            .ToList();
+        // Location is stored on login history rather than the session row. Reuse
+        // the latest matching login so the active-session view can show the same
+        // city/region without adding another migration or GeoIP request.
+        var history = (await store.GetLoginHistoryAsync(userId, 1, 50, ct)).Items;
+        return new(sessions.Select(session =>
+        {
+            var location = history
+                .Where(item => item.Platform == session.Platform && item.DeviceId == session.DeviceId)
+                .OrderByDescending(item => item.LoginAt)
+                .FirstOrDefault(item => string.Equals(item.IpAddress, session.IpAddress, StringComparison.OrdinalIgnoreCase))
+                ?? history
+                    .Where(item => item.Platform == session.Platform && item.DeviceId == session.DeviceId)
+                    .OrderByDescending(item => item.LoginAt)
+                    .FirstOrDefault();
+            return new SessionResponse(session.SessionId, session.DeviceName, session.Platform, session.IssuedAt,
+                session.LastActiveAt, session.ExpiresAt, session.SessionId == current, session.IpAddress, session.DeviceId,
+                location?.CountryCode, location?.Region, location?.City, location?.Latitude, location?.Longitude);
+        }).ToList());
+    }
 
     public async Task<LoginHistoryPageResponse> GetLoginHistoryAsync(Guid userId, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {

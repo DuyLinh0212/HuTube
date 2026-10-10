@@ -28,7 +28,8 @@ public sealed record MessageResponse(string Message);
 public sealed record UserResponse(Guid UserId, string Username, string Email, string DisplayName, bool EmailVerified, bool IsAdmin);
 public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, string? RefreshToken, UserResponse User);
 public sealed record SessionResponse(Guid SessionId, string DeviceName, string Platform, DateTimeOffset IssuedAt,
-    DateTimeOffset LastActiveAt, DateTimeOffset ExpiresAt, bool IsCurrent, string? IpAddress = null, string? DeviceId = null);
+    DateTimeOffset LastActiveAt, DateTimeOffset ExpiresAt, bool IsCurrent, string? IpAddress = null, string? DeviceId = null,
+    string? CountryCode = null, string? Region = null, string? City = null, double? Latitude = null, double? Longitude = null);
 public sealed record SessionListResponse(IReadOnlyList<SessionResponse> Items);
 public sealed record LoginHistoryResponse(Guid LoginHistoryId, string DeviceId, string DeviceName, string Platform,
     string? IpAddress, DateTimeOffset LoginAt, string? CountryCode = null, string? Region = null, string? City = null,
