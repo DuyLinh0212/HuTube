@@ -210,9 +210,9 @@ export class AuthService {
 }
 
 export function safeReturnUrl(value: string | null): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || /[\\\r\n]/.test(value) || /^\/(login|register|verify-email|forgot-password|reset-password)([/?#]|$)/.test(value)) return '/account';
+  if (!value || !value.startsWith('/') || value.startsWith('//') || /[\\\r\n]/.test(value) || /^\/(login|register|verify-email|forgot-password|reset-password)([/?#]|$)/.test(value)) return '/home';
   // Decode before checking to reject encoded protocol-relative destinations.
-  try { const decoded = decodeURIComponent(value); if (decoded.startsWith('//') || /[\\\r\n]/.test(decoded)) return '/account'; } catch { return '/account'; }
+  try { const decoded = decodeURIComponent(value); if (decoded.startsWith('//') || /[\\\r\n]/.test(decoded)) return '/home'; } catch { return '/home'; }
   return value;
 }
 
