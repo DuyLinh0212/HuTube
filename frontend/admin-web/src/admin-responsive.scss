@@ -1,0 +1,501 @@
+/*
+ * Admin-wide responsive contract.
+ *
+ * Feature styles own their visual language, while this layer owns the rules
+ * that must be consistent across every Admin route: viewport containment,
+ * page gutters, drawer/modal sizing, and compact navigation. Keeping these
+ * rules in one place prevents one feature from re-introducing horizontal
+ * overflow or a dialog that is taller than the current device viewport.
+ */
+
+:root {
+  --admin-topbar-height: 76px;
+  --admin-page-gutter: clamp(12px, 2.25vw, 32px);
+  --admin-page-bottom: clamp(28px, 4vw, 54px);
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  overscroll-behavior-x: none;
+}
+
+app-root {
+  display: block;
+  min-width: 0;
+  min-height: 100dvh;
+}
+
+body .admin-shell,
+body .shell-body,
+body .shell-stage,
+body .content-frame {
+  min-width: 0;
+}
+
+body .admin-shell {
+  min-height: 100svh;
+  overflow-x: clip;
+}
+
+body .shell-stage {
+  overflow-x: clip;
+}
+
+/* Every feature page may shrink inside the shell without changing its own
+ * max-width or card styling. */
+body .users-page,
+body .channels-view-container,
+body .videos-view-container,
+body .moderation-page,
+body .moderation-container,
+body .operations-page,
+body .payments-page,
+body .plans-page,
+body .policies-page,
+body .rbac-page,
+body .recommendations-page,
+body .subscriptions-page,
+body .taxonomy-page,
+body .seed-page {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+body .page-heading,
+body .plans-toolbar,
+body .channels-top-bar,
+body .header-content,
+body .table-heading,
+body .table-toolbar,
+body .detail-header,
+body .filter-heading,
+body .audit-panel-heading,
+body .section-head,
+body .output-heading {
+  min-width: 0;
+}
+
+body .page-heading > *,
+body .plans-toolbar > *,
+body .channels-top-bar > *,
+body .header-content > *,
+body .table-heading > *,
+body .table-toolbar > *,
+body .detail-header > *,
+body .section-head > *,
+body .output-heading > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body .heading-actions,
+body .header-actions,
+body .sessions-actions,
+body .output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+body .heading-actions > button,
+body .heading-actions > a,
+body .header-actions > button,
+body .header-actions > a {
+  max-width: 100%;
+}
+
+/* Tables stay inside their card and expose a deliberate local scroll area.
+ * This prevents a wide data set from widening the document itself. */
+body .table-scroll,
+body .table-responsive,
+body .table-container,
+body .table-card,
+body .plan-table,
+body .subscription-table-card,
+body .transaction-card,
+body .audit-panel,
+body .comparison-table-wrap,
+body .accessible-table-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body .table-scroll,
+body .table-responsive,
+body .table-container,
+body .plan-table,
+body .comparison-table-wrap,
+body .accessible-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Long identifiers, translated labels, and API error messages must not push
+ * cards wider than the viewport. */
+body .alert,
+body .feedback,
+body .state-panel,
+body .message,
+body .notice,
+body .error,
+body .success,
+body .modal-target,
+body .case-report-content,
+body .signal-description,
+body .data-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body input,
+body select,
+body textarea,
+body button {
+  max-width: 100%;
+}
+
+/* Filter groups are allowed to wrap before their labels become unusable. */
+body .filter-panel,
+body .filter-strip,
+body .filters-panel,
+body .filters-grid,
+body .report-case-toolbar,
+body .report-primary-filters,
+body .report-advanced-filters {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body .filter-panel > *,
+body .filter-strip > *,
+body .filters-panel > *,
+body .filters-grid > *,
+body .report-primary-filters > *,
+body .report-advanced-filters > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Large two-column workspaces collapse before the content becomes cramped.
+ * Page-specific rules can still choose a more suitable detail layout below
+ * this breakpoint. */
+@media (max-width: 1040px) {
+  :root {
+    --admin-topbar-height: 66px;
+  }
+
+  body .users-workspace,
+  body .moderation-layout,
+  body .payments-layout,
+  body .subscriptions-layout,
+  body .workspace-grid,
+  body .rbac-grid,
+  body .logs-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body .detail-panel {
+    position: static;
+    min-height: 0;
+  }
+
+  body .detail-empty {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 760px) {
+  body .users-page,
+  body .channels-view-container,
+  body .videos-view-container,
+  body .moderation-page,
+  body .moderation-container,
+  body .operations-page,
+  body .payments-page,
+  body .plans-page,
+  body .policies-page,
+  body .rbac-page,
+  body .recommendations-page,
+  body .subscriptions-page,
+  body .taxonomy-page,
+  body .seed-page {
+    padding-inline: var(--admin-page-gutter);
+    padding-bottom: var(--admin-page-bottom);
+  }
+
+  body .page-heading,
+  body .plans-toolbar,
+  body .channels-top-bar,
+  body .header-content,
+  body .reports-heading,
+  body .sessions-title-bar,
+  body .signal-summary,
+  body .report-lead,
+  body .case-owner-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body .heading-actions,
+  body .header-actions,
+  body .plans-page .heading-actions,
+  body .channels-top-bar .header-actions {
+    width: 100%;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  body .heading-actions > button,
+  body .heading-actions > a,
+  body .header-actions > button,
+  body .header-actions > a,
+  body .plans-page .heading-actions > button,
+  body .channels-top-bar .header-actions > button {
+    flex: 1 1 150px;
+  }
+
+  body .channel-tabs,
+  body .status-tabs,
+  body .signal-filters,
+  body .tabs,
+  body .page-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body .channel-tabs::-webkit-scrollbar,
+  body .status-tabs::-webkit-scrollbar,
+  body .signal-filters::-webkit-scrollbar,
+  body .tabs::-webkit-scrollbar,
+  body .page-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  body .filter-panel,
+  body .filter-strip,
+  body .filters-panel,
+  body .filters-grid {
+    min-width: 0;
+  }
+
+  body .filter-field,
+  body .search-field,
+  body .filter-panel input,
+  body .filter-panel select,
+  body .filter-strip input,
+  body .filter-strip select {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body .stats-card,
+  body .primary-metrics,
+  body .secondary-metrics,
+  body .metric-grid,
+  body .summary-grid {
+    min-width: 0;
+  }
+
+  body .table-toolbar,
+  body .table-heading,
+  body .audit-panel-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  body .table-footer,
+  body .table-pagination-footer,
+  body .modal-footer,
+  body .editor-actions {
+    flex-wrap: wrap;
+  }
+
+  body .modal-backdrop,
+  body .drawer-backdrop,
+  body .editor-backdrop,
+  body .statistics-backdrop {
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    align-items: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  body .modal-dialog,
+  body .action-modal,
+  body .review-modal,
+  body .editor-dialog,
+  body .switch-dialog,
+  body .statistics-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100svh - 20px);
+  }
+
+  body .modal-dialog,
+  body .action-modal,
+  body .review-modal,
+  body .editor-dialog {
+    margin-block: 0;
+  }
+
+  body .modal-footer > button,
+  body .editor-actions > button,
+  body .switch-dialog footer > button {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  body .drawer-card,
+  body .detail-drawer,
+  body .channel-drawer {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100svh - 20px);
+  }
+
+  body .drawer-body,
+  body .modal-body,
+  body .editor-scroll {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  body .users-page,
+  body .channels-view-container,
+  body .videos-view-container,
+  body .moderation-page,
+  body .moderation-container,
+  body .operations-page,
+  body .payments-page,
+  body .plans-page,
+  body .policies-page,
+  body .rbac-page,
+  body .recommendations-page,
+  body .subscriptions-page,
+  body .taxonomy-page,
+  body .seed-page {
+    padding-inline: 12px;
+  }
+
+  body .heading-actions > button,
+  body .heading-actions > a,
+  body .header-actions > button,
+  body .header-actions > a,
+  body .plans-page .heading-actions > button {
+    flex-basis: 100%;
+  }
+
+  body .heading-actions .refresh-button,
+  body .header-actions .refresh-button,
+  body .plans-page .heading-actions .refresh-button {
+    flex: 0 0 42px;
+    width: 42px;
+  }
+
+  body .modal-header,
+  body .modal-body,
+  body .modal-footer,
+  body .editor-header,
+  body .editor-scroll,
+  body .editor-actions,
+  body .drawer-header,
+  body .drawer-body {
+    padding-inline: 14px;
+  }
+
+  body .stats-card,
+  body .primary-metrics,
+  body .secondary-metrics,
+  body .summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body .range-fields,
+  body .range-heading,
+  body .statistics-header,
+  body .category-config-head,
+  body .video-picker-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* Landscape phones have very little vertical room. The drawer and dialog
+ * must use the small viewport height, while the page itself remains scrollable. */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 600px) {
+  :root {
+    --admin-topbar-height: 58px;
+  }
+
+  body .admin-shell > app-admin-topbar {
+    height: 58px;
+  }
+
+  body .topbar {
+    height: 58px;
+    padding-inline: 14px;
+  }
+
+  body .side-nav,
+  body app-admin-sidebar,
+  body app-admin-sidebar .side-nav {
+    height: 100svh;
+  }
+
+  body .users-page,
+  body .channels-view-container,
+  body .videos-view-container,
+  body .moderation-page,
+  body .moderation-container,
+  body .operations-page,
+  body .payments-page,
+  body .plans-page,
+  body .policies-page,
+  body .rbac-page,
+  body .recommendations-page,
+  body .subscriptions-page,
+  body .taxonomy-page,
+  body .seed-page {
+    padding-block: 12px 28px;
+  }
+
+  body .modal-dialog,
+  body .action-modal,
+  body .review-modal,
+  body .editor-dialog,
+  body .switch-dialog,
+  body .statistics-modal,
+  body .drawer-card,
+  body .detail-drawer,
+  body .channel-drawer {
+    max-height: calc(100svh - 12px);
+  }
+
+  body .modal-backdrop,
+  body .drawer-backdrop,
+  body .editor-backdrop,
+  body .statistics-backdrop {
+    padding-block: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body .admin-shell *,
+  body .admin-shell *::before,
+  body .admin-shell *::after {
+    scroll-behavior: auto !important;
+  }
+}
