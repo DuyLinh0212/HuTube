@@ -31,7 +31,8 @@ public sealed record SessionResponse(Guid SessionId, string DeviceName, string P
     DateTimeOffset LastActiveAt, DateTimeOffset ExpiresAt, bool IsCurrent, string? IpAddress = null, string? DeviceId = null);
 public sealed record SessionListResponse(IReadOnlyList<SessionResponse> Items);
 public sealed record LoginHistoryResponse(Guid LoginHistoryId, string DeviceId, string DeviceName, string Platform,
-    string? IpAddress, DateTimeOffset LoginAt);
+    string? IpAddress, DateTimeOffset LoginAt, string? CountryCode = null, string? Region = null, string? City = null,
+    double? Latitude = null, double? Longitude = null);
 public sealed record LoginHistoryPageResponse(IReadOnlyList<LoginHistoryResponse> Items, int Page, int PageSize, int Total);
 public sealed class AuthException(int status, string code, string message) : Exception(message)
 {

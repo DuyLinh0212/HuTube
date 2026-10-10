@@ -128,6 +128,11 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.DeviceName).HasColumnName("device_name").HasMaxLength(200).HasColumnType("character varying(200)");
             b.Property(x => x.Platform).HasColumnName("platform").HasMaxLength(20).HasColumnType("character varying(20)");
             b.Property(x => x.IpAddress).HasColumnName("ip_address").HasMaxLength(45).HasColumnType("character varying(45)");
+            b.Property(x => x.CountryCode).HasColumnName("country_code").HasMaxLength(8).HasColumnType("character varying(8)");
+            b.Property(x => x.Region).HasColumnName("region").HasMaxLength(120).HasColumnType("character varying(120)");
+            b.Property(x => x.City).HasColumnName("city").HasMaxLength(120).HasColumnType("character varying(120)");
+            b.Property(x => x.Latitude).HasColumnName("latitude");
+            b.Property(x => x.Longitude).HasColumnName("longitude");
             b.Property(x => x.LoginAt).HasColumnName("login_at");
             b.HasIndex(x => new { x.UserId, x.LoginAt }).HasDatabaseName("ix_login_history_user_id_login_at");
         });
