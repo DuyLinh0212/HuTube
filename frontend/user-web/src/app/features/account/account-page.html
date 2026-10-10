@@ -395,7 +395,7 @@
                     @if (group.isCurrent) { <span class="badge-current">{{ 'account.thisDevice' | translate }}</span> }
                     @if (group.count > 1) { <span class="badge-count">{{ group.count }} {{ 'account.sessionsOnDevice' | translate }}</span> }
                   </div>
-                  <small>{{ 'account.signedInAt' | translate }} {{ group.latest.issuedAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ group.latest.lastActiveAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (group.latest.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(group.latest.ipAddress) }}}</small>
+                  <small>{{ 'account.signedInAt' | translate }} {{ group.latest.issuedAt | localeDate:'dd/MM/yyyy HH:mm' }} · {{ 'account.lastActiveAt' | translate }} {{ group.latest.lastActiveAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (group.latest.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(group.latest.ipAddress) }} }@if (displayLocation(group.latest)) { · {{ displayLocation(group.latest) }}}</small>
                 </div>
                 @if (!group.isCurrent) {
                   <button type="button" class="btn-revoke" (click)="pendingRevoke.set(group.latest)" [disabled]="busy()">{{ 'account.revoke' | translate }}</button>
@@ -424,7 +424,7 @@
                       <div class="session-icon">{{ entry.platform === 'mobile' ? '📱' : '💻' }}</div>
                       <div class="session-detail">
                         <div class="session-name"><strong>{{ entry.deviceName }}</strong></div>
-                        <small>{{ 'account.signedInAt' | translate }} {{ entry.loginAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (entry.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(entry.ipAddress) }} }@if (entry.city) { · {{ entry.city }}@if (entry.region) {, {{ entry.region }}} }</small>
+                        <small>{{ 'account.signedInAt' | translate }} {{ entry.loginAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (entry.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(entry.ipAddress) }} }@if (displayLocation(entry)) { · {{ displayLocation(entry) }}}</small>
                       </div>
                     </div>
                   }
