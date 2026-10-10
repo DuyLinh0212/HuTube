@@ -223,6 +223,8 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'auth.loginTitle': 'Đăng nhập HuTube Quản trị',
     'auth.email': 'Email',
     'auth.password': 'Mật khẩu',
+    'auth.showPassword': 'Hiện mật khẩu',
+    'auth.hidePassword': 'Ẩn mật khẩu',
     'auth.loginBtn': 'Đăng nhập vào hệ thống',
     'auth.logout': 'Đăng xuất',
 
@@ -639,6 +641,8 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'auth.loginTitle': 'Sign in to HuTube Admin',
     'auth.email': 'Email',
     'auth.password': 'Password',
+    'auth.showPassword': 'Show password',
+    'auth.hidePassword': 'Hide password',
     'auth.loginBtn': 'Sign In to Portal',
     'auth.logout': 'Sign Out',
 
