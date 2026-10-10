@@ -30,6 +30,10 @@ services:
         value: http://localhost:4200
       - key: Auth__AllowedOrigins__1
         value: http://localhost:4201
+      # Render's ingress uses private 10/8 addresses. Trust forwarded client IPs
+      # only from that explicitly configured ingress network.
+      - key: ForwardedHeaders__KnownNetworks__0
+        value: 10.0.0.0/8
       - key: Google__ClientId
         sync: false
       - key: Storage__Provider
