@@ -57,6 +57,10 @@ def run(suite, admin, member):
             with target.expect_response(lambda response:response.request.method=='POST' and response.url.endswith('/auth/login')) as pending:
                 target.locator('button[type=submit]').click()
             assert pending.value.status==200
+            # User login now lands on Home by design; navigate to the
+            # protected account page before asserting the restored identity.
+            expect(target.locator('app-home-page')).to_be_visible(timeout=45000)
+            target.goto(suite.config['user_url']+'/account')
             expect(target.locator('app-account-page')).to_be_visible(timeout=45000)
             expect(target.locator('.channel-display-name')).to_have_text(member['identity']['displayName'])
             assert suite.api(member,'get','/account/profile').status==200

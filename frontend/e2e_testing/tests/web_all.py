@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+import traceback
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,6 +88,8 @@ def main():
             run_ratings(suite, owner)
         except Exception as error:
             suite.report['run_error'] = type(error).__name__
+            suite.report['run_error_message'] = str(error)[:2000]
+            suite.report['run_error_trace'] = traceback.format_exc(limit=12)
             raise
         finally:
             suite.close()
