@@ -82,7 +82,12 @@ def run_suite(application, run_checks):
                     assert identity['email'].lower() == credentials[app]['email'].lower()
                     if app == 'admin':
                         assert identity['isAdmin'] is True
-                    page.wait_for_url('**/account', timeout=30000)
+                    login_route = '/home' if app == 'user' else '/account'
+                    page.wait_for_url('**' + login_route, timeout=30000)
+                    if app == 'user':
+                        expect(page.locator('app-home-page')).to_be_visible(timeout=30000)
+                        page.goto(origin + '/account')
+                        page.wait_for_url('**/account', timeout=30000)
                     expect(page.locator('app-account-page')).to_be_visible()
                     setup['status'] = 'passed'
                     run_checks(SimpleNamespace(
