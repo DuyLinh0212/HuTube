@@ -294,6 +294,10 @@ export class AccountPage implements OnInit {
       : ipAddress;
   }
 
+  displayLocation(location: { city?: string | null; region?: string | null }): string {
+    return [location.city, location.region].filter((part): part is string => !!part?.trim()).join(', ');
+  }
+
   // Privacy Toggle Handlers
   onToggleSubscriptionPrivacy(val: boolean) {
     this.keepSubscriptionsPrivate.set(val);
