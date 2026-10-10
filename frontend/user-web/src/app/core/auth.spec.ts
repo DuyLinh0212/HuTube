@@ -162,7 +162,7 @@ describe('Authentication boundary', () => {
 describe('Runtime configuration and return navigation', () => {
   it('keeps valid internal destinations', () => expect(safeReturnUrl('/account?tab=sessions')).toBe('/account?tab=sessions'));
   it('rejects external, encoded external, malformed and auth-loop destinations', () => {
-    for (const url of [null,'https://evil.test','//evil.test','/%2fevil.test','/\\evil.test','/login?returnUrl=x','/register','/%','/\n/evil']) expect(safeReturnUrl(url)).toBe('/account');
+    for (const url of [null,'https://evil.test','//evil.test','/%2fevil.test','/\\evil.test','/login?returnUrl=x','/register','/%','/\n/evil']) expect(safeReturnUrl(url)).toBe('/home');
   });
   it('accepts local and hosted API bases and removes trailing slash', () => {
     expect(validateApiUrl('http://localhost:5080/api/v1/')).toBe('http://localhost:5080/api/v1');
