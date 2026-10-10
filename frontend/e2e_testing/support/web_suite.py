@@ -76,6 +76,8 @@ class WebSuite:
         page.on('response', lambda response: self.report['http_statuses'].append({'actor': name, 'method': response.request.method, 'path': urlsplit(response.url).path, 'status': response.status}))
         page.on('pageerror', lambda error: self.report['page_errors'].append({'actor': name, 'type': error.name}))
         page.on('requestfailed', lambda request: self.report['request_failures'].append({'actor': name, 'path': urlsplit(request.url).path, 'failure': request.failure}))
+        setup = {'actor': name, 'application': app, 'status': 'failed'}
+        self.report['setup'].append(setup)
         page.goto(self.config[app + '_url'] + '/login')
         expect(page.locator('#email')).to_be_visible(timeout=self.config['timeouts_ms']['navigation'])
         page.locator('#email').fill(email)
@@ -85,10 +87,17 @@ class WebSuite:
         if pending.value.status != 200:
             raise RuntimeError('Fixture login failed: HTTP ' + str(pending.value.status))
         actor['identity'] = pending.value.json()['user']
-        page.wait_for_url('**/account')
+        login_route = '/home' if app == 'user' else '/account'
+        page.wait_for_url('**' + login_route)
+        if app == 'user':
+            expect(page.locator('app-home-page')).to_be_visible(timeout=self.config['timeouts_ms']['navigation'])
+            # Account checks start from the protected account page after the
+            # redirect assertion above, so the fixture covers both behaviors.
+            page.goto(self.config['user_url'] + '/account')
+            page.wait_for_url('**/account')
         expect(page.locator('app-account-page')).to_be_visible()
         self.actors[name] = actor
-        self.report['setup'].append({'actor': name, 'application': app, 'status': 'passed', 'http_status': 200})
+        setup.update(status='passed', http_status=200, login_route=login_route)
         return actor
 
     def go(self, actor, route, selector):

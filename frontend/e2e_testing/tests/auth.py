@@ -219,9 +219,11 @@ def run(config):
                 def user_login():
                     response = login(page, config["user_url"], account["password"], 200)
                     assert response["user"]["userId"] == checkpoint.data["user_id"]
-                    expect(page).to_have_url(config["user_url"] + "/account")
-                    expect(page.locator("app-account-page")).to_be_visible()
-                    expect(page.get_by_text(account["display_name"], exact=True).first).to_be_visible()
+                    # A normal User login intentionally lands on Home. Account is
+                    # still protected and is covered by the Web account cases.
+                    expect(page).to_have_url(config["user_url"] + "/home")
+                    expect(page.locator("app-home-page")).to_be_visible()
+                    expect(page.locator(".top-avatar")).to_be_visible()
                     cookies = user.cookies(config["api_url"] + "/auth/refresh")
                     assert any(c["name"] == "hutube_refresh" and c["httpOnly"] and c["path"] == "/api/v1/auth" for c in cookies)
                     assert not response.get("refreshToken")
@@ -234,9 +236,9 @@ def run(config):
                 execute("AUTH-LOGIN-04", "User login thật, đúng identity và HttpOnly cookie", user_login)
 
                 def restore():
-                    page.reload(); expect(page.locator("app-account-page")).to_be_visible()
-                    expect(page.get_by_text(account["display_name"], exact=True).first).to_be_visible()
-                    expect(page).to_have_url(config["user_url"] + "/account")
+                    page.reload(); expect(page.locator("app-home-page")).to_be_visible()
+                    expect(page.locator(".top-avatar")).to_be_visible()
+                    expect(page).to_have_url(config["user_url"] + "/home")
                     shot(page, "13-user-session-restored")
                 execute("AUTH-LOGIN-05", "Reload phục hồi session đã đăng nhập", restore)
 
