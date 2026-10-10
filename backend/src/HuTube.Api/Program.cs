@@ -207,9 +207,18 @@ builder.Services.Configure<ForwardedHeadersOptions>(options => {
     options.ForwardLimit = 1;
     options.KnownProxies.Add(IPAddress.Loopback);
     options.KnownProxies.Add(IPAddress.IPv6Loopback);
-    // Production ingress addresses must be explicitly trusted; never accept arbitrary X-Forwarded-For values.
+    // Production ingress addresses/networks must be explicitly trusted; never accept arbitrary X-Forwarded-For values.
     foreach (var value in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
         if (IPAddress.TryParse(value, out var proxy)) options.KnownProxies.Add(proxy);
+    foreach (var value in builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [])
+    {
+        var parts = value.Split('/', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var prefix)
+            || !int.TryParse(parts[1], out var prefixLength)
+            || prefixLength < 0 || prefixLength > prefix.GetAddressBytes().Length * 8)
+            throw new InvalidOperationException($"ForwardedHeaders:KnownNetworks contains an invalid CIDR value: '{value}'.");
+        options.KnownIPNetworks.Add(new System.Net.IPNetwork(prefix, prefixLength));
+    }
 });
 builder.Services.AddRateLimiter(options => {
     options.AddPolicy("auth", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.AuthPermitLimit, rateLimitOptions.Window));
