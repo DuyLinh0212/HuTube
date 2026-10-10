@@ -17,7 +17,8 @@ public sealed class ReportService(
     INotificationService notifications,
     StrikeService strikeService,
     IAuthEmailSender emailSender,
-    ILogger<ReportService> logger)
+    ILogger<ReportService> logger,
+    AuthOptions? authOptions = null)
 {
     public async Task<ReportDto> CreateReportAsync(Guid userId, CreateContentReportRequest request, CancellationToken ct = default)
     {
@@ -665,8 +666,19 @@ public sealed class ReportService(
                 .Select(u => u.Email).FirstOrDefaultAsync(ct);
             if (!string.IsNullOrWhiteSpace(email))
             {
-                try { await emailSender.SendAsync(email, "Video đã bị gỡ khỏi HuTube",
-                    $"Video “{targetTitle}” đã bị gỡ. Lý do: {reason}. Bạn có thể gửi khiếu nại trong 30 ngày tại Creator Studio.", ct); }
+                try
+                {
+                    var studioUrl = $"{(authOptions?.WebBaseUrl ?? "http://localhost:4200").TrimEnd('/')}/studio";
+                    await emailSender.SendTemplateAsync(email, new(
+                        "Video đã bị gỡ khỏi HuTube",
+                        "QUYẾT ĐỊNH NỘI DUNG",
+                        "Video đã bị gỡ khỏi HuTube",
+                        [$"Video “{targetTitle}” đã bị gỡ.",
+                         $"Lý do: {reason}.",
+                         "Bạn có thể gửi khiếu nại trong 30 ngày tại Creator Studio."],
+                        "Mở Creator Studio",
+                        studioUrl), ct);
+                }
                 catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Không gửi được email gỡ video trong hồ sơ {CaseId}", caseId); }
             }
         }

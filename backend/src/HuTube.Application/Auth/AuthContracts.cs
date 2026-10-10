@@ -25,6 +25,34 @@ public sealed record ResetPasswordRequest([Required, StringLength(256)] string T
     [Required, StringLength(128, MinimumLength = 10)] string Password);
 public sealed record RefreshRequest([StringLength(256)] string? RefreshToken = null, [StringLength(200)] string? DeviceName = null);
 public sealed record MessageResponse(string Message);
+public sealed record EmailTemplateMessage(
+    string Subject,
+    string Eyebrow,
+    string Title,
+    IReadOnlyList<string> Paragraphs,
+    string? ActionLabel = null,
+    string? ActionUrl = null,
+    string? Note = null)
+{
+    public string ToPlainText()
+    {
+        var sections = Paragraphs
+            .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
+            .Select(paragraph => paragraph.Trim())
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(Note)) sections.Add(Note.Trim());
+        if (!string.IsNullOrWhiteSpace(ActionUrl))
+            sections.Add($"{(string.IsNullOrWhiteSpace(ActionLabel) ? "Mở liên kết" : ActionLabel.Trim())}: {ActionUrl.Trim()}");
+
+        return string.Join(Environment.NewLine + Environment.NewLine, sections);
+    }
+
+    public static EmailTemplateMessage FromPlainText(string subject, string body) =>
+        new(subject, "THÔNG BÁO TỪ HUTUBE", subject,
+            body.Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+}
 public sealed record UserResponse(Guid UserId, string Username, string Email, string DisplayName, bool EmailVerified, bool IsAdmin);
 public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, string? RefreshToken, UserResponse User);
 public sealed record SessionResponse(Guid SessionId, string DeviceName, string Platform, DateTimeOffset IssuedAt,
@@ -69,6 +97,9 @@ public interface ITokenService
 public interface IAuthEmailSender
 {
     Task SendAsync(string email, string subject, string body, CancellationToken cancellationToken);
+
+    Task SendTemplateAsync(string email, EmailTemplateMessage message, CancellationToken cancellationToken) =>
+        SendAsync(email, message.Subject, message.ToPlainText(), cancellationToken);
 }
 public interface IGoogleTokenVerifier
 {

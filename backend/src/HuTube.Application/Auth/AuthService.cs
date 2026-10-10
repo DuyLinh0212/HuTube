@@ -215,7 +215,16 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         var raw = tokens.CreateOpaqueToken();
         store.AddReset(user, new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddMinutes(30) });
         await store.SaveAsync(ct);
-        await emailSender.SendAsync(user.Email, "Đặt lại mật khẩu HuTube", $"Mở liên kết trong 30 phút: {options.WebBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(raw)}", ct);
+        var resetUrl = $"{options.WebBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(raw)}";
+        await emailSender.SendTemplateAsync(user.Email, new(
+            "Đặt lại mật khẩu HuTube",
+            "BẢO MẬT TÀI KHOẢN",
+            "Đặt lại mật khẩu HuTube",
+            ["Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản HuTube của bạn.",
+             "Liên kết này chỉ có hiệu lực trong 30 phút.",
+             "Nếu bạn không yêu cầu thay đổi mật khẩu, hãy bỏ qua email này."],
+            "Đặt lại mật khẩu",
+            resetUrl), ct);
         await transaction.CommitAsync(ct);
         return EmailSent;
     }
@@ -344,7 +353,16 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         var raw = tokens.CreateOpaqueToken();
         store.AddVerification(user, new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddHours(24) });
         await store.SaveAsync(ct);
-        await emailSender.SendAsync(user.Email, "Xác minh email HuTube", $"Mở liên kết trong 24 giờ: {options.WebBaseUrl.TrimEnd('/')}/verify-email?token={Uri.EscapeDataString(raw)}", ct);
+        var verificationUrl = $"{options.WebBaseUrl.TrimEnd('/')}/verify-email?token={Uri.EscapeDataString(raw)}";
+        await emailSender.SendTemplateAsync(user.Email, new(
+            "Xác minh email HuTube",
+            "HOÀN TẤT TÀI KHOẢN",
+            "Xác minh email của bạn",
+            ["Cảm ơn bạn đã tham gia HuTube. Chỉ còn một bước nữa để hoàn tất tài khoản.",
+             "Liên kết xác minh có hiệu lực trong 24 giờ."],
+            "Xác minh email",
+            verificationUrl,
+            "Nếu bạn không tạo tài khoản này, bạn có thể bỏ qua email."), ct);
     }
 
     private (UserSession Session, string Refresh) CreateSession(Guid userId, string platform, string deviceName, string? deviceId = null, string? ipAddress = null)

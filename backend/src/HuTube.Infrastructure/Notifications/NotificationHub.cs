@@ -74,7 +74,8 @@ public sealed class NotificationService(
     HuTubeDbContext db,
     IHubContext<NotificationHub> hub,
     IAuthEmailSender emailSender,
-    TimeProvider clock) : INotificationService
+    TimeProvider clock,
+    AuthOptions? authOptions = null) : INotificationService
 {
     public async Task<NotificationPage> GetAsync(Guid userId, int page = 1, int pageSize = 5, CancellationToken ct = default)
     {
@@ -148,11 +149,27 @@ public sealed class NotificationService(
         if (sendEmail && (setting?.EmailEnabled ?? true))
         {
             var address = await db.Users.AsNoTracking().Where(x => x.UserId == userId).Select(x => x.Email).SingleAsync(ct);
-            await emailSender.SendAsync(address, title, content, ct);
+            var emailActionUrl = ResolveActionUrl(actionUrl, authOptions?.WebBaseUrl);
+            await emailSender.SendTemplateAsync(address, new(
+                title,
+                "THÔNG BÁO TỪ HUTUBE",
+                title,
+                [content],
+                emailActionUrl is null ? null : "Mở trên HuTube",
+                emailActionUrl), ct);
         }
     }
 
     private Task<int> UnreadAsync(Guid userId, CancellationToken ct) => db.Notifications.CountAsync(x => x.UserId == userId && !x.IsRead, ct);
+    private static string? ResolveActionUrl(string? actionUrl, string? webBaseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(actionUrl)) return null;
+        if (Uri.TryCreate(actionUrl, UriKind.Absolute, out var absolute)
+            && absolute.Scheme is "http" or "https") return actionUrl;
+        if (string.IsNullOrWhiteSpace(webBaseUrl)) return null;
+        return $"{webBaseUrl.TrimEnd('/')}/{actionUrl.TrimStart('/')}";
+    }
+
     private static NotificationResponse ToResponse(HuTube.Domain.Videos.Notification row) => new(row.NotificationId, row.Type,
         row.Title, row.Content, row.ActionUrl, row.IsRead, row.CreatedAt, row.ResourceType, row.ResourceId);
 }

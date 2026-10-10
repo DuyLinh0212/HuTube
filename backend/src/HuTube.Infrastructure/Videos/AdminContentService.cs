@@ -12,7 +12,8 @@ using Microsoft.Extensions.Logging;
 namespace HuTube.Infrastructure.Videos;
 
 public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, INotificationService notifications,
-    IAuthEmailSender emailSender, IObjectStorage storage, ILogger<AdminContentService> logger)
+    IAuthEmailSender emailSender, IObjectStorage storage, ILogger<AdminContentService> logger,
+    AuthOptions? authOptions = null)
 {
     public async Task<PageResult<AdminChannelListItem>> GetChannelsAsync(string? search, string? status,
         string? sortBy, bool? sortDescending, int page, int pageSize, CancellationToken ct)
@@ -517,7 +518,17 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
                     .Select(u => u.Email).FirstOrDefaultAsync(ct);
                 if (!string.IsNullOrWhiteSpace(email))
                 {
-                    try { await emailSender.SendAsync(email, "Video đã bị gỡ khỏi HuTube", notice + " Mở Creator Studio để xem quyết định và gửi khiếu nại.", ct); }
+                    try
+                    {
+                        var studioUrl = $"{(authOptions?.WebBaseUrl ?? "http://localhost:4200").TrimEnd('/')}/studio/content";
+                        await emailSender.SendTemplateAsync(email, new(
+                            "Video đã bị gỡ khỏi HuTube",
+                            "QUYẾT ĐỊNH NỘI DUNG",
+                            "Video đã bị gỡ khỏi HuTube",
+                            [notice, "Mở Creator Studio để xem quyết định và gửi khiếu nại."],
+                            "Mở Creator Studio",
+                            studioUrl), ct);
+                    }
                     catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Không gửi được email gỡ video {VideoId}", videoId); }
                 }
             }
