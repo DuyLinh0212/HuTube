@@ -424,7 +424,7 @@
                       <div class="session-icon">{{ entry.platform === 'mobile' ? '📱' : '💻' }}</div>
                       <div class="session-detail">
                         <div class="session-name"><strong>{{ entry.deviceName }}</strong></div>
-                        <small>{{ 'account.signedInAt' | translate }} {{ entry.loginAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (entry.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(entry.ipAddress) }}}</small>
+                        <small>{{ 'account.signedInAt' | translate }} {{ entry.loginAt | localeDate:'dd/MM/yyyy HH:mm' }}@if (entry.ipAddress) { · {{ 'account.ipAddress' | translate }} {{ displayIpAddress(entry.ipAddress) }} }@if (entry.city) { · {{ entry.city }}@if (entry.region) {, {{ entry.region }}} }</small>
                       </div>
                     </div>
                   }

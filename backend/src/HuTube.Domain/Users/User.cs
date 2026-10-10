@@ -90,6 +90,11 @@ public sealed class UserLoginHistory
     public string DeviceName { get; set; } = "";
     public string Platform { get; set; } = "web";
     public string? IpAddress { get; set; }
+    public string? CountryCode { get; set; }
+    public string? Region { get; set; }
+    public string? City { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public DateTimeOffset LoginAt { get; set; }
 }
 

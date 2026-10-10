@@ -3,7 +3,8 @@ using HuTube.Domain.Users;
 namespace HuTube.Application.Auth;
 
 public sealed class AuthService(IAuthStore store, IPasswordService passwords, ITokenService tokens,
-    IAuthEmailSender emailSender, IGoogleTokenVerifier google, AuthOptions options, TimeProvider clock)
+    IAuthEmailSender emailSender, IGoogleTokenVerifier google, AuthOptions options, TimeProvider clock,
+    IClientLocationResolver? locationResolver = null)
 {
     private DateTimeOffset Now => clock.GetUtcNow();
     private static readonly MessageResponse EmailSent = new("Nếu email phù hợp, hướng dẫn đã được gửi. Vui lòng kiểm tra hộp thư.");
@@ -277,7 +278,8 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
     {
         var result = await store.GetLoginHistoryAsync(userId, Math.Max(1, page), Math.Clamp(pageSize, 1, 50), ct);
         return new(result.Items.Select(item => new LoginHistoryResponse(item.LoginHistoryId, item.DeviceId, item.DeviceName,
-            item.Platform, item.IpAddress, item.LoginAt)).ToList(), result.Page, result.PageSize, result.Total);
+            item.Platform, item.IpAddress, item.LoginAt, item.CountryCode, item.Region, item.City,
+            item.Latitude, item.Longitude)).ToList(), result.Page, result.PageSize, result.Total);
     }
 
     public async Task<MessageResponse> RevokeSessionsAsync(Guid userId, Guid current, Guid? target, CancellationToken ct = default)
@@ -363,6 +365,9 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             session.RevokeReason = null;
             session.ReplacedBySessionId = null;
         }
+        var location = locationResolver is null || string.IsNullOrWhiteSpace(ipAddress)
+            ? null
+            : await locationResolver.ResolveAsync(ipAddress, ct);
         store.AddLoginHistory(new UserLoginHistory
         {
             UserId = user.UserId,
@@ -370,6 +375,11 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             DeviceName = normalizedDeviceName,
             Platform = platform,
             IpAddress = ipAddress,
+            CountryCode = location?.CountryCode,
+            Region = location?.Region,
+            City = location?.City,
+            Latitude = location?.Latitude,
+            Longitude = location?.Longitude,
             LoginAt = Now
         });
         await store.SaveAsync(ct);
