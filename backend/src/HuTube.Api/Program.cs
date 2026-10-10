@@ -52,6 +52,7 @@ var videoProcessingOptions = builder.Configuration.GetSection("VideoProcessing")
 var sepayOptions = builder.Configuration.GetSection("SePay").Get<SepayOptions>() ?? new();
 var recommendationOptions = builder.Configuration.GetSection("Recommendation").Get<RecommendationOptions>() ?? new();
 var rateLimitOptions = builder.Configuration.GetSection("RateLimit").Get<RateLimitOptions>() ?? new();
+var geoIpOptions = builder.Configuration.GetSection("GeoIp").Get<GeoIpOptions>() ?? new();
 rateLimitOptions.Validate();
 if (builder.Environment.IsDevelopment())
     R2OptionsLoader.LoadDevelopmentFile(r2Options, builder.Environment.ContentRootPath, builder.Configuration["Storage:R2:CredentialsFile"]);
@@ -82,7 +83,7 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
     || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
     throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(recommendationOptions); builder.Services.AddSingleton(rateLimitOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(recommendationOptions); builder.Services.AddSingleton(rateLimitOptions); builder.Services.AddSingleton(geoIpOptions);
 builder.Services.AddSingleton<SepaySignatureVerifier>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024);
@@ -146,6 +147,9 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<NotificationConnections>();
 builder.Services.AddHostedService<NotificationSessionMonitor>();
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IClientLocationResolver, IpApiClientLocationResolver>(client =>
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("HuTube/1.0 (IP geolocation for login security)"));
 builder.Services.AddHttpClient<IRecommendationClient, RecommendationClient>();
 builder.Services.AddScoped<IRecommendationSnapshotStore, RecommendationSnapshotStore>();
 builder.Services.AddScoped<RecommendationAdminService>();
