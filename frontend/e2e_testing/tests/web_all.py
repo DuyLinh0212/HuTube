@@ -12,6 +12,7 @@ from playwright.sync_api import sync_playwright
 from support.web_suite import WebSuite
 from flows.user.functional import run as run_user
 from flows.admin.functional import run as run_admin
+from flows.admin.responsive import run as run_admin_responsive
 from flows.admin.taxonomy import run as run_taxonomy
 from flows.admin.plans import run as run_plans
 from flows.admin.rbac import run as run_rbac
@@ -75,6 +76,7 @@ def main():
             run_membership(suite, owner, member)
             run_errors(suite, owner)
             run_admin(suite, admin, owner)
+            run_admin_responsive(suite, admin, owner)
             run_taxonomy(suite, admin, member)
             run_plans(suite, admin, member)
             run_rbac(suite, admin, member)

@@ -217,6 +217,11 @@
   .profile-trigger { padding: 3px; }
 }
 
+@media (min-width: 681px) and (max-width: 1040px) {
+  .topbar { height: 66px; padding-inline: 20px; }
+  .topbar-brand .admin-label { display: none; }
+}
+
 @media (max-width: 540px) {
   .profile-dropdown { position: fixed; top: 62px; right: 10px; width: min(292px, calc(100vw - 20px)); }
   .language-dropdown { position: static; width: auto; margin: 2px 0 4px 27px; box-shadow: none; }
