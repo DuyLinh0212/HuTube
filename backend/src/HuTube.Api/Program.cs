@@ -204,7 +204,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 builder.Services.AddAuthorization();
 builder.Services.Configure<ForwardedHeadersOptions>(options => {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.ForwardLimit = 1;
+    // Render can put more than one trusted hop in X-Forwarded-For (for example
+    // the edge proxy and the service ingress). Process the complete chain and
+    // stop at the first untrusted address instead of persisting a proxy IP.
+    options.ForwardLimit = null;
     options.KnownProxies.Add(IPAddress.Loopback);
     options.KnownProxies.Add(IPAddress.IPv6Loopback);
     // Production ingress addresses/networks must be explicitly trusted; never accept arbitrary X-Forwarded-For values.
