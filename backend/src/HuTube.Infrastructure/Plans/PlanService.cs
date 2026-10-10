@@ -462,7 +462,15 @@ public sealed class PlanService(
         var acceptUrl = $"{authOptions.WebBaseUrl.TrimEnd('/')}/plans/accept-invite?memberId={member.PlanMemberId}&token={Uri.EscapeDataString(token)}";
         try
         {
-            await emailSender.SendAsync(normalizedEmail, "Lời mời dùng chung gói HuTube", $"Bạn được mời tham gia gói của {user.DisplayName}.\n\nXác nhận: {acceptUrl}", ct);
+            await emailSender.SendTemplateAsync(normalizedEmail, new(
+                "Lời mời dùng chung gói HuTube",
+                "LỜI MỜI DÙNG CHUNG GÓI",
+                $"Bạn được mời tham gia gói của {user.DisplayName}",
+                ["Bạn đã được thêm vào một gói HuTube dùng chung.",
+                 "Mở lời mời để xem thông tin gói và xác nhận tham gia."],
+                "Xác nhận lời mời",
+                acceptUrl,
+                "Nếu bạn không mong đợi email này, bạn có thể bỏ qua nó."), ct);
         }
         catch
         {

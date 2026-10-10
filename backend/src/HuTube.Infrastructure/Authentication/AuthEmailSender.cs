@@ -35,11 +35,19 @@ public sealed class AuthEmailSender(
     ILogger<AuthEmailSender> logger,
     IHttpClientFactory httpClientFactory) : IAuthEmailSender
 {
-    public async Task SendAsync(string email, string subject, string body, CancellationToken ct)
+    public Task SendAsync(string email, string subject, string body, CancellationToken ct) =>
+        SendTemplateAsync(email, EmailTemplateMessage.FromPlainText(subject, body), ct);
+
+    public async Task SendTemplateAsync(string email, EmailTemplateMessage template, CancellationToken ct)
     {
         var message = new MimeMessage();
         message.From.Add(MailboxAddress.Parse(options.From)); message.To.Add(MailboxAddress.Parse(email));
-        message.Subject = subject; message.Body = new TextPart("plain") { Text = body };
+        message.Subject = template.Subject;
+        message.Body = new BodyBuilder
+        {
+            TextBody = template.ToPlainText(),
+            HtmlBody = HuTubeEmailTemplateRenderer.RenderHtml(template)
+        }.ToMessageBody();
         try
         {
             if (options.Mode == "Pickup")

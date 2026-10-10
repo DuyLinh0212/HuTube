@@ -228,14 +228,18 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
                 : authOptions.WebBaseUrl.TrimEnd('/');
             var invitationUrl = $"{webBaseUrl}/channel-invitations?invitation={invitation.ChannelInvitationId}";
             var subject = $"Bạn được mời tham gia kênh {channel.Name} trên HuTube";
-            var body = $"Xin chào {targetUser.DisplayName},\n\n" +
-                       $"Bạn được mời tham gia kênh \"{channel.Name}\" với vai trò {RoleName(roleCode)}.\n" +
-                       $"Lời mời có hiệu lực đến {invitation.ExpiresAt:dd/MM/yyyy HH:mm} (giờ UTC).\n\n" +
-                       $"Mở HuTube để xem và phản hồi lời mời:\n{invitationUrl}\n\n" +
-                       "Nếu bạn không mong đợi email này, bạn có thể bỏ qua nó.";
             try
             {
-                await emailSender.SendAsync(targetUser.Email, subject, body, ct);
+                await emailSender.SendTemplateAsync(targetUser.Email, new(
+                    subject,
+                    "LỜI MỜI DÀNH CHO BẠN",
+                    $"Tham gia kênh {channel.Name}",
+                    [$"Xin chào {targetUser.DisplayName},",
+                     $"Bạn được mời tham gia kênh \"{channel.Name}\" với vai trò {RoleName(roleCode)}.",
+                     $"Lời mời có hiệu lực đến {invitation.ExpiresAt:dd/MM/yyyy HH:mm} (giờ UTC)."],
+                    "Xem lời mời",
+                    invitationUrl,
+                    "Nếu bạn không mong đợi email này, bạn có thể bỏ qua nó."), ct);
             }
             catch
             {
