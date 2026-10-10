@@ -1,6 +1,26 @@
 <main id="main-content" class="feed">
   @if (loading()) {
-    <p class="state">{{ 'home.loading' | translate }}</p>
+    <section class="feed-loading" aria-busy="true" [attr.aria-label]="'home.loading' | translate">
+      <div class="feed-loading__heading" aria-hidden="true">
+        <span class="feed-skeleton feed-skeleton--eyebrow"></span>
+        <span class="feed-skeleton feed-skeleton--heading"></span>
+      </div>
+      <div class="feed-loading__grid" aria-hidden="true">
+        @for (placeholder of [1, 2, 3, 4, 5, 6, 7, 8]; track placeholder) {
+          <article class="feed-loading-card">
+            <div class="feed-skeleton feed-skeleton--thumb"></div>
+            <div class="feed-loading-card__body">
+              <span class="feed-skeleton feed-skeleton--avatar"></span>
+              <div class="feed-loading-card__copy">
+                <span class="feed-skeleton feed-skeleton--line"></span>
+                <span class="feed-skeleton feed-skeleton--line feed-skeleton--line-short"></span>
+                <span class="feed-skeleton feed-skeleton--line feed-skeleton--line-meta"></span>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
   } @else if (error()) {
     <p class="state error">{{ error() }}</p>
   } @else {
