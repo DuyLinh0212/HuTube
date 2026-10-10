@@ -14,6 +14,67 @@
   margin-top: 0;
 }
 
+.feed-loading {
+  display: grid;
+  gap: 24px;
+}
+
+.feed-loading__heading {
+  display: grid;
+  gap: 11px;
+  width: min(250px, 70%);
+}
+
+.feed-loading__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px 18px;
+}
+
+.feed-loading-card {
+  min-width: 0;
+}
+
+.feed-loading-card__body {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding-top: 12px;
+}
+
+.feed-loading-card__copy {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.feed-skeleton {
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(105deg,
+    color-mix(in srgb, var(--line) 35%, var(--surface)) 20%,
+    color-mix(in srgb, var(--line) 72%, var(--surface)) 42%,
+    color-mix(in srgb, var(--line) 35%, var(--surface)) 64%);
+  background-size: 240% 100%;
+  animation: feed-skeleton-shimmer 1.45s ease-in-out infinite;
+}
+
+.feed-skeleton--eyebrow { width: 42%; height: 11px; }
+.feed-skeleton--heading { width: 78%; height: 28px; border-radius: 10px; }
+.feed-skeleton--thumb { aspect-ratio: 16 / 9; border-radius: 14px; }
+.feed-skeleton--avatar { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; }
+.feed-skeleton--line { width: 92%; height: 13px; }
+.feed-skeleton--line-short { width: 66%; }
+.feed-skeleton--line-meta { width: 46%; height: 10px; }
+
+@keyframes feed-skeleton-shimmer {
+  0% { background-position: 180% 0; }
+  100% { background-position: -40% 0; }
+}
+
 .feed-section--for-you .grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -213,6 +274,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .feed-loading__grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .feed-skeleton--heading { width: 88%; }
+
   .subscription-rail > .card {
     flex-basis: min(84vw, 340px);
   }
@@ -221,6 +289,10 @@
 @media (prefers-reduced-motion: reduce) {
   .thumb img {
     transition: none;
+  }
+
+  .feed-skeleton {
+    animation: none;
   }
 
   .card:hover img {
