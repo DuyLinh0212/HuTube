@@ -2,15 +2,16 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, finalize, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
-import { MyPlan, Plan, PlanService, PlanShare } from '../../core/plan.service';
+import { CreatePaymentResponse, MyPlan, Plan, PlanService, PlanShare } from '../../core/plan.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleCurrencyPipe } from '../../core/locale-currency.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { PaymentModalComponent } from './payment-modal.component';
 
 @Component({
   selector: 'app-plan-detail-page',
-  imports: [LocaleCurrencyPipe, LocaleNumberPipe, RouterLink, TranslatePipe],
+  imports: [LocaleCurrencyPipe, LocaleNumberPipe, RouterLink, TranslatePipe, PaymentModalComponent],
   templateUrl: './plan-detail-page.html',
   styleUrl: './plan-detail-page.scss'
 })
@@ -22,6 +23,7 @@ export class PlanDetailPage {
   readonly plan = signal<Plan | null>(null);
   readonly myPlan = signal<MyPlan | null>(null);
   readonly share = signal<PlanShare | null>(null);
+  readonly activePayment = signal<CreatePaymentResponse | null>(null);
   readonly loading = signal(true);
   readonly message = signal('');
   readonly error = signal('');
@@ -46,6 +48,7 @@ export class PlanDetailPage {
       this.currentIdentityId = userId;
       this.identityChanged.next();
       this.myPlan.set(null);
+      this.activePayment.set(null);
       this.eligibilityLoading.set(!!userId);
       if (userId) this.plansService.getMyPlan().pipe(takeUntil(this.identityChanged)).subscribe({
         next: mp => { this.myPlan.set(mp); this.eligibilityLoading.set(false); },
@@ -125,29 +128,14 @@ export class PlanDetailPage {
     const plan = this.plan();
     if (!plan || this.busy() || this.eligibilityLoading()) return;
 
-    // Gói trả phí -> tạo đơn VNPay rồi chuyển người dùng sang cổng thanh toán.
+    // Gói trả phí -> tạo đơn hàng SePay và mở modal VietQR
     if (plan.price > 0) {
       this.busy.set(true);
       this.error.set('');
       this.plansService.initiatePayment(plan.planId)
         .pipe(finalize(() => this.busy.set(false)))
         .subscribe({
-          next: payment => {
-            let destination: URL | null;
-            try {
-              destination = new URL(payment.paymentUrl);
-            } catch {
-              destination = null;
-            }
-            const gatewayHost = destination?.hostname.toLowerCase() ?? '';
-            const trustedGateway = ['vnpay.vn', 'vnpayment.vn'].some(host =>
-              gatewayHost === host || gatewayHost.endsWith(`.${host}`));
-            if (!destination || destination.protocol !== 'https:' || !trustedGateway) {
-              this.error.set(this.i18n.t('payment.notConfigured'));
-              return;
-            }
-            window.location.assign(destination.href);
-          },
+          next: payment => this.activePayment.set(payment),
           error: err => this.error.set(err?.error?.message || this.i18n.t('plans.subscribeErrorFallback', { status: String(err?.status || 500) }))
         });
       return;
@@ -165,4 +153,13 @@ export class PlanDetailPage {
     });
   }
 
+  onPaymentCompleted() {
+    this.activePayment.set(null);
+    this.message.set(this.i18n.t('plans.subscribeSuccess'));
+    this.plansService.getMyPlan().subscribe({ next: myPlan => this.myPlan.set(myPlan), error: () => {} });
+  }
+
+  onPaymentDismissed() {
+    this.activePayment.set(null);
+  }
 }

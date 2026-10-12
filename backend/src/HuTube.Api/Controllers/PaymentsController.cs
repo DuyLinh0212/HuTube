@@ -23,7 +23,7 @@ public sealed class PaymentsController(
         : throw new PaymentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
 
     /// <summary>
-    /// Khởi tạo đơn hàng thanh toán mua gói trả phí bằng VNPay.
+    /// Khởi tạo đơn hàng thanh toán mua gói trả phí bằng SePay.
     /// </summary>
     [Authorize]
     [HttpPost, EnableRateLimiting("payment-initiate")]
@@ -31,8 +31,7 @@ public sealed class PaymentsController(
         [FromBody] CreatePaymentRequest request,
         CancellationToken ct)
     {
-        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-        var response = await paymentService.InitiateVnPayAsync(UserId, request, clientIp, ct);
+        var response = await paymentService.InitiateAsync(UserId, request, ct);
         return Ok(response);
     }
 

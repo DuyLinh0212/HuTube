@@ -69,7 +69,6 @@ export interface CreatePaymentResponse {
   planName: string;
   transactionCode: string;
   qrCodeUrl: string;
-  paymentUrl: string;
   amount: number;
   currency: string;
   expiresAt: string;

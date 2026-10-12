@@ -1,6 +1,6 @@
-# VNPay checkout
+# VNPay checkout (legacy)
 
-New paid-plan orders use the VNPay hosted payment page. The API creates a pending payment, signs the payment URL with HMAC-SHA512, and activates a plan only after validating a VNPay IPN callback and its amount.
+New paid-plan checkouts currently use SePay. This VNPay integration is retained for callbacks from VNPay payment attempts created before the switch; do not use it for new checkouts.
 
 ## Local sandbox configuration
 
