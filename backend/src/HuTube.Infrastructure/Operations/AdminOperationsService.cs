@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using HuTube.Application.Storage;
 using HuTube.Application.Operations;
+using HuTube.Domain.Rbac;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Notifications;
@@ -32,6 +33,9 @@ public sealed class AdminOperationsService(
     private static readonly TimeSpan HealthProbeTimeout = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan SignalRProbeTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan R2UsageCacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan UpstashUsageCacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan RenderUsageCacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan NeonUsageCacheDuration = TimeSpan.FromMinutes(15);
     private const string CloudflareGraphQlEndpoint = "https://api.cloudflare.com/client/v4/graphql";
 
     public async Task<AdminSystemOverviewResponse> GetSystemOverviewAsync(CancellationToken ct)
@@ -132,12 +136,23 @@ public sealed class AdminOperationsService(
             notificationConnections.Active.Count);
         overviewTimer.Stop();
         var r2StorageUsageTask = GetR2StorageUsageAsync(ct);
-        var services = await GetServiceStatusesAsync(databaseTimer.Elapsed.TotalMilliseconds,
+        var redisUsageTask = GetRedisUsageAsync(ct);
+        var renderUsageTask = GetRenderUsageAsync(ct);
+        var servicesTask = GetServiceStatusesAsync(databaseTimer.Elapsed.TotalMilliseconds,
             overviewTimer.Elapsed.TotalMilliseconds, notificationConnections.Active.Count, ct);
+        var neonUsageTask = GetNeonUsageAsync(ct);
+        var services = await servicesTask;
         var r2StorageUsage = await r2StorageUsageTask;
+        var neonUsage = await neonUsageTask;
+        var redisUsage = await redisUsageTask;
+        var renderUsage = await renderUsageTask;
+        await RecordSignalTransitionsAsync(signals, now, ct);
+        var incidentHistory = await GetIncidentHistoryAsync(ct);
+        var recentActivity = await GetRecentActivityAsync(ct);
 
         return new AdminSystemOverviewResponse(now, triggered.Count, triggered.Count(signal => signal.Severity == "critical"),
-            signals, settings, apiTraffic, liveMetrics, services, r2StorageUsage);
+            signals, settings, apiTraffic, liveMetrics, services, r2StorageUsage, neonUsage, redisUsage,
+            renderUsage, recentActivity, incidentHistory);
     }
 
     private async Task<IReadOnlyList<AdminSystemServiceStatus>> GetServiceStatusesAsync(
@@ -499,6 +514,482 @@ public sealed class AdminOperationsService(
         }
     }
 
+    private async Task<AdminNeonUsage> GetNeonUsageAsync(CancellationToken ct)
+    {
+        long databaseSizeBytes;
+        int activeConnections;
+        int connectionLimit;
+        try
+        {
+            databaseSizeBytes = await db.Database.SqlQuery<long>(
+                $"SELECT pg_database_size(current_database())::bigint AS \"Value\"").SingleAsync(ct);
+            activeConnections = await db.Database.SqlQuery<int>($"""
+                SELECT COUNT(*)::integer AS "Value"
+                FROM pg_stat_activity
+                WHERE datname = current_database() AND backend_type = 'client backend'
+                """).SingleAsync(ct);
+            connectionLimit = await db.Database.SqlQuery<int>($"""
+                SELECT setting::integer AS "Value" FROM pg_settings WHERE name = 'max_connections'
+                """).SingleAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception)
+        {
+            return new("error", null, null, null, null,
+                "Không đọc được dung lượng database và giới hạn kết nối PostgreSQL.");
+        }
+
+        var apiKey = configuration["NEON_API_KEY"]?.Trim();
+        var orgId = configuration["NEON_ORG_ID"]?.Trim();
+        var projectId = configuration["NEON_PROJECT_ID"]?.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(orgId)
+            || string.IsNullOrWhiteSpace(projectId))
+            return new("partial", databaseSizeBytes, activeConnections, connectionLimit, null,
+                "Đã đo dung lượng database và kết nối từ PostgreSQL; usage CU tháng này cần NEON_API_KEY, NEON_ORG_ID và NEON_PROJECT_ID.");
+
+        var cacheKey = $"admin-neon-usage:{orgId}:{projectId}";
+        var consumption = await memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = NeonUsageCacheDuration;
+            return await QueryNeonConsumptionAsync(apiKey, orgId, projectId, ct);
+        });
+
+        return new(consumption?.Status ?? "error", databaseSizeBytes, activeConnections, connectionLimit,
+            consumption?.ComputeUnitHours,
+            consumption?.Detail ?? "Neon không trả dữ liệu consumption.");
+    }
+
+    private async Task<NeonConsumptionResult> QueryNeonConsumptionAsync(
+        string apiKey, string orgId, string projectId, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var monthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
+        var query = new Dictionary<string, string>
+        {
+            ["from"] = monthStart.ToString("O", CultureInfo.InvariantCulture),
+            ["to"] = now.ToString("O", CultureInfo.InvariantCulture),
+            ["granularity"] = "daily",
+            ["org_id"] = orgId,
+            ["project_ids"] = projectId,
+            ["metrics"] = "compute_unit_seconds"
+        };
+        var uri = "https://console.neon.tech/api/v2/consumption_history/v2/projects?" +
+            string.Join("&", query.Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(HealthProbeTimeout);
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var response = await httpClientFactory.CreateClient().SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (response.StatusCode is System.Net.HttpStatusCode.Forbidden)
+                return new("partial", null, "Neon API không cung cấp consumption cho gói hiện tại; dung lượng DB và kết nối vẫn được đo trực tiếp.");
+            if (!response.IsSuccessStatusCode)
+                return new("error", null, $"Neon Consumption API trả HTTP {(int)response.StatusCode}; kiểm tra quyền token, organization và project ID.");
+
+            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+            using var payload = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+            if (!payload.RootElement.TryGetProperty("projects", out var projects)
+                || projects.ValueKind != JsonValueKind.Array)
+                return new("error", null, "Neon Consumption API trả cấu trúc dữ liệu không hợp lệ.");
+
+            double totalComputeSeconds = 0;
+            var foundMetric = false;
+            foreach (var project in projects.EnumerateArray())
+            {
+                if (!project.TryGetProperty("project_id", out var returnedProject)
+                    || !string.Equals(returnedProject.GetString(), projectId, StringComparison.Ordinal)) continue;
+                if (!project.TryGetProperty("periods", out var periods) || periods.ValueKind != JsonValueKind.Array) continue;
+                foreach (var period in periods.EnumerateArray())
+                {
+                    if (!period.TryGetProperty("consumption", out var consumption) || consumption.ValueKind != JsonValueKind.Array) continue;
+                    foreach (var timeframe in consumption.EnumerateArray())
+                    {
+                        if (!timeframe.TryGetProperty("metrics", out var metrics) || metrics.ValueKind != JsonValueKind.Array) continue;
+                        foreach (var metric in metrics.EnumerateArray())
+                        {
+                            if (!metric.TryGetProperty("metric_name", out var metricName)
+                                || !string.Equals(metricName.GetString(), "compute_unit_seconds", StringComparison.Ordinal)) continue;
+                            var value = ReadMetric(metric, "value");
+                            if (value is null) continue;
+                            totalComputeSeconds += value.Value;
+                            foundMetric = true;
+                        }
+                    }
+                }
+            }
+
+            return foundMetric
+                ? new("available", totalComputeSeconds / 3600d, "Đã đọc CU-hours tháng này từ Neon Consumption API; số liệu cập nhật theo chu kỳ của Neon.")
+                : new("available", 0, "Neon chưa ghi nhận compute unit trong tháng này.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException)
+        {
+            return new("error", null, "Đọc Neon Consumption API quá thời gian 3 giây.");
+        }
+        catch (HttpRequestException)
+        {
+            return new("error", null, "Không kết nối được Neon Consumption API.");
+        }
+        catch (JsonException)
+        {
+            return new("error", null, "Neon Consumption API trả dữ liệu JSON không hợp lệ.");
+        }
+    }
+
+    private async Task<AdminRedisUsage> GetRedisUsageAsync(CancellationToken ct)
+    {
+        var email = configuration["UPSTASH_EMAIL"]?.Trim();
+        var apiKey = configuration["UPSTASH_API_KEY"]?.Trim();
+        var databaseId = configuration["UPSTASH_REDIS_DATABASE_ID"]?.Trim();
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(databaseId))
+            return new("unmonitored", "", null, null, null, null, "",
+                "Health check Redis đã dùng REST URL/token; quota yêu cầu UPSTASH_EMAIL, UPSTASH_API_KEY và UPSTASH_REDIS_DATABASE_ID.");
+
+        var cacheKey = $"admin-upstash-usage:{databaseId}";
+        return await memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = UpstashUsageCacheDuration;
+            return await QueryUpstashUsageAsync(email, apiKey, databaseId, ct);
+        }) ?? new AdminRedisUsage("error", "", null, null, null, null, "", "Không lấy được usage từ Upstash Developer API.");
+    }
+
+    private async Task<AdminRedisUsage> QueryUpstashUsageAsync(
+        string email, string apiKey, string databaseId, CancellationToken ct)
+    {
+        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{apiKey}"));
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(HealthProbeTimeout);
+        try
+        {
+            using var client = httpClientFactory.CreateClient();
+            client.Timeout = Timeout.InfiniteTimeSpan;
+            var authorization = new AuthenticationHeaderValue("Basic", credentials);
+            using var databaseRequest = new HttpRequestMessage(HttpMethod.Get,
+                $"https://api.upstash.com/v2/redis/database/{Uri.EscapeDataString(databaseId)}?credentials=hide");
+            databaseRequest.Headers.Authorization = authorization;
+            using var databaseResponse = await client.SendAsync(databaseRequest,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (databaseResponse.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+                return new("error", "", null, null, null, null, "", "Upstash từ chối quyền đọc; cần API key chỉ đọc của tài khoản native Upstash.");
+            if (!databaseResponse.IsSuccessStatusCode)
+                return new("error", "", null, null, null, null, "", $"Upstash database API trả HTTP {(int)databaseResponse.StatusCode}.");
+
+            await using var databaseStream = await databaseResponse.Content.ReadAsStreamAsync(timeout.Token);
+            using var database = await JsonDocument.ParseAsync(databaseStream, cancellationToken: timeout.Token);
+            var root = database.RootElement;
+            var name = ReadText(root, "database_name") ?? "Upstash Redis";
+            var plan = ReadText(root, "type") ?? "";
+            var storageLimit = ReadMetric(root, "db_disk_threshold");
+            var requestLimit = ReadMetric(root, "db_request_limit");
+
+            using var statsRequest = new HttpRequestMessage(HttpMethod.Get,
+                $"https://api.upstash.com/v2/redis/stats/{Uri.EscapeDataString(databaseId)}");
+            statsRequest.Headers.Authorization = authorization;
+            using var statsResponse = await client.SendAsync(statsRequest,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!statsResponse.IsSuccessStatusCode)
+                return new("error", name, null, storageLimit, null, requestLimit, plan,
+                    $"Upstash stats API trả HTTP {(int)statsResponse.StatusCode}.");
+
+            await using var statsStream = await statsResponse.Content.ReadAsStreamAsync(timeout.Token);
+            using var stats = await JsonDocument.ParseAsync(statsStream, cancellationToken: timeout.Token);
+            var statsRoot = stats.RootElement;
+            return new("available", name, ReadMetric(statsRoot, "current_storage"), storageLimit,
+                ReadMetric(statsRoot, "total_monthly_requests"), requestLimit, plan,
+                "Dung lượng hiện tại, hạn mức database và request tháng này lấy từ Upstash Developer API.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException)
+        {
+            return new("error", "", null, null, null, null, "", "Đọc Upstash Developer API quá thời gian 3 giây.");
+        }
+        catch (HttpRequestException)
+        {
+            return new("error", "", null, null, null, null, "", "Không kết nối được Upstash Developer API.");
+        }
+        catch (JsonException)
+        {
+            return new("error", "", null, null, null, null, "", "Upstash Developer API trả dữ liệu JSON không hợp lệ.");
+        }
+    }
+
+    private async Task<AdminRenderUsage> GetRenderUsageAsync(CancellationToken ct)
+    {
+        var apiKey = configuration["RENDER_API_KEY"]?.Trim();
+        var serviceId = configuration["RENDER_SERVICE_ID"]?.Trim()
+            ?? Environment.GetEnvironmentVariable("RENDER_SERVICE_ID")?.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(serviceId))
+            return new("unmonitored", null, null, null, null, null,
+                "Render CPU/memory API cần RENDER_API_KEY; RENDER_SERVICE_ID được cấp tự động trên Render.");
+
+        var cacheKey = $"admin-render-usage:{serviceId}";
+        return await memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = RenderUsageCacheDuration;
+            return await QueryRenderUsageAsync(apiKey, serviceId, ct);
+        }) ?? new AdminRenderUsage("error", null, null, null, null, null, "Không lấy được usage từ Render Metrics API.");
+    }
+
+    private async Task<AdminRenderUsage> QueryRenderUsageAsync(string apiKey, string serviceId, CancellationToken ct)
+    {
+        var metricTasks = await Task.WhenAll(
+            GetRenderMetricAsync("cpu", apiKey, serviceId, ct),
+            GetRenderMetricAsync("cpu-limit", apiKey, serviceId, ct),
+            GetRenderMetricAsync("memory", apiKey, serviceId, ct),
+            GetRenderMetricAsync("memory-limit", apiKey, serviceId, ct));
+        var cpu = metricTasks[0];
+        var cpuLimit = metricTasks[1];
+        var memory = metricTasks[2];
+        var memoryLimit = metricTasks[3];
+        double? cpuPercent = cpu.Value is > 0 && cpuLimit.Value is > 0 ? Math.Clamp(cpu.Value.Value / cpuLimit.Value.Value * 100d, 0, 1000) : null;
+        var memoryBytes = ToBytes(memory.Value, memory.Unit);
+        var memoryLimitBytes = ToBytes(memoryLimit.Value, memoryLimit.Unit);
+        double? memoryPercent = memoryBytes is > 0 && memoryLimitBytes is > 0
+            ? Math.Clamp(memoryBytes.Value * 100d / memoryLimitBytes.Value, 0, 1000) : null;
+        var available = cpuPercent is not null || memoryPercent is not null;
+        return new(available ? "available" : "error", cpuPercent, cpuLimit.Value,
+            memoryPercent, memoryBytes, memoryLimitBytes,
+            available ? "CPU và bộ nhớ lấy từ Render Metrics API trên instance hiện tại." : "Render chưa trả mẫu CPU/memory; kiểm tra API key, service và instance.");
+    }
+
+    private async Task<RenderMetricValue> GetRenderMetricAsync(string metric, string apiKey, string serviceId, CancellationToken ct)
+    {
+        var end = DateTimeOffset.UtcNow;
+        var start = end.AddMinutes(-10);
+        var instance = configuration["RENDER_INSTANCE_ID"]?.Trim()
+            ?? Environment.GetEnvironmentVariable("RENDER_INSTANCE_ID")?.Trim();
+        var query = $"resource={Uri.EscapeDataString(serviceId)}&resolutionSeconds=60&startTime={Uri.EscapeDataString(start.ToString("O", CultureInfo.InvariantCulture))}&endTime={Uri.EscapeDataString(end.ToString("O", CultureInfo.InvariantCulture))}";
+        if (!string.IsNullOrWhiteSpace(instance)) query += $"&instance={Uri.EscapeDataString(instance)}";
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(HealthProbeTimeout);
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.render.com/v1/metrics/{metric}?{query}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var response = await httpClientFactory.CreateClient().SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!response.IsSuccessStatusCode) return new(null, null);
+            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+            using var payload = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+            if (payload.RootElement.ValueKind != JsonValueKind.Array) return new(null, null);
+            var points = new List<(DateTimeOffset At, double Value, string? Unit)>();
+            foreach (var series in payload.RootElement.EnumerateArray())
+            {
+                var unit = ReadText(series, "unit");
+                if (!series.TryGetProperty("values", out var values) || values.ValueKind != JsonValueKind.Array) continue;
+                foreach (var point in values.EnumerateArray())
+                {
+                    if (!point.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Number
+                        || !value.TryGetDouble(out var numeric)) continue;
+                    var timestamp = point.TryGetProperty("timestamp", out var time)
+                        && DateTimeOffset.TryParse(time.GetString(), CultureInfo.InvariantCulture,
+                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed)
+                        ? parsed : DateTimeOffset.MinValue;
+                    points.Add((timestamp, numeric, unit));
+                }
+            }
+            if (points.Count == 0) return new(null, null);
+            var latestTime = points.Max(point => point.At);
+            var latest = points.Where(point => point.At == latestTime).MaxBy(point => point.Value);
+            return new(latest.Value, latest.Unit);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) { return new(null, null); }
+        catch (HttpRequestException) { return new(null, null); }
+        catch (JsonException) { return new(null, null); }
+    }
+
+    private async Task RecordSignalTransitionsAsync(
+        IReadOnlyList<AdminSystemSignal> signals, DateTimeOffset now, CancellationToken ct)
+    {
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct) : null;
+        if (transaction != null)
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({"admin-system-monitor:signals"}, 0))", ct);
+
+        foreach (var signal in signals)
+        {
+            var previousJson = await db.AuditLogs.AsNoTracking()
+                .Where(log => log.ResourceType == "system_signal" && log.Reason == signal.Key
+                    && log.Action.StartsWith("system.signal."))
+                .OrderByDescending(log => log.CreatedAt).ThenByDescending(log => log.AuditLogId)
+                .Select(log => log.NewValues).FirstOrDefaultAsync(ct);
+            var previousState = ReadSignalState(previousJson);
+            var currentState = signal.IsTriggered ? signal.Severity : "normal";
+            if (previousState == currentState || (previousState is null && currentState == "normal")) continue;
+
+            var action = previousState is null or "normal" ? "raised"
+                : currentState == "normal" ? "resolved"
+                : SeverityRank(currentState) > SeverityRank(previousState) ? "escalated" : "changed";
+            db.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = null,
+                Action = $"system.signal.{action}",
+                ResourceType = "system_signal",
+                Reason = signal.Key,
+                OldValues = previousState is null ? null : JsonSerializer.Serialize(new { status = previousState }),
+                NewValues = JsonSerializer.Serialize(new
+                {
+                    status = currentState,
+                    title = signal.Title,
+                    description = signal.Description,
+                    currentValue = signal.CurrentValue,
+                    signal.Unit,
+                    signal.Threshold
+                }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                CreatedAt = now
+            });
+        }
+
+        if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
+    }
+
+    private async Task<IReadOnlyList<AdminSystemActivity>> GetIncidentHistoryAsync(CancellationToken ct)
+    {
+        var events = await db.AuditLogs.AsNoTracking()
+            .Where(log => log.ResourceType == "system_signal" && log.Action.StartsWith("system.signal."))
+            .OrderByDescending(log => log.CreatedAt).ThenByDescending(log => log.AuditLogId).Take(20)
+            .Select(log => new { log.Action, log.Reason, log.NewValues, log.CreatedAt })
+            .ToListAsync(ct);
+        return events.Select(item =>
+        {
+            using var payload = TryParseJson(item.NewValues);
+            var root = payload?.RootElement;
+            var title = ReadText(root, "title") ?? item.Reason ?? "Tín hiệu hệ thống";
+            var description = ReadText(root, "description") ?? "Trạng thái tín hiệu đã thay đổi.";
+            var status = ReadText(root, "status") ?? (item.Action.EndsWith("resolved", StringComparison.Ordinal) ? "normal" : "warning");
+            return new AdminSystemActivity(item.CreatedAt, "incident", status, title,
+                $"{ActionLabel(item.Action)} · {description}", null);
+        }).ToList();
+    }
+
+    private async Task<IReadOnlyList<AdminSystemActivity>> GetRecentActivityAsync(CancellationToken ct)
+    {
+        var since = DateTimeOffset.UtcNow.AddDays(-30);
+        var logs = await db.AuditLogs.AsNoTracking()
+            .Where(log => log.CreatedAt >= since && (log.ActorUserId != null
+                || log.ResourceType == "payment_webhook"
+                || log.Action.StartsWith("video.upload.")
+                || log.Action.StartsWith("video.rendition.processing.")))
+            .OrderByDescending(log => log.CreatedAt).ThenByDescending(log => log.AuditLogId).Take(40)
+            .Select(log => new { log.Action, log.ResourceType, log.ResourceId, log.ActorUserId, log.Reason, log.CreatedAt })
+            .ToListAsync(ct);
+
+        var items = logs.Select(log => new AdminSystemActivity(log.CreatedAt,
+            log.ResourceType == "payment_webhook" ? "payment"
+                : log.Action.StartsWith("video.", StringComparison.Ordinal) ? "upload"
+                : log.ActorUserId is null ? "system" : "admin",
+            IsFailureAction(log.Action) ? "error" : "info",
+            ActivityTitle(log.Action), log.Reason ?? log.Action, log.ResourceId)).ToList();
+
+        var failedVideos = await db.Videos.AsNoTracking()
+            .Where(video => video.Status == "failed" && video.UpdatedAt >= since)
+            .OrderByDescending(video => video.UpdatedAt).Take(10)
+            .Select(video => new { video.VideoId, video.Title, video.UpdatedAt })
+            .ToListAsync(ct);
+        items.AddRange(failedVideos.Select(video => new AdminSystemActivity(video.UpdatedAt, "upload", "error",
+            "Xử lý video thất bại", video.Title, video.VideoId)));
+
+        var failedRenditions = await (
+            from rendition in db.VideoRenditions.AsNoTracking()
+            join video in db.Videos.AsNoTracking() on rendition.VideoId equals video.VideoId
+            where rendition.Status == "failed" && rendition.UpdatedAt >= since
+            orderby rendition.UpdatedAt descending
+            select new { rendition.VideoId, rendition.QualityLabel, rendition.UpdatedAt, video.Title }
+        ).Take(10).ToListAsync(ct);
+        items.AddRange(failedRenditions.Select(rendition => new AdminSystemActivity(rendition.UpdatedAt,
+            "upload", "error", "Tạo video rendition thất bại",
+            $"{rendition.Title} · {rendition.QualityLabel}", rendition.VideoId)));
+
+        var failedPayments = await db.Payments.AsNoTracking()
+            .Where(payment => (payment.Status == "failed" || payment.Status == "cancelled") && payment.UpdatedAt >= since)
+            .OrderByDescending(payment => payment.UpdatedAt).Take(10)
+            .Select(payment => new { payment.PaymentId, payment.TransactionCode, payment.Status, payment.UpdatedAt })
+            .ToListAsync(ct);
+        items.AddRange(failedPayments.Select(payment => new AdminSystemActivity(payment.UpdatedAt,
+            "payment", payment.Status == "failed" ? "error" : "info",
+            payment.Status == "failed" ? "Thanh toán thất bại" : "Thanh toán đã hủy",
+            payment.TransactionCode, payment.PaymentId)));
+
+        return items.OrderByDescending(item => item.OccurredAt).Take(20).ToList();
+    }
+
+    private static bool IsFailureAction(string action) =>
+        action.Contains("failed", StringComparison.OrdinalIgnoreCase)
+        || action.Contains("rejected", StringComparison.OrdinalIgnoreCase)
+        || action.Contains("error", StringComparison.OrdinalIgnoreCase);
+
+    private static string ActivityTitle(string action) => action switch
+    {
+        "payment.sepay_webhook.processed" => "SePay webhook đã xử lý",
+        "payment.sepay_webhook.rejected" => "SePay webhook bị từ chối",
+        "payment.sepay_webhook.failed" => "SePay webhook xử lý lỗi",
+        "video.upload.failed" => "Upload video thất bại",
+        "video.rendition.processing.failed" => "Tạo rendition thất bại",
+        _ => action
+    };
+
+    private static string ActionLabel(string action) => action switch
+    {
+        "system.signal.raised" => "Đã phát hiện",
+        "system.signal.escalated" => "Đã nâng mức",
+        "system.signal.changed" => "Đã đổi trạng thái",
+        "system.signal.resolved" => "Đã xử lý",
+        _ => "Cập nhật"
+    };
+
+    private static int SeverityRank(string? severity) => severity switch
+    {
+        "critical" => 2,
+        "warning" => 1,
+        _ => 0
+    };
+
+    private static string? ReadSignalState(string? json)
+    {
+        using var payload = TryParseJson(json);
+        return ReadText(payload?.RootElement, "status");
+    }
+
+    private static JsonDocument? TryParseJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return JsonDocument.Parse(json); }
+        catch (JsonException) { return null; }
+    }
+
+    private static string? ReadText(JsonElement? element, string name) =>
+        element is { ValueKind: JsonValueKind.Object } root
+        && root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() : null;
+
+    private static long? ToBytes(double? value, string? unit)
+    {
+        if (value is null || !double.IsFinite(value.Value) || value.Value < 0) return null;
+        var multiplier = unit?.Trim().ToUpperInvariant() switch
+        {
+            "B" or "BYTE" or "BYTES" => 1d,
+            "KB" => 1_000d,
+            "MB" => 1_000_000d,
+            "GB" => 1_000_000_000d,
+            "TB" => 1_000_000_000_000d,
+            _ => 1d
+        };
+        var bytes = value.Value * multiplier;
+        return bytes <= long.MaxValue ? (long)Math.Round(bytes) : null;
+    }
+
+    private sealed record NeonConsumptionResult(string Status, double? ComputeUnitHours, string Detail);
+    private sealed record RenderMetricValue(double? Value, string? Unit);
+
     private static long? ReadMetric(JsonElement metrics, string name)
     {
         if (!metrics.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number)
@@ -507,6 +998,13 @@ public sealed class AdminOperationsService(
         return value.TryGetDecimal(out var decimalValue) && decimalValue <= long.MaxValue && decimalValue >= long.MinValue
             ? decimal.ToInt64(decimal.Round(decimalValue))
             : null;
+    }
+
+    private static double? ReadMetricDouble(JsonElement metrics, string name)
+    {
+        if (!metrics.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number
+            || !value.TryGetDouble(out var number) || !double.IsFinite(number)) return null;
+        return number;
     }
 
     private async Task<HttpProbeResult> ProbeHttpAsync(string baseUrl, CancellationToken ct)

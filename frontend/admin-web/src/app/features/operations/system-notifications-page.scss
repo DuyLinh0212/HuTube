@@ -58,6 +58,7 @@
 .traffic-panel, .current-alerts-panel { grid-column: span 7; }
 .services-panel, .unavailable-panel { grid-column: span 5; }
 .work-panel, .payment-panel, .runtime-panel, .realtime-panel { grid-column: span 6; }
+.activity-panel { grid-column: span 12; }
 .panel-heading { justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .panel-heading > div:first-child { min-width: 0; gap: 9px; }
 .panel-icon { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border-radius: 9px; font-size: 15px; font-weight: 800; }
@@ -129,6 +130,15 @@
 .unavailable-list { padding-top: 10px; border-top: 1px solid #edf0f5; }
 .unavailable-list span { color: #65748b; font-size: 9px; font-weight: 750; }
 .unavailable-list p { margin: 4px 0 0; color: #8a96a8; font-size: 8px; line-height: 1.5; }
+.provider-usage { display: grid; gap: 7px; padding-top: 10px; border-top: 1px solid #edf0f5; }
+.provider-usage-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
+.provider-usage-heading strong { color: #33445f; font-size: 10px; }
+.provider-usage-heading span { color: #8390a3; font-size: 8px; }
+.provider-usage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.provider-usage-grid > div { display: grid; min-width: 0; gap: 4px; padding: 7px 8px; border: 1px solid #edf0f5; border-radius: 8px; background: #fbfcfe; }
+.provider-usage-grid span { color: #75839a; font-size: 8px; }
+.provider-usage-grid strong { overflow-wrap: anywhere; color: #1d2d48; font-size: 11px; }
+.provider-usage > p { margin: 0; color: #8a96a8; font-size: 8px; line-height: 1.45; }
 .event-list { display: grid; }
 .event-row { display: flex; min-width: 0; align-items: center; gap: 9px; padding: 9px 0; border-top: 1px solid #eef1f6; }
 .severity-mark { display: grid; flex: 0 0 24px; width: 24px; height: 24px; place-items: center; border-radius: 8px; font-size: 10px; font-weight: 850; }
@@ -138,6 +148,7 @@
 .event-copy { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 3px; }
 .event-copy strong { overflow: hidden; color: #31405a; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .event-copy span { color: #8390a3; font-size: 8px; }
+.event-row time { flex: 0 0 auto; color: #8793a6; font-size: 8px; white-space: nowrap; }
 .severity-label { display: inline-flex; flex: 0 0 auto; align-items: center; padding: 5px 7px; border-radius: 16px; font-size: 8px; font-weight: 750; white-space: nowrap; }
 .panel-link { flex: 0 0 auto; min-height: 28px; padding: 0 2px; border: 0; background: transparent; color: #3977eb; font-size: 9px; font-weight: 750; white-space: nowrap; }
 .panel-link:hover { color: #e72e67; }
@@ -203,6 +214,7 @@
   .traffic-panel, .services-panel, .work-panel, .payment-panel, .runtime-panel, .realtime-panel, .current-alerts-panel, .unavailable-panel { grid-column: span 6; }
   .traffic-panel { grid-column: span 12; }
   .services-panel { grid-column: span 12; }
+  .activity-panel { grid-column: span 12; }
   .latency-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 720px) {
@@ -215,7 +227,7 @@
   .metric-icon { flex-basis: 30px; width: 30px; height: 30px; }
   .tab-panel, .dashboard-grid { width: 100%; min-width: 0; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-  .traffic-panel, .services-panel, .work-panel, .payment-panel, .runtime-panel, .realtime-panel, .current-alerts-panel, .unavailable-panel { grid-column: 1; }
+  .traffic-panel, .services-panel, .work-panel, .payment-panel, .runtime-panel, .realtime-panel, .current-alerts-panel, .unavailable-panel, .activity-panel { grid-column: 1; }
   .panel { padding: 13px; }
   .traffic-chart { gap: 2px; }
   .traffic-column small { font-size: 6px; }
@@ -240,6 +252,9 @@
   .service-time { margin-left: 35px; }
   .service-state { margin-left: auto; }
   .latency-strip { grid-template-columns: 1fr 1fr; }
+  .provider-usage-grid { grid-template-columns: 1fr 1fr; }
+  .event-row { align-items: flex-start; }
+  .event-row time { white-space: normal; text-align: right; }
   .live-count { padding: 7px 4px; }
 }
 

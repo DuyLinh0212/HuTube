@@ -4,7 +4,7 @@ import { Subscription, interval } from 'rxjs';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
 import { AuthService } from '../../core/auth.service';
-import { AdminOperationsService, ApiTrafficBucket, SystemOverview, SystemServiceStatus, SystemSignal } from './operations.service';
+import { AdminOperationsService, ApiTrafficBucket, SystemActivity, SystemOverview, SystemServiceStatus, SystemSignal } from './operations.service';
 
 type MonitorTab = 'live' | 'alerts';
 type MetricFormat = 'integer' | 'percent';
@@ -57,16 +57,45 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     return [...known, ...reported.filter(item => !knownKeys.has(item.key.toLowerCase()))];
   });
   readonly unintegratedSources = computed<UnintegratedSource[]>(() => {
-    const sources: UnintegratedSource[] = [
-      { vi: 'Quota từ Neon và Redis', en: 'Neon and Redis quotas' },
-      { vi: 'Lịch sử lỗi upload và webhook thanh toán', en: 'Upload and payment webhook failure history' },
-      { vi: 'Lịch sử sự cố và thao tác xử lý', en: 'Incident history and resolution workflow' },
-    ];
+    const data = this.overview();
+    if (!data) return [];
+    const sources: UnintegratedSource[] = [];
     const redis = this.visibleServices().find(service => service.key === 'redis');
     if (!redis || redis.status === 'unmonitored') {
       sources.unshift({
         vi: 'Health check Redis cần cấu hình UPSTASH_REDIS_REST_URL và UPSTASH_REDIS_REST_TOKEN.',
         en: 'Redis health checks require UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.',
+      });
+    }
+    if (!data.r2StorageUsage || data.r2StorageUsage.status !== 'available') {
+      sources.push({
+        vi: data.r2StorageUsage?.detail ?? 'Chưa đọc được dung lượng Cloudflare R2; kiểm tra quyền Cloudflare Analytics và cấu hình bucket.',
+        en: 'Cloudflare R2 storage is unavailable. Check Cloudflare Analytics permissions and bucket configuration.',
+      });
+    }
+    if (!data.neonUsage || data.neonUsage.status !== 'available') {
+      const detail = data.neonUsage?.detail;
+      const needsApiKey = detail?.includes('NEON_API_KEY') ?? true;
+      const isProviderError = data.neonUsage?.status === 'error';
+      sources.push({
+        vi: detail ?? 'Usage Neon cần NEON_API_KEY, NEON_ORG_ID và NEON_PROJECT_ID.',
+        en: isProviderError
+          ? 'Neon metrics could not be read. Check database connectivity, API key permissions, and the organization/project IDs.'
+          : needsApiKey
+          ? 'Neon usage requires NEON_API_KEY, NEON_ORG_ID, and NEON_PROJECT_ID.'
+          : 'This Neon plan does not provide consumption history through the API; database size and connections remain measured.',
+      });
+    }
+    if (!data?.redisUsage || data.redisUsage.status !== 'available') {
+      sources.push({
+        vi: data?.redisUsage?.detail ?? 'Quota Upstash cần UPSTASH_EMAIL, UPSTASH_API_KEY và UPSTASH_REDIS_DATABASE_ID.',
+        en: 'Upstash usage is unavailable. Check UPSTASH_EMAIL, UPSTASH_API_KEY, UPSTASH_REDIS_DATABASE_ID, and the Developer API key permissions.',
+      });
+    }
+    if (!data?.renderUsage || data.renderUsage.status !== 'available') {
+      sources.push({
+        vi: data?.renderUsage?.detail ?? 'CPU và bộ nhớ Render cần RENDER_API_KEY; RENDER_SERVICE_ID được Render cấp tự động.',
+        en: 'Render CPU and memory metrics require RENDER_API_KEY; Render provides RENDER_SERVICE_ID automatically.',
       });
     }
     return sources;
@@ -139,6 +168,39 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     }
     const fractionDigits = unitIndex === 0 ? 0 : amount >= 100 ? 2 : amount >= 10 ? 1 : 2;
     return `${this.formatNumber(amount, fractionDigits)} ${units[unitIndex]}`;
+  }
+
+  activityTime(value: string): string {
+    return this.formatDateTime(value, { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  providerStatus(status: string): string {
+    const labels: Record<string, [string, string]> = {
+      available: ['Đã đo', 'Measured'],
+      partial: ['Đo một phần', 'Partly measured'],
+      unmonitored: ['Chờ cấu hình', 'Configuration needed'],
+      error: ['Lỗi kết nối/API', 'API or connection error'],
+    };
+    const [vi, en] = labels[status] ?? [status, status];
+    return this.tx(vi, en);
+  }
+
+  activitySeverity(status: string): string {
+    return status === 'error' || status === 'critical' ? 'critical'
+      : status === 'warning' ? 'warning' : 'normal';
+  }
+
+  activityCategory(category: string): string {
+    const labels: Record<string, [string, string]> = {
+      upload: ['Upload', 'Upload'], payment: ['Thanh toán', 'Payment'],
+      incident: ['Sự cố', 'Incident'], admin: ['Quản trị', 'Admin'], system: ['Hệ thống', 'System'],
+    };
+    const [vi, en] = labels[category] ?? [category, category];
+    return this.tx(vi, en);
+  }
+
+  activityItems(items: SystemActivity[] | null | undefined): SystemActivity[] {
+    return items ?? [];
   }
 
   formatMetric(metric: MetricCard): string {
@@ -286,7 +348,11 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     if (!value) return '—';
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return '—';
-    return new Intl.DateTimeFormat(this.locale(), options).format(date);
+    try {
+      return new Intl.DateTimeFormat(this.locale(), options).format(date);
+    } catch {
+      return date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+    }
   }
 
   private locale(): string { return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US'; }

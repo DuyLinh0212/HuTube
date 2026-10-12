@@ -63,6 +63,41 @@ public sealed record AdminR2StorageUsage(
     DateTimeOffset? SampledAt,
     string Detail);
 
+public sealed record AdminNeonUsage(
+    string Status,
+    long? DatabaseSizeBytes,
+    int? ActiveConnections,
+    int? ConnectionLimit,
+    double? ComputeUnitHoursThisMonth,
+    string Detail);
+
+public sealed record AdminRedisUsage(
+    string Status,
+    string DatabaseName,
+    long? CurrentStorageBytes,
+    long? StorageLimitBytes,
+    long? MonthlyRequests,
+    long? RequestLimit,
+    string Plan,
+    string Detail);
+
+public sealed record AdminRenderUsage(
+    string Status,
+    double? CpuPercent,
+    double? CpuLimit,
+    double? MemoryPercent,
+    long? MemoryBytes,
+    long? MemoryLimitBytes,
+    string Detail);
+
+public sealed record AdminSystemActivity(
+    DateTimeOffset OccurredAt,
+    string Category,
+    string Status,
+    string Title,
+    string Detail,
+    Guid? ResourceId);
+
 public sealed record AdminSystemOverviewResponse(
     DateTimeOffset SampledAt,
     int ActiveAlertCount,
@@ -72,7 +107,12 @@ public sealed record AdminSystemOverviewResponse(
     AdminApiTrafficOverview ApiTraffic,
     AdminSystemLiveMetrics LiveMetrics,
     IReadOnlyList<AdminSystemServiceStatus> Services,
-    AdminR2StorageUsage R2StorageUsage);
+    AdminR2StorageUsage R2StorageUsage,
+    AdminNeonUsage NeonUsage,
+    AdminRedisUsage RedisUsage,
+    AdminRenderUsage RenderUsage,
+    IReadOnlyList<AdminSystemActivity> RecentActivity,
+    IReadOnlyList<AdminSystemActivity> IncidentHistory);
 
 public sealed record AdminSystemMetric(long Total, long InPeriod);
 public sealed record AdminSystemRevenueMetric(decimal Total, long TransactionsTotal, decimal InPeriod, long TransactionsInPeriod);

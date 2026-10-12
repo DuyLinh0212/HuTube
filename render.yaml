@@ -16,6 +16,24 @@ services:
         value: http://+:8080
       - key: ConnectionStrings__Database
         sync: false
+      - key: NEON_API_KEY
+        sync: false
+      - key: NEON_ORG_ID
+        sync: false
+      - key: NEON_PROJECT_ID
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: UPSTASH_EMAIL
+        sync: false
+      - key: UPSTASH_API_KEY
+        sync: false
+      - key: UPSTASH_REDIS_DATABASE_ID
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
       - key: Jwt__SigningKey
         generateValue: true
       - key: Jwt__Issuer

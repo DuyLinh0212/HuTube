@@ -155,7 +155,7 @@
               <div><span>{{ tx('Rendition lỗi · 24 giờ', 'Failed renditions · 24 h') }}</span><strong>{{ formatNumber(data.liveMetrics.failedRenditionsLast24Hours) }}</strong></div>
               <div><span>{{ tx('Video chờ kiểm duyệt', 'Videos awaiting review') }}</span><strong>{{ formatNumber(data.liveMetrics.pendingVideoReviews) }}</strong></div>
             </div>
-            <p class="panel-footnote">{{ tx('Database không lưu lịch sử lỗi upload hoặc thời điểm bắt đầu từng tác vụ; các mục đó chưa thể thống kê chính xác.', 'The database does not retain upload failure history or each job start time, so those figures are not available.') }}</p>
+            <p class="panel-footnote">{{ tx('Lỗi upload và xử lý rendition được lưu từ lúc bản tích hợp này hoạt động; dữ liệu cũ không được tạo ngược.', 'Upload and rendition failures are recorded from this release onward; older events are not backfilled.') }}</p>
           </article>
 
           <article class="panel payment-panel">
@@ -173,7 +173,7 @@
               <div><span>{{ tx('Chờ quá hạn thanh toán', 'Past payment expiry') }}</span><strong [class.value-warning]="data.liveMetrics.expiredPendingPayments > 0">{{ formatNumber(data.liveMetrics.expiredPendingPayments) }}</strong></div>
               <div><span>{{ tx('Thất bại hoặc hủy · 24 giờ', 'Failed or cancelled · 24 h') }}</span><strong>{{ formatNumber(data.liveMetrics.failedPaymentsLast24Hours) }}</strong></div>
             </div>
-            <p class="panel-footnote">{{ tx('Backend chưa lưu lịch sử lỗi webhook riêng; trạng thái webhook chưa được giám sát.', 'The backend does not store webhook failure history separately; webhook status is not monitored.') }}</p>
+            <p class="panel-footnote">{{ tx('Kết quả webhook SePay được lưu trong lịch sử hoạt động từ lúc bản tích hợp này hoạt động; sự kiện cũ không được tạo ngược.', 'SePay webhook outcomes are recorded from this release onward; older events are not backfilled.') }}</p>
           </article>
 
           <article class="panel runtime-panel">
@@ -221,10 +221,37 @@
                 <p>{{ tx('Hãy cập nhật backend để xem dung lượng bucket.', 'Update the backend to view bucket storage usage.') }}</p>
               </div>
             }
-            <div class="unavailable-list">
-              <span>{{ tx('Quota chưa có dữ liệu', 'Quota data unavailable') }}</span>
-              <p>{{ tx('CPU trên Render và quota Neon/Redis chưa được lấy từ API nhà cung cấp.', 'Render CPU and Neon/Redis quotas are not read from provider APIs.') }}</p>
-            </div>
+            @if (data.renderUsage; as renderUsage) {
+              <div class="provider-usage">
+                <div class="provider-usage-heading"><strong>Render</strong><span>{{ providerStatus(renderUsage.status) }}</span></div>
+                <div class="provider-usage-grid">
+                  <div><span>{{ tx('CPU đang dùng', 'CPU in use') }}</span><strong>{{ renderUsage.cpuPercent == null ? '—' : formatNumber(renderUsage.cpuPercent, 1) + '%' }}</strong></div>
+                  <div><span>{{ tx('Bộ nhớ instance', 'Instance memory') }}</span><strong>{{ formatBytes(renderUsage.memoryBytes) }} / {{ formatBytes(renderUsage.memoryLimitBytes) }}</strong></div>
+                </div>
+                <p>{{ renderUsage.detail }}</p>
+              </div>
+            }
+            @if (data.neonUsage; as neonUsage) {
+              <div class="provider-usage">
+                <div class="provider-usage-heading"><strong>Neon PostgreSQL</strong><span>{{ providerStatus(neonUsage.status) }}</span></div>
+                <div class="provider-usage-grid">
+                  <div><span>{{ tx('Database hiện tại', 'Current database') }}</span><strong>{{ formatBytes(neonUsage.databaseSizeBytes) }}</strong></div>
+                  <div><span>{{ tx('Kết nối đang dùng', 'Connections in use') }}</span><strong>{{ formatNumber(neonUsage.activeConnections) }} / {{ formatNumber(neonUsage.connectionLimit) }}</strong></div>
+                  <div><span>{{ tx('Compute tháng này', 'Compute this month') }}</span><strong>{{ neonUsage.computeUnitHoursThisMonth == null ? '—' : formatNumber(neonUsage.computeUnitHoursThisMonth, 2) + ' CUh' }}</strong></div>
+                </div>
+                <p>{{ neonUsage.detail }}</p>
+              </div>
+            }
+            @if (data.redisUsage; as redisUsage) {
+              <div class="provider-usage">
+                <div class="provider-usage-heading"><strong>Upstash Redis</strong><span>{{ redisUsage.status === 'available' ? redisUsage.plan : providerStatus(redisUsage.status) }}</span></div>
+                <div class="provider-usage-grid">
+                  <div><span>{{ tx('Dung lượng hiện tại', 'Current storage') }}</span><strong>{{ formatBytes(redisUsage.currentStorageBytes) }} / {{ formatBytes(redisUsage.storageLimitBytes) }}</strong></div>
+                  <div><span>{{ tx('Request tháng này', 'Requests this month') }}</span><strong>{{ formatNumber(redisUsage.monthlyRequests) }} / {{ formatNumber(redisUsage.requestLimit) }}</strong></div>
+                </div>
+                <p>{{ redisUsage.detail }}</p>
+              </div>
+            }
           </article>
 
           <article class="panel realtime-panel">
@@ -268,7 +295,30 @@
                 <p class="empty-panel">{{ tx('Không có tín hiệu nào đang vượt ngưỡng.', 'No signals currently exceed their thresholds.') }}</p>
               }
             </div>
-            <p class="panel-footnote">{{ tx('Chưa lưu lịch sử thay đổi trạng thái cảnh báo; danh sách phản ánh tình trạng hiện tại.', 'Alert state changes are not persisted; this list shows current conditions.') }}</p>
+            <p class="panel-footnote">{{ tx('Lịch sử phát hiện, nâng mức và giải quyết được lưu ở nhật ký vận hành.', 'Alert raised, escalated, and resolved transitions are stored in the operations log.') }}</p>
+          </article>
+
+          <article class="panel activity-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-blue" aria-hidden="true">↻</span>
+                <div>
+                  <h2>{{ tx('Lịch sử sự cố và thao tác', 'Incident and action history') }}</h2>
+                  <p>{{ tx('Upload, webhook thanh toán và thao tác quản trị gần đây', 'Recent uploads, payment webhooks, and admin actions') }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="event-list">
+              @for (item of activityItems(data.recentActivity); track item.occurredAt + item.category + item.title) {
+                <div class="event-row">
+                  <span class="severity-mark" [class]="'severity-mark severity-' + activitySeverity(item.status)" aria-hidden="true">{{ item.status === 'error' || item.status === 'critical' ? '!' : '•' }}</span>
+                  <div class="event-copy"><strong>{{ item.title }}</strong><span>{{ activityCategory(item.category) }} · {{ item.detail }}</span></div>
+                  <time>{{ activityTime(item.occurredAt) }}</time>
+                </div>
+              } @empty {
+                <p class="empty-panel">{{ tx('Chưa có sự cố hoặc thao tác gần đây.', 'No recent incidents or actions.') }}</p>
+              }
+            </div>
           </article>
 
           @if (unintegratedSources().length > 0) {
@@ -299,7 +349,7 @@
             <div>
               <span class="summary-eyebrow">{{ tx('TRẠNG THÁI HIỆN TẠI', 'CURRENT CONDITIONS') }}</span>
               <h2>{{ tx('Tín hiệu vận hành', 'Operational signals') }}</h2>
-              <p>{{ tx('Đo lúc', 'Sampled') }} {{ sampledAt() }} · {{ tx('Không phải lịch sử sự cố đã lưu.', 'Not persisted incident history.') }}</p>
+              <p>{{ tx('Đo lúc', 'Sampled') }} {{ sampledAt() }} · {{ tx('Có lưu các lần chuyển trạng thái.', 'State transitions are persisted.') }}</p>
             </div>
           </div>
           <div class="live-counts">
@@ -315,7 +365,7 @@
               <span class="panel-icon tone-green" aria-hidden="true">◎</span>
               <div>
                 <h2>{{ tx('Tín hiệu từ API và database', 'Signals from the API and database') }}</h2>
-                <p>{{ tx('Trạng thái được tính lại khi tải dữ liệu; không có nút giả lập trạng thái sự cố.', 'Conditions are recalculated on refresh; incident states are not simulated.') }}</p>
+                <p>{{ tx('Trạng thái lấy từ số liệu thật; lịch sử thay đổi được lưu theo thời điểm.', 'Conditions use live measurements; state changes are stored with timestamps.') }}</p>
               </div>
             </div>
             <span class="real-pill"><i></i>{{ tx('Dữ liệu thật', 'Live data') }}</span>
@@ -352,7 +402,18 @@
               <div class="empty-panel">{{ 'operations.system.noSignals' | translate }}</div>
             }
           </div>
-          <p class="panel-footnote">{{ tx('Cảnh báo được tính từ cấu hình hiện hành. Chưa có kho lưu lịch sử cảnh báo hoặc luồng Đã xem → Đang xử lý → Đã giải quyết.', 'Alerts use current configuration. No alert history store or Seen → Investigating → Resolved workflow is integrated yet.') }}</p>
+          <p class="panel-footnote">{{ tx('Lịch sử gần đây', 'Recent incident history') }}</p>
+          <div class="event-list incident-history-list">
+            @for (item of activityItems(data.incidentHistory); track item.occurredAt + item.title) {
+              <div class="event-row">
+                <span class="severity-mark" [class]="'severity-mark severity-' + activitySeverity(item.status)" aria-hidden="true">{{ item.status === 'normal' ? '✓' : '!' }}</span>
+                <div class="event-copy"><strong>{{ item.title }}</strong><span>{{ item.detail }}</span></div>
+                <time>{{ activityTime(item.occurredAt) }}</time>
+              </div>
+            } @empty {
+              <p class="empty-panel">{{ tx('Chưa ghi nhận lần chuyển trạng thái cảnh báo nào.', 'No alert state changes have been recorded yet.') }}</p>
+            }
+          </div>
         </section>
       </section>
     }
