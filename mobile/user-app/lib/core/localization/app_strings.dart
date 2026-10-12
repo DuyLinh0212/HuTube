@@ -1043,8 +1043,11 @@ class AppStrings {
       'plans.serverNoPlans': 'Danh mục gói hiện chưa có dữ liệu từ máy chủ.',
       'plans.paymentReceived': 'Đã nhận thanh toán',
       'plans.paymentHeader': 'Thanh toán gói HuTube',
-      'plans.paymentCopied': 'Đã sao chép nội dung chuyển khoản.',
-      'plans.copyPayment': 'Sao chép nội dung',
+      'plans.paymentCopied': 'Đã sao chép mã giao dịch.',
+      'plans.copyPayment': 'Sao chép mã giao dịch',
+      'plans.continueToVnPay': 'Tiếp tục trên VNPay',
+      'plans.paymentLinkInvalid': 'Không thể mở liên kết thanh toán. Vui lòng thử lại.',
+      'plans.paymentFailed': 'VNPay không xác nhận giao dịch. Bạn có thể thử lại.',
       'plans.activated': 'Gói của bạn đã được kích hoạt.',
       'plans.paymentExpired': 'Giao dịch đã hết hạn hoặc không thành công.',
       'plans.paymentCancel': 'Hủy giao dịch',
@@ -1052,7 +1055,7 @@ class AppStrings {
           'Bạn có chắc muốn hủy giao dịch đang chờ thanh toán không?',
       'plans.paymentCancelError': 'Không thể hủy giao dịch. Vui lòng thử lại.',
       'plans.paymentInstructions':
-          'Quét mã để chuyển khoản. Ứng dụng tự kiểm tra kết quả mỗi vài giây.',
+          'Mở cổng VNPay để thanh toán. Ứng dụng tự kiểm tra kết quả mỗi vài giây.',
       'plans.checkPayment': 'Kiểm tra ngay',
       'plans.paymentDone': 'Hoàn tất',
 
@@ -2397,8 +2400,11 @@ class AppStrings {
       'plans.serverNoPlans': 'The server has not provided any plans yet.',
       'plans.paymentReceived': 'Payment received',
       'plans.paymentHeader': 'HuTube plan payment',
-      'plans.paymentCopied': 'Transfer details copied.',
-      'plans.copyPayment': 'Copy transfer details',
+      'plans.paymentCopied': 'Transaction reference copied.',
+      'plans.copyPayment': 'Copy transaction reference',
+      'plans.continueToVnPay': 'Continue on VNPay',
+      'plans.paymentLinkInvalid': 'Unable to open the payment link. Try again.',
+      'plans.paymentFailed': 'VNPay did not confirm the transaction. You can try again.',
       'plans.activated': 'Your plan has been activated.',
       'plans.paymentExpired': 'The transaction expired or failed.',
       'plans.paymentCancel': 'Cancel transaction',
@@ -2407,7 +2413,7 @@ class AppStrings {
       'plans.paymentCancelError':
           'Unable to cancel the transaction. Try again.',
       'plans.paymentInstructions':
-          'Scan the code to transfer payment. The app checks the result every few seconds.',
+          'Open VNPay to pay. The app checks the result every few seconds.',
       'plans.checkPayment': 'Check now',
       'plans.paymentDone': 'Done',
 

@@ -203,7 +203,10 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<Plan>().WithMany().HasForeignKey(x => x.PlanId);
             b.HasOne<HuTube.Domain.Plans.PlanHistory>().WithMany().HasForeignKey(x => x.PlanHistoryId).IsRequired(false);
             b.Property(x => x.GatewayPayload).HasColumnType("jsonb");
+            b.Property(x => x.VnPayTransactionNo).HasColumnName("vnpay_transaction_no").HasMaxLength(15);
             b.HasIndex(x => x.TransactionCode).IsUnique().HasDatabaseName("uq_payments_transaction");
+            b.HasIndex(x => x.VnPayTransactionNo).IsUnique().HasDatabaseName("ux_payments_vnpay_transaction_no")
+                .HasFilter("vnpay_transaction_no IS NOT NULL");
             b.HasIndex(x => new { x.UserId, x.IdempotencyKey }).IsUnique().HasDatabaseName("ux_payments_idempotency").HasFilter("idempotency_key IS NOT NULL");
         });
         model.Entity<Playlist>(b => { b.ToTable("playlists"); b.HasKey(x => x.PlaylistId); b.Property(x => x.CoverUrl).HasColumnName("cover_url"); b.HasIndex(x => x.UserId); b.HasIndex(x => x.Status); });

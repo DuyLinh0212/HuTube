@@ -19,6 +19,7 @@ public sealed record AdminPaymentItemResponse(
     DateTimeOffset UpdatedAt,
     DateTimeOffset ExpiresAt,
     long? SepayTransactionId,
+    string? VnPayTransactionNo,
     Guid? PlanHistoryId);
 
 public sealed record AdminPaymentStatsResponse(
