@@ -108,6 +108,19 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     return new Intl.NumberFormat(this.locale(), { maximumFractionDigits: fractionDigits, minimumFractionDigits: fractionDigits }).format(value);
   }
 
+  formatBytes(value: number | null | undefined): string {
+    if (value == null || !Number.isFinite(value) || value < 0) return '—';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    let amount = value;
+    let unitIndex = 0;
+    while (amount >= 1024 && unitIndex < units.length - 1) {
+      amount /= 1024;
+      unitIndex++;
+    }
+    const fractionDigits = unitIndex === 0 || amount >= 100 ? 0 : amount >= 10 ? 1 : 2;
+    return `${this.formatNumber(amount, fractionDigits)} ${units[unitIndex]}`;
+  }
+
   formatMetric(metric: MetricCard): string {
     const value = this.formatNumber(metric.value, metric.format === 'percent' ? 1 : 0);
     return metric.format === 'percent' && metric.value != null ? value + '%' : value;
@@ -210,6 +223,10 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
 
   collectedSince(): string {
     const value = this.overview()?.apiTraffic.collectedSince;
+    return this.formatDateTime(value, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  r2SampledAt(value: string | null | undefined): string {
     return this.formatDateTime(value, { dateStyle: 'medium', timeStyle: 'short' });
   }
 

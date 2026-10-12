@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.Json;
@@ -8,6 +9,7 @@ using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Notifications;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
@@ -20,9 +22,12 @@ public sealed class AdminOperationsService(
     ApiRequestTelemetry telemetry,
     NotificationConnections notificationConnections,
     IObjectStorage objectStorage,
-    IHttpClientFactory httpClientFactory)
+    IHttpClientFactory httpClientFactory,
+    IMemoryCache memoryCache)
 {
     private static readonly TimeSpan HealthProbeTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan R2UsageCacheDuration = TimeSpan.FromMinutes(5);
+    private const string CloudflareGraphQlEndpoint = "https://api.cloudflare.com/client/v4/graphql";
 
     public async Task<AdminSystemOverviewResponse> GetSystemOverviewAsync(CancellationToken ct)
     {
@@ -121,11 +126,13 @@ public sealed class AdminOperationsService(
             pendingReviews,
             notificationConnections.Active.Count);
         overviewTimer.Stop();
+        var r2StorageUsageTask = GetR2StorageUsageAsync(ct);
         var services = await GetServiceStatusesAsync(databaseTimer.Elapsed.TotalMilliseconds,
             overviewTimer.Elapsed.TotalMilliseconds, notificationConnections.Active.Count, ct);
+        var r2StorageUsage = await r2StorageUsageTask;
 
         return new AdminSystemOverviewResponse(now, triggered.Count, triggered.Count(signal => signal.Severity == "critical"),
-            signals, settings, apiTraffic, liveMetrics, services);
+            signals, settings, apiTraffic, liveMetrics, services, r2StorageUsage);
     }
 
     private async Task<IReadOnlyList<AdminSystemServiceStatus>> GetServiceStatusesAsync(
@@ -256,6 +263,156 @@ public sealed class AdminOperationsService(
         {
             return new("storage", "error", "Cloudflare R2 không phản hồi kiểm tra bucket.", timer.Elapsed.TotalMilliseconds);
         }
+    }
+
+    private async Task<AdminR2StorageUsage> GetR2StorageUsageAsync(CancellationToken ct)
+    {
+        var accountId = configuration["Storage:R2:AccountId"]?.Trim();
+        var bucketName = configuration["Storage:R2:BucketName"]?.Trim();
+        var token = (configuration["CLOUDFLARE_API_TOKEN"]
+            ?? configuration["SystemMonitoring:CloudflareAnalyticsToken"])?.Trim();
+
+        if (string.IsNullOrWhiteSpace(accountId) || string.IsNullOrWhiteSpace(bucketName))
+            return new("unmonitored", bucketName ?? "", null, null, null, null, null, null,
+                "Chưa cấu hình Account ID và tên bucket R2.");
+        if (string.IsNullOrWhiteSpace(token))
+            return new("unmonitored", bucketName, null, null, null, null, null, null,
+                "Chưa cấu hình CLOUDFLARE_API_TOKEN có quyền Account Analytics: Read.");
+
+        var cacheKey = $"admin-r2-storage-usage:{accountId}:{bucketName}";
+        return await memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = R2UsageCacheDuration;
+            return await QueryR2StorageUsageAsync(accountId, bucketName, token, ct);
+        }) ?? new AdminR2StorageUsage("error", bucketName, null, null, null, null, null, null,
+            "Không lấy được số liệu Cloudflare R2.");
+    }
+
+    private async Task<AdminR2StorageUsage> QueryR2StorageUsageAsync(
+        string accountId,
+        string bucketName,
+        string token,
+        CancellationToken ct)
+    {
+        const string query = """
+            query R2StorageUsage($accountTag: string!, $startDate: Time, $endDate: Time, $bucketName: string) {
+              viewer {
+                accounts(filter: { accountTag: $accountTag }) {
+                  r2StorageAdaptiveGroups(
+                    limit: 1
+                    filter: {
+                      datetime_geq: $startDate
+                      datetime_leq: $endDate
+                      bucketName: $bucketName
+                    }
+                    orderBy: [datetime_DESC]
+                  ) {
+                    max { objectCount uploadCount payloadSize metadataSize }
+                    dimensions { datetime }
+                  }
+                }
+              }
+            }
+            """;
+
+        var now = DateTimeOffset.UtcNow;
+        var requestPayload = JsonSerializer.Serialize(new
+        {
+            query,
+            variables = new
+            {
+                accountTag = accountId,
+                startDate = now.AddDays(-30).ToString("O", CultureInfo.InvariantCulture),
+                endDate = now.ToString("O", CultureInfo.InvariantCulture),
+                bucketName
+            }
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(HealthProbeTimeout);
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, CloudflareGraphQlEndpoint);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = new StringContent(requestPayload, System.Text.Encoding.UTF8, "application/json");
+            using var response = await httpClientFactory.CreateClient().SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!response.IsSuccessStatusCode)
+                return new("error", bucketName, null, null, null, null, null, null,
+                    response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden
+                        ? "Cloudflare từ chối token; cần quyền Account Analytics: Read cho đúng account."
+                        : $"Cloudflare Analytics trả HTTP {(int)response.StatusCode} khi đọc dung lượng R2.");
+
+            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+            using var payload = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+            var root = payload.RootElement;
+            if (root.TryGetProperty("errors", out var errors)
+                && errors.ValueKind == JsonValueKind.Array && errors.GetArrayLength() > 0)
+                return new("error", bucketName, null, null, null, null, null, null,
+                    "Cloudflare Analytics không chấp nhận truy vấn; kiểm tra quyền Account Analytics: Read và cấu hình bucket.");
+
+            if (!root.TryGetProperty("data", out var data)
+                || !data.TryGetProperty("viewer", out var viewer)
+                || !viewer.TryGetProperty("accounts", out var accounts)
+                || accounts.ValueKind != JsonValueKind.Array
+                || accounts.GetArrayLength() == 0
+                || !accounts[0].TryGetProperty("r2StorageAdaptiveGroups", out var groups)
+                || groups.ValueKind != JsonValueKind.Array
+                || groups.GetArrayLength() == 0)
+                return new("unmonitored", bucketName, null, null, null, null, null, null,
+                    "Cloudflare chưa có mẫu dung lượng cho bucket này trong 30 ngày gần nhất.");
+
+            var group = groups[0];
+            if (!group.TryGetProperty("max", out var max))
+                return new("error", bucketName, null, null, null, null, null, null,
+                    "Cloudflare Analytics trả mẫu dung lượng không đầy đủ.");
+
+            var payloadSize = ReadMetric(max, "payloadSize");
+            var metadataSize = ReadMetric(max, "metadataSize");
+            var objectCount = ReadMetric(max, "objectCount");
+            var pendingUploads = ReadMetric(max, "uploadCount");
+            if (payloadSize is null || metadataSize is null || objectCount is null)
+                return new("error", bucketName, null, payloadSize, metadataSize, objectCount, pendingUploads, null,
+                    "Cloudflare Analytics không trả đủ trường dung lượng cho bucket.");
+
+            DateTimeOffset? sampledAt = null;
+            if (group.TryGetProperty("dimensions", out var dimensions)
+                && dimensions.TryGetProperty("datetime", out var datetime)
+                && datetime.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(datetime.GetString(), CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsedTime))
+                sampledAt = parsedTime;
+
+            return new("available", bucketName, payloadSize.Value + metadataSize.Value,
+                payloadSize, metadataSize, objectCount, pendingUploads, sampledAt,
+                "Đã đọc dung lượng theo bucket từ Cloudflare R2 Analytics.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException)
+        {
+            return new("error", bucketName, null, null, null, null, null, null,
+                "Đọc số liệu Cloudflare R2 quá thời gian 3 giây.");
+        }
+        catch (HttpRequestException)
+        {
+            return new("error", bucketName, null, null, null, null, null, null,
+                "Không kết nối được Cloudflare Analytics để đọc dung lượng R2.");
+        }
+        catch (JsonException)
+        {
+            return new("error", bucketName, null, null, null, null, null, null,
+                "Cloudflare Analytics trả dữ liệu dung lượng không hợp lệ.");
+        }
+    }
+
+    private static long? ReadMetric(JsonElement metrics, string name)
+    {
+        if (!metrics.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number)
+            return null;
+        if (value.TryGetInt64(out var integer)) return integer;
+        return value.TryGetDecimal(out var decimalValue) && decimalValue <= long.MaxValue && decimalValue >= long.MinValue
+            ? decimal.ToInt64(decimal.Round(decimalValue))
+            : null;
     }
 
     private async Task<HttpProbeResult> ProbeHttpAsync(string baseUrl, CancellationToken ct)

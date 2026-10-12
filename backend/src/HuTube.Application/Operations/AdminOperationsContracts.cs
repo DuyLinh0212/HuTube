@@ -52,6 +52,17 @@ public sealed record AdminSystemServiceStatus(
     string Detail,
     double? ResponseTimeMs);
 
+public sealed record AdminR2StorageUsage(
+    string Status,
+    string BucketName,
+    long? TotalSizeBytes,
+    long? PayloadSizeBytes,
+    long? MetadataSizeBytes,
+    long? ObjectCount,
+    long? PendingUploadCount,
+    DateTimeOffset? SampledAt,
+    string Detail);
+
 public sealed record AdminSystemOverviewResponse(
     DateTimeOffset SampledAt,
     int ActiveAlertCount,
@@ -60,7 +71,8 @@ public sealed record AdminSystemOverviewResponse(
     IReadOnlyList<AdminSystemRuntimeSetting> RuntimeSettings,
     AdminApiTrafficOverview ApiTraffic,
     AdminSystemLiveMetrics LiveMetrics,
-    IReadOnlyList<AdminSystemServiceStatus> Services);
+    IReadOnlyList<AdminSystemServiceStatus> Services,
+    AdminR2StorageUsage R2StorageUsage);
 
 public sealed record AdminSystemMetric(long Total, long InPeriod);
 public sealed record AdminSystemRevenueMetric(decimal Total, long TransactionsTotal, decimal InPeriod, long TransactionsInPeriod);

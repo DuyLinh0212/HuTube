@@ -12,6 +12,7 @@ Backend nhận trực tiếp `ConnectionStrings__Database` ở dạng PostgreSQL
 | `Auth__AllowedOrigins__0` | Tùy chọn: User Web local, `http://localhost:4200` |
 | `Auth__AllowedOrigins__1` | Tùy chọn: Admin Web local, `http://localhost:4201` |
 | `Google__ClientId` | OAuth 2.0 **Web client ID** từ Google Cloud Console |
+| `CLOUDFLARE_API_TOKEN` | Token chỉ đọc analytics; cần quyền **Account → Account Analytics → Read** để lấy dung lượng bucket R2 |
 | `Email__Host`, `Email__From`, `Email__Username`, `Email__Password` | SMTP production; dùng port 587 mặc định hoặc đổi `Email__Port` theo nhà cung cấp |
 
 `Jwt__SigningKey` được Render tự tạo khi Blueprint được tạo. Các biến `ASPNETCORE_ENVIRONMENT`, JWT issuer/audience, email mode và port HTTP có giá trị sẵn trong Blueprint.
@@ -43,3 +44,7 @@ dotnet backend/src/HuTube.Api/bin/Release/net10.0/HuTube.Api.dll --migrate
 ```
 
 Render pre-deploy command phù hợp với paid web service. Free plan không có pre-deploy command, nên chạy migration từ máy local/CI trước khi deploy; API startup không tự thay đổi schema.
+
+## Cloudflare R2 metrics
+
+Trang giám sát đọc mẫu dung lượng theo bucket từ Cloudflare GraphQL Analytics, gồm tổng dung lượng object và metadata, số object, số lượt tải nhiều phần đang chờ và thời điểm đo. Tạo API token giới hạn cho đúng account với quyền **Account → Account Analytics → Read**, rồi đặt token vào `CLOUDFLARE_API_TOKEN` trên Render. Token S3 của R2 (`Storage__R2__AccessKeyId` và `Storage__R2__SecretAccessKey`) chỉ dùng truy cập object, không thay thế token analytics. Cloudflare có thể cập nhật mẫu trễ; dashboard hiển thị thời điểm mẫu gần nhất và cache kết quả trong 5 phút.

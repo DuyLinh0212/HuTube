@@ -50,6 +50,8 @@ services:
         sync: false
       - key: Storage__R2__SecretAccessKey
         sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
       - key: Storage__R2__BucketName
         value: hutube
       - key: Storage__R2__ReadUrlMinutes
