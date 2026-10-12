@@ -18,6 +18,11 @@ interface MetricCard {
   tone: 'blue' | 'green' | 'red' | 'purple' | 'orange';
 }
 
+interface UnintegratedSource {
+  vi: string;
+  en: string;
+}
+
 const SERVICE_CATALOG: SystemServiceStatus[] = [
   { key: 'api', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra từ API.', responseTimeMs: null },
   { key: 'database', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra từ API.', responseTimeMs: null },
@@ -50,6 +55,21 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     const knownKeys = new Set(SERVICE_CATALOG.map(service => service.key));
     const known = SERVICE_CATALOG.map(fallback => reported.find(item => item.key.toLowerCase() === fallback.key) ?? fallback);
     return [...known, ...reported.filter(item => !knownKeys.has(item.key.toLowerCase()))];
+  });
+  readonly unintegratedSources = computed<UnintegratedSource[]>(() => {
+    const sources: UnintegratedSource[] = [
+      { vi: 'Quota từ Neon và Redis', en: 'Neon and Redis quotas' },
+      { vi: 'Lịch sử lỗi upload và webhook thanh toán', en: 'Upload and payment webhook failure history' },
+      { vi: 'Lịch sử sự cố và thao tác xử lý', en: 'Incident history and resolution workflow' },
+    ];
+    const redis = this.visibleServices().find(service => service.key === 'redis');
+    if (!redis || redis.status === 'unmonitored') {
+      sources.unshift({
+        vi: 'Health check Redis cần cấu hình UPSTASH_REDIS_REST_URL và UPSTASH_REDIS_REST_TOKEN.',
+        en: 'Redis health checks require UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.',
+      });
+    }
+    return sources;
   });
   readonly visibleSignals = computed(() => {
     const filter = this.activeFilter();

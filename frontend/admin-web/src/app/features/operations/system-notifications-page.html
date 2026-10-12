@@ -271,23 +271,24 @@
             <p class="panel-footnote">{{ tx('Chưa lưu lịch sử thay đổi trạng thái cảnh báo; danh sách phản ánh tình trạng hiện tại.', 'Alert state changes are not persisted; this list shows current conditions.') }}</p>
           </article>
 
-          <article class="panel unavailable-panel">
-            <div class="panel-heading">
-              <div>
-                <span class="panel-icon tone-orange" aria-hidden="true">i</span>
+          @if (unintegratedSources().length > 0) {
+            <article class="panel unavailable-panel">
+              <div class="panel-heading">
                 <div>
-                  <h2>{{ tx('Nguồn chưa tích hợp', 'Sources not integrated') }}</h2>
-                  <p>{{ tx('Không thay bằng số liệu ước đoán', 'No estimated values are substituted') }}</p>
+                  <span class="panel-icon tone-orange" aria-hidden="true">i</span>
+                  <div>
+                    <h2>{{ tx('Nguồn chưa tích hợp', 'Sources not integrated') }}</h2>
+                    <p>{{ tx('Không thay bằng số liệu ước đoán', 'No estimated values are substituted') }}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <ul>
-              <li>{{ tx('Health check Redis cần cấu hình UPSTASH_REDIS_REST_URL và UPSTASH_REDIS_REST_TOKEN.', 'Redis health checks require UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.') }}</li>
-              <li>{{ tx('Quota từ Neon và Redis', 'Neon and Redis quotas') }}</li>
-              <li>{{ tx('Lịch sử lỗi upload và webhook thanh toán', 'Upload and payment webhook failure history') }}</li>
-              <li>{{ tx('Lịch sử sự cố và thao tác xử lý', 'Incident history and resolution workflow') }}</li>
-            </ul>
-          </article>
+              <ul>
+                @for (source of unintegratedSources(); track $index) {
+                  <li>{{ tx(source.vi, source.en) }}</li>
+                }
+              </ul>
+            </article>
+          }
         </div>
       </section>
     } @else {
