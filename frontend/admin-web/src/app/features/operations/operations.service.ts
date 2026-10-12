@@ -26,6 +26,19 @@ export interface SystemOverview {
   apiTraffic: ApiTrafficOverview;
   liveMetrics: SystemLiveMetrics;
   services: SystemServiceStatus[];
+  r2StorageUsage?: R2StorageUsage | null;
+}
+
+export interface R2StorageUsage {
+  status: 'available' | 'unmonitored' | 'error' | string;
+  bucketName: string;
+  totalSizeBytes: number | null;
+  payloadSizeBytes: number | null;
+  metadataSizeBytes: number | null;
+  objectCount: number | null;
+  pendingUploadCount: number | null;
+  sampledAt: string | null;
+  detail: string;
 }
 
 export interface ApiTrafficBucket {

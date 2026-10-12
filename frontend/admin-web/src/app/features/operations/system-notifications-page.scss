@@ -113,6 +113,19 @@
 .memory-reading small { color: #8995a8; font-size: 8px; }
 .resource-track { height: 7px; overflow: hidden; border-radius: 8px; background: #e8edf4; }
 .resource-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4ab984, #258f61); }
+.r2-usage { display: grid; gap: 8px; padding-top: 11px; border-top: 1px solid #edf0f5; }
+.r2-usage-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 9px; }
+.r2-usage-heading > div { display: grid; min-width: 0; gap: 3px; }
+.r2-usage-heading > div > span, .r2-usage-grid > div > span { color: #75839a; font-size: 9px; }
+.r2-usage-heading strong { overflow: hidden; color: #33445f; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.r2-live-mark { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; color: #23885c; font-size: 8px; font-weight: 750; }
+.r2-live-mark i { width: 6px; height: 6px; border-radius: 50%; background: #2aab70; }
+.r2-usage-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 7px; }
+.r2-usage-grid > div { display: grid; min-width: 0; gap: 5px; padding: 8px 9px; border: 1px solid #edf0f5; border-radius: 9px; background: #fbfcfe; }
+.r2-usage-grid > div > strong { overflow-wrap: anywhere; color: #1d2d48; font-size: 13px; line-height: 1.1; }
+.r2-usage-grid > div.r2-primary-stat { border-color: #dce9fc; background: #f5f9ff; }
+.r2-usage-grid > div.r2-primary-stat > strong { color: #2657a7; font-size: 17px; }
+.r2-usage > p { margin: 0; color: #8a96a8; font-size: 8px; line-height: 1.5; }
 .unavailable-list { padding-top: 10px; border-top: 1px solid #edf0f5; }
 .unavailable-list span { color: #65748b; font-size: 9px; font-weight: 750; }
 .unavailable-list p { margin: 4px 0 0; color: #8a96a8; font-size: 8px; line-height: 1.5; }

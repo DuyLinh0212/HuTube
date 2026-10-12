@@ -195,9 +195,35 @@
             } @else {
               <div class="unavailable-list"><span>{{ tx('Chưa đo được bộ nhớ', 'Memory reading unavailable') }}</span></div>
             }
+            @if (data.r2StorageUsage; as r2Usage) {
+              @if (r2Usage.status === 'available') {
+                <div class="r2-usage">
+                  <div class="r2-usage-heading">
+                    <div><span>{{ tx('Dung lượng đang dùng', 'Storage in use') }}</span><strong>Cloudflare R2 · {{ r2Usage.bucketName }}</strong></div>
+                    <span class="r2-live-mark"><i></i>{{ tx('Đã đo', 'Measured') }}</span>
+                  </div>
+                  <div class="r2-usage-grid">
+                    <div class="r2-primary-stat"><span>{{ tx('Tổng dung lượng', 'Total storage') }}</span><strong>{{ formatBytes(r2Usage.totalSizeBytes) }}</strong></div>
+                    <div><span>{{ tx('Số object', 'Objects') }}</span><strong>{{ formatNumber(r2Usage.objectCount) }}</strong></div>
+                    <div><span>{{ tx('Đang tải lên', 'Pending uploads') }}</span><strong>{{ formatNumber(r2Usage.pendingUploadCount) }}</strong></div>
+                  </div>
+                  <p>{{ tx('Dữ liệu object', 'Object data') }} {{ formatBytes(r2Usage.payloadSizeBytes) }} + metadata {{ formatBytes(r2Usage.metadataSizeBytes) }} · {{ tx('Mẫu gần nhất:', 'Latest sample:') }} {{ r2SampledAt(r2Usage.sampledAt) }} · {{ tx('có thể cập nhật trễ.', 'may be delayed.') }}</p>
+                </div>
+              } @else {
+                <div class="unavailable-list">
+                  <span>{{ r2Usage.status === 'error' ? tx('Không đọc được dung lượng R2', 'Could not read R2 storage') : tx('Chưa có số đo dung lượng R2', 'R2 storage is not measured') }}</span>
+                  <p>{{ r2Usage.detail }}</p>
+                </div>
+              }
+            } @else {
+              <div class="unavailable-list">
+                <span>{{ tx('Chưa có số đo dung lượng R2', 'R2 storage is not measured') }}</span>
+                <p>{{ tx('Hãy cập nhật backend để xem dung lượng bucket.', 'Update the backend to view bucket storage usage.') }}</p>
+              </div>
+            }
             <div class="unavailable-list">
-              <span>{{ tx('Chưa có nguồn đo', 'No measurement source') }}</span>
-              <p>{{ tx('Health check R2 chỉ xác nhận kết nối bucket. Quota CPU, dung lượng R2 và quota Neon/Redis chưa có dữ liệu từ API provider.', 'The R2 health check only confirms bucket connectivity. CPU quota, R2 usage, and Neon/Redis quotas are not available from provider APIs.') }}</p>
+              <span>{{ tx('Quota chưa có dữ liệu', 'Quota data unavailable') }}</span>
+              <p>{{ tx('CPU trên Render và quota Neon/Redis chưa được lấy từ API nhà cung cấp.', 'Render CPU and Neon/Redis quotas are not read from provider APIs.') }}</p>
             </div>
           </article>
 
@@ -257,7 +283,7 @@
             </div>
             <ul>
               <li>{{ tx('Health check Redis cần cấu hình UPSTASH_REDIS_REST_URL và UPSTASH_REDIS_REST_TOKEN.', 'Redis health checks require UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.') }}</li>
-              <li>{{ tx('Quota từ Neon, Redis và dung lượng Cloudflare R2', 'Neon and Redis quotas and Cloudflare R2 usage') }}</li>
+              <li>{{ tx('Quota từ Neon và Redis', 'Neon and Redis quotas') }}</li>
               <li>{{ tx('Lịch sử lỗi upload và webhook thanh toán', 'Upload and payment webhook failure history') }}</li>
               <li>{{ tx('Lịch sử sự cố và thao tác xử lý', 'Incident history and resolution workflow') }}</li>
             </ul>
