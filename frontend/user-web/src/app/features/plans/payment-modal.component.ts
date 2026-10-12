@@ -25,14 +25,17 @@ import { Subscription, interval } from 'rxjs';
           <!-- Trạng thái: Đang chờ thanh toán -->
           <ng-container *ngIf="status() === 'pending'">
             <div class="qr-section">
-              <div class="qr-wrapper" *ngIf="payment.qrCodeUrl; else noQr">
-                <img [src]="payment.qrCodeUrl" [alt]="'payment.qrAlt' | translate" class="qr-image" />
+              <div class="qr-wrapper" *ngIf="payment.qrCodeUrl && !qrImageFailed(); else noQr">
+                <img [src]="payment.qrCodeUrl" [alt]="'payment.qrAlt' | translate" class="qr-image" (error)="onQrImageError()" />
                 <div class="scan-hint">{{ 'payment.scanHint' | translate }}</div>
               </div>
               <ng-template #noQr>
                 <div class="no-qr-box">
-                  <p>{{ 'payment.notConfigured' | translate }}</p>
-                  <p class="sub-hint">{{ 'payment.contactAdmin' | translate }}</p>
+                  <p>{{ (qrImageFailed() ? 'payment.qrLoadFailed' : 'payment.notConfigured') | translate }}</p>
+                  <p class="sub-hint">{{ (qrImageFailed() ? 'payment.qrOpenHint' : 'payment.contactAdmin') | translate }}</p>
+                  <a *ngIf="qrImageFailed() && payment.qrCodeUrl" class="open-qr-link" [href]="payment.qrCodeUrl" target="_blank" rel="noopener noreferrer">
+                    {{ 'payment.openQrDirectly' | translate }}
+                  </a>
                 </div>
               </ng-template>
 
@@ -123,6 +126,7 @@ import { Subscription, interval } from 'rxjs';
       border-radius: 12px; margin-bottom: 20px;
     }
     .no-qr-box .sub-hint { font-size: 0.85rem; opacity: 0.7; }
+    .open-qr-link { color: #93c5fd; font-size: 0.9rem; font-weight: 600; text-decoration: underline; }
     .info-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
     .info-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; }
     .info-item .label { opacity: 0.8; }
@@ -178,6 +182,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   readonly cancelling = signal(false);
   readonly cancelError = signal('');
   readonly expired = signal(false);
+  readonly qrImageFailed = signal(false);
 
   private pollSub?: Subscription;
   private timerSub?: Subscription;
@@ -198,6 +203,10 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 2000);
     });
+  }
+
+  onQrImageError() {
+    this.qrImageFailed.set(true);
   }
 
   close() {
