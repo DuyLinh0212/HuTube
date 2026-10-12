@@ -4,7 +4,7 @@ import { Subscription, interval } from 'rxjs';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
 import { AuthService } from '../../core/auth.service';
-import { AdminOperationsService, ApiTrafficBucket, SystemOverview, SystemSignal } from './operations.service';
+import { AdminOperationsService, ApiTrafficBucket, SystemOverview, SystemServiceStatus, SystemSignal } from './operations.service';
 
 type MonitorTab = 'live' | 'alerts';
 type MetricFormat = 'integer' | 'percent';
@@ -17,6 +17,16 @@ interface MetricCard {
   unit: [string, string];
   tone: 'blue' | 'green' | 'red' | 'purple' | 'orange';
 }
+
+const SERVICE_CATALOG: SystemServiceStatus[] = [
+  { key: 'api', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra từ API.', responseTimeMs: null },
+  { key: 'database', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra từ API.', responseTimeMs: null },
+  { key: 'redis', status: 'unmonitored', detail: 'Backend chưa kết nối Redis hoặc chưa cấu hình health check.', responseTimeMs: null },
+  { key: 'vercel', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra frontend trên Vercel.', responseTimeMs: null },
+  { key: 'render', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra backend trên Render.', responseTimeMs: null },
+  { key: 'storage', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra Cloudflare R2.', responseTimeMs: null },
+  { key: 'signalr', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra SignalR.', responseTimeMs: null },
+];
 
 @Component({
   selector: 'app-system-notifications-page',
@@ -35,6 +45,12 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
   readonly error = signal(false);
   readonly activeTab = signal<MonitorTab>('live');
   readonly activeFilter = signal('all');
+  readonly visibleServices = computed<SystemServiceStatus[]>(() => {
+    const reported = this.overview()?.services ?? [];
+    const knownKeys = new Set(SERVICE_CATALOG.map(service => service.key));
+    const known = SERVICE_CATALOG.map(fallback => reported.find(item => item.key.toLowerCase() === fallback.key) ?? fallback);
+    return [...known, ...reported.filter(item => !knownKeys.has(item.key.toLowerCase()))];
+  });
   readonly visibleSignals = computed(() => {
     const filter = this.activeFilter();
     const signals = this.overview()?.signals ?? [];
@@ -106,7 +122,7 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     const labels: Record<string, [string, string]> = {
       healthy: ['Hoạt động', 'Operational'],
       warning: ['Cảnh báo', 'Warning'],
-      error: ['Không hoạt động', 'Unavailable'],
+      error: ['Lỗi kết nối', 'Connection error'],
       checking: ['Đang kiểm tra', 'Checking'],
       unmonitored: ['Chưa tích hợp kiểm tra', 'Health check not integrated'],
     };
@@ -118,8 +134,10 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     const names: Record<string, [string, string]> = {
       api: ['Backend API', 'Backend API'],
       database: ['Neon PostgreSQL', 'Neon PostgreSQL'],
-      redis: ['Redis', 'Redis'],
-      storage: ['Cloudflare R2 / Storage', 'Cloudflare R2 / Storage'],
+      redis: ['Redis · Upstash', 'Redis · Upstash'],
+      vercel: ['Vercel · frontend', 'Vercel · frontend'],
+      render: ['Render · backend', 'Render · backend'],
+      storage: ['Cloudflare R2', 'Cloudflare R2'],
       signalr: ['SignalR', 'SignalR'],
     };
     const [vi, en] = names[key] ?? [key, key];
@@ -145,6 +163,10 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
 
   signalSeverityClass(item: SystemSignal): string {
     return item.severity === 'critical' ? 'critical' : item.severity === 'warning' ? 'warning' : 'normal';
+  }
+
+  serviceSymbol(key: string): string {
+    return ({ api: '◎', database: '▤', redis: '▥', vercel: '▲', render: '◈', storage: '☁', signalr: '⌘' } as Record<string, string>)[key] ?? '•';
   }
 
   signalTitle(item: SystemSignal): string { return this.i18n.t('operations.signal.' + this.signalKey(item) + '.title'); }
@@ -183,20 +205,20 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
 
   sampledAt(): string {
     const value = this.overview()?.sampledAt;
-    return value ? new Intl.DateTimeFormat(this.locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '';
+    return this.formatDateTime(value, { dateStyle: 'medium', timeStyle: 'short' });
   }
 
   collectedSince(): string {
     const value = this.overview()?.apiTraffic.collectedSince;
-    return value ? new Intl.DateTimeFormat(this.locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '';
+    return this.formatDateTime(value, { dateStyle: 'medium', timeStyle: 'short' });
   }
 
   bucketLabel(bucket: ApiTrafficBucket): string {
-    return new Intl.DateTimeFormat(this.locale(), { hour: '2-digit' }).format(new Date(bucket.bucketStart));
+    return this.formatDateTime(bucket.bucketStart, { hour: '2-digit' });
   }
 
   bucketTooltip(bucket: ApiTrafficBucket): string {
-    const start = new Intl.DateTimeFormat(this.locale(), { dateStyle: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(bucket.bucketStart));
+    const start = this.formatDateTime(bucket.bucketStart, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     if (!bucket.isObserved) return start + ' · ' + this.tx('Chưa có dữ liệu từ instance này', 'Not observed by this instance');
     return start + ' · ' + this.formatNumber(bucket.requests) + ' ' + this.tx('request', 'requests')
       + ' · ' + this.formatNumber(bucket.serverErrors) + ' 5xx';
@@ -221,6 +243,13 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
       memory: 'memory', 'signup-burst': 'signup', 'locked-accounts': 'locked',
       'abuse-reports': 'abuse', 'moderation-backlog': 'moderation', 'payment-failures': 'payments', 'api-errors': 'apiErrors',
     } as Record<string, string>)[item.key] ?? 'memory';
+  }
+
+  private formatDateTime(value: string | null | undefined, options: Intl.DateTimeFormatOptions): string {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return '—';
+    return new Intl.DateTimeFormat(this.locale(), options).format(date);
   }
 
   private locale(): string { return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US'; }

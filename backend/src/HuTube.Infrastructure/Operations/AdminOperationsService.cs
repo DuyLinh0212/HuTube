@@ -1,5 +1,8 @@
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Reflection;
+using System.Text.Json;
+using HuTube.Application.Storage;
 using HuTube.Application.Operations;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
@@ -15,10 +18,15 @@ public sealed class AdminOperationsService(
     IConfiguration configuration,
     IHostEnvironment environment,
     ApiRequestTelemetry telemetry,
-    NotificationConnections notificationConnections)
+    NotificationConnections notificationConnections,
+    IObjectStorage objectStorage,
+    IHttpClientFactory httpClientFactory)
 {
+    private static readonly TimeSpan HealthProbeTimeout = TimeSpan.FromSeconds(3);
+
     public async Task<AdminSystemOverviewResponse> GetSystemOverviewAsync(CancellationToken ct)
     {
+        var overviewTimer = Stopwatch.StartNew();
         var now = DateTimeOffset.UtcNow;
         var hourAgo = now.AddHours(-1);
         var dayAgo = now.AddDays(-1);
@@ -112,18 +120,166 @@ public sealed class AdminOperationsService(
             failedRenditions,
             pendingReviews,
             notificationConnections.Active.Count);
-        var services = new[]
-        {
-            new AdminSystemServiceStatus("api", "healthy", "Endpoint giám sát trả dữ liệu thành công.", null),
-            new AdminSystemServiceStatus("database", "healthy", "Các truy vấn giám sát database thành công.", databaseTimer.Elapsed.TotalMilliseconds),
-            new AdminSystemServiceStatus("redis", "unmonitored", "Backend hiện không kết nối Redis.", null),
-            new AdminSystemServiceStatus("storage", "unmonitored", "Chưa có phép kiểm tra trực tiếp trạng thái storage.", null),
-            new AdminSystemServiceStatus("signalr", "healthy", "Số kết nối đang mở trên instance API.", null)
-        };
+        overviewTimer.Stop();
+        var services = await GetServiceStatusesAsync(databaseTimer.Elapsed.TotalMilliseconds,
+            overviewTimer.Elapsed.TotalMilliseconds, notificationConnections.Active.Count, ct);
 
         return new AdminSystemOverviewResponse(now, triggered.Count, triggered.Count(signal => signal.Severity == "critical"),
             signals, settings, apiTraffic, liveMetrics, services);
     }
+
+    private async Task<IReadOnlyList<AdminSystemServiceStatus>> GetServiceStatusesAsync(
+        double databaseResponseTimeMs,
+        double overviewResponseTimeMs,
+        int activeSignalRConnections,
+        CancellationToken ct)
+    {
+        var redisTask = CheckRedisAsync(ct);
+        var vercelTask = CheckVercelAsync(ct);
+        var r2Task = CheckR2Async(ct);
+
+        return
+        [
+            new("api", "healthy", "Endpoint giám sát vừa xử lý dữ liệu thành công.", overviewResponseTimeMs),
+            new("database", "healthy", "Truy vấn database Neon/PostgreSQL thành công.", databaseResponseTimeMs),
+            await redisTask,
+            await CheckRenderAsync(overviewResponseTimeMs, ct),
+            await vercelTask,
+            await r2Task,
+            new("signalr", "unmonitored",
+                $"Có {activeSignalRConnections:N0} kết nối realtime trên instance này; chưa có phép thử bắt tay SignalR riêng.", null)
+        ];
+    }
+
+    private async Task<AdminSystemServiceStatus> CheckRedisAsync(CancellationToken ct)
+    {
+        var endpoint = configuration["UPSTASH_REDIS_REST_URL"] ?? configuration["SystemMonitoring:RedisRestUrl"];
+        var token = configuration["UPSTASH_REDIS_REST_TOKEN"] ?? configuration["SystemMonitoring:RedisRestToken"];
+        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(token))
+            return new("redis", "unmonitored",
+                "Backend chưa cấu hình URL/token kiểm tra Upstash Redis và hiện không dùng Redis.", null);
+        if (!Uri.TryCreate(endpoint.TrimEnd('/') + "/ping", UriKind.Absolute, out var pingUri)
+            || pingUri.Scheme != Uri.UriSchemeHttps)
+            return new("redis", "error", "URL kiểm tra Upstash Redis không hợp lệ; cần dùng HTTPS.", null);
+
+        var timer = Stopwatch.StartNew();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(HealthProbeTimeout);
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, pingUri);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await httpClientFactory.CreateClient().SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!response.IsSuccessStatusCode)
+                return new("redis", "error", $"Upstash Redis trả HTTP {(int)response.StatusCode} khi ping.", timer.Elapsed.TotalMilliseconds);
+
+            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+            using var payload = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
+            var result = payload.RootElement.TryGetProperty("result", out var value) ? value.GetString() : null;
+            return string.Equals(result, "PONG", StringComparison.OrdinalIgnoreCase)
+                ? new("redis", "healthy", "Upstash Redis phản hồi PONG.", timer.Elapsed.TotalMilliseconds)
+                : new("redis", "error", "Upstash Redis không trả kết quả PONG.", timer.Elapsed.TotalMilliseconds);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException)
+        {
+            return new("redis", "error", "Ping Upstash Redis quá thời gian 3 giây.", HealthProbeTimeout.TotalMilliseconds);
+        }
+        catch (HttpRequestException)
+        {
+            return new("redis", "error", "Không kết nối được tới Upstash Redis.", timer.Elapsed.TotalMilliseconds);
+        }
+        catch (JsonException)
+        {
+            return new("redis", "error", "Upstash Redis trả dữ liệu ping không hợp lệ.", timer.Elapsed.TotalMilliseconds);
+        }
+    }
+
+    private async Task<AdminSystemServiceStatus> CheckVercelAsync(CancellationToken ct)
+    {
+        var sites = new[]
+        {
+            (Name: "admin", Url: configuration["Auth:AdminBaseUrl"]),
+            (Name: "user", Url: configuration["Auth:WebBaseUrl"])
+        }.Where(item => !string.IsNullOrWhiteSpace(item.Url))
+            .DistinctBy(item => item.Url, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (sites.Length == 0)
+            return new("vercel", "unmonitored", "Chưa cấu hình URL frontend để kiểm tra Vercel.", null);
+
+        var results = await Task.WhenAll(sites.Select(async site =>
+            (site.Name, Result: await ProbeHttpAsync(site.Url!, ct))));
+        var failed = results.Where(result => !result.Result.IsHealthy).ToArray();
+        var detail = string.Join("; ", results.Select(result => result.Result.StatusCode == 0
+            ? $"{result.Name}: không kết nối được"
+            : $"{result.Name}: HTTP {result.Result.StatusCode}"));
+        var status = failed.Length == 0 ? "healthy"
+            : failed.Any(result => result.Result.StatusCode >= 500 || result.Result.StatusCode == 0) ? "error" : "warning";
+        return new("vercel", status, detail, results.Average(result => result.Result.ResponseTimeMs));
+    }
+
+    private Task<AdminSystemServiceStatus> CheckRenderAsync(double responseTimeMs, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var renderUrl = configuration["SystemMonitoring:RenderHealthUrl"]
+            ?? configuration["RENDER_EXTERNAL_URL"]
+            ?? Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL");
+        if (string.IsNullOrWhiteSpace(renderUrl))
+            return Task.FromResult(new AdminSystemServiceStatus("render", "unmonitored",
+                "Không phát hiện URL service Render trong môi trường hiện tại.", null));
+
+        return Task.FromResult(new AdminSystemServiceStatus("render", "healthy",
+            "Backend trên Render vừa xử lý thành công request giám sát này.", responseTimeMs));
+    }
+
+    private async Task<AdminSystemServiceStatus> CheckR2Async(CancellationToken ct)
+    {
+        var timer = Stopwatch.StartNew();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(HealthProbeTimeout);
+        try
+        {
+            var result = await objectStorage.CheckHealthAsync(timeout.Token);
+            return result switch
+            {
+                true => new("storage", "healthy", "Cloudflare R2 nhận được yêu cầu liệt kê tối đa 1 object.", timer.Elapsed.TotalMilliseconds),
+                false => new("storage", "error", "Cloudflare R2 không phản hồi kiểm tra bucket.", timer.Elapsed.TotalMilliseconds),
+                _ => new("storage", "unmonitored", "Storage hiện tại không cung cấp phép kiểm tra bucket Cloudflare R2.", null)
+            };
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException)
+        {
+            return new("storage", "error", "Kiểm tra Cloudflare R2 quá thời gian 3 giây.", HealthProbeTimeout.TotalMilliseconds);
+        }
+        catch (Exception)
+        {
+            return new("storage", "error", "Cloudflare R2 không phản hồi kiểm tra bucket.", timer.Elapsed.TotalMilliseconds);
+        }
+    }
+
+    private async Task<HttpProbeResult> ProbeHttpAsync(string baseUrl, CancellationToken ct)
+    {
+        if (!Uri.TryCreate(baseUrl.TrimEnd('/') + "/", UriKind.Absolute, out var uri)
+            || (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)))
+            return new(false, 0, 0);
+
+        var timer = Stopwatch.StartNew();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(HealthProbeTimeout);
+        try
+        {
+            using var response = await httpClientFactory.CreateClient().GetAsync(uri,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            return new(response.IsSuccessStatusCode, (int)response.StatusCode, timer.Elapsed.TotalMilliseconds);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) { return new(false, 0, HealthProbeTimeout.TotalMilliseconds); }
+        catch (HttpRequestException) { return new(false, 0, timer.Elapsed.TotalMilliseconds); }
+    }
+
+    private sealed record HttpProbeResult(bool IsHealthy, int StatusCode, double ResponseTimeMs);
 
     public async Task<AdminSystemReportResponse> GetReportAsync(int days, CancellationToken ct)
     {

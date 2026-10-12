@@ -119,14 +119,14 @@
                 <span class="panel-icon tone-green" aria-hidden="true">✳</span>
                 <div>
                   <h2>{{ tx('Trạng thái dịch vụ', 'Service status') }}</h2>
-                  <p>{{ tx('Kết quả của lần đọc dữ liệu gần nhất', 'Result of the latest data read') }}</p>
+                  <p>{{ tx('Kết nối thật; dịch vụ chưa tích hợp được ghi rõ', 'Live checks; unintegrated services are identified') }}</p>
                 </div>
               </div>
             </div>
             <div class="service-list">
-              @for (service of data.services; track trackService($index, service)) {
+              @for (service of visibleServices(); track trackService($index, service)) {
                 <div class="service-row">
-                  <span class="service-symbol" aria-hidden="true">{{ service.key === 'api' ? '◎' : service.key === 'database' ? '▤' : service.key === 'redis' ? '▥' : service.key === 'storage' ? '☁' : '⌘' }}</span>
+                  <span class="service-symbol" aria-hidden="true">{{ serviceSymbol(service.key) }}</span>
                   <div class="service-copy">
                     <strong>{{ serviceName(service.key) }}</strong>
                     <small>{{ service.detail }}</small>
@@ -197,7 +197,7 @@
             }
             <div class="unavailable-list">
               <span>{{ tx('Chưa có nguồn đo', 'No measurement source') }}</span>
-              <p>{{ tx('Quota CPU, dung lượng R2, quota database và Redis chưa được tích hợp từ provider.', 'CPU quota, R2 usage, database quota, and Redis quota are not integrated from their providers.') }}</p>
+              <p>{{ tx('Health check R2 chỉ xác nhận kết nối bucket. Quota CPU, dung lượng R2 và quota Neon/Redis chưa có dữ liệu từ API provider.', 'The R2 health check only confirms bucket connectivity. CPU quota, R2 usage, and Neon/Redis quotas are not available from provider APIs.') }}</p>
             </div>
           </article>
 
@@ -256,8 +256,8 @@
               </div>
             </div>
             <ul>
-              <li>{{ tx('Health check Redis và Cloudflare R2', 'Redis and Cloudflare R2 health checks') }}</li>
-              <li>{{ tx('Quota từ Neon, Redis và R2', 'Neon, Redis, and R2 quotas') }}</li>
+              <li>{{ tx('Health check Redis cần cấu hình UPSTASH_REDIS_REST_URL và UPSTASH_REDIS_REST_TOKEN.', 'Redis health checks require UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.') }}</li>
+              <li>{{ tx('Quota từ Neon, Redis và dung lượng Cloudflare R2', 'Neon and Redis quotas and Cloudflare R2 usage') }}</li>
               <li>{{ tx('Lịch sử lỗi upload và webhook thanh toán', 'Upload and payment webhook failure history') }}</li>
               <li>{{ tx('Lịch sử sự cố và thao tác xử lý', 'Incident history and resolution workflow') }}</li>
             </ul>
