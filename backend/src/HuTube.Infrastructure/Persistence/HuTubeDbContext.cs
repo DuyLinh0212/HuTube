@@ -203,7 +203,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<Plan>().WithMany().HasForeignKey(x => x.PlanId);
             b.HasOne<HuTube.Domain.Plans.PlanHistory>().WithMany().HasForeignKey(x => x.PlanHistoryId).IsRequired(false);
             b.Property(x => x.GatewayPayload).HasColumnType("jsonb");
-            b.Property(x => x.VnPayTransactionNo).HasColumnName("vnpay_transaction_no").HasMaxLength(15);
+            b.Property(x => x.VnPayTransactionNo).HasMaxLength(15);
             b.HasIndex(x => x.TransactionCode).IsUnique().HasDatabaseName("uq_payments_transaction");
             b.HasIndex(x => x.VnPayTransactionNo).IsUnique().HasDatabaseName("ux_payments_vnpay_transaction_no")
                 .HasFilter("vnpay_transaction_no IS NOT NULL");
@@ -264,6 +264,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         foreach (var entity in model.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
                 property.SetColumnName(System.Text.RegularExpressions.Regex.Replace(property.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant());
+        model.Entity<Payment>().Property(x => x.VnPayTransactionNo).HasColumnName("vnpay_transaction_no");
         model.Entity<UserSession>().Property(x => x.SessionId).HasColumnName("refresh_token_id");
         model.Entity<UserSession>().Property(x => x.RefreshTokenHash).HasColumnName("token_hash");
         model.Entity<UserSession>().Property(x => x.ReplacedBySessionId).HasColumnName("replaced_by_token_id");
