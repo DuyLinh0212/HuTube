@@ -2,11 +2,14 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using HuTube.Application.Payments;
+using HuTube.Application.Rbac;
 using HuTube.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HuTube.Api.Controllers;
 
@@ -14,6 +17,8 @@ namespace HuTube.Api.Controllers;
 [Route("api/v1/payments")]
 public sealed class PaymentsController(
     IPaymentService paymentService,
+    IServiceScopeFactory scopeFactory,
+    IMemoryCache memoryCache,
     SepaySignatureVerifier signatureVerifier,
     ILogger<PaymentsController> logger) : ControllerBase
 {
@@ -85,6 +90,11 @@ public sealed class PaymentsController(
         if (!signatureVerifier.Verify(rawBytes, signature, timestamp))
         {
             logger.LogWarning("SePay webhook signature verification failed.");
+            if (!memoryCache.TryGetValue("sepay-invalid-signature-audit-sample", out _))
+            {
+                memoryCache.Set("sepay-invalid-signature-audit-sample", true, TimeSpan.FromMinutes(1));
+                await RecordWebhookEventAsync("payment.sepay_webhook.rejected", "Chữ ký webhook SePay không hợp lệ.", ct);
+            }
             return Unauthorized(new { success = false, message = "Invalid signature." });
         }
 
@@ -96,23 +106,30 @@ public sealed class PaymentsController(
             payload = JsonSerializer.Deserialize<SepayWebhookPayload>(bodyString, jsonOptions);
             if (payload == null)
             {
+                await RecordWebhookEventAsync("payment.sepay_webhook.rejected", "SePay gửi payload rỗng.", ct);
                 return BadRequest(new { success = false, message = "Empty payload." });
             }
         }
         catch (JsonException ex)
         {
             logger.LogError(ex, "Failed to deserialize SePay webhook payload.");
+            await RecordWebhookEventAsync("payment.sepay_webhook.rejected", "Payload SePay không phải JSON hợp lệ.", ct);
             return BadRequest(new { success = false, message = "Malformed JSON." });
         }
 
         // 4. Xử lý logic nạp tiền / kích hoạt gói
         try
         {
-            await paymentService.HandleSepayWebhookAsync(payload, ct);
+            var handled = await paymentService.HandleSepayWebhookAsync(payload, ct);
+            await RecordWebhookEventAsync(
+                handled ? "payment.sepay_webhook.processed" : "payment.sepay_webhook.rejected",
+                handled ? $"SePay transaction {payload.Id} đã qua bước xử lý webhook." : "Cấu hình hoặc thông tin tài khoản SePay không hợp lệ.", ct);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error processing SePay payment for transaction {TransactionId}.", payload.Id);
+            await RecordWebhookEventAsync("payment.sepay_webhook.failed",
+                $"SePay transaction {payload.Id} lỗi xử lý ({ex.GetType().Name}).", ct);
             // Vẫn trả success: true nếu lỗi nội bộ không khắc phục được bằng retry ngay,
             // hoặc trả 500 nếu muốn SePay retry (SePay retry tối đa 7 lần).
             return StatusCode(500, new { success = false, message = "Internal processing error." });
@@ -120,5 +137,19 @@ public sealed class PaymentsController(
 
         // SePay yêu cầu response đúng định dạng này
         return Ok(new { success = true });
+    }
+
+    private async Task RecordWebhookEventAsync(string action, string reason, CancellationToken ct)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var rbacService = scope.ServiceProvider.GetRequiredService<RbacService>();
+            await rbacService.LogAuditAsync(new AuditLogEntry(null, action, "payment_webhook", Reason: reason), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not persist SePay webhook history for action {Action}.", action);
+        }
     }
 }

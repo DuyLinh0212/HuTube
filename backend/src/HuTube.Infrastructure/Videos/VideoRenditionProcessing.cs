@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Threading.Channels;
 using HuTube.Application.Storage;
 using HuTube.Application.Videos;
+using HuTube.Domain.Rbac;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -195,6 +196,14 @@ public sealed class VideoRenditionProcessor(
                     row.Status = "failed";
                     row.UpdatedAt = clock.GetUtcNow();
                 }
+                db.AuditLogs.Add(new AuditLog
+                {
+                    Action = "video.rendition.processing.failed",
+                    ResourceType = "video",
+                    ResourceId = job.VideoId,
+                    Reason = ex.GetType().Name,
+                    CreatedAt = clock.GetUtcNow()
+                });
                 await db.SaveChangesAsync(CancellationToken.None);
             }
             catch (Exception statusError)

@@ -27,6 +27,50 @@ export interface SystemOverview {
   liveMetrics: SystemLiveMetrics;
   services: SystemServiceStatus[];
   r2StorageUsage?: R2StorageUsage | null;
+  neonUsage?: NeonUsage | null;
+  redisUsage?: RedisUsage | null;
+  renderUsage?: RenderUsage | null;
+  recentActivity?: SystemActivity[];
+  incidentHistory?: SystemActivity[];
+}
+
+export interface NeonUsage {
+  status: string;
+  databaseSizeBytes: number | null;
+  activeConnections: number | null;
+  connectionLimit: number | null;
+  computeUnitHoursThisMonth: number | null;
+  detail: string;
+}
+
+export interface RedisUsage {
+  status: string;
+  databaseName: string;
+  currentStorageBytes: number | null;
+  storageLimitBytes: number | null;
+  monthlyRequests: number | null;
+  requestLimit: number | null;
+  plan: string;
+  detail: string;
+}
+
+export interface RenderUsage {
+  status: string;
+  cpuPercent: number | null;
+  cpuLimit: number | null;
+  memoryPercent: number | null;
+  memoryBytes: number | null;
+  memoryLimitBytes: number | null;
+  detail: string;
+}
+
+export interface SystemActivity {
+  occurredAt: string;
+  category: string;
+  status: string;
+  title: string;
+  detail: string;
+  resourceId: string | null;
 }
 
 export interface R2StorageUsage {

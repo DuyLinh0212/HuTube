@@ -8,6 +8,7 @@ using HuTube.Application.Notifications;
 using HuTube.Application.Videos;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Plans;
+using HuTube.Domain.Rbac;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -807,12 +808,14 @@ public sealed class ContentService(
             await using (var local = File.OpenRead(sourceFile))
                 videoUrl = await storage.SaveVideoAsync("videos", command.FileName, local, command.ContentType, ct);
         }
-        catch
+        catch (Exception ex)
         {
             if (videoUrl != null) await storage.DeleteFileAsync(videoUrl, CancellationToken.None);
             if (thumbnailUrl != null) await storage.DeleteFileAsync(thumbnailUrl, CancellationToken.None);
             try { Directory.Delete(temporaryDirectory, true); }
-            catch (IOException ex) { logger.LogWarning(ex, "Không thể xóa thư mục xử lý video {Directory}", temporaryDirectory); }
+            catch (IOException cleanupEx) { logger.LogWarning(cleanupEx, "Không thể xóa thư mục xử lý video {Directory}", temporaryDirectory); }
+            if (ex is not OperationCanceledException)
+                await RecordUploadFailureAsync(actorId, videoId, command.Title, ex);
             throw;
         }
 
@@ -882,12 +885,23 @@ public sealed class ContentService(
                         Height = item.Rendition.Height, BitrateKbps = item.Rendition.BitrateKbps, FileUrl = item.StoredPath, FileSize = item.Rendition.FileSize,
                         Codec = "h264/aac", Status = "ready", CreatedAt = now, UpdatedAt = now });
                 if (processingError != null)
+                {
                     foreach (var quality in VideoRules.LowerQualities(command.SourceQuality).Except(generated.Select(x => x.Rendition.Quality)))
                     {
                         var height = VideoRules.QualityHeight(quality);
                         db.VideoRenditions.Add(new VideoRendition { VideoId = video.VideoId, QualityLabel = quality, Width = height * 16 / 9,
                             Height = height, FileUrl = videoUrl!, FileSize = command.FileSize, Codec = "h264/aac", Status = "failed", CreatedAt = now, UpdatedAt = now });
                     }
+                    db.AuditLogs.Add(new AuditLog
+                    {
+                        ActorUserId = actorId,
+                        Action = "video.rendition.processing.failed",
+                        ResourceType = "video",
+                        ResourceId = video.VideoId,
+                        Reason = processingError.GetType().Name,
+                        CreatedAt = now
+                    });
+                }
             }
             await ReplaceTagsAsync(video.VideoId, tags, ct); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
             if (command.DeferLowerRenditions)
@@ -2083,5 +2097,25 @@ public sealed class ContentService(
     }
     private static (int Page, int PageSize) Page(int page, int size) => (Math.Max(1, page), Math.Clamp(size, 1, 50));
     private static ContentException Error(int status, string code, string message) => new(status, code, message);
+    private async Task RecordUploadFailureAsync(Guid actorId, Guid videoId, string title, Exception exception)
+    {
+        try
+        {
+            db.AuditLogs.Add(new AuditLog
+            {
+                ActorUserId = actorId,
+                Action = "video.upload.failed",
+                ResourceType = "video_upload",
+                ResourceId = videoId,
+                Reason = $"{title}: {exception.GetType().Name}",
+                CreatedAt = Now
+            });
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (Exception auditException)
+        {
+            logger.LogError(auditException, "Could not persist failed video upload event {VideoId}", videoId);
+        }
+    }
     private Task<string> ReadUrlAsync(string path, CancellationToken ct) => storage.GetReadUrlAsync(path, TimeSpan.FromMinutes(60), ct);
 }
