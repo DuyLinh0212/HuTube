@@ -137,6 +137,7 @@ builder.Services.AddScoped<StrikeService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<AdminContentService>();
 builder.Services.AddScoped<AdminOperationsService>();
+builder.Services.AddSingleton(new ApiRequestTelemetry());
 builder.Services.AddScoped<AppealService>();
 builder.Services.AddScoped<TaxonomyService>();
 builder.Services.AddScoped<AdminUserService>();
@@ -271,6 +272,7 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads"
 });
+app.UseMiddleware<ApiRequestTelemetryMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseRouting();
 app.UseRateLimiter(); app.UseAuthentication(); app.UseMiddleware<AdminApiAuditMiddleware>(); app.UseAuthorization();

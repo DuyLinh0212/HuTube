@@ -145,7 +145,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.payments': 'Doanh thu & Thanh toán',
     'nav.groupSystem': 'Hệ thống',
     'nav.policies': 'Chính sách hệ thống',
-    'nav.notificationsNav': 'Thông báo hệ thống',
+    'nav.notificationsNav': 'Giám sát hệ thống',
     'nav.statistics': 'Thống kê & Báo cáo',
     'nav.systemLogs': 'Nhật ký & cấu hình',
 
@@ -563,7 +563,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.payments': 'Revenue & Billing',
     'nav.groupSystem': 'System',
     'nav.policies': 'System Policies',
-    'nav.notificationsNav': 'System Broadcasts',
+    'nav.notificationsNav': 'System Monitoring',
     'nav.statistics': 'Analytics & Reports',
     'nav.systemLogs': 'Logs & Configuration',
 

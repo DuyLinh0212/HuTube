@@ -1,75 +1,333 @@
-<main class="operations-page alerts-page">
-  <header class="page-heading">
-    <div>
-      <h1>{{ 'operations.system.title' | translate }}</h1>
+<main class="operations-page monitor-page">
+  <header class="monitor-header">
+    <div class="heading-copy">
+      <span class="eyebrow">HUTUBE · OPS</span>
+      <h1>{{ tx('Giám sát hệ thống', 'System monitoring') }}</h1>
+      <p>{{ tx('Chỉ số đọc trực tiếp từ API process và dữ liệu HuTube.', 'Metrics read from the API process and HuTube data.') }}</p>
     </div>
-    <button class="quiet-button" type="button" (click)="load()" [disabled]="loading()">
-      <span aria-hidden="true">↻</span> {{ 'operations.refresh' | translate }}
-    </button>
+    <div class="heading-actions">
+      <span class="refresh-state" [class.is-error]="error()">
+        <span class="status-dot" aria-hidden="true"></span>
+        @if (overview() && !error()) {
+          {{ tx('Cập nhật', 'Updated') }} · {{ sampledAt() }}
+        } @else if (loading()) {
+          {{ tx('Đang lấy dữ liệu API…', 'Loading API data…') }}
+        } @else {
+          {{ tx('Không lấy được dữ liệu mới', 'Could not refresh data') }}
+        }
+      </span>
+      <button class="quiet-button refresh-button" type="button" (click)="load()" [disabled]="loading()">
+        <span aria-hidden="true">↻</span> {{ tx('Làm mới', 'Refresh') }}
+      </button>
+    </div>
   </header>
 
-  @if (error()) {
+  <aside class="data-notice" role="note">
+    <span class="notice-icon" aria-hidden="true">i</span>
+    <div>
+      <strong>{{ tx('Dữ liệu thật; phạm vi đo được ghi rõ', 'Live data with its collection scope stated') }}</strong>
+      <p>{{ tx('Lưu lượng API được thu thập trong bộ nhớ của instance kể từ lúc khởi động, không phải lịch sử lưu bền vững hoặc tổng hợp nhiều instance. Số liệu nghiệp vụ đọc từ database.', 'API traffic is held in this instance memory since startup; it is not persistent history or an aggregate across instances. Business counts come from the database.') }}</p>
+    </div>
+  </aside>
+
+  <nav class="monitor-tabs" role="tablist" [attr.aria-label]="tx('Các chế độ giám sát', 'Monitoring views')">
+    <button id="monitor-tab-live" type="button" role="tab" [attr.aria-selected]="activeTab() === 'live'" aria-controls="monitor-panel-live" [class.is-active]="activeTab() === 'live'" (click)="setTab('live')">
+      <span aria-hidden="true">◉</span> {{ tx('Giám sát hiện tại', 'Current monitoring') }}
+    </button>
+    <button id="monitor-tab-alerts" type="button" role="tab" [attr.aria-selected]="activeTab() === 'alerts'" aria-controls="monitor-panel-alerts" [class.is-active]="activeTab() === 'alerts'" (click)="setTab('alerts')">
+      <span aria-hidden="true">⚑</span> {{ tx('Cảnh báo hiện tại', 'Current alerts') }}
+      @if (overview(); as data) { <b class="tab-count">{{ data.activeAlertCount }}</b> }
+    </button>
+  </nav>
+
+  @if (error() && overview()) {
+    <section class="state-panel error-panel" role="status">
+      <span class="state-icon">!</span>
+      <div><strong>{{ tx('Không làm mới được dữ liệu', 'Could not refresh data') }}</strong><p>{{ tx('Đang hiển thị dữ liệu lần đọc trước.', 'Showing the previous reading.') }} · {{ sampledAt() }}</p></div>
+      <button class="text-button" type="button" (click)="load()">{{ tx('Thử lại', 'Retry') }}</button>
+    </section>
+  }
+  @if (error() && !overview()) {
     <section class="state-panel error-panel" role="alert">
       <span class="state-icon">!</span>
       <div><strong>{{ 'operations.loadErrorTitle' | translate }}</strong><p>{{ 'operations.loadError' | translate }}</p></div>
       <button class="text-button" type="button" (click)="load()">{{ 'operations.retry' | translate }}</button>
     </section>
   }
-
   @if (loading() && !overview()) {
     <section class="state-panel loading-panel" aria-live="polite">{{ 'operations.loading' | translate }}</section>
   }
 
   @if (overview(); as data) {
-    <section class="signal-summary" aria-label="{{ 'operations.system.summaryLabel' | translate }}">
-      <div class="summary-copy">
-        <span class="summary-mark" aria-hidden="true">⌁</span>
-        <div>
-          <span class="summary-eyebrow">{{ 'operations.system.liveSnapshot' | translate }}</span>
-          <h2>{{ data.activeAlertCount === 0 ? ('operations.system.clearTitle' | translate) : ('operations.system.alertsTitle' | translate:{ count: data.activeAlertCount }) }}</h2>
-          <p>{{ 'operations.system.sampledAt' | translate }} {{ sampledAt() }}</p>
-        </div>
-      </div>
-      <div class="summary-counts">
-        <div class="count-box count-critical"><strong>{{ data.criticalAlertCount }}</strong><span>{{ 'operations.severity.critical' | translate }}</span></div>
-        <div class="count-box count-warning"><strong>{{ data.activeAlertCount - data.criticalAlertCount }}</strong><span>{{ 'operations.severity.warning' | translate }}</span></div>
-        <div class="count-box count-normal"><strong>{{ normalCount() }}</strong><span>{{ 'operations.severity.normal' | translate }}</span></div>
-      </div>
-    </section>
-
-    <nav class="signal-filters" aria-label="{{ 'operations.system.filterLabel' | translate }}">
-      <button type="button" [class.selected]="activeFilter() === 'all'" (click)="setFilter('all')">{{ 'operations.filter.all' | translate }} <b>{{ data.signals.length }}</b></button>
-      <button type="button" [class.selected]="activeFilter() === 'runtime'" (click)="setFilter('runtime')">{{ 'operations.category.runtime' | translate }}</button>
-      <button type="button" [class.selected]="activeFilter() === 'security'" (click)="setFilter('security')">{{ 'operations.category.security' | translate }}</button>
-      <button type="button" [class.selected]="activeFilter() === 'moderation'" (click)="setFilter('moderation')">{{ 'operations.category.moderation' | translate }}</button>
-      <button type="button" [class.selected]="activeFilter() === 'payments'" (click)="setFilter('payments')">{{ 'operations.category.payments' | translate }}</button>
-    </nav>
-
-    <section class="signals-grid" aria-live="polite">
-      @for (signal of visibleSignals(); track trackSignal($index, signal)) {
-        <article class="signal-card" [class.triggered]="signal.isTriggered" [class.critical]="signal.severity === 'critical'">
-          <div class="signal-card-top">
-            <span class="signal-icon" [class]="'signal-icon tone-' + signal.severity" aria-hidden="true">{{ severityIcon(signal) }}</span>
-            <span class="severity-pill" [class]="'severity-pill tone-' + signal.severity">{{ severityKey(signal) | translate }}</span>
-          </div>
-          <div class="signal-category">{{ categoryKey(signal.category) | translate }}</div>
-          <h3>{{ signalTitle(signal) }}</h3>
-          <p class="signal-description">{{ signalDescription(signal) }}</p>
-          <div class="signal-measure">
-            <strong>{{ valueLabel(signal) }}</strong>
-            <span>{{ thresholdLabel(signal) }}</span>
-          </div>
-          <div class="threshold-track" role="progressbar" [attr.aria-valuenow]="signal.currentValue" [attr.aria-valuemax]="signal.threshold || 1" aria-label="{{ 'operations.system.thresholdProgress' | translate }}">
-            <span [class]="'fill-' + signal.severity" [style.width.%]="meterPercent(signal)"></span>
-          </div>
-          @if (canOpen(signal)) {
-            <a class="signal-action" [routerLink]="signal.actionUrl">{{ (signal.isTriggered ? 'operations.system.reviewSignal' : 'operations.system.openRelated') | translate }} <span aria-hidden="true">↗</span></a>
+    @if (activeTab() === 'live') {
+      <section id="monitor-panel-live" role="tabpanel" aria-labelledby="monitor-tab-live" class="tab-panel">
+        <section class="metric-grid" [attr.aria-label]="tx('Chỉ số hiện tại', 'Current metrics')">
+          @for (metric of metrics(); track trackMetric($index, metric)) {
+            <article class="metric-card" [class]="'metric-card tone-' + metric.tone">
+              <span class="metric-icon" aria-hidden="true">{{ metric.key === 'requests' ? '↗' : metric.key === 'sessions' ? '◎' : metric.key === 'server-errors' ? '!' : metric.key === 'failed-payments' ? '₫' : metric.key === 'processing-videos' ? '▶' : '⚑' }}</span>
+              <div class="metric-content">
+                <span class="metric-label">{{ tx(metric.label[0], metric.label[1]) }}</span>
+                <strong class="metric-value">{{ formatMetric(metric) }}</strong>
+                <span class="metric-unit">{{ metricUnit(metric) }}</span>
+              </div>
+            </article>
           }
-        </article>
-      } @empty {
-        <div class="empty-panel">{{ 'operations.system.noSignals' | translate }}</div>
-      }
-    </section>
-    <p class="data-note">{{ 'operations.system.liveDataNote' | translate }}</p>
+        </section>
+
+        <div class="dashboard-grid">
+          <article class="panel traffic-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-blue" aria-hidden="true">⌁</span>
+                <div>
+                  <h2>{{ tx('Lưu lượng và lỗi API', 'API traffic and errors') }}</h2>
+                  <p>{{ tx('Theo giờ trong 24 giờ gần nhất; chỉ gồm request quan sát được trên instance này.', 'Hourly for the last 24 hours; only requests observed by this instance.') }}</p>
+                </div>
+              </div>
+              <span class="real-pill"><i></i>{{ tx('Dữ liệu API', 'API data') }}</span>
+            </div>
+            <div class="chart-legend">
+              <span><i class="legend-line requests-line"></i>{{ tx('Request', 'Requests') }}</span>
+              <span><i class="legend-line errors-line"></i>5xx</span>
+            </div>
+            <div class="traffic-chart" role="list" [attr.aria-label]="tx('Lưu lượng API theo giờ', 'Hourly API traffic')">
+              @for (bucket of data.apiTraffic.hourly; track trackBucket($index, bucket)) {
+                <div class="traffic-column" role="listitem" [attr.title]="bucketTooltip(bucket)" [class.unobserved]="!bucket.isObserved">
+                  @if (bucket.isObserved) {
+                    <span class="request-bar" [style.height.%]="barHeight(bucket, 'requests')"></span>
+                    <span class="error-bar" [style.height.%]="barHeight(bucket, 'serverErrors')"></span>
+                  } @else {
+                    <span class="no-observation" aria-hidden="true"></span>
+                  }
+                  <small>{{ bucketLabel(bucket) }}</small>
+                </div>
+              }
+            </div>
+            <p class="chart-caption">{{ tx('Đã thu thập từ', 'Collected since') }} {{ collectedSince() }}</p>
+            <div class="latency-strip">
+              <div><span>{{ tx('Request trong 15 phút', 'Requests in 15 min') }}</span><strong>{{ formatNumber(data.apiTraffic.requestsLast15Minutes) }}</strong></div>
+              <div><span>4xx · 15 {{ tx('phút', 'min') }}</span><strong>{{ formatNumber(data.apiTraffic.clientErrorsLast15Minutes) }} · {{ data.apiTraffic.requestsLast15Minutes ? formatNumber(data.apiTraffic.clientErrorRateLast15Minutes, 1) + '%' : '—' }}</strong></div>
+              <div><span>5xx · 15 {{ tx('phút', 'min') }}</span><strong>{{ formatNumber(data.apiTraffic.serverErrorsLast15Minutes) }} · {{ data.apiTraffic.requestsLast15Minutes ? formatNumber(data.apiTraffic.serverErrorRateLast15Minutes, 1) + '%' : '—' }}</strong></div>
+              <div><span>{{ tx('Phản hồi trung bình', 'Average response') }}</span><strong>{{ data.apiTraffic.averageLatencyMsLast15Minutes == null ? '—' : formatNumber(data.apiTraffic.averageLatencyMsLast15Minutes, 1) + ' ms' }}</strong></div>
+              <div><span>P95 · {{ tx('ước lượng theo histogram', 'histogram estimate') }}</span><strong>{{ data.apiTraffic.p95LatencyMsLast15Minutes == null ? '—' : formatNumber(data.apiTraffic.p95LatencyMsLast15Minutes) + ' ms' }}</strong></div>
+            </div>
+          </article>
+
+          <article class="panel services-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-green" aria-hidden="true">✳</span>
+                <div>
+                  <h2>{{ tx('Trạng thái dịch vụ', 'Service status') }}</h2>
+                  <p>{{ tx('Kết quả của lần đọc dữ liệu gần nhất', 'Result of the latest data read') }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="service-list">
+              @for (service of data.services; track trackService($index, service)) {
+                <div class="service-row">
+                  <span class="service-symbol" aria-hidden="true">{{ service.key === 'api' ? '◎' : service.key === 'database' ? '▤' : service.key === 'redis' ? '▥' : service.key === 'storage' ? '☁' : '⌘' }}</span>
+                  <div class="service-copy">
+                    <strong>{{ serviceName(service.key) }}</strong>
+                    <small>{{ service.detail }}</small>
+                  </div>
+                  @if (service.responseTimeMs != null) { <span class="service-time">{{ formatNumber(service.responseTimeMs, 1) }} ms</span> }
+                  <span class="service-state" [class]="'service-state state-' + service.status"><i></i>{{ statusLabel(service.status) }}</span>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="panel work-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-purple" aria-hidden="true">▶</span>
+                <div>
+                  <h2>{{ tx('Video và kiểm duyệt', 'Video and moderation') }}</h2>
+                  <p>{{ tx('Trạng thái đang lưu trong database', 'Statuses currently stored in the database') }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="data-grid">
+              <div><span>{{ tx('Video đang xử lý', 'Videos processing') }}</span><strong>{{ formatNumber(data.liveMetrics.videosProcessing) }}</strong></div>
+              <div><span>{{ tx('Rendition đang xử lý', 'Renditions processing') }}</span><strong>{{ formatNumber(data.liveMetrics.renditionsProcessing) }}</strong></div>
+              <div><span>{{ tx('Video lỗi · 24 giờ', 'Failed videos · 24 h') }}</span><strong>{{ formatNumber(data.liveMetrics.failedVideosLast24Hours) }}</strong></div>
+              <div><span>{{ tx('Rendition lỗi · 24 giờ', 'Failed renditions · 24 h') }}</span><strong>{{ formatNumber(data.liveMetrics.failedRenditionsLast24Hours) }}</strong></div>
+              <div><span>{{ tx('Video chờ kiểm duyệt', 'Videos awaiting review') }}</span><strong>{{ formatNumber(data.liveMetrics.pendingVideoReviews) }}</strong></div>
+            </div>
+            <p class="panel-footnote">{{ tx('Database không lưu lịch sử lỗi upload hoặc thời điểm bắt đầu từng tác vụ; các mục đó chưa thể thống kê chính xác.', 'The database does not retain upload failure history or each job start time, so those figures are not available.') }}</p>
+          </article>
+
+          <article class="panel payment-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-red" aria-hidden="true">₫</span>
+                <div>
+                  <h2>{{ tx('Thanh toán', 'Payments') }}</h2>
+                  <p>{{ tx('Giao dịch thực tế trong database', 'Real transactions in the database') }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="data-grid">
+              <div><span>{{ tx('Giao dịch đang chờ', 'Pending transactions') }}</span><strong>{{ formatNumber(data.liveMetrics.pendingPayments) }}</strong></div>
+              <div><span>{{ tx('Chờ quá hạn thanh toán', 'Past payment expiry') }}</span><strong [class.value-warning]="data.liveMetrics.expiredPendingPayments > 0">{{ formatNumber(data.liveMetrics.expiredPendingPayments) }}</strong></div>
+              <div><span>{{ tx('Thất bại hoặc hủy · 24 giờ', 'Failed or cancelled · 24 h') }}</span><strong>{{ formatNumber(data.liveMetrics.failedPaymentsLast24Hours) }}</strong></div>
+            </div>
+            <p class="panel-footnote">{{ tx('Backend chưa lưu lịch sử lỗi webhook riêng; trạng thái webhook chưa được giám sát.', 'The backend does not store webhook failure history separately; webhook status is not monitored.') }}</p>
+          </article>
+
+          <article class="panel runtime-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-orange" aria-hidden="true">▤</span>
+                <div>
+                  <h2>{{ tx('Tài nguyên process', 'Process resources') }}</h2>
+                  <p>{{ tx('Giá trị đọc trực tiếp từ tiến trình API', 'Values read from the API process') }}</p>
+                </div>
+              </div>
+            </div>
+            @if (signalOf(data, 'memory'); as memory) {
+              <div class="memory-reading">
+                <div><span>{{ tx('Bộ nhớ đang dùng', 'Memory in use') }}</span><strong>{{ signalValue(memory) }}</strong></div>
+                <div class="resource-track"><i [style.width.%]="signalPercent(memory)"></i></div>
+                <small>{{ signalThreshold(memory) }}</small>
+              </div>
+            } @else {
+              <div class="unavailable-list"><span>{{ tx('Chưa đo được bộ nhớ', 'Memory reading unavailable') }}</span></div>
+            }
+            <div class="unavailable-list">
+              <span>{{ tx('Chưa có nguồn đo', 'No measurement source') }}</span>
+              <p>{{ tx('Quota CPU, dung lượng R2, quota database và Redis chưa được tích hợp từ provider.', 'CPU quota, R2 usage, database quota, and Redis quota are not integrated from their providers.') }}</p>
+            </div>
+          </article>
+
+          <article class="panel realtime-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-blue" aria-hidden="true">⌘</span>
+                <div>
+                  <h2>{{ tx('Kết nối và bảo mật', 'Connections and security') }}</h2>
+                  <p>{{ tx('Số đếm quan sát được tại thời điểm lấy mẫu', 'Counts observed at sampling time') }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="data-grid">
+              <div><span>{{ tx('Kết nối SignalR trên instance', 'SignalR connections on instance') }}</span><strong>{{ formatNumber(data.liveMetrics.activeSignalRConnections) }}</strong></div>
+              <div><span>HTTP 429 · 15 {{ tx('phút', 'min') }}</span><strong>{{ formatNumber(data.apiTraffic.rateLimitedLast15Minutes) }}</strong></div>
+              <div><span>{{ tx('Tài khoản đang bị khóa', 'Accounts currently locked') }}</span><strong>{{ formatNumber(signalOf(data, 'locked-accounts')?.currentValue) }}</strong></div>
+              <div><span>{{ tx('Đăng ký · 60 phút', 'Sign-ups · 60 min') }}</span><strong>{{ formatNumber(signalOf(data, 'signup-burst')?.currentValue) }}</strong></div>
+            </div>
+            <p class="panel-footnote">{{ tx('Chưa lưu lịch sử đăng nhập thất bại hoặc request bất thường theo IP.', 'Failed sign-ins and unusual requests by IP are not retained as history.') }}</p>
+          </article>
+
+          <article class="panel current-alerts-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-red" aria-hidden="true">⚑</span>
+                <div>
+                  <h2>{{ tx('Tín hiệu vượt ngưỡng', 'Signals over threshold') }}</h2>
+                  <p>{{ tx('Được tính từ số liệu thật theo ngưỡng cấu hình', 'Calculated from live data using configured thresholds') }}</p>
+                </div>
+              </div>
+              <button class="panel-link" type="button" (click)="setTab('alerts')">{{ tx('Xem tín hiệu', 'View signals') }} <span aria-hidden="true">→</span></button>
+            </div>
+            <div class="event-list">
+              @for (item of triggeredSignals().slice(0, 4); track trackSignal($index, item)) {
+                <div class="event-row">
+                  <span class="severity-mark" [class]="'severity-mark severity-' + signalSeverityClass(item)" aria-hidden="true">{{ item.severity === 'critical' ? '!' : '△' }}</span>
+                  <div class="event-copy"><strong>{{ signalTitle(item) }}</strong><span>{{ categoryLabel(item.category) }} · {{ signalValue(item) }}</span></div>
+                  <span class="severity-label" [class]="'severity-label severity-' + signalSeverityClass(item)">{{ severityLabel(item.severity) }}</span>
+                </div>
+              } @empty {
+                <p class="empty-panel">{{ tx('Không có tín hiệu nào đang vượt ngưỡng.', 'No signals currently exceed their thresholds.') }}</p>
+              }
+            </div>
+            <p class="panel-footnote">{{ tx('Chưa lưu lịch sử thay đổi trạng thái cảnh báo; danh sách phản ánh tình trạng hiện tại.', 'Alert state changes are not persisted; this list shows current conditions.') }}</p>
+          </article>
+
+          <article class="panel unavailable-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-icon tone-orange" aria-hidden="true">i</span>
+                <div>
+                  <h2>{{ tx('Nguồn chưa tích hợp', 'Sources not integrated') }}</h2>
+                  <p>{{ tx('Không thay bằng số liệu ước đoán', 'No estimated values are substituted') }}</p>
+                </div>
+              </div>
+            </div>
+            <ul>
+              <li>{{ tx('Health check Redis và Cloudflare R2', 'Redis and Cloudflare R2 health checks') }}</li>
+              <li>{{ tx('Quota từ Neon, Redis và R2', 'Neon, Redis, and R2 quotas') }}</li>
+              <li>{{ tx('Lịch sử lỗi upload và webhook thanh toán', 'Upload and payment webhook failure history') }}</li>
+              <li>{{ tx('Lịch sử sự cố và thao tác xử lý', 'Incident history and resolution workflow') }}</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    } @else {
+      <section id="monitor-panel-alerts" role="tabpanel" aria-labelledby="monitor-tab-alerts" class="tab-panel incidents-tab">
+        <section class="live-summary">
+          <div class="live-summary-copy">
+            <span class="live-summary-icon" aria-hidden="true">⚑</span>
+            <div>
+              <span class="summary-eyebrow">{{ tx('TRẠNG THÁI HIỆN TẠI', 'CURRENT CONDITIONS') }}</span>
+              <h2>{{ tx('Tín hiệu vận hành', 'Operational signals') }}</h2>
+              <p>{{ tx('Đo lúc', 'Sampled') }} {{ sampledAt() }} · {{ tx('Không phải lịch sử sự cố đã lưu.', 'Not persisted incident history.') }}</p>
+            </div>
+          </div>
+          <div class="live-counts">
+            <div class="live-count critical-count"><strong>{{ criticalCount() }}</strong><span>{{ tx('Nghiêm trọng', 'Critical') }}</span></div>
+            <div class="live-count warning-count"><strong>{{ warningCount() }}</strong><span>{{ tx('Cảnh báo', 'Warnings') }}</span></div>
+            <div class="live-count normal-count"><strong>{{ normalCount() }}</strong><span>{{ tx('Bình thường', 'Normal') }}</span></div>
+          </div>
+        </section>
+
+        <section class="panel signals-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="panel-icon tone-green" aria-hidden="true">◎</span>
+              <div>
+                <h2>{{ tx('Tín hiệu từ API và database', 'Signals from the API and database') }}</h2>
+                <p>{{ tx('Trạng thái được tính lại khi tải dữ liệu; không có nút giả lập trạng thái sự cố.', 'Conditions are recalculated on refresh; incident states are not simulated.') }}</p>
+              </div>
+            </div>
+            <span class="real-pill"><i></i>{{ tx('Dữ liệu thật', 'Live data') }}</span>
+          </div>
+          <nav class="signal-filters" [attr.aria-label]="tx('Lọc tín hiệu', 'Filter signals')">
+            <button type="button" [class.selected]="activeFilter() === 'all'" (click)="setFilter('all')">{{ tx('Tất cả', 'All') }} <b>{{ data.signals.length }}</b></button>
+            <button type="button" [class.selected]="activeFilter() === 'runtime'" (click)="setFilter('runtime')">{{ tx('Vận hành', 'Runtime') }}</button>
+            <button type="button" [class.selected]="activeFilter() === 'security'" (click)="setFilter('security')">{{ tx('Bảo mật', 'Security') }}</button>
+            <button type="button" [class.selected]="activeFilter() === 'moderation'" (click)="setFilter('moderation')">{{ tx('Kiểm duyệt', 'Moderation') }}</button>
+            <button type="button" [class.selected]="activeFilter() === 'payments'" (click)="setFilter('payments')">{{ tx('Thanh toán', 'Payments') }}</button>
+          </nav>
+          <div class="signal-list" aria-live="polite">
+            @for (item of visibleSignals(); track trackSignal($index, item)) {
+              <article class="signal-row" [class.is-triggered]="item.isTriggered" [class.severity-border-warning]="signalSeverityClass(item) === 'warning'" [class.severity-border-critical]="signalSeverityClass(item) === 'critical'">
+                <span class="signal-indicator" [class.tone-warning]="item.severity === 'warning' && item.isTriggered" [class.tone-critical]="item.severity === 'critical' && item.isTriggered" aria-hidden="true">{{ item.isTriggered ? (item.severity === 'critical' ? '!' : '△') : '✓' }}</span>
+                <div class="signal-copy">
+                  <span class="signal-meta">{{ categoryLabel(item.category) }} · {{ severityLabel(item.severity) }}</span>
+                  <h3>{{ signalTitle(item) }}</h3>
+                  <p>{{ signalDescription(item) }}</p>
+                </div>
+                <div class="signal-current">
+                  <strong>{{ signalValue(item) }}</strong>
+                  <span>{{ signalThreshold(item) }}</span>
+                  <div class="threshold-track"><i [class.fill-warning]="item.severity === 'warning' && item.isTriggered" [class.fill-critical]="item.severity === 'critical' && item.isTriggered" [style.width.%]="signalPercent(item)"></i></div>
+                </div>
+                <span class="signal-status" [class.status-active]="item.isTriggered">{{ item.isTriggered ? tx('Đang vượt ngưỡng', 'Threshold exceeded') : tx('Trong ngưỡng', 'Within threshold') }}</span>
+                @if (canOpen(item)) {
+                  <a class="signal-action" [routerLink]="item.actionUrl" [attr.aria-label]="tx('Xem dữ liệu liên quan', 'View related data')">→</a>
+                } @else {
+                  <span class="signal-action-placeholder" aria-hidden="true"></span>
+                }
+              </article>
+            } @empty {
+              <div class="empty-panel">{{ 'operations.system.noSignals' | translate }}</div>
+            }
+          </div>
+          <p class="panel-footnote">{{ tx('Cảnh báo được tính từ cấu hình hiện hành. Chưa có kho lưu lịch sử cảnh báo hoặc luồng Đã xem → Đang xử lý → Đã giải quyết.', 'Alerts use current configuration. No alert history store or Seen → Investigating → Resolved workflow is integrated yet.') }}</p>
+        </section>
+      </section>
+    }
   }
 </main>

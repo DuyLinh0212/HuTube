@@ -3,6 +3,7 @@ using System.Reflection;
 using HuTube.Application.Operations;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
+using HuTube.Infrastructure.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -12,14 +13,16 @@ namespace HuTube.Infrastructure.Operations;
 public sealed class AdminOperationsService(
     HuTubeDbContext db,
     IConfiguration configuration,
-    IHostEnvironment environment)
+    IHostEnvironment environment,
+    ApiRequestTelemetry telemetry,
+    NotificationConnections notificationConnections)
 {
     public async Task<AdminSystemOverviewResponse> GetSystemOverviewAsync(CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var hourAgo = now.AddHours(-1);
         var dayAgo = now.AddDays(-1);
-        var fifteenMinutesAgo = now.AddMinutes(-15);
+        var databaseTimer = Stopwatch.StartNew();
         var signupThreshold = Math.Max(1, configuration.GetValue("SystemAlerts:SignupBurstPerHour", 20));
         var reviewThreshold = Math.Max(1, configuration.GetValue("SystemAlerts:PendingReviewThreshold", 50));
         var paymentFailureThreshold = Math.Max(1, configuration.GetValue("SystemAlerts:FailedPaymentsPerDay", 10));
@@ -33,16 +36,34 @@ public sealed class AdminOperationsService(
             item.CaseType == "upload_review" && item.Status == "pending", ct);
         var failedPayments = await db.Payments.AsNoTracking().LongCountAsync(payment =>
             (payment.Status == "failed" || payment.Status == "cancelled") && payment.UpdatedAt >= dayAgo && payment.UpdatedAt < now, ct);
-        var apiErrors = await db.AuditLogs.AsNoTracking().LongCountAsync(log =>
-            log.Action == "admin.api_request" && log.CreatedAt >= fifteenMinutesAgo && log.CreatedAt < now
-            && log.Reason != null && log.Reason.Contains("→ 5"), ct);
+        var activeSessions = await db.Sessions.AsNoTracking().LongCountAsync(session =>
+            session.RevokedAt == null && session.ExpiresAt > now, ct);
+        var pendingPayments = db.Payments.AsNoTracking().Where(payment => payment.Status == "pending");
+        var pendingPaymentCount = await pendingPayments.LongCountAsync(ct);
+        var expiredPendingPayments = await pendingPayments.LongCountAsync(payment => payment.ExpiresAt <= now, ct);
+        var processingVideos = await db.Videos.AsNoTracking().LongCountAsync(video => video.Status == "processing", ct);
+        var failedVideos = await db.Videos.AsNoTracking().LongCountAsync(video =>
+            video.Status == "failed" && video.UpdatedAt >= dayAgo && video.UpdatedAt < now, ct);
+        var processingRenditions = await db.VideoRenditions.AsNoTracking().LongCountAsync(rendition => rendition.Status == "processing", ct);
+        var failedRenditions = await db.VideoRenditions.AsNoTracking().LongCountAsync(rendition =>
+            rendition.Status == "failed" && rendition.UpdatedAt >= dayAgo && rendition.UpdatedAt < now, ct);
+        databaseTimer.Stop();
+
+        var apiTraffic = telemetry.Snapshot(now);
+        var apiErrors = apiTraffic.ServerErrorsLast15Minutes;
 
         var (memoryPercent, workingSetBytes, availableBytes) = ReadMemoryUsage();
-        var signals = new List<AdminSystemSignal>
+        var signals = new List<AdminSystemSignal>();
+        if (memoryPercent is int currentMemoryPercent)
         {
-            new("memory", "runtime", memoryPercent >= 90 ? "critical" : memoryPercent >= memoryWarningThreshold ? "warning" : "normal",
-                "Bộ nhớ tiến trình API", $"Tiến trình API đang sử dụng {memoryPercent}% giới hạn bộ nhớ khả dụng.",
-                memoryPercent, "%", memoryWarningThreshold, null, memoryPercent >= memoryWarningThreshold),
+            var memoryTriggered = currentMemoryPercent >= memoryWarningThreshold;
+            signals.Add(new AdminSystemSignal("memory", "runtime",
+                memoryTriggered ? (currentMemoryPercent >= 90 ? "critical" : "warning") : "normal",
+                "Bộ nhớ tiến trình API", $"Tiến trình API đang sử dụng {currentMemoryPercent}% giới hạn bộ nhớ khả dụng.",
+                currentMemoryPercent, "%", memoryWarningThreshold, null, memoryTriggered));
+        }
+        signals.AddRange(
+        [
             new("signup-burst", "security", signupsLastHour >= signupThreshold ? "warning" : "normal",
                 "Tốc độ tạo tài khoản", $"Có {signupsLastHour:N0} tài khoản mới trong 60 phút gần nhất.",
                 signupsLastHour, "tài khoản/giờ", signupThreshold, "/users", signupsLastHour >= signupThreshold),
@@ -59,9 +80,9 @@ public sealed class AdminOperationsService(
                 "Giao dịch lỗi trong 24 giờ", $"Có {failedPayments:N0} giao dịch thất bại hoặc bị hủy trong 24 giờ gần nhất.",
                 failedPayments, "giao dịch/ngày", paymentFailureThreshold, "/payments", failedPayments >= paymentFailureThreshold),
             new("api-errors", "runtime", apiErrors >= apiErrorThreshold ? "warning" : "normal",
-                "Lỗi API quản trị gần đây", $"Có {apiErrors:N0} request API quản trị trả về lỗi máy chủ trong 15 phút gần nhất.",
+                "Lỗi máy chủ API gần đây", $"Có {apiErrors:N0} request API trả về lỗi máy chủ trong 15 phút gần nhất.",
                 apiErrors, "lỗi/15 phút", apiErrorThreshold, "/system/logs", apiErrors >= apiErrorThreshold)
-        };
+        ]);
 
         var triggered = signals.Where(signal => signal.IsTriggered).ToList();
         var rateLimit = configuration.GetValue("RateLimit:AuthPermitLimit", 60);
@@ -80,7 +101,28 @@ public sealed class AdminOperationsService(
             new("Bộ nhớ tiến trình", $"{FormatBytes(workingSetBytes)} / {FormatBytes(availableBytes)}", "Process.WorkingSet64 / GC memory limit")
         };
 
-        return new AdminSystemOverviewResponse(now, triggered.Count, triggered.Count(signal => signal.Severity == "critical"), signals, settings);
+        var liveMetrics = new AdminSystemLiveMetrics(
+            activeSessions,
+            pendingPaymentCount,
+            expiredPendingPayments,
+            failedPayments,
+            processingVideos,
+            failedVideos,
+            processingRenditions,
+            failedRenditions,
+            pendingReviews,
+            notificationConnections.Active.Count);
+        var services = new[]
+        {
+            new AdminSystemServiceStatus("api", "healthy", "Endpoint giám sát trả dữ liệu thành công.", null),
+            new AdminSystemServiceStatus("database", "healthy", "Các truy vấn giám sát database thành công.", databaseTimer.Elapsed.TotalMilliseconds),
+            new AdminSystemServiceStatus("redis", "unmonitored", "Backend hiện không kết nối Redis.", null),
+            new AdminSystemServiceStatus("storage", "unmonitored", "Chưa có phép kiểm tra trực tiếp trạng thái storage.", null),
+            new AdminSystemServiceStatus("signalr", "healthy", "Số kết nối đang mở trên instance API.", null)
+        };
+
+        return new AdminSystemOverviewResponse(now, triggered.Count, triggered.Count(signal => signal.Severity == "critical"),
+            signals, settings, apiTraffic, liveMetrics, services);
     }
 
     public async Task<AdminSystemReportResponse> GetReportAsync(int days, CancellationToken ct)
@@ -260,6 +302,7 @@ public sealed class AdminOperationsService(
         var memoryWarningThreshold = Math.Clamp(configuration.GetValue("SystemAlerts:MemoryWarningPercent", 75), 1, 99);
         var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "unknown";
         var (memoryPercent, workingSetBytes, availableBytes) = ReadMemoryUsage();
+        var memoryDisplay = memoryPercent is int currentMemoryPercent ? $"{currentMemoryPercent}%" : "không có số đo";
         return
         [
             new("Môi trường ứng dụng", environment.EnvironmentName, "ASPNETCORE_ENVIRONMENT"),
@@ -270,27 +313,27 @@ public sealed class AdminOperationsService(
             new("Ngưỡng hàng đợi kiểm duyệt", $"{reviewThreshold} video", "SystemAlerts:PendingReviewThreshold"),
             new("Ngưỡng giao dịch lỗi", $"{paymentFailureThreshold} giao dịch/24 giờ", "SystemAlerts:FailedPaymentsPerDay"),
             new("Ngưỡng lỗi API", $"{apiErrorThreshold} lỗi/15 phút", "SystemAlerts:ApiErrorsPer15Minutes"),
-            new("Cảnh báo bộ nhớ", $"{memoryWarningThreshold}% (hiện tại {memoryPercent}%)", "SystemAlerts:MemoryWarningPercent"),
+            new("Cảnh báo bộ nhớ", $"{memoryWarningThreshold}% (hiện tại {memoryDisplay})", "SystemAlerts:MemoryWarningPercent"),
             new("Bộ nhớ tiến trình", $"{FormatBytes(workingSetBytes)} / {FormatBytes(availableBytes)}", "Process.WorkingSet64 / GC memory limit")
         ];
     }
 
-    private static (int Percent, long WorkingSet, long Available) ReadMemoryUsage()
+    private static (int? Percent, long? WorkingSet, long? Available) ReadMemoryUsage()
     {
         try
         {
             using var process = Process.GetCurrentProcess();
             var workingSet = process.WorkingSet64;
             var available = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
-            if (available <= 0) return (0, workingSet, 0);
+            if (available <= 0) return (null, workingSet, available);
             return ((int)Math.Clamp(Math.Round(workingSet * 100d / available), 0, 100), workingSet, available);
         }
-        catch (Exception) { return (0, 0, 0); }
+        catch (Exception) { return (null, null, null); }
     }
 
-    private static string FormatBytes(long value) => value switch
+    private static string FormatBytes(long? value) => value switch
     {
-        <= 0 => "không xác định",
+        null or <= 0 => "không xác định",
         >= 1_073_741_824 => $"{value / 1_073_741_824d:0.0} GB",
         _ => $"{value / 1_048_576d:0} MB"
     };

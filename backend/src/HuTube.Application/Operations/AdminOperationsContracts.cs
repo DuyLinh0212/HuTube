@@ -14,12 +14,53 @@ public sealed record AdminSystemSignal(
 
 public sealed record AdminSystemRuntimeSetting(string Name, string Value, string Source);
 
+public sealed record AdminApiTrafficBucket(
+    DateTimeOffset BucketStart,
+    bool IsObserved,
+    long? Requests,
+    long? ClientErrors,
+    long? ServerErrors);
+
+public sealed record AdminApiTrafficOverview(
+    DateTimeOffset CollectedSince,
+    long RequestsThisMinute,
+    long RequestsLast15Minutes,
+    long ClientErrorsLast15Minutes,
+    long ServerErrorsLast15Minutes,
+    long RateLimitedLast15Minutes,
+    double ClientErrorRateLast15Minutes,
+    double ServerErrorRateLast15Minutes,
+    double? AverageLatencyMsLast15Minutes,
+    double? P95LatencyMsLast15Minutes,
+    IReadOnlyList<AdminApiTrafficBucket> Hourly);
+
+public sealed record AdminSystemLiveMetrics(
+    long ActiveSessions,
+    long PendingPayments,
+    long ExpiredPendingPayments,
+    long FailedPaymentsLast24Hours,
+    long VideosProcessing,
+    long FailedVideosLast24Hours,
+    long RenditionsProcessing,
+    long FailedRenditionsLast24Hours,
+    long PendingVideoReviews,
+    int ActiveSignalRConnections);
+
+public sealed record AdminSystemServiceStatus(
+    string Key,
+    string Status,
+    string Detail,
+    double? ResponseTimeMs);
+
 public sealed record AdminSystemOverviewResponse(
     DateTimeOffset SampledAt,
     int ActiveAlertCount,
     int CriticalAlertCount,
     IReadOnlyList<AdminSystemSignal> Signals,
-    IReadOnlyList<AdminSystemRuntimeSetting> RuntimeSettings);
+    IReadOnlyList<AdminSystemRuntimeSetting> RuntimeSettings,
+    AdminApiTrafficOverview ApiTraffic,
+    AdminSystemLiveMetrics LiveMetrics,
+    IReadOnlyList<AdminSystemServiceStatus> Services);
 
 public sealed record AdminSystemMetric(long Total, long InPeriod);
 public sealed record AdminSystemRevenueMetric(decimal Total, long TransactionsTotal, decimal InPeriod, long TransactionsInPeriod);
