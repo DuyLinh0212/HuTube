@@ -15,8 +15,7 @@ namespace HuTube.Api.Controllers;
 public sealed class PaymentsController(
     IPaymentService paymentService,
     SepaySignatureVerifier signatureVerifier,
-    ILogger<PaymentsController> logger,
-    VnPayOptions? vnPayOptions = null) : ControllerBase
+    ILogger<PaymentsController> logger) : ControllerBase
 {
     private Guid UserId => Guid.TryParse(User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id)
         ? id
@@ -64,34 +63,6 @@ public sealed class PaymentsController(
     {
         await paymentService.CancelAsync(UserId, paymentId, ct);
         return NoContent();
-    }
-
-    /// <summary>Nhận IPN server-to-server của VNPay. Đây là nguồn xác nhận giao dịch.</summary>
-    [AllowAnonymous]
-    [HttpGet("vnpay/ipn"), EnableRateLimiting("payment-webhook")]
-    public async Task<IActionResult> HandleVnPayIpnAsync(CancellationToken ct)
-    {
-        var parameters = ReadVnPayParameters();
-        var result = await paymentService.HandleVnPayIpnAsync(parameters, ct);
-        return Ok(result);
-    }
-
-    /// <summary>Xác thực chữ ký khi trình duyệt quay về rồi chuyển người dùng tới trang kết quả.</summary>
-    [AllowAnonymous]
-    [HttpGet("vnpay/return"), EnableRateLimiting("payment-webhook")]
-    public async Task<IActionResult> HandleVnPayReturnAsync(CancellationToken ct)
-    {
-        if (!Uri.TryCreate(vnPayOptions?.FrontendReturnUrl, UriKind.Absolute, out var frontendReturnUrl))
-            return StatusCode(503, new { message = "VNPAY return URL is not configured." });
-
-        var paymentId = await paymentService.HandleVnPayReturnAsync(ReadVnPayParameters(), ct);
-        var builder = new UriBuilder(frontendReturnUrl)
-        {
-            Query = paymentId.HasValue
-                ? QueryString.Create("paymentId", paymentId.Value.ToString("D")).Value?.TrimStart('?') ?? ""
-                : QueryString.Create("result", "invalid").Value?.TrimStart('?') ?? ""
-        };
-        return Redirect(builder.Uri.ToString());
     }
 
     /// <summary>
@@ -149,18 +120,5 @@ public sealed class PaymentsController(
 
         // SePay yêu cầu response đúng định dạng này
         return Ok(new { success = true });
-    }
-
-    private IReadOnlyDictionary<string, string> ReadVnPayParameters()
-    {
-        var parameters = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var key in Request.Query.Keys)
-        {
-            if (!key.StartsWith("vnp_", StringComparison.Ordinal)) continue;
-            var values = Request.Query[key];
-            if (values.Count != 1) return new Dictionary<string, string>(StringComparer.Ordinal);
-            parameters[key] = values[0] ?? "";
-        }
-        return parameters;
     }
 }

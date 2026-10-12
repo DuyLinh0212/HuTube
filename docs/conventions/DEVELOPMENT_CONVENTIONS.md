@@ -476,7 +476,7 @@ Quy tắc:
 feature/video-upload
 feature/google-login
 feature/report-management
-feature/vnpay-payment
+feature/sepay-payment
 fix/video-thumbnail-null
 fix/refresh-token-expired
 refactor/payment-gateway

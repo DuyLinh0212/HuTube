@@ -21,9 +21,6 @@ public sealed class Payment
     /// </summary>
     public long? SepayTransactionId { get; set; }
 
-    /// <summary>ID giao dịch phía VNPay, dùng để chống xử lý callback lặp.</summary>
-    public string? VnPayTransactionNo { get; set; }
-
     public DateTimeOffset? PaidAt { get; set; }
 
     /// <summary>

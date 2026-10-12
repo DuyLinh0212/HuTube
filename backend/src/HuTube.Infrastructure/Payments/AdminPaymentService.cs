@@ -88,13 +88,10 @@ public sealed class AdminPaymentService(HuTubeDbContext db, TimeProvider clock)
         };
         if (transaction.Status == "paid")
         {
-            events.Add(new("paid", "Thanh toán thành công",
-                transaction.VnPayTransactionNo is not null
-                    ? $"VNPay ghi nhận giao dịch {transaction.VnPayTransactionNo}."
-                    : transaction.SepayTransactionId.HasValue
-                    ? $"SePay ghi nhận giao dịch {transaction.SepayTransactionId.Value}."
-                    : $"Đã nhận {transaction.Amount:N0} {transaction.Currency} qua {transaction.PaymentMethod}.",
-                transaction.PaidAt ?? transaction.UpdatedAt));
+            var description = transaction.SepayTransactionId.HasValue
+                ? $"SePay ghi nhận giao dịch {transaction.SepayTransactionId.Value}."
+                : $"Đã nhận {transaction.Amount:N0} {transaction.Currency} qua {transaction.PaymentMethod}.";
+            events.Add(new("paid", "Thanh toán thành công", description, transaction.PaidAt ?? transaction.UpdatedAt));
         }
         else if (transaction.Status is "processing" or "failed" or "cancelled" or "refunded")
         {
@@ -127,7 +124,7 @@ public sealed class AdminPaymentService(HuTubeDbContext db, TimeProvider clock)
             payment.PaymentId, payment.TransactionCode, user.UserId, user.DisplayName, user.Email, user.AvatarUrl,
             plan.PlanId, plan.Name, "subscription", payment.PaymentMethod, payment.Amount, payment.Currency,
             payment.Status, payment.CreatedAt, payment.PaidAt, payment.UpdatedAt, payment.ExpiresAt,
-            payment.SepayTransactionId, payment.VnPayTransactionNo, payment.PlanHistoryId);
+            payment.SepayTransactionId, payment.PlanHistoryId);
 
     private static IQueryable<HuTube.Domain.Payments.Payment> ApplyDateRange(
         IQueryable<HuTube.Domain.Payments.Payment> query, DateTimeOffset? fromDate, DateTimeOffset? toDate)

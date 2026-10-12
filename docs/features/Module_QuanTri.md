@@ -754,7 +754,7 @@ Thao tác:
 - Phương thức:
   - MoMo.
   - ZaloPay.
-  - VNPay.
+  - SePay.
   - Các phương thức khác khi mở rộng.
 - Thời gian.
 - Trạng thái.

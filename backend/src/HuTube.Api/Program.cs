@@ -50,7 +50,6 @@ var r2Options = builder.Configuration.GetSection("Storage:R2").Get<R2Options>() 
 var featureOptions = builder.Configuration.GetSection("Features").Get<FeatureOptions>() ?? new();
 var videoProcessingOptions = builder.Configuration.GetSection("VideoProcessing").Get<VideoProcessingOptions>() ?? new();
 var sepayOptions = builder.Configuration.GetSection("SePay").Get<SepayOptions>() ?? new();
-var vnPayOptions = builder.Configuration.GetSection("VnPay").Get<VnPayOptions>() ?? new();
 var recommendationOptions = builder.Configuration.GetSection("Recommendation").Get<RecommendationOptions>() ?? new();
 var rateLimitOptions = builder.Configuration.GetSection("RateLimit").Get<RateLimitOptions>() ?? new();
 var geoIpOptions = builder.Configuration.GetSection("GeoIp").Get<GeoIpOptions>() ?? new();
@@ -84,7 +83,7 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
     || string.IsNullOrWhiteSpace(emailOptions.Gmail.RefreshToken)))
     throw new InvalidOperationException("Email__From and Email__Gmail__ClientId/ClientSecret/RefreshToken are required for Gmail API.");
 
-builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(vnPayOptions); builder.Services.AddSingleton(recommendationOptions); builder.Services.AddSingleton(rateLimitOptions); builder.Services.AddSingleton(geoIpOptions);
+builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(recommendationOptions); builder.Services.AddSingleton(rateLimitOptions); builder.Services.AddSingleton(geoIpOptions);
 builder.Services.AddSingleton<SepaySignatureVerifier>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024);

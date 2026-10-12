@@ -101,7 +101,7 @@ Payment method theo scope:
 
 - MoMo.
 - ZaloPay.
-- VNPay.
+- SePay.
 - Phương thức khác đã chốt.
 
 State:
