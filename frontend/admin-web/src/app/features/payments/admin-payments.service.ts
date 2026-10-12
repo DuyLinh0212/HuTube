@@ -21,6 +21,7 @@ export interface AdminPaymentItem {
   updatedAt: string;
   expiresAt: string;
   sepayTransactionId: number | null;
+  vnPayTransactionNo: string | null;
   planHistoryId: string | null;
 }
 

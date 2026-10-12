@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace HuTube.Application.Payments;
 
 // ─── Requests ────────────────────────────────────────────────────────────────
@@ -10,18 +12,24 @@ public sealed record CreatePaymentRequest(
 
 // ─── Responses ───────────────────────────────────────────────────────────────
 
-/// <summary>Thông tin đơn hàng vừa tạo, trả về cho client hiển thị QR và hướng dẫn chuyển khoản.</summary>
+/// <summary>Thông tin đơn hàng vừa tạo để client chuyển người dùng sang cổng thanh toán.</summary>
 public sealed record CreatePaymentResponse(
     Guid PaymentId,
     Guid PlanId,
     string PlanName,
     /// <summary>Nội dung cần ghi khi chuyển khoản, ví dụ "HUTUBE-A1B2C3D4".</summary>
     string TransactionCode,
-    /// <summary>URL hình QR VietQR dùng để quét thanh toán.</summary>
+    /// <summary>URL hình QR dùng cho các giao dịch SePay cũ.</summary>
     string QrCodeUrl,
     decimal Amount,
     string Currency,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    string PaymentUrl = "");
+
+/// <summary>Envelope phản hồi IPN theo giao thức VNPAY.</summary>
+public sealed record VnPayIpnResponse(
+    [property: JsonPropertyName("RspCode")] string RspCode,
+    [property: JsonPropertyName("Message")] string Message);
 
 /// <summary>Tóm tắt một giao dịch thanh toán.</summary>
 public sealed record PaymentSummaryResponse(
@@ -66,8 +74,17 @@ public sealed class PaymentException(int status, string code, string message) : 
 
 public interface IPaymentService
 {
-    /// <summary>Tạo đơn hàng thanh toán, trả về QR code và mã chuyển khoản.</summary>
+    /// <summary>Tạo đơn SePay cho luồng tương thích với các giao dịch cũ.</summary>
     Task<CreatePaymentResponse> InitiateAsync(Guid userId, CreatePaymentRequest request, CancellationToken ct = default);
+
+    /// <summary>Tạo đơn VNPay và trả về URL thanh toán đã ký.</summary>
+    Task<CreatePaymentResponse> InitiateVnPayAsync(Guid userId, CreatePaymentRequest request, string clientIp, CancellationToken ct = default);
+
+    /// <summary>Xác thực và xử lý IPN từ VNPay.</summary>
+    Task<VnPayIpnResponse> HandleVnPayIpnAsync(IReadOnlyDictionary<string, string> parameters, CancellationToken ct = default);
+
+    /// <summary>Xác thực lượt trình duyệt quay về và trả về payment ID để hiển thị trạng thái.</summary>
+    Task<Guid?> HandleVnPayReturnAsync(IReadOnlyDictionary<string, string> parameters, CancellationToken ct = default);
 
     /// <summary>Xử lý webhook từ SePay. Trả về true nếu đã xử lý thành công (kể cả trùng lặp).</summary>
     Task<bool> HandleSepayWebhookAsync(SepayWebhookPayload payload, CancellationToken ct = default);

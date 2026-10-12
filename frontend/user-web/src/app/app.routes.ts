@@ -29,6 +29,7 @@ export const routes: Routes = [
   { path: 'guidelines', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },
   { path: 'policies', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },
   { path: 'plans', loadComponent: () => import('./features/plans/plans-page').then(m => m.PlansPage) },
+  { path: 'payment/result', canActivate: [authGuard], loadComponent: () => import('./features/plans/payment-result-page').then(m => m.PaymentResultPage) },
   { path: 'plans/accept-invite', loadComponent: () => import('./features/plans/plan-invite-accept-page').then(m => m.PlanInviteAcceptPage) },
   { path: 'plans/:planId', loadComponent: () => import('./features/plans/plan-detail-page').then(m => m.PlanDetailPage) },
   { path: '', pathMatch: 'full', redirectTo: 'home' },

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'auth.dart';
 import 'core/localization/app_strings.dart';
 import 'core/theme/app_theme.dart';
@@ -935,12 +936,13 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   bool get _paid =>
       _status == 'paid' || _status == 'completed' || _status == 'success';
   bool get _expired =>
-      _status == 'expired' || _status == 'cancelled' || _status == 'failed';
+      _status == 'expired' || _status == 'cancelled';
+  bool get _failed => _status == 'failed';
 
   @override
   void initState() {
     super.initState();
-    if (!_paid && !_expired) {
+    if (!_paid && !_expired && !_failed) {
       _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _poll());
     }
   }
@@ -958,7 +960,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
       final latest = await widget.service.get('${widget.payment['paymentId']}');
       if (!mounted) return;
       setState(() => _payment = latest);
-      if (_paid || _expired) _pollTimer?.cancel();
+      if (_paid || _expired || _failed) _pollTimer?.cancel();
     } on ApiFailure {
       // Keep the pending payment visible; the user can retry by reopening it.
     } finally {
@@ -1001,6 +1003,35 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     }
   }
 
+  Future<void> _openVnPay() async {
+    final uri = Uri.tryParse('${_payment['paymentUrl'] ?? ''}');
+    final host = uri?.host.toLowerCase() ?? '';
+    final trustedGateway = const ['vnpay.vn', 'vnpayment.vn'].any(
+      (domain) => host == domain || host.endsWith('.$domain'),
+    );
+    if (uri == null || uri.scheme != 'https' || !trustedGateway) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.t('plans.paymentLinkInvalid'))),
+      );
+      return;
+    }
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('plans.paymentLinkInvalid'))),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('plans.paymentLinkInvalid'))),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(
@@ -1021,7 +1052,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                   size: 64,
                 ),
               )
-            else if (_expired)
+            else if (_expired || _failed)
               const Padding(
                 padding: EdgeInsets.all(16),
                 child: Icon(
@@ -1030,19 +1061,13 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                   size: 56,
                 ),
               )
-            else if ('${_payment['qrCodeUrl'] ?? ''}'.startsWith('http'))
+            else if (_status == 'pending')
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Image.network(
-                  '${_payment['qrCodeUrl']}',
-                  width: 210,
-                  height: 210,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const SizedBox(
-                    width: 210,
-                    height: 210,
-                    child: Icon(Icons.qr_code_2_rounded, size: 100),
-                  ),
+                child: FilledButton.icon(
+                  onPressed: _openVnPay,
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: Text(AppStrings.t('plans.continueToVnPay')),
                 ),
               ),
             Text(
@@ -1086,6 +1111,8 @@ class _PaymentDialogState extends State<_PaymentDialog> {
             Text(
               _paid
                   ? AppStrings.t('plans.activated')
+                  : _failed
+                  ? AppStrings.t('plans.paymentFailed')
                   : _expired
                   ? AppStrings.t('plans.paymentExpired')
                   : AppStrings.t('plans.paymentInstructions'),
@@ -1101,12 +1128,12 @@ class _PaymentDialogState extends State<_PaymentDialog> {
       ),
     ),
     actions: [
-      if (!_paid && !_expired)
+      if (!_paid && !_expired && !_failed)
         TextButton(
           onPressed: _poll,
           child: Text(AppStrings.t('plans.checkPayment')),
         ),
-      if (!_paid && !_expired)
+      if (!_paid && !_expired && !_failed)
         TextButton(
           onPressed: _cancelling ? null : _cancel,
           child: Text(AppStrings.t('plans.paymentCancel')),

@@ -13,16 +13,57 @@ public sealed class PaymentService(
     HuTubeDbContext db,
     IPlanService planService,
     SepayOptions options,
-    TimeProvider clock) : IPaymentService
+    TimeProvider clock,
+    VnPayOptions? vnPayOptions = null) : IPaymentService
 {
+    private readonly VnPayGateway vnPayGateway = new(vnPayOptions ?? new VnPayOptions());
     private DateTimeOffset Now => clock.GetUtcNow();
 
     // ─── InitiateAsync ────────────────────────────────────────────────────────
 
     public async Task<CreatePaymentResponse> InitiateAsync(Guid userId, CreatePaymentRequest request, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(options.SecretKey) || string.IsNullOrWhiteSpace(options.AccountNumber)
-            || string.IsNullOrWhiteSpace(options.BankCode))
+        var (payment, planName) = await CreatePendingPaymentAsync(userId, request, "sepay", ct);
+        return BuildResponse(payment, planName);
+    }
+
+    public async Task<CreatePaymentResponse> InitiateVnPayAsync(
+        Guid userId,
+        CreatePaymentRequest request,
+        string clientIp,
+        CancellationToken ct = default)
+    {
+        if (!vnPayGateway.IsConfigured || vnPayOptions is null
+            || vnPayOptions.PaymentExpiryMinutes is < 5 or > 60)
+            throw new PaymentException(503, "PAYMENT_UNAVAILABLE", "Thanh toán VNPay chưa được cấu hình.");
+
+        var (payment, planName) = await CreatePendingPaymentAsync(userId, request, "vnpay", ct);
+        string paymentUrl;
+        try
+        {
+            paymentUrl = vnPayGateway.CreatePaymentUrl(payment.TransactionCode, payment.Amount, clientIp, Now);
+        }
+        catch (OverflowException)
+        {
+            throw new PaymentException(400, "PAYMENT_AMOUNT_NOT_SUPPORTED", "Số tiền của gói vượt giới hạn thanh toán VNPay.");
+        }
+        catch (InvalidOperationException)
+        {
+            throw new PaymentException(400, "PAYMENT_AMOUNT_NOT_SUPPORTED", "VNPay chỉ hỗ trợ số tiền nguyên VND trong giới hạn cho phép.");
+        }
+
+        return new CreatePaymentResponse(payment.PaymentId, payment.PlanId, planName, payment.TransactionCode,
+            "", payment.Amount, payment.Currency, payment.ExpiresAt, paymentUrl);
+    }
+
+    private async Task<(Payment Payment, string PlanName)> CreatePendingPaymentAsync(
+        Guid userId,
+        CreatePaymentRequest request,
+        string paymentMethod,
+        CancellationToken ct)
+    {
+        if (paymentMethod == "sepay" && (string.IsNullOrWhiteSpace(options.SecretKey)
+            || string.IsNullOrWhiteSpace(options.AccountNumber) || string.IsNullOrWhiteSpace(options.BankCode)))
             throw new PaymentException(503, "PAYMENT_UNAVAILABLE", "Thanh toán chưa được cấu hình.");
         var key = string.IsNullOrWhiteSpace(request.IdempotencyKey) ? null : request.IdempotencyKey.Trim();
         if (key?.Length > 200)
@@ -38,6 +79,8 @@ public sealed class PaymentService(
 
         if (plan.Price <= 0)
             throw new PaymentException(400, "FREE_PLAN_NO_PAYMENT", "Gói miễn phí không cần thanh toán. Vui lòng dùng endpoint đăng ký trực tiếp.");
+        if (paymentMethod == "vnpay" && (plan.Price > 9_999_999_999m || plan.Price != decimal.Truncate(plan.Price)))
+            throw new PaymentException(400, "PAYMENT_AMOUNT_NOT_SUPPORTED", "VNPay chỉ hỗ trợ số tiền nguyên VND trong giới hạn cho phép.");
 
         var now = Now;
 
@@ -49,12 +92,13 @@ public sealed class PaymentService(
                 .FirstOrDefaultAsync(x =>
                     x.IdempotencyKey == key && x.UserId == userId, ct);
 
-            if (existing != null && (existing.PlanId != request.PlanId || existing.AutoRenew != request.AutoRenew))
+            if (existing != null && (existing.PlanId != request.PlanId || existing.AutoRenew != request.AutoRenew
+                || existing.PaymentMethod != paymentMethod))
                 throw new PaymentException(409, "IDEMPOTENCY_CONFLICT", "Mã yêu cầu đã dùng cho gói khác.");
             if (existing != null)
             {
                 if (existing.Status == "pending" && existing.ExpiresAt > now)
-                    return BuildResponse(existing, plan.Name);
+                    return (existing, plan.Name);
                 throw new PaymentException(409, "PAYMENT_REQUEST_ALREADY_PROCESSED", "Yêu cầu thanh toán này đã được xử lý hoặc hết hạn. Vui lòng tạo yêu cầu mới.");
             }
         }
@@ -63,11 +107,12 @@ public sealed class PaymentService(
         // create multiple pending transfers for one user and plan.
         var activePayment = await db.Payments.AsNoTracking()
             .Where(x => x.UserId == userId && x.PlanId == request.PlanId && x.AutoRenew == request.AutoRenew
+                && x.PaymentMethod == paymentMethod
                 && x.Status == "pending" && x.ExpiresAt > now)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync(ct);
         if (activePayment != null)
-            return BuildResponse(activePayment, plan.Name);
+            return (activePayment, plan.Name);
 
         // Sinh mã chuyển khoản duy nhất
         var transactionCode = await GenerateUniqueTransactionCodeAsync(ct);
@@ -79,12 +124,14 @@ public sealed class PaymentService(
             PlanId = plan.PlanId,
             Amount = plan.Price,
             Currency = "VND",
-            PaymentMethod = "sepay",
+            PaymentMethod = paymentMethod,
             TransactionCode = transactionCode,
             Status = "pending",
             IdempotencyKey = key,
             AutoRenew = request.AutoRenew,
-            ExpiresAt = now.AddMinutes(options.PaymentExpiryMinutes),
+            ExpiresAt = now.AddMinutes(paymentMethod == "vnpay"
+                ? vnPayOptions!.PaymentExpiryMinutes
+                : options.PaymentExpiryMinutes),
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -93,8 +140,106 @@ public sealed class PaymentService(
         await db.SaveChangesAsync(ct);
         if (transaction != null) await transaction.CommitAsync(ct);
 
-        return BuildResponse(payment, plan.Name);
+        return (payment, plan.Name);
     }
+
+    public async Task<VnPayIpnResponse> HandleVnPayIpnAsync(
+        IReadOnlyDictionary<string, string> parameters,
+        CancellationToken ct = default)
+    {
+        if (!vnPayGateway.TryValidateResponse(parameters, out var callback) || callback is null)
+            return new VnPayIpnResponse("97", "Invalid signature or data");
+
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct) : null;
+        await AcquireVnPayLockAsync(callback.TransactionReference, ct);
+
+        var payment = await db.Payments.SingleOrDefaultAsync(x =>
+            x.PaymentMethod == "vnpay" && x.TransactionCode == callback.TransactionReference, ct);
+        if (payment is null)
+            return new VnPayIpnResponse("01", "Order not found");
+        if (!IsAmountMatch(payment.Amount, callback.AmountMinor))
+            return new VnPayIpnResponse("04", "Invalid amount");
+        if (payment.Status == "paid")
+        {
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return new VnPayIpnResponse("00", "Confirm Success");
+        }
+
+        var success = callback.ResponseCode == "00" && callback.TransactionStatus == "00";
+        if (!success)
+        {
+            if (payment.Status == "pending")
+            {
+                payment.Status = "failed";
+                payment.UpdatedAt = Now;
+                payment.GatewayPayload = JsonSerializer.Serialize(callback.Parameters);
+                await db.SaveChangesAsync(ct);
+            }
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return new VnPayIpnResponse("00", "Confirm Success");
+        }
+
+        if (payment.Status is not ("pending" or "failed" or "cancelled"))
+            return new VnPayIpnResponse("02", "Order already confirmed");
+
+        var duplicateTransaction = await db.Payments.AnyAsync(x =>
+            x.PaymentId != payment.PaymentId && x.VnPayTransactionNo == callback.TransactionNo, ct);
+        if (duplicateTransaction)
+            return new VnPayIpnResponse("02", "Transaction already assigned");
+
+        if (transaction is not null)
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({payment.UserId.ToString()}, 0))", ct);
+
+        var planHistoryId = await planService.ActivatePaidPlanAsync(
+            payment.UserId, payment.PlanId, payment.PaymentId, autoRenew: payment.AutoRenew, ct);
+        payment.Status = "paid";
+        payment.PaidAt = Now;
+        payment.UpdatedAt = Now;
+        payment.VnPayTransactionNo = callback.TransactionNo;
+        payment.PlanHistoryId = planHistoryId;
+        payment.GatewayPayload = JsonSerializer.Serialize(callback.Parameters);
+        await db.SaveChangesAsync(ct);
+        if (transaction is not null) await transaction.CommitAsync(ct);
+        return new VnPayIpnResponse("00", "Confirm Success");
+    }
+
+    public async Task<Guid?> HandleVnPayReturnAsync(
+        IReadOnlyDictionary<string, string> parameters,
+        CancellationToken ct = default)
+    {
+        if (!vnPayGateway.TryValidateResponse(parameters, out var callback) || callback is null)
+            return null;
+
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct) : null;
+        await AcquireVnPayLockAsync(callback.TransactionReference, ct);
+        var payment = await db.Payments.SingleOrDefaultAsync(x =>
+            x.PaymentMethod == "vnpay" && x.TransactionCode == callback.TransactionReference, ct);
+        if (payment is null || !IsAmountMatch(payment.Amount, callback.AmountMinor))
+            return null;
+
+        if ((callback.ResponseCode != "00" || callback.TransactionStatus != "00") && payment.Status == "pending")
+        {
+            payment.Status = "failed";
+            payment.UpdatedAt = Now;
+            payment.GatewayPayload = JsonSerializer.Serialize(callback.Parameters);
+            await db.SaveChangesAsync(ct);
+        }
+        if (transaction is not null) await transaction.CommitAsync(ct);
+        return payment.PaymentId;
+    }
+
+    private async Task AcquireVnPayLockAsync(string transactionReference, CancellationToken ct)
+    {
+        if (db.Database.IsRelational())
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({"vnpay:" + transactionReference}, 0))", ct);
+    }
+
+    private static bool IsAmountMatch(decimal amount, long amountMinor) =>
+        amount > 0 && amount == decimal.Truncate(amount) && amount * 100m == amountMinor;
 
     public async Task CancelAsync(Guid userId, Guid paymentId, CancellationToken ct = default)
     {
@@ -144,6 +289,8 @@ public sealed class PaymentService(
         var payment = await FindMatchingPaymentAsync(payload, ct);
         if (payment == null)
             return true; // Giao dịch không liên quan đến HuTube → trả true để SePay không retry
+        if (payment.PaymentMethod != "sepay")
+            return true;
 
         if (transaction != null)
         {

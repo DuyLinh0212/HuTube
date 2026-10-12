@@ -69,6 +69,7 @@ export interface CreatePaymentResponse {
   planName: string;
   transactionCode: string;
   qrCodeUrl: string;
+  paymentUrl: string;
   amount: number;
   currency: string;
   expiresAt: string;
@@ -114,7 +115,7 @@ export class PlanService {
   }
 
   getPayment(paymentId: string): Observable<PaymentSummary> {
-    return this.http.get<PaymentSummary>(`${this.paymentsBase}/${paymentId}`);
+    return this.http.get<PaymentSummary>(`${this.paymentsBase}/${encodeURIComponent(paymentId)}`);
   }
 
   cancelPayment(paymentId: string): Observable<void> {
