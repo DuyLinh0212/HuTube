@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { RuntimeConfig } from '../../core/runtime-config';
 
 export interface SystemSignal {
@@ -68,6 +68,58 @@ export interface SystemServiceStatus {
   status: string;
   detail: string;
   responseTimeMs: number | null;
+}
+
+function canonicalFieldName(value: string): string {
+  return value.replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function readField(record: Record<string, unknown>, aliases: string[]): unknown {
+  const wanted = new Set(aliases.map(canonicalFieldName));
+  const entry = Object.entries(record).find(([key]) => wanted.has(canonicalFieldName(key)));
+  return entry?.[1];
+}
+
+function normalizeServiceKey(value: unknown, index: number): string {
+  if (typeof value !== 'string' || !value.trim()) return `service-${index + 1}`;
+  const original = value.trim();
+  const compact = canonicalFieldName(original);
+  const aliases: Record<string, string> = {
+    api: 'api', backend: 'api', backendapi: 'api',
+    database: 'database', db: 'database', neon: 'database', neondatabase: 'database', neonpostgresql: 'database', postgres: 'database', postgresql: 'database',
+    redis: 'redis', upstash: 'redis', upstashredis: 'redis', redisupstash: 'redis',
+    vercel: 'vercel', vercelfrontend: 'vercel', render: 'render', renderbackend: 'render',
+    storage: 'storage', r2: 'storage', cloudflarer2: 'storage', cloudflarer2storage: 'storage', cloudflarestorage: 'storage',
+    signalr: 'signalr',
+  };
+  return aliases[compact] ?? original;
+}
+
+function normalizeServiceStatus(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) return 'unmonitored';
+  const status = canonicalFieldName(value);
+  if (['healthy', 'ok', 'operational', 'up', 'none'].includes(status)) return 'healthy';
+  if (['warning', 'degraded', 'degradedperformance', 'partialoutage', 'maintenance', 'minor'].includes(status)) return 'warning';
+  if (['error', 'unhealthy', 'down', 'unavailable', 'failed', 'majoroutage', 'critical', 'outage'].includes(status)) return 'error';
+  if (['unmonitored', 'notmonitored', 'notconfigured', 'disabled', 'unknown', 'checking'].includes(status)) return 'unmonitored';
+  return 'unmonitored';
+}
+
+function normalizeSystemService(value: unknown, index: number): SystemServiceStatus {
+  const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const key = normalizeServiceKey(readField(record, ['key', 'serviceKey', 'providerKey', 'service', 'provider', 'name', 'serviceName']), index);
+  const rawStatus = readField(record, ['status', 'state', 'health', 'healthStatus', 'indicator']);
+  const detail = readField(record, ['detail', 'description', 'message', 'healthMessage', 'statusText']);
+  const rawResponseTime = readField(record, ['responseTimeMs', 'latencyMs', 'responseTime', 'latency']);
+  const parsedResponseTime = typeof rawResponseTime === 'number'
+    ? rawResponseTime
+    : typeof rawResponseTime === 'string' ? Number(rawResponseTime) : null;
+  return {
+    key,
+    status: normalizeServiceStatus(rawStatus),
+    detail: typeof detail === 'string' && detail.trim() ? detail.trim() : 'API chưa gửi mô tả cho dịch vụ này.',
+    responseTimeMs: parsedResponseTime != null && Number.isFinite(parsedResponseTime) ? parsedResponseTime : null,
+  };
 }
 
 export interface SystemMetric { total: number; inPeriod: number; }
@@ -141,7 +193,12 @@ export class AdminOperationsService {
   private readonly baseUrl = `${this.config.apiBaseUrl}/admin/operations`;
 
   getSystemOverview(): Observable<SystemOverview> {
-    return this.http.get<SystemOverview>(`${this.baseUrl}/system`);
+    return this.http.get<SystemOverview>(`${this.baseUrl}/system`).pipe(map(overview => ({
+      ...overview,
+      services: Array.isArray((overview as { services?: unknown }).services)
+        ? ((overview as { services: unknown[] }).services).map(normalizeSystemService)
+        : [],
+    })));
   }
 
   getReport(days: number): Observable<SystemReport> {

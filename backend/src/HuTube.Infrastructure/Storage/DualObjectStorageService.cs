@@ -21,6 +21,8 @@ public sealed class DualObjectStorageService(
             ? videoStorage.GetReadUrlAsync(storedPath, lifetime, ct)
             : imageStorage.GetReadUrlAsync(storedPath, lifetime, ct);
 
+    public Task<bool?> CheckHealthAsync(CancellationToken ct = default) => videoStorage.CheckHealthAsync(ct);
+
     public Task<Stream> OpenReadAsync(string storedPath, CancellationToken ct = default) =>
         IsVideoStoragePath(storedPath)
             ? videoStorage.OpenReadAsync(storedPath, ct)

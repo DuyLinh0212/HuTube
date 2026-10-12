@@ -108,6 +108,16 @@ public sealed class R2ObjectStorageService : IObjectStorage, IDisposable
         return response.ResponseStream;
     }
 
+    public async Task<bool?> CheckHealthAsync(CancellationToken ct = default)
+    {
+        await _client.ListObjectsV2Async(new ListObjectsV2Request
+        {
+            BucketName = _options.BucketName,
+            MaxKeys = 1
+        }, ct);
+        return true;
+    }
+
     public async Task DeleteFileAsync(string relativePath, CancellationToken ct = default)
     {
         if (!TryObjectKey(relativePath, out var key)) return;
