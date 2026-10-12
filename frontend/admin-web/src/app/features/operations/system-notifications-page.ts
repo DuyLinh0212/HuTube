@@ -113,11 +113,11 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
     let amount = value;
     let unitIndex = 0;
-    while (amount >= 1024 && unitIndex < units.length - 1) {
-      amount /= 1024;
+    while (amount >= 1000 && unitIndex < units.length - 1) {
+      amount /= 1000;
       unitIndex++;
     }
-    const fractionDigits = unitIndex === 0 || amount >= 100 ? 0 : amount >= 10 ? 1 : 2;
+    const fractionDigits = unitIndex === 0 ? 0 : amount >= 100 ? 2 : amount >= 10 ? 1 : 2;
     return `${this.formatNumber(amount, fractionDigits)} ${units[unitIndex]}`;
   }
 
