@@ -2668,7 +2668,7 @@ User có thể:
 
 - MoMo.
 - ZaloPay.
-- VNPay.
+- SePay.
 - Các phương thức mở rộng.
 
 ### B. Trạng thái

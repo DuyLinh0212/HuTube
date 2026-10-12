@@ -71,7 +71,7 @@ Cả 3 client cùng sử dụng một Backend ASP.NET Core.
              ▼                 ▼                 ▼
         PostgreSQL       Cloudinary        External Services
                                             ├── Google
-                                            ├── VNPay
+                                            ├── SePay
                                             ├── MoMo
                                             └── ZaloPay
 ```
@@ -233,7 +233,6 @@ Domain không được phụ thuộc:
 - SignalR.
 - Cloudinary SDK.
 - Google SDK.
-- VNPay SDK.
 - MoMo SDK.
 - ZaloPay SDK.
 - HTTP.
@@ -365,7 +364,7 @@ Storage/
 
 ```text
 Payments/
-├── VNPay/
+├── SePay/
 ├── MoMo/
 └── ZaloPay/
 ```
@@ -624,29 +623,7 @@ PostgreSQL chỉ lưu metadata và URL/object key; không lưu binary media tr�
 
 # 18. Payment Architecture
 
-Các Payment Provider:
-
-```text
-VNPay
-MoMo
-ZaloPay
-```
-
-Application định nghĩa:
-
-```text
-IPaymentGateway
-```
-
-Infrastructure triển khai:
-
-```text
-VNPayPaymentGateway
-MoMoPaymentGateway
-ZaloPayPaymentGateway
-```
-
-Không viết logic riêng của từng Payment Provider trực tiếp trong Controller.
+Thanh toán gói dịch vụ hiện dùng SePay. API tạo giao dịch chờ với mã chuyển khoản; webhook SePay xác nhận giao dịch và kích hoạt gói.
 
 ---
 
@@ -1102,7 +1079,9 @@ GOOGLE_CLIENT_SECRET
 CLOUDINARY_CLOUD_NAME
 CLOUDINARY_API_KEY
 CLOUDINARY_API_SECRET
-VNPAY_SECRET_KEY
+SEPAY_SECRET_KEY
+SEPAY_ACCOUNT_NUMBER
+SEPAY_BANK_CODE
 MOMO_SECRET_KEY
 ZALOPAY_KEY1
 ZALOPAY_KEY2

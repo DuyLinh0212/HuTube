@@ -139,7 +139,7 @@ public interface IPlanService
     Task<PlanResponse> SubscribeAsync(Guid userId, Guid planId, PlanSubscriptionRequest request, CancellationToken ct = default);
 
     /// <summary>
-    /// Kích hoạt gói trả phí sau khi giao dịch được VNPay xác nhận qua IPN.
+    /// Kích hoạt gói trả phí sau khi giao dịch được cổng thanh toán xác nhận.
     /// Trả về PlanHistoryId của bản ghi vừa tạo.
     /// </summary>
     Task<Guid> ActivatePaidPlanAsync(Guid userId, Guid planId, Guid paymentId, bool autoRenew, CancellationToken ct = default);

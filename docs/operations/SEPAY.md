@@ -32,5 +32,3 @@ The API expects the signed raw-body webhook headers `X-SePay-Signature` and `X-S
 - The user scans the QR and transfers the exact amount with the displayed transfer code.
 - `POST /api/v1/payments/webhook/sepay` verifies and matches the notification; a browser return alone does not activate the plan.
 - The web and mobile payment dialogs poll the payment status while the transfer is pending.
-
-The VNPay integration remains separate for legacy callbacks and is not used to create new payments.

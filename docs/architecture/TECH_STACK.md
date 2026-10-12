@@ -101,27 +101,7 @@ Dùng cho các chức năng như:
 
 ## 7. Payment
 
-Các Payment Provider dự kiến:
-
-```text
-VNPay
-MoMo
-ZaloPay
-```
-
-Backend phải bọc các provider sau một abstraction chung, ví dụ:
-
-```text
-IPaymentGateway
-```
-
-Các implementation:
-
-```text
-VNPayPaymentGateway
-MoMoPaymentGateway
-ZaloPayPaymentGateway
-```
+Thanh toán gói dịch vụ hiện dùng SePay để nhận chuyển khoản ngân hàng và xác nhận giao dịch qua webhook.
 
 ## 8. Development & DevOps
 

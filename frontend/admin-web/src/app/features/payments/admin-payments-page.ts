@@ -244,7 +244,7 @@ export class AdminPaymentsPage implements OnInit {
       this.i18n.t('payments.colCreated'), this.i18n.t('payments.colReference'),
     ];
     const rows = items.map(item => [item.transactionCode, item.userName, item.planName, this.methodLabel(item.paymentMethod),
-      this.formatMoney(item.amount, item.currency), this.paymentStatusLabel(item.status), this.formatDate(item.createdAt, true), item.vnPayTransactionNo ?? item.sepayTransactionId ?? '']);
+      this.formatMoney(item.amount, item.currency), this.paymentStatusLabel(item.status), this.formatDate(item.createdAt, true), item.sepayTransactionId ?? '']);
     const csv = '\ufeff' + [headers, ...rows].map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
