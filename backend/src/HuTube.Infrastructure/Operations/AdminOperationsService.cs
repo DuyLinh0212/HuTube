@@ -1,13 +1,16 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Net.WebSockets;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using HuTube.Application.Storage;
 using HuTube.Application.Operations;
 using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Notifications;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -23,9 +26,11 @@ public sealed class AdminOperationsService(
     NotificationConnections notificationConnections,
     IObjectStorage objectStorage,
     IHttpClientFactory httpClientFactory,
-    IMemoryCache memoryCache)
+    IMemoryCache memoryCache,
+    IHttpContextAccessor httpContextAccessor)
 {
     private static readonly TimeSpan HealthProbeTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan SignalRProbeTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan R2UsageCacheDuration = TimeSpan.FromMinutes(5);
     private const string CloudflareGraphQlEndpoint = "https://api.cloudflare.com/client/v4/graphql";
 
@@ -144,6 +149,7 @@ public sealed class AdminOperationsService(
         var redisTask = CheckRedisAsync(ct);
         var vercelTask = CheckVercelAsync(ct);
         var r2Task = CheckR2Async(ct);
+        var signalRTask = CheckSignalRAsync(activeSignalRConnections, ct);
 
         return
         [
@@ -153,9 +159,97 @@ public sealed class AdminOperationsService(
             await CheckRenderAsync(overviewResponseTimeMs, ct),
             await vercelTask,
             await r2Task,
-            new("signalr", "unmonitored",
-                $"Có {activeSignalRConnections:N0} kết nối realtime trên instance này; chưa có phép thử bắt tay SignalR riêng.", null)
+            await signalRTask
         ];
+    }
+
+    private async Task<AdminSystemServiceStatus> CheckSignalRAsync(int activeConnections, CancellationToken ct)
+    {
+        var timer = Stopwatch.StartNew();
+        var context = httpContextAccessor.HttpContext;
+        var port = context?.Connection.LocalPort ?? 0;
+        if (context is null || port is <= 0 or > 65535)
+            return new("signalr", "unmonitored", "Không xác định được cổng nội bộ để kiểm tra SignalR.", null);
+
+        if (!AuthenticationHeaderValue.TryParse(context.Request.Headers["Authorization"].ToString(), out var authorization)
+            || !string.Equals(authorization.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(authorization.Parameter))
+            return new("signalr", "unmonitored", "Request hiện tại không có phiên Bearer để kiểm tra bắt tay SignalR.", null);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(SignalRProbeTimeout);
+        try
+        {
+            var localBaseUrl = $"http://127.0.0.1:{port}";
+            using var negotiateRequest = new HttpRequestMessage(HttpMethod.Post,
+                $"{localBaseUrl}/hubs/notifications/negotiate?negotiateVersion=1");
+            negotiateRequest.Headers.Authorization = authorization;
+            using var negotiateResponse = await httpClientFactory.CreateClient().SendAsync(negotiateRequest,
+                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (!negotiateResponse.IsSuccessStatusCode)
+                return new("signalr", "error",
+                    $"SignalR negotiate trả HTTP {(int)negotiateResponse.StatusCode}.", timer.Elapsed.TotalMilliseconds);
+
+            await using var responseStream = await negotiateResponse.Content.ReadAsStreamAsync(timeout.Token);
+            using var negotiation = await JsonDocument.ParseAsync(responseStream, cancellationToken: timeout.Token);
+            if (!negotiation.RootElement.TryGetProperty("connectionToken", out var tokenElement)
+                || tokenElement.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(tokenElement.GetString()))
+                return new("signalr", "error", "SignalR negotiate không trả connection token hợp lệ.", timer.Elapsed.TotalMilliseconds);
+
+            var connectionToken = Uri.EscapeDataString(tokenElement.GetString()!);
+            var socketUri = new UriBuilder("ws", "127.0.0.1", port, "/hubs/notifications")
+            {
+                Query = $"id={connectionToken}"
+            }.Uri;
+            using var socket = new ClientWebSocket();
+            socket.Options.SetRequestHeader("Authorization", authorization.ToString());
+            await socket.ConnectAsync(socketUri, timeout.Token);
+
+            var handshake = Encoding.UTF8.GetBytes("{\"protocol\":\"json\",\"version\":1}\u001e");
+            await socket.SendAsync(handshake.AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
+
+            using var handshakeResponse = new MemoryStream();
+            var receiveBuffer = new byte[512];
+            ValueWebSocketReceiveResult receiveResult;
+            do
+            {
+                receiveResult = await socket.ReceiveAsync(receiveBuffer.AsMemory(), timeout.Token);
+                if (receiveResult.MessageType != WebSocketMessageType.Text)
+                    return new("signalr", "error", "SignalR trả phản hồi handshake không phải văn bản.", timer.Elapsed.TotalMilliseconds);
+
+                handshakeResponse.Write(receiveBuffer, 0, receiveResult.Count);
+                if (handshakeResponse.Length > 4096)
+                    return new("signalr", "error", "Phản hồi handshake SignalR vượt quá kích thước cho phép.", timer.Elapsed.TotalMilliseconds);
+            }
+            while (!receiveResult.EndOfMessage);
+
+            var handshakeText = Encoding.UTF8.GetString(handshakeResponse.ToArray());
+            if (!handshakeText.StartsWith("{}\u001e", StringComparison.Ordinal))
+                return new("signalr", "error", "SignalR đã mở WebSocket nhưng từ chối giao thức JSON handshake.", timer.Elapsed.TotalMilliseconds);
+
+            await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "health probe", timeout.Token);
+            return new("signalr", "healthy",
+                $"SignalR negotiate và WebSocket handshake thành công; có {activeConnections:N0} kết nối realtime đang mở.",
+                timer.Elapsed.TotalMilliseconds);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException)
+        {
+            return new("signalr", "error", "Kiểm tra bắt tay SignalR quá thời gian 5 giây.", SignalRProbeTimeout.TotalMilliseconds);
+        }
+        catch (HttpRequestException)
+        {
+            return new("signalr", "error", "Không gọi được SignalR negotiate trên instance API.", timer.Elapsed.TotalMilliseconds);
+        }
+        catch (WebSocketException)
+        {
+            return new("signalr", "error", "Không mở hoặc hoàn tất được WebSocket handshake SignalR.", timer.Elapsed.TotalMilliseconds);
+        }
+        catch (JsonException)
+        {
+            return new("signalr", "error", "SignalR negotiate trả dữ liệu không hợp lệ.", timer.Elapsed.TotalMilliseconds);
+        }
     }
 
     private async Task<AdminSystemServiceStatus> CheckRedisAsync(CancellationToken ct)
