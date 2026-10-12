@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using HuTube.Application.Payments;
@@ -298,10 +299,13 @@ public sealed class PaymentService(
 
     private CreatePaymentResponse BuildResponse(Payment payment, string planName)
     {
-        var qrUrl = string.IsNullOrWhiteSpace(options.AccountNumber)
+        var accountNumber = options.AccountNumber.Trim();
+        var bankId = NormalizeVietQrBankId(options.BankCode);
+        var qrUrl = string.IsNullOrWhiteSpace(accountNumber)
             ? "" // Chưa cấu hình → trả về rỗng; frontend hiển thị thông báo
-            : $"https://vietqr.app/img?acc={options.AccountNumber}&bank={Uri.EscapeDataString(options.BankCode)}" +
-              $"&amount={payment.Amount:0}&des={Uri.EscapeDataString(payment.TransactionCode)}";
+            : $"https://img.vietqr.io/image/{Uri.EscapeDataString(bankId)}-{Uri.EscapeDataString(accountNumber)}-qr_only.png" +
+              $"?amount={payment.Amount.ToString("0", CultureInfo.InvariantCulture)}" +
+              $"&addInfo={Uri.EscapeDataString(payment.TransactionCode)}";
 
         return new CreatePaymentResponse(
             payment.PaymentId,
@@ -312,5 +316,13 @@ public sealed class PaymentService(
             payment.Amount,
             payment.Currency,
             payment.ExpiresAt);
+    }
+
+    private static string NormalizeVietQrBankId(string bankCode)
+    {
+        var normalized = bankCode.Trim();
+        return normalized.Equals("TPBANK", StringComparison.OrdinalIgnoreCase)
+            ? "970423" // TPBank BIN; supports the official VietQR Quick Link format.
+            : normalized;
     }
 }

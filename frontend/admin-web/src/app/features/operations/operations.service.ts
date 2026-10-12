@@ -23,6 +23,51 @@ export interface SystemOverview {
   criticalAlertCount: number;
   signals: SystemSignal[];
   runtimeSettings: RuntimeSetting[];
+  apiTraffic: ApiTrafficOverview;
+  liveMetrics: SystemLiveMetrics;
+  services: SystemServiceStatus[];
+}
+
+export interface ApiTrafficBucket {
+  bucketStart: string;
+  isObserved: boolean;
+  requests: number | null;
+  clientErrors: number | null;
+  serverErrors: number | null;
+}
+
+export interface ApiTrafficOverview {
+  collectedSince: string;
+  requestsThisMinute: number;
+  requestsLast15Minutes: number;
+  clientErrorsLast15Minutes: number;
+  serverErrorsLast15Minutes: number;
+  rateLimitedLast15Minutes: number;
+  clientErrorRateLast15Minutes: number;
+  serverErrorRateLast15Minutes: number;
+  averageLatencyMsLast15Minutes: number | null;
+  p95LatencyMsLast15Minutes: number | null;
+  hourly: ApiTrafficBucket[];
+}
+
+export interface SystemLiveMetrics {
+  activeSessions: number;
+  pendingPayments: number;
+  expiredPendingPayments: number;
+  failedPaymentsLast24Hours: number;
+  videosProcessing: number;
+  failedVideosLast24Hours: number;
+  renditionsProcessing: number;
+  failedRenditionsLast24Hours: number;
+  pendingVideoReviews: number;
+  activeSignalRConnections: number;
+}
+
+export interface SystemServiceStatus {
+  key: string;
+  status: string;
+  detail: string;
+  responseTimeMs: number | null;
 }
 
 export interface SystemMetric { total: number; inPeriod: number; }

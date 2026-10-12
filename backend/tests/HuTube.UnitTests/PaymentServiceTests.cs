@@ -97,8 +97,7 @@ public sealed class PaymentServiceTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal(plan.Price, result.Amount);
         Assert.StartsWith("HUTUBE-", result.TransactionCode);
-        Assert.Contains("vietqr.app/img", result.QrCodeUrl);
-        Assert.Contains("1017588888", result.QrCodeUrl);
+        Assert.Contains("img.vietqr.io/image/Vietcombank-1017588888-qr_only.png", result.QrCodeUrl);
 
         var saved = await _db.Payments.FirstOrDefaultAsync(x => x.PaymentId == result.PaymentId);
         Assert.NotNull(saved);
