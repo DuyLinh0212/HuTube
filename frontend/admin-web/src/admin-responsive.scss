@@ -38,12 +38,15 @@ body .content-frame {
 }
 
 body .admin-shell {
-  min-height: 100svh;
-  overflow-x: clip;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 body .shell-stage {
   overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 /* Every feature page may shrink inside the shell without changing its own
