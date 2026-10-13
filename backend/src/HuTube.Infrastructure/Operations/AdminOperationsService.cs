@@ -31,6 +31,7 @@ public sealed class AdminOperationsService(
     IHttpContextAccessor httpContextAccessor)
 {
     private static readonly TimeSpan HealthProbeTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan ProviderMetricsTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SignalRProbeTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan R2UsageCacheDuration = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan UpstashUsageCacheDuration = TimeSpan.FromMinutes(5);
@@ -577,7 +578,7 @@ public sealed class AdminOperationsService(
             string.Join("&", query.Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(HealthProbeTimeout);
+        timeout.CancelAfter(ProviderMetricsTimeout);
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
@@ -629,7 +630,7 @@ public sealed class AdminOperationsService(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            return new("error", null, "Đọc Neon Consumption API quá thời gian 3 giây.");
+            return new("error", null, "Đọc Neon Consumption API quá thời gian 10 giây.");
         }
         catch (HttpRequestException)
         {
@@ -663,7 +664,7 @@ public sealed class AdminOperationsService(
     {
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{apiKey}"));
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(HealthProbeTimeout);
+        timeout.CancelAfter(ProviderMetricsTimeout);
         try
         {
             using var client = httpClientFactory.CreateClient();
@@ -706,7 +707,7 @@ public sealed class AdminOperationsService(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            return new("error", "", null, null, null, null, "", "Đọc Upstash Developer API quá thời gian 3 giây.");
+            return new("error", "", null, null, null, null, "", "Đọc Upstash Developer API quá thời gian 10 giây.");
         }
         catch (HttpRequestException)
         {
@@ -752,9 +753,21 @@ public sealed class AdminOperationsService(
         double? memoryPercent = memoryBytes is > 0 && memoryLimitBytes is > 0
             ? Math.Clamp(memoryBytes.Value * 100d / memoryLimitBytes.Value, 0, 1000) : null;
         var available = cpuPercent is not null || memoryPercent is not null;
+        var metricErrors = metricTasks
+            .Where(result => !string.IsNullOrWhiteSpace(result.Error))
+            .Select(result => result.Error!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var detail = available
+            ? metricErrors.Length == 0
+                ? "CPU và bộ nhớ lấy từ Render Metrics API trên instance hiện tại."
+                : $"Đã đọc được một phần metrics Render. {string.Join(" ", metricErrors)}"
+            : metricErrors.Length > 0
+                ? string.Join(" ", metricErrors)
+                : "Render Metrics API trả thành công nhưng chưa có mẫu CPU/memory trong 10 phút gần nhất.";
         return new(available ? "available" : "error", cpuPercent, cpuLimit.Value,
             memoryPercent, memoryBytes, memoryLimitBytes,
-            available ? "CPU và bộ nhớ lấy từ Render Metrics API trên instance hiện tại." : "Render chưa trả mẫu CPU/memory; kiểm tra API key, service và instance.");
+            detail);
     }
 
     private async Task<RenderMetricValue> GetRenderMetricAsync(string metric, string apiKey, string serviceId, CancellationToken ct)
@@ -766,7 +779,7 @@ public sealed class AdminOperationsService(
         var query = $"resource={Uri.EscapeDataString(serviceId)}&resolutionSeconds=60&startTime={Uri.EscapeDataString(start.ToString("O", CultureInfo.InvariantCulture))}&endTime={Uri.EscapeDataString(end.ToString("O", CultureInfo.InvariantCulture))}";
         if (!string.IsNullOrWhiteSpace(instance)) query += $"&instance={Uri.EscapeDataString(instance)}";
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(HealthProbeTimeout);
+        timeout.CancelAfter(ProviderMetricsTimeout);
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.render.com/v1/metrics/{metric}?{query}");
@@ -774,10 +787,12 @@ public sealed class AdminOperationsService(
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             using var response = await httpClientFactory.CreateClient().SendAsync(request,
                 HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            if (!response.IsSuccessStatusCode) return new(null, null);
+            if (!response.IsSuccessStatusCode)
+                return new(null, null, $"Render API metric {metric} trả HTTP {(int)response.StatusCode}.");
             await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
             using var payload = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
-            if (payload.RootElement.ValueKind != JsonValueKind.Array) return new(null, null);
+            if (payload.RootElement.ValueKind != JsonValueKind.Array)
+                return new(null, null, $"Render API metric {metric} trả JSON không đúng định dạng.");
             var points = new List<(DateTimeOffset At, double Value, string? Unit)>();
             foreach (var series in payload.RootElement.EnumerateArray())
             {
@@ -794,15 +809,15 @@ public sealed class AdminOperationsService(
                     points.Add((timestamp, numeric, unit));
                 }
             }
-            if (points.Count == 0) return new(null, null);
+            if (points.Count == 0) return new(null, null, $"Render API metric {metric} không có mẫu trong 10 phút gần nhất.");
             var latestTime = points.Max(point => point.At);
             var latest = points.Where(point => point.At == latestTime).MaxBy(point => point.Value);
-            return new(latest.Value, latest.Unit);
+            return new(latest.Value, latest.Unit, null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (OperationCanceledException) { return new(null, null); }
-        catch (HttpRequestException) { return new(null, null); }
-        catch (JsonException) { return new(null, null); }
+        catch (OperationCanceledException) { return new(null, null, $"Đọc Render API metric {metric} quá thời gian 10 giây."); }
+        catch (HttpRequestException) { return new(null, null, $"Không kết nối được Render API metric {metric}."); }
+        catch (JsonException) { return new(null, null, $"Render API metric {metric} trả JSON không hợp lệ."); }
     }
 
     private async Task RecordSignalTransitionsAsync(
@@ -988,7 +1003,7 @@ public sealed class AdminOperationsService(
     }
 
     private sealed record NeonConsumptionResult(string Status, double? ComputeUnitHours, string Detail);
-    private sealed record RenderMetricValue(double? Value, string? Unit);
+    private sealed record RenderMetricValue(double? Value, string? Unit, string? Error);
 
     private static long? ReadMetric(JsonElement metrics, string name)
     {
