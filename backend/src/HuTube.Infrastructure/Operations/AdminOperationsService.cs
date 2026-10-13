@@ -760,7 +760,7 @@ public sealed class AdminOperationsService(
             .ToArray();
         var detail = available
             ? metricErrors.Length == 0
-                ? "CPU và bộ nhớ lấy từ Render Metrics API trên instance hiện tại."
+                ? "CPU và bộ nhớ lấy từ mẫu Render Metrics API mới nhất của service."
                 : $"Đã đọc được một phần metrics Render. {string.Join(" ", metricErrors)}"
             : metricErrors.Length > 0
                 ? string.Join(" ", metricErrors)
@@ -772,12 +772,10 @@ public sealed class AdminOperationsService(
 
     private async Task<RenderMetricValue> GetRenderMetricAsync(string metric, string apiKey, string serviceId, CancellationToken ct)
     {
-        var end = DateTimeOffset.UtcNow;
-        var start = end.AddMinutes(-10);
-        var instance = configuration["RENDER_INSTANCE_ID"]?.Trim()
-            ?? Environment.GetEnvironmentVariable("RENDER_INSTANCE_ID")?.Trim();
-        var query = $"resource={Uri.EscapeDataString(serviceId)}&resolutionSeconds=60&startTime={Uri.EscapeDataString(start.ToString("O", CultureInfo.InvariantCulture))}&endTime={Uri.EscapeDataString(end.ToString("O", CultureInfo.InvariantCulture))}";
-        if (!string.IsNullOrWhiteSpace(instance)) query += $"&instance={Uri.EscapeDataString(instance)}";
+        // Use the documented minimum query. Render defaults the time range to the
+        // most recent hour; omitting optional time/instance filters also avoids
+        // rejecting a service when its instance has just rotated during a deploy.
+        var query = $"resource={Uri.EscapeDataString(serviceId)}&resolutionSeconds=60";
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(ProviderMetricsTimeout);
         try
@@ -788,7 +786,12 @@ public sealed class AdminOperationsService(
             using var response = await httpClientFactory.CreateClient().SendAsync(request,
                 HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (!response.IsSuccessStatusCode)
-                return new(null, null, $"Render API metric {metric} trả HTTP {(int)response.StatusCode}.");
+            {
+                var responseBody = await response.Content.ReadAsStringAsync(timeout.Token);
+                var providerDetail = CompactProviderError(responseBody);
+                var suffix = providerDetail.Length == 0 ? string.Empty : $" — {providerDetail}";
+                return new(null, null, $"Render API metric {metric} trả HTTP {(int)response.StatusCode}{suffix}.");
+            }
             await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
             using var payload = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
             if (payload.RootElement.ValueKind != JsonValueKind.Array)
@@ -1000,6 +1003,12 @@ public sealed class AdminOperationsService(
         };
         var bytes = value.Value * multiplier;
         return bytes <= long.MaxValue ? (long)Math.Round(bytes) : null;
+    }
+
+    private static string CompactProviderError(string value)
+    {
+        var compact = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return compact.Length <= 240 ? compact : compact[..240] + "…";
     }
 
     private sealed record NeonConsumptionResult(string Status, double? ComputeUnitHours, string Detail);
