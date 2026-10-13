@@ -179,7 +179,20 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 @media (max-width: 1240px) { .users-workspace { grid-template-columns: minmax(0, 1fr) 320px; }.stats-card { grid-template-columns: repeat(2, 1fr); }.stat-item:nth-child(3) { border-left: 0; border-top: 1px solid #e6ebf2; }.stat-item:nth-child(4) { border-top: 1px solid #e6ebf2; } }
 @media (max-width: 960px) { .users-workspace { grid-template-columns: 1fr; }.detail-panel { position: static; min-height: 0; }.detail-empty { min-height: 280px; }.filter-panel { display: flex; flex-wrap: wrap; align-items: flex-end; }.search-field { flex: 1 0 100%; min-width: 0; }.refresh-button { align-self: flex-end; } }
-@media (max-width: 620px) { .users-page { padding: 24px 15px 42px; }.stats-card { grid-template-columns: 1fr; }.stat-item + .stat-item, .stat-item:nth-child(3), .stat-item:nth-child(4) { border-top: 1px solid #e6ebf2; border-left: 0; }.filter-field { flex: 1; }.search-field { flex-basis: 100%; }.table-toolbar { align-items: flex-start; flex-direction: column; gap: 5px; }.selection-hint { display: none; }.table-footer { flex-direction: column; gap: 5px; } }
+@media (max-width: 620px) {
+  .users-page { padding: 24px 15px 42px; }
+  .stats-card { grid-template-columns: 1fr; }
+  .stat-item + .stat-item, .stat-item:nth-child(3), .stat-item:nth-child(4) { border-top: 1px solid #e6ebf2; border-left: 0; }
+  .filter-panel { display: grid; grid-template-columns: minmax(0, 1fr) 42px; align-items: end; }
+  .search-field { grid-column: 1 / -1; width: 100%; min-width: 0; }
+  .filter-field { grid-column: 1 / -1; min-width: 0; }
+  .filter-field select { width: 100%; min-width: 0; }
+  .refresh-button { grid-column: 2; }
+  .table-toolbar { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .selection-hint { display: none; }
+  .table-footer { flex-direction: column; gap: 5px; }
+  .pagination button, .pagination strong { width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 0; }
+}
 @media (prefers-reduced-motion: reduce) { .user-row, .spinner { transition: none; animation: none; } }
 
 .modal-backdrop { padding: 16px; overflow-y: auto; box-sizing: border-box; z-index: 2000; }

@@ -1005,3 +1005,5 @@
 .report-cases-page .data-table { min-width: 1180px; }
 @media(max-width:1100px){.report-case-toolbar{gap:10px;padding:14px 16px}.report-advanced-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.report-advanced-filters > :nth-child(n){grid-column:auto}}
 @media(max-width:760px){.report-cases-page .page-header{align-items:stretch;flex-direction:column;gap:12px}.report-cases-page .page-header .header-actions{justify-content:flex-start}.report-case-toolbar{gap:14px;padding:14px}.report-primary-filters,.report-advanced-filters{grid-template-columns:1fr}.report-primary-filters > :nth-child(n),.report-advanced-filters > :nth-child(n){grid-column:auto}.report-case-toolbar .filter-group select,.report-case-toolbar .filter-group input[type="date"],.report-case-toolbar .report-search{height:44px}.reports-pagination{align-items:flex-start;flex-direction:column}.reports-page-controls{width:100%;justify-content:space-between}}
+
+@media(max-width:760px){.moderation-container .toolbar .search-box{width:100%;min-width:0}.report-case-toolbar>input{width:100%;min-width:0;box-sizing:border-box}}

@@ -1,9 +1,10 @@
-.admin-shell { display:grid; grid-template-rows:var(--admin-topbar-height, 76px) minmax(0,1fr); height:100dvh; min-height:0; background:var(--surface); color:var(--ink); overflow:hidden; }
+.admin-shell { display:grid; width:100%; min-width:0; grid-template-rows:var(--admin-topbar-height, 76px) minmax(0,1fr); height:100dvh; min-height:0; background:var(--surface); color:var(--ink); overflow:hidden; }
 .admin-shell > app-admin-topbar { display:block; grid-column:1; grid-row:1; min-width:0; height:var(--admin-topbar-height, 76px); position:relative; z-index:120; align-self:start; }
 .shell-body { display:grid; grid-template-columns:252px minmax(0,1fr); min-width:0; min-height:0; height:100%; overflow:hidden; grid-column:1; grid-row:2; transition:grid-template-columns 180ms ease; }
 .admin-shell.nav-collapsed .shell-body { grid-template-columns:76px minmax(0,1fr); }
 .shell-stage { min-width:0; min-height:0; overflow-x:clip; overflow-y:auto; overscroll-behavior-y:contain; background:var(--surface); }
 .content-frame { min-width:0; min-height:100%; max-width:100%; background:var(--surface); }
+.content-frame > router-outlet + * { display:block; min-width:0; max-width:100%; }
 .nav-scrim { display:none; }
 @media (max-width:1040px) {
   .admin-shell > app-admin-topbar { height:var(--admin-topbar-height, 66px); }

@@ -116,8 +116,8 @@ input:-webkit-autofill:focus {
 }
 
 * { box-sizing: border-box; }
+html, body { width: 100%; min-width: 0; }
 body {
-  min-width: 320px;
   margin: 0;
   background: var(--canvas);
   color: var(--ink);
