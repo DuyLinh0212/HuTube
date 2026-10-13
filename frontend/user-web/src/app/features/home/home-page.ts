@@ -86,14 +86,26 @@ export class HomePage implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
-    if (typeof IntersectionObserver === 'undefined') return;
-    this.observer = new IntersectionObserver(entries => {
-      if (entries.some(entry => entry.isIntersecting)) void this.loadMore();
-    }, { rootMargin: '640px 0px' });
-    this.observeSentinel();
+    if (typeof IntersectionObserver !== 'undefined') {
+      this.observer = new IntersectionObserver(entries => {
+        if (entries.some(entry => entry.isIntersecting)) void this.loadMore();
+      }, { rootMargin: '640px 0px' });
+      this.observeSentinel();
+    }
+
+    // Switching from the auth layout attaches a new outlet after NavigationEnd.
+    // That Home instance missed the event, so bootstrap its feed once the
+    // completed home route is attached. An active navigation still owns loading.
+    if (this.loadVersion === 0
+      && this.router.navigated
+      && !this.router.getCurrentNavigation()
+      && this.router.url.split(/[?#]/, 1)[0] === '/home') {
+      void this.load();
+    }
   }
 
   ngOnDestroy() {
+    this.loadVersion++;
     this.observer?.disconnect();
     this.subscriptionObserver?.disconnect();
   }
