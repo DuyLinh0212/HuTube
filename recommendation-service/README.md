@@ -253,6 +253,31 @@ File cần có `user_id`, `video_id`, `score`, tối thiểu 2 user, 2 video và
 
 Local: cấu hình `Recommendation__ServiceUrl`, `Recommendation__ServiceToken`, `Recommendation__AdminToken` trong file `.env.local` ở thư mục gốc cùng thông tin `Storage__R2__*` cho API .NET. Chạy `./scripts/run-local.ps1 -Component api` và `./scripts/run-local.ps1 -Component recommender`. Script Recommendation Service tự nạp cùng `.env.local` và ánh xạ hai token sang `RECOMMENDER_SERVICE_TOKEN` / `RECOMMENDER_ADMIN_TOKEN`, ưu tiên hơn token trong `recommendation-service/.env`. Các biến `R2_*` vẫn đặt trong `recommendation-service/.env`. Khi chạy Uvicorn trực tiếp hoặc triển khai riêng, phải đặt `RECOMMENDER_ADMIN_TOKEN` trùng chính xác `Recommendation__AdminToken` và token suy luận cũng tương ứng. Sau khi đổi token, khởi động lại cả hai dịch vụ; không dùng token suy luận để huấn luyện. Script chỉ bind `127.0.0.1`. Trên Render, cấu hình các biến trong `render.yaml`; web miễn phí có thể ngủ và request đầu có thể rơi về feed mặc định.
 
+### Cấu hình R2 cho Recommendation Service trên Render
+
+Service Python cần thông tin R2 của chính nó để đọc CSV, lưu trạng thái job và tải model.
+Biến đã đặt trên service API .NET không tự được chia sẻ sang service Python.
+Dùng cùng bucket và thông tin truy cập với API:
+
+| API .NET | Recommendation Service |
+|---|---|
+| `Storage__R2__AccountId` | `R2_ACCOUNT_ID` |
+| `Storage__R2__AccessKeyId` | `R2_ACCESS_KEY_ID` |
+| `Storage__R2__SecretAccessKey` | `R2_SECRET_ACCESS_KEY` |
+| `Storage__R2__BucketName` | `R2_BUCKET_NAME` |
+
+Python cũng chấp nhận tên biến `Storage__R2__*` khi dùng chung environment group.
+Tên `R2_*` được ưu tiên khi cả hai kiểu tên cùng tồn tại.
+Sau khi lưu biến, deploy lại Recommendation Service để tiến trình nạp cấu hình mới.
+
+`GET /internal/model` với header `X-Model-Admin-Token` trả `storageConfigured` và
+`missingStorageSettings` để đối chiếu mà không tiết lộ giá trị secret.
+Nếu thiếu cấu hình, train và polling trả HTTP 503 với mã
+`MODEL_STORAGE_NOT_CONFIGURED` cùng danh sách biến còn thiếu.
+Health `/health` chỉ kiểm tra tiến trình đang hoạt động; HTTP 200 không xác nhận
+đã có model hoặc đã cấu hình R2 đầy đủ. Lỗi chưa xử lý được ghi traceback qua
+logger của Uvicorn và trả `MODEL_SERVICE_ERROR` thay cho response 500 rỗng.
+
 ## Giới hạn và Hướng phát triển tiếp theo
 
 - Đã tích hợp hoàn tất HttpClient với Backend .NET và bảng tin Trang chủ.

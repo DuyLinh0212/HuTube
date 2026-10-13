@@ -13,11 +13,18 @@ from botocore.exceptions import ClientError
 from app.config import Settings
 
 
+class R2ConfigurationError(RuntimeError):
+    def __init__(self, missing_settings: list[str]) -> None:
+        self.missing_settings = missing_settings
+        super().__init__(
+            "Recommendation Service is missing R2 settings: " + ", ".join(missing_settings)
+        )
+
+
 class R2Store:
     def __init__(self, settings: Settings) -> None:
-        if not all((settings.r2_account_id, settings.r2_access_key_id,
-                    settings.r2_secret_access_key, settings.r2_bucket_name)):
-            raise RuntimeError("R2 credentials and bucket must be configured.")
+        if settings.missing_r2_settings:
+            raise R2ConfigurationError(settings.missing_r2_settings)
         self.bucket = settings.r2_bucket_name
         self.client = boto3.client(
             "s3",

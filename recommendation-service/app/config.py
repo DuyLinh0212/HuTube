@@ -4,6 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
@@ -26,10 +27,14 @@ class Settings(BaseSettings):
     ] = "item_based"
     recommender_service_token: str = ""
     recommender_admin_token: str = ""
-    r2_account_id: str = ""
-    r2_access_key_id: str = ""
-    r2_secret_access_key: str = ""
-    r2_bucket_name: str = ""
+    r2_account_id: str = Field(default="", validation_alias=AliasChoices(
+        "r2_account_id", "Storage__R2__AccountId"))
+    r2_access_key_id: str = Field(default="", validation_alias=AliasChoices(
+        "r2_access_key_id", "Storage__R2__AccessKeyId"))
+    r2_secret_access_key: str = Field(default="", validation_alias=AliasChoices(
+        "r2_secret_access_key", "Storage__R2__SecretAccessKey"))
+    r2_bucket_name: str = Field(default="", validation_alias=AliasChoices(
+        "r2_bucket_name", "Storage__R2__BucketName"))
     allow_benchmark_model: bool = False
 
     model_config = SettingsConfigDict(
@@ -38,6 +43,15 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @property
+    def missing_r2_settings(self) -> list[str]:
+        return [name for name, value in (
+            ("R2_ACCOUNT_ID", self.r2_account_id),
+            ("R2_ACCESS_KEY_ID", self.r2_access_key_id),
+            ("R2_SECRET_ACCESS_KEY", self.r2_secret_access_key),
+            ("R2_BUCKET_NAME", self.r2_bucket_name),
+        ) if not value.strip()]
 
     @property
     def resolved_model_storage_path(self) -> Path:

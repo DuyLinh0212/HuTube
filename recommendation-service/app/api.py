@@ -153,7 +153,9 @@ async def model_status(request: Request,
     _require_admin(request, admin_token)
     registry = request.app.state.registry
     return {"status": "ready" if registry.loaded else "uninitialized",
-            "manifest": registry.manifest, "loadError": registry.load_error}
+            "manifest": registry.manifest, "loadError": registry.load_error,
+            "storageConfigured": not request.app.state.settings.missing_r2_settings,
+            "missingStorageSettings": request.app.state.settings.missing_r2_settings}
 
 
 @router.post("/internal/model/train")
