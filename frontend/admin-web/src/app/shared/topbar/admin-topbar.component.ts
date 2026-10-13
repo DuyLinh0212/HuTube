@@ -14,6 +14,8 @@ import { TranslatePipe } from '../../core/translate.pipe';
 export class AdminTopbarComponent {
   @Output() readonly menuOpened = new EventEmitter<void>();
   @Input() sidebarCollapsed = false;
+  @Input() mobileNavigation = false;
+  @Input() navigationOpen = false;
   readonly auth = inject(AuthService);
   readonly themeService = inject(ThemeService);
   readonly i18n = inject(I18nService);

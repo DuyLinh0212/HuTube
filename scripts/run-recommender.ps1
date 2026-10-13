@@ -1,8 +1,20 @@
 [CmdletBinding()]
 param(
     [int]$Port = 8000,
-    [string]$HostAddress = "127.0.0.1"
+    [string]$HostAddress = "127.0.0.1",
+    [string]$EnvironmentFile
 )
+
+. (Join-Path $PSScriptRoot 'common.ps1')
+if ($EnvironmentFile) {
+    Import-LocalEnvironment -Path $EnvironmentFile
+} else {
+    $sharedEnvironment = Join-Path $script:RepositoryRoot '.env.local'
+    if (Test-Path -LiteralPath $sharedEnvironment -PathType Leaf) {
+        Import-LocalEnvironment -Path $sharedEnvironment
+    }
+}
+Sync-RecommenderEnvironment
 
 $serviceDir = Join-Path (Split-Path -Parent $PSScriptRoot) "recommendation-service"
 Push-Location $serviceDir

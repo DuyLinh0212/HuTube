@@ -68,6 +68,15 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
         assert client.post(
             "/internal/model/train", json={"csvKey": csv_key, "csvSha256": digest}
         ).status_code == 401
+        for token in ("infer-secret", "stale-admin-secret"):
+            rejected = client.post(
+                "/internal/model/train",
+                headers={"X-Model-Admin-Token": token},
+                json={"csvKey": csv_key, "csvSha256": digest},
+            )
+            assert rejected.status_code == 401
+            assert rejected.json()["detail"]["code"] == "INVALID_ADMIN_TOKEN"
+        assert "collaborative_cf/active.json" not in store.objects
         started = client.post(
             "/internal/model/train",
             headers={"X-Model-Admin-Token": "admin-secret"},

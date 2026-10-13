@@ -31,9 +31,9 @@ app-root {
 }
 
 body .admin-shell,
-body .shell-body,
-body .shell-stage,
-body .content-frame {
+body .admin-shell .shell-body,
+body .admin-shell .shell-stage,
+body .admin-shell .content-frame {
   min-width: 0;
 }
 
@@ -43,7 +43,7 @@ body .admin-shell {
   overflow: hidden;
 }
 
-body .shell-stage {
+body .admin-shell .shell-stage {
   overflow-x: clip;
   overflow-y: auto;
   overscroll-behavior-y: contain;
@@ -51,91 +51,156 @@ body .shell-stage {
 
 /* Every feature page may shrink inside the shell without changing its own
  * max-width or card styling. */
-body .users-page,
-body .channels-view-container,
-body .videos-view-container,
-body .moderation-page,
-body .moderation-container,
-body .operations-page,
-body .payments-page,
-body .plans-page,
-body .policies-page,
-body .rbac-page,
-body .recommendations-page,
-body .subscriptions-page,
-body .taxonomy-page,
-body .seed-page {
-  width: 100%;
+body .admin-shell .users-page,
+body .admin-shell .channels-view-container,
+body .admin-shell .videos-view-container,
+body .admin-shell .moderation-page,
+body .admin-shell .moderation-container,
+body .admin-shell .operations-page,
+body .admin-shell .payments-page,
+body .admin-shell .plans-page,
+body .admin-shell .policies-page,
+body .admin-shell .rbac-page,
+body .admin-shell .recommendations-page,
+body .admin-shell .subscriptions-page,
+body .admin-shell .taxonomy-page,
+body .admin-shell .seed-page {
   min-width: 0;
   max-width: 100%;
   margin-inline: auto;
 }
 
-body .page-heading,
-body .plans-toolbar,
-body .channels-top-bar,
-body .header-content,
-body .table-heading,
-body .table-toolbar,
-body .detail-header,
-body .filter-heading,
-body .audit-panel-heading,
-body .section-head,
-body .output-heading {
+body .admin-shell .rbac-page .role-summary__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body .admin-shell .rbac-page .role-summary__metrics > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body .admin-shell .statistics-modal { min-height: 0; }
+body .admin-shell .statistics-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+@media (max-width: 820px) {
+  // The form and preview share one scroll area on phones. A flexing form
+  // with overflow-x:hidden can otherwise collapse to zero height.
+  body .admin-shell .editor-dialog .editor-scroll { flex: none; overflow: visible; }
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  body .admin-shell button { min-height: 44px; }
+  body .admin-shell :is(.menu-button, .nav-close, .modal-close, .close-button, .dialog-close, .icon-action, .icon-action-btn, .btn-dots) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  body .admin-shell :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea) {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1280px) {
+  body .admin-shell .rbac-page .role-summary__metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  body .admin-shell .score-mode-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+  }
+  body .admin-shell .score-mode-field select { min-width: 0; width: 100%; }
+  body .admin-shell .policies-page .toolbar,
+  body .admin-shell .policies-page .filter-group {
+    min-width: 0;
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body .admin-shell .policies-page .segmented-control {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  body .admin-shell .policies-page .segmented-control button { flex: 1 1 100px; }
+  body .admin-shell .policies-page .search-wrap { width: 100%; min-width: 0; }
+  body .admin-shell .policies-page .search-wrap input { width: 100%; min-width: 0; }
+}
+
+body .admin-shell .page-heading,
+body .admin-shell .plans-toolbar,
+body .admin-shell .channels-top-bar,
+body .admin-shell .header-content,
+body .admin-shell .table-heading,
+body .admin-shell .table-toolbar,
+body .admin-shell .detail-header,
+body .admin-shell .filter-heading,
+body .admin-shell .audit-panel-heading,
+body .admin-shell .section-head,
+body .admin-shell .output-heading {
   min-width: 0;
 }
 
-body .page-heading > *,
-body .plans-toolbar > *,
-body .channels-top-bar > *,
-body .header-content > *,
-body .table-heading > *,
-body .table-toolbar > *,
-body .detail-header > *,
-body .section-head > *,
-body .output-heading > * {
+body .admin-shell .page-heading > *,
+body .admin-shell .plans-toolbar > *,
+body .admin-shell .channels-top-bar > *,
+body .admin-shell .header-content > *,
+body .admin-shell .table-heading > *,
+body .admin-shell .table-toolbar > *,
+body .admin-shell .detail-header > *,
+body .admin-shell .section-head > *,
+body .admin-shell .output-heading > * {
   min-width: 0;
   max-width: 100%;
 }
 
-body .heading-actions,
-body .header-actions,
-body .sessions-actions,
-body .output-actions {
+body .admin-shell .heading-actions,
+body .admin-shell .header-actions,
+body .admin-shell .sessions-actions,
+body .admin-shell .output-actions {
   display: flex;
   flex-wrap: wrap;
   max-width: 100%;
 }
 
-body .heading-actions > button,
-body .heading-actions > a,
-body .header-actions > button,
-body .header-actions > a {
+body .admin-shell .heading-actions > button,
+body .admin-shell .heading-actions > a,
+body .admin-shell .header-actions > button,
+body .admin-shell .header-actions > a {
   max-width: 100%;
 }
 
 /* Tables stay inside their card and expose a deliberate local scroll area.
  * This prevents a wide data set from widening the document itself. */
-body .table-scroll,
-body .table-responsive,
-body .table-container,
-body .table-card,
-body .plan-table,
-body .subscription-table-card,
-body .transaction-card,
-body .audit-panel,
-body .comparison-table-wrap,
-body .accessible-table-wrap {
+body .admin-shell .table-scroll,
+body .admin-shell .table-responsive,
+body .admin-shell .table-container,
+body .admin-shell .table-card,
+body .admin-shell .plan-table,
+body .admin-shell .subscription-table-card,
+body .admin-shell .transaction-card,
+body .admin-shell .audit-panel,
+body .admin-shell .comparison-table-wrap,
+body .admin-shell .accessible-table-wrap {
   min-width: 0;
   max-width: 100%;
 }
 
-body .table-scroll,
-body .table-responsive,
-body .table-container,
-body .plan-table,
-body .comparison-table-wrap,
-body .accessible-table-wrap {
+body .admin-shell .table-scroll,
+body .admin-shell .table-responsive,
+body .admin-shell .table-container,
+body .admin-shell .plan-table,
+body .admin-shell .comparison-table-wrap,
+body .admin-shell .accessible-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -143,17 +208,17 @@ body .accessible-table-wrap {
 
 /* Long identifiers, translated labels, and API error messages must not push
  * cards wider than the viewport. */
-body .alert,
-body .feedback,
-body .state-panel,
-body .message,
-body .notice,
-body .error,
-body .success,
-body .modal-target,
-body .case-report-content,
-body .signal-description,
-body .data-note {
+body .admin-shell .alert,
+body .admin-shell .feedback,
+body .admin-shell .state-panel,
+body .admin-shell .message,
+body .admin-shell .notice,
+body .admin-shell .error,
+body .admin-shell .success,
+body .admin-shell .modal-target,
+body .admin-shell .case-report-content,
+body .admin-shell .signal-description,
+body .admin-shell .data-note {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -166,23 +231,23 @@ body button {
 }
 
 /* Filter groups are allowed to wrap before their labels become unusable. */
-body .filter-panel,
-body .filter-strip,
-body .filters-panel,
-body .filters-grid,
-body .report-case-toolbar,
-body .report-primary-filters,
-body .report-advanced-filters {
+body .admin-shell .filter-panel,
+body .admin-shell .filter-strip,
+body .admin-shell .filters-panel,
+body .admin-shell .filters-grid,
+body .admin-shell .report-case-toolbar,
+body .admin-shell .report-primary-filters,
+body .admin-shell .report-advanced-filters {
   min-width: 0;
   max-width: 100%;
 }
 
-body .filter-panel > *,
-body .filter-strip > *,
-body .filters-panel > *,
-body .filters-grid > *,
-body .report-primary-filters > *,
-body .report-advanced-filters > * {
+body .admin-shell .filter-panel > *,
+body .admin-shell .filter-strip > *,
+body .admin-shell .filters-panel > *,
+body .admin-shell .filters-grid > *,
+body .admin-shell .report-primary-filters > *,
+body .admin-shell .report-advanced-filters > * {
   min-width: 0;
   max-width: 100%;
 }
@@ -195,81 +260,81 @@ body .report-advanced-filters > * {
     --admin-topbar-height: 66px;
   }
 
-  body .users-workspace,
-  body .moderation-layout,
-  body .payments-layout,
-  body .subscriptions-layout,
-  body .workspace-grid,
-  body .rbac-grid,
-  body .logs-layout {
+  body .admin-shell .users-workspace,
+  body .admin-shell .moderation-layout,
+  body .admin-shell .payments-layout,
+  body .admin-shell .subscriptions-layout,
+  body .admin-shell .workspace-grid,
+  body .admin-shell .rbac-grid,
+  body .admin-shell .logs-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body .detail-panel {
+  body .admin-shell .detail-panel {
     position: static;
     min-height: 0;
   }
 
-  body .detail-empty {
+  body .admin-shell .detail-empty {
     min-height: 260px;
   }
 }
 
 @media (max-width: 760px) {
-  body .users-page,
-  body .channels-view-container,
-  body .videos-view-container,
-  body .moderation-page,
-  body .moderation-container,
-  body .operations-page,
-  body .payments-page,
-  body .plans-page,
-  body .policies-page,
-  body .rbac-page,
-  body .recommendations-page,
-  body .subscriptions-page,
-  body .taxonomy-page,
-  body .seed-page {
+  body .admin-shell .users-page,
+  body .admin-shell .channels-view-container,
+  body .admin-shell .videos-view-container,
+  body .admin-shell .moderation-page,
+  body .admin-shell .moderation-container,
+  body .admin-shell .operations-page,
+  body .admin-shell .payments-page,
+  body .admin-shell .plans-page,
+  body .admin-shell .policies-page,
+  body .admin-shell .rbac-page,
+  body .admin-shell .recommendations-page,
+  body .admin-shell .subscriptions-page,
+  body .admin-shell .taxonomy-page,
+  body .admin-shell .seed-page {
     padding-inline: var(--admin-page-gutter);
     padding-bottom: var(--admin-page-bottom);
   }
 
-  body .page-heading,
-  body .plans-toolbar,
-  body .channels-top-bar,
-  body .header-content,
-  body .reports-heading,
-  body .sessions-title-bar,
-  body .signal-summary,
-  body .report-lead,
-  body .case-owner-toolbar {
+  body .admin-shell .page-heading,
+  body .admin-shell .plans-toolbar,
+  body .admin-shell .channels-top-bar,
+  body .admin-shell .header-content,
+  body .admin-shell .reports-heading,
+  body .admin-shell .sessions-title-bar,
+  body .admin-shell .signal-summary,
+  body .admin-shell .report-lead,
+  body .admin-shell .case-owner-toolbar {
     align-items: stretch;
     flex-direction: column;
   }
 
-  body .heading-actions,
-  body .header-actions,
-  body .plans-page .heading-actions,
-  body .channels-top-bar .header-actions {
+  body .admin-shell .heading-actions,
+  body .admin-shell .header-actions,
+  body .admin-shell .plans-page .heading-actions,
+  body .admin-shell .channels-top-bar .header-actions {
     width: 100%;
     align-items: stretch;
     justify-content: flex-start;
   }
 
-  body .heading-actions > button,
-  body .heading-actions > a,
-  body .header-actions > button,
-  body .header-actions > a,
-  body .plans-page .heading-actions > button,
-  body .channels-top-bar .header-actions > button {
+  body .admin-shell .heading-actions > button,
+  body .admin-shell .heading-actions > a,
+  body .admin-shell .header-actions > button,
+  body .admin-shell .header-actions > a,
+  body .admin-shell .plans-page .heading-actions > button,
+  body .admin-shell .channels-top-bar .header-actions > button {
     flex: 1 1 150px;
   }
 
-  body .channel-tabs,
-  body .status-tabs,
-  body .signal-filters,
-  body .tabs,
-  body .page-tabs {
+  body .admin-shell .channel-tabs,
+  body .admin-shell .status-tabs,
+  body .admin-shell .signal-filters,
+  body .admin-shell .tabs,
+  body .admin-shell .page-tabs {
     max-width: 100%;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
@@ -277,160 +342,160 @@ body .report-advanced-filters > * {
     -webkit-overflow-scrolling: touch;
   }
 
-  body .channel-tabs::-webkit-scrollbar,
-  body .status-tabs::-webkit-scrollbar,
-  body .signal-filters::-webkit-scrollbar,
-  body .tabs::-webkit-scrollbar,
-  body .page-tabs::-webkit-scrollbar {
+  body .admin-shell .channel-tabs::-webkit-scrollbar,
+  body .admin-shell .status-tabs::-webkit-scrollbar,
+  body .admin-shell .signal-filters::-webkit-scrollbar,
+  body .admin-shell .tabs::-webkit-scrollbar,
+  body .admin-shell .page-tabs::-webkit-scrollbar {
     display: none;
   }
 
-  body .filter-panel,
-  body .filter-strip,
-  body .filters-panel,
-  body .filters-grid {
+  body .admin-shell .filter-panel,
+  body .admin-shell .filter-strip,
+  body .admin-shell .filters-panel,
+  body .admin-shell .filters-grid {
     min-width: 0;
   }
 
-  body .filter-field,
-  body .search-field,
-  body .filter-panel input,
-  body .filter-panel select,
-  body .filter-strip input,
-  body .filter-strip select {
+  body .admin-shell .filter-field,
+  body .admin-shell .search-field,
+  body .admin-shell .filter-panel input,
+  body .admin-shell .filter-panel select,
+  body .admin-shell .filter-strip input,
+  body .admin-shell .filter-strip select {
     min-width: 0;
     max-width: 100%;
   }
 
-  body .stats-card,
-  body .primary-metrics,
-  body .secondary-metrics,
-  body .metric-grid,
-  body .summary-grid {
+  body .admin-shell .stats-card,
+  body .admin-shell .primary-metrics,
+  body .admin-shell .secondary-metrics,
+  body .admin-shell .metric-grid,
+  body .admin-shell .summary-grid {
     min-width: 0;
   }
 
-  body .table-toolbar,
-  body .table-heading,
-  body .audit-panel-heading {
+  body .admin-shell .table-toolbar,
+  body .admin-shell .table-heading,
+  body .admin-shell .audit-panel-heading {
     align-items: flex-start;
     flex-wrap: wrap;
   }
 
-  body .table-footer,
-  body .table-pagination-footer,
-  body .modal-footer,
-  body .editor-actions {
+  body .admin-shell .table-footer,
+  body .admin-shell .table-pagination-footer,
+  body .admin-shell .modal-footer,
+  body .admin-shell .editor-actions {
     flex-wrap: wrap;
   }
 
-  body .modal-backdrop,
-  body .drawer-backdrop,
-  body .editor-backdrop,
-  body .statistics-backdrop {
+  body .admin-shell .modal-backdrop,
+  body .admin-shell .drawer-backdrop,
+  body .admin-shell .editor-backdrop,
+  body .admin-shell .statistics-backdrop {
     padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
     align-items: start;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 
-  body .modal-dialog,
-  body .action-modal,
-  body .review-modal,
-  body .editor-dialog,
-  body .switch-dialog,
-  body .statistics-modal {
+  body .admin-shell .modal-dialog,
+  body .admin-shell .action-modal,
+  body .admin-shell .review-modal,
+  body .admin-shell .editor-dialog,
+  body .admin-shell .switch-dialog,
+  body .admin-shell .statistics-modal {
     width: 100%;
     max-width: 100%;
     max-height: calc(100svh - 20px);
   }
 
-  body .modal-dialog,
-  body .action-modal,
-  body .review-modal,
-  body .editor-dialog {
+  body .admin-shell .modal-dialog,
+  body .admin-shell .action-modal,
+  body .admin-shell .review-modal,
+  body .admin-shell .editor-dialog {
     margin-block: 0;
   }
 
-  body .modal-footer > button,
-  body .editor-actions > button,
-  body .switch-dialog footer > button {
+  body .admin-shell .modal-footer > button,
+  body .admin-shell .editor-actions > button,
+  body .admin-shell .switch-dialog footer > button {
     flex: 1 1 140px;
     min-width: 0;
   }
 
-  body .drawer-card,
-  body .detail-drawer,
-  body .channel-drawer {
+  body .admin-shell .drawer-card,
+  body .admin-shell .detail-drawer,
+  body .admin-shell .channel-drawer {
     width: 100%;
     max-width: 100%;
     max-height: calc(100svh - 20px);
   }
 
-  body .drawer-body,
-  body .modal-body,
-  body .editor-scroll {
+  body .admin-shell .drawer-body,
+  body .admin-shell .modal-body,
+  body .admin-shell .editor-scroll {
     min-width: 0;
     overflow-x: hidden;
   }
 }
 
 @media (max-width: 480px) {
-  body .users-page,
-  body .channels-view-container,
-  body .videos-view-container,
-  body .moderation-page,
-  body .moderation-container,
-  body .operations-page,
-  body .payments-page,
-  body .plans-page,
-  body .policies-page,
-  body .rbac-page,
-  body .recommendations-page,
-  body .subscriptions-page,
-  body .taxonomy-page,
-  body .seed-page {
+  body .admin-shell .users-page,
+  body .admin-shell .channels-view-container,
+  body .admin-shell .videos-view-container,
+  body .admin-shell .moderation-page,
+  body .admin-shell .moderation-container,
+  body .admin-shell .operations-page,
+  body .admin-shell .payments-page,
+  body .admin-shell .plans-page,
+  body .admin-shell .policies-page,
+  body .admin-shell .rbac-page,
+  body .admin-shell .recommendations-page,
+  body .admin-shell .subscriptions-page,
+  body .admin-shell .taxonomy-page,
+  body .admin-shell .seed-page {
     padding-inline: 12px;
   }
 
-  body .heading-actions > button,
-  body .heading-actions > a,
-  body .header-actions > button,
-  body .header-actions > a,
-  body .plans-page .heading-actions > button {
+  body .admin-shell .heading-actions > button,
+  body .admin-shell .heading-actions > a,
+  body .admin-shell .header-actions > button,
+  body .admin-shell .header-actions > a,
+  body .admin-shell .plans-page .heading-actions > button {
     flex-basis: 100%;
   }
 
-  body .heading-actions .refresh-button,
-  body .header-actions .refresh-button,
-  body .plans-page .heading-actions .refresh-button {
+  body .admin-shell .heading-actions .refresh-button,
+  body .admin-shell .header-actions .refresh-button,
+  body .admin-shell .plans-page .heading-actions .refresh-button {
     flex: 0 0 42px;
     width: 42px;
   }
 
-  body .modal-header,
-  body .modal-body,
-  body .modal-footer,
-  body .editor-header,
-  body .editor-scroll,
-  body .editor-actions,
-  body .drawer-header,
-  body .drawer-body {
+  body .admin-shell .modal-header,
+  body .admin-shell .modal-body,
+  body .admin-shell .modal-footer,
+  body .admin-shell .editor-header,
+  body .admin-shell .editor-scroll,
+  body .admin-shell .editor-actions,
+  body .admin-shell .drawer-header,
+  body .admin-shell .drawer-body {
     padding-inline: 14px;
   }
 
-  body .stats-card,
-  body .primary-metrics,
-  body .secondary-metrics,
-  body .summary-grid {
+  body .admin-shell .stats-card,
+  body .admin-shell .primary-metrics,
+  body .admin-shell .secondary-metrics,
+  body .admin-shell .summary-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body .range-fields,
-  body .range-heading,
-  body .statistics-header,
-  body .category-config-head,
-  body .video-picker-head {
+  body .admin-shell .range-fields,
+  body .admin-shell .range-heading,
+  body .admin-shell .statistics-header,
+  body .admin-shell .category-config-head,
+  body .admin-shell .video-picker-head {
     align-items: stretch;
     flex-direction: column;
   }
@@ -447,50 +512,50 @@ body .report-advanced-filters > * {
     height: 58px;
   }
 
-  body .topbar {
+  body .admin-shell .topbar {
     height: 58px;
     padding-inline: 14px;
   }
 
-  body .side-nav,
-  body app-admin-sidebar,
-  body app-admin-sidebar .side-nav {
+  body .admin-shell .side-nav,
+  body .admin-shell app-admin-sidebar,
+  body .admin-shell app-admin-sidebar .side-nav {
     height: 100svh;
   }
 
-  body .users-page,
-  body .channels-view-container,
-  body .videos-view-container,
-  body .moderation-page,
-  body .moderation-container,
-  body .operations-page,
-  body .payments-page,
-  body .plans-page,
-  body .policies-page,
-  body .rbac-page,
-  body .recommendations-page,
-  body .subscriptions-page,
-  body .taxonomy-page,
-  body .seed-page {
+  body .admin-shell .users-page,
+  body .admin-shell .channels-view-container,
+  body .admin-shell .videos-view-container,
+  body .admin-shell .moderation-page,
+  body .admin-shell .moderation-container,
+  body .admin-shell .operations-page,
+  body .admin-shell .payments-page,
+  body .admin-shell .plans-page,
+  body .admin-shell .policies-page,
+  body .admin-shell .rbac-page,
+  body .admin-shell .recommendations-page,
+  body .admin-shell .subscriptions-page,
+  body .admin-shell .taxonomy-page,
+  body .admin-shell .seed-page {
     padding-block: 12px 28px;
   }
 
-  body .modal-dialog,
-  body .action-modal,
-  body .review-modal,
-  body .editor-dialog,
-  body .switch-dialog,
-  body .statistics-modal,
-  body .drawer-card,
-  body .detail-drawer,
-  body .channel-drawer {
+  body .admin-shell .modal-dialog,
+  body .admin-shell .action-modal,
+  body .admin-shell .review-modal,
+  body .admin-shell .editor-dialog,
+  body .admin-shell .switch-dialog,
+  body .admin-shell .statistics-modal,
+  body .admin-shell .drawer-card,
+  body .admin-shell .detail-drawer,
+  body .admin-shell .channel-drawer {
     max-height: calc(100svh - 12px);
   }
 
-  body .modal-backdrop,
-  body .drawer-backdrop,
-  body .editor-backdrop,
-  body .statistics-backdrop {
+  body .admin-shell .modal-backdrop,
+  body .admin-shell .drawer-backdrop,
+  body .admin-shell .editor-backdrop,
+  body .admin-shell .statistics-backdrop {
     padding-block: 6px;
   }
 }

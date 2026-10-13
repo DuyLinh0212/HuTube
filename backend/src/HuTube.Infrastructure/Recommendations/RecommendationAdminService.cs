@@ -583,6 +583,8 @@ public sealed class RecommendationAdminService(
             if (response != null)
             {
                 var body = await response.Content.ReadAsStringAsync(ct);
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    throw new InvalidOperationException("MODEL_ADMIN_TOKEN_MISMATCH: Recommendation__AdminToken của API phải trùng RECOMMENDER_ADMIN_TOKEN của Recommendation Service. Kiểm tra cấu hình và khởi động lại cả hai dịch vụ.");
                 if (!response.IsSuccessStatusCode)
                     throw new InvalidOperationException($"Recommendation Service returned {(int)response.StatusCode}: {body[..Math.Min(500, body.Length)]}");
                 using var submitted = JsonDocument.Parse(body);
@@ -611,6 +613,8 @@ public sealed class RecommendationAdminService(
             var progressBody = await progress.Content.ReadAsStringAsync(ct);
             if (!progress.IsSuccessStatusCode)
             {
+                if (progress.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    throw new InvalidOperationException("MODEL_ADMIN_TOKEN_MISMATCH: Recommendation__AdminToken của API phải trùng RECOMMENDER_ADMIN_TOKEN của Recommendation Service. Kiểm tra cấu hình và khởi động lại cả hai dịch vụ.");
                 var reconciled = await ActiveAsync(ct);
                 if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation, modelAlgorithm)) break;
                 if (progress.StatusCode == System.Net.HttpStatusCode.NotFound || (int)progress.StatusCode >= 500) continue;

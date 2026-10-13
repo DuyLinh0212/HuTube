@@ -35,6 +35,23 @@ function Assert-EnvironmentValue {
     }
 }
 
+function Sync-RecommenderEnvironment {
+    # The API and the model service must use the same credentials. The shared
+    # .env.local uses .NET names; export Python's names before starting Uvicorn.
+    foreach ($pair in @(
+        @('Recommendation__ServiceToken', 'RECOMMENDER_SERVICE_TOKEN'),
+        @('Recommendation__AdminToken', 'RECOMMENDER_ADMIN_TOKEN')
+    )) {
+        $value = [Environment]::GetEnvironmentVariable($pair[0], 'Process')
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            if ($value.Contains('REPLACE_WITH')) {
+                throw "Configure $($pair[0]) in .env.local before starting the recommender."
+            }
+            [Environment]::SetEnvironmentVariable($pair[1], $value, 'Process')
+        }
+    }
+}
+
 function Invoke-CheckedCommand {
     param([Parameter(Mandatory)][string]$FilePath, [string[]]$Arguments = @())
     if (-not (Get-Command $FilePath -ErrorAction SilentlyContinue)) { throw "Required command not found: $FilePath" }

@@ -25,7 +25,7 @@ try {
             Invoke-CheckedCommand dotnet @('run', '--project', 'backend/src/HuTube.Api', '--no-launch-profile')
         }
         'recommender' {
-            & (Join-Path $PSScriptRoot 'run-recommender.ps1')
+            & (Join-Path $PSScriptRoot 'run-recommender.ps1') -EnvironmentFile $EnvironmentFile
         }
         { $_ -in @('user', 'admin') } {
             Push-Location "frontend/$Component-web"

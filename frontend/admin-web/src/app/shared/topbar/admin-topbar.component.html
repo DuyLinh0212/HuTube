@@ -1,6 +1,6 @@
 <header class="topbar">
   <div class="topbar-brand-group">
-    <button class="menu-button" type="button" [attr.aria-label]="(sidebarCollapsed ? 'nav.expand' : 'nav.collapse') | translate" [attr.aria-pressed]="sidebarCollapsed" (click)="menuOpened.emit()">
+    <button class="menu-button" type="button" aria-controls="admin-navigation" [attr.aria-label]="(mobileNavigation ? (navigationOpen ? 'nav.closeMenu' : 'nav.expand') : (sidebarCollapsed ? 'nav.expand' : 'nav.collapse')) | translate" [attr.aria-expanded]="mobileNavigation ? navigationOpen : !sidebarCollapsed" (click)="menuOpened.emit()">
       <span></span><span></span><span></span>
     </button>
 

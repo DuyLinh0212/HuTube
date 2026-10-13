@@ -54,6 +54,12 @@ var recommendationOptions = builder.Configuration.GetSection("Recommendation").G
 var rateLimitOptions = builder.Configuration.GetSection("RateLimit").Get<RateLimitOptions>() ?? new();
 var geoIpOptions = builder.Configuration.GetSection("GeoIp").Get<GeoIpOptions>() ?? new();
 rateLimitOptions.Validate();
+// Accept the model service's environment names when both services share one
+// deployment secret. Explicit Recommendation configuration takes precedence.
+if (string.IsNullOrWhiteSpace(recommendationOptions.AdminToken))
+    recommendationOptions.AdminToken = builder.Configuration["RECOMMENDER_ADMIN_TOKEN"] ?? "";
+if (string.IsNullOrWhiteSpace(recommendationOptions.ServiceToken))
+    recommendationOptions.ServiceToken = builder.Configuration["RECOMMENDER_SERVICE_TOKEN"] ?? "";
 if (builder.Environment.IsDevelopment())
     R2OptionsLoader.LoadDevelopmentFile(r2Options, builder.Environment.ContentRootPath, builder.Configuration["Storage:R2:CredentialsFile"]);
 if (jwt.SigningKey.Length < 32) throw new InvalidOperationException("Jwt__SigningKey must contain at least 32 random characters.");
