@@ -1,9 +1,7 @@
 <main class="operations-page monitor-page">
   <header class="monitor-header">
     <div class="heading-copy">
-      <span class="eyebrow">HUTUBE · OPS</span>
       <h1>{{ tx('Giám sát hệ thống', 'System monitoring') }}</h1>
-      <p>{{ tx('Chỉ số đọc trực tiếp từ API process và dữ liệu HuTube.', 'Metrics read from the API process and HuTube data.') }}</p>
     </div>
     <div class="heading-actions">
       <span class="refresh-state" [class.is-error]="error()">
@@ -126,7 +124,7 @@
             <div class="service-list">
               @for (service of visibleServices(); track trackService($index, service)) {
                 <div class="service-row">
-                  <span class="service-symbol" aria-hidden="true">{{ serviceSymbol(service.key) }}</span>
+                  <span class="service-symbol" aria-hidden="true"><img [src]="serviceIcon(service.key)" alt="" width="20" height="20"></span>
                   <div class="service-copy">
                     <strong>{{ serviceName(service.key) }}</strong>
                     <small>{{ service.detail }}</small>

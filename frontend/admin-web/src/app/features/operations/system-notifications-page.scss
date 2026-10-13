@@ -19,9 +19,8 @@
 .monitor-header, .heading-actions, .panel-heading, .panel-heading > div:first-child, .monitor-tabs, .data-notice, .live-summary, .live-summary-copy, .live-counts { display: flex; align-items: center; }
 .monitor-header { justify-content: space-between; gap: 18px; }
 .heading-copy { min-width: 0; }
-.eyebrow, .summary-eyebrow { color: #8996a9; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
-.monitor-header h1 { margin: 3px 0 5px; color: #1b2b45; font-size: clamp(22px, 2.2vw, 29px); letter-spacing: -.04em; }
-.monitor-header p { margin: 0; color: var(--monitor-muted); font-size: 12px; }
+.summary-eyebrow { color: #8996a9; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+.monitor-header h1 { margin: 0; color: #1b2b45; font-size: clamp(22px, 2.2vw, 29px); letter-spacing: -.04em; }
 .heading-actions { flex: 0 0 auto; gap: 10px; }
 .refresh-state { display: inline-flex; align-items: center; gap: 7px; color: #64748b; font-size: 10px; white-space: nowrap; }
 .status-dot, .real-pill i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #2daa73; }
@@ -91,7 +90,8 @@
 .service-list { display: grid; }
 .service-row { display: flex; min-width: 0; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid #eef1f6; }
 .service-row:last-child { border-bottom: 0; }
-.service-symbol { display: grid; flex: 0 0 27px; width: 27px; height: 27px; place-items: center; border-radius: 8px; background: #eef4ff; color: #3978ff; font-size: 12px; }
+.service-symbol { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border: 1px solid #edf0f5; border-radius: 8px; background: #fff; }
+.service-symbol img { display: block; width: 20px; height: 20px; object-fit: contain; }
 .service-copy { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 2px; }
 .service-copy strong { color: #34425b; font-size: 11px; }
 .service-copy small { color: #718099; font-size: 10px; line-height: 1.35; }

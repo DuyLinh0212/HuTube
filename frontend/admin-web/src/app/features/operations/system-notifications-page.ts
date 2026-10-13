@@ -260,8 +260,17 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
     return item.severity === 'critical' ? 'critical' : item.severity === 'warning' ? 'warning' : 'normal';
   }
 
-  serviceSymbol(key: string): string {
-    return ({ api: '◎', database: '▤', redis: '▥', vercel: '▲', render: '◈', storage: '☁', signalr: '⌘' } as Record<string, string>)[key] ?? '•';
+  serviceIcon(key: string): string {
+    // Use provider marks; SignalR is represented by its published .NET package icon.
+    return ({
+      api: '/assets/logo-mark.png',
+      database: '/assets/brands/neon.svg',
+      redis: '/assets/brands/upstash.png',
+      vercel: '/assets/brands/vercel.svg',
+      render: '/assets/brands/render.svg',
+      storage: '/assets/brands/cloudflare.ico',
+      signalr: '/assets/brands/signalr.png',
+    } as Record<string, string>)[key.toLowerCase()] ?? '/assets/logo-mark.png';
   }
 
   signalTitle(item: SystemSignal): string { return this.i18n.t('operations.signal.' + this.signalKey(item) + '.title'); }
