@@ -33,6 +33,10 @@ class FakeR2(R2Store):
     def write_json(self, key: str, value: dict) -> None:
         self.write(key, json.dumps(value).encode(), "application/json")
 
+    def list_keys(self, prefix: str) -> list[str]:
+        return sorted(key for key in self.objects
+                      if key.startswith(prefix) and key.endswith(".json"))
+
     def read_versioned_json(self, key: str):
         raw = self.read_optional(key)
         return (
@@ -52,6 +56,7 @@ class FakeR2(R2Store):
 def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monkeypatch) -> None:
     store = FakeR2()
     monkeypatch.setattr("app.model_registry.R2Store", lambda _: store)
+    monkeypatch.setattr("app.model_statistics.R2Store", lambda _: store)
     settings = Settings(model_storage_path=tmp_path, app_env="production",
                         recommender_service_token="infer-secret",
                         recommender_admin_token="admin-secret",

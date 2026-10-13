@@ -1,5 +1,6 @@
 using HuTube.Infrastructure.Videos;
 using System.Globalization;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -43,6 +44,13 @@ public sealed record ScoreAggregationConfig(string Mode, Dictionary<string, deci
 public sealed record ModelManifest(string ModelVersion, string CsvKey, string CsvSha256,
     string ArtifactKey, string ArtifactSha256, DateTimeOffset UpdatedAt,
     ScoreAggregationConfig? ScoreAggregation = null, string ModelAlgorithm = "item_based");
+public sealed record ModelStatisticsItem(string ModelVersion, string ModelAlgorithm,
+    DateTimeOffset? BuildStartedAt, DateTimeOffset? BuildCompletedAt,
+    double? BuildDurationSeconds, double? FitDurationSeconds,
+    int? UsersCount, int? VideosCount, int? InteractionsCount,
+    DateTimeOffset? LastUsedAt, bool IsActive);
+public sealed record ModelStatisticsResponse(string? ActiveModelVersion,
+    IReadOnlyList<ModelStatisticsItem> Items);
 
 public sealed class RecommendationAdminService(
     HuTubeDbContext db, IRecommendationSnapshotStore snapshots,
@@ -252,6 +260,33 @@ public sealed class RecommendationAdminService(
     {
         var bytes = await snapshots.ReadOptionalAsync("collaborative_cf/active.json", ct);
         return bytes == null ? null : JsonSerializer.Deserialize<ModelManifest>(bytes, JsonOptions);
+    }
+
+    public async Task<ModelStatisticsResponse> ModelStatisticsAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(options.ServiceUrl) || string.IsNullOrWhiteSpace(options.AdminToken))
+            throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Chưa cấu hình kết nối thống kê mô hình.");
+        using var client = clients.CreateClient("recommendation-model-statistics");
+        client.Timeout = TimeSpan.FromSeconds(20);
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            options.ServiceUrl.TrimEnd('/') + "/internal/models");
+        request.Headers.Add("X-Model-Admin-Token", options.AdminToken);
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                throw Error(503, "MODEL_ADMIN_TOKEN_MISMATCH", "Token quản trị của API và Recommendation Service chưa khớp.");
+            if (!response.IsSuccessStatusCode)
+                throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Không đọc được thống kê mô hình từ Recommendation Service. Vui lòng thử lại.");
+            return await response.Content.ReadFromJsonAsync<ModelStatisticsResponse>(JsonOptions, ct)
+                ?? throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Recommendation Service không trả về thống kê mô hình.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException
+            || ex is TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Could not read recommendation model statistics.");
+            throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Dịch vụ thống kê mô hình chưa sẵn sàng. Vui lòng thử lại.");
+        }
     }
 
     public async Task<MatrixDiffResponse> DiffAsync(CancellationToken ct)

@@ -140,6 +140,7 @@ async def recommendations(
             False,
         ) from exc
     metadata = loaded.metadata
+    registry.statistics.record_use(str(metadata["modelVersion"]))
     return RecommendationResponse(
         modelVersion=str(metadata["modelVersion"]),
         source=str(metadata["source"]),
@@ -156,6 +157,18 @@ async def model_status(request: Request,
             "manifest": registry.manifest, "loadError": registry.load_error,
             "storageConfigured": not request.app.state.settings.missing_r2_settings,
             "missingStorageSettings": request.app.state.settings.missing_r2_settings}
+
+
+@router.get("/internal/models")
+async def model_statistics(request: Request,
+                           admin_token: str | None = Header(
+                               default=None, alias="X-Model-Admin-Token")):
+    _require_admin(request, admin_token)
+    registry = request.app.state.registry
+    return await run_in_threadpool(
+        registry.statistics.catalog, registry.manifest,
+        registry.loaded.metadata if registry.loaded else None,
+    )
 
 
 @router.post("/internal/model/train")

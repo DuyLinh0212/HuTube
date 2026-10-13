@@ -15,6 +15,9 @@ public sealed class RecommendationAdminController(RecommendationAdminService adm
     [HttpGet("status")]
     public Task<MatrixDiffResponse> StatusAsync(CancellationToken ct) => admin.DiffAsync(ct);
 
+    [HttpGet("models")]
+    public Task<ModelStatisticsResponse> ModelsAsync(CancellationToken ct) => admin.ModelStatisticsAsync(ct);
+
     [HttpGet("matrix.csv")]
     public async Task<IActionResult> MatrixAsync(CancellationToken ct) =>
         File(await admin.ExportMatrixAsync(ct), "text/csv; charset=utf-8", "interactions_current.csv");

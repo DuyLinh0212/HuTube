@@ -39,6 +39,7 @@ def create_app(
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
+            await asyncio.to_thread(resolved_registry.statistics.flush)
 
     app = FastAPI(
         title=resolved_settings.app_name,

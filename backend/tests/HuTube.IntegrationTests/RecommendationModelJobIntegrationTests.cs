@@ -46,6 +46,17 @@ public sealed class FakeModelHttpFactory(TestRecommendationSnapshots snapshots) 
         {
             if (request.Headers.GetValues("X-Model-Admin-Token").Single() != "model-admin-test")
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            if (request.RequestUri!.AbsolutePath == "/internal/models")
+            {
+                var manifest = JsonSerializer.Deserialize<ModelManifest>(
+                    snapshots.Objects["collaborative_cf/active.json"], new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+                return new HttpResponseMessage(HttpStatusCode.OK) {
+                    Content = JsonContent.Create(new ModelStatisticsResponse(manifest.ModelVersion, [
+                        new ModelStatisticsItem(manifest.ModelVersion, manifest.ModelAlgorithm,
+                            manifest.UpdatedAt.AddSeconds(-2), manifest.UpdatedAt, 2, 0.5,
+                            2, 2, 4, null, true)
+                    ])) };
+            }
             if (request.Method == HttpMethod.Post)
             {
                 if (parent.FailTraining)
@@ -146,6 +157,14 @@ public sealed class RecommendationModelJobIntegrationTests(RecommendationModelFa
         var csv = factory.Snapshots.Objects[manifest.CsvKey];
         Assert.Equal(Convert.ToHexString(SHA256.HashData(csv)).ToLowerInvariant(), manifest.CsvSha256);
         Assert.DoesNotContain("email", Encoding.UTF8.GetString(csv), StringComparison.OrdinalIgnoreCase);
+
+        var statistics = await client.GetFromJsonAsync<ModelStatisticsResponse>("/api/v1/admin/recommendations/models");
+        Assert.Equal(manifest.ModelVersion, statistics!.ActiveModelVersion);
+        var model = Assert.Single(statistics.Items);
+        Assert.Equal("batch_incremental_partial_topk", model.ModelAlgorithm);
+        Assert.True(model.IsActive);
+        Assert.Equal(2, model.BuildDurationSeconds);
+        Assert.Null(model.LastUsedAt);
 
         factory.ModelHttp.FailTraining = true;
         var failedQueue = await client.PostAsJsonAsync("/api/v1/admin/recommendations/model-jobs", new { });

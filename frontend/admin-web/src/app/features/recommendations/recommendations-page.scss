@@ -65,6 +65,34 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .score-weight { display:grid; gap:5px; color:var(--muted); font-size:.67rem; font-weight:700; }
 .score-weight input { width:100%; }
 
+.model-statistics-panel { box-shadow:none; }
+.model-statistics-panel .section-head h2 { margin-top:0; }
+.statistics-description,.statistics-note { max-width:75ch; color:var(--text-body); font-size:.74rem; line-height:1.6; }
+.statistics-description { margin:8px 0 0; }
+.statistics-count { margin:0 0 12px; color:var(--text-body); font-size:.74rem; font-weight:650; }
+.statistics-scroll-hint { display:none; margin:0 0 10px; color:var(--text-body); font-size:.72rem; }
+@media (max-width:1100px) { .statistics-scroll-hint { display:block; } }
+.model-statistics-scroll { max-width:100%; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+.model-statistics-scroll:focus-visible { outline:3px solid var(--primary-glow); outline-offset:3px; }
+.model-statistics-table { width:100%; min-width:940px; border-collapse:collapse; font-size:.72rem; text-align:left; }
+.model-statistics-table th,.model-statistics-table td { padding:14px 16px; vertical-align:top; border-bottom:1px solid var(--line); }
+.model-statistics-table thead th { color:var(--text-body); background:var(--card-hover); font-weight:750; white-space:nowrap; }
+.model-statistics-table tbody tr:last-child>* { border-bottom:0; }
+.model-statistics-table tbody tr.is-active { background:var(--primary-soft); }
+.model-identity { min-width:250px; max-width:320px; font-weight:600; }
+.model-identity strong,.model-identity code,.model-statistics-table td>small,.model-data span { display:block; }
+.model-identity code { margin-top:7px; color:var(--text-body); font:500 .66rem/1.6 ui-monospace,Consolas,monospace; overflow-wrap:anywhere; }
+.model-statistics-table td>small { margin-top:6px; color:var(--text-body); line-height:1.5; }
+.model-statistics-table time { line-height:1.6; }
+.model-state { display:inline-block; padding:5px 8px; border:1px solid var(--line); border-radius:6px; color:var(--text-body); font-size:.66rem; font-weight:700; white-space:nowrap; background:var(--surface); }
+.model-state.is-active { color:var(--ink); border-color:var(--primary); }
+.model-data { white-space:nowrap; line-height:1.7; }
+.statistics-note { margin:12px 0 0; }
+.statistics-empty { margin:0; padding:20px; border:1px dashed var(--line); border-radius:10px; color:var(--text-body); font-size:.78rem; line-height:1.6; }
+.statistics-skeleton { display:grid; gap:10px; }
+.statistics-skeleton>div { height:56px; border-radius:6px; background:var(--card-hover); }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
 /* The simulator recreates the former tool's compact control-room layout. */
 .simulator-panel { --sim-scroll-track:#0b1320; --sim-scroll-thumb:#5b6e8a; --sim-scroll-thumb-hover:#7b8faa; margin-top:18px; padding:22px; border:1px solid var(--line); border-radius:17px; color:var(--ink); background:radial-gradient(900px 430px at 12% -20%,var(--primary-soft),transparent 60%),var(--page-bg); box-shadow:var(--shadow-card); }
 .simulator-panel :is(.user-list,.video-list,.category-options,.comment-list,.console-stream,.matrix-table-wrap) { scrollbar-width:thin; scrollbar-color:var(--sim-scroll-thumb) var(--sim-scroll-track); }

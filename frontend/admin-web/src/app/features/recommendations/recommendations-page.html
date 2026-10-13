@@ -75,6 +75,69 @@
     } @else { <p class="subtle">{{ 'recommendations.loadingMatrix' | translate }}</p> }
   </section>
 
+  <section class="panel model-statistics-panel" aria-labelledby="model-statistics-title" [attr.aria-busy]="loadingModelStatistics()">
+    <div class="section-head">
+      <div>
+        <h2 id="model-statistics-title">{{ 'recommendations.statistics.title' | translate }}</h2>
+        <p class="statistics-description">{{ 'recommendations.statistics.description' | translate }}</p>
+      </div>
+      <button type="button" class="secondary" [disabled]="loadingModelStatistics()" (click)="loadModelStatistics()">
+        {{ 'recommendations.statistics.refresh' | translate }}
+      </button>
+    </div>
+    @if (modelStatisticsError()) {
+      <p class="message error" role="alert">{{ modelStatisticsError() }}</p>
+    }
+    @if (loadingModelStatistics() && !modelStatistics()) {
+      <div class="statistics-skeleton" role="status" [attr.aria-label]="'recommendations.statistics.loading' | translate">
+        @for (row of [1, 2, 3]; track row) { <div aria-hidden="true"></div> }
+        <span class="sr-only">{{ 'recommendations.statistics.loading' | translate }}</span>
+      </div>
+    } @else if (modelStatistics(); as statistics) {
+      <p class="statistics-count">{{ 'recommendations.statistics.count' | translate:{ count: statistics.items.length } }}</p>
+      @if (statistics.items.length) {
+        <p class="statistics-scroll-hint">{{ 'recommendations.statistics.scrollHint' | translate }}</p>
+        <div class="model-statistics-scroll" role="region" tabindex="0" [attr.aria-label]="'recommendations.statistics.title' | translate">
+          <table class="model-statistics-table">
+            <thead><tr>
+              <th scope="col">{{ 'recommendations.statistics.model' | translate }}</th>
+              <th scope="col">{{ 'recommendations.statistics.status' | translate }}</th>
+              <th scope="col">{{ 'recommendations.statistics.builtAt' | translate }}</th>
+              <th scope="col">{{ 'recommendations.statistics.duration' | translate }}</th>
+              <th scope="col">{{ 'recommendations.statistics.lastUsed' | translate }}</th>
+              <th scope="col">{{ 'recommendations.statistics.data' | translate }}</th>
+            </tr></thead>
+            <tbody>
+              @for (model of statistics.items; track model.modelVersion) {
+                <tr [class.is-active]="model.isActive">
+                  <th scope="row" class="model-identity">
+                    <strong>{{ modelAlgorithmLabel(model.modelAlgorithm) }}</strong>
+                    <code>{{ model.modelVersion }}</code>
+                  </th>
+                  <td><span class="model-state" [class.is-active]="model.isActive">{{ (model.isActive ? 'recommendations.statistics.active' : 'recommendations.statistics.stored') | translate }}</span></td>
+                  <td><time [attr.datetime]="model.buildCompletedAt">{{ model.buildCompletedAt ? (model.buildCompletedAt | date:'dd/MM/yyyy HH:mm:ss') : ('recommendations.statistics.notRecorded' | translate) }}</time></td>
+                  <td>
+                    <strong>{{ modelDuration(model.buildDurationSeconds) }}</strong>
+                    @if (model.fitDurationSeconds !== null) { <small>{{ 'recommendations.statistics.fitDuration' | translate:{ duration: modelDuration(model.fitDurationSeconds) } }}</small> }
+                  </td>
+                  <td><time [attr.datetime]="model.lastUsedAt">{{ model.lastUsedAt ? (model.lastUsedAt | date:'dd/MM/yyyy HH:mm:ss') : ('recommendations.statistics.notRecorded' | translate) }}</time></td>
+                  <td class="model-data">
+                    <span>{{ model.usersCount !== null ? (model.usersCount | number) : '—' }} {{ 'recommendations.userUnit' | translate }}</span>
+                    <span>{{ model.videosCount !== null ? (model.videosCount | number) : '—' }} {{ 'recommendations.videoUnit' | translate }}</span>
+                    <span>{{ model.interactionsCount !== null ? (model.interactionsCount | number) : '—' }} {{ 'recommendations.pairs' | translate }}</span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="statistics-note">{{ 'recommendations.statistics.note' | translate }}</p>
+      } @else {
+        <p class="statistics-empty">{{ 'recommendations.statistics.empty' | translate }}</p>
+      }
+    }
+  </section>
+
   <section class="panel update-panel" aria-labelledby="update-title">
     <div class="section-head">
       <div>

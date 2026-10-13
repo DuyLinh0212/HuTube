@@ -113,6 +113,7 @@ def train_csv_bytes(csv_bytes: bytes, artifact_root: Path, *, csv_key: str,
                  "itemsCount": items, "interactionsCount": len(df),
                  "csvKey": csv_key, "csvSha256": csv_sha256,
                  "modelAlgorithm": selected_algorithm,
+                 "fitDurationSeconds": fitted.fit_seconds,
                  "scoreAggregation": score_config}
     return save_artifact(
         artifact_root=artifact_root, model_version=version,

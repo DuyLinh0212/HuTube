@@ -66,6 +66,13 @@ class R2Store:
                 return None, None
             raise
 
+    def list_keys(self, prefix: str) -> list[str]:
+        pages = self.client.get_paginator("list_objects_v2").paginate(
+            Bucket=self.bucket, Prefix=prefix,
+        )
+        return [item["Key"] for page in pages for item in page.get("Contents", [])
+                if item["Key"].endswith(".json")]
+
     def compare_write_json(self, key: str, value: dict, etag: str | None) -> str:
         response = self.client.put_object(
             Bucket=self.bucket, Key=key, Body=json.dumps(value).encode(),

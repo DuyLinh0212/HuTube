@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import threading
+import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,7 @@ from botocore.exceptions import ClientError
 
 from app.config import Settings
 from app.data.mapping import IndexMappings
+from app.model_statistics import ModelStatistics
 from app.r2_store import R2Store
 from app.recommenders.base import CollaborativeFilter
 from app.recommenders.item_cf import ItemBasedCF
@@ -137,6 +139,7 @@ class ModelRegistry:
         self.update_lock = threading.Lock()
         self.update_task = None
         self.update_jobs: dict[str, dict] = {}
+        self.statistics = ModelStatistics(settings)
 
     def _resolve_artifact(self) -> Path:
         root = self.settings.resolved_model_storage_path
@@ -230,6 +233,8 @@ class ModelRegistry:
         try:
             store = R2Store(self.settings)
             lease = store.acquire_training_lease()
+            build_started_at = datetime.now(UTC).isoformat()
+            build_started = time.perf_counter()
             csv = store.read(csv_key)
             if len(csv) > 32 * 1024 * 1024:
                 raise ValueError("CSV exceeds the 32 MiB training limit.")
@@ -255,9 +260,19 @@ class ModelRegistry:
                     "updatedAt": datetime.now(UTC).isoformat(),
                     "modelAlgorithm": metadata.get("modelAlgorithm", "item_based"),
                     "scoreAggregation": metadata.get("scoreAggregation"),
+                    "buildStartedAt": build_started_at,
+                    "fitDurationSeconds": metadata.get("fitDurationSeconds"),
+                    "usersCount": metadata.get("usersCount"),
+                    "itemsCount": metadata.get("itemsCount"),
+                    "interactionsCount": metadata.get("interactionsCount"),
                 }
                 store.write(manifest["artifactKey"], archive, "application/zip")
                 preview = self._load_archive(store, manifest)
+                manifest["buildCompletedAt"] = datetime.now(UTC).isoformat()
+                manifest["buildDurationSeconds"] = round(time.perf_counter() - build_started, 6)
+                store.write_json(
+                    f"collaborative_cf/models/{manifest['modelVersion']}.json", manifest,
+                )
                 # active.json is the publication point. Before this write the old
                 # model remains authoritative, including after process restarts.
                 lease = (lease[0], store.renew_training_lease(*lease))
@@ -318,6 +333,7 @@ class ModelRegistry:
         return job
 
     def refresh(self) -> None:
+        self.statistics.flush()
         if not self.update_lock.acquire(blocking=False):
             return
         try:

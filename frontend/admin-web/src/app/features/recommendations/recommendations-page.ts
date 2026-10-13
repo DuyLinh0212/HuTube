@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
@@ -18,6 +19,14 @@ interface MatrixDiff {
   added: number; changed: number; removed: number; changeRate: number; modelAlgorithm: string | null;
 }
 interface Person { userId: string; username: string; displayName: string; isBot: boolean; }
+interface ModelStatisticsItem {
+  modelVersion: string; modelAlgorithm: string; isActive: boolean;
+  buildStartedAt: string | null; buildCompletedAt: string | null;
+  buildDurationSeconds: number | null; fitDurationSeconds: number | null;
+  usersCount: number | null; videosCount: number | null; interactionsCount: number | null;
+  lastUsedAt: string | null;
+}
+interface ModelStatistics { activeModelVersion: string | null; items: ModelStatisticsItem[]; }
 interface Category { categoryId: string; name: string; slug: string; }
 interface Video {
   videoId: string; channelId: string; title: string; duration: number;
@@ -51,10 +60,14 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
   private readonly i18n = inject(I18nService);
+  private readonly destroyRef = inject(DestroyRef);
   private pollHandle?: ReturnType<typeof setInterval>;
   private readonly base = () => `${this.config.apiBaseUrl}/admin/recommendations`;
 
   readonly diff = signal<MatrixDiff | null>(null);
+  readonly modelStatistics = signal<ModelStatistics | null>(null);
+  readonly loadingModelStatistics = signal(false);
+  readonly modelStatisticsError = signal('');
   readonly preview = signal<MatrixPreview | null>(null);
   readonly modelPreviewVisible = signal(false);
   readonly users = signal<Person[]>([]);
@@ -120,6 +133,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadCommentBank();
     this.check();
+    this.loadModelStatistics();
     this.loadUsers();
     this.loadCategories();
     this.loadMatrix();
@@ -135,6 +149,31 @@ export class RecommendationsPage implements OnInit, OnDestroy {
     this.http.get<MatrixDiff>(`${this.base()}/status`).subscribe({
       next: value => { this.diff.set(value); this.busy.set(false); },
       error: err => { this.error.set(errorMessage(err, this.i18n)); this.busy.set(false); },
+    });
+  }
+
+  loadModelStatistics(): void {
+    if (this.loadingModelStatistics()) return;
+    this.loadingModelStatistics.set(true);
+    this.modelStatisticsError.set('');
+    this.http.get<ModelStatistics>(`${this.base()}/models`)
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: value => {
+          this.modelStatistics.set(value);
+          this.loadingModelStatistics.set(false);
+        },
+        error: () => {
+          this.modelStatisticsError.set(this.i18n.t('recommendations.statistics.unavailable'));
+          this.loadingModelStatistics.set(false);
+        },
+      });
+  }
+
+  modelDuration(seconds: number | null): string {
+    if (seconds === null || !Number.isFinite(seconds) || seconds < 0)
+      return this.i18n.t('recommendations.statistics.notRecorded');
+    return this.i18n.format('recommendations.statistics.seconds', {
+      value: new Intl.NumberFormat(this.i18n.currentLang(), { maximumFractionDigits: 3 }).format(seconds),
     });
   }
 
@@ -715,6 +754,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
         if (['completed', 'failed', 'cancelled'].includes(value.status)) {
           if (this.pollHandle) clearInterval(this.pollHandle);
           this.pollHandle = undefined;
+          if (value.kind === 'model_update') this.loadModelStatistics();
           if (value.status === 'completed') {
             this.notice.set(this.i18n.t('recommendations.jobCompleted'));
             this.check();

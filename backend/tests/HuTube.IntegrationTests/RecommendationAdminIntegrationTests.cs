@@ -54,13 +54,19 @@ public sealed class RecommendationAdminIntegrationTests(AuthApiFactory factory) 
         using var guest = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await guest.GetAsync("/api/v1/admin/recommendations/users")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await guest.GetAsync("/api/v1/admin/recommendations/models")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await guest.GetAsync("/api/v1/simulator/users")).StatusCode);
 
         var (admin, _) = await LoginAsync(SystemRoles.Admin);
         using (admin)
+        {
             Assert.Equal(HttpStatusCode.Forbidden,
                 (await admin.GetAsync("/api/v1/admin/recommendations/users")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden,
+                (await admin.GetAsync("/api/v1/admin/recommendations/models")).StatusCode);
+        }
 
         var (super, userId) = await LoginAsync(SystemRoles.SuperAdmin);
         using (super)
