@@ -94,8 +94,8 @@
         <span class="sr-only">{{ 'recommendations.statistics.loading' | translate }}</span>
       </div>
     } @else if (modelStatistics(); as statistics) {
-      <p class="statistics-count">{{ 'recommendations.statistics.count' | translate:{ count: statistics.items.length } }}</p>
-      @if (statistics.items.length) {
+      <p class="statistics-count">{{ 'recommendations.statistics.count' | translate:{ count: latestModelStatistics().length } }}</p>
+      @if (latestModelStatistics().length) {
         <p class="statistics-scroll-hint">{{ 'recommendations.statistics.scrollHint' | translate }}</p>
         <div class="model-statistics-scroll" role="region" tabindex="0" [attr.aria-label]="'recommendations.statistics.title' | translate">
           <table class="model-statistics-table">
@@ -108,7 +108,7 @@
               <th scope="col">{{ 'recommendations.statistics.data' | translate }}</th>
             </tr></thead>
             <tbody>
-              @for (model of statistics.items; track model.modelVersion) {
+              @for (model of latestModelStatistics(); track model.modelAlgorithm) {
                 <tr [class.is-active]="model.isActive">
                   <th scope="row" class="model-identity">
                     <strong>{{ modelAlgorithmLabel(model.modelAlgorithm) }}</strong>

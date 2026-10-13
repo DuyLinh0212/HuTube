@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { errorMessage } from '../../core/auth.service';
@@ -66,6 +66,25 @@ export class RecommendationsPage implements OnInit, OnDestroy {
 
   readonly diff = signal<MatrixDiff | null>(null);
   readonly modelStatistics = signal<ModelStatistics | null>(null);
+  readonly latestModelStatistics = computed(() => {
+    const latestByAlgorithm = new Map<string, ModelStatisticsItem>();
+    const buildTime = (item: ModelStatisticsItem): number => {
+      const value = item.buildCompletedAt ?? item.buildStartedAt;
+      const parsed = value ? Date.parse(value) : Number.NaN;
+      return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+    };
+
+    for (const item of this.modelStatistics()?.items ?? []) {
+      const algorithm = item.modelAlgorithm || 'item_based';
+      const current = latestByAlgorithm.get(algorithm);
+      if (!current || buildTime(item) > buildTime(current)
+        || (buildTime(item) === buildTime(current) && item.isActive && !current.isActive)) {
+        latestByAlgorithm.set(algorithm, item);
+      }
+    }
+
+    return [...latestByAlgorithm.values()].sort((a, b) => buildTime(b) - buildTime(a));
+  });
   readonly loadingModelStatistics = signal(false);
   readonly modelStatisticsError = signal('');
   readonly preview = signal<MatrixPreview | null>(null);
