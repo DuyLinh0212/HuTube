@@ -1,0 +1,800 @@
+from __future__ import annotations
+
+import argparse
+import copy
+import json
+import platform
+import statistics
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from time import perf_counter
+from typing import Any
+
+import matplotlib
+import numpy as np
+import pandas as pd
+
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt  # noqa: E402
+
+SERVICE_ROOT = Path(__file__).resolve().parents[1]
+if str(SERVICE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SERVICE_ROOT))
+
+from app.data.mapping import build_mappings, encode_interactions  # noqa: E402
+from app.data.movielens import load_ml100k  # noqa: E402
+from app.recommenders.batch_incremental_item_cf import (  # noqa: E402
+    BatchIncrementalItemBasedCF,  # noqa: E402
+    BatchIncrementalItemBasedCFPartialTopK,
+)
+from app.recommenders.incremental_item_cf import IncrementalItemBasedCF  # noqa: E402
+from app.recommenders.item_cf import ItemBasedCF  # noqa: E402
+from app.recommenders.similarity import select_positive_neighbors  # noqa: E402
+
+_CHART_SERIES = (
+    ("full_rebuild", "Full rebuild", "#64748b", "full_rebuild_seconds"),
+    (
+        "incremental_per_rating",
+        "Incremental per rating",
+        "#0ea5e9",
+        "incremental_update_seconds",
+    ),
+    (
+        "batch_gram_full_sort",
+        "Batch Gram + full sort",
+        "#f59e0b",
+        "batch_gram_update_seconds",
+    ),
+    (
+        "batch_gram_partial_topk",
+        "Batch Gram + partial Top-K",
+        "#16a34a",
+        "batch_gram_partial_topk_seconds",
+    ),
+)
+
+
+def _copy_model(model: IncrementalItemBasedCF) -> IncrementalItemBasedCF:
+    # Copy outside the timed region: this represents an already-resident model.
+    return copy.deepcopy(model)
+
+
+def _timed_full_rebuild(
+    snapshot: pd.DataFrame,
+    *,
+    user_count: int,
+    item_count: int,
+    neighbor_count: int,
+) -> tuple[ItemBasedCF, float]:
+    started = perf_counter()
+    model = ItemBasedCF.fit(
+        snapshot,
+        user_count=user_count,
+        item_count=item_count,
+        neighbor_count=neighbor_count,
+        interaction_mode="rating",
+        similarity="cosine",
+    )
+    return model, perf_counter() - started
+
+
+def _measure_update(
+    base: IncrementalItemBasedCF,
+    batch: pd.DataFrame,
+    *,
+    repeats: int,
+) -> tuple[float, IncrementalItemBasedCF]:
+    samples: list[float] = []
+    final_model: IncrementalItemBasedCF | None = None
+    for _ in range(repeats):
+        model = _copy_model(base)
+        started = perf_counter()
+        model.update_batch(batch)
+        samples.append(perf_counter() - started)
+        final_model = model
+    assert final_model is not None
+    return statistics.median(samples), final_model
+
+
+def _dense_array_memory_mib(
+    *,
+    users: int,
+    items: int,
+    neighbors: int,
+    affected_users: int,
+    dirty_items: int,
+    strategy: str,
+) -> float:
+    """Estimate peak dense NumPy array bytes; excludes Python/BLAS internals."""
+    ui = users * items
+    pair = items * items
+    interaction = ui * np.dtype(np.float32).itemsize
+    observed = ui * np.dtype(np.bool_).itemsize
+    gram_or_similarity = pair * np.dtype(np.float32).itemsize
+    neighbor_state = items * neighbors * (
+        np.dtype(np.int64).itemsize + np.dtype(np.float32).itemsize
+    )
+    vectors = items * 3 * np.dtype(np.float32).itemsize
+    if strategy == "full_rebuild":
+        matrix_build_peak = 3 * interaction + observed
+        cosine_peak = interaction + observed + 3 * gram_or_similarity + neighbor_state + vectors
+        peak = max(matrix_build_peak, cosine_peak)
+    else:
+        model_state = (
+            interaction + observed + 2 * gram_or_similarity + neighbor_state + vectors
+        )
+        dirty_update = 3 * dirty_items * items * np.dtype(np.float32).itemsize
+        if strategy.startswith("batch_gram"):
+            gram_temporaries = (
+                2 * affected_users * items * np.dtype(np.float32).itemsize
+                + 3 * gram_or_similarity
+            )
+            topk_scratch = items * (16 if strategy.endswith("partial_topk") else 48)
+            update_peak = max(gram_temporaries, dirty_update + topk_scratch)
+        else:
+            update_peak = dirty_update + items * 48
+        peak = model_state + update_peak
+    return float(peak) / (1024**2)
+
+
+def _selection_work(
+    similarity: np.ndarray,
+    rows: np.ndarray,
+    *,
+    neighbor_count: int,
+    partial: bool,
+) -> int:
+    if partial:
+        return int(
+            len(rows)
+            * (similarity.shape[1] + neighbor_count * np.log2(max(2, neighbor_count)))
+        )
+    counts = np.count_nonzero(similarity[rows] > 0.0, axis=1)
+    return int(sum(int(count) * np.log2(max(2, int(count))) for count in counts))
+
+
+def _draw_runtime_chart(axis: Any, rows: list[dict[str, Any]]) -> None:
+    batch_sizes = [int(row["new_interactions"]) for row in rows]
+    for _strategy, label, color, metric in _CHART_SERIES:
+        axis.plot(
+            batch_sizes,
+            [float(row[metric]) for row in rows],
+            marker="o",
+            linewidth=2,
+            color=color,
+            label=label,
+        )
+    axis.set_xscale("log")
+    axis.set_yscale("log")
+    axis.set_xticks(batch_sizes, [f"{size:,}" for size in batch_sizes])
+    axis.set_title("Runtime per update or rebuild")
+    axis.set_xlabel("New ratings in batch (log scale)")
+    axis.set_ylabel("Median wall-clock seconds (log scale)")
+    axis.grid(which="both", alpha=0.25)
+    axis.legend()
+
+
+def _draw_memory_chart(axis: Any, rows: list[dict[str, Any]]) -> None:
+    batch_sizes = [int(row["new_interactions"]) for row in rows]
+    costs_by_stage = [
+        {str(cost["strategy"]): cost for cost in row["computation_costs"]}
+        for row in rows
+    ]
+    for strategy, label, color, _metric in _CHART_SERIES:
+        style: dict[str, Any] = {"marker": "o", "zorder": 3}
+        if strategy == "batch_gram_full_sort":
+            # Its memory estimate overlaps partial Top-K, so expose it as a
+            # dashed line with an outlined square over the green circle.
+            style.update(
+                marker="s",
+                linestyle="--",
+                markerfacecolor="none",
+                markeredgewidth=1.6,
+                zorder=5,
+            )
+        elif strategy == "batch_gram_partial_topk":
+            style["zorder"] = 4
+        axis.plot(
+            batch_sizes,
+            [
+                float(costs[strategy]["estimated_peak_array_mib"])
+                for costs in costs_by_stage
+            ],
+            linewidth=2,
+            color=color,
+            label=label,
+            **style,
+        )
+    axis.set_xscale("log")
+    axis.set_xticks(batch_sizes, [f"{size:,}" for size in batch_sizes])
+    axis.set_title("Estimated peak NumPy-array memory")
+    axis.set_xlabel("New ratings in batch (log scale)")
+    axis.set_ylabel("Estimated peak MiB")
+    axis.grid(which="both", alpha=0.25)
+    axis.legend()
+
+
+def _write_update_charts(rows: list[dict[str, Any]], report_dir: Path) -> dict[str, str]:
+    chart_specs = (
+        ("runtime_vs_new_ratings.png", _draw_runtime_chart),
+        ("memory_cost_vs_new_ratings.png", _draw_memory_chart),
+    )
+    outputs: dict[str, str] = {}
+    for filename, draw in chart_specs:
+        figure, axis = plt.subplots(figsize=(10, 5.5))
+        draw(axis, rows)
+        figure.tight_layout()
+        figure.savefig(report_dir / filename, dpi=180, bbox_inches="tight")
+        plt.close(figure)
+        outputs[filename.removesuffix(".png")] = filename
+
+    figure, axes = plt.subplots(1, 2, figsize=(16, 6))
+    _draw_runtime_chart(axes[0], rows)
+    _draw_memory_chart(axes[1], rows)
+    figure.suptitle("Incremental Item-Based CF: new-data update cost", fontsize=15)
+    figure.tight_layout()
+    combined = "runtime_and_memory_comparison.png"
+    figure.savefig(report_dir / combined, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    outputs["combined"] = combined
+    return outputs
+
+
+def run_benchmark(
+    *,
+    data_dir: Path,
+    report_root: Path,
+    train_fraction: float = 0.8,
+    neighbor_count: int = 50,
+    repeats: int = 3,
+) -> Path:
+    dataset = load_ml100k(data_dir, strict_counts=True)
+    mappings = build_mappings(
+        dataset.interactions,
+        item_ids=dataset.items["item_id"].astype(str).tolist(),
+    )
+    encoded = encode_interactions(dataset.interactions, mappings)
+    encoded = encoded.sort_values("timestamp", kind="stable").reset_index(drop=True)
+    if encoded.duplicated(["user_index", "item_index"]).any():
+        raise ValueError(
+            "MovieLens contains duplicate user-item pairs; "
+            "this run expects unique pairs."
+        )
+
+    split_at = int(len(encoded) * train_fraction)
+    train = encoded.iloc[:split_at].copy()
+    incoming = encoded.iloc[split_at:].copy().reset_index(drop=True)
+    initial_incremental_started = perf_counter()
+    base_incremental = IncrementalItemBasedCF.fit(
+        train,
+        user_count=len(mappings.user_to_index),
+        item_count=len(mappings.item_to_index),
+        neighbor_count=neighbor_count,
+        interaction_mode="rating",
+        similarity="cosine",
+    )
+    initial_incremental_seconds = perf_counter() - initial_incremental_started
+    initial_batch_started = perf_counter()
+    base_batch = BatchIncrementalItemBasedCF.fit(
+        train,
+        user_count=len(mappings.user_to_index),
+        item_count=len(mappings.item_to_index),
+        neighbor_count=neighbor_count,
+        interaction_mode="rating",
+        similarity="cosine",
+    )
+    initial_batch_seconds = perf_counter() - initial_batch_started
+    initial_partial_started = perf_counter()
+    base_batch_partial = BatchIncrementalItemBasedCFPartialTopK.fit(
+        train,
+        user_count=len(mappings.user_to_index),
+        item_count=len(mappings.item_to_index),
+        neighbor_count=neighbor_count,
+        interaction_mode="rating",
+        similarity="cosine",
+    )
+    initial_partial_seconds = perf_counter() - initial_partial_started
+    base_dense, base_dense_seconds = _timed_full_rebuild(
+        train,
+        user_count=len(mappings.user_to_index),
+        item_count=len(mappings.item_to_index),
+        neighbor_count=neighbor_count,
+    )
+    base_similarity_max_abs = float(
+        np.max(np.abs(base_incremental.similarities - base_dense.similarities))
+    )
+    base_partial_topk_agreement = float(
+        np.mean(base_batch_partial.neighbor_indices == base_dense.neighbor_indices) * 100
+    )
+    base_partial_selector_exact_agreement = float(
+        np.mean(base_batch_partial.neighbor_indices == base_batch.neighbor_indices) * 100
+    )
+
+    sizes = sorted(set([1, 10, 100, 1_000, 5_000, len(incoming)]))
+    rows: list[dict[str, Any]] = []
+    for size in sizes:
+        batch = incoming.iloc[:size]
+        snapshot = pd.concat([train, batch], ignore_index=True)
+        incremental_seconds, incremental_model = _measure_update(
+            base_incremental, batch, repeats=repeats
+        )
+        batch_gram_seconds, batch_model = _measure_update(
+            base_batch, batch, repeats=repeats
+        )
+        partial_topk_seconds, partial_topk_model = _measure_update(
+            base_batch_partial, batch, repeats=repeats
+        )
+        dense_samples: list[float] = []
+        dense_model: ItemBasedCF | None = None
+        for _ in range(repeats):
+            dense_model, elapsed = _timed_full_rebuild(
+                snapshot,
+                user_count=len(mappings.user_to_index),
+                item_count=len(mappings.item_to_index),
+                neighbor_count=neighbor_count,
+            )
+            dense_samples.append(elapsed)
+        assert dense_model is not None
+
+        abs_diff = np.abs(incremental_model.similarities - dense_model.similarities)
+        max_abs = float(abs_diff.max(initial=0.0))
+        batch_abs_diff = np.abs(batch_model.similarities - dense_model.similarities)
+        batch_max_abs = float(batch_abs_diff.max(initial=0.0))
+        partial_abs_diff = np.abs(partial_topk_model.similarities - dense_model.similarities)
+        partial_max_abs = float(partial_abs_diff.max(initial=0.0))
+        neighbor_matches = int(
+            np.count_nonzero(
+                incremental_model.neighbor_indices == dense_model.neighbor_indices
+            )
+        )
+        neighbor_slots = int(dense_model.neighbor_indices.size)
+        incremental_sets = [
+            set(row[row >= 0].tolist()) for row in incremental_model.neighbor_indices
+        ]
+        dense_sets = [set(row[row >= 0].tolist()) for row in dense_model.neighbor_indices]
+        overlap_percent = 100.0 * np.mean(
+            [
+                len(left & right) / max(1, len(right))
+                for left, right in zip(incremental_sets, dense_sets, strict=True)
+            ]
+        )
+        rounded_incremental, _ = select_positive_neighbors(
+            np.round(incremental_model.similarities, 5), neighbor_count
+        )
+        rounded_batch, _ = select_positive_neighbors(
+            np.round(batch_model.similarities, 5), neighbor_count
+        )
+        rounded_dense, _ = select_positive_neighbors(
+            np.round(dense_model.similarities, 5), neighbor_count
+        )
+        rounded_matches = 100.0 * np.mean(rounded_incremental == rounded_dense)
+        batch_rounded_matches = 100.0 * np.mean(rounded_batch == rounded_dense)
+        rounded_partial, _ = select_positive_neighbors(
+            np.round(partial_topk_model.similarities, 5), neighbor_count
+        )
+        partial_rounded_matches = 100.0 * np.mean(rounded_partial == rounded_dense)
+        partial_selector_exact_agreement = float(
+            np.mean(
+                partial_topk_model.neighbor_indices == batch_model.neighbor_indices
+            )
+            * 100
+        )
+        rebuild_seconds = statistics.median(dense_samples)
+        affected_users = np.unique(batch["user_index"].to_numpy(dtype=np.int64))
+        dirty_items: set[int] = set()
+        for user in affected_users:
+            dirty_items.update(np.flatnonzero(base_batch.interactions[user] != 0.0).tolist())
+            dirty_items.update(np.flatnonzero(batch_model.interactions[user] != 0.0).tolist())
+        dirty_rows = np.asarray(sorted(dirty_items), dtype=np.int64)
+        pair_update_counts = base_incremental.observed.sum(axis=1).astype(np.int64)
+        pair_stat_updates = 0
+        for user in batch["user_index"].to_numpy(dtype=np.int64):
+            pair_stat_updates += int(pair_update_counts[user])
+            pair_update_counts[user] += 1
+
+        item_count = len(mappings.item_to_index)
+        user_count = len(mappings.user_to_index)
+        all_rows = np.arange(item_count, dtype=np.int64)
+        dense_gflops = 2.0 * user_count * item_count**2 / 1e9
+        gram_delta_gflops = 4.0 * len(affected_users) * item_count**2 / 1e9
+        model_metrics = []
+        for name, model, elapsed, strategy, gemm_gflops, pair_updates, partial in [
+            (
+                "full_rebuild",
+                dense_model,
+                rebuild_seconds,
+                "full_rebuild",
+                dense_gflops,
+                0,
+                False,
+            ),
+            (
+                "incremental_per_rating",
+                incremental_model,
+                incremental_seconds,
+                "incremental_per_rating",
+                0.0,
+                pair_stat_updates,
+                False,
+            ),
+            (
+                "batch_gram_full_sort",
+                batch_model,
+                batch_gram_seconds,
+                "batch_gram_full_sort",
+                gram_delta_gflops,
+                0,
+                False,
+            ),
+            (
+                "batch_gram_partial_topk",
+                partial_topk_model,
+                partial_topk_seconds,
+                "batch_gram_partial_topk",
+                gram_delta_gflops,
+                0,
+                True,
+            ),
+        ]:
+            refreshed = all_rows if strategy == "full_rebuild" else dirty_rows
+            positive_candidates = int(np.count_nonzero(model.similarities[refreshed] > 0.0))
+            model_metrics.append(
+                {
+                    "strategy": name,
+                    "new_interactions": size,
+                    "affected_users": int(len(affected_users)),
+                    "dirty_item_rows_refreshed": int(len(refreshed)),
+                    "estimated_dense_gemm_gflops": float(gemm_gflops),
+                    "pair_stat_updates": int(pair_updates),
+                    "similarity_scalars_recomputed": int(len(refreshed) * item_count),
+                    "topk_candidates_scanned": int(len(refreshed) * item_count),
+                    "positive_candidates_sorted_or_selected": positive_candidates,
+                    "estimated_topk_selection_comparisons": _selection_work(
+                        model.similarities,
+                        refreshed,
+                        neighbor_count=neighbor_count,
+                        partial=partial,
+                    ),
+                    "estimated_peak_array_mib": _dense_array_memory_mib(
+                        users=user_count,
+                        items=item_count,
+                        neighbors=neighbor_count,
+                        affected_users=len(affected_users),
+                        dirty_items=len(dirty_rows),
+                        strategy=strategy,
+                    ),
+                    "update_or_rebuild_seconds": float(elapsed),
+                }
+            )
+        rows.append(
+            {
+                "new_interactions": size,
+                "cumulative_ratings": len(snapshot),
+                "affected_users": int(len(affected_users)),
+                "batch_gram_dirty_item_rows": len(dirty_items),
+                "incremental_update_seconds": incremental_seconds,
+                "incremental_ms_per_interaction": incremental_seconds * 1000 / size,
+                "full_rebuild_seconds": rebuild_seconds,
+                "batch_gram_update_seconds": batch_gram_seconds,
+                "batch_gram_ms_per_interaction": batch_gram_seconds * 1000 / size,
+                "batch_gram_partial_topk_seconds": partial_topk_seconds,
+                "batch_gram_partial_topk_speedup_vs_full_rebuild": rebuild_seconds
+                / partial_topk_seconds
+                if partial_topk_seconds > 0
+                else None,
+                "batch_gram_speedup_vs_full_rebuild": rebuild_seconds / batch_gram_seconds
+                if batch_gram_seconds > 0
+                else None,
+                "speedup_vs_full_rebuild": rebuild_seconds / incremental_seconds
+                if incremental_seconds > 0
+                else None,
+                "similarity_max_abs_error": max_abs,
+                "batch_gram_similarity_max_abs_error": batch_max_abs,
+                "batch_gram_partial_topk_similarity_max_abs_error": partial_max_abs,
+                "raw_top_k_position_agreement_percent": (
+                    100 * neighbor_matches / neighbor_slots if neighbor_slots else 100.0
+                ),
+                "average_top_k_set_overlap_percent": float(overlap_percent),
+                "top_k_agreement_after_similarity_rounding_5dp_percent": float(
+                    rounded_matches
+                ),
+                "batch_gram_top_k_agreement_after_similarity_rounding_5dp_percent": float(
+                    batch_rounded_matches
+                ),
+                "partial_topk_agreement_after_similarity_rounding_5dp_percent": float(
+                    partial_rounded_matches
+                ),
+                "partial_selector_exact_agreement_with_full_sort_percent": (
+                    partial_selector_exact_agreement
+                ),
+                "touched_item_count": len(
+                    np.flatnonzero(
+                        np.any(
+                            incremental_model.interactions
+                            != base_incremental.interactions,
+                            axis=0,
+                        )
+                    )
+                ),
+                "computation_costs": model_metrics,
+            }
+        )
+
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    report_dir = report_root / f"item_cf_update_comparison_ml100k_{stamp}"
+    report_dir.mkdir(parents=True, exist_ok=False)
+    charts = _write_update_charts(rows, report_dir)
+    payload: dict[str, Any] = {
+        "protocol": {
+            "models": [
+                "ItemBasedCF full rebuild",
+                "IncrementalItemBasedCF per-rating stats",
+                "BatchIncrementalItemBasedCF Gram delta",
+                "BatchIncrementalItemBasedCFPartialTopK Gram delta + argpartition",
+            ],
+            "similarity": "cosine",
+            "interaction_mode": "rating",
+            "neighbor_count": neighbor_count,
+            "dataset": "MovieLens 100K",
+            "split": "chronological timestamp split",
+            "train_fraction": train_fraction,
+            "source_ratings": len(encoded),
+            "users": len(mappings.user_to_index),
+            "items": len(mappings.item_to_index),
+            "initial_train_ratings": len(train),
+            "new_ratings_available": len(incoming),
+            "repeats": repeats,
+            "reported_time": "median wall-clock seconds, update/rebuild only",
+            "initial_dense_build_seconds": base_dense_seconds,
+            "initial_incremental_build_seconds": initial_incremental_seconds,
+            "initial_batch_gram_full_sort_build_seconds": initial_batch_seconds,
+            "initial_batch_gram_partial_topk_build_seconds": initial_partial_seconds,
+            "initial_similarity_max_abs_error": base_similarity_max_abs,
+            "initial_partial_topk_exact_position_agreement_percent": base_partial_topk_agreement,
+            "initial_partial_selector_exact_agreement_with_full_sort_percent": (
+                base_partial_selector_exact_agreement
+            ),
+            "memory_metric": (
+                "estimated peak dense NumPy array working set MiB; "
+                "excludes Python heap and BLAS internals"
+            ),
+            "charts": charts,
+            "operation_metric": (
+                "GEMM FLOPs estimate, pair-stat updates, similarity scalars, "
+                "Top-K candidate scans and selection comparison proxy"
+            ),
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+            "limitations": [
+                "All user and item IDs are mapped from the complete dataset; "
+                "this measures warm-start rating arrivals.",
+                "MovieLens user-item pairs are unique; update batches therefore "
+                "add ratings rather than duplicate events.",
+                "This is a local runtime experiment, not a production deployment "
+                "or online load test.",
+            ],
+        },
+        "stages": rows,
+        "cost_estimates": [
+            model_cost
+            for stage in rows
+            for model_cost in stage["computation_costs"]
+        ],
+    }
+    (report_dir / "benchmark.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    pd.DataFrame(
+        [{key: value for key, value in row.items() if key != "computation_costs"} for row in rows]
+    ).to_csv(report_dir / "benchmark.csv", index=False)
+    pd.DataFrame(payload["cost_estimates"]).to_csv(
+        report_dir / "complexity_cost.csv", index=False
+    )
+
+    markdown = [
+        "# Incremental Item-Based CF — MovieLens 100K",
+        "",
+        "This experiment compares four Item-Based cosine approaches. User-Based is excluded.",
+        "",
+        "## Protocol",
+        "",
+        (
+            f"- Dataset: {len(encoded):,} ratings, "
+            f"{len(mappings.user_to_index):,} users, "
+            f"{len(mappings.item_to_index):,} movies."
+        ),
+        (
+            f"- Split: chronological; {len(train):,} initial ratings, "
+            f"{len(incoming):,} later ratings available."
+        ),
+        (
+            f"- Similarity: cosine; Top-K: {neighbor_count}; "
+            f"update/rebuild timings are medians of {repeats} runs."
+        ),
+        "- Initialization is a full build for all approaches; stage timings below "
+        "measure applying new ratings versus rebuilding the current snapshot.",
+        "- User and item IDs are mapped from all MovieLens rows so the experiment "
+        "isolates warm-start interaction updates; it does not measure cold-start users or movies.",
+        "- The incoming partition is tested cumulatively against the same initial "
+        "snapshot at batch sizes from 1 rating up to the full incoming partition.",
+        "- Memory is an estimated peak NumPy-array footprint, not process RSS; "
+        "Python objects and BLAS workspaces are excluded.",
+        "- Batch Gram full-sort and partial-Top-K have the same estimated memory at "
+        "this scale; the dashed outlined squares show the overlapping yellow series.",
+        "",
+        "## Runtime and memory charts",
+        "",
+        "![Runtime by update batch size](runtime_vs_new_ratings.png)",
+        "",
+        "![Estimated memory by update batch size](memory_cost_vs_new_ratings.png)",
+        "",
+        "![Runtime and memory comparison](runtime_and_memory_comparison.png)",
+        "",
+        "## Initial build",
+        "",
+        f"- Full Item-Based build: {base_dense_seconds:.6f} s.",
+        (
+            f"- Per-rating incremental build: "
+            f"{payload['protocol']['initial_incremental_build_seconds']:.6f} s."
+        ),
+        (
+            f"- Batch Gram with full sorting build: "
+            f"{payload['protocol']['initial_batch_gram_full_sort_build_seconds']:.6f} s."
+        ),
+        (
+            f"- Batch Gram with partial Top-K build: "
+            f"{payload['protocol']['initial_batch_gram_partial_topk_build_seconds']:.6f} s."
+        ),
+        f"- Initial similarity max absolute error: {base_similarity_max_abs:.3g}.",
+        "",
+        "## New-data update versus full rebuild",
+        "",
+        "| New ratings | Affected users | Dirty item rows | Full rebuild (s) | "
+        "Per-rating incremental (s) | Batch Gram full-sort (s) | "
+        "Batch Gram partial-Top-K (s) | Partial speedup vs rebuild |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        markdown.append(
+            "| {new_interactions:,} | {affected_users:,} | {batch_gram_dirty_item_rows:,} | "
+            "{full_rebuild_seconds:.6f} | {incremental_update_seconds:.6f} | "
+            "{batch_gram_update_seconds:.6f} | {batch_gram_partial_topk_seconds:.6f} | "
+            "{batch_gram_partial_topk_speedup_vs_full_rebuild:.2f}× |".format(**row)
+        )
+    last_stage = rows[-1]
+    final_costs = last_stage["computation_costs"]
+    rounded_topk_agreement = {
+        "per_rating": last_stage["top_k_agreement_after_similarity_rounding_5dp_percent"],
+        "full_sort": last_stage[
+            "batch_gram_top_k_agreement_after_similarity_rounding_5dp_percent"
+        ],
+        "partial_topk": last_stage[
+            "partial_topk_agreement_after_similarity_rounding_5dp_percent"
+        ],
+    }
+    strategy_labels = {
+        "full_rebuild": "Full rebuild",
+        "incremental_per_rating": "Per-rating incremental",
+        "batch_gram_full_sort": "Batch Gram + full sort",
+        "batch_gram_partial_topk": "Batch Gram + partial Top-K",
+    }
+    markdown.extend(
+        [
+            "",
+            "## Computational cost and memory for the largest batch",
+            "",
+            "| Model | Dense GEMM estimate (GFLOP) | Pair-stat updates | "
+            "Similarity values recalculated | Top-K candidates scanned | "
+            "Top-K selection work proxy | Estimated peak array MiB |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+            *[
+                "| {label} | {gemm:.3f} | {pairs:,} | {similarity:,} | "
+                "{candidates:,} | {selection:,} | {memory:.2f} |".format(
+                    label=strategy_labels[cost["strategy"]],
+                    gemm=cost["estimated_dense_gemm_gflops"],
+                    pairs=cost["pair_stat_updates"],
+                    similarity=cost["similarity_scalars_recomputed"],
+                    candidates=cost["topk_candidates_scanned"],
+                    selection=cost["estimated_topk_selection_comparisons"],
+                    memory=cost["estimated_peak_array_mib"],
+                )
+                for cost in final_costs
+            ],
+            "",
+            "MiB is an estimated peak dense NumPy-array working set; it excludes "
+            "Python heap objects and BLAS internal buffers. GEMM FLOPs count "
+            "multiply/add work for dense matrix products. Top-K selection work is "
+            "a comparison proxy, not a hardware instruction count. "
+            "`complexity_cost.csv` includes these measures for every batch size.",
+            "",
+            "## Similarity and Top-K agreement",
+            "",
+            "- Incremental-vs-full-rebuild max similarity error: "
+            f"{last_stage['similarity_max_abs_error']:.3g}.",
+            "- Batch Gram full-sort max similarity error: "
+            f"{last_stage['batch_gram_similarity_max_abs_error']:.3g}.",
+            "- Batch Gram partial-Top-K max similarity error: "
+            f"{last_stage['batch_gram_partial_topk_similarity_max_abs_error']:.3g}.",
+            (
+                "- Top-K agreement after rounding similarities to 5 decimal places: "
+                "per-rating "
+                f"{rounded_topk_agreement['per_rating']:.2f}%, "
+                "Gram full-sort "
+                f"{rounded_topk_agreement['full_sort']:.2f}%, "
+                "Gram partial-Top-K "
+                f"{rounded_topk_agreement['partial_topk']:.2f}%."
+            ),
+            (
+                "- Partial selector versus full-sort Top-K exact item agreement "
+                "on identical Gram similarities: "
+                f"{last_stage['partial_selector_exact_agreement_with_full_sort_percent']:.2f}%."
+            ),
+            "",
+            "## Interpretation and limits",
+            "",
+            "- The initial build still computes all item-item statistics. Incremental "
+            "updates trade that repeated work for maintained pair-dot and norm statistics.",
+            "- Per-rating IncrementalItemBasedCF adjusts pair statistics for each rating. "
+            "BatchIncrementalItemBasedCF instead computes old/new Gram contributions "
+            "once per affected-user batch.",
+            "- The implementation keeps dense item-item dot and similarity matrices, "
+            "so memory remains quadratic in the number of movies. It currently "
+            "supports cosine updates for already mapped users/items.",
+            "- Exact Top-K lists are refreshed for every item endpoint whose similarity "
+            "changed. This is necessary because a changed pair can alter both items' "
+            "neighbor lists.",
+            "- Incremental dot products and full-rebuild matrix multiplication can differ "
+            "by floating-point round-off. Raw Top-K order and set-overlap diagnostics "
+            "remain in `benchmark.json`.",
+            "- The memory scale is an array-footprint estimate, not measured process RSS; "
+            "it omits Python sort objects, allocator fragmentation, and BLAS workspaces.",
+            "- New users or movies require expanding mappings and model state; deletions, "
+            "production persistence, concurrent update safety, and periodic full-rebuild "
+            "reconciliation are outside this experiment.",
+            "- Runtime measurements are machine-specific and do not include CSV download, "
+            "artifact upload, or deployment time.",
+            "",
+            "## Files",
+            "",
+            "- `benchmark.csv`: stage-level timings and correctness comparison.",
+            "- `benchmark.json`: protocol, environment, and raw metrics.",
+            "- `complexity_cost.csv`: operation-count proxies and estimated peak MiB "
+            "per model and batch size.",
+            "- `runtime_vs_new_ratings.png`: update and rebuild wall-clock comparison.",
+            "- `memory_cost_vs_new_ratings.png`: estimated peak array memory comparison.",
+            "- `runtime_and_memory_comparison.png`: combined runtime and memory view.",
+            "",
+        ]
+    )
+    (report_dir / "report.md").write_text("\n".join(markdown), encoding="utf-8")
+    return report_dir
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Benchmark Incremental Item-Based CF on MovieLens 100K"
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=SERVICE_ROOT / "data" / "raw" / "movielens" / "ml-100k",
+    )
+    parser.add_argument("--report-root", type=Path, default=SERVICE_ROOT / "reports")
+    parser.add_argument("--train-fraction", type=float, default=0.8)
+    parser.add_argument("--neighbor-count", type=int, default=50)
+    parser.add_argument("--repeats", type=int, default=3)
+    args = parser.parse_args()
+    output = run_benchmark(
+        data_dir=args.data_dir.resolve(),
+        report_root=args.report_root.resolve(),
+        train_fraction=args.train_fraction,
+        neighbor_count=args.neighbor_count,
+        repeats=args.repeats,
+    )
+    print(output)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
