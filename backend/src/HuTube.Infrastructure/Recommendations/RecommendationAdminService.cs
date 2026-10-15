@@ -267,22 +267,47 @@ public sealed class RecommendationAdminService(
         if (string.IsNullOrWhiteSpace(options.ServiceUrl) || string.IsNullOrWhiteSpace(options.AdminToken))
             throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Chưa cấu hình kết nối thống kê mô hình.");
         using var client = clients.CreateClient("recommendation-model-statistics");
-        client.Timeout = TimeSpan.FromSeconds(20);
-        using var request = new HttpRequestMessage(HttpMethod.Get,
-            options.ServiceUrl.TrimEnd('/') + "/internal/models");
-        request.Headers.Add("X-Model-Admin-Token", options.AdminToken);
+        client.Timeout = Timeout.InfiniteTimeSpan;
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(RecommendationWakeupPolicy.GetTimeout(options.TimeoutSeconds));
+        var retryAttempt = 0;
         try
         {
-            using var response = await client.SendAsync(request, ct);
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                throw Error(503, "MODEL_ADMIN_TOKEN_MISMATCH", "Token quản trị của API và Recommendation Service chưa khớp.");
-            if (!response.IsSuccessStatusCode)
-                throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Không đọc được thống kê mô hình từ Recommendation Service. Vui lòng thử lại.");
-            return await response.Content.ReadFromJsonAsync<ModelStatisticsResponse>(JsonOptions, ct)
-                ?? throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Recommendation Service không trả về thống kê mô hình.");
+            while (true)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get,
+                    options.ServiceUrl.TrimEnd('/') + "/internal/models");
+                request.Headers.Add("X-Model-Admin-Token", options.AdminToken);
+
+                using var response = await client.SendAsync(request, timeoutCts.Token);
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    throw Error(503, "MODEL_ADMIN_TOKEN_MISMATCH", "Token quản trị của API và Recommendation Service chưa khớp.");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+                    if (RecommendationWakeupPolicy.IsTransientStartupResponse(response.StatusCode, errorBody))
+                    {
+                        retryAttempt++;
+                        var delay = RecommendationWakeupPolicy.GetRetryDelay(retryAttempt);
+                        logger.LogInformation(
+                            "Recommendation Service returned HTTP {StatusCode} while starting. Retrying model statistics in {Delay} (attempt {Attempt}).",
+                            response.StatusCode, delay, retryAttempt);
+                        await Task.Delay(delay, timeoutCts.Token);
+                        continue;
+                    }
+
+                    logger.LogWarning("Recommendation Service returned HTTP {StatusCode} for model statistics: {Error}",
+                        response.StatusCode, errorBody);
+                    throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Không đọc được thống kê mô hình từ Recommendation Service. Vui lòng thử lại.");
+                }
+
+                return await response.Content.ReadFromJsonAsync<ModelStatisticsResponse>(JsonOptions, timeoutCts.Token)
+                    ?? throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Recommendation Service không trả về thống kê mô hình.");
+            }
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException
-            || ex is TaskCanceledException && !ct.IsCancellationRequested)
+            || ex is OperationCanceledException && !ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Could not read recommendation model statistics.");
             throw Error(503, "MODEL_STATISTICS_UNAVAILABLE", "Dịch vụ thống kê mô hình chưa sẵn sàng. Vui lòng thử lại.");
