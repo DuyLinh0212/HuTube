@@ -24,6 +24,19 @@ describe('Vietnamese auth forms', () => {
     harness.detectChanges();
     // Flush the mocked HTTP request before waiting for Angular to become stable.
   }
+  function denyBrowserLocation() {
+    const descriptor = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (_success: PositionCallback, error?: PositionErrorCallback) => error?.({} as GeolocationPositionError)
+      } as Geolocation
+    });
+    spyOn(window, 'fetch').and.resolveTo({ ok: false } as Response);
+    return () => descriptor
+      ? Object.defineProperty(navigator, 'geolocation', descriptor)
+      : Reflect.deleteProperty(navigator, 'geolocation');
+  }
   it('prevents empty login submissions and provides an actionable error', async()=>{
     const harness=await RouterTestingHarness.create('/login'); await submit(harness);
     controller.expectNone(base+'/auth/login'); expect(harness.routeNativeElement!.textContent).toContain('Vui lòng kiểm tra');
@@ -63,8 +76,16 @@ describe('Vietnamese auth forms', () => {
     request.flush({message:'reset'}); harness.detectChanges(); expect(harness.routeNativeElement!.textContent).toContain('Đã đổi mật khẩu'); expect(harness.routeNativeElement!.querySelector('input[type="password"]')).toBeNull();
   });
   it('shows invalid credentials without dropping the email or leaving the form busy', async()=>{
-    const harness=await RouterTestingHarness.create('/login'); await fill(harness,{email:'linh@example.test',password:'WrongPassword123'}); await submit(harness);
-    controller.expectOne(base+'/auth/login').flush({code:'INVALID_CREDENTIALS'}, {status:401,statusText:'Unauthorized'}); harness.detectChanges();
-    expect(harness.routeNativeElement!.textContent).toContain('Email hoặc mật khẩu chưa đúng'); expect(harness.routeNativeElement!.querySelector<HTMLInputElement>('#email')!.value).toBe('linh@example.test'); expect(harness.routeNativeElement!.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBeFalse();
+    const restoreLocation = denyBrowserLocation();
+    try {
+      const harness=await RouterTestingHarness.create('/login'); await fill(harness,{email:'linh@example.test',password:'WrongPassword123'}); await submit(harness);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const request = controller.expectOne(base+'/auth/login');
+      expect(request.request.body.latitude).toBeUndefined();
+      request.flush({code:'INVALID_CREDENTIALS'}, {status:401,statusText:'Unauthorized'}); harness.detectChanges();
+      expect(harness.routeNativeElement!.textContent).toContain('Email hoặc mật khẩu chưa đúng'); expect(harness.routeNativeElement!.querySelector<HTMLInputElement>('#email')!.value).toBe('linh@example.test'); expect(harness.routeNativeElement!.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBeFalse();
+    } finally {
+      restoreLocation();
+    }
   });
 });
