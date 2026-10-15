@@ -14,9 +14,10 @@ public sealed class AuthServicePlanTests
         public Task<IAuthTransaction> LockUserAsync(Guid userId, CancellationToken ct) =>
             Task.FromResult<IAuthTransaction>(new MockTransaction());
 
-        public Task<User?> FindUserByEmailAsync(string email, CancellationToken ct) => Task.FromResult<User?>(null);
+        public User? ExistingUser { get; set; }
+        public Task<User?> FindUserByEmailAsync(string email, CancellationToken ct) => Task.FromResult(ExistingUser);
         public Task<User?> FindUserByGoogleSubjectAsync(string subject, CancellationToken ct) => Task.FromResult<User?>(null);
-        public Task<User?> FindUserAsync(Guid id, CancellationToken ct) => Task.FromResult<User?>(null);
+        public Task<User?> FindUserAsync(Guid id, CancellationToken ct) => Task.FromResult(ExistingUser);
         public Task<bool> UsernameExistsAsync(string username, CancellationToken ct) => Task.FromResult(false);
         public Task<string?> FindPasswordHashAsync(Guid userId, CancellationToken ct) => Task.FromResult<string?>(null);
         public Task<UserSession?> FindSessionByHashAsync(string hash, CancellationToken ct) => Task.FromResult<UserSession?>(null);
@@ -46,7 +47,8 @@ public sealed class AuthServicePlanTests
         }
 
         public void AddSession(UserSession session) { }
-        public void AddLoginHistory(UserLoginHistory loginHistory) { }
+        public UserLoginHistory? SavedLoginHistory { get; private set; }
+        public void AddLoginHistory(UserLoginHistory loginHistory) => SavedLoginHistory = loginHistory;
         public void AddVerification(User user, EmailVerificationToken token) { }
         public void AddReset(User user, PasswordResetToken token) { }
         public Task InvalidateTokensAsync(Guid userId, bool reset, DateTimeOffset now, CancellationToken ct) => Task.CompletedTask;
@@ -106,5 +108,49 @@ public sealed class AuthServicePlanTests
         Assert.NotNull(store.SavedUser);
         Assert.Equal("newuser@example.com", store.SavedUser.Email);
         Assert.Equal(Guid.Parse("00000000-0000-0000-0000-000000000100"), store.SavedUser.PlanId);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithClientLocation_PreservesLocationInHistory()
+    {
+        var store = new MockAuthStore();
+        var passwords = new MockPasswordService();
+        var tokens = new MockTokenService();
+        var emailSender = new MockEmailSender();
+        var google = new MockGoogleVerifier();
+        var options = new AuthOptions();
+        var authService = new AuthService(store, passwords, tokens, emailSender, google, options, TimeProvider.System);
+
+        store.ExistingUser = new User
+        {
+            UserId = Guid.NewGuid(),
+            Email = "linh@example.test",
+            Username = "linh",
+            DisplayName = "Linh",
+            PasswordHash = passwords.Hash("StrongPassword123!"),
+            EmailVerifiedAt = DateTimeOffset.UtcNow,
+            Status = "active"
+        };
+
+        var response = await authService.LoginAsync(new LoginRequest(
+            "linh@example.test",
+            "StrongPassword123!",
+            "web",
+            "Test Device",
+            "device-123",
+            Latitude: 21.0285,
+            Longitude: 105.8542,
+            City: "Hà Nội",
+            Region: "Hà Nội",
+            CountryCode: "VN"
+        ));
+
+        Assert.NotNull(response);
+        Assert.NotNull(store.SavedLoginHistory);
+        Assert.Equal("Hà Nội", store.SavedLoginHistory.City);
+        Assert.Equal("Hà Nội", store.SavedLoginHistory.Region);
+        Assert.Equal("VN", store.SavedLoginHistory.CountryCode);
+        Assert.Equal(21.0285, store.SavedLoginHistory.Latitude);
+        Assert.Equal(105.8542, store.SavedLoginHistory.Longitude);
     }
 }

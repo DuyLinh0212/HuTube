@@ -4,7 +4,7 @@ import { FormsModule, NgForm, NgModel } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, Observable } from 'rxjs';
-import { AuthService, errorMessage, safeReturnUrl } from '../../core/auth.service';
+import { AuthService, captureBrowserLocation, errorMessage, safeReturnUrl } from '../../core/auth.service';
 import { ADMIN_APP, RuntimeConfig } from '../../core/runtime-config';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -91,7 +91,10 @@ export class AuthPage implements AfterViewChecked {
       if (!window.google || !this.googleButton || this.googleRendered) return;
       window.google.accounts.id.initialize({ client_id: this.authGoogleClientId(), auto_select: false, callback: response => {
         if (!response.credential) { this.error.set(this.i18n.t('auth.googleCredentialMissing')); return; }
-        this.run(this.auth.google(response.credential), () => void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'))));
+        this.busy.set(true);
+        captureBrowserLocation().then(loc => {
+          this.run(this.auth.google(response.credential!, loc), () => void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'))));
+        });
       }});
       const availableWidth = this.googleButton.nativeElement.clientWidth;
       const googleButtonWidth = availableWidth > 0 ? Math.min(360, availableWidth) : 360;
@@ -135,7 +138,15 @@ export class AuthPage implements AfterViewChecked {
     if (form.invalid) { form.control.markAllAsTouched(); this.error.set(this.i18n.t('auth.formInvalid')); return; }
     if (['register', 'reset-password'].includes(this.mode()) && this.password !== this.confirmPassword) { this.error.set(this.i18n.t('auth.passwordMismatch')); return; }
     switch (this.mode()) {
-      case 'login': this.run(this.auth.login(this.email.trim(), this.password), () => { this.password = ''; void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'))); }); break;
+      case 'login':
+        this.busy.set(true);
+        captureBrowserLocation().then(loc => {
+          this.run(this.auth.login(this.email.trim(), this.password, loc), () => {
+            this.password = '';
+            void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl')));
+          });
+        });
+        break;
       case 'register': this.run(this.auth.register({ username: this.username.trim(), email: this.email.trim(), displayName: this.displayName.trim(), password: this.password }), () => { this.completed.set(true); this.password = ''; this.confirmPassword = ''; this.message.set(this.i18n.t('auth.registerSuccess')); }); break;
       case 'forgot-password': this.run(this.auth.forgot(this.email.trim()), () => { this.message.set(this.i18n.t('auth.forgotSuccess')); this.completed.set(true); }); break;
       case 'reset-password': if (this.token) this.run(this.auth.reset(this.token, this.password), () => { this.password = ''; this.confirmPassword = ''; this.completed.set(true); this.message.set(this.i18n.t('auth.resetSuccess')); }); break;

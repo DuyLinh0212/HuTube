@@ -13,12 +13,22 @@ public sealed record LoginRequest(
     [Required, StringLength(128)] string Password,
     [RegularExpression("^(web|mobile|admin)$")] string Platform = "web",
     [StringLength(200)] string DeviceName = "Unknown device",
-    [StringLength(128)] string? DeviceId = null);
+    [StringLength(128)] string? DeviceId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    [StringLength(120)] string? City = null,
+    [StringLength(120)] string? Region = null,
+    [StringLength(8)] string? CountryCode = null);
 public sealed record GoogleLoginRequest(
     [Required, StringLength(8192, MinimumLength = 20)] string Credential,
     [RegularExpression("^(web|mobile)$")] string Platform = "web",
     [StringLength(200)] string DeviceName = "Google sign-in",
-    [StringLength(128)] string? DeviceId = null);
+    [StringLength(128)] string? DeviceId = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    [StringLength(120)] string? City = null,
+    [StringLength(120)] string? Region = null,
+    [StringLength(8)] string? CountryCode = null);
 public sealed record EmailRequest([Required, EmailAddress, StringLength(254)] string Email);
 public sealed record TokenRequest([Required, StringLength(256)] string Token);
 public sealed record ResetPasswordRequest([Required, StringLength(256)] string Token,
