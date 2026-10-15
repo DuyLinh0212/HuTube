@@ -27,6 +27,129 @@ export interface Session { sessionId: string; deviceName: string; platform: stri
 export interface LoginHistoryItem { loginHistoryId: string; deviceId: string; deviceName: string; platform: string; ipAddress?: string | null; countryCode?: string | null; region?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; loginAt: string; }
 export interface LoginHistoryPage { items: LoginHistoryItem[]; page: number; pageSize: number; total: number; }
 export interface Message { message: string; }
+export interface ClientGeoPayload {
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  region?: string;
+  countryCode?: string;
+}
+
+function formatDetailedAddress(data: Record<string, unknown>): ClientGeoPayload {
+  const localityInfo = (data['localityInfo'] as Record<string, unknown> | undefined) || {};
+  const admin = (localityInfo['administrative'] as Array<Record<string, unknown>> | undefined) || [];
+  const informative = (localityInfo['informative'] as Array<Record<string, unknown>> | undefined) || [];
+
+  const districtObj = informative.find(item =>
+    /^(quận|huyện|thị xã|thành phố)\s/i.test(String(item['name'] || '')) ||
+    /quận|huyện/i.test(String(item['description'] || ''))
+  ) || admin.find(item =>
+    /^(quận|huyện|thị xã)\s/i.test(String(item['name'] || ''))
+  );
+
+  const rawLocality = typeof data['locality'] === 'string' ? data['locality'].trim() : '';
+  const districtName = districtObj?.['name']
+    ? String(districtObj['name']).trim()
+    : (/^(quận|huyện|thị xã|tp\.)/i.test(rawLocality) ? rawLocality : '');
+
+  const wardObj = admin.find(item =>
+    /phường|xã|thị trấn/i.test(String(item['description'] || '')) ||
+    /^(phường|xã|thị trấn)\s/i.test(String(item['name'] || ''))
+  );
+  const rawWard = wardObj?.['name'] ? String(wardObj['name']).trim() : '';
+  const candidateWard = rawWard || (!districtName || !districtName.includes(rawLocality) ? rawLocality : '');
+  const wardName = candidateWard
+    ? (/^(phường|xã|thị trấn)\s/i.test(candidateWard) ? candidateWard : `Phường ${candidateWard}`)
+    : '';
+
+  const rawProvince = typeof data['principalSubdivision'] === 'string' && data['principalSubdivision'].trim()
+    ? data['principalSubdivision'].trim()
+    : (typeof data['city'] === 'string' ? data['city'].trim() : '');
+
+  const localDetails = [wardName, districtName]
+    .filter(Boolean)
+    .filter((val, idx, arr) => arr.indexOf(val) === idx);
+
+  const city = localDetails.length > 0 ? localDetails.join(', ') : (rawLocality || (typeof data['city'] === 'string' ? data['city'] : ''));
+
+  return {
+    latitude: typeof data['latitude'] === 'number' ? data['latitude'] : undefined,
+    longitude: typeof data['longitude'] === 'number' ? data['longitude'] : undefined,
+    city: city ? city.slice(0, 120) : undefined,
+    region: rawProvince ? rawProvince.slice(0, 120) : undefined,
+    countryCode: typeof data['countryCode'] === 'string' ? data['countryCode'].slice(0, 8) : undefined
+  };
+}
+
+export async function fetchIpLocation(): Promise<ClientGeoPayload> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=vi', {
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      return formatDetailedAddress(data);
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+export async function captureBrowserLocation(): Promise<ClientGeoPayload> {
+  if (typeof navigator === 'undefined') {
+    return {};
+  }
+  if (!navigator.geolocation) {
+    return fetchIpLocation();
+  }
+  return new Promise<ClientGeoPayload>((resolve) => {
+    let resolved = false;
+    const done = (val: ClientGeoPayload) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(val);
+      }
+    };
+    const timer = setTimeout(async () => {
+      done(await fetchIpLocation());
+    }, 2000);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        clearTimeout(timer);
+        const { latitude, longitude } = pos.coords;
+        try {
+          const controller = new AbortController();
+          const geoTimer = setTimeout(() => controller.abort(), 1500);
+          const res = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=vi`,
+            { signal: controller.signal }
+          );
+          clearTimeout(geoTimer);
+          if (res.ok) {
+            const data = await res.json();
+            const formatted = formatDetailedAddress(data);
+            done({ ...formatted, latitude, longitude });
+            return;
+          }
+        } catch {
+          // fallback below
+        }
+        const ipLoc = await fetchIpLocation();
+        done({ ...ipLoc, latitude, longitude });
+      },
+      async () => {
+        clearTimeout(timer);
+        done(await fetchIpLocation());
+      },
+      { timeout: 1800, maximumAge: 300_000, enableHighAccuracy: false }
+    );
+  });
+}
 
 function stableDeviceId(): string {
   if (typeof document === 'undefined') return '';
@@ -107,17 +230,42 @@ export class AuthService {
   }
   clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); }
   private accept(response: LoginResponse): void { this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true; }
-  login(email: string, password: string): Observable<User> {
+  login(email: string, password: string, location?: ClientGeoPayload): Observable<User> {
     const generation = ++this.generation;
-    return this.post<LoginResponse>('/auth/login', { email, password, platform: ADMIN_APP ? 'admin' : 'web', deviceName: browserDeviceName(false, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')), deviceId: stableDeviceId() }).pipe(
+    const body: Record<string, unknown> = {
+      email,
+      password,
+      platform: ADMIN_APP ? 'admin' : 'web',
+      deviceName: browserDeviceName(false, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')),
+      deviceId: stableDeviceId(),
+    };
+    if (location?.latitude != null) body['latitude'] = location.latitude;
+    if (location?.longitude != null) body['longitude'] = location.longitude;
+    if (location?.city) body['city'] = location.city;
+    if (location?.region) body['region'] = location.region;
+    if (location?.countryCode) body['countryCode'] = location.countryCode;
+
+    return this.post<LoginResponse>('/auth/login', body).pipe(
       tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.loginCancelled')); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })
     );
   }
-  google(credential: string): Observable<User> {
+  google(credential: string, location?: ClientGeoPayload): Observable<User> {
     const generation = ++this.generation;
-    return this.post<LoginResponse>('/auth/google', { credential, platform: 'web', deviceName: browserDeviceName(true, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')), deviceId: stableDeviceId() }).pipe(
+    const body: Record<string, unknown> = {
+      credential,
+      platform: 'web',
+      deviceName: browserDeviceName(true, this.i18n.t('auth.deviceMobile'), this.i18n.t('auth.deviceDesktop')),
+      deviceId: stableDeviceId(),
+    };
+    if (location?.latitude != null) body['latitude'] = location.latitude;
+    if (location?.longitude != null) body['longitude'] = location.longitude;
+    if (location?.city) body['city'] = location.city;
+    if (location?.region) body['region'] = location.region;
+    if (location?.countryCode) body['countryCode'] = location.countryCode;
+
+    return this.post<LoginResponse>('/auth/google', body).pipe(
       tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.loginCancelled')); this.accept(response); }),
       switchMap(() => this.me()),
       catchError(error => { if (generation === this.generation) this.clear(); return throwError(() => error); })

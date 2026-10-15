@@ -64,7 +64,8 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             throw new AuthException(403, "ADMIN_ACCESS_DENIED", "Tài khoản không có quyền truy cập quản trị.");
         if (request.Platform is not ("web" or "mobile" or "admin"))
             throw new AuthException(400, "VALIDATION_ERROR", "Nền tảng không hợp lệ.");
-        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ipAddress, ct);
+        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ipAddress, ct,
+            request.Latitude, request.Longitude, request.City, request.Region, request.CountryCode);
         await transaction.CommitAsync(ct);
         return response;
     }
@@ -92,7 +93,8 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
                 else
                 {
                     await store.AddUserAsync(user, passwords.Hash(tokens.CreateOpaqueToken()), ct);
-                    var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ipAddress, ct);
+                    var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ipAddress, ct,
+                        request.Latitude, request.Longitude, request.City, request.Region, request.CountryCode);
                     await transaction.CommitAsync(ct);
                     return response;
                 }
@@ -113,7 +115,8 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         user.GoogleSubject = identity.Subject;
         user.EmailVerifiedAt ??= Now;
         if (user.Status == "pending") user.Status = "active";
-        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ipAddress, ct);
+        var response = await CompleteLoginAsync(user, request.Platform, request.DeviceName, request.DeviceId, ipAddress, ct,
+            request.Latitude, request.Longitude, request.City, request.Region, request.CountryCode);
         await transaction.CommitAsync(ct);
         return response;
     }
@@ -371,7 +374,8 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         return (new() { UserId = userId, RefreshTokenHash = tokens.HashToken(raw), Platform = platform,
             DeviceName = deviceName, DeviceId = deviceId?.Trim() ?? "", IpAddress = ipAddress, IssuedAt = Now, LastActiveAt = Now, ExpiresAt = Now.AddDays(options.RefreshTokenDays) }, raw);
     }
-    private async Task<LoginResponse> CompleteLoginAsync(User user, string platform, string deviceName, string? deviceId, string? ipAddress, CancellationToken ct)
+    private async Task<LoginResponse> CompleteLoginAsync(User user, string platform, string deviceName, string? deviceId, string? ipAddress, CancellationToken ct,
+        double? latitude = null, double? longitude = null, string? city = null, string? region = null, string? countryCode = null)
     {
         EnsureActive(user);
         user.FailedLoginAttempts = 0; user.LockedUntil = null; user.LastLoginAt = Now; user.UpdatedAt = Now;
@@ -403,9 +407,20 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
             session.RevokeReason = null;
             session.ReplacedBySessionId = null;
         }
-        var location = locationResolver is null || string.IsNullOrWhiteSpace(ipAddress)
-            ? null
-            : await locationResolver.ResolveAsync(ipAddress, ct);
+        ClientLocation? location = null;
+        if ((latitude.HasValue && longitude.HasValue) || !string.IsNullOrWhiteSpace(city))
+        {
+            location = new ClientLocation(
+                string.IsNullOrWhiteSpace(countryCode) ? null : countryCode.Trim()[..Math.Min(countryCode.Trim().Length, 8)],
+                string.IsNullOrWhiteSpace(region) ? null : region.Trim()[..Math.Min(region.Trim().Length, 120)],
+                string.IsNullOrWhiteSpace(city) ? null : city.Trim()[..Math.Min(city.Trim().Length, 120)],
+                latitude,
+                longitude);
+        }
+        else if (locationResolver is not null && !string.IsNullOrWhiteSpace(ipAddress))
+        {
+            location = await locationResolver.ResolveAsync(ipAddress, ct);
+        }
         store.AddLoginHistory(new UserLoginHistory
         {
             UserId = user.UserId,

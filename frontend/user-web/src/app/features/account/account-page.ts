@@ -295,7 +295,15 @@ export class AccountPage implements OnInit {
   }
 
   displayLocation(location: { city?: string | null; region?: string | null }): string {
-    return [location.city, location.region].filter((part): part is string => !!part?.trim()).join(', ');
+    const parts = [location.city, location.region].filter((part): part is string => !!part?.trim());
+    if (parts.length === 2) {
+      const city = parts[0]!.trim();
+      const region = parts[1]!.trim();
+      if (city.toLowerCase() === region.toLowerCase()) return city;
+      if (city.toLowerCase().includes(region.toLowerCase())) return city;
+      return `${city}, ${region}`;
+    }
+    return parts.join(', ');
   }
 
   // Privacy Toggle Handlers

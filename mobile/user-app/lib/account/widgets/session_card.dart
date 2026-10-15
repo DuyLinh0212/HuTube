@@ -23,6 +23,16 @@ class SessionCard extends StatelessWidget {
     final ipAddress =
         session['ipAddress'] as String? ?? AppStrings.t('session.unknownIp');
     final lastActiveAt = session['lastActiveAt'] as String? ?? '';
+    final city = session['city'] as String?;
+    final region = session['region'] as String?;
+    final locationParts = [city, region].where((p) => p != null && p.trim().isNotEmpty).toList();
+    final locationText = locationParts.isEmpty
+        ? ''
+        : (locationParts.length == 2 && locationParts[0]?.trim().toLowerCase() == locationParts[1]?.trim().toLowerCase()
+            ? ' • ${locationParts[0]}'
+            : (locationParts.length == 2 && locationParts[0]!.toLowerCase().contains(locationParts[1]!.toLowerCase())
+                ? ' • ${locationParts[0]}'
+                : ' • ${locationParts.join(', ')}'));
 
     final cardBg = Theme.of(context).cardColor;
     final borderColor = isCurrent
@@ -104,7 +114,7 @@ class SessionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$ipAddress ${lastActiveAt.isNotEmpty ? '• ${_formatDate(lastActiveAt)}' : ''}',
+                  '$ipAddress$locationText ${lastActiveAt.isNotEmpty ? '• ${_formatDate(lastActiveAt)}' : ''}',
                   style: TextStyle(
                     color: AppColors.textMutedFor(context),
                     fontSize: 12,

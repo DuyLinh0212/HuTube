@@ -148,4 +148,16 @@ export class AccountPage {
       error: error => this.error.set(errorMessage(error, this.i18n))
     });
   }
+
+  displayLocation(location: { city?: string | null; region?: string | null }): string {
+    const parts = [location.city, location.region].filter((part): part is string => !!part?.trim());
+    if (parts.length === 2) {
+      const city = parts[0]!.trim();
+      const region = parts[1]!.trim();
+      if (city.toLowerCase() === region.toLowerCase()) return city;
+      if (city.toLowerCase().includes(region.toLowerCase())) return city;
+      return `${city}, ${region}`;
+    }
+    return parts.join(', ');
+  }
 }
