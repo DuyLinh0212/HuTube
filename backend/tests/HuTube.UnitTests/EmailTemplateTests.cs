@@ -18,6 +18,7 @@ public sealed class EmailTemplateTests
         {
             var sender = new AuthEmailSender(
                 new EmailOptions { Mode = "Pickup", PickupDirectory = pickupDirectory, From = "noreply@hutube.local" },
+                new AuthOptions { WebBaseUrl = "https://hutube.example" },
                 NullLogger<AuthEmailSender>.Instance,
                 new TestHttpClientFactory());
             var template = new EmailTemplateMessage(

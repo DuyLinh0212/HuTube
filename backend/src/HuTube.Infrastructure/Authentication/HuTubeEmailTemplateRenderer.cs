@@ -6,10 +6,11 @@ namespace HuTube.Infrastructure.Authentication;
 
 internal static class HuTubeEmailTemplateRenderer
 {
-    public static string RenderHtml(EmailTemplateMessage message)
+    public static string RenderHtml(EmailTemplateMessage message, string webBaseUrl)
     {
         var html = new StringBuilder(8_000);
         var preheader = FirstNonEmpty(message.Paragraphs.FirstOrDefault(), message.Title);
+        var logoUrl = LogoUrl(webBaseUrl);
 
         html.Append("<!doctype html><html lang=\"vi\"><head>");
         html.Append("<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
@@ -31,7 +32,12 @@ internal static class HuTubeEmailTemplateRenderer
 
         html.Append("<tr><td style=\"padding:0 8px 18px;\">");
         html.Append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>");
-        html.Append("<td width=\"44\" height=\"44\" align=\"center\" valign=\"middle\" style=\"width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#FF4D80 0%,#FF2B66 52%,#7C3AED 100%);color:#FFFFFF;font-family:Arial,sans-serif;font-size:23px;font-weight:800;line-height:44px;\">H</td>");
+        if (logoUrl is not null)
+        {
+            html.Append("<td width=\"44\" height=\"44\" align=\"center\" valign=\"middle\" style=\"width:44px;height:44px;\"><img src=\"");
+            html.Append(Html(logoUrl));
+            html.Append("\" width=\"44\" height=\"44\" alt=\"HuTube\" style=\"display:block;width:44px;height:44px;\"></td>");
+        }
         html.Append("<td style=\"padding-left:12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:21px;font-weight:800;letter-spacing:-.6px;color:#111827;\">Hu<span style=\"color:#FF2B66;\">Tube</span><div style=\"padding-top:3px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#9CA3AF;text-transform:uppercase;\">GOOD VIDEOS · BETTER PEOPLE</div></td>");
         html.Append("</tr></table></td></tr>");
 
@@ -88,6 +94,16 @@ internal static class HuTubeEmailTemplateRenderer
 
     private static string FirstNonEmpty(string? value, string fallback) =>
         string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+
+    private static string? LogoUrl(string? webBaseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(webBaseUrl)
+            || !Uri.TryCreate(webBaseUrl.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri)
+            || baseUri.Scheme is not ("http" or "https"))
+            return null;
+
+        return new Uri(baseUri, "assets/logo-mark.png?v=hutube-mark-20261005").AbsoluteUri;
+    }
 
     private static string? SafeActionUrl(string? value)
     {

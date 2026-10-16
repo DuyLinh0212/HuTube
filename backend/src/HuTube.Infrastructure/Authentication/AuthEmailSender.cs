@@ -32,6 +32,7 @@ public sealed class GmailEmailOptions
 
 public sealed class AuthEmailSender(
     EmailOptions options,
+    AuthOptions authOptions,
     ILogger<AuthEmailSender> logger,
     IHttpClientFactory httpClientFactory) : IAuthEmailSender
 {
@@ -46,7 +47,7 @@ public sealed class AuthEmailSender(
         message.Body = new BodyBuilder
         {
             TextBody = template.ToPlainText(),
-            HtmlBody = HuTubeEmailTemplateRenderer.RenderHtml(template)
+            HtmlBody = HuTubeEmailTemplateRenderer.RenderHtml(template, authOptions.WebBaseUrl)
         }.ToMessageBody();
         try
         {
