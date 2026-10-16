@@ -1,9 +1,11 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { TimeoutError, catchError, of, switchMap, throwError } from 'rxjs';
+import { TimeoutError, catchError, of, switchMap, throwError, timeout } from 'rxjs';
 import { AuthService, safeReturnUrl } from './auth.service';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
+
+const RECOMMENDATION_RESPONSE_TIMEOUT_MS = 105_000;
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const config = inject(RuntimeConfig);
@@ -14,12 +16,16 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const wasAuthenticated = !!auth.user();
   const sessionVersion = auth.sessionVersion;
   const isAuthEndpoint = /\/auth\/(login|google|refresh|register|verify-email|resend-verification|forgot-password|reset-password|logout)(?:[/?]|$)/.test(request.url);
+  const callsRecommendationService = request.method === 'GET' && (
+    /\/api\/v1\/admin\/users\/[^/?#]+\/statistics\/?(?:[?#]|$)/.test(request.url)
+    || /\/api\/v1\/admin\/recommendations\/models\/?(?:[?#]|$)/.test(request.url)
+  );
   const isNetworkFailure = (error: unknown) => error instanceof TimeoutError
     || (error instanceof HttpErrorResponse && error.status === 0);
   const withAuth = (accessToken: string | null) => request.clone({ withCredentials: true, setHeaders: {
     'X-HuTube-Client': 'web', ...(ADMIN_APP ? { 'X-HuTube-App': 'admin' } : {}), ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {})
   } });
-  return next(withAuth(token)).pipe(catchError(error => {
+  const response = next(withAuth(token)).pipe(catchError(error => {
     if (!(error instanceof HttpErrorResponse) || error.status !== 401 || isAuthEndpoint) return throwError(() => error);
     if (sessionVersion !== auth.sessionVersion) return throwError(() => error);
     const expire = (refreshError: unknown) => {
@@ -50,4 +56,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       catchError(retryError => retryError instanceof HttpErrorResponse && retryError.status === 401 ? expire(retryError) : throwError(() => retryError))
     )));
   }));
+  return callsRecommendationService
+    ? response.pipe(timeout({ each: RECOMMENDATION_RESPONSE_TIMEOUT_MS }))
+    : response;
 };
