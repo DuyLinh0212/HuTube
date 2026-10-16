@@ -16,12 +16,12 @@ describe('Explore search filters', () => {
   let snapshot: { routeConfig: { path: string } };
 
   beforeEach(() => {
-    params = new BehaviorSubject(convertToParamMap({ q: 'nhạc', page: '3', channelId: 'channel-one' }));
+    params = new BehaviorSubject(convertToParamMap({ q: 'nhạc', page: '3' }));
     snapshot = { routeConfig: { path: 'search' } };
     navigate = jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true));
     content = jasmine.createSpyObj('content', ['search', 'searchChannels', 'exploreHub', 'categories']);
     content.search.and.returnValue(of(page));
-    content.searchChannels.and.returnValue(of([{ channelId: 'channel-one', name: 'Kênh một', handle: 'kenh-mot', videoCount: 2 }, { channelId: 'channel-two', name: 'Kênh hai', handle: 'kenh-hai', videoCount: 1 }]));
+    content.searchChannels.and.returnValue(of({ items: [{ channelId: 'channel-one', name: 'Kênh một', handle: 'kenh-mot', description: null, avatarUrl: null, subscriberCount: 5, videoCount: 2 }], total: 1, page: 1, pageSize: 20 }));
     content.categories.and.returnValue(of([]));
     content.exploreHub.and.returnValue(of({ rankings: [], creators: [], trending: [], topVideos: [card] }));
     TestBed.configureTestingModule({ imports: [ExplorePage], providers: [
@@ -40,13 +40,16 @@ describe('Explore search filters', () => {
     return fixture;
   }
 
-  it('restores channel selection from the URL and keeps options outside the current result page', () => {
+  it('restores channel result mode from the URL and searches channels instead of videos', () => {
+    params.next(convertToParamMap({ q: 'nhạc', type: 'channels', page: '3', duration: 'short' }));
     const fixture = render();
-    expect(content.search).toHaveBeenCalledWith(jasmine.objectContaining({ q: 'nhạc', channelId: 'channel-one', page: 3 }));
-    expect(content.searchChannels).toHaveBeenCalledWith({ q: 'nhạc', categoryId: undefined, duration: undefined, dateRange: undefined });
-    expect(fixture.componentInstance.searchChannels().length).toBe(2);
-    fixture.componentInstance.changeChannel('channel-two');
-    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: jasmine.objectContaining({ q: 'nhạc', channelId: 'channel-two', page: null }) }));
+    expect(content.search).not.toHaveBeenCalled();
+    expect(content.searchChannels).toHaveBeenCalledWith({ q: 'nhạc', page: 3, pageSize: 20 });
+    expect(fixture.componentInstance.searchChannels().length).toBe(1);
+    expect(fixture.componentInstance.videos()).toEqual([]);
+    expect(fixture.componentInstance.selectedDuration()).toBe('');
+    fixture.componentInstance.changeResultType('videos');
+    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: jasmine.objectContaining({ q: 'nhạc', type: null, page: null }) }));
     fixture.destroy();
   });
 
@@ -54,7 +57,7 @@ describe('Explore search filters', () => {
     const fixture = render();
     fixture.componentInstance.clearAllFilters();
     expect(fixture.componentInstance.searchQuery()).toBe('nhạc');
-    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: { q: 'nhạc', sort: null, categoryId: null, duration: null, dateRange: null, channelId: null, page: null } }));
+    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: { q: 'nhạc', sort: null, categoryId: null, duration: null, dateRange: null, type: null, page: null } }));
     fixture.destroy();
   });
 
@@ -71,12 +74,14 @@ describe('Explore search filters', () => {
     fixture.destroy();
   });
 
-  it('keeps video results available when the channel option endpoint fails', () => {
+  it('shows a channel error without mixing video results into channel mode', () => {
+    params.next(convertToParamMap({ q: 'nhạc', type: 'channels' }));
     content.searchChannels.and.returnValue(throwError(() => new Error('offline')));
     const fixture = render();
-    expect(fixture.componentInstance.videos()).toEqual(page.items);
-    expect(fixture.componentInstance.channelFilterError()).toBeTrue();
-    expect(fixture.componentInstance.error()).toBe('');
+    expect(content.search).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.videos()).toEqual([]);
+    expect(fixture.componentInstance.searchChannels()).toEqual([]);
+    expect(fixture.componentInstance.error()).not.toBe('');
     fixture.destroy();
   });
 

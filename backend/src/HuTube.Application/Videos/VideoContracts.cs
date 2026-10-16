@@ -11,6 +11,8 @@ public sealed class ContentException(int status, string code, string message) : 
 public sealed record PageResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 public sealed record CategoryResponse(Guid CategoryId, string Name, string Slug, string? Description);
 public sealed record SearchChannelResponse(Guid ChannelId, string Name, string Handle, int VideoCount);
+public sealed record ChannelSearchResultResponse(Guid ChannelId, string Name, string Handle,
+    string? Description, string? AvatarUrl, long SubscriberCount, int VideoCount);
 public sealed record ChapterRequest(int StartSeconds, string Title);
 public sealed record VideoCardRequest(int StartSeconds, Guid VideoId);
 public sealed record VideoCardLinkResponse(Guid VideoId, int StartSeconds, string Title, string? ThumbnailUrl);
@@ -113,6 +115,7 @@ public interface IContentService
     Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery query, CancellationToken ct = default);
     Task<IReadOnlyList<SearchChannelResponse>> GetSearchChannelsAsync(SearchVideosQuery query, CancellationToken ct = default);
+    Task<PageResult<ChannelSearchResultResponse>> SearchChannelsAsync(string? query, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize,
         DateTimeOffset? before = null, CancellationToken ct = default);
     Task ClearWatchHistoryAsync(Guid userId, CancellationToken ct = default);

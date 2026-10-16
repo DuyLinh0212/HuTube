@@ -44,7 +44,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   submitTopbarSearch() {
     const q = this.topbarSearch.trim();
     if (!q) return;
-    void this.router.navigate(['/explore'], { queryParams: { q } });
+    const current = this.router.parseUrl(this.router.url);
+    const path = current.root.children['primary']?.segments.map(segment => segment.path).join('/');
+    const channelMode = (path === 'explore' || path === 'search') && current.queryParams['type'] === 'channels';
+    void this.router.navigate(['/search'], { queryParams: { q, type: channelMode ? 'channels' : null } });
     this.searchInputRef?.nativeElement.blur();
   }
 

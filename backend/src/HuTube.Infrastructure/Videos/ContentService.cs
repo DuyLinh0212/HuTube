@@ -562,6 +562,45 @@ public sealed class ContentService(
                       select new SearchChannelResponse(channel.ChannelId, channel.Name, channel.Handle, count.VideoCount)).ToListAsync(ct);
     }
 
+    public async Task<PageResult<ChannelSearchResultResponse>> SearchChannelsAsync(
+        string? query, int page, int pageSize, CancellationToken ct = default)
+    {
+        (page, pageSize) = Page(page, pageSize);
+        var term = (query ?? "").Trim().TrimStart('@');
+        var channels = db.Channels.AsNoTracking().Where(channel => channel.Status == "active");
+        // Search channel identity directly, including channels with no published videos.
+        foreach (var token in term.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var escaped = token.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+            var pattern = $"%{escaped}%";
+            channels = channels.Where(channel => EF.Functions.ILike(channel.Name, pattern, "\\")
+                || EF.Functions.ILike(channel.Handle, pattern, "\\"));
+        }
+        var total = await channels.CountAsync(ct);
+        var normalizedTerm = term.ToLowerInvariant();
+        var publicVideos = VideoAccessPolicy.Catalogue(db);
+        var rows = await channels.Select(channel => new
+            {
+                channel.ChannelId, channel.Name, channel.Handle, channel.Description, channel.AvatarUrl,
+                ExactMatch = normalizedTerm != "" && (channel.Name.ToLower() == normalizedTerm || channel.Handle.ToLower() == normalizedTerm),
+                PrefixMatch = normalizedTerm != "" && (channel.Name.ToLower().StartsWith(normalizedTerm) || channel.Handle.ToLower().StartsWith(normalizedTerm)),
+                SubscriberCount = db.Subscriptions.LongCount(subscription => subscription.ChannelId == channel.ChannelId && subscription.Status == "active"),
+                VideoCount = publicVideos.Count(video => video.ChannelId == channel.ChannelId)
+            })
+            .OrderByDescending(channel => channel.ExactMatch)
+            .ThenByDescending(channel => channel.PrefixMatch)
+            .ThenByDescending(channel => channel.SubscriberCount)
+            .ThenBy(channel => channel.Name).ThenBy(channel => channel.ChannelId)
+            .Skip((int)Math.Min((long)(page - 1) * pageSize, int.MaxValue)).Take(pageSize)
+            .ToListAsync(ct);
+        var items = new List<ChannelSearchResultResponse>(rows.Count);
+        foreach (var channel in rows)
+            items.Add(new(channel.ChannelId, channel.Name, channel.Handle, channel.Description,
+                channel.AvatarUrl == null ? null : await ReadUrlAsync(channel.AvatarUrl, ct),
+                channel.SubscriberCount, channel.VideoCount));
+        return new(items, page, pageSize, total);
+    }
+
     public async Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery search, CancellationToken ct = default)
     {
         var (page, pageSize) = Page(search.Page, search.PageSize);

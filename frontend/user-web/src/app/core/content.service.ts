@@ -9,7 +9,7 @@ export interface VideoStats { views: number; likes: number; dislikes: number; co
 export interface VideoViewerState { reaction: 'like' | 'dislike' | null; rating: number | null; resumeAtSeconds: number; progress: number; }
 export interface VideoCardLink { videoId: string; startSeconds: number; title: string; thumbnailUrl: string | null; }
 export interface VideoCard { videoId: string; channelId: string; channelName: string; channelHandle: string; title: string; thumbnailUrl: string | null; duration: number; visibility: string; publishedAt: string | null; views: number; isPromoted?: boolean; }
-export interface SearchChannel { channelId: string; name: string; handle: string; videoCount: number; }
+export interface SearchChannel { channelId: string; name: string; handle: string; description: string | null; avatarUrl: string | null; subscriberCount: number; videoCount: number; }
 export interface LibraryVideo extends VideoCard {
   likes: number;
   dislikes: number;
@@ -132,10 +132,10 @@ export class ContentService {
     if (opts.duration) params = params.set('duration', opts.duration);
     return this.http.get<PageResult<VideoCard>>(`${this.base}/videos/search`, { params });
   }
-  searchChannels(opts: { q?: string; categoryId?: string; dateRange?: string; duration?: string }) {
-    let params = new HttpParams();
+  searchChannels(opts: { q?: string; page?: number; pageSize?: number }) {
+    let params = new HttpParams().set('page', opts.page ?? 1).set('pageSize', opts.pageSize ?? 20);
     for (const [key, value] of Object.entries(opts)) if (value) params = params.set(key, value);
-    return this.http.get<SearchChannel[]>(`${this.base}/videos/search/channels`, { params });
+    return this.http.get<PageResult<SearchChannel>>(`${this.base}/channels/search`, { params });
   }
   history(page = 1, pageSize = 20, before?: string | null) {
     const params: Record<string, string | number> = { page, pageSize };

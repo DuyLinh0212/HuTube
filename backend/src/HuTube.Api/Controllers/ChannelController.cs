@@ -2,8 +2,10 @@ using System.Security.Claims;
 using HuTube.Application.Auth;
 using HuTube.Application.Channels;
 using HuTube.Application.Storage;
+using HuTube.Application.Videos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HuTube.Api.Controllers;
 
@@ -22,6 +24,14 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
 
     private Guid UserId => CurrentUserId
         ?? throw new ChannelException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
+
+    [HttpGet("search"), EnableRateLimiting("search")]
+    public Task<PageResult<ChannelSearchResultResponse>> SearchAsync(
+        [FromServices] IContentService content,
+        [FromQuery] string? q = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default) => content.SearchChannelsAsync(q, page, pageSize, ct);
 
     [Authorize, HttpPost]
     public async Task<ActionResult<ChannelResponse>> CreateAsync(CreateChannelRequest request, CancellationToken ct)

@@ -41,10 +41,10 @@ export class ExplorePage implements OnInit, OnDestroy {
   readonly selectedSort = signal('relevance');
   readonly selectedDuration = signal('');
   readonly selectedDateRange = signal('');
-  readonly selectedChannelId = signal('');
+  readonly selectedResultType = signal<'videos' | 'channels'>('videos');
   readonly searchChannels = signal<SearchChannel[]>([]);
-  readonly channelFilterError = signal(false);
   private searchRequest?: Subscription;
+  private hubRequested = false;
   readonly currentPage = signal(1);
   readonly pageSize = 20;
 
@@ -130,20 +130,17 @@ export class ExplorePage implements OnInit, OnDestroy {
   get isSearchMode(): boolean {
     return this.route.snapshot.routeConfig?.path === 'search'
       || !!(this.hasSearchQuery() || this.selectedCategoryId() || this.selectedDuration() || this.selectedDateRange()
-        || this.selectedChannelId() || this.selectedSort() !== 'relevance');
-  }
-  get hasSelectedChannelOption(): boolean {
-    return this.searchChannels().some(channel => channel.channelId === this.selectedChannelId());
+        || this.selectedResultType() === 'channels' || this.selectedSort() !== 'relevance');
   }
   get hasActiveFilters(): boolean {
     return !!(this.selectedCategoryId() || this.selectedDuration() || this.selectedDateRange()
-      || this.selectedChannelId() || this.selectedSort() !== 'relevance');
+      || this.selectedResultType() === 'channels' || this.selectedSort() !== 'relevance');
   }
   get totalPages(): number {
     return Math.ceil(this.total() / this.pageSize);
   }
   get resultsLabel(): string {
-    return this.i18n.format('explore.resultsCount', { count: this.total() });
+    return this.i18n.format(this.selectedResultType() === 'channels' ? 'explore.channelResultsCount' : 'explore.resultsCount', { count: this.total() });
   }
 
   ngOnInit() {
@@ -154,12 +151,14 @@ export class ExplorePage implements OnInit, OnDestroy {
       const categoryId = params.get('categoryId') ?? '';
       this.searchQuery.set(q);
       this.hasSearchQuery.set(!!q.trim());
-      this.selectedCategoryId.set(categoryId);
-      this.selectedSort.set(params.get('sort') ?? 'relevance');
-      this.selectedDuration.set(params.get('duration') ?? '');
-      this.selectedDateRange.set(params.get('dateRange') ?? '');
-      this.selectedChannelId.set(params.get('channelId') ?? '');
-      this.currentPage.set(Number(params.get('page') ?? '1'));
+      const channelMode = params.get('type') === 'channels';
+      this.selectedResultType.set(channelMode ? 'channels' : 'videos');
+      this.selectedCategoryId.set(channelMode ? '' : categoryId);
+      this.selectedSort.set(channelMode ? 'relevance' : params.get('sort') ?? 'relevance');
+      this.selectedDuration.set(channelMode ? '' : params.get('duration') ?? '');
+      this.selectedDateRange.set(channelMode ? '' : params.get('dateRange') ?? '');
+      const page = Number(params.get('page') ?? '1');
+      this.currentPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
 
       if (categoryId) {
         this.activeCategoryTab.set(categoryId);
@@ -169,10 +168,11 @@ export class ExplorePage implements OnInit, OnDestroy {
 
       if (this.isSearchMode) {
         this.loadSearch();
+      } else if (!this.hubRequested) {
+        this.hubRequested = true;
+        this.loadHub();
       }
     });
-
-    this.loadHub();
   }
 
   ngOnDestroy() {
@@ -344,23 +344,36 @@ export class ExplorePage implements OnInit, OnDestroy {
   loadSearch() {
     this.searchRequest?.unsubscribe();
     this.loading.set(true);
-    this.channelFilterError.set(false);
+    this.error.set('');
+    this.videos.set([]);
+    this.searchChannels.set([]);
+    this.total.set(0);
+    if (this.selectedResultType() === 'channels') {
+      this.searchRequest = this.content.searchChannels({
+        q: this.searchQuery() || undefined, page: this.currentPage(), pageSize: this.pageSize,
+      }).pipe(takeUntil(this.destroy$)).subscribe({
+        next: result => {
+          this.searchChannels.set(result.items ?? []);
+          this.total.set(result.total ?? 0);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.error.set(this.i18n.t('explore.channelSearchError'));
+          this.loading.set(false);
+        },
+      });
+      return;
+    }
     const filters = {
       q: this.searchQuery() || undefined,
       categoryId: this.selectedCategoryId() || undefined,
       duration: this.selectedDuration() || undefined,
       dateRange: this.selectedDateRange() || undefined,
     };
-    this.searchRequest = forkJoin({
-      results: this.content.search({ ...filters, channelId: this.selectedChannelId() || undefined,
-        sort: this.selectedSort() || undefined, page: this.currentPage(), pageSize: this.pageSize }),
-      channels: this.content.searchChannels(filters).pipe(catchError(() => {
-        this.channelFilterError.set(true);
-        return of([] as SearchChannel[]);
-      })),
+    this.searchRequest = this.content.search({ ...filters,
+      sort: this.selectedSort() || undefined, page: this.currentPage(), pageSize: this.pageSize,
     }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: ({ results: value, channels }) => {
-        this.searchChannels.set(channels);
+      next: value => {
         this.videos.set(value.items ?? []);
         this.total.set(value.total ?? 0);
         this.error.set('');
@@ -378,14 +391,22 @@ export class ExplorePage implements OnInit, OnDestroy {
   changeSort(value: string) { this.selectedSort.set(value || 'relevance'); this.currentPage.set(1); this.updateQuery(); }
   changeDuration(value: string) { this.selectedDuration.set(value); this.currentPage.set(1); this.updateQuery(); }
   changeDateRange(value: string) { this.selectedDateRange.set(value); this.currentPage.set(1); this.updateQuery(); }
-  changeChannel(value: string) { this.selectedChannelId.set(value); this.currentPage.set(1); this.updateQuery(); }
+  changeResultType(value: string) {
+    this.selectedResultType.set(value === 'channels' ? 'channels' : 'videos');
+    this.selectedCategoryId.set('');
+    this.selectedSort.set('relevance');
+    this.selectedDuration.set('');
+    this.selectedDateRange.set('');
+    this.currentPage.set(1);
+    this.updateQuery();
+  }
 
   clearAllFilters() {
     this.selectedCategoryId.set('');
     this.selectedSort.set('relevance');
     this.selectedDuration.set('');
     this.selectedDateRange.set('');
-    this.selectedChannelId.set('');
+    this.selectedResultType.set('videos');
     this.currentPage.set(1);
     this.activeCategoryTab.set(this.overallTabId);
     this.updateQuery();
@@ -413,7 +434,7 @@ export class ExplorePage implements OnInit, OnDestroy {
       categoryId: this.selectedCategoryId() || null,
       duration: this.selectedDuration() || null,
       dateRange: this.selectedDateRange() || null,
-      channelId: this.selectedChannelId() || null,
+      type: this.selectedResultType() === 'channels' ? 'channels' : null,
       page: this.currentPage() > 1 ? this.currentPage() : null,
     };
   }
