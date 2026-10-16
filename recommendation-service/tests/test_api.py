@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from threading import Event
+
 import pandas as pd
 from fastapi.testclient import TestClient
 
@@ -127,3 +129,50 @@ def test_no_model_returns_503(tmp_path) -> None:
 
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "MODEL_NOT_READY"
+
+
+def test_health_serves_while_initial_model_is_loading(tmp_path, monkeypatch) -> None:
+    client = _client(tmp_path)
+    registry = client.app.state.registry
+    loaded_model = registry.loaded
+    registry.loaded = None
+    started, release, finished = Event(), Event(), Event()
+
+    def slow_load():
+        started.set()
+        release.wait(timeout=3)
+        registry.loaded = loaded_model
+        finished.set()
+
+    monkeypatch.setattr(registry, "load", slow_load)
+    try:
+        with client:
+            assert started.wait(timeout=1)
+            assert not finished.is_set(), "HTTP startup waited for the model download"
+            assert client.get("/health").status_code == 200
+            pending = client.get("/ready")
+            assert pending.status_code == 503
+            assert pending.json()["detail"]["retryable"] is True
+            assert pending.json()["detail"]["message"] == "Recommendation model is loading."
+            inference = client.post(
+                "/internal/recommendations",
+                headers={"X-Service-Token": "test-token"},
+                json={"userId": "u1", "limit": 3, "excludeItemIds": []},
+            )
+            assert inference.status_code == 503
+            assert inference.json()["detail"]["retryable"] is True
+            release.set()
+            assert finished.wait(timeout=1)
+            assert client.get("/ready").status_code == 200
+    finally:
+        release.set()
+
+
+def test_ready_distinguishes_missing_token_from_loading_model(tmp_path) -> None:
+    client = _client(tmp_path)
+    client.app.state.settings.recommender_service_token = ""
+    with client:
+        response = client.get("/ready")
+    assert response.status_code == 503
+    assert response.json()["detail"]["retryable"] is False
+    assert response.json()["detail"]["message"] == "RECOMMENDER_SERVICE_TOKEN is not configured."

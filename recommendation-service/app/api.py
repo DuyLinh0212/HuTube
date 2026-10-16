@@ -77,12 +77,16 @@ async def ready(request: Request) -> HealthResponse:
     settings = request.app.state.settings
     registry = request.app.state.registry
     if registry.loaded is None or not settings.recommender_service_token:
-        detail = registry.load_error or "RECOMMENDER_SERVICE_TOKEN is not configured."
+        token_configured = bool(settings.recommender_service_token)
+        detail = (
+            (registry.load_error or "Recommendation model is loading.") if token_configured
+            else "RECOMMENDER_SERVICE_TOKEN is not configured."
+        )
         raise _error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "SERVICE_NOT_READY",
             detail,
-            True,
+            token_configured,
         )
     return HealthResponse(
         status="ready",

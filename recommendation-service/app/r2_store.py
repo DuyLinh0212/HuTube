@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.config import Settings
@@ -32,6 +33,11 @@ class R2Store:
             aws_access_key_id=settings.r2_access_key_id,
             aws_secret_access_key=settings.r2_secret_access_key,
             region_name="auto",
+            config=Config(
+                connect_timeout=5,
+                read_timeout=15,
+                retries={"mode": "standard", "total_max_attempts": 2},
+            ),
         )
 
     def read(self, key: str) -> bytes:

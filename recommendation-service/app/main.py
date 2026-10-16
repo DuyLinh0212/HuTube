@@ -24,14 +24,24 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        if resolved_registry.loaded is None:
-            await asyncio.to_thread(resolved_registry.load)
         async def refresh_models():
+            if resolved_registry.loaded is None:
+                logger.info("Loading the initial recommendation model in the background.")
+                # Use the same lock as later refreshes and model training. Storage
+                # must not hold the HTTP listener (including /health) closed.
+                await asyncio.to_thread(resolved_registry.refresh)
+                if resolved_registry.loaded is None:
+                    logger.warning("Initial model is not ready: %s", resolved_registry.load_error)
+                else:
+                    logger.info("Initial recommendation model is ready: %s",
+                                resolved_registry.loaded.metadata.get("modelVersion"))
             delay = 2
             while True:
                 await asyncio.sleep(delay)
                 await asyncio.to_thread(resolved_registry.refresh)
                 delay = 10 if resolved_registry.loaded is not None else min(delay * 2, 60)
+
+        logger.info("Starting Recommendation HTTP without waiting for model storage.")
         task = asyncio.create_task(refresh_models())
         try:
             yield
