@@ -45,15 +45,20 @@ def run(suite, owner, member):
             page.locator('.btn-wizard-next').click()
         expect(page.locator('input[name=publishMode][value=schedule]')).to_be_disabled()
         page.locator('input[name=visibility][value=private]').check()
-        videos_path = urlsplit(suite.config['api_url'] + '/videos').path.rstrip('/')
-        with page.expect_response(lambda r: r.request.method == 'POST' and urlsplit(r.url).path.rstrip('/') == videos_path, timeout=120000) as response:
+        upload_sessions_path = urlsplit(suite.config['api_url']).path.rstrip('/') + '/videos/upload-sessions/'
+        def is_upload_complete(response):
+            path = urlsplit(response.url).path.rstrip('/')
+            return (response.request.method == 'POST' and path.startswith(upload_sessions_path)
+                    and path.endswith('/complete'))
+
+        with page.expect_response(is_upload_complete, timeout=120000) as response:
             page.locator('.btn-wizard-publish').click()
         assert response.value.status == 201
         video.update(response.value.json())
         suite.state['video_id'] = video['videoId']; suite.save()
         expect(page.locator('.step-6')).to_be_visible(timeout=120000)
     suite.case(owner, 'U-STUDIO-UPLOAD-01', 'Upload video thật qua wizard; required và schedule disabled', upload,
-               expected='UI POST multipart 201; checkpoint video ID; không tạo lại khi retry', data='FFmpeg 10s 640x360 + sine 440Hz')
+               expected='Hoàn tất upload session bằng POST 201; checkpoint video ID; không tạo lại khi retry', data='FFmpeg 10s 640x360 + sine 440Hz')
     if not video:
         suite.blocked(owner, 'U-WATCH-PLAYBACK-01', 'Playback fixture đã upload', 'Upload did not produce a video ID')
         return
