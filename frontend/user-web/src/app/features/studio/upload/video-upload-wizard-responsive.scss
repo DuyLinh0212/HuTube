@@ -1,0 +1,56 @@
+@media (max-width: 640px) {
+  .upload-container {
+    padding: 1rem 0.75rem 3rem;
+  }
+
+  .form-row-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upload-container.has-upload-progress { padding-bottom: calc(180px + env(safe-area-inset-bottom)); }
+  .stepper-bar { padding: 8px; }
+  .stepper-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; }
+  .step-name { font-size: .7rem; line-height: 1.4; }
+  .step-badge { width: 22px; height: 22px; }
+  .step-panel { padding: 18px 14px; gap: 20px; }
+  .dropzone-card { padding: 24px 12px; }
+  .visibility-card { gap: 10px; padding: 14px 12px; }
+  .visibility-card .title-line .vis-title { font-size: .85rem; }
+  .visibility-card .vis-icon { flex-shrink: 0; }
+  .visibility-card .vis-desc { line-height: 1.6; }
+  .schedule-section-card, .other-options-card { padding: 14px 12px; }
+  .schedule-options, .schedule-picker-row { flex-direction: column; gap: 12px; }
+  .radio-label { align-items: flex-start; line-height: 1.5; }
+  .radio-label input { margin-top: 4px; }
+  .option-switch-item { gap: 12px; }
+  .option-switch-item .opt-desc { min-width: 0; }
+  .option-switch-item .switch-toggle { flex-shrink: 0; }
+  .label-row { align-items: flex-start; gap: 8px; }
+  .label-row .counter { flex-shrink: 0; }
+  .add-chapter-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .add-chapter-row > .text-input:first-child { grid-column: 1 / -1; }
+  .add-chapter-row .time-input { max-width: none; }
+  .check-item { flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .check-item .check-content { flex: 1; min-width: 0; }
+  .check-item .check-badge { margin-left: auto; }
+  .issues-card .issue-row { flex-wrap: wrap; gap: 8px; }
+  .wizard-footer { position: static; flex-wrap: wrap; gap: 12px; padding: 12px; box-shadow: none; }
+  .wizard-footer .footer-left:empty { display: none; }
+  .wizard-footer .footer-right { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .wizard-footer button { min-width: 0; min-height: 44px; padding: 10px; white-space: normal; }
+  .wizard-side-panel { min-width: 0; }
+  .tag-input { min-width: 0; flex-basis: 120px; max-width: 100%; }
+  .timeline-scrubber-card { overflow: hidden; }
+  .chapters-card { overflow-x: auto; }
+  .chapters-table { display: table; min-width: 400px; }
+  .chapters-table :is(th, td) { overflow-wrap: normal; }
+
+  .summary-preview {
+    flex-direction: column;
+    align-items: flex-start;
+
+    .summary-thumb {
+      width: 100%;
+    }
+  }
+}

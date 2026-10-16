@@ -33,7 +33,7 @@ interface ThumbnailOption {
   selector: 'app-video-upload-wizard',
   imports: [CommonModule, FormsModule, LocaleNumberPipe, TranslatePipe, RouterLink],
   templateUrl: './video-upload-wizard.component.html',
-  styleUrl: './video-upload-wizard.component.scss'
+  styleUrls: ['./video-upload-wizard.component.scss', './video-upload-wizard-responsive.scss']
 })
 export class VideoUploadWizardComponent implements OnDestroy {
   readonly i18n = inject(I18nService);

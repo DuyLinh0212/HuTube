@@ -1,55 +1,17 @@
-<div class="upload-container">
+<div class="upload-container" [class.has-upload-progress]="uploadState.state().phase !== 'idle'">
   <!-- Header & Stepper -->
   <header class="wizard-header">
     <!-- 6-step Indicator Bar -->
     <nav class="stepper-bar" [attr.aria-label]="'upload.stepperAria' | translate">
       <ol class="stepper-list">
-        <li class="stepper-item" [class.is-active]="currentStep() === 1" [class.is-done]="currentStep() > 1" (click)="setStep(1)">
-          <span class="step-badge">
-            @if (currentStep() > 1) { <span>✓</span> } @else { 1 }
-          </span>
-          <span class="step-name">{{ 'upload.step1' | translate }}</span>
-        </li>
-        <li class="stepper-line" [class.is-done]="currentStep() > 1"></li>
-
-        <li class="stepper-item" [class.is-active]="currentStep() === 2" [class.is-done]="currentStep() > 2" (click)="setStep(2)">
-          <span class="step-badge">
-            @if (currentStep() > 2) { <span>✓</span> } @else { 2 }
-          </span>
-          <span class="step-name">{{ 'upload.step2' | translate }}</span>
-        </li>
-        <li class="stepper-line" [class.is-done]="currentStep() > 2"></li>
-
-        <li class="stepper-item" [class.is-active]="currentStep() === 3" [class.is-done]="currentStep() > 3" (click)="setStep(3)">
-          <span class="step-badge">
-            @if (currentStep() > 3) { <span>✓</span> } @else { 3 }
-          </span>
-          <span class="step-name">{{ 'upload.step3' | translate }}</span>
-        </li>
-        <li class="stepper-line" [class.is-done]="currentStep() > 3"></li>
-
-        <li class="stepper-item" [class.is-active]="currentStep() === 4" [class.is-done]="currentStep() > 4" (click)="setStep(4)">
-          <span class="step-badge">
-            @if (currentStep() > 4) { <span>✓</span> } @else { 4 }
-          </span>
-          <span class="step-name">{{ 'upload.step4' | translate }}</span>
-        </li>
-        <li class="stepper-line" [class.is-done]="currentStep() > 4"></li>
-
-        <li class="stepper-item" [class.is-active]="currentStep() === 5" [class.is-done]="currentStep() > 5" (click)="setStep(5)">
-          <span class="step-badge">
-            @if (currentStep() > 5) { <span>✓</span> } @else { 5 }
-          </span>
-          <span class="step-name">{{ 'upload.step5' | translate }}</span>
-        </li>
-        <li class="stepper-line" [class.is-done]="currentStep() > 5"></li>
-
-        <li class="stepper-item" [class.is-active]="currentStep() === 6" [class.is-done]="currentStep() === 6">
-          <span class="step-badge">
-            @if (currentStep() === 6) { <span>✓</span> } @else { 6 }
-          </span>
-          <span class="step-name">{{ 'upload.step6' | translate }}</span>
-        </li>
+        @for (step of [1, 2, 3, 4, 5, 6]; track step) {
+          <li class="stepper-item" [class.is-active]="currentStep() === step" [class.is-done]="currentStep() > step || (step === 6 && currentStep() === 6)">
+            <button type="button" class="stepper-button" [disabled]="step === 6" [attr.aria-current]="currentStep() === step ? 'step' : null" (click)="setStep(step)">
+              <span class="step-badge" aria-hidden="true">@if (currentStep() > step || (step === 6 && currentStep() === 6)) { ✓ } @else { {{ step }} }</span>
+              <span class="step-name">{{ ('upload.step' + step) | translate }}</span>
+            </button>
+          </li>
+        }
       </ol>
     </nav>
   </header>

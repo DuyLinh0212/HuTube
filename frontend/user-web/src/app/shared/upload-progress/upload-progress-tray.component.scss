@@ -24,6 +24,8 @@
 }
 
 .tray-heading > div { display: grid; min-width: 0; gap: 4px; }
+.tray-heading strong { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.tray-heading > button { flex-shrink: 0; min-height: 36px; cursor: pointer; }
 .tray-file { overflow: hidden; color: var(--text-muted, #64748b); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .tray-progress { height: 8px; margin: 14px 0 8px; overflow: hidden; border-radius: 999px; background: var(--line, #e5e7eb); }
 .tray-progress span { display: block; height: 100%; border-radius: inherit; background: var(--primary, #f72562); transition: width 180ms ease; }
@@ -34,5 +36,5 @@
 .tray-error { margin: 10px 0 0; color: #b91c1c; font-size: 12px; }
 
 @media (max-width: 640px) {
-  :host { right: 16px; bottom: 16px; }
+  :host { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); }
 }
