@@ -11,12 +11,15 @@ const HUTUBE_TOKEN_TITLE = 'Mã khảo sát HuTube';
 const HUTUBE_PENDING_PREFIX = 'hutube_pending_';
 
 function installHuTubeFeedback() {
+  console.log('[1/4] Bắt đầu cài đặt: đọc Thuộc tính tập lệnh (Script properties).');
   const config = hutubeConfig_();
+  console.log('[2/4] Kiểm tra Google Form đang liên kết với dự án.');
   const form = FormApp.getActiveForm();
   if (!form || form.getPublishedUrl().indexOf('/' + HUTUBE_PUBLIC_FORM_ID + '/') === -1) {
     throw new Error('Hãy mở Apps Script từ đúng Google Form khảo sát HuTube.');
   }
   const props = PropertiesService.getScriptProperties();
+  console.log('[3/4] Chuẩn bị câu hỏi mã khảo sát.');
   let item = null;
   const savedId = props.getProperty('HUTUBE_TOKEN_ITEM_ID');
   if (savedId) item = form.getItems(FormApp.ItemType.TEXT).find(function (entry) { return String(entry.getId()) === savedId; });
@@ -29,6 +32,7 @@ function installHuTubeFeedback() {
   const entry = /[?&]entry\.(\d+)=/.exec(prefilled);
   if (!entry) throw new Error('Không tìm được entry ID của mã khảo sát.');
 
+  console.log('[4/4] Tạo trình kích hoạt gửi bài và thử lại.');
   const triggers = ScriptApp.getProjectTriggers();
   if (!triggers.some(function (trigger) { return trigger.getHandlerFunction() === 'onHuTubeFeedbackSubmit' && trigger.getTriggerSourceId() === form.getId(); })) {
     ScriptApp.newTrigger('onHuTubeFeedbackSubmit').forForm(form).onFormSubmit().create();
@@ -107,8 +111,9 @@ function hutubeConfig_() {
   const props = PropertiesService.getScriptProperties();
   const api = (props.getProperty('HUTUBE_API_BASE_URL') || '').replace(/\/+$/, '');
   const secret = props.getProperty('HUTUBE_WEBHOOK_SECRET') || '';
-  if (!/^https:\/\/[^\s?#]+\/api\/v1$/.test(api) || secret.length < 32) {
-    throw new Error('Cần Script Properties HUTUBE_API_BASE_URL (HTTPS, kết thúc /api/v1) và HUTUBE_WEBHOOK_SECRET (ít nhất 32 ký tự).');
-  }
+  if (!/^https:\/\/[^\s?#]+\/api\/v1$/.test(api))
+    throw new Error('Mở ⚙ Cài đặt dự án → Thuộc tính tập lệnh → Thêm thuộc tính: HUTUBE_API_BASE_URL = https://hutube.onrender.com/api/v1, rồi Lưu.');
+  if (secret.length < 32)
+    throw new Error('Mở ⚙ Cài đặt dự án → Thuộc tính tập lệnh → Thêm HUTUBE_WEBHOOK_SECRET: chuỗi bí mật ít nhất 32 ký tự, giống FeedbackSurvey__WebhookSecret trên backend Render, rồi Lưu.');
   return { api: api, secret: secret };
 }
