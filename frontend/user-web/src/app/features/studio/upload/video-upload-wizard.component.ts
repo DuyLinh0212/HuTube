@@ -47,6 +47,11 @@ export class VideoUploadWizardComponent implements OnDestroy {
     && video.moderationStatus === 'approved' && video.visibility === 'public' && Boolean(video.publishedAt)));
   private readonly playlistService = inject(PlaylistService);
   readonly uploadState = inject(UploadStateService);
+  readonly publishedVideoUrl = computed(() => {
+    const video = this.uploadState.state().video;
+    if (!video?.videoId || this.isAwaitingModeration(video)) return '';
+    return `${location.origin}/watch/${encodeURIComponent(video.videoId)}`;
+  });
 
   @ViewChild('previewPlayer') private previewPlayer?: ElementRef<HTMLVideoElement>;
   @ViewChild('timelineTrack') private timelineTrack?: ElementRef<HTMLDivElement>;
@@ -118,7 +123,6 @@ export class VideoUploadWizardComponent implements OnDestroy {
 
   // Step 6 State
   readonly copied = signal(false);
-  publishedVideoUrl = '';
 
   constructor() {
     this.studio.load();
@@ -144,7 +148,6 @@ export class VideoUploadWizardComponent implements OnDestroy {
         this.handledUploadVideoId = state.video.videoId;
         try { localStorage.removeItem(this.draftKey()); } catch { /* optional storage */ }
         this.attachToSelectedPlaylist(state.video.videoId);
-        this.publishedVideoUrl = this.isAwaitingModeration(state.video) ? '' : `${location.origin}/watch/${state.video.videoId}`;
         this.currentStep.set(6);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -722,7 +725,9 @@ export class VideoUploadWizardComponent implements OnDestroy {
   removeChapter(id: number) { this.chapters.update(items => items.filter(item => item.id !== id)); }
 
   copyLink() {
-    navigator.clipboard.writeText(this.publishedVideoUrl).then(() => {
+    const url = this.publishedVideoUrl();
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 2500);
     });
@@ -738,7 +743,6 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.uploadProgress.set(0);
     this.uploadError.set('');
     this.preflight.set(null);
-    this.publishedVideoUrl = '';
     this.videoTitle = '';
     this.videoDesc = '';
     this.selectedPlaylistId = '';

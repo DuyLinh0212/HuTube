@@ -581,8 +581,8 @@
               <div class="video-link-box">
                 <label>{{ 'upload.step6.videoLink' | translate }}</label>
                 <div class="link-input-group">
-                  <input type="text" class="link-input" [value]="publishedVideoUrl" readonly />
-                  <button type="button" class="btn-copy" (click)="copyLink()">
+                  <input type="text" class="link-input" [value]="publishedVideoUrl()" readonly />
+                  <button type="button" class="btn-copy" [disabled]="!publishedVideoUrl()" (click)="copyLink()">
                     {{ (copied() ? 'common.copied' : 'upload.step6.copyLink') | translate }}
                   </button>
                 </div>
@@ -597,7 +597,7 @@
             <!-- Action Buttons -->
             <div class="publish-actions">
               @if (!isAwaitingModeration()) {
-                <a [href]="publishedVideoUrl" target="_blank" class="btn-primary-action">
+                <a [href]="publishedVideoUrl()" target="_blank" class="btn-primary-action">
                   {{ 'upload.step6.watchVideo' | translate }}
                 </a>
               }

@@ -72,7 +72,7 @@ export class UploadStateService {
         }
         if (event.type !== HttpEventType.Response) return;
         const response = event as HttpResponse<VideoDetail>;
-        if (!response.body) {
+        if (!response.body || typeof response.body.videoId !== 'string' || !response.body.videoId.trim()) {
           this.fail(this.i18n.t('upload.serverNoVideo'));
           return;
         }
@@ -121,6 +121,10 @@ export class UploadStateService {
   canRetry() { return this.state().phase === 'failed' && !!this.lastUpload; }
 
   private finish(video: VideoDetail) {
+    if (!video || typeof video.videoId !== 'string' || !video.videoId.trim()) {
+      this.fail(this.i18n.t('upload.serverNoVideo'));
+      return;
+    }
     if (this.idempotencyKey) this.content.cancelUpload(this.idempotencyKey).subscribe({ error: () => undefined });
     this.idempotencyKey = undefined;
     this.lastUpload = undefined;
