@@ -23,6 +23,7 @@ import '../features/moderation/moderation_screen.dart';
 import '../channel/screens/channel_invitations_screen.dart';
 import '../channel/screens/channel_screen.dart';
 import '../features/creator/creator_hub_screen.dart';
+import '../features/feedback/feedback_survey_host.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/notifications/notification_center.dart';
 import '../features/playlists/playlists_screen.dart';
@@ -44,6 +45,7 @@ class HuTubeApp extends StatefulWidget {
 
 class _HuTubeAppState extends State<HuTubeApp> {
   late final GoRouter _router;
+  final _navigatorKey = GlobalKey<NavigatorState>();
   final PlaybackSession _playback = PlaybackSession();
   late final NotificationCenter _notifications;
   StreamSubscription<Uri>? _linkSubscription;
@@ -86,6 +88,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
     PlaybackSession playback,
     NotificationCenter notifications,
   ) => GoRouter(
+    navigatorKey: _navigatorKey,
     initialLocation: '/splash',
     refreshListenable: auth,
     redirect: (context, state) {
@@ -250,7 +253,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
             builder: (_, state) => MobilePlansScreen(
               auth: auth,
               invitationId: state.uri.queryParameters['invitationId'],
-              invitationToken: state.uri.queryParameters['invitationToken'] ??
+              invitationToken:
+                  state.uri.queryParameters['invitationToken'] ??
                   state.uri.queryParameters['token'],
             ),
           ),
@@ -259,7 +263,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
             builder: (_, state) => MobilePlansScreen(
               auth: auth,
               invitationId: state.uri.queryParameters['invitationId'],
-              invitationToken: state.uri.queryParameters['invitationToken'] ??
+              invitationToken:
+                  state.uri.queryParameters['invitationToken'] ??
                   state.uri.queryParameters['token'],
             ),
           ),
@@ -402,9 +407,14 @@ class _HuTubeAppState extends State<HuTubeApp> {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
         routerConfig: _router,
-        builder: (context, child) => NetworkFallbackOverlay(
-          api: widget.auth.api,
-          child: child ?? const SizedBox.shrink(),
+        builder: (context, child) => FeedbackSurveyHost(
+          auth: widget.auth,
+          router: _router,
+          navigatorKey: _navigatorKey,
+          child: NetworkFallbackOverlay(
+            api: widget.auth.api,
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
       ),
     ),

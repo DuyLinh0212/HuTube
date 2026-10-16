@@ -82,7 +82,7 @@ test('unlinked tokens are removed after a permanent callback error to avoid bloc
   assert.equal(h.values['hutube_pending_response-one'], undefined);
 });
 
-test('installation creates one optional token question and one pair of triggers across repeated runs', () => {
+test('installation creates one required token question and one pair of triggers across repeated runs', () => {
   const h = harness();
   const items = [];
   const triggers = [];
@@ -90,7 +90,8 @@ test('installation creates one optional token question and one pair of triggers 
     getId: () => 42,
     setTitle() { return this; },
     setHelpText() { return this; },
-    setRequired(value) { assert.equal(value, false); return this; },
+    setRequired(value) { assert.equal(value, true); return this; },
+    setValidation() { return this; },
     createResponse: value => ({ value }),
   };
   const form = {
@@ -103,7 +104,13 @@ test('installation creates one optional token question and one pair of triggers 
     },
     createResponse() { return { withItemResponse() { return this; }, toPrefilledUrl: () => form.getPublishedUrl() + '?usp=pp_url&entry.987=HUTUBE_SETUP' }; },
   };
-  h.context.FormApp = { getActiveForm: () => form, ItemType: { TEXT: 'text' } };
+  h.context.FormApp = { getActiveForm: () => form, ItemType: { TEXT: 'text' },
+    createTextValidation() { return {
+      requireTextMatchesPattern() { return this; },
+      setHelpText() { return this; },
+      build() { return {}; },
+    }; },
+  };
   h.context.ScriptApp = {
     getProjectTriggers: () => triggers,
     newTrigger(handler) {

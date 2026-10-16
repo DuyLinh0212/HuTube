@@ -40,6 +40,30 @@ class AppStrings {
 
   static const Map<String, Map<String, String>> _localizedValues = {
     'vi': {
+      'survey.close': 'Đóng lời mời khảo sát',
+      'survey.invitationTitle': 'Bạn ơi, giúp HuTube một chút nhé!',
+      'survey.invitationDescription':
+          'Bạn đã trải nghiệm HuTube rồi nè. Cho tụi mình xin vài góp ý để việc xem video và khám phá nội dung ngày càng tốt hơn nhé!',
+      'survey.duration': 'Khảo sát khoảng 3–5 phút · Mọi góp ý đều đáng quý',
+      'survey.doSurvey': 'Làm khảo sát',
+      'survey.maybeLater': 'Để mình xem thêm đã',
+      'survey.pleaTitle': 'Năn nỉ bạn đó…',
+      'survey.pleaDescription':
+          'Bớt chút thời gian giúp tụi mình nha? Một lời góp ý của bạn cũng giúp HuTube tốt lên từng ngày.',
+      'survey.imageTitle': 'Mèo năn nỉ: Đi đi mà, năn nỉ!',
+      'survey.later': 'Hẹn lần sau nhé',
+      'survey.waitingTitle': 'Hẹn gặp bạn ở trang khảo sát!',
+      'survey.waitingDescription':
+          'Khảo sát đã mở trong trình duyệt. Bạn nhớ bấm Gửi trên Google Form khi làm xong rồi quay lại HuTube nhé.',
+      'survey.autoSync':
+          'Sau khi bạn gửi bài, HuTube sẽ tự cập nhật và ngừng nhắc khảo sát trên tài khoản này, cả web và Mobile.',
+      'survey.reopen': 'Mở lại khảo sát',
+      'survey.continue': 'Tiếp tục xem HuTube',
+      'survey.thanksTitle': 'HuTube nhận được góp ý rồi!',
+      'survey.thanksDescription':
+          'Cảm ơn bạn rất nhiều! Tài khoản của bạn đã được ghi nhận hoàn thành khảo sát.',
+      'survey.openError':
+          'Chưa mở được trình duyệt. Bạn thử bấm Làm khảo sát lại nhé.',
       // Common
       'common.save': 'Lưu thay đổi',
       'common.saving': 'Đang lưu...',
@@ -1376,6 +1400,30 @@ class AppStrings {
     },
 
     'en': {
+      'survey.close': 'Close survey invitation',
+      'survey.invitationTitle': 'Could you give HuTube a hand?',
+      'survey.invitationDescription':
+          'You have spent some time on HuTube. We would love your feedback to make watching videos and discovering content better for you!',
+      'survey.duration': 'About 3–5 minutes · Every suggestion matters',
+      'survey.doSurvey': 'Take the survey',
+      'survey.maybeLater': 'Let me explore a little more',
+      'survey.pleaTitle': 'Pretty please…',
+      'survey.pleaDescription':
+          'Could you spare a few minutes? Even one suggestion from you helps us make HuTube better.',
+      'survey.imageTitle': 'A cat asking: Pretty please!',
+      'survey.later': 'Maybe next time',
+      'survey.waitingTitle': 'See you at the survey!',
+      'survey.waitingDescription':
+          'The survey opened in your browser. Remember to press Submit on Google Forms when you finish, then return to HuTube.',
+      'survey.autoSync':
+          'After you submit, HuTube will automatically update your account and stop survey reminders on both web and Mobile.',
+      'survey.reopen': 'Reopen survey',
+      'survey.continue': 'Continue watching HuTube',
+      'survey.thanksTitle': 'We received your feedback!',
+      'survey.thanksDescription':
+          'Thank you so much! Your account is now marked as having completed the survey.',
+      'survey.openError':
+          'Could not open your browser. Please try opening the survey again.',
       // Common
       'common.save': 'Save changes',
       'common.saving': 'Saving...',

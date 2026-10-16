@@ -25,10 +25,15 @@ function installHuTubeFeedback() {
   if (savedId) item = form.getItems(FormApp.ItemType.TEXT).find(function (entry) { return String(entry.getId()) === savedId; });
   if (!item) item = form.getItems(FormApp.ItemType.TEXT).find(function (entry) { return entry.getTitle() === HUTUBE_TOKEN_TITLE; });
   item = item ? item.asTextItem() : form.addTextItem().setTitle(HUTUBE_TOKEN_TITLE);
-  item.setHelpText('Mã được điền sẵn khi mở từ HuTube để ghi nhận bạn đã hoàn thành. Vui lòng giữ nguyên mã này; nếu không có mã, bạn vẫn có thể gửi góp ý.');
-  item.setRequired(false);
+  item.setHelpText('Mã được điền tự động từ HuTube để ghi nhận bạn đã hoàn thành. Vui lòng giữ nguyên mã. Nếu lỡ xóa hoặc sửa, hãy mở lại khảo sát từ HuTube để nhận mã đúng.');
+  item.setRequired(true);
+  item.setValidation(FormApp.createTextValidation()
+    .requireTextMatchesPattern('^[a-f0-9]{32}\\.[a-f0-9]{64}$')
+    .setHelpText('Mã khảo sát không đúng định dạng. Hãy mở lại khảo sát từ HuTube và giữ nguyên mã được điền sẵn.')
+    .build());
   props.setProperties({ HUTUBE_FORM_ID: form.getId(), HUTUBE_TOKEN_ITEM_ID: String(item.getId()) });
-  const prefilled = form.createResponse().withItemResponse(item.createResponse('HUTUBE_SETUP')).toPrefilledUrl();
+  const setupToken = '0'.repeat(32) + '.' + '0'.repeat(64);
+  const prefilled = form.createResponse().withItemResponse(item.createResponse(setupToken)).toPrefilledUrl();
   const entry = /[?&]entry\.(\d+)=/.exec(prefilled);
   if (!entry) throw new Error('Không tìm được entry ID của mã khảo sát.');
 

@@ -73,15 +73,13 @@ p { margin: 0 0 20px; color: var(--text-body); font-size: 0.9375rem; line-height
 }
 .survey-footnote { margin: 16px 0 0; font-size: 0.75rem; }
 .survey-note { padding: 12px; border-radius: 12px; background: var(--surface-soft); font-size: 0.8125rem; }
-.survey-gif {
+.survey-image {
   width: 220px;
   max-width: 100%;
   margin: 0 auto 20px;
   overflow: hidden;
   border-radius: 12px;
   img { display: block; width: 100%; height: auto; border-radius: 12px; }
-  figcaption { padding-top: 6px; font-size: 0.6875rem; }
-  a { color: var(--text-body); }
 }
 
 @keyframes survey-enter {
@@ -93,7 +91,6 @@ p { margin: 0 0 20px; color: var(--text-body); font-size: 0.9375rem; line-height
   h2 { font-size: 1.3125rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .survey-gif img { display: none; }
   .survey-dialog[open] { animation: none; }
   .survey-primary, .survey-secondary { transition: none; }
 }

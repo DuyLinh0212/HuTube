@@ -21,7 +21,6 @@ export class FeedbackSurveyComponent {
   readonly enabled = input(true);
   readonly phase = signal<SurveyPhase>('closed');
   readonly formUrl = signal<string | null>(null);
-  readonly gifUnavailable = signal(false);
   @ViewChild('dialog', { static: true }) private dialog!: ElementRef<HTMLDialogElement>;
 
   private readonly auth = inject(AuthService);
@@ -44,7 +43,6 @@ export class FeedbackSurveyComponent {
       this.completed = false;
       this.phase.set('closed');
       this.formUrl.set(null);
-      this.gifUnavailable.set(false);
       if (userId && enabled) {
         // Root component survives route changes; refresh/re-entry starts a new visit.
         this.visit.add(timer(SURVEY_DELAY_MS).subscribe(() => this.refreshStatus(true)));

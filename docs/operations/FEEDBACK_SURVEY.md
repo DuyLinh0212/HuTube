@@ -2,7 +2,7 @@
 
 Popup được gắn tại root của User Web và bắt đầu đếm 120 giây sau khi nhận diện tài khoản đăng nhập, trên các trang ngoài đăng nhập/đăng ký. Chuyển trang nội bộ không đặt lại đồng hồ. Mỗi lần tải lại hoặc mở website là một lượt mới. Khách chưa đăng nhập không được nhắc vì chưa có tài khoản để đồng bộ.
 
-Trong mỗi lượt, lời mời xuất hiện một lần. Bấm X, Escape hoặc click nền chuyển lời mời sang popup nhỏ có GIF Tenor đã chọn. Từ popup nhỏ có thể đóng hẳn, hoặc mở khảo sát. “Làm khảo sát” mở Google Form ở tab mới và điền sẵn họ tên cùng mã tài khoản có chữ ký. Việc mở form không đánh dấu hoàn thành.
+Trong mỗi lượt, lời mời xuất hiện một lần. Bấm X, Escape hoặc click nền chuyển lời mời sang popup nhỏ có ảnh mèo do chủ dự án cung cấp, được đóng gói cùng ứng dụng. Từ popup nhỏ có thể đóng hẳn, hoặc mở khảo sát. “Làm khảo sát” mở Google Form ở tab mới và điền sẵn họ tên cùng mã tài khoản có chữ ký. Việc mở form không đánh dấu hoàn thành.
 
 Sau khi Google Forms thực sự nhận bài gửi, trigger gửi webhook có chữ ký HMAC SHA256 về HuTube. Backend xác thực chữ ký và mã tài khoản rồi ghi `public.users.feedback_survey_completed_at`. API trả `hasCompleted` từ thời điểm này, áp dụng cho mọi trình duyệt/thiết bị dùng tài khoản. Khi quay lại tab HuTube, trạng thái được đọc lại; lúc chờ trên HuTube, đọc lại mỗi 10 giây tối đa 10 phút. Trả lời khảo sát được giữ trong Google Forms; HuTube lưu thời điểm hoàn thành.
 
@@ -13,7 +13,7 @@ Sau khi Google Forms thực sự nhận bài gửi, trigger gửi webhook có ch
 3. Bấm **⚙ Cài đặt dự án (Project Settings)** ở thanh bên trái, kéo đến **Thuộc tính tập lệnh (Script properties) → Thêm thuộc tính tập lệnh (Add script property)**. Đây là cấu hình riêng của script, không phải câu hỏi trong Google Form. Thêm hai dòng và bấm **Lưu thuộc tính tập lệnh (Save script properties)**:
    - `HUTUBE_API_BASE_URL`: `https://hutube.onrender.com/api/v1` (hoặc API HTTPS tương ứng môi trường).
    - `HUTUBE_WEBHOOK_SECRET`: chuỗi ngẫu nhiên ít nhất 32 ký tự, giữ riêng. Có thể sinh bằng PowerShell: `[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`.
-4. Chạy **installHuTubeFeedback** và cấp quyền Google yêu cầu. Hàm kiểm tra đúng Form, thêm câu trả lời ngắn **Mã khảo sát HuTube**, tạo trigger **On form submit** và trigger thử lại mỗi 5 phút. Chạy lại bằng cùng tài khoản không tạo thêm câu hỏi/trigger. Đừng đổi loại hoặc xóa câu hỏi mã sau khi cài.
+4. Chạy **installHuTubeFeedback** và cấp quyền Google yêu cầu. Hàm kiểm tra đúng Form, thêm câu trả lời ngắn **Mã khảo sát HuTube**, đặt **bắt buộc**, kiểm tra định dạng mã và tạo trigger **On form submit** cùng trigger thử lại mỗi 5 phút. Chạy lại bằng cùng tài khoản không tạo thêm câu hỏi/trigger. Đừng đổi loại hoặc xóa câu hỏi mã sau khi cài. Nếu đã cài bản cũ, chép lại script mới và chạy lại hàm này để áp dụng bắt buộc/validation cho câu hỏi hiện có.
 5. Execution log in ra `FeedbackSurvey__TokenEntryId=...`. Đặt biến môi trường backend:
 
    ```dotenv
@@ -26,7 +26,15 @@ Sau khi Google Forms thực sự nhận bài gửi, trigger gửi webhook có ch
 
 Popup tự tắt nếu cấu hình entry ID hoặc secret chưa đầy đủ, tránh mời người dùng làm khảo sát khi chưa thể đồng bộ. Không đưa secret vào Vercel frontend config hoặc nội dung câu hỏi. Giữ secret ổn định để link khảo sát đang mở tiếp tục hợp lệ.
 
-Google Forms không hỗ trợ ẩn trường mã bằng link điền sẵn; người dùng sẽ thấy trường này và hướng dẫn giữ nguyên. Bài gửi trực tiếp từ link gốc không có mã vẫn được Google Forms lưu nhưng không thể đối chiếu chắc chắn với một tài khoản HuTube. Những bài cũ chỉ có họ tên cũng không thể tự ghép chính xác.
+Google Forms không hỗ trợ ẩn hoặc khóa chỉnh sửa trường mã bằng link điền sẵn. Người dùng vẫn thấy trường này; validation bắt buộc ngăn gửi khi bị xóa trắng hoặc sai cấu trúc 32 ký tự hex + dấu chấm + 64 ký tự hex. Validation trên Form không xác minh chữ ký: nếu người dùng sửa mã nhưng giữ đúng cấu trúc, Google có thể nhận bài, còn backend sẽ từ chối đồng bộ mã không có chữ ký hợp lệ. Nếu lỡ sửa mã, phải mở lại khảo sát từ HuTube. Link Form gốc không có mã sẽ không gửi được sau khi bật bắt buộc. Những bài cũ chỉ có họ tên không thể tự ghép chính xác. Muốn ẩn mã hoàn toàn cần dùng giao diện form riêng của HuTube.
+
+## App Mobile Flutter
+
+`FeedbackSurveyHost` được gắn ở root của app, dùng navigator chính và API xác thực `/api/v1/feedback-survey`. Sau 2 phút của một lượt dùng đã đăng nhập, tài khoản chưa hoàn thành nhận lời mời. Chuyển màn hình nội bộ không đặt lại bộ đếm. Đăng xuất/đổi tài khoản hủy bộ đếm, popup, polling và bỏ qua kết quả request cũ. Khách và màn hình đăng nhập/splash không hiện khảo sát.
+
+Bấm X, Back hệ thống hoặc chạm bên ngoài lần đầu chuyển sang popup năn nỉ nhỏ có ảnh mèo mới; lần đóng tiếp theo thoát hẳn. “Làm khảo sát” mở trình duyệt ngoài bằng URL có mã do backend cấp. App không đánh dấu hoàn thành khi mở. Khi quay lại từ Form, app kiểm tra ngay; lúc chờ ở foreground đọc lại mỗi 10 giây tối đa 10 phút, không polling khi chạy nền. Chỉ hiện cảm ơn sau khi API xác nhận đã hoàn thành. Nếu chưa nộp, lần mở app mới hoặc trở lại app sau khi đã đóng popup sẽ bắt đầu một lượt 2 phút mới; lần quay lại trực tiếp từ Form chỉ kiểm tra trạng thái, không bật lại lời mời ngay.
+
+Backend, Apps Script và cấu hình phải được triển khai đúng như phần cài đặt chung. Cần build/cài APK mới để có popup Mobile; cài đặt trên Google Forms hoặc cập nhật web không tự cập nhật APK đã cài. Không cần migration hoặc secret riêng trên Mobile.
 
 ## Khi chạy cài đặt báo lỗi
 
@@ -44,7 +52,7 @@ Apps Script ghi xác nhận vào Script Properties trước khi gửi webhook. N
 ## Kiểm tra sau triển khai
 
 - Tài khoản chưa hoàn thành: sau 2 phút xuất hiện lời mời; chuyển trang trong thời gian này không đặt lại đồng hồ.
-- X / Escape / click nền: hiện popup năn nỉ nhỏ có GIF; lần đóng tiếp theo thoát được hoàn toàn, không lặp ngay trong cùng lượt.
+- X / Escape / click nền: hiện popup năn nỉ nhỏ có ảnh mèo; lần đóng tiếp theo thoát được hoàn toàn, không lặp ngay trong cùng lượt.
 - Mở khảo sát nhưng chưa gửi: tài khoản vẫn chưa hoàn thành. Lần truy cập mới tiếp tục được nhắc sau 2 phút.
 - Nộp Google Form có mã: webhook thành công, trở lại HuTube thấy lời cảm ơn nếu popup còn mở; tải lại hoặc đăng nhập ở trình duyệt khác không bị nhắc.
 - Sai chữ ký, sai mã, sai Form ID: không cập nhật tài khoản.

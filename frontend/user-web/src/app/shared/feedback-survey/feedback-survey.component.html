@@ -9,14 +9,9 @@
     </button>
 
     @if (phase() === 'plea') {
-      <figure class="survey-gif">
-        @if (!gifUnavailable()) {
-          <img src="https://media1.tenor.com/m/DZybTbJi1vIAAAAC/n%C4%83n-n%E1%BB%89.gif"
-            [alt]="'survey.gifTitle' | translate" width="220" height="227" decoding="async"
-            (error)="gifUnavailable.set(true)" />
-        }
-        <figcaption><a href="https://tenor.com/view/n%C4%83n-n%E1%BB%89-gif-980829576867534578"
-          target="_blank" rel="noopener noreferrer">{{ 'survey.gifSource' | translate }}</a></figcaption>
+      <figure class="survey-image">
+        <img src="/assets/feedback/pleading-cat.png" [alt]="'survey.imageTitle' | translate"
+          width="220" height="220" decoding="async" />
       </figure>
       <h2 id="survey-title">{{ 'survey.pleaTitle' | translate }}</h2>
       <p id="survey-description">{{ 'survey.pleaDescription' | translate }}</p>
