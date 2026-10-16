@@ -1,6 +1,8 @@
-import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, finalize, forkJoin, of } from 'rxjs';
+import { Subscription, catchError, finalize, forkJoin, of } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { ContentService, VideoCard, VideoDetail } from '../../core/content.service';
@@ -11,6 +13,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { NetworkStatusService } from '../../core/network/network-status.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
+import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/video-playlist-menu.component';
 
 export interface ChannelLink {
   platform?: 'facebook' | 'instagram' | 'tiktok' | 'x' | 'other';
@@ -22,7 +25,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent],
+  imports: [NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -46,7 +49,23 @@ export class ChannelPage {
   readonly subscriptionBusy = signal(false);
   readonly subscriptionMessage = signal('');
   readonly authReady = signal(false);
-  readonly videos = signal<Array<VideoDetail | VideoCard>>([]);
+  readonly videos = signal<VideoCard[]>([]);
+  readonly popularVideos = signal<VideoCard[]>([]);
+  readonly videosLoading = signal(true);
+  readonly videosError = signal(false);
+  readonly popularError = signal(false);
+  readonly playlistsLoading = signal(true);
+  readonly playlistsError = signal(false);
+  readonly featuredDescription = signal('');
+  readonly videoSort = signal<'newest' | 'views'>('newest');
+  readonly videoTotal = signal(0);
+  readonly loadingMore = signal(false);
+  readonly loadMoreError = signal(false);
+  readonly featuredVideo = computed(() => this.popularVideos()[0] ?? null);
+  readonly latestVideos = computed(() => this.videos().slice(0, 4));
+  readonly popularPreview = computed(() => this.popularVideos().slice(1, 5));
+  readonly featuredPlaylists = computed(() => this.playlists().filter(list => list.itemCount > 0).slice(0, 4));
+  readonly tabVideos = computed(() => this.videoSort() === 'views' ? this.popularVideos() : this.videos());
   readonly playlists = signal<PlaylistSummary[]>([]);
   readonly playlistPreviewById = signal<Record<string, PlaylistItem[]>>({});
   readonly channelLinks = signal<ChannelLink[]>([]);
@@ -58,6 +77,9 @@ export class ChannelPage {
   readonly reportTargetTitle = signal('');
   private pendingHandle: string | null = null;
   private networkWasUnavailable = false;
+  private channelRequests = new Subscription();
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly firstLink = computed(() => this.channelLinks()[0] ?? null);
   readonly otherLinksCount = computed(() => Math.max(0, this.channelLinks().length - 1));
@@ -68,6 +90,7 @@ export class ChannelPage {
   });
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.channelRequests.unsubscribe());
     effect(() => {
       const unavailable = this.networkStatus.unavailable();
       const hasError = !!this.error();
@@ -79,7 +102,7 @@ export class ChannelPage {
       }
     });
 
-    this.auth.restore().subscribe({
+    this.auth.restore().pipe(takeUntilDestroyed()).subscribe({
       next: () => {
         this.authReady.set(true);
         if (this.pendingHandle) this.loadChannel(this.pendingHandle);
@@ -90,9 +113,10 @@ export class ChannelPage {
       }
     });
 
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe(params => {
       const handle = params.get('handle');
       if (handle) {
+        this.activeTab.set('home');
         this.pendingHandle = handle;
         if (this.authReady()) this.loadChannel(handle);
       }
@@ -132,35 +156,65 @@ export class ChannelPage {
   }
 
   loadChannel(handle: string) {
+    this.channelRequests.unsubscribe();
+    this.channelRequests = new Subscription();
     this.loading.set(true);
     this.error.set('');
     this.subscriptionMessage.set('');
+    this.videos.set([]);
+    this.popularVideos.set([]);
+    this.featuredDescription.set('');
+    this.playlists.set([]);
+    this.playlistPreviewById.set({});
+    this.videosLoading.set(true);
+    this.playlistsLoading.set(true);
+    this.videosError.set(false);
+    this.popularError.set(false);
+    this.playlistsError.set(false);
+    this.videoTotal.set(0);
+    this.loadingMore.set(false);
+    this.loadMoreError.set(false);
 
-    this.channelService.getChannel(handle).pipe(finalize(() => this.loading.set(false))).subscribe({
+    this.channelRequests.add(this.channelService.getChannel(handle).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: ch => {
         this.channel.set(ch);
         this.parseLinks(ch);
-        this.playlistService.publicByChannel(ch.channelId).subscribe({
+        this.channelRequests.add(this.playlistService.publicByChannel(ch.channelId)
+          .pipe(finalize(() => this.playlistsLoading.set(false))).subscribe({
           next: lists => {
             this.playlists.set(lists);
             this.loadPlaylistPreviews(lists);
           },
           error: () => {
+            this.playlistsError.set(true);
             this.playlists.set([]);
             this.playlistPreviewById.set({});
           }
-        });
+        }));
         // A channel page is always a public surface, including when its owner is
         // viewing it. The manage endpoint also returns rejected, private, and
         // processing videos for Studio, so using it here would expose moderation
         // outcomes in the public catalogue. The search endpoint applies the
         // published + public + approved visibility contract on the server.
-        this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
-          .subscribe(page => this.videos.set(page.items));
+        this.channelRequests.add(forkJoin({
+          latest: this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
+            .pipe(catchError(() => { this.videosError.set(true); return of(null); })),
+          popular: this.contentService.search({ channelId: ch.channelId, sort: 'views', page: 1, pageSize: 50 })
+            .pipe(catchError(() => { this.popularError.set(true); return of(null); })),
+        }).pipe(finalize(() => this.videosLoading.set(false))).subscribe(({ latest, popular }) => {
+          this.videos.set(latest?.items ?? []);
+          this.popularVideos.set(popular?.items ?? []);
+          this.videoTotal.set(latest?.total ?? popular?.total ?? 0);
+          const featured = popular?.items[0];
+          if (featured) {
+            this.channelRequests.add(this.contentService.detail(featured.videoId).pipe(catchError(() => of(null)))
+              .subscribe(detail => this.featuredDescription.set(detail?.description?.trim() ?? '')));
+          }
+        }));
 
       },
       error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.notFound'))
-    });
+    }));
   }
 
   videoViews(video: VideoDetail | VideoCard): number {
@@ -172,7 +226,7 @@ export class ChannelPage {
     this.playlistPreviewById.set({});
     if (!previewPlaylists.length) return;
 
-    forkJoin(previewPlaylists.map(playlist =>
+    this.channelRequests.add(forkJoin(previewPlaylists.map(playlist =>
       this.playlistService.get(playlist.playlistId).pipe(catchError(() => of(null)))
     )).subscribe(details => {
       const previews: Record<string, PlaylistItem[]> = {};
@@ -182,7 +236,7 @@ export class ChannelPage {
           .slice(0, 4) ?? [];
       });
       this.playlistPreviewById.set(previews);
-    });
+    }));
   }
 
   playlistPreviewItems(playlist: PlaylistSummary): PlaylistItem[] {
@@ -213,6 +267,34 @@ export class ChannelPage {
 
   setTab(tab: ChannelTab) {
     this.activeTab.set(tab);
+    this.host.nativeElement.querySelector('.channel-tabs-bar')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  showAllVideos(sort: 'newest' | 'views') {
+    this.videoSort.set(sort);
+    this.setTab('videos');
+  }
+
+  loadMoreVideos() {
+    const channel = this.channel();
+    if (!channel || this.loadingMore()) return;
+    const sort = this.videoSort();
+    const list = sort === 'views' ? this.popularVideos : this.videos;
+    this.loadingMore.set(true);
+    this.loadMoreError.set(false);
+    this.channelRequests.add(this.contentService.search({ channelId: channel.channelId, sort,
+      page: Math.floor(list().length / 50) + 1, pageSize: 50 })
+      .pipe(finalize(() => this.loadingMore.set(false))).subscribe({
+        next: page => { list.update(videos => [...videos, ...page.items]); this.videoTotal.set(page.total); },
+        error: () => this.loadMoreError.set(true),
+      }));
+  }
+
+  formatDuration(value: number): string {
+    const seconds = Math.max(0, Math.floor(value || 0));
+    const minutes = Math.floor(seconds / 60);
+    const remainder = String(seconds % 60).padStart(2, '0');
+    return minutes >= 60 ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${remainder}` : `${minutes}:${remainder}`;
   }
 
   toggleSubscribe() {

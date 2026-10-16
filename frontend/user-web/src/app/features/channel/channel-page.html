@@ -101,52 +101,138 @@
 
     <!-- Channel Navigation Tabs (Removed About tab) -->
     <nav class="channel-tabs-bar" [attr.aria-label]="'channel.tabs' | translate">
-      <button type="button" class="tab-item" [class.active]="activeTab() === 'home'" (click)="setTab('home')">
+      <button type="button" class="tab-item" [class.active]="activeTab() === 'home'" [attr.aria-current]="activeTab() === 'home' ? 'page' : null" (click)="setTab('home')">
         {{ 'nav.home' | translate }}
       </button>
-      <button type="button" class="tab-item" [class.active]="activeTab() === 'videos'" (click)="setTab('videos')">
+      <button type="button" class="tab-item" [class.active]="activeTab() === 'videos'" [attr.aria-current]="activeTab() === 'videos' ? 'page' : null" (click)="showAllVideos('newest')">
         {{ 'channel.videos' | translate }}
       </button>
-      <button type="button" class="tab-item" [class.active]="activeTab() === 'playlists'" (click)="setTab('playlists')">
+      <button type="button" class="tab-item" [class.active]="activeTab() === 'playlists'" [attr.aria-current]="activeTab() === 'playlists' ? 'page' : null" (click)="setTab('playlists')">
         {{ 'channel.playlists' | translate }}
       </button>
     </nav>
 
     <!-- Tab Content -->
     <div class="channel-tab-content">
-      @if (activeTab() === 'home' || activeTab() === 'videos') {
-        @if (videos().length) {
-          <div class="channel-video-grid">
-            @for (video of videos(); track video.videoId) {
-              <a class="channel-video-card" [routerLink]="['/watch', video.videoId]">
-                <div class="channel-video-thumb">
-                  @if (video.thumbnailUrl) {
-                    <img [src]="video.thumbnailUrl" alt="" />
-                  } @else {
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  }
-                </div>
-                <strong>{{ video.title }}</strong>
-                <small>{{ videoViews(video) | localeNumber }} {{ 'ui.views' | translate }} · {{ visibilityLabel(video.visibility) }}</small>
-              </a>
-            }
-          </div>
-        } @else {
-          <div class="empty-videos-box">
-            <div class="box-icon">
-              <img src="/assets/icons/my_video.png" class="empty-state-img" alt="" />
+      @if (activeTab() === 'home') {
+        <div class="channel-home">
+          @if (videosLoading()) {
+            <div class="channel-home-skeleton" role="status" [attr.aria-label]="'common.loading' | translate">
+              <div class="skeleton-spotlight"></div>
+              <div class="channel-home-grid">@for (item of [1, 2, 3, 4]; track item) { <div class="skeleton-video"></div> }</div>
             </div>
-            <h3>{{ 'channel.noVideos' | translate }}</h3>
-            <p>{{ 'channel.noVideosDesc' | translate }}</p>
-          </div>
-        }
+          } @else {
+            @if (featuredVideo(); as video) {
+              <article class="channel-spotlight" aria-labelledby="channel-featured-title">
+                <a class="spotlight-thumbnail" [routerLink]="['/watch', video.videoId]" [attr.aria-label]="video.title">
+                  @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" alt="" fetchpriority="high" /> }
+                  <span class="spotlight-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 5 11 7-11 7z" /></svg></span>
+                  <span class="video-duration">{{ formatDuration(video.duration) }}</span>
+                </a>
+                <div class="spotlight-copy">
+                  <div class="spotlight-topline">
+                    <span class="spotlight-label"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2 2 9.3l6.9-1z" /></svg>{{ 'channel.featuredVideo' | translate }}</span>
+                    <app-video-playlist-menu [videoId]="video.videoId" />
+                  </div>
+                  <a class="spotlight-title" [routerLink]="['/watch', video.videoId]"><h2 id="channel-featured-title">{{ video.title }}</h2></a>
+                  <p class="spotlight-meta"><strong>{{ ch.name }}</strong><span> · {{ video.views | localeNumber }} {{ 'ui.views' | translate }}</span>@if (video.publishedAt) { <span> · {{ video.publishedAt | localeDate:'mediumDate' }}</span> }</p>
+                  @if (featuredDescription()) { <p class="spotlight-description">{{ featuredDescription() }}</p> }
+                  <a class="spotlight-watch" [routerLink]="['/watch', video.videoId]"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7z" /></svg>{{ 'channel.watchNow' | translate }}</a>
+                </div>
+              </article>
+            } @else if (popularError() && !videosError()) {
+              <div class="channel-content-error" role="status"><p>{{ 'channel.videosLoadError' | translate }}</p><button class="btn-secondary" type="button" (click)="retryChannel()">{{ 'common.retry' | translate }}</button></div>
+            }
+
+            @if (latestVideos().length) {
+              <section class="channel-shelf" aria-labelledby="channel-latest-title">
+                <header class="channel-shelf-header"><h2 id="channel-latest-title"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="4"/><path d="m10 8 6 4-6 4z" fill="var(--surface)"/></svg>{{ 'channel.latestVideos' | translate }}</h2><button type="button" (click)="showAllVideos('newest')">{{ 'channel.viewAll' | translate }} <span aria-hidden="true">›</span></button></header>
+                <div class="channel-home-grid">@for (video of latestVideos(); track video.videoId) { <ng-container [ngTemplateOutlet]="videoCard" [ngTemplateOutletContext]="{ $implicit: video }" /> }</div>
+              </section>
+            } @else if (videosError()) {
+              <div class="channel-content-error" role="status"><p>{{ 'channel.videosLoadError' | translate }}</p><button class="btn-secondary" type="button" (click)="retryChannel()">{{ 'common.retry' | translate }}</button></div>
+            }
+
+            @if (popularPreview().length) {
+              <section class="channel-shelf" aria-labelledby="channel-popular-title">
+                <header class="channel-shelf-header"><h2 id="channel-popular-title"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2c1 5-3 6-1 10 1-1 2-3 2-4 4 3 6 6 4 10a7 7 0 0 1-12 0C3 12 7 8 9 6c-1 4 0 5 1 6 0-4 4-5 3-10z"/></svg>{{ 'channel.popularVideos' | translate }}</h2><button type="button" (click)="showAllVideos('views')">{{ 'channel.viewAll' | translate }} <span aria-hidden="true">›</span></button></header>
+                <div class="channel-home-grid">@for (video of popularPreview(); track video.videoId) { <ng-container [ngTemplateOutlet]="videoCard" [ngTemplateOutletContext]="{ $implicit: video }" /> }</div>
+              </section>
+            }
+
+            @if (!videos().length && !popularVideos().length && !videosError() && !popularError()) { <ng-container [ngTemplateOutlet]="emptyVideos" /> }
+          }
+
+          @if (featuredPlaylists().length) {
+            <section class="channel-shelf channel-home-playlists" aria-labelledby="channel-playlists-title">
+              <header class="channel-shelf-header"><h2 id="channel-playlists-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M5 7h10M5 11h6M5 15h6m4-4 4 3-4 3z"/></svg>{{ 'channel.featuredPlaylists' | translate }}</h2><button type="button" (click)="setTab('playlists')">{{ 'channel.viewAll' | translate }} <span aria-hidden="true">›</span></button></header>
+              <div class="channel-home-grid">
+                @for (list of featuredPlaylists(); track list.playlistId) {
+                  <a class="channel-home-playlist" [routerLink]="['/channel', ch.handle, 'playlists', list.playlistId]">
+                    <div class="channel-playlist-mosaic" [class.channel-playlist-mosaic--empty]="!playlistPreviewItems(list).length">
+                      @for (video of playlistPreviewItems(list).slice(0, 3); track video.playlistVideoId) { <img [src]="video.thumbnailUrl" alt="" loading="lazy" /> }
+                      @if (!playlistPreviewItems(list).length) { <span class="channel-playlist-mosaic-letter">{{ list.name.slice(0, 1).toUpperCase() }}</span> }
+                      <span class="channel-playlist-count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h14M3 11h14M3 16h8m5-2 5 3-5 3z"/></svg>{{ list.itemCount | localeNumber }} {{ 'ui.videos' | translate }}</span>
+                    </div>
+                    <h3>{{ list.name }}</h3>
+                  </a>
+                }
+              </div>
+            </section>
+          } @else if (playlistsError()) {
+            <div class="channel-content-error" role="status"><p>{{ 'channel.playlistsLoadError' | translate }}</p><button class="btn-secondary" type="button" (click)="retryChannel()">{{ 'common.retry' | translate }}</button></div>
+          }
+        </div>
       }
+
+      @if (activeTab() === 'videos') {
+        <div class="channel-video-sort" [attr.aria-label]="'explore.sortBy' | translate">
+          <button type="button" [class.active]="videoSort() === 'newest'" [attr.aria-pressed]="videoSort() === 'newest'" (click)="videoSort.set('newest')">{{ 'channel.latestVideos' | translate }}</button>
+          <button type="button" [class.active]="videoSort() === 'views'" [attr.aria-pressed]="videoSort() === 'views'" (click)="videoSort.set('views')">{{ 'channel.popularVideos' | translate }}</button>
+        </div>
+        @if (videosLoading()) {
+          <div class="channel-home-grid" role="status" [attr.aria-label]="'common.loading' | translate">@for (item of [1, 2, 3, 4]; track item) { <div class="skeleton-video"></div> }</div>
+        } @else if (videoSort() === 'newest' ? videosError() : popularError()) {
+          <div class="channel-content-error" role="status"><p>{{ 'channel.videosLoadError' | translate }}</p><button class="btn-secondary" type="button" (click)="retryChannel()">{{ 'common.retry' | translate }}</button></div>
+        } @else if (tabVideos().length) {
+          <div class="channel-video-grid">@for (video of tabVideos(); track video.videoId) { <ng-container [ngTemplateOutlet]="videoCard" [ngTemplateOutletContext]="{ $implicit: video }" /> }</div>
+          @if (tabVideos().length < videoTotal()) {
+            <div class="channel-load-more">
+              @if (loadMoreError()) { <p role="status">{{ 'channel.videosLoadError' | translate }}</p> }
+              <button type="button" class="btn-secondary" [disabled]="loadingMore()" (click)="loadMoreVideos()">{{ (loadingMore() ? 'common.loading' : 'channel.loadMore') | translate }}</button>
+            </div>
+          }
+        } @else { <ng-container [ngTemplateOutlet]="emptyVideos" /> }
+      }
+
+      <ng-template #videoCard let-video>
+        <article class="channel-video-card">
+          <a class="channel-video-thumb" [routerLink]="['/watch', video.videoId]" [attr.aria-label]="video.title">
+            @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" alt="" loading="lazy" /> }
+            @else { <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg> }
+            <span class="video-duration">{{ formatDuration(video.duration) }}</span>
+          </a>
+          <div class="channel-video-copy">
+            <a [routerLink]="['/watch', video.videoId]" class="channel-video-title"><h3>{{ video.title }}</h3></a>
+            <app-video-playlist-menu [videoId]="video.videoId" />
+            <small>{{ videoViews(video) | localeNumber }} {{ 'ui.views' | translate }}@if (video.publishedAt) { · {{ video.publishedAt | localeDate:'mediumDate' }} }</small>
+          </div>
+        </article>
+      </ng-template>
+
+      <ng-template #emptyVideos>
+        <div class="empty-videos-box"><div class="box-icon"><img src="/assets/icons/my_video.png" class="empty-state-img" alt="" /></div><h3>{{ 'channel.noVideos' | translate }}</h3><p>{{ 'channel.noVideosDesc' | translate }}</p></div>
+      </ng-template>
 
       @if (activeTab() === 'playlists') {
         @if (ch.isOwner) {
           <a class="channel-playlist-create" [routerLink]="['/channel', ch.handle, 'playlists']">+ {{ 'channel.createChannelPlaylist' | translate }}</a>
         }
-        @if (playlists().length) {
+        @if (playlistsLoading()) {
+          <div class="channel-home-grid" role="status" [attr.aria-label]="'common.loading' | translate">@for (item of [1, 2, 3, 4]; track item) { <div class="skeleton-video"></div> }</div>
+        } @else if (playlistsError()) {
+          <div class="channel-content-error" role="status"><p>{{ 'channel.playlistsLoadError' | translate }}</p><button class="btn-secondary" type="button" (click)="retryChannel()">{{ 'common.retry' | translate }}</button></div>
+        } @else if (playlists().length) {
           <div class="channel-playlist-grid">
             @for (list of playlists(); track list.playlistId) {
               <a class="channel-playlist-card" [routerLink]="['/channel', ch.handle, 'playlists', list.playlistId]">
