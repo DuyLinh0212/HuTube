@@ -1,5 +1,15 @@
 <a class="skip-link" href="#main-content">{{ 'common.skipToContent' | translate }}</a>
 
+@if (reloadRequired()) {
+  <aside class="app-update-notice" role="alert">
+    <div>
+      <strong>{{ 'app.reloadNeeded' | translate }}</strong>
+      <p>{{ (uploadInProgress() ? 'app.finishUploadFirst' : 'app.saveBeforeReload') | translate }}</p>
+    </div>
+    <button type="button" [disabled]="uploadInProgress()" (click)="reloadPage()">{{ 'app.reloadPage' | translate }}</button>
+  </aside>
+}
+
 @if (isAuthLayout()) {
   <app-auth-layout />
 } @else if (isStudioLayout()) {

@@ -1,3 +1,9 @@
 :host { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 100dvh; overflow-x: clip; }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 100; padding: 12px 16px; border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-card); }
 .skip-link:focus { top: 12px; }
+.app-update-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--surface-soft); color: var(--ink); font-size: .85rem; }
+.app-update-notice > div { flex: 1 1 240px; min-width: 0; }
+.app-update-notice p { margin: 5px 0 0; color: var(--text-body); font-size: .8rem; line-height: 1.5; }
+.app-update-notice button { min-height: 40px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.app-update-notice button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.app-update-notice button:disabled { cursor: wait; }
