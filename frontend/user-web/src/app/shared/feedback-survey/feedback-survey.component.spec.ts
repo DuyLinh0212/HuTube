@@ -62,7 +62,7 @@ describe('Feedback survey invitation', () => {
     dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
     expect(component.phase()).toBe('plea');
-    expect(fixture.nativeElement.querySelector('img').src).toContain('DZybTbJi1vIAAAAC');
+    expect(fixture.nativeElement.querySelector('img').src).toContain('/assets/feedback/pleading-cat.png');
     const cancel = new Event('cancel', { cancelable: true });
     dialog.dispatchEvent(cancel);
     fixture.detectChanges();
