@@ -24,14 +24,27 @@ class ContentService {
     String? tag,
     String sort = 'newest',
   }) async {
-    final endpoint = _query(explore ? '/feed/explore' : '/feed/home', {
-      'page': page,
-      'pageSize': pageSize,
-      'sort': sort,
-      if (explore) 'categoryId': categoryId,
-      if (explore) 'tag': tag,
-    });
-    final json = await auth.api.request('GET', endpoint);
+    // The personalized endpoint needs the signed-in user's identity to
+    // populate the recommendation request. Public feed requests deliberately
+    // remain anonymous, so use the protected client for this one.
+    final useRecommendations = !explore && auth.authenticated;
+    final endpoint = _query(
+      explore
+          ? '/feed/explore'
+          : useRecommendations
+          ? '/feed/recommended'
+          : '/feed/home',
+      {
+        'page': page,
+        'pageSize': pageSize,
+        if (!useRecommendations) 'sort': sort,
+        if (explore) 'categoryId': categoryId,
+        if (explore) 'tag': tag,
+      },
+    );
+    final json = useRecommendations
+        ? await auth.protected('GET', endpoint)
+        : await auth.api.request('GET', endpoint);
     return PageResult(
       items: (json['items'] as List? ?? const [])
           .whereType<Map>()
