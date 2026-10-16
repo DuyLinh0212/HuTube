@@ -7,6 +7,11 @@ def run(suite, owner, member):
     playlist_id = suite.state.get('playlist_id')
     if not playlist_id:
         return
+    video_id = suite.state.get('video_id')
+    if not video_id:
+        suite.blocked(owner, 'U-PLAYLIST-DELETE-01', 'Playlist phụ: cancel rồi delete; giữ playlist/video chính',
+                      'No uploaded video checkpoint')
+        return
     base = '/playlists/' + playlist_id
     original = suite.api(owner, 'get', base).json()
 
@@ -82,6 +87,6 @@ def run(suite, owner, member):
         expect(page.locator('.create-card')).to_be_visible()
         assert suite.api(owner, 'get', target).status == 404
         assert suite.api(owner, 'get', base).status == 200
-        assert suite.api(owner, 'get', '/videos/' + suite.state['video_id']).status == 200
+        assert suite.api(owner, 'get', '/videos/' + video_id).status == 200
     suite.case(owner, 'U-PLAYLIST-DELETE-01', 'Playlist phụ: cancel rồi delete; giữ playlist/video chính', delete,
                expected='Cancel giữ tài nguyên; DELETE 204 + GET 404; playlist/video chính vẫn GET 200')

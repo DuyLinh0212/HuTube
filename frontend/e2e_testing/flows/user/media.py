@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
+from urllib.parse import urlsplit
 
 from playwright.sync_api import expect
 
@@ -44,7 +45,8 @@ def run(suite, owner, member):
             page.locator('.btn-wizard-next').click()
         expect(page.locator('input[name=publishMode][value=schedule]')).to_be_disabled()
         page.locator('input[name=visibility][value=private]').check()
-        with page.expect_response(lambda r: r.request.method == 'POST' and r.url == suite.config['api_url'] + '/videos', timeout=120000) as response:
+        videos_path = urlsplit(suite.config['api_url'] + '/videos').path.rstrip('/')
+        with page.expect_response(lambda r: r.request.method == 'POST' and urlsplit(r.url).path.rstrip('/') == videos_path, timeout=120000) as response:
             page.locator('.btn-wizard-publish').click()
         assert response.value.status == 201
         video.update(response.value.json())
