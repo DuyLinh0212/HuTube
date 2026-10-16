@@ -38,6 +38,7 @@ public sealed class VideoProcessingOptions
     public bool Enabled { get; set; } = true;
     public string FfmpegPath { get; set; } = "ffmpeg";
     public string FfprobePath { get; set; } = "ffprobe";
+    public int Threads { get; set; } = 2;
 }
 
 public sealed class FeatureOptions

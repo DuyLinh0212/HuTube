@@ -1,8 +1,9 @@
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpEvent, HttpEventType, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { map, catchError, switchMap } from 'rxjs/operators';
+import { Observable, TimeoutError, concat, defer, of, range, throwError, timer } from 'rxjs';
+import { map, catchError, concatMap, filter, retry, switchMap } from 'rxjs/operators';
 import { RuntimeConfig } from './runtime-config';
+import { AuthService } from './auth.service';
 
 export interface PageResult<T> { items: T[]; page: number; pageSize: number; total: number; }
 export interface VideoStats { views: number; likes: number; dislikes: number; comments: number; averageRating: number | null; ratingCount: number; shares: number; watchSeconds?: number; }
@@ -110,6 +111,7 @@ export interface AppealItem {
 export class ContentService {
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
+  private readonly auth = inject(AuthService);
   private get base() { return this.config.apiBaseUrl; }
 
   feed(kind: 'home' | 'explore' | 'subscriptions', page = 1, pageSize = 20, categoryId?: string, tag?: string, sort?: string) {
@@ -218,11 +220,57 @@ export class ContentService {
   preflight(request: { channelId: string; fileSize: number; duration: number; contentType: string; sourceQuality: string }) {
     return this.http.post<UploadPreflight>(`${this.base}/videos/upload-preflight`, request);
   }
-  upload(data: FormData, idempotencyKey?: string) {
-    return this.http.post<VideoDetail>(`${this.base}/videos`, data, {
-      reportProgress: true, observe: 'events', headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined
-    });
+  upload(data: FormData, idempotencyKey: string = crypto.randomUUID()): Observable<HttpEvent<VideoDetail>> {
+    const file = data.get('Video');
+    if (!(file instanceof File)) return throwError(() => new HttpErrorResponse({ status: 400, error: { code: 'VIDEO_REQUIRED' } }));
+    const generation = this.auth.sessionVersion;
+    const freshSession = () => defer(() => generation !== this.auth.sessionVersion
+      ? throwError(() => new HttpErrorResponse({ status: 401, error: { code: 'SESSION_CHANGED' } }))
+      : this.auth.ensureFreshAccessToken());
+    const retryOptions = { count: 2, delay: (error: unknown, attempt: number) => {
+      const status = error instanceof HttpErrorResponse ? error.status : error instanceof TimeoutError ? 0 : -1;
+      return [0, 429, 502, 503, 504].includes(status)
+        ? timer(status === 429 ? 60_000 : attempt * 1_500) : throwError(() => error);
+    } };
+    const sessionRequest = {
+      uploadId: idempotencyKey, channelId: data.get('ChannelId'), fileName: file.name,
+      contentType: file.type || 'video/mp4', fileSize: file.size,
+      duration: Number(data.get('Duration')), sourceQuality: data.get('SourceQuality'),
+    };
+    return freshSession().pipe(switchMap(() => this.http.post<{ uploadId: string; chunkSize: number; nextChunk: number }>(
+      `${this.base}/videos/upload-sessions`, sessionRequest).pipe(retry(retryOptions))), switchMap(session => {
+      const totalChunks = Math.ceil(file.size / session.chunkSize);
+      if (!Number.isInteger(session.chunkSize) || session.chunkSize <= 0 || session.chunkSize > 24 * 1024 * 1024
+          || !Number.isInteger(session.nextChunk) || session.nextChunk < 0 || session.nextChunk > totalChunks) {
+        return throwError(() => new HttpErrorResponse({ status: 502, error: { code: 'INVALID_UPLOAD_SESSION' } }));
+      }
+      const metadata = new FormData();
+      data.forEach((value, key) => { if (key !== 'Video') metadata.append(key, value); });
+      const progress = (loaded: number): HttpEvent<VideoDetail> => ({ type: HttpEventType.UploadProgress, loaded: Math.min(loaded, file.size), total: file.size });
+      return concat(
+        of(progress(session.nextChunk * session.chunkSize)),
+        range(session.nextChunk, totalChunks - session.nextChunk).pipe(concatMap(index => {
+          const offset = index * session.chunkSize;
+          const part = file.slice(offset, Math.min(offset + session.chunkSize, file.size));
+          const chunk = new FormData();
+          chunk.append('chunk', part, 'chunk');
+          return freshSession().pipe(
+            switchMap(() => this.http.post<{ nextChunk: number }>(
+              `${this.base}/videos/upload-sessions/${session.uploadId}/chunks/${index}`, chunk,
+              { observe: 'events', reportProgress: true }).pipe(
+                retry(retryOptions),
+                filter(event => event.type === HttpEventType.UploadProgress || event.type === HttpEventType.Response),
+                map(event => progress(offset + (event.type === HttpEventType.UploadProgress ? Math.min(event.loaded, part.size) : part.size))),
+              )),
+          );
+        })),
+        freshSession().pipe(switchMap(() => this.http.post<VideoDetail>(
+          `${this.base}/videos/upload-sessions/${session.uploadId}/complete`, metadata,
+          { observe: 'events', reportProgress: true }).pipe(retry(retryOptions), filter(event => event.type === HttpEventType.Response)))),
+      );
+    }));
   }
+  cancelUpload(uploadId: string) { return this.http.delete<void>(`${this.base}/videos/upload-sessions/${encodeURIComponent(uploadId)}`); }
   publish(videoId: string) { return this.http.post<VideoDetail>(`${this.base}/videos/${videoId}/publish`, {}); }
   update(videoId: string, data: { visibility?: string; title?: string; description?: string; categoryId?: string | null; clearCategory?: boolean; promotionEnabled?: boolean; tags?: string[]; videoCards?: { videoId: string; startSeconds: number }[] }) {
     return this.http.patch<VideoDetail>(`${this.base}/videos/${videoId}`, data);

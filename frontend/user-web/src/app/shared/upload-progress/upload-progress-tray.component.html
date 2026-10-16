@@ -21,5 +21,8 @@
       }
     </div>
     @if (upload.state().error) { <p class="tray-error">{{ upload.state().error }}</p> }
+    @if (upload.canRetry()) {
+      <button class="tray-retry" type="button" (click)="upload.retry()">{{ 'common.retry' | translate }}</button>
+    }
   </aside>
 }

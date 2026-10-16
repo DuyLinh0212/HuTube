@@ -100,15 +100,18 @@ public sealed class FfmpegVideoTranscoder(VideoProcessingOptions options) : IVid
         };
         foreach (var argument in new[]
         {
-            "-hide_banner", "-loglevel", "error", "-y", "-i", sourceFilePath,
+            "-hide_banner", "-loglevel", "error", "-y", "-threads", Math.Clamp(options.Threads, 1, 8).ToString(),
+            "-filter_threads", "1", "-i", sourceFilePath,
             "-vf", $"scale=-2:{height}", "-c:v", "libx264", "-preset", "veryfast",
+            "-threads", Math.Clamp(options.Threads, 1, 8).ToString(),
             "-b:v", $"{bitrate}k", "-maxrate", $"{bitrate}k", "-bufsize", $"{bitrate * 2}k",
             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-f", "mp4", temporaryOutput
         }) start.ArgumentList.Add(argument);
 
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Không thể khởi động FFmpeg.");
         var stderr = process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
+        try { await process.WaitForExitAsync(ct); }
+        catch { if (!process.HasExited) process.Kill(true); throw; }
         var error = await stderr;
         if (process.ExitCode != 0)
             throw new InvalidOperationException($"FFmpeg không tạo được {quality}: {error.Trim()}");
@@ -139,13 +142,15 @@ public sealed class FfmpegVideoTranscoder(VideoProcessingOptions options) : IVid
         foreach (var argument in new[]
         {
             "-hide_banner", "-loglevel", "error", "-y", "-ss", "00:00:01",
-            "-i", sourceFilePath, "-frames:v", "1", "-vf", "scale='min(1280,iw)':-2",
+            "-threads", Math.Clamp(options.Threads, 1, 8).ToString(), "-filter_threads", "1",
+            "-i", sourceFilePath, "-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", "-threads", "1",
             "-q:v", "3", "-f", "image2", output
         }) start.ArgumentList.Add(argument);
 
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Không thể khởi động FFmpeg để tạo thumbnail.");
         var stderr = process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
+        try { await process.WaitForExitAsync(ct); }
+        catch { if (!process.HasExited) process.Kill(true); throw; }
         var error = await stderr;
         if (process.ExitCode != 0)
             throw new InvalidOperationException($"FFmpeg không tạo được thumbnail: {error.Trim()}");

@@ -132,6 +132,7 @@ builder.Services.AddScoped<VideoRenditionProcessor>();
 builder.Services.AddHostedService<VideoRenditionProcessingWorker>();
 builder.Services.AddHostedService<VideoMediaRetentionCleanupService>();
 builder.Services.AddSingleton(_ => new CfSeedChunkUploadStore(builder.Configuration["CfSeedUpload:Directory"]));
+builder.Services.AddSingleton<VideoChunkUploadStore>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddHostedService<PlanExpirationWorker>();
 builder.Services.AddScoped<AdminSubscriptionService>();
@@ -274,6 +275,7 @@ app.Use(async (context, next) => {
     await next(context);
 });
 if (!app.Environment.IsDevelopment()) app.UseHsts();
+app.UseRouting();
 app.UseCors();
 var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsPath);
@@ -284,7 +286,6 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseMiddleware<ApiRequestTelemetryMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
-app.UseRouting();
 app.UseRateLimiter(); app.UseAuthentication(); app.UseMiddleware<AdminApiAuditMiddleware>(); app.UseAuthorization();
 app.UseStatusCodePages(context => ApiErrors.WriteAsync(context.HttpContext, context.HttpContext.Response.StatusCode, "HTTP_ERROR", "Yêu cầu không được xử lý."));
 if (!app.Environment.IsProduction()) {

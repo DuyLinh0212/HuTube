@@ -1,8 +1,9 @@
-import { HttpEventType, HttpResponse } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
+import { Injectable, effect, inject, signal } from '@angular/core';
+import { Subscription, TimeoutError } from 'rxjs';
 import { ContentService, VideoDetail } from './content.service';
 import { I18nService } from './i18n.service';
+import { AuthService } from './auth.service';
 
 export type UploadPhase = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
 
@@ -24,16 +25,40 @@ const initialState = (): UploadState => ({
 export class UploadStateService {
   private readonly content = inject(ContentService);
   private readonly i18n = inject(I18nService);
+  private readonly auth = inject(AuthService);
   private request?: Subscription;
+  private publishRequest?: Subscription;
   private idempotencyKey?: string;
+  private lastUpload?: { data: FormData; fileName: string; publishUnlisted: boolean };
+  private uploadUserId?: string;
   readonly state = signal<UploadState>(initialState());
+
+  constructor() {
+    effect(() => {
+      const userId = this.auth.user()?.userId;
+      if (this.lastUpload && userId !== this.uploadUserId) {
+        this.request?.unsubscribe();
+        this.publishRequest?.unsubscribe();
+        this.request = undefined;
+        this.idempotencyKey = undefined;
+        this.lastUpload = undefined;
+        this.state.set(userId ? initialState() : { ...initialState(), phase: 'failed', error: this.i18n.t('upload.sessionExpired') });
+      }
+    });
+  }
 
   start(data: FormData, fileName: string, publishUnlisted: boolean): boolean {
     const current = this.state().phase;
     if (current === 'uploading' || current === 'processing') return false;
 
     const total = this.findFileSize(data);
-    if (!this.idempotencyKey || current === 'idle') this.idempotencyKey = crypto.randomUUID();
+    const sameFile = ['Video', 'ChannelId', 'Duration', 'SourceQuality'].every(key => this.lastUpload?.data.get(key) === data.get(key));
+    if (!this.idempotencyKey || current === 'idle' || !sameFile) {
+      if (this.idempotencyKey) this.content.cancelUpload(this.idempotencyKey).subscribe({ error: () => undefined });
+      this.idempotencyKey = crypto.randomUUID();
+    }
+    this.lastUpload = { data, fileName, publishUnlisted };
+    this.uploadUserId = this.auth.user()?.userId;
     this.state.set({ ...initialState(), phase: 'uploading', progress: 1, total, fileName });
     this.request = this.content.upload(data, this.idempotencyKey).subscribe({
       next: event => {
@@ -53,7 +78,7 @@ export class UploadStateService {
         }
         this.state.update(value => ({ ...value, phase: 'processing', progress: 95, video: response.body, error: '' }));
         if (publishUnlisted && response.body.visibility === 'unlisted') {
-          this.content.publish(response.body.videoId).subscribe({
+          this.publishRequest = this.content.publish(response.body.videoId).subscribe({
             next: video => this.finish(video),
             error: error => this.fail(this.readError(error), response.body)
           });
@@ -69,20 +94,36 @@ export class UploadStateService {
 
   cancel() {
     this.request?.unsubscribe();
+    this.publishRequest?.unsubscribe();
     this.request = undefined;
+    if (this.idempotencyKey) this.content.cancelUpload(this.idempotencyKey).subscribe({ error: () => undefined });
     this.idempotencyKey = undefined;
+    this.lastUpload = undefined;
     this.state.set(initialState());
   }
 
   reset() {
-    this.request?.unsubscribe();
-    this.request = undefined;
-    this.idempotencyKey = undefined;
-    this.state.set(initialState());
+    this.cancel();
   }
 
+  retry() {
+    const last = this.lastUpload;
+    if (this.state().phase !== 'failed' || !last) return;
+    const savedVideo = this.state().video;
+    if (savedVideo && last.publishUnlisted) {
+      this.state.update(value => ({ ...value, phase: 'processing', error: '' }));
+      this.publishRequest = this.content.publish(savedVideo.videoId).subscribe({
+        next: video => this.finish(video), error: error => this.fail(this.readError(error), savedVideo),
+      });
+    } else this.start(last.data, last.fileName, last.publishUnlisted);
+  }
+
+  canRetry() { return this.state().phase === 'failed' && !!this.lastUpload; }
+
   private finish(video: VideoDetail) {
+    if (this.idempotencyKey) this.content.cancelUpload(this.idempotencyKey).subscribe({ error: () => undefined });
     this.idempotencyKey = undefined;
+    this.lastUpload = undefined;
     this.state.update(value => ({ ...value, phase: 'completed', progress: 100, video, error: '' }));
   }
 
@@ -96,7 +137,20 @@ export class UploadStateService {
     return value instanceof File ? value.size : 0;
   }
 
-  private readError(_error: any): string {
+  private readError(error: unknown): string {
+    if (error instanceof TimeoutError) return this.i18n.t('upload.connectionLost');
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 0) return this.i18n.t('upload.connectionLost');
+      if (error.status === 401) return this.i18n.t('upload.sessionExpired');
+      if (error.status === 413) return this.i18n.t('upload.requestTooLarge');
+      if (error.status === 429) return this.i18n.t('upload.rateLimited');
+      if (error.status === 404 && (!error.error?.code || error.error.code === 'HTTP_ERROR')) return this.i18n.t('upload.apiUpdateRequired');
+      if (error.status === 507 && typeof error.error?.detail === 'string') return error.error.detail;
+      if (error.status >= 500) return this.i18n.t('upload.serverBusy');
+      const detail = error.error?.detail ?? error.error?.message;
+      if (typeof detail === 'string' && detail.trim()) return detail;
+      if (error.status === 403) return this.i18n.t('upload.permissionDenied');
+    }
     return this.i18n.t('upload.uploadError');
   }
 }

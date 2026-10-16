@@ -479,7 +479,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     data.append('AllowComments', String(this.allowComments));
     data.append('Duration', String(this.duration || 1));
     data.append('SourceQuality', this.sourceQuality);
-    data.append('Video', this.selectedFile, this.selectedFile.name);
+    data.append('Video', this.selectedFile);
     if (this.thumbnailFile) data.append('Thumbnail', this.thumbnailFile, this.thumbnailFile.name);
     this.tags().forEach(tag => data.append('Tags', tag));
     data.append('ChaptersJson', JSON.stringify(this.chapters().map(chapter => ({ startSeconds: this.toSeconds(chapter.time), title: chapter.title.trim() }))));

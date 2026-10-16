@@ -200,6 +200,7 @@ export class AuthService {
   private readonly verificationFlights = new Map<string, Observable<Message>>();
   private generation = 0;
   private restored = false;
+  private accessTokenExpiresAt = 0;
   get sessionVersion(): number { return this.generation; }
   private get headers(): HttpHeaders {
     let headers = new HttpHeaders({ 'X-HuTube-Client': 'web' });
@@ -228,8 +229,16 @@ export class AuthService {
       this.raw.post<T>(this.config.apiBaseUrl + path, body, { withCredentials: true, headers: this.headers }),
     );
   }
-  clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); }
-  private accept(response: LoginResponse): void { this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true; }
+  clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
+  private accept(response: LoginResponse): void {
+    this.accessTokenExpiresAt = Date.parse(response.expiresAt) || 0;
+    this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true;
+  }
+  ensureFreshAccessToken(): Observable<string> {
+    const token = this.accessToken();
+    return token && this.accessTokenExpiresAt > Date.now() + 120_000
+      ? of(token) : this.refresh().pipe(map(response => response.accessToken));
+  }
   login(email: string, password: string, location?: ClientGeoPayload): Observable<User> {
     const generation = ++this.generation;
     const body: Record<string, unknown> = {

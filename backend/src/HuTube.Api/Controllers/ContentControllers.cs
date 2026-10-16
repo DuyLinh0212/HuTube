@@ -177,7 +177,7 @@ public sealed class VideosController(IContentService content) : ControllerBase
         var result = await content.CreateVideoAsync(UserId, new CreateVideoCommand(form.ChannelId, form.Title, form.Description,
             form.CategoryId, form.LanguageCode, form.Visibility, form.AgeRestricted, form.Duration, form.SourceQuality, form.Video.Length,
             form.Video.FileName, form.Video.ContentType, videoStream, form.Thumbnail?.FileName, form.Thumbnail?.ContentType,
-            thumbnailStream, form.Tags, chapters, idempotencyKey, AllowComments: form.AllowComments, VideoCards: videoCards), ct);
+            thumbnailStream, form.Tags, chapters, idempotencyKey, DeferLowerRenditions: true, AllowComments: form.AllowComments, VideoCards: videoCards), ct);
         return Created($"/api/v1/videos/{result.VideoId}", result);
     }
 
