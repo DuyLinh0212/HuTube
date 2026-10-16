@@ -8,7 +8,9 @@ public sealed class ApiRequestTelemetryTests
     public void SnapshotAggregatesObservedApiRequestsAndHourlyTraffic()
     {
         var telemetry = new ApiRequestTelemetry();
-        var now = DateTimeOffset.UtcNow;
+        // Keep the sample away from a minute boundary so the snapshot's
+        // RequestsThisMinute assertion cannot race into the next bucket.
+        var now = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60 * 60 + 30);
 
         telemetry.Record(now, 200, 10);
         telemetry.Record(now, 429, 50);
