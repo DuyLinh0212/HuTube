@@ -462,9 +462,8 @@ public sealed class ContentService(
         return new(cards, p, size, total);
     }
 
-    public async Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery search, CancellationToken ct = default)
+    private IQueryable<Video> SearchCatalogue(SearchVideosQuery search)
     {
-        var (page, pageSize) = Page(search.Page, search.PageSize);
         var query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
 
         var term = search.Query?.Trim();
@@ -547,6 +546,28 @@ public sealed class ContentService(
                 _ => query
             };
         }
+
+        return query;
+    }
+
+    public async Task<IReadOnlyList<SearchChannelResponse>> GetSearchChannelsAsync(SearchVideosQuery search, CancellationToken ct = default)
+    {
+        // Include matching channels from every page; selecting one must not erase the other options.
+        var counts = SearchCatalogue(search with { ChannelId = null })
+            .GroupBy(video => video.ChannelId)
+            .Select(group => new { ChannelId = group.Key, VideoCount = group.Count() });
+        return await (from count in counts
+                      join channel in db.Channels.AsNoTracking() on count.ChannelId equals channel.ChannelId
+                      orderby channel.Name, channel.Handle
+                      select new SearchChannelResponse(channel.ChannelId, channel.Name, channel.Handle, count.VideoCount)).ToListAsync(ct);
+    }
+
+    public async Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery search, CancellationToken ct = default)
+    {
+        var (page, pageSize) = Page(search.Page, search.PageSize);
+        var query = SearchCatalogue(search);
+        var term = search.Query?.Trim();
+        var cleanTerm = term?.TrimStart('@');
 
         var total = await query.CountAsync(ct);
 

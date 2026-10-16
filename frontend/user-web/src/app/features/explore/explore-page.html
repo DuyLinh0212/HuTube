@@ -3,13 +3,6 @@
   @if (isSearchMode) {
     <header class="search-header">
       <div class="search-header-meta">
-        <button type="button" class="back-showcase-btn" (click)="clearAllFilters()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-          <span>{{ 'explore.featured' | translate }}</span>
-        </button>
         <h1 class="search-title">
           {{ hasSearchQuery() ? ('explore.searchHeading' | translate) : ('explore.heading' | translate) }}
           @if (searchQuery()) {
@@ -22,26 +15,10 @@
 
     <!-- Filter Control Panel -->
     <section class="filter-panel" [attr.aria-label]="'explore.filters' | translate">
-      <div class="filter-panel-heading">
-        <div class="filter-heading-left">
-          <span class="filter-symbol" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="4" y1="6" x2="20" y2="6"></line>
-              <line x1="7" y1="12" x2="17" y2="12"></line>
-              <line x1="10" y1="18" x2="14" y2="18"></line>
-            </svg>
-          </span>
-          <strong>{{ 'explore.filterTitle' | translate }}</strong>
-        </div>
-        <button class="clear-filters" type="button" (click)="clearAllFilters()">
-          {{ 'explore.clearAllFilters' | translate }}
-        </button>
-      </div>
-
       <div class="filter-grid">
         <label class="filter-control">
           <span>{{ 'explore.sortBy' | translate }}</span>
-          <select [value]="selectedSort()" (change)="changeSort($any($event.target).value)">
+          <select [ngModel]="selectedSort()" (ngModelChange)="changeSort($event)">
             @for (opt of sortOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
             }
@@ -49,8 +26,8 @@
         </label>
 
         <label class="filter-control">
-          <span>{{ 'explore.durationAll' | translate }}</span>
-          <select [value]="selectedDuration()" (change)="changeDuration($any($event.target).value)">
+          <span>{{ 'explore.durationLabel' | translate }}</span>
+          <select [ngModel]="selectedDuration()" (ngModelChange)="changeDuration($event)">
             @for (opt of durationOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
             }
@@ -58,14 +35,34 @@
         </label>
 
         <label class="filter-control">
-          <span>{{ 'explore.dateAll' | translate }}</span>
-          <select [value]="selectedDateRange()" (change)="changeDateRange($any($event.target).value)">
+          <span>{{ 'explore.dateLabel' | translate }}</span>
+          <select [ngModel]="selectedDateRange()" (ngModelChange)="changeDateRange($event)">
             @for (opt of dateOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
             }
           </select>
         </label>
+
+        <label class="filter-control">
+          <span>{{ 'explore.channelLabel' | translate }}</span>
+          <select [ngModel]="selectedChannelId()" [disabled]="channelFilterError()"
+            (ngModelChange)="changeChannel($event)">
+            <option value="">{{ (channelFilterError() ? 'explore.channelLoadError' : 'explore.channelAll') | translate }}</option>
+            @if (selectedChannelId() && !hasSelectedChannelOption) {
+              <option [value]="selectedChannelId()">{{ 'explore.channelSelected' | translate }}</option>
+            }
+            @for (channel of searchChannels(); track channel.channelId) {
+              <option [value]="channel.channelId">{{ channel.name }} · {{ channel.handle.startsWith('@') ? channel.handle : '@' + channel.handle }} ({{ channel.videoCount | localeNumber }})</option>
+            }
+          </select>
+        </label>
       </div>
+      <button class="clear-filters" type="button" [disabled]="!hasActiveFilters" (click)="clearAllFilters()">
+        {{ 'explore.clearAllFilters' | translate }}
+      </button>
+      @if (channelFilterError()) {
+        <button class="filter-retry" type="button" (click)="loadSearch()">{{ 'common.retry' | translate }}</button>
+      }
     </section>
 
     <!-- Search Video Results Grid -->
@@ -111,9 +108,11 @@
             <span class="empty-icon" aria-hidden="true">⌕</span>
             <p class="empty-title">{{ 'explore.noResultsTitle' | translate }}</p>
             <p class="empty-description">{{ 'explore.noResultsDesc' | translate }}</p>
+            @if (hasActiveFilters) {
             <button class="clear-filters" type="button" (click)="clearAllFilters()">
               {{ 'explore.clearAllFilters' | translate }}
             </button>
+            }
           </div>
         }
       </section>

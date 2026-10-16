@@ -36,6 +36,12 @@ function interpolate(message: string, params?: TranslationParams): string {
 export const DICTIONARY: Record<AppLang, Record<string, string>> = {
   vi: {
     ...FEEDBACK_SURVEY_TRANSLATIONS.vi,
+    'explore.durationLabel': 'Thời lượng',
+    'explore.dateLabel': 'Ngày đăng',
+    'explore.channelLabel': 'Kênh',
+    'explore.channelAll': 'Tất cả kênh',
+    'explore.channelLoadError': 'Chưa tải được kênh',
+    'explore.channelSelected': 'Kênh đang chọn',
     ...USER_UI_TRANSLATIONS.vi,
     'common.notSupported': 'Chưa hỗ trợ',
     'upload.draftSaved': 'Đã lưu nháp metadata. Khi quay lại, hãy chọn lại file video.',
@@ -2092,6 +2098,12 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
   en: {
     ...FEEDBACK_SURVEY_TRANSLATIONS.en,
+    'explore.durationLabel': 'Duration',
+    'explore.dateLabel': 'Upload date',
+    'explore.channelLabel': 'Channel',
+    'explore.channelAll': 'All channels',
+    'explore.channelLoadError': 'Channels unavailable',
+    'explore.channelSelected': 'Selected channel',
     ...USER_UI_TRANSLATIONS.en,
     'common.notSupported': 'Not supported yet',
     'upload.draftSaved': 'Metadata draft saved. Select the video file again when returning.',

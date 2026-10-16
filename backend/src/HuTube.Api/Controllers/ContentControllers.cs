@@ -127,6 +127,15 @@ public sealed class VideosController(IContentService content) : ControllerBase
     private Guid? CurrentUserId => Guid.TryParse(User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
     private Guid UserId => CurrentUserId ?? throw new ContentException(401, "UNAUTHORIZED", "Vui lòng đăng nhập để tiếp tục.");
 
+    [HttpGet("search/channels"), EnableRateLimiting("search")]
+    public Task<IReadOnlyList<SearchChannelResponse>> SearchChannelsAsync(
+        [FromQuery] string? q = null,
+        [FromQuery] Guid? categoryId = null,
+        [FromQuery] string? dateRange = null,
+        [FromQuery] string? duration = null,
+        CancellationToken ct = default) =>
+        content.GetSearchChannelsAsync(new SearchVideosQuery(Query: q, CategoryId: categoryId, DateRange: dateRange, DurationRange: duration), ct);
+
     [HttpGet("search"), EnableRateLimiting("search")]
     public Task<PageResult<VideoCardResponse>> SearchAsync(
         [FromQuery] string? q = null,

@@ -1,4 +1,4 @@
-:host { position: relative; z-index: 2; display: block; flex: 0 0 auto; }
+:host { display: block; flex: 0 0 auto; }
 
 .video-playlist-menu { position: relative; }
 
@@ -23,10 +23,14 @@
 .video-playlist-menu__trigger:focus-visible { color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); transform: scale(1.05); outline: 0; }
 
 .video-playlist-menu__panel {
-  position: absolute;
-  top: 30px;
-  right: 0;
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
   width: min(300px, calc(100vw - 34px));
+  max-height: min(420px, calc(100dvh - 24px));
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 14px;

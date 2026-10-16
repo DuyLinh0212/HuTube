@@ -1,16 +1,22 @@
 <div class="video-playlist-menu" (click)="stop($event)">
   <button
+    #trigger
     type="button"
     class="video-playlist-menu__trigger"
     [attr.aria-label]="'common.moreOptions' | translate"
     [attr.aria-expanded]="open()"
+    aria-haspopup="menu"
+    [attr.aria-controls]="menuId"
     (click)="toggle($event)"
+    (keydown.arrowdown)="toggle($event)"
   >
     <span aria-hidden="true">⋮</span>
   </button>
 
-  @if (open()) {
-    <div class="video-playlist-menu__panel" role="menu" (click)="stop($event)">
+    <div #panel class="video-playlist-menu__panel" popover="auto" [id]="menuId"
+      role="menu" tabindex="-1" [attr.aria-label]="'watch.savePlaylist' | translate"
+      [style.left.px]="panelLeft()" [style.top.px]="panelTop()"
+      (beforetoggle)="syncOpen($event)" (keydown)="onMenuKeydown($event)" (click)="stop($event)">
       <div class="video-playlist-menu__heading">{{ 'watch.savePlaylist' | translate }}</div>
       <p class="video-playlist-menu__hint">{{ 'watch.choosePlaylistToSave' | translate }}</p>
 
@@ -40,5 +46,4 @@
 
       @if (message()) { <p class="video-playlist-menu__message" role="status">{{ message() }}</p> }
     </div>
-  }
 </div>

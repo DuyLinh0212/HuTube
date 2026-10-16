@@ -203,6 +203,7 @@
 
   h3 {
     margin: 0 0 3px;
+    min-block-size: 2.6em;
     font-size: 0.82rem;
     font-weight: 700;
     line-height: 1.3;
@@ -214,6 +215,9 @@
 
   .channel-name {
     margin: 0 0 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 0.72rem;
     color: var(--text-muted);
     font-weight: 500;
@@ -764,6 +768,7 @@
 
 .trending-video-title {
   margin: 0 0 6px;
+  min-block-size: 2.7em;
   font-size: 0.86rem;
   font-weight: 700;
   line-height: 1.35;
@@ -852,37 +857,13 @@
 
 /* 5. SEARCH RESULTS & FILTERS */
 .search-header {
-  margin-bottom: 22px;
+  margin-bottom: 12px;
 }
 
 .search-header-meta {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.back-showcase-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--primary);
-  font-size: 0.84rem;
-  font-weight: 700;
-  cursor: pointer;
-  margin-bottom: 4px;
-  width: fit-content;
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  &:hover {
-    text-decoration: underline;
-  }
 }
 
 .search-title {
@@ -905,67 +886,45 @@
 }
 
 .filter-panel {
-  margin-bottom: 24px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-}
-
-.filter-panel-heading {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.filter-heading-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.84rem;
-  color: var(--ink);
-}
-
-.filter-symbol {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: var(--primary-soft);
-  color: var(--primary);
-
-  svg {
-    width: 15px;
-    height: 15px;
-  }
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px 0;
+  border-block: 1px solid var(--line);
 }
 
 .clear-filters {
-  padding: 4px 10px;
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 8px 10px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--primary);
+  color: var(--text-body);
+  white-space: nowrap;
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--primary-soft);
   }
 }
 
+.filter-retry { min-height: 38px; padding: 8px; color: var(--text-body); background: var(--surface-soft); border-radius: 8px; font-size: 0.75rem; }
+
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  flex: 1;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
 .filter-control {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 5px;
 
@@ -977,6 +936,7 @@
 
   select {
     width: 100%;
+    min-width: 0;
     height: 38px;
     padding: 0 10px;
     border: 1px solid var(--line);
@@ -1082,6 +1042,7 @@
 
   h2 {
     margin: 0 0 4px;
+    min-block-size: 2.7em;
     font-size: 0.88rem;
     font-weight: 700;
     line-height: 1.35;
@@ -1257,8 +1218,11 @@
   }
 
   .filter-grid {
-    grid-template-columns: repeat(2, 1fr);
+    flex-basis: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .filter-panel { flex-wrap: wrap; gap: 8px 12px; }
+  .filter-panel > .clear-filters { margin-left: auto; min-height: 32px; padding-block: 4px; }
 }
 
 @media (max-width: 680px) {
@@ -1296,7 +1260,7 @@
   }
 
   .filter-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

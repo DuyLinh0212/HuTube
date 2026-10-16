@@ -13,6 +13,34 @@ namespace HuTube.IntegrationTests;
 
 public sealed class SearchAndFilterIntegrationTests(AuthApiFactory factory) : IClassFixture<AuthApiFactory>
 {
+    [Fact]
+    public async Task Search_ChannelOptionsCoverEveryPageAndExcludePrivateVideos()
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var (first, _, firstChannel) = await CreateUserAndChannelAsync("facet_a");
+        var (second, _, secondChannel) = await CreateUserAndChannelAsync("facet_b");
+        var (privateOwner, _, privateChannel) = await CreateUserAndChannelAsync("facet_private");
+        await CreateCustomPublishedVideoAsync(first, firstChannel, "Short " + marker, "", 100, []);
+        await CreateCustomPublishedVideoAsync(first, firstChannel, "Medium " + marker, "", 600, []);
+        await CreateCustomPublishedVideoAsync(second, secondChannel, "Other " + marker, "", 100, []);
+        await UploadAsync(privateOwner, privateChannel, "Private " + marker, "private");
+        using var anonymous = factory.CreateClient();
+        var page = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>($"/api/v1/videos/search?q={marker}&pageSize=1");
+        Assert.Single(page!.Items);
+        Assert.Equal(3, page.Total);
+        var options = (await anonymous.GetFromJsonAsync<List<SearchChannelResponse>>($"/api/v1/videos/search/channels?q={marker}"))!;
+        Assert.Equal(2, options.Count);
+        Assert.Equal(2, Assert.Single(options, x => x.ChannelId == firstChannel).VideoCount);
+        Assert.Equal(1, Assert.Single(options, x => x.ChannelId == secondChannel).VideoCount);
+        Assert.DoesNotContain(options, x => x.ChannelId == privateChannel);
+        var filtered = (await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>($"/api/v1/videos/search?q={marker}&channelId={firstChannel}"))!;
+        Assert.Equal(2, filtered.Total);
+        Assert.All(filtered.Items, video => Assert.Equal(firstChannel, video.ChannelId));
+        var shortOptions = (await anonymous.GetFromJsonAsync<List<SearchChannelResponse>>($"/api/v1/videos/search/channels?q={marker}&duration=short&dateRange=today"))!;
+        Assert.Equal(2, shortOptions.Count);
+        Assert.All(shortOptions, option => Assert.Equal(1, option.VideoCount));
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
