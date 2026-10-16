@@ -122,6 +122,9 @@ builder.Services.AddSingleton<IObjectStorage>(services => new DualObjectStorageS
     hasCloudinaryCredentials ? services.GetRequiredService<CloudinaryStorageService>() : services.GetRequiredService<LocalStorageService>(),
     hasR2Credentials ? services.GetRequiredService<R2ObjectStorageService>() : services.GetRequiredService<LocalStorageService>()));
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("FeedbackSurvey").Get<FeedbackSurveyOptions>() ?? new());
+builder.Services.AddSingleton<FeedbackSurveySecurity>();
+builder.Services.AddScoped<IFeedbackSurveyService, FeedbackSurveyService>();
 builder.Services.AddScoped<IContentService, ContentService>();
 builder.Services.AddScoped<ICfSeederService, CfSeederService>();
 builder.Services.AddSingleton<VideoRenditionProcessingQueue>();
@@ -240,6 +243,7 @@ builder.Services.AddRateLimiter(options => {
     options.AddPolicy("upload-chunk", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadChunkPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("payment-initiate", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentInitiatePermitLimit, rateLimitOptions.Window));
     options.AddPolicy("payment-webhook", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentWebhookPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("feedback-survey-webhook", context => RateLimitPolicies.FixedWindow(context, 120, rateLimitOptions.Window));
     options.AddPolicy("admin", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.AdminPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("moderation", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.ModerationPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("cf-seeder", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.CfSeederPermitLimit, rateLimitOptions.Window));

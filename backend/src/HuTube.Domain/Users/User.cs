@@ -20,6 +20,7 @@ public sealed class User
     public string Status { get; set; } = "pending";
     public DateTimeOffset? EmailVerifiedAt { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
+    public DateTimeOffset? FeedbackSurveyCompletedAt { get; set; }
     public int FailedLoginAttempts { get; set; }
     public DateTimeOffset? LockedUntil { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

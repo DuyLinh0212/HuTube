@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { USER_UI_TRANSLATIONS } from './ui-cleanup-translations';
+import { FEEDBACK_SURVEY_TRANSLATIONS } from './feedback-survey.translations';
 
 export type AppLang = 'vi' | 'en';
 type TranslationParams = Readonly<Record<string, string | number>>;
@@ -34,6 +35,7 @@ function interpolate(message: string, params?: TranslationParams): string {
 
 export const DICTIONARY: Record<AppLang, Record<string, string>> = {
   vi: {
+    ...FEEDBACK_SURVEY_TRANSLATIONS.vi,
     ...USER_UI_TRANSLATIONS.vi,
     'common.notSupported': 'Chưa hỗ trợ',
     'upload.draftSaved': 'Đã lưu nháp metadata. Khi quay lại, hãy chọn lại file video.',
@@ -2089,6 +2091,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
   },
 
   en: {
+    ...FEEDBACK_SURVEY_TRANSLATIONS.en,
     ...USER_UI_TRANSLATIONS.en,
     'common.notSupported': 'Not supported yet',
     'upload.draftSaved': 'Metadata draft saved. Select the video file again when returning.',

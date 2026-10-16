@@ -10,6 +10,7 @@ import { UploadProgressTrayComponent } from './shared/upload-progress/upload-pro
 import { TranslatePipe } from './core/translate.pipe';
 import { I18nService } from './core/i18n.service';
 import { NetworkFallbackComponent } from './core/network/network-fallback.component';
+import { FeedbackSurveyComponent } from './shared/feedback-survey/feedback-survey.component';
 
 @Component({
   selector: 'app-root',
@@ -19,6 +20,7 @@ import { NetworkFallbackComponent } from './core/network/network-fallback.compon
     StudioLayoutComponent,
     UploadProgressTrayComponent,
     NetworkFallbackComponent,
+    FeedbackSurveyComponent,
     TranslatePipe,
   ],
   templateUrl: './app.html',

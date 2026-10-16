@@ -67,6 +67,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.Email).HasColumnType("citext"); b.Property(x => x.Username).HasColumnType("citext");
             b.Property(x => x.UserId).HasColumnName("user_id"); b.Property(x => x.PasswordHash).HasColumnName("password_hash");
             b.Property(x => x.GoogleSubject).HasColumnName("google_subject");
+            b.Property(x => x.FeedbackSurveyCompletedAt).HasColumnName("feedback_survey_completed_at");
             b.Property(x => x.DisplayName).HasColumnName("display_name"); b.Property(x => x.AvatarUrl).HasColumnName("avatar_url");
             b.Property(x => x.RoleId).HasColumnName("role_id");
             b.Property(x => x.PlanId).HasColumnName("plan_id");

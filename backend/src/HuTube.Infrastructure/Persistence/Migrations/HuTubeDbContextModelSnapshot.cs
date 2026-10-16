@@ -194,6 +194,10 @@ namespace HuTube.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_at");
 
+                    b.Property<DateTimeOffset?>("FeedbackSurveyCompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("feedback_survey_completed_at");
+
                     b.Property<DateTimeOffset?>("LockedUntil")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("locked_until");

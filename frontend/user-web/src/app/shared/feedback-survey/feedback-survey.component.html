@@ -1,0 +1,62 @@
+<dialog #dialog class="survey-dialog" [class.survey-dialog--small]="phase() === 'plea'"
+  aria-labelledby="survey-title" aria-describedby="survey-description"
+  (cancel)="requestClose($event)" (click)="onBackdrop($event)">
+  <section class="survey-card">
+    <button class="survey-close" type="button" [attr.aria-label]="'survey.close' | translate" (click)="requestClose()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path d="m6 6 12 12M18 6 6 18" />
+      </svg>
+    </button>
+
+    @if (phase() === 'plea') {
+      <figure class="survey-gif">
+        @if (!gifUnavailable()) {
+          <img src="https://media1.tenor.com/m/DZybTbJi1vIAAAAC/n%C4%83n-n%E1%BB%89.gif"
+            [alt]="'survey.gifTitle' | translate" width="220" height="227" decoding="async"
+            (error)="gifUnavailable.set(true)" />
+        }
+        <figcaption><a href="https://tenor.com/view/n%C4%83n-n%E1%BB%89-gif-980829576867534578"
+          target="_blank" rel="noopener noreferrer">{{ 'survey.gifSource' | translate }}</a></figcaption>
+      </figure>
+      <h2 id="survey-title">{{ 'survey.pleaTitle' | translate }}</h2>
+      <p id="survey-description">{{ 'survey.pleaDescription' | translate }}</p>
+      <a class="survey-primary" [href]="formUrl()" target="_blank" rel="noopener noreferrer"
+        data-primary-action (click)="formOpened()">{{ 'survey.doSurvey' | translate }}</a>
+      <button class="survey-secondary" type="button" (click)="requestClose()">{{ 'survey.later' | translate }}</button>
+    } @else if (phase() === 'waiting') {
+      <div class="survey-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M21 6h5v5M26 6 15 17M25 18v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h6" />
+        </svg>
+      </div>
+      <h2 id="survey-title">{{ 'survey.waitingTitle' | translate }}</h2>
+      <p id="survey-description">{{ 'survey.waitingDescription' | translate }}</p>
+      <p class="survey-note" role="status">{{ 'survey.autoSync' | translate }}</p>
+      <a class="survey-primary" [href]="formUrl()" target="_blank" rel="noopener noreferrer"
+        data-primary-action (click)="formOpened()">{{ 'survey.reopen' | translate }}</a>
+      <button class="survey-secondary" type="button" (click)="requestClose()">{{ 'survey.continue' | translate }}</button>
+    } @else if (phase() === 'thanks') {
+      <div class="survey-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="16" cy="16" r="11" /><path d="m10 16 4 4 8-8" />
+        </svg>
+      </div>
+      <h2 id="survey-title">{{ 'survey.thanksTitle' | translate }}</h2>
+      <p id="survey-description">{{ 'survey.thanksDescription' | translate }}</p>
+      <button class="survey-primary" type="button" data-primary-action (click)="requestClose()">{{ 'survey.continue' | translate }}</button>
+    } @else {
+      <div class="survey-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M16 26S5 20 5 12a6 6 0 0 1 11-3 6 6 0 0 1 11 3c0 8-11 14-11 14Z" />
+        </svg>
+      </div>
+      <h2 id="survey-title">{{ 'survey.invitationTitle' | translate }}</h2>
+      <p id="survey-description">{{ 'survey.invitationDescription' | translate }}</p>
+      <div class="survey-duration">{{ 'survey.duration' | translate }}</div>
+      <a class="survey-primary" [href]="formUrl()" target="_blank" rel="noopener noreferrer"
+        data-primary-action (click)="formOpened()">{{ 'survey.doSurvey' | translate }}</a>
+      <button class="survey-secondary" type="button" (click)="requestClose()">{{ 'survey.maybeLater' | translate }}</button>
+      <p class="survey-footnote">{{ 'survey.footnote' | translate }}</p>
+    }
+  </section>
+</dialog>
