@@ -111,6 +111,21 @@ public sealed class RecommendationClient : IRecommendationClient
                 }
 
                 var errBody = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+                if (response.StatusCode == System.Net.HttpStatusCode.BadGateway)
+                {
+                    // Render Free can answer the first POST with a gateway 502 while
+                    // the instance is asleep. A GET to the health endpoint is held
+                    // until the instance has started, so wait for that before retrying
+                    // the inference request instead of repeatedly POSTing into the 502.
+                    if (!await WaitForServiceHealthAsync(timeoutCts.Token))
+                    {
+                        return null;
+                    }
+
+                    retryAttempt = 0;
+                    continue;
+                }
+
                 if (RecommendationWakeupPolicy.IsTransientStartupResponse(response.StatusCode, errBody))
                 {
                     retryAttempt++;
@@ -142,5 +157,38 @@ public sealed class RecommendationClient : IRecommendationClient
             _logger.LogWarning(ex, "Failed to call CF recommendation service. Falling back to default feed.");
             return null;
         }
+    }
+
+    private async Task<bool> WaitForServiceHealthAsync(CancellationToken ct)
+    {
+        var attempt = 0;
+        while (!ct.IsCancellationRequested)
+        {
+            using var response = await _http.GetAsync("health", ct);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Recommendation Service health check succeeded after startup.");
+                return true;
+            }
+
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (response.StatusCode is not (System.Net.HttpStatusCode.BadGateway
+                or System.Net.HttpStatusCode.ServiceUnavailable))
+            {
+                _logger.LogWarning(
+                    "Recommendation Service health check returned HTTP {StatusCode}: {Error}.",
+                    response.StatusCode, body);
+                return false;
+            }
+
+            attempt++;
+            var delay = RecommendationWakeupPolicy.GetRetryDelay(attempt);
+            _logger.LogInformation(
+                "Recommendation Service health check returned HTTP {StatusCode} while starting. Retrying in {Delay} (attempt {Attempt}).",
+                response.StatusCode, delay, attempt);
+            await Task.Delay(delay, ct);
+        }
+
+        return false;
     }
 }
