@@ -3,13 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+import pytest
 
 from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.model_registry import ModelRegistry
+from app.model_registry import ModelRegistry, ModelJobCancelled, ModelJobFinalizing
 from app.r2_store import R2Store
 
 
@@ -79,7 +80,7 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
         for _ in range(100):
             progress = client.get(f"/internal/model/jobs/{job_id}",
                                   headers={"X-Model-Admin-Token": "admin-secret"}).json()
-            if progress["status"] != "running":
+            if progress["status"] not in ("running", "publishing"):
                 break
             time.sleep(.05)
         assert progress["status"] == "completed", progress

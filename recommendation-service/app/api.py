@@ -170,6 +170,8 @@ async def train_model(payload: TrainRequest, request: Request,
     if payload.job_id is not None:
         existing = await run_in_threadpool(registry.get_job, job_id)
         if existing is not None:
+            if existing['status'] == 'cancelled':
+                return {'jobId': job_id, 'status': 'cancelled'}
             if (
                 existing.get("csvKey") != payload.csv_key
                 or existing.get("csvSha256") != payload.csv_sha256
@@ -188,11 +190,14 @@ async def train_model(payload: TrainRequest, request: Request,
     if registry.update_task is not None and not registry.update_task.done():
         raise _error(409, "TRAINING_UNAVAILABLE", "A model update is already running.", True)
     job = {"jobId": job_id, "status": "running",
+                                       "publicationGuard": True,
                                        "csvKey": payload.csv_key, "csvSha256": payload.csv_sha256,
                                        "modelAlgorithm": model_algorithm,
                                        "scoreAggregation": score_aggregation}
     if not await run_in_threadpool(registry.create_job, job_id, job):
         existing = await run_in_threadpool(registry.get_job, job_id)
+        if existing and existing['status'] == 'cancelled':
+            return {'jobId': job_id, 'status': 'cancelled'}
         if (
             existing is None
             or existing.get("csvKey") != payload.csv_key
@@ -216,6 +221,7 @@ async def train_model(payload: TrainRequest, request: Request,
                 payload.csv_sha256,
                 score_aggregation,
                 model_algorithm,
+                job_id,
             )
             await run_in_threadpool(
                 registry.record_job,
@@ -224,7 +230,7 @@ async def train_model(payload: TrainRequest, request: Request,
             )
         except Exception as exc:
             reconciled = await run_in_threadpool(registry.get_job, job_id)
-            if reconciled is None or reconciled["status"] != "completed":
+            if reconciled is None or reconciled["status"] not in ("completed", "cancelled"):
                 await run_in_threadpool(
                     registry.record_job,
                     job_id,
@@ -245,3 +251,14 @@ async def model_job(job_id: str, request: Request,
             404, "MODEL_JOB_NOT_FOUND", "Model job is not available in this process.", True
         )
     return job
+
+
+@router.post('/internal/model/jobs/{job_id}/cancel')
+async def cancel_model_job(job_id: UUID, request: Request,
+                           admin_token: str | None = Header(default=None, alias='X-Model-Admin-Token')):
+    _require_admin(request, admin_token)
+    from app.model_registry import ModelJobFinalizing
+    try:
+        return await run_in_threadpool(request.app.state.registry.cancel_job, str(job_id))
+    except ModelJobFinalizing as exc:
+        raise _error(409, 'MODEL_JOB_FINALIZING', str(exc), False) from exc
