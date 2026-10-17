@@ -1,8 +1,9 @@
+import { ReviewerLeaseService } from './reviewer-lease.service';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
+import { catchError, forkJoin, map, of } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -22,6 +23,7 @@ import {
   styleUrl: './admin-moderation-page.scss'
 })
 export class AdminModerationPage implements OnInit {
+  readonly lease = inject(ReviewerLeaseService);
   private readonly moderationService = inject(AdminModerationService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
@@ -58,6 +60,8 @@ export class AdminModerationPage implements OnInit {
     const query = this.searchQuery().trim().toLowerCase();
 
     if (status === 'processed') items = items.filter(x => x.status === 'approved' || x.status === 'rejected' || x.status === 'resolved');
+    else if (status === 'pending') items = items.filter(x => x.status === 'pending' || this.lease.expired(x));
+    else if (status === 'reviewing') items = items.filter(x => this.lease.active(x));
     else if (status !== 'ALL') items = items.filter(x => x.status === status);
     if (risk !== 'ALL') {
       items = items.filter(x => x.riskLevel === risk);
@@ -80,8 +84,8 @@ export class AdminModerationPage implements OnInit {
     const active = all.filter(item => !this.isProcessed(item));
     return {
       total: active.length,
-      pending: active.filter(x => x.status === 'pending').length,
-      reviewing: active.filter(x => x.status === 'reviewing').length,
+      pending: active.filter(x => x.status === 'pending' || this.lease.expired(x)).length,
+      reviewing: active.filter(x => this.lease.active(x)).length,
       processed: all.filter(x => this.isProcessed(x)).length,
       escalated: active.filter(x => x.status === 'escalated').length,
       highRisk: active.filter(x => x.riskLevel === 'high').length
@@ -133,7 +137,7 @@ export class AdminModerationPage implements OnInit {
 
   releaseCase(item: ModerationQueueItem): void {
     this.loading.set(true);
-    this.moderationService.release(item.moderationCaseId).subscribe({
+    this.moderationService.release(item.moderationCaseId, item.claimId).subscribe({
       next: (res) => {
         this.showMessage(res.message || this.i18n.t('moderation.releaseSuccess'));
         this.loadData();
@@ -147,7 +151,7 @@ export class AdminModerationPage implements OnInit {
 
   canSelectForBatch(item: ModerationQueueItem): boolean {
     if (!this.canClaim() || this.isProcessed(item)) return false;
-    return item.status === 'pending' || (item.status === 'reviewing' && this.isClaimedByMe(item));
+    return (item.status === 'pending' || this.lease.expired(item)) || (item.status === 'reviewing' && this.isClaimedByMe(item));
   }
 
   isSelected(item: ModerationQueueItem): boolean { return this.selectedCaseIds().includes(item.moderationCaseId); }
@@ -177,28 +181,32 @@ export class AdminModerationPage implements OnInit {
   canApprove(): boolean { return this.auth.hasPermission('moderation.approve'); }
   canReject(): boolean { return this.auth.hasPermission('moderation.reject'); }
 
+  readonly bulkResult = signal<{ succeeded: number; failed: Array<{ id: string; title: string; reason: string }> } | null>(null);
+
   private applyBulkSelection(action: 'claim' | 'release'): void {
     if (!this.canClaim()) return;
     const selected = new Set(this.selectedCaseIds());
     const eligible = this.filteredQueue().filter(item => selected.has(item.moderationCaseId)
-      && (action === 'claim' ? item.status === 'pending' : item.status === 'reviewing' && this.isClaimedByMe(item)));
+      && (action === 'claim' ? (item.status === 'pending' || this.lease.expired(item)) : item.status === 'reviewing' && this.isClaimedByMe(item)));
     if (!eligible.length) return;
     const label = this.i18n.t(action === 'claim' ? 'moderationPage.bulkClaimLabel' : 'moderationPage.bulkReleaseLabel');
     if (!window.confirm(this.i18n.format('moderationPage.bulkConfirm', { action: label, count: eligible.length }))) return;
     this.loading.set(true);
-    const requests = eligible.map(item => action === 'claim'
+    this.bulkResult.set(null);
+    const requests = eligible.map(item => (action === 'claim'
       ? this.moderationService.claim(item.moderationCaseId)
-      : this.moderationService.release(item.moderationCaseId));
-    forkJoin(requests).subscribe({
-      next: () => {
-        this.selectedCaseIds.update(ids => ids.filter(id => !eligible.some(item => item.moderationCaseId === id)));
-        this.showMessage(this.i18n.format('moderationPage.bulkSuccess', { action: label, count: eligible.length }));
-        this.loadData();
-      },
-      error: err => {
-        this.error.set(err?.error?.detail || this.i18n.format('moderationPage.bulkError', { action: label }));
-        this.loadData();
-      }
+      : this.moderationService.release(item.moderationCaseId, item.claimId)).pipe(
+        map(() => ({ item, success: true, reason: '' })),
+        catchError(err => of({ item, success: false,
+          reason: err?.error?.detail || this.i18n.format('moderationPage.bulkError', { action: label }) }))
+      ));
+    forkJoin(requests).subscribe(results => {
+      const succeeded = new Set(results.filter(result => result.success).map(result => result.item.moderationCaseId));
+      this.selectedCaseIds.update(ids => ids.filter(id => !succeeded.has(id)));
+      this.bulkResult.set({ succeeded: succeeded.size,
+        failed: results.filter(result => !result.success).map(result => ({
+          id: result.item.moderationCaseId, title: result.item.title, reason: result.reason })) });
+      this.loadData();
     });
   }
 
@@ -240,6 +248,7 @@ export class AdminModerationPage implements OnInit {
     const selectedPolicy = this.policies().find(p => p.code === this.selectedPolicyCode());
 
     const req: ResolveModerationRequest = {
+      claimId: currentCase.claimId,
       decision,
       policyCode: this.selectedPolicyCode() || undefined,
       reason: this.actionReason().trim() || this.getPolicyName(selectedPolicy) || undefined,
@@ -263,7 +272,7 @@ export class AdminModerationPage implements OnInit {
 
   isClaimedByMe(item: ModerationQueueItem): boolean {
     const myId = this.auth.user()?.userId;
-    return !!myId && item.reviewerId === myId;
+    return !!myId && item.reviewerId === myId && this.lease.active(item);
   }
 
   canClaim(): boolean {
@@ -324,7 +333,7 @@ export class AdminModerationPage implements OnInit {
   }
 
   claimFirstPending(): void {
-    const item = this.queue().find(candidate => candidate.status === 'pending');
+    const item = this.queue().find(candidate => candidate.status === 'pending' || this.lease.expired(candidate));
     if (item) this.claimCase(item);
   }
 

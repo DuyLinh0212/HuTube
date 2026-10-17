@@ -36,3 +36,6 @@
 @media (max-width: 640px) {
   :host { right: 16px; bottom: 16px; }
 }
+
+:host.in-upload-page { position: static; display: block; margin: 16px; }
+:host.in-upload-page .upload-tray { margin-left: auto; }

@@ -120,8 +120,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
         next: channels => this.subscribedChannelCount.set(channels.length),
         error: () => this.subscribedChannelCount.set(null)
       });
+      const preferencesVersion = this.account.preferencesVersion;
       this.account.getPreferences().subscribe({
         next: preferences => {
+          if (preferencesVersion !== this.account.preferencesVersion) return;
           if (preferences.theme === 'light' || preferences.theme === 'dark') this.themeService.setTheme(preferences.theme);
           if (preferences.language === 'vi' || preferences.language === 'en') this.i18n.setLang(preferences.language);
         },

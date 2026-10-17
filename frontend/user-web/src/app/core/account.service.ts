@@ -50,6 +50,8 @@ export interface UserPreferences {
 
 @Injectable({ providedIn: 'root' })
 export class AccountService {
+  private preferenceRevision = 0;
+  get preferencesVersion(): number { return this.preferenceRevision; }
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
   private get base(): string {
@@ -81,6 +83,8 @@ export class AccountService {
   }
 
   updatePreferences(prefs: Partial<UserPreferences>): Observable<UserPreferences> {
+    // Initial topbar reads must not overwrite a choice made after they began.
+    this.preferenceRevision++;
     return this.http.put<UserPreferences>(`${this.base}/settings`, prefs);
   }
 

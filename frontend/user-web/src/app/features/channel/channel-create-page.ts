@@ -2,7 +2,7 @@ import { Component, ElementRef, Input, ViewChild, inject, signal } from '@angula
 import { COMPOSITION_BUFFER_MODE, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { ChannelDetail, ChannelInvitation, ChannelService } from '../../core/channel.service';
+import { ChannelSummary, ChannelInvitation, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -26,7 +26,7 @@ export class ChannelCreatePage {
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
   @ViewChild('bannerInput') bannerInput?: ElementRef<HTMLInputElement>;
 
-  readonly existingChannel = signal<ChannelDetail | null>(null);
+  readonly existingChannel = signal<ChannelSummary | null>(null);
   readonly pendingInvitations = signal<ChannelInvitation[]>([]);
   readonly loading = signal(true);
   readonly busy = signal(false);
@@ -208,8 +208,13 @@ export class ChannelCreatePage {
           }));
         }
 
-        Promise.all(uploadQueue).then(() => {
+        Promise.all(uploadQueue).then(results => {
           this.busy.set(false);
+          if (results.some(result => result === false)) {
+            this.error.set(this.i18n.t('channel.brandingPartialFailure'));
+            this.existingChannel.set(created);
+            return;
+          }
           void this.router.navigate(this.studioMode ? ['/studio/overview'] : ['/channel', created.handle]);
         });
       },

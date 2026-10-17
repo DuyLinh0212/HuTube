@@ -185,15 +185,12 @@
                 </td>
                 <td class="time-col">{{ item.createdAt | date:'short':undefined:dateLocale() }}</td>
                 <td class="actions-col">
-                  <div class="action-buttons">
-                    @if (canResolveAppeal() && item.status === 'pending') {
+                  <div class="action-buttons"> @if (lease.expired(item)) { <small role="status">{{ 'moderation.claimExpired' | translate }}</small> }
+                    @if (canResolveAppeal() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item))) {
                       <button type="button" class="btn-action btn-claim" (click)="claimAppeal(item)" [disabled]="submitting()" [title]="'appeals.claimTitle' | translate">
                         {{ 'appeals.claim' | translate }}
                       </button>
-                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" [title]="'appeals.openResolution' | translate">
-                        {{ 'appeals.resolve' | translate }}
-                      </button>
-                    } @else if (canResolveAppeal() && item.status === 'reviewing') {
+                    } @else if (canResolveAppeal() && isClaimOwner(item)) {
                       <button type="button" class="btn-action btn-claim" (click)="releaseAppeal(item)" [disabled]="submitting()" [title]="'appeals.releaseTitle' | translate">
                         {{ 'appeals.release' | translate }}
                       </button>

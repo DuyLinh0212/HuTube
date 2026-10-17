@@ -87,13 +87,13 @@
                 </td>
                 <td><strong>{{ item.reportCount }}</strong><small class="case-subtext">{{ 'reports.reporterCount' | translate:{ count: item.reporterCount } }} · {{ 'reports.unclassified' | translate }}: {{ item.unclassifiedCount }}</small></td>
                 <td><div class="violation-counts">@for (violation of item.violationCounts; track violation.code) { <span>{{ violation.name || violation.code || ('reports.other' | translate) }} <b>{{ violation.count }}</b></span> }</div></td>
-                <td><span class="status-pill" [class.status-pending]="item.status === 'pending'" [class.status-reviewing]="item.status === 'reviewing'" [class.status-resolved]="item.status === 'resolved'">{{ statusLabel(item.status) }}</span></td>
-                <td>{{ item.reviewerName || '—' }}</td>
+                <td><span class="status-pill" [class.status-pending]="(item.status === 'pending' || lease.expired(item))" [class.status-reviewing]="item.status === 'reviewing'" [class.status-resolved]="item.status === 'resolved'">{{ statusLabel(item.status) }}</span></td>
+                <td>{{ item.reviewerName || '—' }} @if (lease.expired(item)) { <small role="status">{{ 'moderation.claimExpired' | translate }}</small> }</td>
                 <td>{{ (item.resolvedAt || item.submittedAt) | date:'short':undefined:dateLocale() }}</td>
                 <td class="actions-col">
                   <div class="action-buttons">
                     <button type="button" class="btn-action btn-resolve" (click)="openCase(item)">{{ 'reports.details' | translate }}</button>
-                    @if (canClaim() && item.status === 'pending') { <button type="button" class="btn-action btn-claim" [disabled]="submitting()" (click)="claim(item)">{{ 'reports.claim' | translate }}</button> }
+                    @if (canClaim() && (item.status === 'pending' || lease.expired(item))) { <button type="button" class="btn-action btn-claim" [disabled]="submitting()" (click)="claim(item)">{{ 'reports.claim' | translate }}</button> }
                     @if (canClaim() && item.status === 'reviewing' && item.reviewerId === auth.user()?.userId) { <button type="button" class="btn-action btn-release" [disabled]="submitting()" (click)="release(item)">{{ 'reports.return' | translate }}</button> }
                   </div>
                 </td>

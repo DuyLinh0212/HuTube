@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { RuntimeConfig } from '../../core/runtime-config';
@@ -16,6 +17,7 @@ interface MatrixDiff {
   state: 'ready' | 'uninitialized'; modelVersion: string | null; csvKey: string | null;
   csvSha256: string | null; updatedAt: string | null; active: Counts; current: Counts;
   added: number; changed: number; removed: number; changeRate: number; modelAlgorithm: string | null;
+  scoreAggregation?: { mode: ScoreMode; weights: Record<ScoreFeature, number> } | null;
 }
 interface Person { userId: string; username: string; displayName: string; isBot: boolean; }
 interface Category { categoryId: string; name: string; slug: string; }
@@ -71,6 +73,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   readonly commentBanks = signal<Record<string, string[]>>({});
   readonly logClearOffset = signal(0);
   readonly busy = signal(false);
+  readonly stopping = signal(false);
   readonly error = signal('');
   readonly notice = signal('');
   readonly selectedUsers = new Set<string>();
@@ -129,11 +132,27 @@ export class RecommendationsPage implements OnInit, OnDestroy {
     if (this.pollHandle) clearInterval(this.pollHandle);
   }
 
+  private configuredModelVersion: string | null | undefined;
+
+  private applyPublishedConfiguration(value: MatrixDiff): void {
+    if (value.modelVersion === this.configuredModelVersion) return;
+    this.configuredModelVersion = value.modelVersion;
+    if (this.modelAlgorithms.some(option => option.value === value.modelAlgorithm)) {
+      this.modelAlgorithm = value.modelAlgorithm as ModelAlgorithm;
+    }
+    if (!value.scoreAggregation) return;
+    this.scoreMode = value.scoreAggregation.mode;
+    for (const feature of this.scoreFeatures) {
+      const weight = value.scoreAggregation.weights[feature];
+      if (Number.isFinite(weight) && weight >= 0) this.scoreWeights[feature] = weight;
+    }
+  }
+
   check(): void {
     this.busy.set(true);
     this.error.set('');
     this.http.get<MatrixDiff>(`${this.base()}/status`).subscribe({
-      next: value => { this.diff.set(value); this.busy.set(false); },
+      next: value => { this.diff.set(value); this.applyPublishedConfiguration(value); this.busy.set(false); },
       error: err => { this.error.set(errorMessage(err, this.i18n)); this.busy.set(false); },
     });
   }
@@ -488,6 +507,11 @@ export class RecommendationsPage implements OnInit, OnDestroy {
     };
   }
 
+  isModelLive(): boolean {
+    const current = this.job();
+    return current?.kind === 'model_update' && ['queued', 'running', 'cancelling'].includes(current.status);
+  }
+
   isSimulationLive(): boolean {
     return this.job()?.kind === 'simulation' && ['queued', 'running', 'cancelling'].includes(this.job()?.status ?? '');
   }
@@ -668,9 +692,10 @@ export class RecommendationsPage implements OnInit, OnDestroy {
 
   stop(): void {
     const id = this.job()?.jobId;
-    if (!id) return;
-    this.http.post(`${this.base()}/jobs/${id}/stop`, {}).subscribe({
-      next: () => this.notice.set(this.i18n.t('recommendations.stopRequested')),
+    if (!id || this.stopping()) return;
+    this.stopping.set(true); this.error.set('');
+    this.http.post(`${this.base()}/jobs/${id}/stop`, {}).pipe(finalize(() => this.stopping.set(false))).subscribe({
+      next: () => { this.notice.set(this.i18n.t('recommendations.stopRequested')); this.refreshJob(id); },
       error: err => this.error.set(errorMessage(err, this.i18n)),
     });
   }

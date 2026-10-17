@@ -157,7 +157,7 @@ export class StudioCommentsPage implements OnDestroy {
   }
 
   remove(row: StudioComment) {
-    if (this.busyCommentId()) return;
+    if (this.busyCommentId() || !window.confirm(this.i18n.t('studio.confirmDeleteComment'))) return;
     this.busyCommentId.set(row.comment.commentId);
     this.actionError.set('');
     this.content.deleteComment(row.comment.commentId).subscribe({

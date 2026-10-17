@@ -11,6 +11,7 @@ export class PictureInPictureService {
   supports(player: HTMLVideoElement | null | undefined): boolean {
     return !!document.pictureInPictureEnabled
       && !!player
+      && !player.disablePictureInPicture
       && typeof player.requestPictureInPicture === 'function';
   }
 
@@ -18,6 +19,7 @@ export class PictureInPictureService {
     const source = player.currentSrc || player.src;
     if (!source) return;
     const pipVideo = this.ensureVideo();
+    pipVideo.disablePictureInPicture = player.disablePictureInPicture;
     if (pipVideo.src === source && pipVideo.readyState >= HTMLMediaElement.HAVE_METADATA) return;
     pipVideo.src = source;
     pipVideo.load();

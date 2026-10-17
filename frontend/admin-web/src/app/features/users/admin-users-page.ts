@@ -25,6 +25,7 @@ type UserAction = 'lock' | 'unlock' | 'role';
 })
 export class AdminUsersPage implements OnInit {
   private readonly service = inject(AdminUsersService);
+  private detailRequestVersion = 0;
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
 
@@ -153,12 +154,15 @@ export class AdminUsersPage implements OnInit {
     this.selectedUserId.set(user.userId);
     this.selectedUser.set(null);
     this.detailLoading.set(true);
+    const requestVersion = ++this.detailRequestVersion;
     this.service.getUser(user.userId).subscribe({
       next: detail => {
+        if (requestVersion !== this.detailRequestVersion || this.selectedUserId() !== user.userId) return;
         this.selectedUser.set(detail);
         this.detailLoading.set(false);
       },
       error: error => {
+        if (requestVersion !== this.detailRequestVersion || this.selectedUserId() !== user.userId) return;
         this.detailLoading.set(false);
         this.error.set(errorMessage(error, this.i18n));
       },

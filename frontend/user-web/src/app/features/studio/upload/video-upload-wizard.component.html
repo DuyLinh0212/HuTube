@@ -57,7 +57,9 @@
   <!-- Main Wizard Grid Layout -->
   <div class="wizard-layout" [class.is-single-column]="currentStep() === 1 || currentStep() === 6">
     <!-- Left Column: Step Content Panels -->
-    <main class="wizard-main-content">
+    <main id="main-content" class="wizard-main-content">
+      @if (draftMessage()) { <p class="continue-notice-box" role="status">{{ draftMessage() }}</p> }
+      @if (uploadError()) { <p class="continue-notice-box" role="alert">{{ uploadError() }}</p> }
 
       <!-- STEP 1: CHỌN FILE -->
       @if (currentStep() === 1) {
@@ -107,7 +109,7 @@
               </div>
             </div>
           </div> }
-          @if (uploadError()) { <p class="continue-notice-box" role="alert">{{ uploadError() }}</p> }
+
 
           <!-- Creator Tip -->
           <div class="wizard-tip-box">
@@ -755,8 +757,13 @@
           {{ 'upload.step2.saveDraft' | translate }}
         </button>
 
+        <button type="button" class="btn-wizard-discard-draft" (click)="discardDraft()">
+          {{ 'common.discardChanges' | translate }}
+        </button>
+
         @if (currentStep() < 5) {
-          <button type="button" class="btn-wizard-next" (click)="nextStep()">
+          <button type="button" class="btn-wizard-next" (click)="nextStep()"
+            [disabled]="currentStep() === 1 && hasFile() && (isPreparing() || preflightLoading())">
             {{ 'common.continue' | translate }} →
           </button>
         } @else {

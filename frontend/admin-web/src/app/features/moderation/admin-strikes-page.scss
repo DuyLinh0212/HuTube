@@ -978,3 +978,9 @@
   .policy-config-field { border-right: 0; border-bottom: 1px solid #edf0f5; }
   .policy-config-field:last-child { border-bottom: 0; }
 }
+
+@media (max-width: 760px) {
+  .page-header { min-width: 0; }
+  .page-header .header-actions { width: 100%; min-width: 0; flex-shrink: 1; flex-wrap: wrap; }
+  .header-actions .btn { min-height: 44px; max-width: 100%; white-space: normal; }
+}

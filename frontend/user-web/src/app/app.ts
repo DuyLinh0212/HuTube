@@ -1,6 +1,6 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, effect, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { NavigationEnd, Router } from '@angular/router';
+import { NavigationEnd, Router, Scroll } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { AuthLayoutComponent } from './layouts/auth-layout/auth-layout.component';
@@ -25,13 +25,48 @@ import { NetworkFallbackComponent } from './core/network/network-fallback.compon
   styleUrl: './app.scss',
 })
 export class App {
+  readonly skipHref = signal("#main-content");
+  skipToContent(event: Event) {
+    event.preventDefault();
+    const main = document.getElementById("main-content");
+    if (!main) return;
+    main.setAttribute("tabindex", "-1");
+    main.focus();
+    main.scrollIntoView({ block: "start" });
+    window.history.replaceState(window.history.state, "", this.skipHref());
+  }
+
   readonly isAuthLayout = signal(true);
   readonly isStudioLayout = signal(false);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
   private readonly i18n = inject(I18nService);
+  private scrollRestoreFrame: number | null = null;
+
+  @HostListener('window:wheel')
+  @HostListener('window:pointerdown')
+  cancelScrollRestore() {
+    if (this.scrollRestoreFrame !== null) cancelAnimationFrame(this.scrollRestoreFrame);
+    this.scrollRestoreFrame = null;
+  }
+
+  private restoreLoadedScroll(position: [number, number]) {
+    this.cancelScrollRestore();
+    let frames = 0;
+    let stable = 0;
+    const restore = () => {
+      window.scrollTo({ left: position[0], top: position[1], behavior: 'auto' });
+      stable = Math.abs(window.scrollY - position[1]) < 2 ? stable + 1 : 0;
+      // Router restoration can run while an asynchronous page is still too
+      // short to reach its saved position. Retry briefly as real content loads.
+      if (++frames < 120 && stable < 3) this.scrollRestoreFrame = requestAnimationFrame(restore);
+      else this.scrollRestoreFrame = null;
+    };
+    this.scrollRestoreFrame = requestAnimationFrame(restore);
+  }
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.cancelScrollRestore());
     this.syncLayout(this.router.url);
     effect(() => {
       this.i18n.currentLang();
@@ -43,9 +78,16 @@ export class App {
         takeUntilDestroyed(),
       )
       .subscribe((event) => {
+        this.cancelScrollRestore();
         this.syncLayout(event.urlAfterRedirects);
         this.updateTitle(event.urlAfterRedirects);
       });
+    this.router.events.pipe(
+      filter((event): event is Scroll => event instanceof Scroll),
+      takeUntilDestroyed(),
+    ).subscribe(event => {
+      if (event.position) this.restoreLoadedScroll(event.position);
+    });
   }
 
   private updateTitle(url: string) {
@@ -85,6 +127,7 @@ export class App {
   }
 
   private syncLayout(url: string) {
+    this.skipHref.set(url.split("#")[0] + "#main-content");
     this.isAuthLayout.set(
       ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password'].some(
         (route) => url.startsWith(route),

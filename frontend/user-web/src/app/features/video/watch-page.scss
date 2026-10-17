@@ -1799,3 +1799,6 @@
     transform: translateX(var(--video-related-banner-shift)) scaleX(1);
   }
 }
+
+.comment-edit-form textarea { width: 100%; min-height: 80px; box-sizing: border-box; }
+.comments-load-more, .comments-retry { min-height: 44px; margin-top: 16px; padding: 10px 18px; }

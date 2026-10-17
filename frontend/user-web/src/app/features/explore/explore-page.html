@@ -41,7 +41,7 @@
       <div class="filter-grid">
         <label class="filter-control">
           <span>{{ 'explore.sortBy' | translate }}</span>
-          <select [value]="selectedSort()" (change)="changeSort($any($event.target).value)">
+          <select [ngModel]="selectedSort()" (ngModelChange)="changeSort($event)">
             @for (opt of sortOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
             }
@@ -50,7 +50,7 @@
 
         <label class="filter-control">
           <span>{{ 'explore.durationAll' | translate }}</span>
-          <select [value]="selectedDuration()" (change)="changeDuration($any($event.target).value)">
+          <select [ngModel]="selectedDuration()" (ngModelChange)="changeDuration($event)">
             @for (opt of durationOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
             }
@@ -59,7 +59,7 @@
 
         <label class="filter-control">
           <span>{{ 'explore.dateAll' | translate }}</span>
-          <select [value]="selectedDateRange()" (change)="changeDateRange($any($event.target).value)">
+          <select [ngModel]="selectedDateRange()" (ngModelChange)="changeDateRange($event)">
             @for (opt of dateOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.labelKey | translate }}</option>
             }

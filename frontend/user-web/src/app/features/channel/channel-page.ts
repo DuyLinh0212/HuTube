@@ -1,5 +1,6 @@
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { catchError, finalize, forkJoin, of } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
@@ -22,7 +23,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent],
+  imports: [FormsModule, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -47,6 +48,15 @@ export class ChannelPage {
   readonly subscriptionMessage = signal('');
   readonly authReady = signal(false);
   readonly videos = signal<Array<VideoDetail | VideoCard>>([]);
+  videoQuery = '';
+  videoSort = 'newest';
+  readonly videoPage = signal(1);
+  readonly videoPageSize = signal(20);
+  readonly videoTotal = signal(0);
+  readonly videosLoading = signal(false);
+  readonly videosError = signal('');
+  readonly videoPageCount = computed(() => Math.max(1, Math.ceil(this.videoTotal() / this.videoPageSize())));
+  private videoRequestVersion = 0;
   readonly playlists = signal<PlaylistSummary[]>([]);
   readonly playlistPreviewById = signal<Record<string, PlaylistItem[]>>({});
   readonly channelLinks = signal<ChannelLink[]>([]);
@@ -68,6 +78,16 @@ export class ChannelPage {
   });
 
   constructor() {
+    this.route.queryParamMap.subscribe(params => {
+      this.videoQuery = params.get('q') ?? '';
+      this.videoSort = ['newest', 'views', 'engagement', 'relevance'].includes(params.get('sort') ?? '') ? params.get('sort')! : 'newest';
+      this.videoPageSize.set(params.get('pageSize') === '50' ? 50 : 20);
+      const page = Number(params.get('page'));
+      this.videoPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
+      const tab = params.get('tab');
+      if (tab === 'home' || tab === 'videos' || tab === 'playlists') this.activeTab.set(tab);
+      if (this.channel()) this.loadVideos();
+    });
     effect(() => {
       const unavailable = this.networkStatus.unavailable();
       const hasError = !!this.error();
@@ -155,8 +175,7 @@ export class ChannelPage {
         // processing videos for Studio, so using it here would expose moderation
         // outcomes in the public catalogue. The search endpoint applies the
         // published + public + approved visibility contract on the server.
-        this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
-          .subscribe(page => this.videos.set(page.items));
+        this.loadVideos();
 
       },
       error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.notFound'))
@@ -165,6 +184,30 @@ export class ChannelPage {
 
   videoViews(video: VideoDetail | VideoCard): number {
     return 'stats' in video ? video.stats.views : video.views;
+  }
+
+  loadVideos() {
+    const channel = this.channel();
+    if (!channel) return;
+    const version = ++this.videoRequestVersion;
+    this.videosLoading.set(true); this.videosError.set('');
+    this.contentService.search({ channelId: channel.channelId, q: this.videoQuery, sort: this.videoSort,
+      page: this.videoPage(), pageSize: this.videoPageSize() }).pipe(finalize(() => {
+        if (version === this.videoRequestVersion) this.videosLoading.set(false);
+      })).subscribe({
+        next: result => { if (version === this.videoRequestVersion) { this.videos.set(result.items); this.videoTotal.set(result.total); } },
+        error: () => { if (version === this.videoRequestVersion) { this.videos.set([]); this.videoTotal.set(0); this.videosError.set(this.i18n.t('library.loadError')); } }
+      });
+  }
+
+  filterVideos(pageSize = this.videoPageSize()) {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: {
+      tab: 'videos', q: this.videoQuery || null, sort: this.videoSort, page: 1, pageSize } });
+  }
+
+  changeVideoPage(page: number) {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
+      queryParams: { tab: 'videos', page: Math.max(1, Math.min(page, this.videoPageCount())) } });
   }
 
   private loadPlaylistPreviews(playlists: PlaylistSummary[]) {
@@ -213,6 +256,7 @@ export class ChannelPage {
 
   setTab(tab: ChannelTab) {
     this.activeTab.set(tab);
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: { tab } });
   }
 
   toggleSubscribe() {
@@ -221,7 +265,7 @@ export class ChannelPage {
     this.subscriptionMessage.set('');
 
     if (!this.auth.user()) {
-      void this.router.navigate(['/login']);
+      void this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
       return;
     }
 

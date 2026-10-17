@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, finalize, map, takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
@@ -13,7 +14,7 @@ import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/vid
 
 @Component({
   selector: 'app-explore-page',
-  imports: [RouterLink, LocaleDatePipe, LocaleNumberPipe, TranslatePipe, VideoPlaylistMenuComponent],
+  imports: [FormsModule, RouterLink, LocaleDatePipe, LocaleNumberPipe, TranslatePipe, VideoPlaylistMenuComponent],
   templateUrl: './explore-page.html',
   styleUrl: './explore-page.scss',
 })
@@ -25,6 +26,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly destroy$ = new Subject<void>();
+  private readonly searchCancelled$ = new Subject<void>();
 
   @ViewChild('trendingCarousel') trendingCarouselRef?: ElementRef<HTMLDivElement>;
 
@@ -154,6 +156,9 @@ export class ExplorePage implements OnInit, OnDestroy {
 
       if (this.isSearchMode) {
         this.loadSearch();
+      } else {
+        this.searchCancelled$.next();
+        this.loading.set(false);
       }
     });
 
@@ -163,6 +168,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    this.searchCancelled$.complete();
   }
 
   loadHub() {
@@ -326,6 +332,8 @@ export class ExplorePage implements OnInit, OnDestroy {
   }
 
   loadSearch() {
+    this.searchCancelled$.next();
+    this.error.set('');
     this.loading.set(true);
     this.content.search({
       q: this.searchQuery() || undefined,
@@ -335,7 +343,7 @@ export class ExplorePage implements OnInit, OnDestroy {
       dateRange: this.selectedDateRange() || undefined,
       page: this.currentPage(),
       pageSize: this.pageSize,
-    }).subscribe({
+    }).pipe(takeUntil(this.searchCancelled$), takeUntil(this.destroy$)).subscribe({
       next: value => {
         this.videos.set(value.items ?? []);
         this.total.set(value.total ?? 0);

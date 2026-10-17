@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -6,12 +6,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RuntimeConfig } from '../../core/runtime-config';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
+import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 
 export interface PublicPolicy {
   policyId: string;
   code: string;
   name: string;
-  group: 'content' | 'legal';
+  group: string;
   content: string;
   severity: string;
   version: string;
@@ -23,6 +24,7 @@ export interface PolicyRuleItem {
   code: string;
   name: string;
   summary: string;
+  published?: PublicPolicy;
   severity?: 'critical' | 'high' | 'medium' | 'info';
   rules: string[];
   rulesEn?: string[];
@@ -45,6 +47,8 @@ export class PublicPolicyPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly i18n = inject(I18nService);
+
+  @ViewChild('policyHeading') private policyHeading?: ElementRef<HTMLHeadingElement>;
 
   readonly loading = signal(true);
   readonly policies = signal<PublicPolicy[]>([]);
@@ -70,6 +74,7 @@ export class PublicPolicyPage implements OnInit {
   // Interactive Tools state
   readonly adPersonalization = signal<boolean>(true);
   readonly actionToast = signal<string | null>(null);
+  readonly exportingPdf = signal(false);
 
   // Community Guidelines List (16 items)
   readonly guidelinesList: PolicyRuleItem[] = [
@@ -600,12 +605,14 @@ export class PublicPolicyPage implements OnInit {
   ];
 
   getItemName(item: PolicyRuleItem): string {
+    if (item.published) return item.name;
     const key = `policy.${item.code}.name`;
     const val = this.i18n.t(key);
     return val !== key ? val : item.name;
   }
 
   getItemSummary(item: PolicyRuleItem): string {
+    if (item.published) return item.summary;
     const key = `policy.${item.code}.content`;
     const val = this.i18n.t(key);
     return val !== key ? val : item.summary;
@@ -651,6 +658,13 @@ export class PublicPolicyPage implements OnInit {
     else if (tab === 'enforcement') list = this.enforcementList;
     else list = this.guidelinesList;
 
+    const published = this.policies();
+    const backendItems = published.filter(policy => this.policyTab(policy) === tab).map(policy => ({
+      code: policy.code, name: policy.name, summary: policy.content,
+      severity: policy.severity as PolicyRuleItem['severity'], rules: [], published: policy
+    }));
+    // Explanatory cards supplement published policies; never override API text.
+    list = [...backendItems, ...list.filter(item => !published.some(policy => policy.code === item.code))];
     const q = this.searchQuery().trim().toLowerCase();
     if (!q) return list;
 
@@ -661,6 +675,15 @@ export class PublicPolicyPage implements OnInit {
       return name.includes(q) || summary.includes(q) || rules || item.code.toLowerCase().includes(q);
     });
   });
+
+  private policyTab(policy: PublicPolicy): PolicyTab {
+    if (this.tabs.some(tab => tab.key === policy.group)) return policy.group as PolicyTab;
+    if (this.privacyList.some(item => item.code === policy.code)) return 'privacy';
+    if (this.termsList.some(item => item.code === policy.code)) return 'terms';
+    if (this.monetizationList.some(item => item.code === policy.code)) return 'monetization';
+    if (this.enforcementList.some(item => item.code === policy.code)) return 'enforcement';
+    return policy.group === 'legal' ? 'terms' : 'guidelines';
+  }
 
   ngOnInit(): void {
     // 1. Check path
@@ -701,14 +724,21 @@ export class PublicPolicyPage implements OnInit {
     });
   }
 
-  setTab(tab: PolicyTab): void {
+  setTab(tab: PolicyTab, focusContent = false): void {
     this.activeTab.set(tab);
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { tab },
       queryParamsHandling: 'merge'
+    }).then(() => {
+      if (focusContent) {
+        const heading = this.policyHeading?.nativeElement;
+        heading?.focus({ preventScroll: true });
+        heading?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      } else {
+        window.scrollTo({ top: 140, behavior: 'smooth' });
+      }
     });
-    window.scrollTo({ top: 140, behavior: 'smooth' });
   }
 
   printDocument(): void {
@@ -716,9 +746,31 @@ export class PublicPolicyPage implements OnInit {
     this.showToast(this.i18n.t('policies.printToast'));
   }
 
-  downloadPdf(): void {
-    window.print();
-    this.showToast(this.i18n.t('policies.pdfToast'));
+  async downloadPdf(): Promise<void> {
+    if (this.exportingPdf()) return;
+    this.exportingPdf.set(true);
+    try {
+      const [{ default: pdfMake }, { default: fonts }] = await Promise.all([import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts')]);
+      pdfMake.addVirtualFileSystem(fonts);
+      const content: Content[] = [{ text: 'HuTube — ' + this.currentTabInfo().title, style: 'title' }];
+      for (const item of this.activeList()) {
+        content.push({ text: this.getItemName(item), style: 'heading', headlineLevel: 1 });
+        if (item.published) {
+          const effectiveDate = new Intl.DateTimeFormat(this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-GB', { timeZone: 'UTC' }).format(new Date(item.published.effectiveAt));
+          content.push({ text: `${item.published.code} · ${item.published.version} · ${effectiveDate} · ${this.getSeverityLabel(item.severity)}`, margin: [0, 0, 0, 8] });
+        }
+        content.push({ text: this.getItemSummary(item), margin: [0, 0, 0, 8] });
+        const rules = this.getItemRules(item); if (rules.length) content.push({ ul: rules });
+        const exceptions = this.getItemExceptions(item); if (exceptions.length) content.push({ ul: exceptions, margin: [0, 8, 0, 0] });
+      }
+      const document: TDocumentDefinitions = { content, defaultStyle: { font: 'Roboto', fontSize: 10 },
+        pageBreakBefore: (node, queries) => node.headlineLevel === 1 && queries.getFollowingNodesOnPage().length < 2,
+        pageMargins: [40, 40, 40, 40], styles: { title: { fontSize: 20, bold: true, margin: [0, 0, 0, 18] }, heading: { fontSize: 14, bold: true, margin: [0, 16, 0, 8] } } };
+      await pdfMake.createPdf(document).download(`HuTube-${this.activeTab()}.pdf`);
+      this.showToast(this.i18n.t('policies.pdfToast'));
+    } catch {
+      this.showToast(this.i18n.t('collection.exportError'));
+    } finally { this.exportingPdf.set(false); }
   }
 
   requestDataExport(): void {

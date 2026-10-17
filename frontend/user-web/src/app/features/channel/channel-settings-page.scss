@@ -200,19 +200,38 @@
     border: 1px solid var(--line, #E5E7EB);
     border-radius: 12px;
     padding: 8px 12px;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, opacity 0.2s, box-shadow 0.2s;
+
+    &.is-dragging { opacity: .55; }
+    &.is-drop-target {
+      border-color: var(--primary, #FF2B66);
+      box-shadow: 0 0 0 2px var(--primary-soft, rgba(255, 43, 102, .15));
+    }
 
     .link-drag-handle {
+      border: 0;
+      background: transparent;
       cursor: grab;
       color: var(--muted, #6B7280);
       display: flex;
       align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      min-height: 36px;
       padding: 0 4px;
       user-select: none;
 
       &:hover {
         color: var(--ink, #111827);
       }
+
+      &:active { cursor: grabbing; }
+      &:focus-visible {
+        outline: 2px solid var(--primary, #FF2B66);
+        outline-offset: 2px;
+        border-radius: 6px;
+      }
+      &:disabled { cursor: not-allowed; opacity: .55; }
     }
 
     .link-inputs-wrapper {
