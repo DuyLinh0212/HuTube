@@ -1,10 +1,10 @@
 from uuid import uuid4
 
 import pytest
+from test_r2_update import FakeR2
 
 from app.config import Settings
-from app.model_registry import ModelRegistry, ModelJobCancelled, ModelJobFinalizing
-from test_r2_update import FakeR2
+from app.model_registry import ModelJobCancelled, ModelJobFinalizing, ModelRegistry
 
 
 def registry_with_store(monkeypatch, tmp_path):
@@ -51,8 +51,15 @@ def test_publication_winner_rejects_late_cancel_without_false_ack(monkeypatch, t
 def test_old_identical_manifest_does_not_complete_new_guarded_job(monkeypatch, tmp_path):
     registry, store = registry_with_store(monkeypatch, tmp_path)
     job_id = str(uuid4())
-    job = {'jobId': job_id, 'status': 'running', 'csvKey': 'same.csv', 'csvSha256': 'abc',
-           'modelAlgorithm': 'item_based', 'publicationGuard': True, 'scoreAggregation': {'mode': 'average'}}
+    job = {
+        'jobId': job_id,
+        'status': 'running',
+        'csvKey': 'same.csv',
+        'csvSha256': 'abc',
+        'modelAlgorithm': 'item_based',
+        'publicationGuard': True,
+        'scoreAggregation': {'mode': 'average'},
+    }
     registry.create_job(job_id, job)
     store.write_json('collaborative_cf/active.json', {**job, 'jobId': str(uuid4())})
     assert registry.get_job(job_id)['status'] == 'running'

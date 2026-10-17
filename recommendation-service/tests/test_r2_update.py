@@ -3,14 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-import pytest
 
+import pytest
 from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.model_registry import ModelRegistry, ModelJobCancelled, ModelJobFinalizing
+from app.model_registry import ModelRegistry
 from app.r2_store import R2Store
 
 
@@ -140,7 +140,6 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
 def test_training_lease_excludes_replicas_and_fences_old_owner():
     store = FakeR2()
     first = store.acquire_training_lease()
-    import pytest
     with pytest.raises(RuntimeError):
         store.acquire_training_lease()
     store.release_training_lease(*first)

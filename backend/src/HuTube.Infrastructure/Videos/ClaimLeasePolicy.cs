@@ -39,7 +39,7 @@ public static class ClaimLeasePolicy
             throw new AuthException(409, "CLAIM_REQUIRED", "Hãy nhận lại hồ sơ trước khi xử lý.");
         if (item.ClaimExpiresAt <= now)
             throw new AuthException(409, "CLAIM_EXPIRED", "Quyền xử lý đã hết hạn 15 phút. Hãy nhận lại hồ sơ.");
-        if (claimId != item.ClaimId || item.ReviewerId != actorId)
+        if ((claimId.HasValue && claimId != item.ClaimId) || item.ReviewerId != actorId)
             throw new AuthException(409, "CLAIM_STALE", "Quyền xử lý đã thay đổi. Hãy tải lại và nhận hồ sơ.");
     }
 

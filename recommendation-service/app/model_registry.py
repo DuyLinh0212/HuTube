@@ -40,6 +40,9 @@ class ModelJobFinalizing(RuntimeError):
     pass
 
 
+_CONFLICT_CODES = {'PreconditionFailed', '412', 'ConditionalRequestConflict', '409'}
+
+
 @dataclass(slots=True)
 class LoadedModel:
     model: CollaborativeFilter
@@ -321,7 +324,7 @@ class ModelRegistry:
                 self.update_jobs[job_id] = cancelled
                 return cancelled
             except ClientError as exc:
-                if exc.response.get('Error', {}).get('Code') not in {'PreconditionFailed', '412', 'ConditionalRequestConflict', '409'}:
+                if exc.response.get('Error', {}).get('Code') not in _CONFLICT_CODES:
                     raise
         raise ModelJobFinalizing('Concurrent model state change; retry cancellation.')
 
@@ -334,7 +337,7 @@ class ModelRegistry:
         try:
             store.compare_write_json(key, {**value, 'status': 'publishing'}, etag)
         except ClientError as exc:
-            if exc.response.get('Error', {}).get('Code') in {'PreconditionFailed', '412', 'ConditionalRequestConflict', '409'}:
+            if exc.response.get('Error', {}).get('Code') in _CONFLICT_CODES:
                 raise ModelJobCancelled('Cancellation won the publication race.') from exc
             raise
 
@@ -350,7 +353,7 @@ class ModelRegistry:
                 self.update_jobs[job_id] = value
                 return
             except ClientError as exc:
-                if exc.response.get('Error', {}).get('Code') not in {'PreconditionFailed', '412', 'ConditionalRequestConflict', '409'}:
+                if exc.response.get('Error', {}).get('Code') not in _CONFLICT_CODES:
                     raise
         raise RuntimeError('Concurrent model job update; retry.')
 

@@ -254,8 +254,11 @@ async def model_job(job_id: str, request: Request,
 
 
 @router.post('/internal/model/jobs/{job_id}/cancel')
-async def cancel_model_job(job_id: UUID, request: Request,
-                           admin_token: str | None = Header(default=None, alias='X-Model-Admin-Token')):
+async def cancel_model_job(
+    job_id: UUID,
+    request: Request,
+    admin_token: str | None = Header(default=None, alias='X-Model-Admin-Token'),
+):
     _require_admin(request, admin_token)
     from app.model_registry import ModelJobFinalizing
     try:
