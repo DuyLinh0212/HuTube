@@ -615,6 +615,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             else
               SliverReorderableList(
                 itemCount: detail.items.length,
+                // Keep Flutter 3.38 support; onReorderItem requires a newer SDK.
+                // ignore: deprecated_member_use
                 onReorder: (oldIndex, newIndex) => _reorder(
                   oldIndex,
                   newIndex > oldIndex ? newIndex - 1 : newIndex,

@@ -84,7 +84,9 @@ void main() {
       await showPlaylist(tester);
       tester
           .widget<SliverReorderableList>(find.byType(SliverReorderableList))
-          .onReorder(scenario.from, scenario.to);
+          // Nullable in newer Flutter; required by the Flutter 3.38 constructor.
+          // ignore: deprecated_member_use, unnecessary_non_null_assertion
+          .onReorder!(scenario.from, scenario.to);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(savedOrders, [scenario.expected]);
@@ -97,7 +99,9 @@ void main() {
     await showPlaylist(tester);
     tester
         .widget<SliverReorderableList>(find.byType(SliverReorderableList))
-        .onReorder(0, 1);
+        // Nullable in newer Flutter; required by the Flutter 3.38 constructor.
+        // ignore: deprecated_member_use, unnecessary_non_null_assertion
+        .onReorder!(0, 1);
     await tester.pumpAndSettle();
     expect(savedOrders, isEmpty);
   });
