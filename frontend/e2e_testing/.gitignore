@@ -6,8 +6,7 @@ artifacts/web-latest.json
 artifacts/live-latest.json
 artifacts/live-probe/
 artifacts/service-recovery/
-screenshots/20*/
-screenshots/final-*/
+screenshots/
 config.local.json
 config.delta*.json
 artifacts/*.log
