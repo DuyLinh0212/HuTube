@@ -186,14 +186,13 @@ public sealed class AdminController(
     [HttpPost("moderation/{caseId:guid}/claim"), RequirePermission(AdminPermissions.ModerationClaim)]
     public async Task<IActionResult> ClaimCaseAsync(Guid caseId, CancellationToken ct)
     {
-        await moderation.ClaimCaseAsync(UserId, caseId, ct);
-        return Ok(new { message = "Đã nhận xử lý phiếu kiểm duyệt thành công." });
+        return Ok(await moderation.ClaimCaseAsync(UserId, caseId, ct));
     }
 
     [HttpPost("moderation/{caseId:guid}/release"), RequirePermission(AdminPermissions.ModerationClaim)]
-    public async Task<IActionResult> ReleaseCaseAsync(Guid caseId, CancellationToken ct)
+    public async Task<IActionResult> ReleaseCaseAsync(Guid caseId, [FromBody] ClaimActionRequest request, CancellationToken ct)
     {
-        await moderation.ReleaseCaseAsync(UserId, caseId, ct);
+        await moderation.ReleaseCaseAsync(UserId, caseId, ct, request.ClaimId);
         return Ok(new { message = "Đã hủy nhận và trả phiếu về hàng đợi thành công." });
     }
 
@@ -401,14 +400,13 @@ public sealed class AdminController(
     [HttpPost("reports/cases/{caseId:guid}/claim"), RequirePermission(AdminPermissions.ReportClaim)]
     public async Task<IActionResult> ClaimReportCaseAsync(Guid caseId, CancellationToken ct)
     {
-        await reportService.ClaimReportCaseAsync(UserId, caseId, ct);
-        return NoContent();
+        return Ok(await reportService.ClaimReportCaseAsync(UserId, caseId, ct));
     }
 
     [HttpPost("reports/cases/{caseId:guid}/release"), RequirePermission(AdminPermissions.ReportClaim)]
-    public async Task<IActionResult> ReleaseReportCaseAsync(Guid caseId, CancellationToken ct)
+    public async Task<IActionResult> ReleaseReportCaseAsync(Guid caseId, [FromBody] ClaimActionRequest request, CancellationToken ct)
     {
-        await reportService.ReleaseReportCaseAsync(UserId, caseId, ct);
+        await reportService.ReleaseReportCaseAsync(UserId, caseId, ct, request.ClaimId);
         return NoContent();
     }
 
@@ -434,14 +432,13 @@ public sealed class AdminController(
     [HttpPost("reports/{reportId:guid}/claim"), RequirePermission(AdminPermissions.ReportClaim)]
     public async Task<IActionResult> ClaimReportAsync(Guid reportId, CancellationToken ct)
     {
-        await reportService.ClaimReportAsync(UserId, reportId, ct);
-        return NoContent();
+        return Ok(await reportService.ClaimReportAsync(UserId, reportId, ct));
     }
 
     [HttpPost("reports/{reportId:guid}/release"), RequirePermission(AdminPermissions.ReportClaim)]
-    public async Task<IActionResult> ReleaseReportAsync(Guid reportId, CancellationToken ct)
+    public async Task<IActionResult> ReleaseReportAsync(Guid reportId, [FromBody] ClaimActionRequest request, CancellationToken ct)
     {
-        await reportService.ReleaseReportAsync(UserId, reportId, ct);
+        await reportService.ReleaseReportAsync(UserId, reportId, ct, request.ClaimId);
         return NoContent();
     }
 
@@ -478,14 +475,13 @@ public sealed class AdminController(
     [HttpPost("appeals/{appealId:guid}/claim"), RequirePermission(AdminPermissions.AppealResolve)]
     public async Task<IActionResult> ClaimAppealAsync(Guid appealId, CancellationToken ct)
     {
-        await appealService.ClaimAppealAsync(UserId, appealId, ct);
-        return NoContent();
+        return Ok(await appealService.ClaimAppealAsync(UserId, appealId, ct));
     }
 
     [HttpPost("appeals/{appealId:guid}/release"), RequirePermission(AdminPermissions.AppealResolve)]
-    public async Task<IActionResult> ReleaseAppealAsync(Guid appealId, CancellationToken ct)
+    public async Task<IActionResult> ReleaseAppealAsync(Guid appealId, [FromBody] ClaimActionRequest request, CancellationToken ct)
     {
-        await appealService.ReleaseAppealAsync(UserId, appealId, ct);
+        await appealService.ReleaseAppealAsync(UserId, appealId, ct, request.ClaimId);
         return NoContent();
     }
 

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -255,6 +257,19 @@ public sealed class PaymentService(
                 candidates.Add(options.TransactionCodePrefix + "-" + code);
         }
 
+        // VietQR/banks may remove the separator or replace it with whitespace.
+        // Require a complete eight-character reference; never match a prefix of
+        // a longer unrelated identifier. Keep the original stored format.
+        var referencePattern = @"(?<![A-Z0-9])" + Regex.Escape(options.TransactionCodePrefix.ToUpperInvariant())
+            + @"[-\s]*([A-Z0-9]{8})(?![A-Z0-9])";
+        foreach (var value in new[] { payload.Code, payload.Content })
+        {
+            if (string.IsNullOrWhiteSpace(value)) continue;
+            foreach (Match match in Regex.Matches(value.ToUpperInvariant(), referencePattern,
+                RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+                candidates.Add(options.TransactionCodePrefix + "-" + match.Groups[1].Value);
+        }
+
         foreach (var candidate in candidates.Where(c => !string.IsNullOrWhiteSpace(c)))
         {
             var payment = await db.Payments
@@ -289,8 +304,8 @@ public sealed class PaymentService(
     {
         var qrUrl = string.IsNullOrWhiteSpace(options.AccountNumber)
             ? "" // Chưa cấu hình → trả về rỗng; frontend hiển thị thông báo
-            : $"https://vietqr.app/img?acc={options.AccountNumber}&bank={Uri.EscapeDataString(options.BankCode)}" +
-              $"&amount={payment.Amount:0}&des={Uri.EscapeDataString(payment.TransactionCode)}";
+            : $"https://img.vietqr.io/image/{Uri.EscapeDataString(NormalizeVietQrBankId(options.BankCode))}-{Uri.EscapeDataString(options.AccountNumber)}-compact.png" +
+              $"?amount={payment.Amount.ToString("0", CultureInfo.InvariantCulture)}&addInfo={Uri.EscapeDataString(payment.TransactionCode)}";
 
         return new CreatePaymentResponse(
             payment.PaymentId,
@@ -302,4 +317,6 @@ public sealed class PaymentService(
             payment.Currency,
             payment.ExpiresAt);
     }
+    private static string NormalizeVietQrBankId(string bankCode) =>
+        bankCode.Trim().Equals("TPBANK", StringComparison.OrdinalIgnoreCase) ? "970423" : bankCode.Trim();
 }

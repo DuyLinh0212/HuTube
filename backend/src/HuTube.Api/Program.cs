@@ -151,7 +151,10 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<IClientLocationResolver, IpApiClientLocationResolver>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("HuTube/1.0 (IP geolocation for login security)"));
 builder.Services.AddHttpClient<IRecommendationClient, RecommendationClient>();
-builder.Services.AddScoped<IRecommendationSnapshotStore, RecommendationSnapshotStore>();
+// Model snapshots may use a separate bucket/endpoint from video storage.
+// Without an override, retain the existing R2 configuration.
+var recommendationStorage = builder.Configuration.GetSection("Recommendation:Storage").Get<R2Options>() ?? r2Options;
+builder.Services.AddScoped<IRecommendationSnapshotStore>(_ => new RecommendationSnapshotStore(recommendationStorage));
 builder.Services.AddScoped<RecommendationAdminService>();
 builder.Services.AddHostedService<RecommendationJobWorker>();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();

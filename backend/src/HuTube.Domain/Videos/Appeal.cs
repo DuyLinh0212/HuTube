@@ -17,7 +17,7 @@ public static class AppealTargetTypes
     public const string Strike = "strike";
 }
 
-public sealed class Appeal
+public sealed class Appeal : IClaimLease
 {
     public Guid AppealId { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
@@ -26,6 +26,9 @@ public sealed class Appeal
     public Guid TargetId { get; set; }
     public int AppealNumber { get; set; } = 1;
     public Guid? ReviewerId { get; set; }
+    public DateTimeOffset? ClaimedAt { get; set; }
+    public Guid? ClaimId { get; set; }
+    public DateTimeOffset? ClaimExpiresAt { get; set; }
     public string Reason { get; set; } = "";
     public string Status { get; set; } = AppealStatuses.Pending;
     public string? ReviewNote { get; set; }

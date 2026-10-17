@@ -1,4 +1,5 @@
 using HuTube.Application.Storage;
+using HuTube.Application.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 
@@ -47,7 +48,10 @@ public sealed class LocalStorageService(IWebHostEnvironment environment, IHttpCo
         if (!storedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) throw new FileNotFoundException("Không tìm thấy bằng chứng.");
         var fileName = Path.GetFileName(storedPath[prefix.Length..]);
         if (string.IsNullOrWhiteSpace(fileName)) throw new FileNotFoundException("Không tìm thấy bằng chứng.");
-        Stream stream = new FileStream(Path.Combine(_privateUploadRoot, fileName), FileMode.Open, FileAccess.Read, FileShare.Read);
+        Stream stream;
+        try { stream = new FileStream(Path.Combine(_privateUploadRoot, fileName), FileMode.Open, FileAccess.Read, FileShare.Read); }
+        catch (FileNotFoundException) { throw new AuthException(404, "APPEAL_EVIDENCE_NOT_FOUND", "Không tìm thấy tệp bằng chứng."); }
+        catch (DirectoryNotFoundException) { throw new AuthException(404, "APPEAL_EVIDENCE_NOT_FOUND", "Không tìm thấy tệp bằng chứng."); }
         return Task.FromResult(stream);
     }
 

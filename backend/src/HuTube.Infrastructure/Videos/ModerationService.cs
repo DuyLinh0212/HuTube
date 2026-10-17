@@ -31,7 +31,12 @@ public sealed class ModerationService(
         if (!string.IsNullOrWhiteSpace(status))
         {
             var normalizedStatus = status.Trim().ToLowerInvariant();
-            query = normalizedStatus == "processed"
+            var now = DateTimeOffset.UtcNow;
+            query = normalizedStatus == "pending"
+                ? query.Where(c => c.Status == "pending" || c.Status == "reviewing" && (c.ClaimId == null || c.ClaimExpiresAt == null || c.ClaimExpiresAt <= now))
+                : normalizedStatus == "reviewing"
+                ? query.Where(c => c.Status == "reviewing" && c.ClaimId != null && c.ClaimExpiresAt > now)
+                : normalizedStatus == "processed"
                 ? query.Where(c => c.Status == "approved" || c.Status == "rejected")
                 : query.Where(c => c.Status == normalizedStatus);
         }
@@ -95,55 +100,44 @@ public sealed class ModerationService(
                 reviewer?.DisplayName,
                 c.SubmittedAt,
                 c.ClaimedAt,
-                c.Note
+                c.Note, c.ClaimId, c.ClaimExpiresAt
             ));
         }
 
         return result;
     }
 
-    public async Task<ModerationQueueItemResponse> ClaimCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default)
+    public async Task<ClaimLeaseResponse> ClaimCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default)
     {
-        var moderationCase = await db.ModerationCases.FirstOrDefaultAsync(c => c.ModerationCaseId == caseId, ct)
-            ?? throw new AuthException(404, "CASE_NOT_FOUND", "Không tìm thấy hồ sơ kiểm duyệt.");
-
-        if (moderationCase.ReviewerId.HasValue && moderationCase.ReviewerId.Value != actorId && moderationCase.Status == "reviewing")
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        var item = await db.ModerationCases.FirstOrDefaultAsync(x => x.ModerationCaseId == caseId, ct)
+            ?? throw new AuthException(404, "CASE_NOT_FOUND", "Không tìm thấy hồ sơ.");
+        await ClaimLeasePolicy.LockAsync(db, item, ct);
+        var previous = item.ClaimId;
+        ClaimLeasePolicy.Assign(item, actorId, DateTimeOffset.UtcNow);
+        if (previous != item.ClaimId)
         {
-            throw new AuthException(409, "CASE_ALREADY_CLAIMED", "Hồ sơ này đang được một kiểm duyệt viên khác xử lý.");
+            item.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            await rbac.LogAuditAsync(new AuditLogEntry(actorId, "moderation.claim", "moderation", caseId, "Nhận hồ sơ trong 15 phút"), ct);
         }
-
-        var now = DateTimeOffset.UtcNow;
-        moderationCase.ReviewerId = actorId;
-        moderationCase.Status = "reviewing";
-        moderationCase.ClaimedAt = now;
-        moderationCase.UpdatedAt = now;
-
-        await db.SaveChangesAsync(ct);
-        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "moderation.claim", "moderation_case", caseId, "Nhận duyệt video"), ct);
-
-        var queueItems = await GetQueueAsync(null, null, 1, 100, ct);
-        return queueItems.FirstOrDefault(x => x.ModerationCaseId == caseId)
-            ?? throw new AuthException(404, "CASE_NOT_FOUND", "Hồ sơ không khả dụng.");
+        if (transaction != null) await transaction.CommitAsync(ct);
+        return new(item.ClaimId, item.ClaimExpiresAt);
     }
 
-    public async Task<bool> ReleaseCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default)
+    public async Task<bool> ReleaseCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default, Guid? claimId = null)
     {
-        var moderationCase = await db.ModerationCases.FirstOrDefaultAsync(c => c.ModerationCaseId == caseId, ct)
-            ?? throw new AuthException(404, "CASE_NOT_FOUND", "Không tìm thấy hồ sơ kiểm duyệt.");
-
-        if (moderationCase.ReviewerId == actorId && moderationCase.Status == "reviewing")
-        {
-            moderationCase.ReviewerId = null;
-            moderationCase.ClaimedAt = null;
-            moderationCase.Status = "pending";
-            moderationCase.UpdatedAt = DateTimeOffset.UtcNow;
-
-            await db.SaveChangesAsync(ct);
-            await rbac.LogAuditAsync(new AuditLogEntry(actorId, "moderation.release", "moderation_case", caseId, "Bỏ nhận duyệt video"), ct);
-            return true;
-        }
-
-        return false;
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        var item = await db.ModerationCases.FirstOrDefaultAsync(x => x.ModerationCaseId == caseId, ct)
+            ?? throw new AuthException(404, "CASE_NOT_FOUND", "Không tìm thấy hồ sơ.");
+        await ClaimLeasePolicy.LockAsync(db, item, ct);
+        ClaimLeasePolicy.Ensure(item, actorId, claimId, DateTimeOffset.UtcNow);
+        ClaimLeasePolicy.Release(item);
+        item.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "moderation.release", "moderation", caseId, "Trả hồ sơ về hàng đợi"), ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
+        return true;
     }
 
     public async Task<ModerationDecisionResponse> ResolveCaseAsync(Guid actorId, Guid caseId, ResolveModerationRequest request, CancellationToken ct = default)
@@ -152,8 +146,21 @@ public sealed class ModerationService(
         if (decision is not ("approve" or "age_restricted" or "recommendation_restricted" or "reject" or "escalate"))
             throw new AuthException(400, "INVALID_DECISION", "Quyết định không hợp lệ. Chỉ chấp nhận approve, age_restricted, recommendation_restricted, reject, escalate.");
 
-        var moderationCase = await db.ModerationCases.FirstOrDefaultAsync(c => c.ModerationCaseId == caseId, ct)
+        // Serialize decisions for the same case before any audit/notification
+        // side effects. A second request observes the committed terminal state.
+        await using var transaction = db.Database.IsRelational()
+            ? await db.Database.BeginTransactionAsync(ct)
+            : null;
+        var cases = db.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL"
+            ? db.ModerationCases.FromSqlInterpolated($"SELECT * FROM moderation_cases WHERE moderation_case_id = {caseId} FOR UPDATE")
+            : db.ModerationCases;
+        var moderationCase = await cases.FirstOrDefaultAsync(c => c.ModerationCaseId == caseId, ct)
             ?? throw new AuthException(404, "CASE_NOT_FOUND", "Không tìm thấy hồ sơ kiểm duyệt.");
+
+        if (moderationCase.ResolvedAt.HasValue || moderationCase.Status is "approved" or "rejected" or "resolved")
+            throw new AuthException(409, "CASE_ALREADY_PROCESSED", "Hồ sơ kiểm duyệt đã được xử lý.");
+
+        ClaimLeasePolicy.Ensure(moderationCase, actorId, request.ClaimId, DateTimeOffset.UtcNow);
 
         if (!moderationCase.VideoId.HasValue)
             throw new AuthException(400, "INVALID_CASE_TARGET", "Hồ sơ kiểm duyệt không gắn với video nào.");
@@ -161,7 +168,10 @@ public sealed class ModerationService(
         var video = await db.Videos.FirstOrDefaultAsync(v => v.VideoId == moderationCase.VideoId.Value, ct)
             ?? throw new AuthException(404, "VIDEO_NOT_FOUND", "Không tìm thấy video cần duyệt.");
 
-        var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);
+        var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct)
+            ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Kênh của video không còn khả dụng.");
+        if (channel.Status != "active")
+            throw new AuthException(409, "CHANNEL_NOT_ACTIVE", "Không thể quyết định video khi kênh đang bị hạn chế.");
         var now = DateTimeOffset.UtcNow;
         var message = "";
 
@@ -170,6 +180,13 @@ public sealed class ModerationService(
         moderationCase.PolicyCode = string.IsNullOrWhiteSpace(request.PolicyCode)
             ? null
             : request.PolicyCode.Trim();
+        // Capture the published policy at decision time. Later publications
+        // must never change the policy version attached to this decision.
+        moderationCase.PolicyVersion = moderationCase.PolicyCode == null ? null
+            : await db.Policies.AsNoTracking()
+                .Where(p => p.Code == moderationCase.PolicyCode && p.Status == "published" && p.EffectiveAt <= now)
+                .OrderByDescending(p => p.EffectiveAt).ThenByDescending(p => p.CreatedAt)
+                .Select(p => p.Version).FirstOrDefaultAsync(ct);
         moderationCase.InternalNote = request.InternalNote?.Trim();
         moderationCase.UpdatedAt = now;
         var wasPublished = video.Status == "published" && video.PublishedAt.HasValue;
@@ -392,6 +409,7 @@ public sealed class ModerationService(
             $"{message} - Lý do: {request.Reason ?? "Không có"} - Policy: {request.PolicyCode ?? "N/A"}"
         ), ct);
 
+        if (transaction != null) await transaction.CommitAsync(ct);
         return new ModerationDecisionResponse(
             moderationCase.ModerationCaseId,
             video.VideoId,

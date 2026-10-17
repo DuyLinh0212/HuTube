@@ -60,6 +60,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     {
         model.HasDefaultSchema("public");
         model.HasPostgresExtension("citext");
+        model.HasPostgresExtension("unaccent");
         model.Entity<User>(b => {
             b.ToTable("users"); b.HasKey(x => x.UserId); b.Ignore(x => x.IsBlocked);
             b.Property(x => x.Bio).HasColumnName("bio");
@@ -231,6 +232,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<Policy>(b => {
             b.ToTable("policies");
             b.HasKey(x => x.PolicyId);
+            b.HasIndex(x => new { x.Code, x.Version }).IsUnique().HasDatabaseName("ix_policies_code_version");
             b.Property(x => x.Group).HasColumnName("group");
         });
         model.Entity<Report>(b => {
