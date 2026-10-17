@@ -2,9 +2,9 @@
 from playwright.sync_api import expect
 
 
-def run(suite, admin, member):
+def run(suite, admin, member, fixture_suffix=None):
     page, role = admin['page'], {}
-    code = 'hutube_e2e_custom'
+    code = 'hutube_e2e_custom'+('_'+fixture_suffix if fixture_suffix else '')
     permission = 'taxonomy.manage'
     changed_permissions = {}
 

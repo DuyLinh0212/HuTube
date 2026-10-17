@@ -35,10 +35,14 @@ def run(suite, owner, member):
         suite.go(owner,'/playlists/'+playlist_id,'app-playlists-page')
         row=page.locator('.video-row').filter(has=page.locator('a[href="/watch/'+video_id+'"]'))
         expect(row).to_have_count(1)
-        expect(row.locator('.row-actions button').nth(0)).to_be_disabled()
-        expect(row.locator('.row-actions button').nth(1)).to_be_disabled()
+        ids=[item['videoId'] for item in stored['items']];index=ids.index(video_id)
+        up=row.locator('.row-actions button').nth(0);down=row.locator('.row-actions button').nth(1)
+        if index==0:expect(up).to_be_disabled()
+        else:expect(up).to_be_enabled()
+        if index==len(ids)-1:expect(down).to_be_disabled()
+        else:expect(down).to_be_enabled()
     suite.case(owner,'U-PLAYLIST-ITEM-01','Thêm video qua Watch picker, reload playlist',add,
-               expected='Một item đúng video ID; nút thêm disabled; một item không reorder vượt biên')
+               expected='Video ID chỉ xuất hiện một lần; nút thêm disabled; nút reorder đúng vị trí trong playlist một hoặc nhiều item')
 
     def denied():
         response=suite.api(member,'post',path+'/videos',data={'videoId':video_id})
@@ -48,6 +52,8 @@ def run(suite, owner, member):
                module='access',expected='403/404; playlist không thay đổi')
 
     def remove():
+        before=suite.api(owner,'get',path).json()['items']
+        remaining=[item['videoId'] for item in before if item['videoId']!=video_id]
         suite.go(owner,'/playlists/'+playlist_id,'app-playlists-page')
         row=page.locator('.video-row').filter(has=page.locator('a[href="/watch/'+video_id+'"]'))
         page.once('dialog',lambda dialog:dialog.dismiss())
@@ -58,8 +64,10 @@ def run(suite, owner, member):
             row.locator('.remove-button').click()
         assert pending.value.status in (200,204)
         suite.go(owner,'/playlists/'+playlist_id,'app-playlists-page')
-        expect(page.locator('.empty-items')).to_be_visible()
-        assert not any(item['videoId']==video_id for item in suite.api(owner,'get',path).json()['items'])
+        if remaining:
+            expect(page.locator('.video-row')).to_have_count(len(remaining))
+        else:expect(page.locator('.empty-items')).to_be_visible()
+        assert [item['videoId'] for item in suite.api(owner,'get',path).json()['items']]==remaining
         assert suite.api(owner,'get','/videos/'+video_id).status==200
     suite.case(owner,'U-PLAYLIST-REMOVE-01','Cancel rồi remove item; giữ video nguồn',remove,
                expected='Cancel giữ item; DELETE chỉ xóa liên kết; video nguồn vẫn tồn tại')
