@@ -405,11 +405,13 @@ class AuthController extends ChangeNotifier {
     String method,
     String path, {
     Map<String, dynamic>? body,
+    ApiClient? apiClient,
   }) async {
+    final target = apiClient ?? api;
     final generation = _generation;
     final sentToken = _accessToken;
     try {
-      return await api.request(
+      return await target.request(
         method,
         path,
         body: body,
@@ -433,7 +435,7 @@ class AuthController extends ChangeNotifier {
         );
       }
       try {
-        return await api.request(
+        return await target.request(
           method,
           path,
           body: body,

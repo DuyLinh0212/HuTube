@@ -2,8 +2,19 @@ import '../../auth.dart';
 import 'content_models.dart';
 
 class ContentService {
-  ContentService(this.auth);
+  ContentService(this.auth, {ApiClient? recommendationApi})
+    : recommendationApi =
+          recommendationApi ??
+          ApiClient(
+            client: auth.api.client,
+            baseUrl: AppConfig.standard.recommendationBaseUrl,
+            requestTimeout: const Duration(seconds: 105),
+            healthUrl: Uri.parse(
+              AppConfig.standard.recommendationBaseUrl,
+            ).replace(path: '/health').toString(),
+          );
   final AuthController auth;
+  final ApiClient recommendationApi;
 
   String _query(String path, Map<String, Object?> values) {
     final pairs = values.entries
@@ -24,9 +35,8 @@ class ContentService {
     String? tag,
     String sort = 'newest',
   }) async {
-    // The personalized endpoint needs the signed-in user's identity to
-    // populate the recommendation request. Public feed requests deliberately
-    // remain anonymous, so use the protected client for this one.
+    // Send the user's access token directly to FastAPI. Token refresh continues
+    // through the content API's existing session controller.
     final useRecommendations = !explore && auth.authenticated;
     final endpoint = _query(
       explore
@@ -42,9 +52,30 @@ class ContentService {
         if (explore) 'tag': tag,
       },
     );
-    final json = useRecommendations
-        ? await auth.protected('GET', endpoint)
-        : await auth.api.request('GET', endpoint);
+    final generation = auth.sessionGeneration;
+    Map<String, dynamic> json;
+    if (useRecommendations) {
+      try {
+        json = await auth.protected(
+          'GET',
+          endpoint,
+          apiClient: recommendationApi,
+        );
+      } on ApiFailure catch (error) {
+        if (generation != auth.sessionGeneration ||
+            (error.status != 0 && error.status < 500)) {
+          rethrow;
+        }
+        // Resolve an empty ranking to serve the catalogue without invoking CF again.
+        json = await auth.protected(
+          'POST',
+          '/feed/resolve',
+          body: {'videoIds': <String>[], 'page': page, 'pageSize': pageSize},
+        );
+      }
+    } else {
+      json = await auth.api.request('GET', endpoint);
+    }
     return PageResult(
       items: (json['items'] as List? ?? const [])
           .whereType<Map>()

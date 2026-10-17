@@ -1,7 +1,7 @@
 # HuTube - Kiến trúc Collaborative Filtering (CF)
 
 > Phiên bản: 1.0
-> Trạng thái: MBMF benchmark service đã triển khai; tích hợp .NET chưa triển khai
+> Trạng thái: Web/mobile gọi trực tiếp FastAPI; .NET xác thực phiên và cung cấp dữ liệu video
 > Phạm vi: Module Recommendation / Collaborative Filtering của HuTube
 
 ## 1. Mục tiêu và phạm vi
@@ -15,7 +15,7 @@ bao gồm hai ngữ cảnh liên quan:
 1. **CF Lab ('DemoCF')**: môi trường nghiên cứu, benchmark và trực quan hóa các
    thuật toán Collaborative Filtering.
 2. **Recommendation production flow ('HuTube')**: luồng đề xuất thật cho Web và
-   Mobile, trong đó Backend .NET là cổng API chính và Python đảm nhiệm phần model.
+   Mobile, trong đó FastAPI phục vụ feed đề xuất và .NET quản lý phiên, dữ liệu và nghiệp vụ video.
 
 CF Lab có thể tái sử dụng thuật toán, metric và pipeline nghiên cứu cho production,
 nhưng không được xem là Backend chính của HuTube.
@@ -32,13 +32,14 @@ Module CF sử dụng kiến trúc hybrid gồm ba process chính:
 
 > Các quyết định quan trọng:
 
-- Frontend chỉ gọi HuTube Backend .NET, không gọi Python trực tiếp.
-- .NET gọi Python qua internal HTTP API; FastAPI là framework của Python Service.
+- Web/mobile gọi trực tiếp FastAPI `GET /api/v1/feed/recommended` bằng access token.
+- FastAPI lấy danh tính/lịch sử xem qua .NET `/feed/recommendation-context`, tự tính CF rồi gọi `/feed/resolve` để dựng feed. Hai endpoint dữ liệu .NET không gọi model.
+- .NET vẫn dùng internal HTTP API của Python cho các tác vụ server/admin.
 - Python trả về `itemId`, `source` và score; không quyết định item nào được phép
   hiển thị.
 - Adapter .NET chỉ đổi `itemId` thành `videoId` với artifact `BOT` hoặc `REAL`.
 - .NET chịu trách nhiệm hydrate Video DTO, kiểm tra quyền và lọc video không hợp lệ.
-- Khi Python timeout hoặc lỗi, .NET phải trả fallback feed để Home không bị lỗi.
+- Khi model chưa sẵn sàng, FastAPI yêu cầu .NET resolve danh sách rỗng. Khi FastAPI mất kết nối, client gọi .NET `/feed/resolve` để lấy feed dự phòng.
 - Training có thể chạy độc lập, không được làm nghẽn request online.
 
 ## 3. Kiến trúc tổng quan
@@ -55,10 +56,13 @@ flowchart LR
 
     U -->|Public API| API
     API -->|Auth, business rules| DB
-    API -->|POST /internal/recommendations| PY
-    PY -->|Top-K itemId + source + score| API
-    API -->|Hydrate, filter, DTO| U
-    API -. timeout / 5xx .-> FALLBACK
+    U -->|GET /api/v1/feed/recommended + bearer| PY
+    PY -->|GET /feed/recommendation-context| API
+    PY -->|POST /feed/resolve + ranked IDs| API
+    API -->|Hydrate, filter, DTO| PY
+    PY -->|Paged video cards| U
+    U -. timeout / 5xx: POST /feed/resolve .-> API
+    API --> FALLBACK
     DB -->|Snapshot / interaction data| TRAIN
     TRAIN -->|Train + evaluate| MODEL
     MODEL -->|Load version| PY
@@ -73,15 +77,18 @@ sequenceDiagram
     participant P as Python Recommendation Service
     participant D as HuTube Database
 
-    F->>N: GET /api/v1/recommendations/home?limit=20
-    N->>N: Xác định User và quyền truy cập
-    N->>P: POST /internal/recommendations
+    F->>P: GET /api/v1/feed/recommended?page=1&pageSize=20 + bearer
+    P->>N: GET /api/v1/feed/recommendation-context + bearer
+    N->>N: Xác thực JWT và phiên hiện tại
+    N->>D: Đọc lịch sử xem
+    N-->>P: userId, enabled, excludeItemIds
     P->>P: Load model + tính điểm Top-K
-    P-->>N: itemId + source + score + modelVersion
+    P->>N: POST /api/v1/feed/resolve + ranked videoIds
     N->>D: Lấy metadata Video/Channel
     N->>N: Lọc Deleted, Private, Blocked, Restricted
     N->>N: Bù candidate nếu danh sách thiếu
-    N-->>F: Recommendation DTO + cursor
+    N-->>P: Video cards + page/pageSize/total
+    P-->>F: Video cards + page/pageSize/total
 ~~~
 
 Nếu Python không phản hồi trong thời gian cấu hình, .NET không trả lỗi toàn trang.
@@ -117,7 +124,7 @@ Backend .NET là system of record và là public API boundary của HuTube.
 
 - Authentication và xác định User hiện tại.
 - Authorization, channel permission và policy.
-- Nhận request recommendation từ Web/Mobile.
+- Cung cấp context đã xác thực và dựng feed từ thứ tự video ID do FastAPI tính.
 - Validate limit, cursor và các tham số public.
 - Gọi Python Recommendation Service bằng service credential.
 - Lấy metadata đầy đủ từ Database.
@@ -129,7 +136,7 @@ Backend .NET là system of record và là public API boundary của HuTube.
 
 ### 4.2. Python Recommendation Service
 
-Python Service chỉ đảm nhiệm phần machine learning và ranking cần thiết cho inference.
+Python Service phục vụ endpoint feed cho web/mobile, tính ranking và lấy dữ liệu nghiệp vụ từ .NET.
 
 - Load model artifact theo model_version.
 - Nhận user_id, limit và danh sách item cần exclude.
@@ -142,8 +149,7 @@ Python Service không chịu trách nhiệm:
 
 - Phát hành JWT hoặc kiểm tra quyền User.
 - Quyết định video private/deleted có được hiển thị hay không.
-- Trả full Video DTO cho frontend.
-- Expose endpoint inference công khai ra Internet.
+- Tự dựng Video DTO từ database; feed công khai trả DTO đã được .NET lọc và bổ sung dữ liệu.
 - Ghi đè business data của HuTube.
 
 ### 4.3. Training Worker
@@ -432,7 +438,7 @@ Quy ước:
 | Raw interaction | HuTube / event pipeline | Đọc để tạo snapshot |
 | Training snapshot | Training pipeline | Đọc và biến đổi |
 | Model artifact | Model registry/storage | Tạo version, load và reload |
-| Public recommendation DTO | .NET API | Quyết định và trả về frontend |
+| Public recommendation DTO | .NET API | FastAPI chuyển DTO đã lọc đến frontend |
 
 Python không được trở thành nguồn sự thật thứ hai cho User, Video hoặc permission.
 
@@ -466,9 +472,9 @@ lại Python đang lỗi.
 
 ### 9.1. Bảo mật
 
-- Python endpoint inference chỉ cho phép service-to-service traffic.
+- FastAPI feed công khai yêu cầu access token; các endpoint `/internal/*` vẫn yêu cầu service/admin token.
 - Dùng private network, service token hoặc mTLS tùy môi trường deploy.
-- Không gửi access token của User sang Python nếu Python không cần token đó.
+- Chỉ gửi bearer đến endpoint feed đã cấu hình; refresh token/cookie chỉ gửi về .NET.
 - Không ghi secret, raw token hoặc dữ liệu cá nhân nhạy cảm vào log.
 - Model artifact phải có version, checksum và quyền đọc phù hợp.
 - Admin retrain/rollback phải đi qua .NET authorization, không mở endpoint quản trị
@@ -583,13 +589,13 @@ trả được fallback.
 
 ## 12. Quy tắc không được phá vỡ
 
-1. Không cho Frontend gọi trực tiếp Python Recommendation Service.
+1. Web/mobile gọi trực tiếp endpoint feed FastAPI bằng access token; không đưa service/admin token vào client.
 2. Không đưa auth, permission và video visibility vào model service.
 3. Không để HuTube.Domain phụ thuộc Python hoặc FastAPI.
 4. Không chạy training nặng trong request online.
 5. Không lưu model binary trong Git.
 6. Không trộn MovieLens vào production training dataset.
-7. Không để Python trả full Video DTO thay cho .NET.
+7. DTO video phải do .NET kiểm tra quyền và dựng trước khi FastAPI trả về client.
 8. Không để recommendation service failure làm Home API chết.
 9. Mọi model được deploy phải có version, mapping và metric.
 10. Mọi thay đổi internal contract phải cập nhật contract test và tài liệu này.

@@ -119,6 +119,18 @@ export class ContentService {
     if (sort) params = params.set('sort', sort);
     if (categoryId) params = params.set('categoryId', categoryId);
     if (tag) params = params.set('tag', tag);
+    if (kind === 'home' && this.auth.user() && !categoryId && !tag) {
+      const sessionVersion = this.auth.sessionVersion;
+      return this.http.get<PageResult<VideoCard>>(`${this.config.recommendationBaseUrl}/feed/recommended`, {
+        params: { page, pageSize },
+      }).pipe(catchError(error => {
+        if (sessionVersion !== this.auth.sessionVersion) return throwError(() => error);
+        if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500))) {
+          return this.http.post<PageResult<VideoCard>>(`${this.base}/feed/resolve`, { videoIds: [], page, pageSize });
+        }
+        return throwError(() => error);
+      }));
+    }
     return this.http.get<PageResult<VideoCard>>(`${this.base}/feed/${kind}`, { params });
   }
   search(opts: { q?: string; categoryId?: string; tag?: string; channelId?: string; dateRange?: string; duration?: string; sort?: string; page?: number; pageSize?: number }) {

@@ -38,11 +38,19 @@ try {
             $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
             if (Test-Path $adb) {
                 & $adb reverse tcp:5080 tcp:5080 2>$null | Out-Null
+                & $adb reverse tcp:8000 tcp:8000 2>$null | Out-Null
             }
             Push-Location 'mobile/user-app'
             try {
                 $apiUrl = if ($env:MOBILE_API_BASE_URL) { $env:MOBILE_API_BASE_URL } else { 'http://127.0.0.1:5080/api/v1' }
-                $arguments = @('run', "--dart-define=API_BASE_URL=$apiUrl")
+                $recommendationUrl = if ($env:MOBILE_RECOMMENDATION_BASE_URL) { $env:MOBILE_RECOMMENDATION_BASE_URL } else {
+                    $recommendationUri = [UriBuilder]::new($apiUrl)
+                    if ($recommendationUri.Host -in @('localhost', '127.0.0.1', '10.0.2.2', '::1')) {
+                        $recommendationUri.Port = 8000
+                        $recommendationUri.Uri.AbsoluteUri.TrimEnd('/')
+                    } else { 'https://hutube-recommendation-service.onrender.com/api/v1' }
+                }
+                $arguments = @('run', "--dart-define=API_BASE_URL=$apiUrl", "--dart-define=RECOMMENDATION_BASE_URL=$recommendationUrl")
                 $googleWebClientId = $env:Google__ClientId
                 if (-not [string]::IsNullOrWhiteSpace($googleWebClientId) -and -not $googleWebClientId.Contains('REPLACE_WITH')) {
                     $arguments += "--dart-define=GOOGLE_WEB_CLIENT_ID=$googleWebClientId"

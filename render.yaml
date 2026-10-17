@@ -121,6 +121,13 @@ services:
     envVars:
       - key: APP_ENV
         value: production
+      - key: HUTUBE_API_BASE_URL
+        value: https://hutube.onrender.com/api/v1
+      - key: FORWARDED_ALLOW_IPS
+        value: 127.0.0.1,10.0.0.0/8
+      # JSON array containing the deployed User Web origin (and any local previews).
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
       - key: MODEL_TYPE
         value: item_based_cosine
       - key: RECOMMENDER_SERVICE_TOKEN

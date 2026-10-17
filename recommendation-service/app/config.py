@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     ] = "item_based"
     recommender_service_token: str = ""
     recommender_admin_token: str = ""
+    hutube_api_base_url: HttpUrl = "http://127.0.0.1:5080/api/v1"
+    cors_allowed_origins: list[str] = ["http://localhost:4200", "http://127.0.0.1:4200"]
     r2_account_id: str = Field(default="", validation_alias=AliasChoices(
         "r2_account_id", "Storage__R2__AccountId"))
     r2_access_key_id: str = Field(default="", validation_alias=AliasChoices(

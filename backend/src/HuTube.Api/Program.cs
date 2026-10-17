@@ -268,6 +268,7 @@ if (args.Contains("--migrate"))
     return;
 }
 app.UseForwardedHeaders();
+app.UseMiddleware<RecommendationProxyMiddleware>();
 app.Use(async (context, next) => {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "no-referrer";

@@ -13,6 +13,7 @@ export function validateApiUrl(value: unknown): string {
 @Injectable({ providedIn: 'root' })
 export class RuntimeConfig {
   apiBaseUrl = '';
+  recommendationBaseUrl = '';
   googleClientId = '';
   async load(): Promise<void> {
     const configController = new AbortController();
@@ -36,6 +37,12 @@ export class RuntimeConfig {
     this.apiBaseUrl = localHost && configuredHost === 'hutube.onrender.com'
       ? 'http://localhost:5080/api/v1'
       : configuredApiUrl;
+    const apiHost = new URL(this.apiBaseUrl).hostname;
+    const localApi = ['localhost', '127.0.0.1', '[::1]'].includes(apiHost);
+    this.recommendationBaseUrl = localApi
+      && (!config.RECOMMENDATION_BASE_URL || new URL(config.RECOMMENDATION_BASE_URL).hostname === 'hutube-recommendation-service.onrender.com')
+      ? `${new URL(this.apiBaseUrl).protocol}//${apiHost}:8000/api/v1`
+      : validateApiUrl(config.RECOMMENDATION_BASE_URL || 'https://hutube-recommendation-service.onrender.com/api/v1');
     const configuredGoogleClientId = config.GOOGLE_CLIENT_ID;
     this.googleClientId = typeof configuredGoogleClientId === 'string' && configuredGoogleClientId.endsWith('.apps.googleusercontent.com')
       ? configuredGoogleClientId
@@ -58,5 +65,9 @@ export class RuntimeConfig {
   }
   owns(url: string): boolean {
     return !!this.apiBaseUrl && url.startsWith(this.apiBaseUrl + '/');
+  }
+  ownsRecommendation(url: string): boolean {
+    const endpoint = this.recommendationBaseUrl + '/feed/recommended';
+    return !!this.recommendationBaseUrl && (url === endpoint || url.startsWith(endpoint + '?'));
   }
 }

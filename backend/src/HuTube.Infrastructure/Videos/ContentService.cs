@@ -194,7 +194,7 @@ public sealed class ContentService(
         await db.Categories.AsNoTracking().Where(x => x.Status == "active").OrderBy(x => x.Name)
             .Select(x => new CategoryResponse(x.CategoryId, x.Name, x.Slug, x.Description)).ToListAsync(ct);
 
-    public async Task<PageResult<VideoCardResponse>> GetFeedAsync(
+    public Task<PageResult<VideoCardResponse>> GetFeedAsync(
         string feed,
         string? sort,
         Guid? categoryId,
@@ -202,18 +202,33 @@ public sealed class ContentService(
         int page,
         int pageSize,
         Guid? currentUserId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        GetFeedCoreAsync(feed, sort, categoryId, tag, page, pageSize, currentUserId, null, ct);
+
+    public async Task<RecommendationContextResponse> GetRecommendationContextAsync(Guid userId, CancellationToken ct = default) =>
+        new(userId, recommendationClient.IsEnabled, await GetRecentlyViewedVideoIdsAsync(userId, ct));
+
+    public Task<PageResult<VideoCardResponse>> ResolveFeedAsync(
+        Guid userId, IReadOnlyList<Guid> videoIds, int page, int pageSize, CancellationToken ct = default) =>
+        GetFeedCoreAsync("home", "recommended", null, null, page, pageSize, userId, videoIds, ct);
+
+    private Task<List<Guid>> GetRecentlyViewedVideoIdsAsync(Guid userId, CancellationToken ct) =>
+        db.ViewingHistories.AsNoTracking().Where(x => x.UserId == userId)
+            .GroupBy(x => x.VideoId)
+            .Select(group => new { VideoId = group.Key, LastViewedAt = group.Max(x => x.ViewedAt) })
+            .OrderByDescending(x => x.LastViewedAt).Take(5000)
+            .Select(x => x.VideoId).ToListAsync(ct);
+
+    private async Task<PageResult<VideoCardResponse>> GetFeedCoreAsync(
+        string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize,
+        Guid? currentUserId, IReadOnlyList<Guid>? recommendedVideoIds, CancellationToken ct)
     {
         (page, pageSize) = Page(page, pageSize);
         // Read the current viewing history for every home/recommended page. A model snapshot
         // cannot know about views recorded after it was trained.
         var hideViewed = currentUserId.HasValue && string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase);
         var viewedIds = hideViewed
-            ? await db.ViewingHistories.AsNoTracking().Where(x => x.UserId == currentUserId!.Value)
-                .GroupBy(x => x.VideoId)
-                .Select(group => new { VideoId = group.Key, LastViewedAt = group.Max(x => x.ViewedAt) })
-                .OrderByDescending(x => x.LastViewedAt).Take(5000)
-                .Select(x => x.VideoId).ToListAsync(ct)
+            ? await GetRecentlyViewedVideoIdsAsync(currentUserId!.Value, ct)
             : [];
 
         var isHomeRecommendationFeed = string.Equals(feed, "home", StringComparison.OrdinalIgnoreCase)
@@ -283,17 +298,18 @@ public sealed class ContentService(
             && currentUserId.HasValue
             && !categoryId.HasValue
             && string.IsNullOrWhiteSpace(tag)
-            && recommendationClient.IsEnabled)
+            && (recommendedVideoIds is not null || recommendationClient.IsEnabled))
         {
             var useRandomFallback = false;
             try
             {
-                var recommended = await recommendationClient.GetRecommendationsAsync(currentUserId.Value, 100, viewedIds, ct);
+                var recommended = recommendedVideoIds ??
+                    (await recommendationClient.GetRecommendationsAsync(currentUserId.Value, 100, viewedIds, ct))?
+                    .Select(item => item.VideoId).ToList();
                 useRandomFallback = recommended is null || recommended.Count == 0;
                 if ((recommended?.Count ?? 0) > 0 || promotedVideoCount > 0)
                 {
-                    var candidateRecIds = recommended?.Select(item => item.VideoId)
-                        .Where(id => !viewedIds.Contains(id)).Distinct().ToList() ?? [];
+                    var candidateRecIds = recommended?.Where(id => !viewedIds.Contains(id)).Distinct().ToList() ?? [];
                     var promotedRecIds = promotedVideoCount > 0 && candidateRecIds.Count > 0
                         ? await promotedVideosQuery!.Where(video => candidateRecIds.Contains(video.VideoId))
                             .Select(video => video.VideoId).ToListAsync(ct)

@@ -1,5 +1,8 @@
 class AppConfig {
   const AppConfig({
+    String recommendationBaseUrl = const String.fromEnvironment(
+      'RECOMMENDATION_BASE_URL',
+    ),
     this.apiBaseUrl = const String.fromEnvironment(
       'API_BASE_URL',
       // Android Emulator reaches the host machine through 10.0.2.2.
@@ -15,9 +18,21 @@ class AppConfig {
       defaultValue: '',
     ),
     this.clientHeader = 'mobile',
-  });
+  }) : _recommendationBaseUrl = recommendationBaseUrl;
 
   final String apiBaseUrl;
+  final String _recommendationBaseUrl;
+  String get recommendationBaseUrl {
+    if (_recommendationBaseUrl.isNotEmpty) return _recommendationBaseUrl;
+    final api = Uri.parse(apiBaseUrl);
+    if (['localhost', '127.0.0.1', '10.0.2.2', '::1'].contains(api.host)) {
+      return api
+          .replace(port: 8000, path: '/api/v1', query: null, fragment: null)
+          .toString();
+    }
+    return 'https://hutube-recommendation-service.onrender.com/api/v1';
+  }
+
   final String googleWebClientId;
   final String googleIosClientId;
   final String clientHeader;

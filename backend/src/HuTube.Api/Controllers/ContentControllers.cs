@@ -17,6 +17,17 @@ public sealed class CategoriesController(IContentService content) : ControllerBa
 [ApiController, Route("api/v1/feed"), EnableRateLimiting("feed")]
 public sealed class FeedController(IContentService content) : ControllerBase
 {
+    // FastAPI reads authenticated context and resolves ranked IDs without invoking CF again.
+    [Authorize, HttpGet("recommendation-context")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public Task<RecommendationContextResponse> RecommendationContextAsync(CancellationToken ct) =>
+        content.GetRecommendationContextAsync(Guid.Parse(User.FindFirst("sub")!.Value), ct);
+
+    [Authorize, HttpPost("resolve")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public Task<PageResult<VideoCardResponse>> ResolveAsync(ResolveFeedRequest request, CancellationToken ct) =>
+        content.ResolveFeedAsync(Guid.Parse(User.FindFirst("sub")!.Value), request.VideoIds, request.Page, request.PageSize, ct);
+
     [HttpGet("home")]
     public Task<PageResult<VideoCardResponse>> HomeAsync([FromQuery] string sort = "popular", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {

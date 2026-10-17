@@ -9,6 +9,11 @@ public sealed class ContentException(int status, string code, string message) : 
 }
 
 public sealed record PageResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
+public sealed record RecommendationContextResponse(Guid UserId, bool Enabled, IReadOnlyList<Guid> ExcludeItemIds);
+public sealed record ResolveFeedRequest(
+    [System.ComponentModel.DataAnnotations.Required,
+        System.ComponentModel.DataAnnotations.MaxLength(100)] Guid[] VideoIds,
+    int Page = 1, int PageSize = 20);
 public sealed record CategoryResponse(Guid CategoryId, string Name, string Slug, string? Description);
 public sealed record SearchChannelResponse(Guid ChannelId, string Name, string Handle, int VideoCount);
 public sealed record ChannelSearchResultResponse(Guid ChannelId, string Name, string Handle,
@@ -112,6 +117,8 @@ public interface IContentService
     Task<ExploreHubResponse> GetExploreHubAsync(CancellationToken ct = default);
     Task<IReadOnlyList<CategoryResponse>> GetCategoriesAsync(CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> GetFeedAsync(string feed, string? sort, Guid? categoryId, string? tag, int page, int pageSize, Guid? currentUserId = null, CancellationToken ct = default);
+    Task<RecommendationContextResponse> GetRecommendationContextAsync(Guid userId, CancellationToken ct = default);
+    Task<PageResult<VideoCardResponse>> ResolveFeedAsync(Guid userId, IReadOnlyList<Guid> videoIds, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> GetSubscriptionsFeedAsync(Guid userId, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<VideoCardResponse>> SearchVideosAsync(SearchVideosQuery query, CancellationToken ct = default);
     Task<IReadOnlyList<SearchChannelResponse>> GetSearchChannelsAsync(SearchVideosQuery query, CancellationToken ct = default);

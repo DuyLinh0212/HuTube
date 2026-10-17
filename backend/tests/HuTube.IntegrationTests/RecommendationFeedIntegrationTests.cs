@@ -18,9 +18,11 @@ public sealed class FakeRecommendations : IRecommendationClient
     public Guid Viewed { get; set; }
     public Guid Candidate { get; set; }
     public IReadOnlyList<Guid>? LastExcluded { get; private set; }
+    public int Calls { get; private set; }
     public Task<IReadOnlyList<RecommendedItem>?> GetRecommendationsAsync(Guid userId, int limit,
         IReadOnlyList<Guid>? excludeVideoIds = null, CancellationToken ct = default)
     {
+        Calls++;
         LastExcluded = excludeVideoIds;
         IReadOnlyList<RecommendedItem> items = [
             new(Viewed, 5, "fake-v1", "CF"),
@@ -99,5 +101,36 @@ public sealed class RecommendationFeedIntegrationTests(RecommendationFeedFactory
         Assert.Equal(fallback.VideoId, second!.Items.Single().VideoId);
         Assert.Contains(viewed.VideoId, factory.Recommender.LastExcluded!);
         Assert.DoesNotContain(viewed.VideoId, first.Items.Concat(second.Items).Select(x => x.VideoId));
+
+        var callsBeforeResolve = factory.Recommender.Calls;
+        var context = await client.GetFromJsonAsync<RecommendationContextResponse>(
+            "/api/v1/feed/recommendation-context");
+        Assert.Equal(userId, context!.UserId);
+        Assert.Contains(viewed.VideoId, context.ExcludeItemIds);
+        Assert.True(context.Enabled);
+
+        var resolvedResponse = await client.PostAsJsonAsync("/api/v1/feed/resolve",
+            new ResolveFeedRequest([viewed.VideoId, candidate.VideoId, candidate.VideoId], 1, 1));
+        Assert.True(resolvedResponse.IsSuccessStatusCode, await resolvedResponse.Content.ReadAsStringAsync());
+        var resolved = await resolvedResponse.Content.ReadFromJsonAsync<PageResult<VideoCardResponse>>();
+        Assert.Equal(candidate.VideoId, resolved!.Items.Single().VideoId);
+        var resolvedSecondResponse = await client.PostAsJsonAsync("/api/v1/feed/resolve",
+            new ResolveFeedRequest([viewed.VideoId, candidate.VideoId], 2, 1));
+        var resolvedSecond = await resolvedSecondResponse.Content.ReadFromJsonAsync<PageResult<VideoCardResponse>>();
+        Assert.Equal(fallback.VideoId, resolvedSecond!.Items.Single().VideoId);
+        var fallbackResponse = await client.PostAsJsonAsync("/api/v1/feed/resolve",
+            new ResolveFeedRequest([], 1, 10));
+        var resolvedFallback = await fallbackResponse.Content.ReadFromJsonAsync<PageResult<VideoCardResponse>>();
+        Assert.DoesNotContain(viewed.VideoId, resolvedFallback!.Items.Select(x => x.VideoId));
+        Assert.Equal(callsBeforeResolve, factory.Recommender.Calls);
+
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized,
+            (await anonymous.GetAsync("/api/v1/feed/recommendation-context")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized,
+            (await anonymous.PostAsJsonAsync("/api/v1/feed/resolve", new ResolveFeedRequest([]))).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/api/v1/feed/resolve",
+                new ResolveFeedRequest(Enumerable.Repeat(candidate.VideoId, 101).ToArray()))).StatusCode);
     }
 }

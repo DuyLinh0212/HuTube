@@ -5,13 +5,12 @@ import { RuntimeConfig } from '../runtime-config';
 import { NetworkStatusService } from './network-status.service';
 
 const RESPONSE_TIMEOUT_MS = 15_000;
-// These API routes call Recommendation Service and may need to wait for its
-// cold-start retry window (currently 90 seconds) to finish.
+// Direct FastAPI feeds and admin model requests may wait for service startup.
 const RECOMMENDATION_RESPONSE_TIMEOUT_MS = 105_000;
 
 export const networkInterceptor: HttpInterceptorFn = (request, next) => {
   const config = inject(RuntimeConfig);
-  if (!config.owns(request.url)) return next(request);
+  if (!config.owns(request.url) && !config.ownsRecommendation(request.url)) return next(request);
 
   const networkStatus = inject(NetworkStatusService);
   const isFormData = typeof FormData !== 'undefined' && request.body instanceof FormData;
@@ -20,7 +19,8 @@ export const networkInterceptor: HttpInterceptorFn = (request, next) => {
     || request.responseType === 'blob'
     || request.responseType === 'arraybuffer';
   const callsRecommendationService = request.method === 'GET' && (
-    /\/api\/v1\/feed\/(?:home|recommended)\/?(?:[?#]|$)/.test(request.url)
+    config.ownsRecommendation(request.url)
+    || /\/api\/v1\/feed\/(?:home|recommended)\/?(?:[?#]|$)/.test(request.url)
     || /\/api\/v1\/admin\/users\/[^/?#]+\/statistics\/?(?:[?#]|$)/.test(request.url)
     || /\/api\/v1\/admin\/recommendations\/models\/?(?:[?#]|$)/.test(request.url)
   );

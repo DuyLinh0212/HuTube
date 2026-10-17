@@ -38,13 +38,19 @@ class MultipartFilePayload {
 }
 
 class ApiClient {
-  ApiClient({http.Client? client, String? baseUrl})
-    : client = client ?? http.Client(),
-      baseUrl = baseUrl ?? AppConfig.standard.apiBaseUrl,
-      _currentBaseUrl = baseUrl ?? AppConfig.standard.apiBaseUrl;
+  ApiClient({
+    http.Client? client,
+    String? baseUrl,
+    this.requestTimeout = const Duration(seconds: 20),
+    this.healthUrl,
+  }) : client = client ?? http.Client(),
+       baseUrl = baseUrl ?? AppConfig.standard.apiBaseUrl,
+       _currentBaseUrl = baseUrl ?? AppConfig.standard.apiBaseUrl;
 
   final http.Client client;
   final String baseUrl;
+  final Duration requestTimeout;
+  final String? healthUrl;
   String _currentBaseUrl;
   Future<bool>? _connectionCheck;
 
@@ -224,8 +230,8 @@ class ApiClient {
       if (body != null) request.body = jsonEncode(body);
 
       final response = await http.Response.fromStream(
-        await client.send(request).timeout(const Duration(seconds: 20)),
-      ).timeout(const Duration(seconds: 20));
+        await client.send(request).timeout(requestTimeout),
+      ).timeout(requestTimeout);
       NetworkStatus.instance.markAvailable();
 
       return _decodeResponse(response);
@@ -277,7 +283,7 @@ class ApiClient {
     try {
       await client
           .get(
-            Uri.parse(_buildUrl('/system/config')),
+            Uri.parse(healthUrl ?? _buildUrl('/system/config')),
             headers: {'X-HuTube-Client': AppConfig.standard.clientHeader},
           )
           .timeout(const Duration(seconds: 8));

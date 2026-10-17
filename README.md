@@ -46,7 +46,7 @@ API: `http://localhost:5080`; Recommendation Service: `http://localhost:8000`; U
 ┌─────────────────────────────┐
 │   Recommendation Service    │  (Python FastAPI :8000 - Item-Based Cosine)
 └──────────────┬──────────────┘
-               │ Truy vấn Top-K đề xuất cá nhân hóa (X-Service-Token)
+               │ GET /api/v1/feed/recommended trực tiếp (Bearer access token)
                ▼
 ┌─────────────────────────────┐
 │    User Web & Mobile App    │  (Trang chủ :4200 hiển thị video đề xuất theo sở thích của User)
@@ -103,7 +103,7 @@ Khi báo cáo hoặc thuyết trình đồ án, bạn thực hiện theo kịch 
 - **Bước 4 (Kiểm chứng kết quả cá nhân hóa trên Web)**:
   - Quay lại [http://localhost:4200](http://localhost:4200), đăng nhập tài khoản dùng để kiểm chứng.
   - F5 tải lại Trang chủ: Các video thuộc chủ đề Âm nhạc lập tức được đưa lên đầu trang chủ.
-  - Browser chỉ gọi API .NET; .NET gọi Recommendation Service bằng token nội bộ. Video đã xem được loại khỏi cả model và video bù.
+  - Web và mobile gọi trực tiếp FastAPI `GET /api/v1/feed/recommended` bằng access token đăng nhập. FastAPI tính CF; .NET xác thực phiên, cung cấp lịch sử xem và dựng video cards qua `/api/v1/feed/recommendation-context` và `/api/v1/feed/resolve`. Hai endpoint dữ liệu này không gọi model. Video đã xem được loại khỏi cả model và video bù.
 
 ## Kiểm thử và vận hành
 

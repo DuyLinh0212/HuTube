@@ -4,12 +4,15 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager, suppress
 
+import httpx
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import router
 from app.config import Settings, get_settings
 from app.model_registry import ModelRegistry
+from app.public_feed import router as public_feed_router
 from app.r2_store import R2ConfigurationError
 
 logger = logging.getLogger("uvicorn.error")
@@ -43,25 +46,33 @@ def create_app(
 
         logger.info("Starting Recommendation HTTP without waiting for model storage.")
         task = asyncio.create_task(refresh_models())
-        try:
-            yield
-        finally:
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-            await asyncio.to_thread(resolved_registry.statistics.flush)
+        async with httpx.AsyncClient(timeout=30) as content_client:
+            _app.state.content_client = content_client
+            try:
+                yield
+            finally:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+                await asyncio.to_thread(resolved_registry.statistics.flush)
 
     app = FastAPI(
         title=resolved_settings.app_name,
         version="0.1.0",
         description=(
-            "Internal pure Collaborative Filtering service for HuTube. "
+            "Collaborative Filtering and direct web/mobile recommendation feeds for HuTube. "
             "Supports User-Based and Item-Based CF."
         ),
         lifespan=lifespan,
     )
     app.state.settings = resolved_settings
     app.state.registry = resolved_registry
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved_settings.cors_allowed_origins,
+        allow_methods=["GET"],
+        allow_headers=["Authorization", "X-HuTube-Client"],
+    )
 
     @app.exception_handler(R2ConfigurationError)
     async def missing_model_storage(request: Request, exc: R2ConfigurationError):
@@ -86,6 +97,7 @@ def create_app(
         }})
 
     app.include_router(router)
+    app.include_router(public_feed_router)
     return app
 
 

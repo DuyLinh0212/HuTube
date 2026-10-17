@@ -12,6 +12,8 @@ Endpoint suy luận dùng token khác. Backend gửi toàn bộ ID video đã xe
 
 ## Cấu hình local
 
+Web/mobile lấy feed trực tiếp từ FastAPI `GET /api/v1/feed/recommended` với bearer token. Cấu hình client bằng `RECOMMENDATION_BASE_URL` (web runtime config hoặc Flutter `--dart-define`). Python dùng `HUTUBE_API_BASE_URL` để lấy context/dựng video cards từ .NET, và `CORS_ALLOWED_ORIGINS` (mảng JSON) chứa origin User Web. Refresh token/cookie chỉ gửi về .NET. Chi tiết luồng và các giá trị local/Render nằm trong [README dịch vụ](../../recommendation-service/README.md).
+
 1. Tạo `recommendation-service/.env` theo `.env.example` với `RECOMMENDER_SERVICE_TOKEN`, `RECOMMENDER_ADMIN_TOKEN` **khác nhau**, cùng `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`. Không commit file `.env`.
 2. Cấu hình API .NET qua biến môi trường `Recommendation__ServiceUrl=http://127.0.0.1:8000`, `Recommendation__ServiceToken`, `Recommendation__AdminToken` tương ứng, cùng `Storage__R2__AccountId`, `Storage__R2__AccessKeyId`, `Storage__R2__SecretAccessKey`, `Storage__R2__BucketName`.
 3. Chạy migration theo hướng dẫn backend trước khi khởi động API. Trong `recommendation-service`, cài `py -3 -m venv .venv` và `.\.venv\Scripts\python.exe -m pip install -e ".[dev]"`; từ gốc repo chạy `./scripts/run-recommender.ps1` (bind `127.0.0.1`).

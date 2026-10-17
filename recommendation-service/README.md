@@ -241,7 +241,13 @@ quyền và lọc video private/deleted/blocked.
 
 Super Admin dùng `/recommendations` trên admin web. Backend .NET tạo một dòng CSV cho mỗi cặp user–video từ PostgreSQL, ghi CSV vào `collaborative_cf/YYYY/MM/DD/` trên R2, rồi gọi `POST /internal/model/train` với `X-Model-Admin-Token`, khóa CSV và SHA-256. Endpoint chỉ huấn luyện **Item-Based Cosine**. Artifact được lưu trên R2; `collaborative_cf/active.json` công bố phiên bản đang hoạt động. Khi khởi động lại, service xác minh hash artifact và nạp model từ R2 vào bộ nhớ. Model cũ tiếp tục phục vụ nếu cập nhật thất bại.
 
-`POST /internal/recommendations` yêu cầu `X-Service-Token` riêng. Browser không gọi service Python. Backend truyền lịch sử xem mới nhất trong `excludeItemIds` và lọc kết quả lần cuối, kể cả video phổ biến bù. MovieLens và sáu biến thể CF vẫn có thể benchmark local bằng pipeline benchmark riêng.
+Web và mobile gọi trực tiếp `GET /api/v1/feed/recommended?page=1&pageSize=20` với `Authorization: Bearer <access-token>`. FastAPI lấy danh tính và lịch sử xem từ .NET `/api/v1/feed/recommendation-context`, chạy CF, rồi gửi thứ tự ID đến `/api/v1/feed/resolve` để dựng video cards, lọc quyền xem/video đã xem, chèn quảng bá và phân trang. Hai endpoint .NET này không gọi model; danh tính lấy từ phiên đăng nhập, không nhận `userId` từ client. Khi model chưa sẵn sàng hoặc user chưa có trong model, feed dùng video catalogue dự phòng. Nếu FastAPI không kết nối được, client gọi `/feed/resolve` với danh sách rỗng để lấy feed dự phòng.
+
+Cấu hình FastAPI `HUTUBE_API_BASE_URL` là base API .NET (local `http://127.0.0.1:5080/api/v1`, Render `https://hutube.onrender.com/api/v1`). `CORS_ALLOWED_ORIGINS` là mảng JSON các origin User Web được phép, ví dụ `["http://localhost:4200","https://your-user-web.example"]`. Browser chỉ gửi bearer token, không gửi refresh cookie sang FastAPI.
+
+FastAPI chuyển IP client sang hai endpoint dữ liệu bằng header nội bộ có service token. .NET chỉ nhận IP này khi token khớp, để giữ đúng giới hạn feed theo IP và thông tin phiên đăng nhập. Render cấu hình Uvicorn `FORWARDED_ALLOW_IPS=127.0.0.1,10.0.0.0/8` để nhận IP từ ingress được tin cậy.
+
+`POST /internal/recommendations` vẫn dành cho các tác vụ server với `X-Service-Token` riêng. Không đưa service token hoặc admin token vào config web/mobile. MovieLens và sáu biến thể CF vẫn có thể benchmark local bằng pipeline benchmark riêng.
 
 Để huấn luyện thủ công từ CSV đã xuất, chỉ rõ file thật:
 

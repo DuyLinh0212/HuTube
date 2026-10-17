@@ -15,6 +15,7 @@ describe('Authentication boundary', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting(), provideRouter([])] });
     TestBed.inject(RuntimeConfig).apiBaseUrl = base;
+    TestBed.inject(RuntimeConfig).recommendationBaseUrl = 'http://localhost:8000/api/v1';
     auth = TestBed.inject(AuthService); http = TestBed.inject(HttpClient); controller = TestBed.inject(HttpTestingController);
     spyOnProperty(navigator, 'userAgent', 'get').and.returnValue('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0');
     // Deterministic in-tab tests; production additionally uses the browser lock manager.
@@ -50,10 +51,28 @@ describe('Authentication boundary', () => {
   });
   it('never leaks bearer headers or cookies to an external URL or a prefix lookalike', async () => {
     await login();
-    for (const url of ['https://example.test/api', base + '-other/auth/me']) {
+    for (const url of ['https://example.test/api', base + '-other/auth/me',
+      'http://localhost:8000/api/v1/feed/recommended-other', 'http://localhost:8000/internal/model']) {
       http.get(url).subscribe(); const request = controller.expectOne(url);
       expect(request.request.headers.has('Authorization')).toBeFalse(); expect(request.request.withCredentials).toBeFalse(); request.flush({});
     }
+  });
+  it('sends bearer auth to the configured FastAPI feed without credentials and refreshes through .NET', async () => {
+    await login();
+    const url = 'http://localhost:8000/api/v1/feed/recommended';
+    const result = firstValueFrom(http.get(url));
+    const initial = controller.expectOne(url);
+    expect(initial.request.headers.get('Authorization')).toBe('Bearer token-one');
+    expect(initial.request.withCredentials).toBeFalse();
+    expect(initial.request.headers.has('X-Service-Token')).toBeFalse();
+    initial.flush({ code: 'SESSION_EXPIRED' }, { status: 401, statusText: 'Unauthorized' });
+    controller.expectOne(base + '/auth/refresh').flush({ ...response, accessToken: 'token-two' });
+    await Promise.resolve(); await Promise.resolve();
+    const retried = controller.expectOne(url);
+    expect(retried.request.headers.get('Authorization')).toBe('Bearer token-two');
+    expect(retried.request.withCredentials).toBeFalse();
+    retried.flush({ items: [] });
+    expect(await result).toEqual({ items: [] });
   });
   it('rejects denied account/admin access even after a successful credential response', async () => {
     const promise = firstValueFrom(auth.login(user.email, 'StrongPass123'));

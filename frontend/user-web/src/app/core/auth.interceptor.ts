@@ -7,7 +7,8 @@ import { ADMIN_APP, RuntimeConfig } from './runtime-config';
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const config = inject(RuntimeConfig);
-  if (!config.owns(request.url)) return next(request);
+  const isRecommendation = config.ownsRecommendation(request.url);
+  if (!config.owns(request.url) && !isRecommendation) return next(request);
   const auth = inject(AuthService);
   const router = inject(Router);
   const token = auth.accessToken();
@@ -16,7 +17,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const isAuthEndpoint = /\/auth\/(login|google|refresh|register|verify-email|resend-verification|forgot-password|reset-password|logout)(?:[/?]|$)/.test(request.url);
   const isNetworkFailure = (error: unknown) => error instanceof TimeoutError
     || (error instanceof HttpErrorResponse && error.status === 0);
-  const withAuth = (accessToken: string | null) => request.clone({ withCredentials: true, setHeaders: {
+  const withAuth = (accessToken: string | null) => request.clone({ withCredentials: !isRecommendation, setHeaders: {
     'X-HuTube-Client': 'web', ...(ADMIN_APP ? { 'X-HuTube-App': 'admin' } : {}), ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {})
   } });
   return next(withAuth(token)).pipe(catchError(error => {
