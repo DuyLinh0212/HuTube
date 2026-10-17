@@ -615,7 +615,10 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             else
               SliverReorderableList(
                 itemCount: detail.items.length,
-                onReorderItem: _reorder,
+                onReorder: (oldIndex, newIndex) => _reorder(
+                  oldIndex,
+                  newIndex > oldIndex ? newIndex - 1 : newIndex,
+                ),
                 itemBuilder: (context, index) =>
                     _videoRow(detail, detail.items[index], index),
               ),
