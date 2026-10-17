@@ -245,6 +245,10 @@ Web và mobile gọi trực tiếp `GET /api/v1/feed/recommended?page=1&pageSize
 
 Cấu hình FastAPI `HUTUBE_API_BASE_URL` là base API .NET (local `http://127.0.0.1:5080/api/v1`, Render `https://hutube.onrender.com/api/v1`). `CORS_ALLOWED_ORIGINS` là mảng JSON các origin User Web được phép, ví dụ `["http://localhost:4200","https://your-user-web.example"]`. Browser chỉ gửi bearer token, không gửi refresh cookie sang FastAPI.
 
+Với các deployment hiện tại, web/mobile dùng `RECOMMENDATION_BASE_URL=https://hutube-recommendation-services.onrender.com/api/v1`, còn API .NET dùng `Recommendation__ServiceUrl=https://hutube-recommendation-services.onrender.com` (không thêm `/api/v1`). Trên service Python của Render, đặt `CORS_ALLOWED_ORIGINS=["https://hutube-beta.vercel.app","http://localhost:4200","http://127.0.0.1:4200"]` rồi lưu và triển khai lại. Biến môi trường đã đặt trên Render sẽ ghi đè mặc định trong mã nguồn; cần cập nhật cả biến cũ nếu nó chỉ chứa localhost. Nếu `/health` trả `200` nhưng `OPTIONS /api/v1/feed/recommended` trả `400 Disallowed CORS origin`, kiểm tra danh sách này. Nếu preflight trả `404` hoặc trang HTML của Render, kiểm tra lại hostname thực tế, bao gồm chữ `s` trong `services`.
+
+Lệnh huấn luyện dùng cùng `jobId` khi thử lại lỗi proxy `502`, `504` hoặc `503` tạm thời, trong giới hạn `Recommendation__TimeoutSeconds` (mặc định 90 giây). Lỗi token hoặc cấu hình storage không được thử lại. Trang HTML của proxy không được lưu vào lỗi job hiển thị trên admin.
+
 FastAPI chuyển IP client sang hai endpoint dữ liệu bằng header nội bộ có service token. .NET chỉ nhận IP này khi token khớp, để giữ đúng giới hạn feed theo IP và thông tin phiên đăng nhập. Render cấu hình Uvicorn `FORWARDED_ALLOW_IPS=127.0.0.1,10.0.0.0/8` để nhận IP từ ingress được tin cậy.
 
 `POST /internal/recommendations` vẫn dành cho các tác vụ server với `X-Service-Token` riêng. Không đưa service token hoặc admin token vào config web/mobile. MovieLens và sáu biến thể CF vẫn có thể benchmark local bằng pipeline benchmark riêng.

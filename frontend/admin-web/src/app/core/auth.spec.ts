@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -100,6 +100,91 @@ describe('Authentication boundary', () => {
     controller.expectOne(base + '/auth/refresh').flush({}, {status:401,statusText:'Unauthorized'});
     await expectAsync(result).toBeRejected(); expect(auth.accessToken()).toBeNull(); expect(navigation).toHaveBeenCalledWith(['/login'], {queryParams:{reason:'expired',returnUrl:'/'}});
   });
+  for (const status of [0, 408, 429, 500, 502, 503, 504]) {
+    it(`keeps the admin session and permits recovery after refresh fails with ${status}`, async () => {
+      await login();
+      const navigation = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      const result = firstValueFrom(auth.sessions());
+      controller.expectOne(base + '/auth/sessions').flush({ code: 'SESSION_EXPIRED' }, { status: 401, statusText: 'Unauthorized' });
+      const refresh = controller.expectOne(base + '/auth/refresh');
+      if (status === 0) refresh.error(new ProgressEvent('error'));
+      else refresh.flush({}, { status, statusText: 'Temporary failure' });
+      await expectAsync(result).toBeRejected();
+      expect(auth.accessToken()).toBe('token-one');
+      expect(auth.user()).toEqual(user);
+      expect(navigation).not.toHaveBeenCalled();
+
+      const recovered = firstValueFrom(auth.sessions());
+      controller.expectOne(base + '/auth/sessions').flush({}, { status: 401, statusText: 'Unauthorized' });
+      controller.expectOne(base + '/auth/refresh').flush({ ...response, accessToken: 'token-two' });
+      await Promise.resolve(); await Promise.resolve();
+      controller.expectOne(base + '/auth/sessions').flush({ items: [] });
+      expect(await recovered).toEqual({ items: [] });
+      expect(auth.accessToken()).toBe('token-two');
+    });
+  }
+  it('refreshes a token nearing expiry before sending protected admin requests', async () => {
+    await login();
+    spyOn(Date, 'now').and.returnValue(Date.parse(response.expiresAt) - 60_000);
+    const first = firstValueFrom(auth.sessions());
+    const second = firstValueFrom(http.get(base + '/admin/recommendations/models'));
+    controller.expectNone(base + '/auth/sessions');
+    controller.expectNone(base + '/admin/recommendations/models');
+    controller.expectOne(base + '/auth/refresh').flush({ ...response, accessToken: 'token-two' });
+    await Promise.resolve(); await Promise.resolve();
+    const sessions = controller.expectOne(base + '/auth/sessions');
+    const models = controller.expectOne(base + '/admin/recommendations/models');
+    expect(sessions.request.headers.get('Authorization')).toBe('Bearer token-two');
+    expect(models.request.headers.get('Authorization')).toBe('Bearer token-two');
+    sessions.flush({ items: [] }); models.flush({ items: [] });
+    await first; await second;
+  });
+  it('preserves a session when proactive refresh temporarily fails', async () => {
+    await login();
+    spyOn(Date, 'now').and.returnValue(Date.parse(response.expiresAt) - 60_000);
+    const navigation = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const result = firstValueFrom(auth.sessions());
+    controller.expectOne(base + '/auth/refresh').flush({}, { status: 503, statusText: 'Unavailable' });
+    await expectAsync(result).toBeRejected();
+    controller.expectNone(base + '/auth/sessions');
+    expect(auth.accessToken()).toBe('token-one');
+    expect(navigation).not.toHaveBeenCalled();
+  });
+  it('redirects when proactive refresh confirms that the session has ended', async () => {
+    await login();
+    spyOn(Date, 'now').and.returnValue(Date.parse(response.expiresAt) - 60_000);
+    const navigation = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const result = firstValueFrom(auth.sessions());
+    controller.expectOne(base + '/auth/refresh').flush({ code: 'INVALID_REFRESH_TOKEN' }, { status: 401, statusText: 'Unauthorized' });
+    await expectAsync(result).toBeRejected();
+    controller.expectNone(base + '/auth/sessions');
+    expect(auth.accessToken()).toBeNull();
+    expect(navigation).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'expired', returnUrl: '/' } });
+  });
+  it('allows refresh to wait beyond 15 seconds for a sleeping API', fakeAsync(() => {
+    let completed = false;
+    auth.refresh().subscribe(() => { completed = true; });
+    const refresh = controller.expectOne(base + '/auth/refresh');
+    tick(16_000);
+    expect(refresh.cancelled).toBeFalse();
+    refresh.flush(response);
+    flushMicrotasks();
+    expect(completed).toBeTrue();
+    expect(auth.accessToken()).toBe('token-one');
+  }));
+  it('retries session restoration after temporary API unavailability', fakeAsync(() => {
+    let restored: boolean | undefined;
+    auth.restore().subscribe(value => { restored = value; });
+    controller.expectOne(base + '/auth/refresh').flush({}, { status: 503, statusText: 'Unavailable' });
+    flushMicrotasks();
+    expect(restored).toBeUndefined();
+    tick(5_000);
+    controller.expectOne(base + '/auth/refresh').flush(response);
+    flushMicrotasks();
+    controller.expectOne(base + '/admin/me').flush(user);
+    expect(restored).toBeTrue();
+    expect(auth.user()).toEqual(user);
+  }));
   it('does not refresh or redirect for a business 403', async () => {
     await login(); const result = firstValueFrom(auth.sessions());
     controller.expectOne(base + '/auth/sessions').flush({}, {status:403,statusText:'Forbidden'});

@@ -1,8 +1,8 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { TimeoutError, catchError, of, switchMap, throwError, timeout } from 'rxjs';
-import { AuthService, safeReturnUrl } from './auth.service';
+import { catchError, of, switchMap, throwError, timeout } from 'rxjs';
+import { AuthService, isSessionRejected, safeReturnUrl } from './auth.service';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
 
 const RECOMMENDATION_RESPONSE_TIMEOUT_MS = 105_000;
@@ -20,21 +20,21 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     /\/api\/v1\/admin\/users\/[^/?#]+\/statistics\/?(?:[?#]|$)/.test(request.url)
     || /\/api\/v1\/admin\/recommendations\/models\/?(?:[?#]|$)/.test(request.url)
   );
-  const isNetworkFailure = (error: unknown) => error instanceof TimeoutError
-    || (error instanceof HttpErrorResponse && error.status === 0);
   const withAuth = (accessToken: string | null) => request.clone({ withCredentials: true, setHeaders: {
     'X-HuTube-Client': 'web', ...(ADMIN_APP ? { 'X-HuTube-App': 'admin' } : {}), ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {})
   } });
-  const response = next(withAuth(token)).pipe(catchError(error => {
+  const expire = (refreshError: unknown) => {
+    // Only an explicit authentication rejection ends the session. Temporary
+    // API failures must remain retryable without discarding the refresh cookie.
+    if (!isSessionRejected(refreshError)) return throwError(() => refreshError);
+    if (sessionVersion !== auth.sessionVersion && auth.accessToken()) return throwError(() => refreshError);
+    auth.clear();
+    void router.navigate(['/login'], { queryParams: { reason: 'expired', returnUrl: safeReturnUrl(router.url) } });
+    return throwError(() => refreshError);
+  };
+  const send = (token: string | null) => next(withAuth(token)).pipe(catchError(error => {
     if (!(error instanceof HttpErrorResponse) || error.status !== 401 || isAuthEndpoint) return throwError(() => error);
     if (sessionVersion !== auth.sessionVersion) return throwError(() => error);
-    const expire = (refreshError: unknown) => {
-      if (isNetworkFailure(refreshError)) return throwError(() => refreshError);
-      if (sessionVersion !== auth.sessionVersion && auth.accessToken()) return throwError(() => refreshError);
-      auth.clear();
-      void router.navigate(['/login'], { queryParams: { reason: 'expired', returnUrl: safeReturnUrl(router.url) } });
-      return throwError(() => refreshError);
-    };
     if (!token) {
       // A route can start loading before the cookie-backed session has been
       // restored into memory. Share that restore flight, then replay the
@@ -56,6 +56,11 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       catchError(retryError => retryError instanceof HttpErrorResponse && retryError.status === 401 ? expire(retryError) : throwError(() => retryError))
     )));
   }));
+  // Refresh shortly before expiry so active users do not have to trigger a
+  // failed API request first. Concurrent requests share the same refresh flight.
+  const response = token && !isAuthEndpoint
+    ? auth.ensureFreshAccessToken().pipe(catchError(expire), switchMap(send))
+    : send(token);
   return callsRecommendationService
     ? response.pipe(timeout({ each: RECOMMENDATION_RESPONSE_TIMEOUT_MS }))
     : response;

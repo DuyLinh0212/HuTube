@@ -1,5 +1,5 @@
 {
   "API_BASE_URL": "https://hutube.onrender.com/api/v1",
-  "RECOMMENDATION_BASE_URL": "https://hutube-recommendation-service.onrender.com/api/v1",
+  "RECOMMENDATION_BASE_URL": "https://hutube-recommendation-services.onrender.com/api/v1",
   "GOOGLE_CLIENT_ID": "968220896298-or85f9g8ibu45tdbf0svsbiqt54g7iml.apps.googleusercontent.com"
 }

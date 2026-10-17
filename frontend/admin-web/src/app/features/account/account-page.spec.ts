@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
 import { AccountPage } from './account-page';
 import { AuthService } from '../../core/auth.service';
 import { authInterceptor } from '../../core/auth.interceptor';
@@ -15,6 +16,7 @@ describe('Active device management', () => {
     TestBed.inject(RuntimeConfig).apiBaseUrl=base; http=TestBed.inject(HttpTestingController);
     const auth=TestBed.inject(AuthService);
     auth.accessToken.set('access-token'); auth.user.set({userId:'1',username:'linh',email:'linh@example.test',displayName:'Linh',emailVerified:true,isAdmin:ADMIN_APP});
+    spyOn(auth, 'ensureFreshAccessToken').and.returnValue(of('access-token'));
   });
   afterEach(()=>http.verify());
   function setup() {

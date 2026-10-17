@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { AdminRbacPage } from './admin-rbac-page';
 import { AuthService } from '../../core/auth.service';
 import { authInterceptor } from '../../core/auth.interceptor';
@@ -30,6 +31,7 @@ describe('Admin RBAC page', () => {
     TestBed.inject(RuntimeConfig).apiBaseUrl = base;
     const auth = TestBed.inject(AuthService);
     auth.accessToken.set('access-token');
+    spyOn(auth, 'ensureFreshAccessToken').and.returnValue(of('access-token'));
     auth.user.set({
       userId: 'admin-1',
       username: 'admin',

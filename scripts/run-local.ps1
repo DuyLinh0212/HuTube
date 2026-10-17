@@ -48,7 +48,7 @@ try {
                     if ($recommendationUri.Host -in @('localhost', '127.0.0.1', '10.0.2.2', '::1')) {
                         $recommendationUri.Port = 8000
                         $recommendationUri.Uri.AbsoluteUri.TrimEnd('/')
-                    } else { 'https://hutube-recommendation-service.onrender.com/api/v1' }
+                    } else { 'https://hutube-recommendation-services.onrender.com/api/v1' }
                 }
                 $arguments = @('run', "--dart-define=API_BASE_URL=$apiUrl", "--dart-define=RECOMMENDATION_BASE_URL=$recommendationUrl")
                 $googleWebClientId = $env:Google__ClientId

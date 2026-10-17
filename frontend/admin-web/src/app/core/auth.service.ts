@@ -11,6 +11,10 @@ export interface LoginHistoryItem { loginHistoryId: string; deviceId: string; de
 export interface LoginHistoryPage { items: LoginHistoryItem[]; page: number; pageSize: number; total: number; }
 export interface Message { message: string; }
 
+export function isSessionRejected(error: unknown): boolean {
+  return error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403);
+}
+
 function stableDeviceId(): string {
   if (typeof document === 'undefined') return '';
   const key = `hutube_device_id_${ADMIN_APP ? 'admin' : 'user'}`;
@@ -164,6 +168,7 @@ export class AuthService {
   private restoreFlight?: Observable<boolean>;
   private generation = 0;
   private restored = false;
+  private accessTokenExpiresAt = 0;
   get sessionVersion(): number { return this.generation; }
   private get headers(): HttpHeaders {
     let headers = new HttpHeaders({ 'X-HuTube-Client': 'web' });
@@ -171,15 +176,25 @@ export class AuthService {
     return headers;
   }
   private isTransientNetworkError(error: unknown): boolean {
-    return error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0);
+    return error instanceof TimeoutError || (error instanceof HttpErrorResponse && (
+      error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500
+    ));
   }
-  private post<T>(path: string, body: unknown): Observable<T> {
+  private post<T>(path: string, body: unknown, timeoutMs = 15_000): Observable<T> {
     return this.raw.post<T>(this.config.apiBaseUrl + path, body, { withCredentials: true, headers: this.headers }).pipe(
-      timeout({ first: 15_000 }),
+      timeout({ first: timeoutMs }),
     );
   }
-  clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); }
-  private accept(response: LoginResponse): void { this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true; }
+  clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
+  private accept(response: LoginResponse): void {
+    this.accessTokenExpiresAt = Date.parse(response.expiresAt) || 0;
+    this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true;
+  }
+  ensureFreshAccessToken(): Observable<string> {
+    const token = this.accessToken();
+    return token && this.accessTokenExpiresAt > Date.now() + 120_000
+      ? of(token) : this.refresh().pipe(map(response => response.accessToken));
+  }
   login(email: string, password: string, location?: ClientGeoPayload): Observable<User> {
     const generation = ++this.generation;
     const body: Record<string, unknown> = {
@@ -207,13 +222,13 @@ export class AuthService {
       // Serialize refresh cookie rotation across same-origin tabs as well as within this tab.
       const request = () => firstValueFrom(this.post<LoginResponse>('/auth/refresh', {
         deviceName: browserDeviceName(this.i18n),
-      }));
+      }, 90_000));
       this.refreshFlight = defer(async () => typeof navigator !== 'undefined' && navigator.locks
         ? await navigator.locks.request('hutube-refresh-' + (ADMIN_APP ? 'admin' : 'web'), request)
         : await request()).pipe(
         tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.error.sessionEnded')); this.accept(response); }),
         catchError(error => {
-          if (generation === this.generation && !this.isTransientNetworkError(error)) this.clear();
+          if (generation === this.generation && isSessionRejected(error)) this.clear();
           return throwError(() => error);
         }),
         finalize(() => { this.refreshFlight = undefined; }),
@@ -224,7 +239,12 @@ export class AuthService {
   }
   restore(): Observable<boolean> {
     const generation = this.generation;
-    const denied = () => { if (generation === this.generation) this.clear(); return of(false); };
+    const denied = (error: unknown) => {
+      if (generation !== this.generation) return of(false);
+      if (!isSessionRejected(error)) return throwError(() => error);
+      this.clear();
+      return of(false);
+    };
     if (this.restored && !this.accessToken()) return of(false);
     if (!this.restoreFlight) {
       const restoreAttempt = () => {

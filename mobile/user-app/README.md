@@ -6,7 +6,7 @@
 
 Backend cần chạy cổng 5080. Theo quyết định hiện tại của chủ dự án, local thay Staging cho giai đoạn này.
 
-Feed cá nhân hóa gọi trực tiếp FastAPI tại `RECOMMENDATION_BASE_URL`, dùng access token đăng nhập và tự refresh qua .NET khi hết hạn. Với Android Emulator, URL tự suy ra là `http://10.0.2.2:8000/api/v1`; với API local trên localhost/127.0.0.1, dùng cùng host ở cổng 8000. Bản deploy mặc định dùng `https://hutube-recommendation-service.onrender.com/api/v1`. Ghi đè bằng `--dart-define=RECOMMENDATION_BASE_URL=...` cho URL khác, đặc biệt khi dùng IP LAN. Với Android USB, thêm `adb reverse tcp:8000 tcp:8000`; script `run-local.ps1 -Component mobile` tự thiết lập cả hai cổng.
+Feed cá nhân hóa gọi trực tiếp FastAPI tại `RECOMMENDATION_BASE_URL`, dùng access token đăng nhập và tự refresh qua .NET khi hết hạn. Với Android Emulator, URL tự suy ra là `http://10.0.2.2:8000/api/v1`; với API local trên localhost/127.0.0.1, dùng cùng host ở cổng 8000. Bản deploy mặc định dùng `https://hutube-recommendation-services.onrender.com/api/v1`. Ghi đè bằng `--dart-define=RECOMMENDATION_BASE_URL=...` cho URL khác, đặc biệt khi dùng IP LAN. Với Android USB, thêm `adb reverse tcp:8000 tcp:8000`; script `run-local.ps1 -Component mobile` tự thiết lập cả hai cổng.
 
 ```powershell
 flutter pub get

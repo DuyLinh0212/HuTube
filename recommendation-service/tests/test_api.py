@@ -145,9 +145,14 @@ def test_direct_feed_rejects_anonymous_and_revoked_sessions_before_inference(tmp
     assert calls == ["/api/v1/feed/recommendation-context"]
 
 
-def test_direct_feed_cors_allows_web_bearer_without_credentials_or_internal_tokens(tmp_path):
+@pytest.mark.parametrize("origin", [
+    "http://localhost:4200", "https://hutube-beta.vercel.app",
+])
+def test_direct_feed_cors_allows_web_bearer_without_credentials_or_internal_tokens(
+    tmp_path, origin,
+):
     with _client(tmp_path) as client:
-        headers = {"Origin": "http://localhost:4200", "Access-Control-Request-Method": "GET",
+        headers = {"Origin": origin, "Access-Control-Request-Method": "GET",
                    "Access-Control-Request-Headers": "Authorization,X-HuTube-Client"}
         allowed = client.options("/api/v1/feed/recommended", headers=headers)
         denied = client.options("/api/v1/feed/recommended",
@@ -157,7 +162,7 @@ def test_direct_feed_cors_allows_web_bearer_without_credentials_or_internal_toke
             "Access-Control-Request-Headers": "X-Service-Token",
         })
     assert allowed.status_code == 200
-    assert allowed.headers["Access-Control-Allow-Origin"] == "http://localhost:4200"
+    assert allowed.headers["Access-Control-Allow-Origin"] == origin
     assert "Access-Control-Allow-Credentials" not in allowed.headers
     assert denied.status_code == 400 and internal.status_code == 400
 

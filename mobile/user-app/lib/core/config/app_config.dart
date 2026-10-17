@@ -30,7 +30,7 @@ class AppConfig {
           .replace(port: 8000, path: '/api/v1', query: null, fragment: null)
           .toString();
     }
-    return 'https://hutube-recommendation-service.onrender.com/api/v1';
+    return 'https://hutube-recommendation-services.onrender.com/api/v1';
   }
 
   final String googleWebClientId;

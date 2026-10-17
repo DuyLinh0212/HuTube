@@ -39,10 +39,13 @@ export class RuntimeConfig {
       : configuredApiUrl;
     const apiHost = new URL(this.apiBaseUrl).hostname;
     const localApi = ['localhost', '127.0.0.1', '[::1]'].includes(apiHost);
+    const hostedRecommendationHosts = [
+      'hutube-recommendation-service.onrender.com', 'hutube-recommendation-services.onrender.com'
+    ];
     this.recommendationBaseUrl = localApi
-      && (!config.RECOMMENDATION_BASE_URL || new URL(config.RECOMMENDATION_BASE_URL).hostname === 'hutube-recommendation-service.onrender.com')
+      && (!config.RECOMMENDATION_BASE_URL || hostedRecommendationHosts.includes(new URL(config.RECOMMENDATION_BASE_URL).hostname))
       ? `${new URL(this.apiBaseUrl).protocol}//${apiHost}:8000/api/v1`
-      : validateApiUrl(config.RECOMMENDATION_BASE_URL || 'https://hutube-recommendation-service.onrender.com/api/v1');
+      : validateApiUrl(config.RECOMMENDATION_BASE_URL || 'https://hutube-recommendation-services.onrender.com/api/v1');
     const configuredGoogleClientId = config.GOOGLE_CLIENT_ID;
     this.googleClientId = typeof configuredGoogleClientId === 'string' && configuredGoogleClientId.endsWith('.apps.googleusercontent.com')
       ? configuredGoogleClientId

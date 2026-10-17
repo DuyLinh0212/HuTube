@@ -624,36 +624,10 @@ public sealed class RecommendationAdminService(
             throw new InvalidOperationException("Recommendation Service URL/AdminToken is not configured.");
         using var client = clients.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(30);
-        using var request = new HttpRequestMessage(HttpMethod.Post, options.ServiceUrl.TrimEnd('/') + "/internal/model/train") {
-                Content = System.Net.Http.Json.JsonContent.Create(new {
-                    jobId = job.ServiceJobId,
-                    csvKey = key,
-                    csvSha256 = hash,
-                    modelAlgorithm,
-                    scoreAggregation
-                }) };
-        request.Headers.Add("X-Model-Admin-Token", options.AdminToken);
-        var serviceJobId = job.ServiceJobId;
-        HttpResponseMessage? response = null;
-        try { response = await client.SendAsync(request, ct); }
-        catch (Exception ex) when (!ct.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException)
-        { logger.LogWarning("Model submission outcome is unknown for {JobId}; polling its durable ID.", job.JobId); }
-        using (response)
-        {
-            if (response != null)
-            {
-                var body = await response.Content.ReadAsStringAsync(ct);
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                    throw new InvalidOperationException("MODEL_ADMIN_TOKEN_MISMATCH: Recommendation__AdminToken của API phải trùng RECOMMENDER_ADMIN_TOKEN của Recommendation Service. Kiểm tra cấu hình và khởi động lại cả hai dịch vụ.");
-                if (!response.IsSuccessStatusCode)
-                    throw new InvalidOperationException($"Recommendation Service returned {(int)response.StatusCode}: {body[..Math.Min(500, body.Length)]}");
-                using var submitted = JsonDocument.Parse(body);
-                serviceJobId = submitted.RootElement.GetProperty("jobId").GetString()
-                    ?? throw new InvalidOperationException("Recommendation Service did not return a job ID.");
-                job.ServiceJobId = serviceJobId;
-                await db.SaveChangesAsync(ct);
-            }
-        }
+        var serviceJobId = await new RecommendationModelClient(client, options, logger)
+            .SubmitAsync(job.ServiceJobId, key, hash, scoreAggregation, modelAlgorithm, ct);
+        job.ServiceJobId = serviceJobId;
+        await db.SaveChangesAsync(ct);
         var deadline = DateTimeOffset.UtcNow.AddMinutes(20);
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -678,7 +652,7 @@ public sealed class RecommendationAdminService(
                 var reconciled = await ActiveAsync(ct);
                 if (MatchesPublishedModel(reconciled, key, hash, scoreAggregation, modelAlgorithm)) break;
                 if (progress.StatusCode == System.Net.HttpStatusCode.NotFound || (int)progress.StatusCode >= 500) continue;
-                throw new InvalidOperationException($"Model job polling returned {(int)progress.StatusCode}: {progressBody[..Math.Min(500, progressBody.Length)]}");
+                throw RecommendationModelClient.Failure(progress.StatusCode, progressBody);
             }
             using var progressJson = JsonDocument.Parse(progressBody);
             var state = progressJson.RootElement.GetProperty("status").GetString();

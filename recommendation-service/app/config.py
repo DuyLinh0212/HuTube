@@ -28,7 +28,10 @@ class Settings(BaseSettings):
     recommender_service_token: str = ""
     recommender_admin_token: str = ""
     hutube_api_base_url: HttpUrl = "http://127.0.0.1:5080/api/v1"
-    cors_allowed_origins: list[str] = ["http://localhost:4200", "http://127.0.0.1:4200"]
+    cors_allowed_origins: list[str] = [
+        "http://localhost:4200", "http://127.0.0.1:4200",
+        "https://hutube-beta.vercel.app",
+    ]
     r2_account_id: str = Field(default="", validation_alias=AliasChoices(
         "r2_account_id", "Storage__R2__AccountId"))
     r2_access_key_id: str = Field(default="", validation_alias=AliasChoices(

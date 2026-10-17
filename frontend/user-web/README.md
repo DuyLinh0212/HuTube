@@ -14,7 +14,7 @@ Mặc định chạy tại `http://localhost:4200`. API phải cho phép origin 
 
 `public/config.json` là cấu hình runtime, được tải trước khi Angular khởi động. `npm start` và `npm run build` nhận biến môi trường `API_BASE_URL` qua `scripts/configure-api.mjs`. Nếu không có biến, giữ giá trị Render trong config. Có thể thay `dist/user-web/browser/config.json` sau build mà không biên dịch lại. Không đặt secret trong cấu hình web. Hosting phải fallback các route về `index.html` và phục vụ `config.json` với Cache-Control no-store.
 
-Feed cá nhân hóa gọi trực tiếp FastAPI qua `RECOMMENDATION_BASE_URL` (local `http://localhost:8000/api/v1`, mặc định build `https://hutube-recommendation-service.onrender.com/api/v1`). Biến này cũng được ghi vào `config.json` khi start/build. FastAPI cần cấu hình `HUTUBE_API_BASE_URL` và `CORS_ALLOWED_ORIGINS` chứa origin của web. Access token được gửi riêng đến đúng endpoint feed; refresh cookie chỉ gửi đến .NET.
+Feed cá nhân hóa gọi trực tiếp FastAPI qua `RECOMMENDATION_BASE_URL` (local `http://localhost:8000/api/v1`, mặc định build `https://hutube-recommendation-services.onrender.com/api/v1`). Biến này cũng được ghi vào `config.json` khi start/build. FastAPI cần cấu hình `HUTUBE_API_BASE_URL` và `CORS_ALLOWED_ORIGINS` chứa origin của web. Access token được gửi riêng đến đúng endpoint feed; refresh cookie chỉ gửi đến .NET.
 
 ```powershell
 npm run build

@@ -137,7 +137,7 @@ void main() {
         const AppConfig(
           apiBaseUrl: 'https://hutube.onrender.com/api/v1',
         ).recommendationBaseUrl,
-        'https://hutube-recommendation-service.onrender.com/api/v1',
+        'https://hutube-recommendation-services.onrender.com/api/v1',
       );
       expect(
         const AppConfig(
