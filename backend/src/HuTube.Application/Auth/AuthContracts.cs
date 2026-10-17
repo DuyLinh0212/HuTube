@@ -131,6 +131,7 @@ public interface IAuthStore
     Task<UserSession?> FindActiveSessionByDeviceAsync(Guid userId, string platform, string deviceId, DateTimeOffset now, CancellationToken ct)
         => Task.FromResult<UserSession?>(null);
     Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct);
+    Task<UserSession?> FindSessionSnapshotAsync(Guid id, CancellationToken ct) => FindSessionAsync(id, ct);
     Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct);
     Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct);
     Task<(List<UserLoginHistory> Items, int Page, int PageSize, int Total)> GetLoginHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct);

@@ -96,6 +96,8 @@ builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLi
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
+builder.Services.AddSingleton<ISessionPlayerPreferencesStore, RedisSessionPlayerPreferencesStore>();
+builder.Services.AddHttpClient("session-player-preferences", client => client.Timeout = TimeSpan.FromSeconds(3));
 builder.Services.AddHostedService<AuthSessionCleanupWorker>();
 builder.Services.AddScoped<HuTube.Application.Channels.IChannelStore, ChannelStore>();
 builder.Services.AddScoped<HuTube.Application.Channels.ChannelService>();

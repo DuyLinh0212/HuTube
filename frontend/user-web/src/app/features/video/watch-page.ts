@@ -1,7 +1,7 @@
 import { Component, DestroyRef, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, Subject, takeUntil } from 'rxjs';
+import { finalize, Subject, switchMap, takeUntil } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
@@ -12,6 +12,7 @@ import { LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { PictureInPictureService } from '../../core/picture-in-picture.service';
+import { PlayerPreferencesService } from '../../core/player-preferences.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/video-playlist-menu.component';
 
@@ -28,6 +29,7 @@ export class WatchPage {
   private readonly channels = inject(ChannelService);
   private readonly playlists = inject(PlaylistService);
   private readonly pictureInPicture = inject(PictureInPictureService);
+  private readonly playerPreferences = inject(PlayerPreferencesService);
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
 
@@ -52,8 +54,8 @@ export class WatchPage {
   readonly autoplay = signal(true);
   readonly recommendationFilter = signal<'all' | 'related' | 'channel'>('all');
   readonly isPlaying = signal(false);
-  readonly muted = signal(false);
-  readonly volume = signal(1);
+  readonly muted = signal(this.playerPreferences.preferences().muted);
+  readonly volume = signal(this.playerPreferences.preferences().volume);
   readonly currentTime = signal(0);
   readonly totalDuration = signal(0);
   readonly seekFeedback = signal<'backward' | 'forward' | null>(null);
@@ -107,6 +109,7 @@ export class WatchPage {
   private resumeApplied = false;
   private continuePlaying = false;
   private autoPlayAttempted = false;
+  private autoplayMuted = false;
   private readonly videoCardDisplaySeconds = 8;
   private playerTapTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPlayerTapAt = 0;
@@ -150,8 +153,11 @@ export class WatchPage {
     // Restore the refresh-cookie session before loading the detail/comments.
     // Otherwise a hard refresh sends these public requests anonymously and the
     // API cannot include the current user's reaction, rating, or comment votes.
-    this.auth.restore().subscribe({
-      next: () => this.loadPageData(),
+    this.auth.restore().pipe(
+      switchMap(() => this.playerPreferences.load()),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: () => { this.restorePlayerAudio(); this.loadPageData(); },
       error: () => this.loadPageData()
     });
   }
@@ -184,6 +190,7 @@ export class WatchPage {
     this.resumeApplied = false;
     this.continuePlaying = false;
     this.autoPlayAttempted = false;
+    this.autoplayMuted = false;
     if (this.playerRef?.nativeElement) {
       this.playerRef.nativeElement.pause();
       this.playerRef.nativeElement.currentTime = 0;
@@ -280,6 +287,7 @@ export class WatchPage {
   onMetadata() {
     const player = this.playerRef?.nativeElement;
     if (!player) return;
+    this.restorePlayerAudio();
     this.totalDuration.set(Number.isFinite(player.duration) ? player.duration : this.playback()?.duration ?? 0);
     if (this.pendingSeek !== null) {
       player.currentTime = Math.min(this.pendingSeek, player.duration || this.pendingSeek);
@@ -304,9 +312,13 @@ export class WatchPage {
   }
 
   private tryAutoplay(player: HTMLVideoElement) {
+    const videoId = this.videoId;
+    const source = this.activeRendition()?.url;
     void player.play().catch(() => {
+      if (videoId !== this.videoId || source !== this.activeRendition()?.url || player !== this.playerRef?.nativeElement) return;
       // Browsers commonly reject audible autoplay. A muted fallback still
       // starts the requested video without making sound unexpectedly.
+      this.autoplayMuted = true;
       player.muted = true;
       this.muted.set(true);
       return player.play().catch(() => {
@@ -398,18 +410,50 @@ export class WatchPage {
   toggleMute() {
     const player = this.playerRef?.nativeElement;
     if (!player) return;
+    this.autoplayMuted = false;
     player.muted = !player.muted;
     this.muted.set(player.muted);
+    this.playerPreferences.update(player.volume, player.muted);
   }
 
   setVolume(value: number | string) {
     const next = Math.max(0, Math.min(1, Number(value)));
+    if (!Number.isFinite(next)) return;
     const player = this.playerRef?.nativeElement;
     if (!player) return;
+    this.autoplayMuted = false;
     player.volume = next;
     player.muted = next === 0;
     this.volume.set(next);
     this.muted.set(player.muted);
+    this.playerPreferences.update(next, player.muted);
+  }
+
+  onVolumeChange() {
+    const player = this.playerRef?.nativeElement;
+    if (!player) return;
+    this.volume.set(player.volume);
+    this.muted.set(player.muted);
+    // Browser autoplay can temporarily mute a video. Preserve the user's mute
+    // preference while still remembering volume changes from native/PiP controls.
+    const muted = this.autoplayMuted && player.muted
+      ? this.playerPreferences.preferences().muted : player.muted;
+    if (!player.muted) this.autoplayMuted = false;
+    this.playerPreferences.update(player.volume, muted);
+  }
+
+  private restorePlayerAudio() {
+    const preferences = this.playerPreferences.preferences();
+    // Keep a temporary autoplay mute while switching quality on this video.
+    // Starting another video clears the flag in resetPlayerState().
+    const muted = preferences.muted || this.autoplayMuted;
+    this.volume.set(preferences.volume);
+    this.muted.set(muted);
+    const player = this.playerRef?.nativeElement;
+    if (player) {
+      player.volume = preferences.volume;
+      player.muted = muted;
+    }
   }
 
   ratingSelected(item: VideoDetail, star: number) {

@@ -33,6 +33,8 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
         db.Sessions.SingleOrDefaultAsync(x => x.UserId == userId && x.Platform == platform && x.DeviceId == deviceId
             && x.RevokedAt == null && x.ExpiresAt > now, ct);
     public Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct) => db.Sessions.SingleOrDefaultAsync(x => x.SessionId == id, ct);
+    public Task<UserSession?> FindSessionSnapshotAsync(Guid id, CancellationToken ct) =>
+        db.Sessions.AsNoTracking().SingleOrDefaultAsync(x => x.SessionId == id, ct);
     public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => db.Sessions.Where(x => x.UserId == userId).ToListAsync(ct);
     public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) =>
         db.Sessions.Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now).OrderByDescending(x => x.IssuedAt).ToListAsync(ct);

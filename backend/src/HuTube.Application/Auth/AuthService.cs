@@ -4,7 +4,7 @@ namespace HuTube.Application.Auth;
 
 public sealed class AuthService(IAuthStore store, IPasswordService passwords, ITokenService tokens,
     IAuthEmailSender emailSender, IGoogleTokenVerifier google, AuthOptions options, TimeProvider clock,
-    IClientLocationResolver? locationResolver = null)
+    IClientLocationResolver? locationResolver = null, ISessionPlayerPreferencesStore? playerPreferences = null)
 {
     private DateTimeOffset Now => clock.GetUtcNow();
     private static readonly MessageResponse EmailSent = new("Nếu email phù hợp, hướng dẫn đã được gửi. Vui lòng kiểm tra hộp thư.");
@@ -157,7 +157,14 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         store.AddSession(session);
         await store.SaveAsync(ct);
         var response = await CreateLoginResponseAsync(user, session, nextRefresh, ct);
+        // Preserve player settings when refresh rotates the session ID. The user
+        // lock also serializes this copy with preference updates for the old ID.
+        if (old.Platform == "web" && playerPreferences is not null
+            && await playerPreferences.GetAsync(old, ct) is { } preferences)
+            await playerPreferences.SetAsync(session, preferences, ct);
         await transaction.CommitAsync(ct);
+        if (old.Platform == "web" && playerPreferences is not null)
+            await playerPreferences.RemoveAsync(old.SessionId, CancellationToken.None);
         return response;
     }
 
@@ -257,6 +264,34 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         var isAdmin = await store.IsAdminAsync(userId, ct);
         if (requireAdmin && !isAdmin) throw new AuthException(403, "ADMIN_ACCESS_DENIED", "Bạn không có quyền truy cập quản trị.");
         return ToResponse(user, isAdmin);
+    }
+
+    public async Task<SessionPlayerPreferences> GetPlayerPreferencesAsync(Guid userId, Guid sessionId, CancellationToken ct)
+    {
+        var session = await PlayerSessionAsync(userId, sessionId, ct);
+        return playerPreferences is null ? new() : await playerPreferences.GetAsync(session, ct) ?? new();
+    }
+
+    public async Task<SessionPlayerPreferences> UpdatePlayerPreferencesAsync(
+        Guid userId, Guid sessionId, UpdateSessionPlayerPreferencesRequest request, CancellationToken ct)
+    {
+        if (request.Volume is < 0m or > 1m)
+            throw new AuthException(400, "INVALID_PLAYER_VOLUME", "Âm lượng phải nằm trong khoảng 0 đến 1.");
+        await using var transaction = await store.LockUserAsync(userId, ct);
+        var session = await PlayerSessionAsync(userId, sessionId, ct);
+        var preferences = new SessionPlayerPreferences(request.Volume, request.Muted);
+        if (playerPreferences is not null) await playerPreferences.SetAsync(session, preferences, ct);
+        await transaction.CommitAsync(ct);
+        return preferences;
+    }
+
+    private async Task<UserSession> PlayerSessionAsync(Guid userId, Guid sessionId, CancellationToken ct)
+    {
+        var session = await store.FindSessionSnapshotAsync(sessionId, ct);
+        if (session is null || session.UserId != userId || !session.IsActive(Now)) throw InvalidRefresh();
+        if (session.Platform != "web")
+            throw new AuthException(403, "WEB_SESSION_REQUIRED", "Tùy chọn trình phát chỉ dành cho phiên web.");
+        return session;
     }
 
     public async Task<bool> ValidateSessionAsync(Guid userId, Guid sessionId, Guid jti, CancellationToken ct = default, string? ipAddress = null)
