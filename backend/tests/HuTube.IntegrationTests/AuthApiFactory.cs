@@ -66,7 +66,9 @@ public sealed class TestVideoTranscoder : IVideoTranscoder
     {
         var bytes = await File.ReadAllTextAsync(sourceFilePath, ct);
         var duration = bytes.StartsWith("fake-video-duration:") && int.TryParse(bytes[20..], out var parsed) ? parsed : 120;
-        return new ProbedVideo(duration, 1280, 720);
+        var fileQuality = Path.GetFileNameWithoutExtension(sourceFilePath);
+        var height = fileQuality.EndsWith('p') && int.TryParse(fileQuality[..^1], out var parsedHeight) ? parsedHeight : 720;
+        return new ProbedVideo(duration, height * 16 / 9, height);
     }
     public async Task<IReadOnlyList<TranscodedVideo>> CreateLowerRenditionsAsync(string sourceFilePath, string sourceQuality, string workingDirectory, CancellationToken ct = default)
     {
