@@ -131,6 +131,13 @@ public sealed class PlanExpirationWorker(
             return;
         }
 
+        var memberUserIds = await db.PlanMembers.AsNoTracking()
+            .Where(member => member.PlanHistoryId == historyId && member.Status == "accepted" && member.MemberUserId.HasValue)
+            .Select(member => member.MemberUserId!.Value)
+            .ToListAsync(ct);
+        foreach (var userId in memberUserIds.Append(history.UserId).Distinct().Order())
+            await LockMembershipAsync(db, userId, ct);
+
         // The conditional update is the claim: if another API instance already processed
         // this history, its affected-row count is zero and no duplicate default history is added.
         var claimed = await db.PlanHistories
@@ -139,10 +146,6 @@ public sealed class PlanExpirationWorker(
             .ExecuteUpdateAsync(update => update.SetProperty(item => item.Status, "expired"), ct);
         if (claimed == 0) return;
 
-        var memberUserIds = await db.PlanMembers.AsNoTracking()
-            .Where(member => member.PlanHistoryId == historyId && member.Status == "accepted" && member.MemberUserId.HasValue)
-            .Select(member => member.MemberUserId!.Value)
-            .ToListAsync(ct);
         var affectedUserIds = memberUserIds.Append(history.UserId).Distinct().ToArray();
 
         foreach (var userId in affectedUserIds)
@@ -152,7 +155,15 @@ public sealed class PlanExpirationWorker(
 
             var hasActiveOwnedPlan = await db.PlanHistories.AnyAsync(item => item.UserId == userId
                 && item.Status == "active" && (!item.EndedAt.HasValue || item.EndedAt > now), ct);
-            if (hasActiveOwnedPlan) continue;
+            if (hasActiveOwnedPlan && !memberUserIds.Contains(userId)) continue;
+            if (memberUserIds.Contains(userId))
+            {
+                await db.PlanHistories.Where(item => item.UserId == userId && item.Status == "active")
+                    .ExecuteUpdateAsync(update => update
+                        .SetProperty(item => item.Status, "expired")
+                        .SetProperty(item => item.EndedAt, now)
+                        .SetProperty(item => item.AutoRenew, false), ct);
+            }
 
             var hasActiveSharedPlan = await (from member in db.PlanMembers.AsNoTracking()
                                              join activeHistory in db.PlanHistories.AsNoTracking()
@@ -165,7 +176,8 @@ public sealed class PlanExpirationWorker(
 
             user.PlanId = defaultPlan.PlanId;
             user.UpdatedAt = now;
-            await SyncChannelQuotaAsync(db, userId, defaultPlan.StorageLimit, now, ct);
+            await SyncChannelQuotaAsync(db, userId, defaultPlan.StorageLimit, now, ct,
+                memberUserIds.Contains(userId) ? 0 : null);
             db.PlanHistories.Add(new PlanHistory
             {
                 PlanHistoryId = Guid.NewGuid(),
@@ -194,8 +206,14 @@ public sealed class PlanExpirationWorker(
             .Where(plan => plan.Status == "active" && plan.Code == "free")
             .FirstOrDefaultAsync(ct);
 
+    private static async Task LockMembershipAsync(HuTubeDbContext db, Guid userId, CancellationToken ct)
+    {
+        if (db.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"plan-membership:" + userId}, 0))", ct);
+    }
+
     private static async Task SyncChannelQuotaAsync(
-        HuTubeDbContext db, Guid userId, long storageLimit, DateTimeOffset now, CancellationToken ct)
+        HuTubeDbContext db, Guid userId, long storageLimit, DateTimeOffset now, CancellationToken ct, long? storageUsed = null)
     {
         var channelId = await db.Channels.AsNoTracking()
             .Where(channel => channel.OwnerUserId == userId && channel.Status == "active")
@@ -205,10 +223,11 @@ public sealed class PlanExpirationWorker(
 
         var quota = await db.ChannelQuotas.SingleOrDefaultAsync(item => item.ChannelId == channelId, ct);
         if (quota == null)
-            db.ChannelQuotas.Add(new ChannelQuota { ChannelId = channelId, StorageLimit = storageLimit, UpdatedAt = now });
+            db.ChannelQuotas.Add(new ChannelQuota { ChannelId = channelId, StorageLimit = storageLimit, StorageUsed = storageUsed ?? 0, UpdatedAt = now });
         else
         {
             quota.StorageLimit = storageLimit;
+            if (storageUsed.HasValue) quota.StorageUsed = storageUsed.Value;
             quota.UpdatedAt = now;
         }
     }

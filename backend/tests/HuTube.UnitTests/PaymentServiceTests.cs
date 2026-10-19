@@ -37,12 +37,13 @@ public sealed class PaymentServiceTests : IDisposable
         public Task ArchivePlanAsync(Guid actorUserId, Guid planId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<HuTube.Application.Plans.PlanResponse> GetPlanByIdAsync(Guid planId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<HuTube.Application.Plans.PlanShareResponse> GetPlanShareAsync(Guid planId, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<HuTube.Application.Plans.PlanDetailResponse?> GetMyPlanAsync(Guid userId, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<HuTube.Application.Plans.PlanDetailResponse?> GetMyPlanAsync(Guid userId, CancellationToken ct = default) => Task.FromResult<HuTube.Application.Plans.PlanDetailResponse?>(null);
         public Task<long?> GetEffectiveStorageLimitAsync(Guid userId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<HuTube.Application.Plans.PlanResponse> SubscribeAsync(Guid userId, Guid planId, HuTube.Application.Plans.PlanSubscriptionRequest request, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<HuTube.Application.Plans.PlanMemberResponse> InviteMemberAsync(Guid ownerUserId, string email, long? allocatedStorage, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<HuTube.Application.Plans.PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<HuTube.Application.Plans.PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, bool confirmCancelPaidPlan = false, CancellationToken ct = default) => throw new NotImplementedException();
         public Task RemoveMemberAsync(Guid ownerUserId, Guid memberId, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task LeaveSharedPlanAsync(Guid memberUserId, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<HuTube.Application.Plans.PlanMemberResponse> UpdateMemberStorageAsync(Guid ownerUserId, Guid memberId, long? allocatedStorage, CancellationToken ct = default) => throw new NotImplementedException();
         public Task UpdateOwnerStorageAsync(Guid ownerUserId, long? allocatedStorage, CancellationToken ct = default) => throw new NotImplementedException();
     }

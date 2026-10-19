@@ -124,9 +124,13 @@ public sealed class VideoMediaRetentionCleanupService(
                     rendition.UpdatedAt = now;
                 }
                 await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"quota:" + video.ChannelId}, 0))", ct);
+                await db.SaveChangesAsync(ct);
+                var activeStorage = await db.Videos.AsNoTracking()
+                    .Where(item => item.ChannelId == video.ChannelId && item.Status != "deleted" && item.MediaPurgedAt == null)
+                    .SumAsync(item => (long?)item.FileSize, ct) ?? 0L;
                 await db.ChannelQuotas.Where(x => x.ChannelId == video.ChannelId)
                     .ExecuteUpdateAsync(update => update
-                        .SetProperty(x => x.StorageUsed, x => Math.Max(0, x.StorageUsed - video.FileSize))
+                        .SetProperty(x => x.StorageUsed, activeStorage)
                         .SetProperty(x => x.UpdatedAt, now), ct);
                 await db.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);

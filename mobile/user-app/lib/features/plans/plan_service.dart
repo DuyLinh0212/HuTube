@@ -39,12 +39,20 @@ class PlanService {
 
   Future<Map<String, dynamic>> acceptInvitation(
     String memberId,
-    String token,
-  ) => auth.protected(
+    String token, {
+    bool confirmCancelPaidPlan = false,
+  }) => auth.protected(
     'POST',
     '/plans/members/${Uri.encodeComponent(memberId)}/accept',
-    body: {'token': token},
+    body: {
+      'token': token,
+      'confirmCancelPaidPlan': confirmCancelPaidPlan,
+    },
   );
+
+  Future<void> leaveSharedPlan() async {
+    await auth.protected('POST', '/plans/members/leave', body: const {});
+  }
 
   Future<void> removeMember(String memberId) async {
     await auth.protected(

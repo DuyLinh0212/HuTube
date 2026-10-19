@@ -67,7 +67,10 @@
 
         @if (accountDrawerMounted()) {
           <button class="account-drawer__scrim" [class.account-drawer__scrim--closing]="!accountDrawerOpen()" type="button" [attr.aria-label]="'ui.closeAccountMenu' | translate" (click)="closeAccountDrawer()"></button>
-          <aside id="account-drawer" class="account-drawer" [class.account-drawer--closing]="!accountDrawerOpen()" role="dialog" [attr.aria-modal]="!shortcutsDialogOpen()" [attr.aria-label]="'ui.account' | translate">
+          <aside id="account-drawer" class="account-drawer" [class.account-drawer--closing]="!accountDrawerOpen()" [class.account-drawer--ready]="accountDrawerReady()" [class.account-drawer--dragging]="accountDrawerDragging()" [class.account-drawer--settling]="accountDrawerSettling()" [style.transform]="drawerTransform()" role="dialog" [attr.aria-modal]="!shortcutsDialogOpen()" [attr.aria-label]="'ui.account' | translate">
+            <button class="account-drawer__swipe-handle" type="button" [attr.aria-label]="'ui.closeAccountMenu' | translate" [title]="'ui.closeAccountMenu' | translate" (pointerdown)="onDrawerGripPointerDown($event)" (pointermove)="onDrawerGripPointerMove($event)" (pointerup)="onDrawerGripPointerUp($event)" (pointercancel)="onDrawerGripPointerCancel($event)" (click)="onDrawerGripClick($event)">
+              <span aria-hidden="true"><i></i><i></i></span>
+            </button>
             <header class="account-drawer__header">
               <div class="account-drawer__identity">
                 <div class="drawer-avatar">

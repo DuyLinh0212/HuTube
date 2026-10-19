@@ -851,10 +851,31 @@ public sealed class ContentService(
             await using (var local = File.Create(sourceFile)) await command.Content.CopyToAsync(local, ct);
             probe = await transcoder.ProbeAsync(sourceFile, ct);
             var actualSize = new FileInfo(sourceFile).Length;
-            var qualityHeight = new[] { 360, 480, 720, 1080, 1440, 2160 }.FirstOrDefault(height => height >= probe.Height);
-            if (qualityHeight == 0) throw Error(400, "INVALID_SOURCE_QUALITY", "Video vượt chất lượng hỗ trợ.");
-            command = command with { Duration = probe.Duration, FileSize = actualSize, SourceQuality = qualityHeight + "p" };
-            await PreflightAsync(actorId, new(command.ChannelId, actualSize, probe.Duration, command.ContentType, command.SourceQuality), ct);
+            var detectedQualityHeight = new[] { 360, 480, 720, 1080, 1440, 2160 }.FirstOrDefault(height => height >= probe.Height);
+            if (detectedQualityHeight == 0) throw Error(400, "INVALID_SOURCE_QUALITY", "Video vượt chất lượng hỗ trợ.");
+            var requestedQualityHeight = VideoRules.QualityHeight(command.SourceQuality);
+            if (requestedQualityHeight == 0) throw Error(400, "INVALID_SOURCE_QUALITY", "Chất lượng video không hợp lệ.");
+            var sourceQualityHeight = Math.Min(detectedQualityHeight, requestedQualityHeight);
+            var sourceQuality = sourceQualityHeight + "p";
+            await PreflightAsync(actorId, new(command.ChannelId, actualSize, probe.Duration, command.ContentType, sourceQuality), ct);
+            if (probe.Height > sourceQualityHeight)
+            {
+                var reducedSource = await transcoder.CreateRenditionAsync(
+                    sourceFile, detectedQualityHeight + "p", sourceQuality, temporaryDirectory, ct);
+                if (reducedSource is null || !File.Exists(reducedSource.FilePath) || new FileInfo(reducedSource.FilePath).Length <= 0)
+                    throw Error(503, "UPLOAD_QUALITY_REDUCTION_UNAVAILABLE", "Không thể giảm chất lượng video theo giới hạn gói.");
+                sourceFile = reducedSource.FilePath;
+                probe = await transcoder.ProbeAsync(sourceFile, ct);
+                if (probe.Height > sourceQualityHeight)
+                    throw Error(503, "UPLOAD_QUALITY_REDUCTION_FAILED", "Video sau khi giảm chất lượng vẫn vượt giới hạn gói.");
+                actualSize = new FileInfo(sourceFile).Length;
+                command = command with
+                {
+                    FileName = $"{Path.GetFileNameWithoutExtension(command.FileName)}.mp4",
+                    ContentType = "video/mp4"
+                };
+            }
+            command = command with { Duration = probe.Duration, FileSize = actualSize, SourceQuality = sourceQuality };
             try { chapters = VideoRules.ValidateChapters(command.Chapters.Select(x => new VideoChapter(x.StartSeconds, x.Title)), command.Duration); }
             catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
             videoCards = await ValidateVideoCardsAsync(channel.ChannelId, command.VideoCards, command.Duration, ct);
@@ -928,15 +949,29 @@ public sealed class ContentService(
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         try
         {
+            // Serialize membership transitions and all uploads charged to the same
+            // owner, then re-resolve the owner after waiting for the membership lock.
+            await LockStorageAsync($"plan-membership:{channel.OwnerUserId}", ct);
+            var billingOwnerUserId = await GetStorageBillingOwnerAsync(channel.OwnerUserId, ct);
+            await LockStorageAsync($"plan-storage:{billingOwnerUserId}", ct);
             if (quota != null)
             {
-                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"quota:" + channel.ChannelId}, 0))", ct);
+                await LockStorageAsync($"quota:{channel.ChannelId}", ct);
                 await db.Entry(quota).ReloadAsync(ct);
                 if (!ChannelQuotaRules.CanReserve(quota.StorageUsed, command.FileSize, quota.StorageLimit))
                     throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
                 quota.StorageUsed += command.FileSize;
                 quota.UpdatedAt = now;
             }
+            if (features.PlanEnforcementEnabled)
+            {
+                var groupPlan = await GetEffectivePlanForUserAsync(billingOwnerUserId, ct);
+                var groupStorageLimit = groupPlan?.StorageLimit ?? ChannelQuotaRules.DefaultStorageLimit;
+                var groupStorageUsed = await GetBilledStorageAsync(billingOwnerUserId, ct);
+                if (!ChannelQuotaRules.CanReserve(groupStorageUsed, command.FileSize, groupStorageLimit))
+                    throw Error(409, "SHARED_GROUP_QUOTA_EXCEEDED", "Nhóm đã hết dung lượng gói chung. Chủ gói cần tăng dung lượng hoặc xóa video.");
+            }
+            video.StorageBillingOwnerUserId = billingOwnerUserId;
             db.Videos.Add(video);
             await db.SaveChangesAsync(ct);
 
@@ -1045,13 +1080,33 @@ public sealed class ContentService(
         if (request.Duration <= 0 || request.Duration > maxDuration) throw Error(400, "VIDEO_TOO_LONG", "Video vượt quá thời lượng gói cho phép.");
         var sourceHeight = VideoRules.QualityHeight(request.SourceQuality);
         if (sourceHeight == 0) throw Error(400, "INVALID_VIDEO_QUALITY", "Chất lượng video không hợp lệ.");
-        if (sourceHeight > VideoRules.QualityHeight(maxQuality)) throw Error(403, "UPLOAD_QUALITY_DENIED", "Chất lượng video vượt quá giới hạn gói.");
+        if (sourceHeight > VideoRules.QualityHeight(maxQuality))
+        {
+            if (!request.AllowQualityDowngrade)
+                throw Error(403, "UPLOAD_QUALITY_DENIED", "Chất lượng video vượt quá giới hạn gói.");
+            var downgradeQuota = await db.ChannelQuotas.AsNoTracking().SingleOrDefaultAsync(x => x.ChannelId == request.ChannelId, ct);
+            var downgradeLimit = downgradeQuota?.StorageLimit ?? (features.PlanEnforcementEnabled
+                ? plan?.StorageLimit ?? ChannelQuotaRules.DefaultStorageLimit
+                : maxUpload);
+            var downgradeUsed = downgradeQuota?.StorageUsed ?? 0;
+            return new(false, maxUpload, maxDuration, maxQuality, downgradeLimit, downgradeUsed,
+                ChannelQuotaRules.Remaining(downgradeLimit, downgradeUsed));
+        }
         var quota = await db.ChannelQuotas.AsNoTracking().SingleOrDefaultAsync(x => x.ChannelId == request.ChannelId, ct);
         var limit = quota?.StorageLimit ?? (features.PlanEnforcementEnabled
             ? plan?.StorageLimit ?? ChannelQuotaRules.DefaultStorageLimit
             : maxUpload);
         var used = quota?.StorageUsed ?? 0;
         if (!ChannelQuotaRules.CanReserve(used, request.FileSize, limit)) throw Error(409, "CHANNEL_QUOTA_EXCEEDED", "Kênh không còn đủ dung lượng lưu trữ.");
+        if (features.PlanEnforcementEnabled)
+        {
+            var billingOwnerUserId = await GetStorageBillingOwnerAsync(channel.OwnerUserId, ct);
+            var groupPlan = billingOwnerUserId == channel.OwnerUserId ? plan : await GetEffectivePlanForUserAsync(billingOwnerUserId, ct);
+            var groupStorageLimit = groupPlan?.StorageLimit ?? ChannelQuotaRules.DefaultStorageLimit;
+            var groupStorageUsed = await GetBilledStorageAsync(billingOwnerUserId, ct);
+            if (!ChannelQuotaRules.CanReserve(groupStorageUsed, request.FileSize, groupStorageLimit))
+                throw Error(409, "SHARED_GROUP_QUOTA_EXCEEDED", "Nhóm đã hết dung lượng gói chung. Chủ gói cần tăng dung lượng hoặc xóa video.");
+        }
         return new(true, maxUpload, maxDuration, maxQuality, limit, used, ChannelQuotaRules.Remaining(limit, used));
     }
 
@@ -1242,9 +1297,19 @@ public sealed class ContentService(
     public async Task DeleteVideoAsync(Guid actorId, Guid videoId, CancellationToken ct = default)
     {
         var video = await RequireVideoAsync(videoId, ct);
-        await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoDelete, ct);
+        var channel = await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.VideoDelete, ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await LockStorageAsync($"plan-membership:{channel.OwnerUserId}", ct);
+        await db.Entry(video).ReloadAsync(ct);
+        var billingOwnerUserId = video.StorageBillingOwnerUserId ?? await GetStorageBillingOwnerAsync(channel.OwnerUserId, ct);
+        await LockStorageAsync($"plan-storage:{billingOwnerUserId}", ct);
+        await LockStorageAsync($"quota:{channel.ChannelId}", ct);
         video.Status = "deleted"; video.UpdatedAt = Now; video.MediaRetentionUntil ??= Now.AddDays(30);
         await db.SaveChangesAsync(ct);
+        var activeStorage = await GetChannelActiveVideoStorageAsync(channel.ChannelId, ct);
+        await db.ChannelQuotas.Where(x => x.ChannelId == channel.ChannelId)
+            .ExecuteUpdateAsync(update => update.SetProperty(x => x.StorageUsed, activeStorage).SetProperty(x => x.UpdatedAt, Now), ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task<VideoResponse> SubmitModerationAsync(Guid actorId, Guid videoId, CancellationToken ct = default)
@@ -2121,6 +2186,34 @@ public sealed class ContentService(
         return await db.Plans.AsNoTracking()
             .Where(x => x.Code == "free" && x.Status == "active")
             .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<Guid> GetStorageBillingOwnerAsync(Guid channelOwnerUserId, CancellationToken ct)
+    {
+        var billingOwnerUserId = await (from member in db.PlanMembers.AsNoTracking()
+                                        join history in db.PlanHistories.AsNoTracking() on member.PlanHistoryId equals history.PlanHistoryId
+                                        where member.MemberUserId == channelOwnerUserId && member.Status == "accepted"
+                                              && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now)
+                                        orderby history.EndedAt descending
+                                        select member.OwnerUserId).FirstOrDefaultAsync(ct);
+        return billingOwnerUserId == Guid.Empty ? channelOwnerUserId : billingOwnerUserId;
+    }
+
+    private async Task<long> GetBilledStorageAsync(Guid billingOwnerUserId, CancellationToken ct) =>
+        await db.Videos.AsNoTracking()
+            .Where(video => video.StorageBillingOwnerUserId == billingOwnerUserId
+                && video.Status != "deleted" && video.MediaPurgedAt == null)
+            .SumAsync(video => (long?)video.FileSize, ct) ?? 0L;
+
+    private async Task<long> GetChannelActiveVideoStorageAsync(Guid channelId, CancellationToken ct) =>
+        await db.Videos.AsNoTracking()
+            .Where(video => video.ChannelId == channelId && video.Status != "deleted" && video.MediaPurgedAt == null)
+            .SumAsync(video => (long?)video.FileSize, ct) ?? 0L;
+
+    private async Task LockStorageAsync(string key, CancellationToken ct)
+    {
+        if (db.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
     }
 
     private async Task<Plan?> GetEffectivePlanAsync(Guid userId, Guid planId, CancellationToken ct)

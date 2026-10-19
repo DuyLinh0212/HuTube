@@ -34,7 +34,9 @@
         </div>
 
         @if (auth.user()) {
-          @if (isCurrentActivePlan()) {
+          @if (myPlan()?.isSharedMember) {
+            <p class="active-plan-note">{{ 'plans.sharedWithOwner' | translate:{ owner: myPlan()?.sharedOwnerDisplayName || ('plans.sharedPlanOwnerFallback' | translate) } }}</p>
+          } @else if (isCurrentActivePlan()) {
             <div class="active-plan-badge-wrap">
               <button type="button" class="cta-subscribe is-active-plan" disabled>
                 <span>{{ 'plans.currentUse' | translate }}</span>

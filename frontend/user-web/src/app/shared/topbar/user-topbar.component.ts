@@ -72,6 +72,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   readonly collaborationChannel = computed(() => this.collaborationChannels()[0] ?? null);
   readonly accountDrawerOpen = signal(false);
   readonly accountDrawerMounted = signal(false);
+  readonly accountDrawerReady = signal(false);
+  readonly accountDrawerDragX = signal(0);
+  readonly accountDrawerDragging = signal(false);
+  readonly accountDrawerSettling = signal(false);
   readonly logoutConfirmOpen = signal(false);
   readonly shortcutsDialogOpen = signal(false);
   readonly notificationsOpen = signal(false);
@@ -82,6 +86,15 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   @ViewChild('logoutAnimation') private logoutAnimation?: ElementRef<HTMLSpanElement>;
   private logoutAnimationItem: AnimationItem | null = null;
   private drawerCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private drawerEntranceTimer: ReturnType<typeof setTimeout> | null = null;
+  private drawerSettleTimer: ReturnType<typeof setTimeout> | null = null;
+  private drawerClickResetTimer: ReturnType<typeof setTimeout> | null = null;
+  private drawerPointerId: number | null = null;
+  private drawerPointerStartX = 0;
+  private drawerPointerStartY = 0;
+  private drawerPointerStartTime = 0;
+  private drawerPointerAxis: 'pending' | 'horizontal' | 'vertical' | null = null;
+  private suppressDrawerGripClick = false;
   private readonly drawerAnimationDurationMs = 500;
 
   readonly socialLinks = computed(() => {
@@ -154,14 +167,22 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
 
     this.refreshMyChannel();
     this.cancelDrawerClose();
+    this.resetDrawerGesture();
+    this.accountDrawerReady.set(false);
     this.accountDrawerMounted.set(true);
     this.accountDrawerOpen.set(true);
+    if (this.drawerEntranceTimer) clearTimeout(this.drawerEntranceTimer);
+    this.drawerEntranceTimer = setTimeout(() => {
+      this.drawerEntranceTimer = null;
+      if (this.accountDrawerOpen()) this.accountDrawerReady.set(true);
+    }, this.drawerAnimationDurationMs);
     setTimeout(() => void this.mountLogoutAnimation());
   }
 
   toggleNotifications() { this.closeAccountDrawer(); this.notificationsOpen.set(!this.notificationsOpen()); if (this.notificationsOpen()) this.notifications.loadInitial(); }
 
   closeAccountDrawer() {
+    this.resetDrawerGesture();
     this.accountDrawerOpen.set(false);
     this.logoutConfirmOpen.set(false);
     this.shortcutsDialogOpen.set(false);
@@ -173,6 +194,107 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
       this.accountDrawerMounted.set(false);
       this.drawerCloseTimer = null;
     }, this.drawerAnimationDurationMs);
+  }
+
+  onDrawerGripPointerDown(event: PointerEvent) {
+    if (!this.accountDrawerOpen() || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    this.drawerPointerId = event.pointerId;
+    this.drawerPointerStartX = event.clientX;
+    this.drawerPointerStartY = event.clientY;
+    this.drawerPointerStartTime = event.timeStamp;
+    this.drawerPointerAxis = 'pending';
+    this.suppressDrawerGripClick = false;
+    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* Pointer capture is optional on older browsers. */ }
+  }
+
+  onDrawerGripPointerMove(event: PointerEvent) {
+    if (this.drawerPointerId !== event.pointerId || !this.accountDrawerOpen()) return;
+    const deltaX = event.clientX - this.drawerPointerStartX;
+    const deltaY = event.clientY - this.drawerPointerStartY;
+    if (this.drawerPointerAxis === 'pending' && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 8) {
+      this.drawerPointerAxis = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? 'horizontal' : 'vertical';
+      if (this.drawerPointerAxis === 'horizontal') this.accountDrawerDragging.set(true);
+    }
+    if (this.drawerPointerAxis !== 'horizontal') return;
+    this.accountDrawerDragX.set(Math.max(0, deltaX));
+    if (Math.abs(deltaX) >= 8) {
+      this.suppressDrawerGripClick = true;
+      event.preventDefault();
+    }
+  }
+
+  onDrawerGripPointerUp(event: PointerEvent) {
+    if (this.drawerPointerId !== event.pointerId) return;
+    const deltaX = event.clientX - this.drawerPointerStartX;
+    const elapsedMs = Math.max(1, event.timeStamp - this.drawerPointerStartTime);
+    const width = document.getElementById('account-drawer')?.getBoundingClientRect().width || window.innerWidth;
+    const quickSwipe = deltaX >= 40 && deltaX / elapsedMs >= 0.5;
+    const longSwipe = deltaX >= width * 0.25;
+    const wasHorizontalDrag = this.drawerPointerAxis === 'horizontal';
+    this.drawerPointerId = null;
+    this.drawerPointerAxis = null;
+
+    if (wasHorizontalDrag && (quickSwipe || longSwipe)) {
+      this.preventNextDrawerGripClick();
+      this.closeAccountDrawer();
+      return;
+    }
+    if (wasHorizontalDrag) {
+      this.preventNextDrawerGripClick();
+      this.accountDrawerDragging.set(false);
+      this.accountDrawerSettling.set(true);
+      this.accountDrawerDragX.set(0);
+      if (this.drawerSettleTimer) clearTimeout(this.drawerSettleTimer);
+      this.drawerSettleTimer = setTimeout(() => {
+        this.drawerSettleTimer = null;
+        this.accountDrawerSettling.set(false);
+      }, 180);
+    }
+  }
+
+  onDrawerGripPointerCancel(event: PointerEvent) {
+    if (this.drawerPointerId !== event.pointerId) return;
+    this.drawerPointerId = null;
+    this.drawerPointerAxis = null;
+    this.accountDrawerDragging.set(false);
+    this.accountDrawerSettling.set(false);
+    this.accountDrawerDragX.set(0);
+  }
+
+  onDrawerGripClick(event: MouseEvent) {
+    if (this.suppressDrawerGripClick) {
+      event.preventDefault();
+      this.suppressDrawerGripClick = false;
+      if (this.drawerClickResetTimer) clearTimeout(this.drawerClickResetTimer);
+      this.drawerClickResetTimer = null;
+      return;
+    }
+    this.closeAccountDrawer();
+  }
+
+  drawerTransform(): string | null {
+    return this.accountDrawerDragging() || this.accountDrawerSettling()
+      ? `translateX(${this.accountDrawerDragX()}px)`
+      : null;
+  }
+
+  private preventNextDrawerGripClick() {
+    this.suppressDrawerGripClick = true;
+    if (this.drawerClickResetTimer) clearTimeout(this.drawerClickResetTimer);
+    this.drawerClickResetTimer = setTimeout(() => {
+      this.suppressDrawerGripClick = false;
+      this.drawerClickResetTimer = null;
+    }, 500);
+  }
+
+  private resetDrawerGesture() {
+    this.drawerPointerId = null;
+    this.drawerPointerAxis = null;
+    this.accountDrawerDragX.set(0);
+    this.accountDrawerDragging.set(false);
+    this.accountDrawerSettling.set(false);
+    if (this.drawerSettleTimer) clearTimeout(this.drawerSettleTimer);
+    this.drawerSettleTimer = null;
   }
 
   openLogoutConfirm() {
@@ -212,6 +334,9 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
 
   ngOnDestroy() {
     this.cancelDrawerClose();
+    this.resetDrawerGesture();
+    if (this.drawerEntranceTimer) clearTimeout(this.drawerEntranceTimer);
+    if (this.drawerClickResetTimer) clearTimeout(this.drawerClickResetTimer);
     this.destroyLogoutAnimation();
   }
 

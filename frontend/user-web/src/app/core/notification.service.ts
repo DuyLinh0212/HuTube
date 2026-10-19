@@ -24,6 +24,8 @@ export class NotificationService {
   private revocationPoll?: ReturnType<typeof setInterval>;
   private notificationPoll?: ReturnType<typeof setInterval>;
   private notificationIds = new Set<string>();
+  private readingIds = new Set<string>();
+  private readAllRevision = 0;
   private notificationPollInitialized = false;
   readonly items = signal<AppNotification[]>([]);
   readonly unread = signal(0);
@@ -31,6 +33,7 @@ export class NotificationService {
   readonly invitationVersion = signal(0);
   readonly invitationToast = signal<string | null>(null);
   readonly loading = signal(false);
+  readonly loadedPage = signal(0);
   private page = 0;
   private invitationToastTimer?: ReturnType<typeof setTimeout>;
 
@@ -55,8 +58,9 @@ export class NotificationService {
     if (this.invitationToastTimer) clearTimeout(this.invitationToastTimer);
     this.revocationPoll = undefined; this.notificationPoll = undefined;
     this.notificationIds.clear(); this.notificationPollInitialized = false;
+    this.readingIds.clear(); this.readAllRevision = 0;
     this.items.set([]); this.unread.set(0); this.hasMore.set(false);
-    this.loading.set(false); this.invitationToast.set(null); this.page = 0;
+    this.loading.set(false); this.invitationToast.set(null); this.page = 0; this.loadedPage.set(0);
   }
 
   async connect() {
@@ -141,14 +145,22 @@ export class NotificationService {
     this.invitationToastTimer = setTimeout(() => this.invitationToast.set(null), 6000);
   }
 
-  loadInitial() { this.page = 0; this.items.set([]); return this.loadMore(); }
+  loadInitial() {
+    if (this.loading()) return;
+    this.page = 0;
+    this.loadedPage.set(0);
+    this.items.set([]);
+    this.hasMore.set(false);
+    return this.loadMore();
+  }
   loadMore() {
     const generation = this.generation;
-    if (this.loading()) return;
+    if (this.loading() || (this.page > 0 && !this.hasMore())) return;
     this.loading.set(true);
     this.http.get<NotificationPage>(`${this.config.apiBaseUrl}/notifications`, { params: { page: this.page + 1, pageSize: 5 } }).pipe(takeUntil(this.identityChanged)).subscribe({
       next: value => {
         this.page = value.page;
+        this.loadedPage.set(value.page);
         this.items.update(items => {
           const merged = [...items, ...value.items];
           value.items.forEach(item => this.notificationIds.add(item.notificationId));
@@ -161,6 +173,30 @@ export class NotificationService {
       error: () => { if (generation === this.generation) this.loading.set(false); }
     });
   }
-  read(item: AppNotification) { const generation = this.generation; if (!item.isRead) this.http.patch<void>(`${this.config.apiBaseUrl}/notifications/${item.notificationId}/read`, {}).pipe(takeUntil(this.identityChanged)).subscribe(() => { if (generation !== this.generation) return; item.isRead = true; this.items.update(items => [...items]); }); }
-  readAll() { const generation = this.generation; this.http.post<void>(`${this.config.apiBaseUrl}/notifications/read-all`, {}).pipe(takeUntil(this.identityChanged)).subscribe(() => { if (generation !== this.generation) return; this.items.update(items => items.map(item => ({ ...item, isRead: true }))); this.unread.set(0); }); }
+  read(item: AppNotification) {
+    const id = item.notificationId;
+    const current = this.items().find(candidate => candidate.notificationId === id);
+    if (!current || current.isRead || this.readingIds.has(id)) return;
+
+    const generation = this.generation;
+    const readAllRevision = this.readAllRevision;
+    this.readingIds.add(id);
+    this.items.update(items => items.map(candidate => candidate.notificationId === id ? { ...candidate, isRead: true } : candidate));
+    this.unread.update(count => Math.max(0, count - 1));
+
+    this.http.patch<void>(`${this.config.apiBaseUrl}/notifications/${id}/read`, {}).pipe(takeUntil(this.identityChanged)).subscribe({
+      next: () => {
+        if (generation === this.generation) this.readingIds.delete(id);
+      },
+      error: () => {
+        if (generation !== this.generation) return;
+        this.readingIds.delete(id);
+        if (readAllRevision !== this.readAllRevision) return;
+        if (!this.items().find(candidate => candidate.notificationId === id)?.isRead) return;
+        this.items.update(items => items.map(candidate => candidate.notificationId === id ? { ...candidate, isRead: false } : candidate));
+        this.unread.update(count => count + 1);
+      }
+    });
+  }
+  readAll() { const generation = this.generation; this.http.post<void>(`${this.config.apiBaseUrl}/notifications/read-all`, {}).pipe(takeUntil(this.identityChanged)).subscribe(() => { if (generation !== this.generation) return; this.readAllRevision++; this.items.update(items => items.map(item => ({ ...item, isRead: true }))); this.unread.set(0); }); }
 }

@@ -43,6 +43,7 @@ export class PlansPage {
   }
 
   setView(view: PlansView) {
+    if (view === 'catalog' && this.myPlan()?.isSharedMember) return;
     this.view.set(view);
   }
 
@@ -84,6 +85,7 @@ export class PlansPage {
 
   canSwitch(planId: string): boolean {
     const current = this.myPlan();
+    if (current?.isSharedMember) return false;
     if (!current || !current.planId || (current.subscription && current.subscription.isExpired)) return false;
     const target = this.plans().find(plan => plan.planId === planId);
     if (!target) return false;
@@ -136,11 +138,52 @@ export class PlansPage {
 
   ownerRemainingStorage(plan: MyPlan): number | null {
     if (plan.ownerAllocatedStorage == null) return null;
-    return Math.max(0, plan.ownerAllocatedStorage - (plan.usedStorage ?? 0));
+    return Math.max(0, plan.ownerAllocatedStorage - (plan.ownerOwnStorageUsed ?? 0));
+  }
+
+  inviteQuotaError(plan: MyPlan): string | null {
+    const bytes = this.parseQuotaGb(this.inviteStorageGB);
+    if (bytes === undefined) return this.i18n.t('plans.invalidQuota');
+    if (bytes !== null && bytes > this.unallocatedStorage(plan))
+      return this.i18n.t('plans.quotaExceedsAvailable', { available: this.formatBytes(this.unallocatedStorage(plan)) });
+    return null;
+  }
+
+  memberQuotaError(plan: MyPlan, memberId: string): string | null {
+    const bytes = this.parseQuotaGb(this.editingMemberStorageGB());
+    if (bytes === undefined) return this.i18n.t('plans.invalidQuota');
+    const available = this.maxMemberQuotaGB(plan, memberId) * 1024 ** 3;
+    if (bytes !== null && bytes > available)
+      return this.i18n.t('plans.quotaExceedsAvailable', { available: this.formatBytes(available) });
+    return null;
+  }
+
+  maxMemberQuotaGB(plan: MyPlan, memberId: string): number {
+    const otherAllocated = (plan.members ?? [])
+      .filter(member => member.planMemberId !== memberId)
+      .reduce((sum, member) => sum + (member.allocatedStorage ?? 0), 0);
+    return Math.max(0, plan.storageLimit - (plan.ownerAllocatedStorage ?? 0) - otherAllocated) / 1024 ** 3;
+  }
+
+  ownerQuotaError(plan: MyPlan): string | null {
+    const bytes = this.parseQuotaGb(this.ownerStorageGB());
+    if (bytes === undefined) return this.i18n.t('plans.invalidQuota');
+    const available = Math.max(0, plan.storageLimit - (plan.members ?? []).reduce((sum, member) => sum + (member.allocatedStorage ?? 0), 0));
+    if (bytes !== null && bytes > available)
+      return this.i18n.t('plans.quotaExceedsAvailable', { available: this.formatBytes(available) });
+    return null;
+  }
+
+  maxOwnerQuotaGB(plan: MyPlan): number {
+    return Math.max(0, plan.storageLimit - (plan.members ?? []).reduce((sum, member) => sum + (member.allocatedStorage ?? 0), 0)) / 1024 ** 3;
+  }
+
+  maxInviteQuotaGB(plan: MyPlan): number {
+    return this.unallocatedStorage(plan) / 1024 ** 3;
   }
 
   private parseQuotaGb(value: number | null): number | null | undefined {
-    if (value == null || value === 0) return null;
+    if (value == null) return null;
     if (!Number.isFinite(value) || value < 0) return undefined;
     return Math.round(value * 1024 ** 3);
   }
@@ -155,14 +198,15 @@ export class PlansPage {
     if (!plan || !this.inviteEmail.trim() || this.busy()) return;
 
     const allocatedBytes = this.parseQuotaGb(this.inviteStorageGB);
-    const quotaError = this.quotaError(allocatedBytes);
+    const quotaError = this.inviteQuotaError(plan) || this.quotaError(allocatedBytes);
     if (quotaError) {
       this.error.set(quotaError);
       return;
     }
 
     this.busy.set(true);
-    this.error.set('');    this.plansService.invite(this.inviteEmail.trim(), allocatedBytes).pipe(finalize(() => this.busy.set(false))).subscribe({
+    this.error.set('');
+    this.plansService.invite(this.inviteEmail.trim(), allocatedBytes).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: (member: PlanMember) => {
         this.myPlan.update(current => current ? { ...current, members: [...current.members, member] } : current);
         this.inviteEmail = '';
@@ -175,7 +219,7 @@ export class PlansPage {
 
   startEditMember(member: PlanMember) {
     this.editingMemberId.set(member.planMemberId);
-    this.editingMemberStorageGB.set(member.allocatedStorage ? Math.round(member.allocatedStorage / 1024 ** 3) : null);
+    this.editingMemberStorageGB.set(member.allocatedStorage != null ? Math.round(member.allocatedStorage / 1024 ** 3) : null);
   }
 
   cancelEditMember() {
@@ -185,9 +229,11 @@ export class PlansPage {
 
   saveMemberStorage(memberId: string) {
     if (this.busy()) return;
-    const member = this.myPlan()?.members.find(item => item.planMemberId === memberId);
+    const plan = this.myPlan();
+    if (!plan) return;
+    const member = plan.members.find(item => item.planMemberId === memberId);
     const bytes = this.parseQuotaGb(this.editingMemberStorageGB());
-    const validationError = this.quotaError(bytes);
+    const validationError = this.quotaError(bytes) || this.memberQuotaError(plan, memberId);
     if (validationError) {
       this.error.set(validationError);
       return;
@@ -216,7 +262,7 @@ export class PlansPage {
     const plan = this.myPlan();
     if (!plan) return;
     this.editingOwnerStorage.set(true);
-    this.ownerStorageGB.set(plan.ownerAllocatedStorage ? Math.round(plan.ownerAllocatedStorage / 1024 ** 3) : null);
+    this.ownerStorageGB.set(plan.ownerAllocatedStorage != null ? Math.round(plan.ownerAllocatedStorage / 1024 ** 3) : null);
   }
 
   cancelEditOwnerStorage() {
@@ -227,14 +273,15 @@ export class PlansPage {
   saveOwnerStorage() {
     if (this.busy()) return;
     const plan = this.myPlan();
+    if (!plan) return;
     const bytes = this.parseQuotaGb(this.ownerStorageGB());
-    const validationError = this.quotaError(bytes);
+    const validationError = this.quotaError(bytes) || this.ownerQuotaError(plan);
     if (validationError) {
       this.error.set(validationError);
       return;
     }
     if (bytes === undefined) return;
-    if (plan?.usedStorage && bytes !== null && bytes < plan.usedStorage) {
+    if (plan?.ownerOwnStorageUsed && bytes !== null && bytes < plan.ownerOwnStorageUsed) {
       this.error.set(this.i18n.t('plans.quotaBelowUsed'));
       return;
     }
@@ -261,6 +308,21 @@ export class PlansPage {
         this.message.set(this.i18n.t('plans.revokeSent'));
       },
       error: () => this.error.set(this.i18n.t('plans.revokeError'))
+    });
+  }
+
+  leaveSharedPlan(plan: MyPlan) {
+    if (this.busy() || !plan.isSharedMember) return;
+    const owner = plan.sharedOwnerDisplayName || this.i18n.t('plans.sharedPlanOwnerFallback');
+    if (!window.confirm(this.i18n.t('plans.leaveSharedConfirm', { owner }))) return;
+    this.busy.set(true);
+    this.error.set('');
+    this.plansService.leaveSharedPlan().pipe(finalize(() => this.busy.set(false))).subscribe({
+      next: () => {
+        this.load();
+        this.message.set(this.i18n.t('plans.leftSharedPlan'));
+      },
+      error: err => this.error.set(err?.error?.message || this.i18n.t('plans.leaveSharedError'))
     });
   }
 }

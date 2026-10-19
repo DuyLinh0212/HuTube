@@ -74,7 +74,8 @@ public sealed record CreateDownloadRequest(string Quality);
 public sealed record DownloadResponse(Guid VideoDownloadId, Guid VideoId, string Title, string Quality,
     string FileUrl, long FileSize, string Status, DateTimeOffset CreatedAt);
 public sealed record DownloadFileResponse(Stream Content, string FileName, string ContentType);
-public sealed record UploadPreflightRequest(Guid ChannelId, long FileSize, int Duration, string ContentType, string SourceQuality);
+public sealed record UploadPreflightRequest(Guid ChannelId, long FileSize, int Duration, string ContentType, string SourceQuality,
+    bool AllowQualityDowngrade = false);
 public sealed record UploadPreflightResponse(bool Allowed, long MaxUploadSize, int MaxDuration, string MaxQuality,
     long StorageLimit, long StorageUsed, long StorageRemaining);
 

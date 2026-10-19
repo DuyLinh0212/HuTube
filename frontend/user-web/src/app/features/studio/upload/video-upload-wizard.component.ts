@@ -56,6 +56,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   @ViewChild('previewPlayer') private previewPlayer?: ElementRef<HTMLVideoElement>;
   @ViewChild('timelineTrack') private timelineTrack?: ElementRef<HTMLDivElement>;
   @ViewChild('newChapterTitleInput') private newChapterTitleInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('videoFileInput') private videoFileInput?: ElementRef<HTMLInputElement>;
 
   readonly currentStep = signal<number>(1);
   readonly uploadProgress = signal<number>(0);
@@ -67,6 +68,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   readonly preflightError = signal('');
   readonly preflight = signal<UploadPreflight | null>(null);
   readonly preflightLoading = signal(false);
+  readonly qualityLimitPrompt = signal('');
   readonly categoryOptions = signal<Category[]>([]);
   readonly playlists = signal<PlaylistSummary[]>([]);
   readonly playlistBusy = signal(false);
@@ -87,6 +89,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   private handledUploadVideoId: string | null = null;
   private activeDrag: 'timeline' | 'chapter' | null = null;
   private draggedChapterId: number | null = null;
+  private preflightRequestVersion = 0;
 
   duration = 0;
   videoWidth = 0;
@@ -156,7 +159,9 @@ export class VideoUploadWizardComponent implements OnDestroy {
   }
 
   selectVideo(event: Event) {
-    const file = (event.target as HTMLInputElement).files?.[0];
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
     if (file) this.acceptVideoFile(file);
   }
 
@@ -185,6 +190,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       return;
     }
     this.releaseVideoResources();
+    this.qualityLimitPrompt.set('');
     this.selectedFile = file;
     this.hasFile.set(true);
     this.uploadError.set('');
@@ -363,6 +369,8 @@ export class VideoUploadWizardComponent implements OnDestroy {
 
   cancelFile() {
     if (this.isUploading()) this.uploadState.cancel();
+    this.preflightRequestVersion++;
+    if (this.videoFileInput) this.videoFileInput.nativeElement.value = '';
     this.releaseVideoResources();
     this.selectedFile = undefined;
     this.thumbnailFile = undefined;
@@ -370,7 +378,14 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.isPreparing.set(false);
     this.preflight.set(null);
     this.preflightError.set('');
+    this.preflightLoading.set(false);
     this.uploadProgress.set(0);
+    this.qualityLimitPrompt.set('');
+    this.duration = 0;
+    this.videoWidth = 0;
+    this.videoHeight = 0;
+    this.sourceQuality = '720p';
+    this.fileType = '';
   }
 
   private releaseVideoResources() {
@@ -385,27 +400,59 @@ export class VideoUploadWizardComponent implements OnDestroy {
   private runPreflight() {
     const file = this.selectedFile;
     if (!file || !this.channelId || this.duration <= 0 || !this.sourceQuality) return;
+    const requestVersion = ++this.preflightRequestVersion;
+    const sourceQuality = this.sourceQuality;
     this.preflightLoading.set(true);
     this.preflightError.set('');
-    this.content.preflight({ channelId: this.channelId, fileSize: file.size, duration: this.duration, contentType: this.fileType, sourceQuality: this.sourceQuality }).subscribe({
+    this.content.preflight({ channelId: this.channelId, fileSize: file.size, duration: this.duration, contentType: this.fileType, sourceQuality, allowQualityDowngrade: true }).subscribe({
       next: value => {
-        if (this.selectedFile === file) this.preflight.set(value);
+        if (this.selectedFile !== file || requestVersion !== this.preflightRequestVersion) return;
+        this.preflight.set(value);
+        if (!value.allowed && this.videoHeight > this.qualityHeight(value.maxQuality)) {
+          this.qualityLimitPrompt.set(value.maxQuality);
+        } else if (!value.allowed) {
+          this.preflightError.set(this.i18n.t('upload.qualityLimit.unavailable'));
+        }
         this.preflightLoading.set(false);
       },
       error: error => {
-        if (this.selectedFile === file) this.preflightError.set(this.readError(error));
+        if (this.selectedFile !== file || requestVersion !== this.preflightRequestVersion) return;
+        this.preflightError.set(this.readError(error));
         this.preflightLoading.set(false);
       }
     });
   }
 
+  acceptQualityReduction() {
+    const quality = this.qualityLimitPrompt();
+    if (!quality || this.qualityHeight(quality) <= 0) return;
+    this.sourceQuality = quality;
+    this.qualityLimitPrompt.set('');
+    this.uploadError.set('');
+    this.runPreflight();
+  }
+
+  chooseAnotherVideo() {
+    this.cancelFile();
+    this.videoFileInput?.nativeElement.click();
+  }
+
   onSourceQualityChange(value: string) {
-    this.sourceQuality = this.isQualityAboveSource(value) ? this.detectQuality(this.videoHeight) : value;
+    const maxQuality = this.preflight()?.maxQuality;
+    this.sourceQuality = this.isQualityAboveSource(value)
+      ? this.detectQuality(this.videoHeight)
+      : maxQuality && this.qualityHeight(value) > this.qualityHeight(maxQuality) ? maxQuality : value;
     this.runPreflight();
   }
 
   isQualityAboveSource(quality: string) {
-    return this.videoHeight > 0 && this.qualityHeight(quality) > this.videoHeight;
+    return this.videoHeight > 0 && this.qualityHeight(quality) > this.qualityHeight(this.detectQuality(this.videoHeight));
+  }
+
+  isQualityDisabled(quality: string) {
+    const maxQuality = this.preflight()?.maxQuality;
+    return this.isQualityAboveSource(quality)
+      || Boolean(maxQuality && this.qualityHeight(quality) > this.qualityHeight(maxQuality));
   }
 
   setStep(step: number) {
@@ -420,10 +467,12 @@ export class VideoUploadWizardComponent implements OnDestroy {
 
   nextStep() {
     if (this.currentStep() === 1) {
+      if (this.qualityLimitPrompt()) return;
       if (!this.selectedFile) { this.uploadError.set(this.i18n.t('upload.selectVideoError')); return; }
       if (this.isPreparing()) { this.uploadError.set(this.i18n.t('upload.preparingWait')); return; }
       if (this.preflightLoading()) { this.uploadError.set(this.i18n.t('upload.storageWait')); return; }
       if (this.preflightError() || !this.preflight()) { this.uploadError.set(this.preflightError() || this.i18n.t('upload.preflightUnavailable')); return; }
+      if (!this.preflight()!.allowed) return;
     }
     if (this.currentStep() === 2 && !this.videoTitle.trim()) { this.uploadError.set(this.i18n.t('upload.titleRequired')); return; }
     if (this.currentStep() === 3 && (!this.validateChapters() || !this.validateVideoCards())) return;
@@ -743,6 +792,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.uploadProgress.set(0);
     this.uploadError.set('');
     this.preflight.set(null);
+    this.qualityLimitPrompt.set('');
     this.videoTitle = '';
     this.videoDesc = '';
     this.selectedPlaylistId = '';
@@ -782,7 +832,12 @@ export class VideoUploadWizardComponent implements OnDestroy {
     const extension = this.selectedFile?.name.split('.').pop()?.toUpperCase() || type.split('/').pop()?.toUpperCase() || 'VIDEO';
     return `${extension} (${type})`;
   }
-  resolutionLabel() { return this.videoWidth > 0 && this.videoHeight > 0 ? `${this.videoWidth}×${this.videoHeight} · ${this.sourceQuality}` : this.i18n.t('upload.readingVideo'); }
+  resolutionLabel() {
+    if (this.videoWidth <= 0 || this.videoHeight <= 0) return this.i18n.t('upload.readingVideo');
+    const displayedHeight = Math.min(this.videoHeight, this.qualityHeight(this.sourceQuality));
+    const displayedWidth = Math.round(this.videoWidth * displayedHeight / this.videoHeight);
+    return `${displayedWidth}×${displayedHeight} · ${this.sourceQuality}`;
+  }
   storagePercent() {
     const value = this.preflight();
     return value && value.storageLimit > 0 ? Math.min(100, value.storageUsed * 100 / value.storageLimit) : 0;
@@ -804,7 +859,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   }
 
   private detectQuality(height: number) {
-    return height >= 2160 ? '2160p' : height >= 1440 ? '1440p' : height >= 1080 ? '1080p' : height >= 720 ? '720p' : height >= 480 ? '480p' : height >= 360 ? '360p' : '240p';
+    return height <= 360 ? '360p' : height <= 480 ? '480p' : height <= 720 ? '720p' : height <= 1080 ? '1080p' : height <= 1440 ? '1440p' : '2160p';
   }
 
   private qualityHeight(quality: string) {

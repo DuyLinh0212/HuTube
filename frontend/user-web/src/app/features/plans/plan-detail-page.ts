@@ -69,6 +69,7 @@ export class PlanDetailPage {
   canSwitchToThisPlan(): boolean {
     const p = this.plan();
     const mp = this.myPlan();
+    if (mp?.isSharedMember) return false;
     if (this.eligibilityLoading()) return false;
     if (!mp || !mp.planId) return true; // Chưa có gói -> đăng ký mới được
     if (mp.subscription && mp.subscription.isExpired) return true; // Gói cũ đã hết hạn -> đăng ký được

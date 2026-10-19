@@ -3,7 +3,7 @@
     <strong>{{ 'nav.notifications' | translate }}</strong>
     <button type="button" (click)="notifications.readAll()">{{ 'ui.markAllRead' | translate }}</button>
   </header>
-  <div class="notification-list" (scroll)="onScroll()">
+  <div #notificationList class="notification-list" (scroll)="onScroll()">
     @for (item of notifications.items(); track item.notificationId) {
       <button type="button" class="notification-item" [class.unread]="!item.isRead" (click)="open(item)">
         <span class="notification-dot" aria-hidden="true"></span>

@@ -123,6 +123,8 @@ public sealed class Video
     public Guid VideoId { get; set; } = Guid.NewGuid();
     public Guid ChannelId { get; set; }
     public Guid UploadedByUserId { get; set; }
+    /// <summary>The account whose plan quota pays for this video's stored media.</summary>
+    public Guid? StorageBillingOwnerUserId { get; set; }
     public Guid? CategoryId { get; set; }
     public string Title { get; set; } = "";
     public string? Description { get; set; }

@@ -64,8 +64,16 @@ public sealed class PlansController(IPlanService planService) : ControllerBase
     [HttpPost("invitations/{memberId:guid}/accept")]
     public async Task<ActionResult<PlanMemberResponse>> AcceptInvitationAsync(Guid memberId, [FromBody] PlanAcceptInvitationRequest request, CancellationToken ct)
     {
-        var result = await planService.AcceptInvitationAsync(UserId, memberId, request.Token, ct);
+        var result = await planService.AcceptInvitationAsync(UserId, memberId, request.Token, request.ConfirmCancelPaidPlan, ct);
         return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("members/leave")]
+    public async Task<IActionResult> LeaveSharedPlanAsync(CancellationToken ct)
+    {
+        await planService.LeaveSharedPlanAsync(UserId, ct);
+        return NoContent();
     }
 
     [Authorize]

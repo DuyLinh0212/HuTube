@@ -126,6 +126,7 @@ class _PlansScreenState extends State<PlansScreen> {
   }
 
   Future<void> _subscribe(String planId) async {
+    if (_myPlan?['isSharedMember'] == true) return;
     try {
       Map<String, dynamic>? plan;
       for (final item in _plans) {
@@ -215,34 +216,77 @@ class _PlansScreenState extends State<PlansScreen> {
   }
 
   Future<void> _inviteMember() async {
-    final controller = TextEditingController();
-    final email = await showDialog<String>(
+    final emailController = TextEditingController();
+    final quotaController = TextEditingController();
+    final availableBytes = _unallocatedStorage(_myPlan ?? const {});
+    final maxGb = availableBytes / (1024 * 1024 * 1024);
+    final invitation = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('plans.inviteDialogTitle')),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.emailAddress,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: AppStrings.t('plans.inviteEmail'),
-            hintText: AppStrings.t('plans.inviteEmailHint'),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: Text(AppStrings.t('common.send')),
-          ),
-        ],
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final quotaText = quotaController.text.trim();
+          final quotaGb = double.tryParse(quotaText);
+          final quotaError = quotaText.isNotEmpty &&
+                  (quotaGb == null || quotaGb < 0 || quotaGb > maxGb)
+              ? AppStrings.format('plans.quotaExceedsAvailable', {
+                  'available': _formatBytes(availableBytes),
+                })
+              : null;
+          return AlertDialog(
+            title: Text(AppStrings.t('plans.inviteDialogTitle')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('plans.inviteEmail'),
+                    hintText: AppStrings.t('plans.inviteEmailHint'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: quotaController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('plans.memberStorageTitle'),
+                    hintText: AppStrings.t('plans.storageGBPlaceholder'),
+                    helperText: AppStrings.format('plans.inviteQuotaMax', {
+                      'size': _formatBytes(availableBytes),
+                    }),
+                    errorText: quotaError,
+                  ),
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(AppStrings.t('common.cancel')),
+              ),
+              FilledButton(
+                onPressed: quotaError != null
+                    ? null
+                    : () => Navigator.of(dialogContext).pop({
+                          'email': emailController.text,
+                          'allocatedStorage': quotaGb == null
+                              ? null
+                              : (quotaGb * 1024 * 1024 * 1024).round(),
+                        }),
+                child: Text(AppStrings.t('common.send')),
+              ),
+            ],
+          );
+        },
       ),
     );
-    controller.dispose();
-    final trimmed = email?.trim() ?? '';
+    emailController.dispose();
+    quotaController.dispose();
+    final trimmed = '${invitation?['email'] ?? ''}'.trim();
     if (trimmed.isEmpty) return;
     if (!trimmed.contains('@')) {
       if (mounted) {
@@ -253,7 +297,8 @@ class _PlansScreenState extends State<PlansScreen> {
       return;
     }
     try {
-      await _planService.invite(trimmed);
+      final allocatedStorage = invitation?['allocatedStorage'] as int?;
+      await _planService.invite(trimmed, allocatedStorage: allocatedStorage);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppStrings.t('plans.inviteSent'))),
@@ -273,12 +318,16 @@ class _PlansScreenState extends State<PlansScreen> {
     }
   }
 
-  Future<void> _acceptInvitation() async {
+  Future<void> _acceptInvitation({bool confirmCancelPaidPlan = false}) async {
     final id = widget.invitationId;
     final token = widget.invitationToken;
     if (id == null || token == null || !widget.auth.authenticated) return;
     try {
-      await _planService.acceptInvitation(id, token);
+      await _planService.acceptInvitation(
+        id,
+        token,
+        confirmCancelPaidPlan: confirmCancelPaidPlan,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppStrings.t('plans.invitationAccepted'))),
@@ -286,6 +335,31 @@ class _PlansScreenState extends State<PlansScreen> {
         await _load();
       }
     } on ApiFailure catch (error) {
+      if (error.code == 'PAID_PLAN_CONFIRMATION_REQUIRED' &&
+          !confirmCancelPaidPlan) {
+        if (!mounted) return;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(AppStrings.t('plans.paidJoinTitle')),
+            content: Text(error.message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(AppStrings.t('common.cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(AppStrings.t('plans.acceptInvite')),
+              ),
+            ],
+          ),
+        );
+        if (confirmed == true && mounted) {
+          await _acceptInvitation(confirmCancelPaidPlan: true);
+        }
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -305,6 +379,43 @@ class _PlansScreenState extends State<PlansScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
+    }
+  }
+
+  Future<void> _leaveSharedPlan() async {
+    final owner = '${_myPlan?['sharedOwnerDisplayName'] ?? AppStrings.t('plans.sharedPlanOwnerFallback')}';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppStrings.t('plans.leaveSharedPlan')),
+        content: Text(AppStrings.format('plans.leaveSharedConfirm', {'owner': owner})),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppStrings.t('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppStrings.t('plans.leaveSharedPlan')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _planService.leaveSharedPlan();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('plans.leftSharedPlan'))),
+        );
+        await _load();
+      }
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.apiError(error, fallback: 'plans.leaveSharedError'))),
+        );
       }
     }
   }
@@ -384,6 +495,16 @@ class _PlansScreenState extends State<PlansScreen> {
 
   double _number(dynamic raw) =>
       raw is num ? raw.toDouble() : double.tryParse(raw?.toString() ?? '') ?? 0;
+
+  int _unallocatedStorage(Map<String, dynamic> plan) {
+    final limit = _number(plan['storageLimit']).round();
+    var assigned = _number(plan['ownerAllocatedStorage']).round();
+    for (final value in (plan['members'] as List? ?? const [])) {
+      if (value is Map) assigned += _number(value['allocatedStorage']).round();
+    }
+    final remaining = limit - assigned;
+    return remaining < 0 ? 0 : remaining;
+  }
 
   String _formatDate(dynamic raw) {
     final date = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
@@ -468,7 +589,8 @@ class _PlansScreenState extends State<PlansScreen> {
                     onShare: () => _sharePlan(_plans[index]),
                     onDetails: () =>
                         _showPlanDetails('${_plans[index]['planId']}'),
-                    onSubscribe: widget.auth.authenticated
+                    onSubscribe: widget.auth.authenticated &&
+                            _myPlan?['isSharedMember'] != true
                         ? () => _subscribe(_plans[index]['planId'] as String)
                         : null,
                     formatBytes: _formatBytes,
@@ -606,7 +728,29 @@ class _PlansScreenState extends State<PlansScreen> {
               _featureText(plan),
               style: TextStyle(color: Colors.white.withValues(alpha: .7)),
             ),
-            if (plan['isSharedMember'] != true) ...[
+            if (plan['isSharedMember'] == true) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.groups_rounded, color: Colors.white70, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      AppStrings.format('plans.sharedWithOwner', {
+                        'owner': plan['sharedOwnerDisplayName'] ?? AppStrings.t('plans.sharedPlanOwnerFallback'),
+                      }),
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _leaveSharedPlan,
+                icon: const Icon(Icons.logout_rounded),
+                label: Text(AppStrings.t('plans.leaveSharedPlan')),
+              ),
+            ] else ...[
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -618,7 +762,7 @@ class _PlansScreenState extends State<PlansScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      ownerAllocated > 0
+                      plan['ownerAllocatedStorage'] is num
                           ? AppStrings.format('plans.ownerQuotaValue', {
                               'size': _formatBytes(ownerAllocated),
                             })

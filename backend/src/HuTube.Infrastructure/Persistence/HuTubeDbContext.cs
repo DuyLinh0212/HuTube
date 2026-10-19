@@ -216,7 +216,10 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.HasOne<User>().WithMany().HasForeignKey(x => x.UploadedByUserId).OnDelete(DeleteBehavior.Restrict);
             b.Property(x => x.Metadata).HasColumnType("jsonb");
             b.Property(x => x.PromotionEnabled).HasColumnName("promotion_enabled");
+            b.Property(x => x.StorageBillingOwnerUserId).HasColumnName("storage_billing_owner_user_id");
             b.HasIndex(x => new { x.ChannelId, x.IdempotencyKey }).IsUnique().HasFilter("idempotency_key IS NOT NULL");
+            b.HasIndex(x => new { x.StorageBillingOwnerUserId, x.Status, x.MediaPurgedAt })
+                .HasDatabaseName("ix_videos_storage_billing_owner");
         });
         model.Entity<VideoRendition>(b => { b.ToTable("video_renditions"); b.HasKey(x => x.VideoRenditionId); b.HasIndex(x => new { x.VideoId, x.QualityLabel }).IsUnique(); });
         model.Entity<Tag>(b => { b.ToTable("tags"); b.HasKey(x => x.TagId); });

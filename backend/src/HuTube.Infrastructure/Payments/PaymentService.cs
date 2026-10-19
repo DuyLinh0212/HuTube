@@ -39,7 +39,9 @@ public sealed class PaymentService(
         await using var transaction = db.Database.IsRelational()
             ? await db.Database.BeginTransactionAsync(ct) : null;
         if (transaction != null)
-            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))", ct);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"plan-membership:" + userId}, 0))", ct);
+        if ((await planService.GetMyPlanAsync(userId, ct))?.IsSharedMember == true)
+            throw new PaymentException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang sử dụng gói được chia sẻ và không thể mua gói khác.");
         // Validate gói tồn tại và có giá > 0
         var plan = await db.Plans.AsNoTracking()
             .SingleOrDefaultAsync(x => x.PlanId == request.PlanId && x.Status == "active", ct)
@@ -111,7 +113,7 @@ public sealed class PaymentService(
         await using var transaction = db.Database.IsRelational()
             ? await db.Database.BeginTransactionAsync(ct) : null;
         if (transaction != null)
-            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))", ct);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"plan-membership:" + userId}, 0))", ct);
 
         var payment = await db.Payments.SingleOrDefaultAsync(x => x.PaymentId == paymentId && x.UserId == userId, ct)
             ?? throw new PaymentException(404, "PAYMENT_NOT_FOUND", "Không tìm thấy giao dịch thanh toán.");
@@ -159,7 +161,7 @@ public sealed class PaymentService(
 
         if (transaction != null)
         {
-            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({payment.UserId.ToString()}, 0))", ct);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"plan-membership:" + payment.UserId}, 0))", ct);
             await db.Entry(payment).ReloadAsync(ct);
         }
 

@@ -18,12 +18,19 @@ export class PlanInviteAcceptPage {
   readonly memberId = this.route.snapshot.queryParamMap.get('memberId') ?? '';
   readonly token = this.route.snapshot.queryParamMap.get('token') ?? '';
 
-  accept() {
+  accept(confirmCancelPaidPlan = false) {
     if (!this.memberId || !this.token || this.busy()) return;
     this.busy.set(true); this.error.set('');
-    this.plans.accept(this.memberId, this.token).subscribe({
+    this.plans.accept(this.memberId, this.token, confirmCancelPaidPlan).subscribe({
       next: () => { this.message.set(this.i18n.t('plans.joined')); this.busy.set(false); },
-      error: () => { this.error.set(this.i18n.t('plans.inviteInvalid')); this.busy.set(false); }
+      error: (err) => {
+        this.busy.set(false);
+        if (!confirmCancelPaidPlan && err?.error?.code === 'PAID_PLAN_CONFIRMATION_REQUIRED') {
+          if (window.confirm(err.error.message || this.i18n.t('plans.paidJoinWarning'))) this.accept(true);
+          return;
+        }
+        this.error.set(err?.error?.message || this.i18n.t('plans.inviteInvalid'));
+      }
     });
   }
 

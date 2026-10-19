@@ -68,7 +68,9 @@ public sealed record PlanDetailResponse(
     string? Description = null,
     string? Status = null,
     string? MaxDownloadQuality = null,
-    long? OwnerAllocatedStorage = null);
+    long? OwnerAllocatedStorage = null,
+    string? SharedOwnerDisplayName = null,
+    long? OwnerOwnStorageUsed = null);
 
 public sealed record PlanSubscriptionRequest(
     string? PaymentMethod = null,
@@ -117,7 +119,8 @@ public sealed record UpdateOwnerStorageRequest(
     long? AllocatedStorage);
 
 public sealed record PlanAcceptInvitationRequest(
-    string Token);
+    string Token,
+    bool ConfirmCancelPaidPlan = false);
 
 public sealed class PlanException(int status, string code, string message) : Exception(message)
 {
@@ -145,8 +148,9 @@ public interface IPlanService
     Task<Guid> ActivatePaidPlanAsync(Guid userId, Guid planId, Guid paymentId, bool autoRenew, CancellationToken ct = default);
 
     Task<PlanMemberResponse> InviteMemberAsync(Guid ownerUserId, string email, long? allocatedStorage, CancellationToken ct = default);
-    Task<PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, CancellationToken ct = default);
+    Task<PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, bool confirmCancelPaidPlan = false, CancellationToken ct = default);
     Task RemoveMemberAsync(Guid ownerUserId, Guid memberId, CancellationToken ct = default);
+    Task LeaveSharedPlanAsync(Guid memberUserId, CancellationToken ct = default);
     Task<PlanMemberResponse> UpdateMemberStorageAsync(Guid ownerUserId, Guid memberId, long? allocatedStorage, CancellationToken ct = default);
     Task UpdateOwnerStorageAsync(Guid ownerUserId, long? allocatedStorage, CancellationToken ct = default);
 }

@@ -1,4 +1,17 @@
 <div class="upload-container" [class.has-upload-progress]="uploadState.state().phase !== 'idle'">
+  @if (qualityLimitPrompt()) {
+    <dialog open class="quality-limit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="quality-limit-title" aria-describedby="quality-limit-message">
+      <section class="quality-limit-card">
+        <span class="quality-limit-icon" aria-hidden="true">!</span>
+        <h2 id="quality-limit-title">{{ 'upload.qualityLimit.title' | translate }}</h2>
+        <p id="quality-limit-message">{{ 'upload.qualityLimit.message' | translate: { quality: qualityLimitPrompt() } }}</p>
+        <div class="quality-limit-actions">
+          <button type="button" class="quality-limit-secondary" (click)="chooseAnotherVideo()">{{ 'upload.qualityLimit.chooseAnother' | translate }}</button>
+          <button type="button" class="quality-limit-primary" (click)="acceptQualityReduction()">{{ 'upload.qualityLimit.accept' | translate }}</button>
+        </div>
+      </section>
+    </dialog>
+  }
   <!-- Header & Stepper -->
   <header class="wizard-header">
     <!-- 6-step Indicator Bar -->
@@ -155,7 +168,7 @@
               <label for="sourceQuality">{{ 'upload.sourceQuality' | translate }}</label>
               <select id="sourceQuality" class="select-input" [(ngModel)]="sourceQuality" name="sourceQuality" (ngModelChange)="onSourceQualityChange($event)">
                 @for (quality of sourceQualityOptions; track quality) {
-                  <option [value]="quality" [disabled]="isQualityAboveSource(quality)">{{ quality === '2160p' ? ('upload.quality4K' | translate) : quality }}</option>
+                  <option [value]="quality" [disabled]="isQualityDisabled(quality)">{{ quality === '2160p' ? ('upload.quality4K' | translate) : quality }}</option>
                 }
               </select>
               <span class="form-hint">{{ 'upload.sourceQualityHint' | translate }}</span>

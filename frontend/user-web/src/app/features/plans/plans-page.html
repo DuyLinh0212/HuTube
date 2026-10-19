@@ -3,9 +3,11 @@
     <button type="button" role="tab" [attr.aria-selected]="view() === 'overview'" [class.active]="view() === 'overview'" (click)="setView('overview')">
       {{ 'plans.myPlans' | translate }}
     </button>
-    <button type="button" role="tab" [attr.aria-selected]="view() === 'catalog'" [class.active]="view() === 'catalog'" (click)="setView('catalog')">
-      {{ 'plans.explore' | translate }}
-    </button>
+    @if (!myPlan()?.isSharedMember) {
+      <button type="button" role="tab" [attr.aria-selected]="view() === 'catalog'" [class.active]="view() === 'catalog'" (click)="setView('catalog')">
+        {{ 'plans.explore' | translate }}
+      </button>
+    }
   </nav>
 
   @if (error()) {
@@ -34,13 +36,19 @@
               }
             </div>
             <h2>{{ plan.name }}</h2>
-            <p class="plan-desc">{{ 'plans.activeDesc' | translate }}</p>
+            @if (plan.isSharedMember) {
+              <p class="plan-desc">{{ 'plans.sharedWithOwner' | translate:{ owner: plan.sharedOwnerDisplayName || ('plans.sharedPlanOwnerFallback' | translate) } }}</p>
+            } @else {
+              <p class="plan-desc">{{ 'plans.activeDesc' | translate }}</p>
+            }
           </div>
           <div class="hero-actions">
-            <a [routerLink]="['/plans', plan.planId]" class="btn-action-outline">{{ 'plans.detailShare' | translate }}</a>
-            <button type="button" class="btn-action-primary" (click)="setView('catalog')">
-              {{ (plan.price > 0 ? 'plans.switchOther' : 'plans.upgrade') | translate }}
-            </button>
+            @if (!plan.isSharedMember) {
+              <a [routerLink]="['/plans', plan.planId]" class="btn-action-outline">{{ 'plans.detailShare' | translate }}</a>
+              <button type="button" class="btn-action-primary" (click)="setView('catalog')">
+                {{ (plan.price > 0 ? 'plans.switchOther' : 'plans.upgrade') | translate }}
+              </button>
+            }
           </div>
         </div>
 
@@ -91,6 +99,7 @@
           </div>
         </div>
 
+        @if (!plan.isSharedMember) {
         <div class="quota-allocation-bar">
           <div class="allocation-item">
             <span class="alloc-label">{{ 'plans.allocatedTotal' | translate }}</span>
@@ -104,14 +113,15 @@
             <span class="alloc-label">{{ 'plans.ownerQuota' | translate }}</span>
             @if (editingOwnerStorage()) {
               <div class="inline-edit">
-                <input type="number" [ngModel]="ownerStorageGB()" (ngModelChange)="ownerStorageGB.set($event)" [placeholder]="'plans.storageGBPlaceholder' | translate" min="1" class="input-mini" />
-                <button type="button" class="btn-save-mini" (click)="saveOwnerStorage()" [disabled]="busy()">✓</button>
+                <input type="number" [ngModel]="ownerStorageGB()" (ngModelChange)="ownerStorageGB.set($event)" [placeholder]="'plans.storageGBPlaceholder' | translate" min="0" step="any" [max]="maxOwnerQuotaGB(plan)" class="input-mini" />
+                <button type="button" class="btn-save-mini" (click)="saveOwnerStorage()" [disabled]="busy() || !!ownerQuotaError(plan)">✓</button>
                 <button type="button" class="btn-cancel-mini" (click)="cancelEditOwnerStorage()">✕</button>
               </div>
+              @if (ownerQuotaError(plan); as quotaMessage) { <small class="limit-note" role="alert">{{ quotaMessage }}</small> }
             } @else {
-              <strong class="alloc-val">{{ plan.ownerAllocatedStorage ? formatBytes(plan.ownerAllocatedStorage) : ('plans.sharedQuota' | translate) }}</strong>
+              <strong class="alloc-val">{{ plan.ownerAllocatedStorage != null ? formatBytes(plan.ownerAllocatedStorage) : ('plans.sharedQuota' | translate) }}</strong>
               @if (plan.ownerAllocatedStorage !== null && plan.ownerAllocatedStorage !== undefined) {
-                <span class="alloc-subtext">{{ 'plans.usedShort' | translate }} {{ formatBytes(plan.usedStorage) }} · {{ 'plans.remainingShort' | translate }} {{ formatBytes(ownerRemainingStorage(plan) ?? 0) }}</span>
+                <span class="alloc-subtext">{{ 'plans.usedShort' | translate }} {{ formatBytes(plan.ownerOwnStorageUsed ?? 0) }} · {{ 'plans.remainingShort' | translate }} {{ formatBytes(ownerRemainingStorage(plan) ?? 0) }}</span>
               }
               @if (!plan.isSharedMember) {
                 <button type="button" class="btn-edit-mini" (click)="startEditOwnerStorage()">✎ {{ 'plans.setQuota' | translate }}</button>
@@ -119,6 +129,11 @@
             }
           </div>
         </div>
+        } @else {
+          <div class="shared-notice-box shared-member-quota-note">
+            {{ 'plans.sharedMemberQuota' | translate }}
+          </div>
+        }
 
         <div class="specs-mini-grid">
           <div class="mini-spec"><span class="ms-title">{{ 'plans.maxUpload' | translate }}</span><strong class="ms-val">{{ formatBytes(plan.maxUploadSize) }}</strong></div>
@@ -135,12 +150,19 @@
           <div class="header-icon">👥</div>
           <div class="header-titles">
             <h3>{{ 'plans.sharedTitle' | translate }}</h3>
-            <p>{{ 'plans.sharedCount' | translate:{ current: i18n.formatNumber(plan.members.length), max: i18n.formatNumber(plan.maxMembers) } }}</p>
+            @if (plan.isSharedMember) {
+              <p>{{ 'plans.sharedWithOwner' | translate:{ owner: plan.sharedOwnerDisplayName || ('plans.sharedPlanOwnerFallback' | translate) } }}</p>
+            } @else {
+              <p>{{ 'plans.sharedCount' | translate:{ current: i18n.formatNumber(plan.members.length), max: i18n.formatNumber(plan.maxMembers) } }}</p>
+            }
           </div>
         </div>
 
         @if (plan.isSharedMember) {
           <div class="shared-notice-box"><p>ℹ️ {{ 'plans.sharedNotice' | translate }}</p></div>
+          <button type="button" class="btn-action-outline" (click)="leaveSharedPlan(plan)" [disabled]="busy()">
+            {{ 'plans.leaveSharedPlan' | translate }}
+          </button>
         } @else if (plan.maxMembers <= 1) {
           <div class="single-user-box">
             <p>{{ 'plans.personalNotice' | translate }}</p>
@@ -152,12 +174,13 @@
               <input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" [placeholder]="'plans.invitePlaceholder' | translate" required [disabled]="busy() || plan.members.length >= plan.maxMembers - 1" />
             </div>
             <div class="input-wrap quota-wrap">
-              <input type="number" name="inviteStorageGB" [(ngModel)]="inviteStorageGB" [placeholder]="'plans.storageGBPlaceholder' | translate" min="1" [disabled]="busy() || plan.members.length >= plan.maxMembers - 1" />
+              <input type="number" name="inviteStorageGB" [(ngModel)]="inviteStorageGB" [placeholder]="'plans.storageGBPlaceholder' | translate" min="0" step="any" [max]="maxInviteQuotaGB(plan)" [disabled]="busy() || plan.members.length >= plan.maxMembers - 1" />
             </div>
-            <button type="submit" class="btn-invite" [disabled]="busy() || !inviteEmail.trim() || plan.members.length >= plan.maxMembers - 1">
+            <button type="submit" class="btn-invite" [disabled]="busy() || !inviteEmail.trim() || !!inviteQuotaError(plan) || plan.members.length >= plan.maxMembers - 1">
               @if (busy()) { <span class="btn-spinner"></span> } @else { <span>+ {{ 'plans.inviteMember' | translate }}</span> }
             </button>
           </form>
+          @if (inviteQuotaError(plan); as quotaMessage) { <p class="limit-note" role="alert">{{ quotaMessage }}</p> }
           @if (plan.members.length >= plan.maxMembers - 1) { <p class="limit-note">{{ 'plans.maxReached' | translate }}</p> }
           <div class="members-table-wrap">
             @if (plan.members.length > 0) {
@@ -182,12 +205,13 @@
                       <td class="cell-allocated">
                         @if (editingMemberId() === member.planMemberId) {
                           <div class="inline-edit">
-                            <input type="number" [ngModel]="editingMemberStorageGB()" (ngModelChange)="editingMemberStorageGB.set($event)" [placeholder]="'plans.storageGBPlaceholder' | translate" min="0" class="input-mini" />
-                            <button type="button" class="btn-save-mini" (click)="saveMemberStorage(member.planMemberId)" [disabled]="busy()">✓</button>
+                            <input type="number" [ngModel]="editingMemberStorageGB()" (ngModelChange)="editingMemberStorageGB.set($event)" [placeholder]="'plans.storageGBPlaceholder' | translate" min="0" step="any" [max]="maxMemberQuotaGB(plan, member.planMemberId)" class="input-mini" />
+                            <button type="button" class="btn-save-mini" (click)="saveMemberStorage(member.planMemberId)" [disabled]="busy() || !!memberQuotaError(plan, member.planMemberId)">✓</button>
                             <button type="button" class="btn-cancel-mini" (click)="cancelEditMember()">✕</button>
                           </div>
+                          @if (memberQuotaError(plan, member.planMemberId); as quotaMessage) { <small class="limit-note" role="alert">{{ quotaMessage }}</small> }
                         } @else {
-                          <span class="quota-text">{{ member.allocatedStorage ? formatBytes(member.allocatedStorage) : ('plans.sharedQuota' | translate) }}</span>
+                          <span class="quota-text">{{ member.allocatedStorage != null ? formatBytes(member.allocatedStorage) : ('plans.sharedQuota' | translate) }}</span>
                           @if (member.status !== 'revoked') {
                             <button type="button" class="btn-edit-mini" (click)="startEditMember(member)" [title]="'plans.editQuota' | translate">✎</button>
                           }

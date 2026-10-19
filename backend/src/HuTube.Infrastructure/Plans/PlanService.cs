@@ -135,7 +135,9 @@ public sealed class PlanService(
     public async Task<PlanDetailResponse?> GetMyPlanAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == userId, ct);
-        // 1. Kiểm tra xem người dùng có phải là chủ sở hữu của một gói đang active không
+        // Active shared membership is authoritative. Older accounts may still have
+        // an active personal history from before accepting a shared invitation.
+        var sharedPlan = await GetActiveSharedPlanAsync(userId, ct);
         var ownedHistory = await (from h in db.PlanHistories.AsNoTracking()
                                   join p in db.Plans.AsNoTracking() on h.PlanId equals p.PlanId
                                   where h.UserId == userId && h.Status == "active"
@@ -148,26 +150,20 @@ public sealed class PlanService(
         PlanHistory? activeHistory = null;
         var isSharedMember = false;
 
-        if (ownedHistory != null)
+        if (sharedPlan != null)
+        {
+            plan = sharedPlan.Value.Plan;
+            activeHistory = sharedPlan.Value.History;
+            isSharedMember = true;
+        }
+        else if (ownedHistory != null)
         {
             plan = ownedHistory.Plan;
             activeHistory = ownedHistory.History;
-            isSharedMember = false;
         }
-        else
+        else if (user.PlanId.HasValue)
         {
-            // 2. Nếu không sở hữu gói active, kiểm tra xem có tham gia gói chia sẻ của người khác không
-            var sharedPlan = await GetActiveSharedPlanAsync(userId, ct);
-            if (sharedPlan != null)
-            {
-                plan = sharedPlan.Value.Plan;
-                activeHistory = sharedPlan.Value.History;
-                isSharedMember = true;
-            }
-            else if (user.PlanId.HasValue)
-            {
-                plan = await db.Plans.AsNoTracking().FirstOrDefaultAsync(x => x.PlanId == user.PlanId.Value && x.Status == "active", ct);
-            }
+            plan = await db.Plans.AsNoTracking().FirstOrDefaultAsync(x => x.PlanId == user.PlanId.Value && x.Status == "active", ct);
         }
 
         if (plan == null) return null;
@@ -177,7 +173,7 @@ public sealed class PlanService(
             .Select(x => x.ChannelId)
             .SingleOrDefaultAsync(ct);
 
-        var usedStorage = channelId == Guid.Empty
+        var channelUsedStorage = channelId == Guid.Empty
             ? 0L
             : await db.ChannelQuotas.AsNoTracking()
                 .Where(x => x.ChannelId == channelId)
@@ -197,10 +193,9 @@ public sealed class PlanService(
                 .ToListAsync(ct);
 
             var memberUserIds = rawMembers.Where(m => m.MemberUserId.HasValue).Select(m => m.MemberUserId!.Value).Distinct().ToList();
-            var memberQuotas = await (from ch in db.Channels.AsNoTracking()
-                                      join q in db.ChannelQuotas.AsNoTracking() on ch.ChannelId equals q.ChannelId
-                                      where memberUserIds.Contains(ch.OwnerUserId) && ch.Status == "active"
-                                      select new { ch.OwnerUserId, q.StorageUsed }).ToDictionaryAsync(x => x.OwnerUserId, x => x.StorageUsed, ct);
+            var memberQuotas = new Dictionary<Guid, long>();
+            foreach (var memberUserId in memberUserIds)
+                memberQuotas[memberUserId] = await GetUsedStorageAsync(memberUserId, ct);
 
             members = rawMembers.Select(x => new PlanMemberResponse(
                 x.PlanMemberId,
@@ -217,7 +212,16 @@ public sealed class PlanService(
             )).ToList();
         }
 
-        var remainingStorage = Math.Max(0, plan.StorageLimit - usedStorage);
+        var usedStorage = isSharedMember
+            ? channelUsedStorage
+            : activeHistory == null ? channelUsedStorage : await GetBilledStorageAsync(userId, ct);
+        var storageLimit = isSharedMember
+            ? await GetSharedMemberStorageLimitAsync(sharedPlan!.Value.History, sharedPlan.Value.Member, sharedPlan.Value.Plan, ct)
+            : plan.StorageLimit;
+        var remainingStorage = Math.Max(0, storageLimit - usedStorage);
+        var sharedOwnerDisplayName = isSharedMember
+            ? await db.Users.AsNoTracking().Where(x => x.UserId == sharedPlan!.Value.Member.OwnerUserId).Select(x => x.DisplayName).SingleOrDefaultAsync(ct)
+            : null;
 
         var subscriptionInfo = activeHistory != null
             ? new PlanSubscriptionInfo(
@@ -233,12 +237,13 @@ public sealed class PlanService(
                                          where h.UserId == userId && h.Status == "active" && p.Price > 0
                                                && (!h.EndedAt.HasValue || h.EndedAt > Now)
                                         select h.PlanId).Distinct().ToListAsync(ct);
+        if (isSharedMember) activePaidPlanIds.Clear();
 
         return new PlanDetailResponse(
             plan.PlanId,
             plan.Code,
             plan.Name,
-            plan.StorageLimit,
+            storageLimit,
             usedStorage,
             remainingStorage,
             plan.MaxUploadSize,
@@ -255,11 +260,15 @@ public sealed class PlanService(
             plan.Description,
             plan.Status,
             plan.MaxDownloadQuality,
-            activeHistory?.OwnerAllocatedStorage);
+            isSharedMember ? null : activeHistory?.OwnerAllocatedStorage,
+            sharedOwnerDisplayName,
+            isSharedMember ? null : channelUsedStorage);
     }
 
     public async Task<PlanResponse> SubscribeAsync(Guid userId, Guid planId, PlanSubscriptionRequest request, CancellationToken ct = default)
     {
+        if (await GetActiveSharedPlanAsync(userId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang sử dụng gói được chia sẻ và không thể đăng ký gói khác.");
         var user = await db.Users.SingleAsync(x => x.UserId == userId, ct);
         var plan = await db.Plans.SingleAsync(x => x.PlanId == planId && x.Status == "active", ct);
         if (plan.Price > 0)
@@ -310,6 +319,9 @@ public sealed class PlanService(
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await LockAsync($"plan-membership:{userId}", ct);
+        if (await GetActiveSharedPlanAsync(userId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang sử dụng gói được chia sẻ và không thể đăng ký gói khác.");
         await db.PlanHistories.Where(x => x.UserId == userId && x.Status == "active")
             .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, "expired").SetProperty(x => x.EndedAt, now), ct);
         user.PlanId = plan.PlanId;
@@ -370,6 +382,10 @@ public sealed class PlanService(
 
     public async Task<long?> GetEffectiveStorageLimitAsync(Guid userId, CancellationToken ct = default)
     {
+        var shared = await GetActiveSharedPlanAsync(userId, ct);
+        if (shared != null)
+            return await GetSharedMemberStorageLimitAsync(shared.Value.History, shared.Value.Member, shared.Value.Plan, ct);
+
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == userId, ct);
         if (user.PlanId.HasValue)
         {
@@ -381,14 +397,15 @@ public sealed class PlanService(
             }
         }
 
-        var shared = await GetActiveSharedPlanAsync(userId, ct);
-        return shared?.Member.AllocatedStorage ?? shared?.Plan.StorageLimit;
+        return null;
     }
 
     public async Task<PlanMemberResponse> InviteMemberAsync(Guid ownerUserId, string email, long? allocatedStorage, CancellationToken ct = default)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
         if (!IsValidEmail(normalizedEmail)) throw new PlanException(400, "INVALID_EMAIL", "Email không hợp lệ.");
+        if (await GetActiveSharedPlanAsync(ownerUserId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang dùng gói được chia sẻ và không thể mời thành viên khác.");
 
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == ownerUserId, ct);
         if (!user.PlanId.HasValue) throw new PlanException(400, "NO_ACTIVE_PLAN", "Bạn chưa có gói dịch vụ.");
@@ -405,6 +422,12 @@ public sealed class PlanService(
 
         if (activeHistory == null)
             throw new PlanException(403, "PLAN_OWNER_REQUIRED", "Chỉ chủ gói mới có thể mời thành viên.");
+
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        await LockAsync($"plan-membership:{ownerUserId}", ct);
+        if (await GetActiveSharedPlanAsync(ownerUserId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang dùng gói được chia sẻ và không thể mời thành viên khác.");
+        await LockAsync($"plan-allocation:{activeHistory.PlanHistoryId}", ct);
 
         var currentMembers = await db.PlanMembers.AsNoTracking().CountAsync(x => x.PlanHistoryId == activeHistory.PlanHistoryId && x.Status != "revoked", ct);
         if (currentMembers + 1 >= plan.MaxMembers) throw new PlanException(409, "PLAN_MEMBER_LIMIT_EXCEEDED", "Số lượng thành viên đã đạt giới hạn gói.");
@@ -426,7 +449,7 @@ public sealed class PlanService(
 
             if (totalAllocated > plan.StorageLimit)
             {
-                throw new PlanException(400, "PLAN_STORAGE_LIMIT_EXCEEDED", "Tổng dung lượng phân bổ vượt quá dung lượng gói.");
+                throw new PlanException(400, "PLAN_STORAGE_LIMIT_EXCEEDED", "Dung lượng vượt quá phần quota chưa phân bổ.");
             }
         }
 
@@ -458,6 +481,7 @@ public sealed class PlanService(
             CreatedAt = Now
         });
         await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
 
         var acceptUrl = $"{authOptions.WebBaseUrl.TrimEnd('/')}/plans/accept-invite?memberId={member.PlanMemberId}&token={Uri.EscapeDataString(token)}";
         try
@@ -496,8 +520,10 @@ public sealed class PlanService(
         return new PlanMemberResponse(member.PlanMemberId, plan.PlanId, ownerUserId, member.MemberEmail, member.MemberUserId, member.Status, member.InvitedAt, member.AcceptedAt, member.RevokedAt, member.AllocatedStorage);
     }
 
-    public async Task<PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, CancellationToken ct = default)
+    public async Task<PlanMemberResponse> AcceptInvitationAsync(Guid userId, Guid memberId, string token, bool confirmCancelPaidPlan = false, CancellationToken ct = default)
     {
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        await LockAsync($"plan-membership:{userId}", ct);
         var member = await db.PlanMembers.SingleOrDefaultAsync(x => x.PlanMemberId == memberId, ct)
             ?? throw new PlanException(404, "INVITATION_NOT_FOUND", "Lời mời không tồn tại.");
 
@@ -519,18 +545,70 @@ public sealed class PlanService(
             .SingleOrDefaultAsync(x => x.PlanId == activeHistory.PlanId && x.Status == "active", ct)
             ?? throw new PlanException(410, "PLAN_EXPIRED", "Gói của chủ sở hữu không còn hoạt động.");
 
+        if (await GetActiveSharedPlanAsync(userId, ct) != null)
+            throw new PlanException(409, "SHARED_PLAN_ALREADY_ACTIVE", "Tài khoản này đang dùng chung một gói khác.");
+
+        var defaultPlan = await FindDefaultPlanAsync(ct);
+        var activePaidPlan = await (from history in db.PlanHistories.AsNoTracking()
+                                    join paidPlan in db.Plans.AsNoTracking() on history.PlanId equals paidPlan.PlanId
+                                    where history.UserId == userId && history.Status == "active" && paidPlan.Price > 0
+                                          && (!history.EndedAt.HasValue || history.EndedAt > Now)
+                                          && (defaultPlan == null || history.PlanId != defaultPlan.PlanId)
+                                    orderby history.StartedAt descending
+                                    select paidPlan.Name).FirstOrDefaultAsync(ct);
+        if (activePaidPlan != null && !confirmCancelPaidPlan)
+            throw new PlanException(409, "PAID_PLAN_CONFIRMATION_REQUIRED",
+                $"Bạn đang sử dụng gói {activePaidPlan}. Nếu chấp nhận lời mời, quyền lợi gói này sẽ kết thúc ngay và không được hoàn tiền. Nếu rời gói được chia sẻ, bạn sẽ trở về gói mặc định ({defaultPlan?.Name ?? "Miễn phí"}). Bạn vẫn muốn chấp nhận?");
+
+        var memberChannelId = await db.Channels.AsNoTracking()
+            .Where(x => x.OwnerUserId == userId && x.Status == "active")
+            .Select(x => x.ChannelId)
+            .SingleOrDefaultAsync(ct);
+        var storageOwners = new HashSet<Guid> { member.OwnerUserId };
+        if (memberChannelId != Guid.Empty)
+        {
+            var priorStorageOwners = await db.Videos.AsNoTracking()
+                .Where(video => video.ChannelId == memberChannelId && video.Status != "deleted" && video.MediaPurgedAt == null)
+                .Select(video => video.StorageBillingOwnerUserId)
+                .Distinct()
+                .ToListAsync(ct);
+            foreach (var ownerId in priorStorageOwners)
+                storageOwners.Add(ownerId ?? userId);
+        }
+        foreach (var storageOwnerId in storageOwners.Order())
+            await LockAsync($"plan-storage:{storageOwnerId}", ct);
+        await LockAsync($"plan-allocation:{activeHistory.PlanHistoryId}", ct);
+        if (memberChannelId != Guid.Empty) await LockAsync($"quota:{memberChannelId}", ct);
+
+        var now = Now;
+        await db.PlanHistories.Where(x => x.UserId == userId && x.Status == "active")
+            .ExecuteUpdateAsync(update => update
+                .SetProperty(x => x.Status, "expired")
+                .SetProperty(x => x.EndedAt, now)
+                .SetProperty(x => x.AutoRenew, false), ct);
+        await db.Payments.Where(x => x.UserId == userId && x.Status == "pending")
+            .ExecuteUpdateAsync(update => update
+                .SetProperty(x => x.Status, "cancelled")
+                .SetProperty(x => x.UpdatedAt, now), ct);
+
         member.MemberUserId = userId;
         member.Status = "accepted";
-        member.AcceptedAt = Now;
-        invitationToken.UsedAt = Now;
-        if (!user.PlanId.HasValue)
+        member.AcceptedAt = now;
+        invitationToken.UsedAt = now;
+        user.PlanId = activeHistory.PlanId;
+        user.UpdatedAt = now;
+
+        if (memberChannelId != Guid.Empty)
         {
-            user.PlanId = activeHistory.PlanId;
-            var effectiveQuota = member.AllocatedStorage ?? sharedPlan.StorageLimit;
-            await SyncChannelQuotaAsync(userId, effectiveQuota, Now, ct);
+            await db.Videos.Where(video => video.ChannelId == memberChannelId && video.Status != "deleted")
+                .ExecuteUpdateAsync(update => update.SetProperty(video => video.StorageBillingOwnerUserId, member.OwnerUserId), ct);
+            var effectiveQuota = await GetSharedMemberStorageLimitAsync(activeHistory, member, sharedPlan, ct);
+            var memberUsed = await GetChannelActiveVideoStorageAsync(memberChannelId, ct);
+            await SyncChannelQuotaAsync(userId, effectiveQuota, now, ct, memberUsed);
         }
 
         await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
 
         var planId = await db.PlanHistories.AsNoTracking()
             .Where(y => y.PlanHistoryId == member.PlanHistoryId)
@@ -545,26 +623,67 @@ public sealed class PlanService(
     {
         var member = await db.PlanMembers.SingleOrDefaultAsync(x => x.PlanMemberId == memberId && x.OwnerUserId == ownerUserId, ct)
             ?? throw new PlanException(404, "PLAN_MEMBER_NOT_FOUND", "Thành viên không tồn tại hoặc không thuộc quyền quản lý của bạn.");
-
-        member.Status = "revoked";
-        member.RevokedAt = Now;
-        var historyPlanId = await db.PlanHistories.AsNoTracking()
-            .Where(x => x.PlanHistoryId == member.PlanHistoryId)
-            .Select(x => x.PlanId)
-            .SingleOrDefaultAsync(ct);
-        if (member.MemberUserId.HasValue)
-        {
-            var memberUser = await db.Users.SingleOrDefaultAsync(x => x.UserId == member.MemberUserId.Value, ct);
-            if (memberUser?.PlanId == historyPlanId
-                && !await db.PlanHistories.AnyAsync(x => x.UserId == memberUser.UserId && x.Status == "active" && (!x.EndedAt.HasValue || x.EndedAt > Now), ct))
-            {
-                memberUser.PlanId = null;
-                await SyncChannelQuotaAsync(memberUser.UserId, ChannelQuotaRules.DefaultStorageLimit, Now, ct);
-            }
-        }
-        await db.SaveChangesAsync(ct);
+        await EndSharedMembershipAsync(member, ct);
         await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.member_revoked", "plan_member", member.PlanMemberId,
             "Thu hồi quyền dùng chung gói"), ct);
+    }
+
+    public async Task LeaveSharedPlanAsync(Guid memberUserId, CancellationToken ct = default)
+    {
+        var shared = await GetActiveSharedPlanAsync(memberUserId, ct)
+            ?? throw new PlanException(400, "NOT_SHARED_PLAN_MEMBER", "Bạn hiện không tham gia gói chia sẻ nào.");
+        var member = await db.PlanMembers.SingleAsync(x => x.PlanMemberId == shared.Member.PlanMemberId, ct);
+        await EndSharedMembershipAsync(member, ct);
+        await audit.LogAuditAsync(new AuditLogEntry(memberUserId, "plan.member_left", "plan_member", member.PlanMemberId,
+            "Thành viên tự rời gói chia sẻ"), ct);
+    }
+
+    private async Task EndSharedMembershipAsync(PlanMember member, CancellationToken ct)
+    {
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        var invitationUserId = member.MemberUserId ?? await db.Users.AsNoTracking()
+            .Where(x => x.Email == member.MemberEmail)
+            .Select(x => (Guid?)x.UserId)
+            .SingleOrDefaultAsync(ct);
+        if (invitationUserId.HasValue) await LockAsync($"plan-membership:{invitationUserId.Value}", ct);
+        await db.Entry(member).ReloadAsync(ct);
+        if (member.Status == "revoked")
+            throw new PlanException(404, "PLAN_MEMBER_NOT_FOUND", "Thành viên không còn trong gói này.");
+        await LockAsync($"plan-storage:{member.OwnerUserId}", ct);
+        var acceptedMemberUserId = member.Status == "accepted" ? member.MemberUserId : null;
+        var memberUser = acceptedMemberUserId is { } acceptedUserId
+            ? await db.Users.SingleOrDefaultAsync(x => x.UserId == acceptedUserId, ct)
+            : null;
+        var channelId = acceptedMemberUserId is { } channelOwnerUserId
+            ? await db.Channels.AsNoTracking().Where(x => x.OwnerUserId == channelOwnerUserId && x.Status == "active").Select(x => x.ChannelId).SingleOrDefaultAsync(ct)
+            : Guid.Empty;
+        if (channelId != Guid.Empty) await LockAsync($"quota:{channelId}", ct);
+
+        var now = Now;
+        member.Status = "revoked";
+        member.RevokedAt = now;
+        await db.SaveChangesAsync(ct);
+        if (memberUser != null && await GetActiveSharedPlanAsync(memberUser.UserId, ct) == null)
+        {
+            var defaultPlan = await FindDefaultPlanAsync(ct)
+                ?? throw new PlanException(500, "DEFAULT_PLAN_NOT_CONFIGURED", "Chưa cấu hình gói mặc định đang hoạt động.");
+            await db.PlanHistories.Where(x => x.UserId == memberUser.UserId && x.Status == "active")
+                .ExecuteUpdateAsync(update => update
+                    .SetProperty(x => x.Status, "expired")
+                    .SetProperty(x => x.EndedAt, now)
+                    .SetProperty(x => x.AutoRenew, false), ct);
+            memberUser.PlanId = defaultPlan.PlanId;
+            memberUser.UpdatedAt = now;
+            await SyncChannelQuotaAsync(memberUser.UserId, defaultPlan.StorageLimit, now, ct, 0);
+            db.PlanHistories.Add(new PlanHistory
+            {
+                PlanHistoryId = Guid.NewGuid(), UserId = memberUser.UserId, OwnerUserId = memberUser.UserId,
+                PlanId = defaultPlan.PlanId, Status = "active", StartedAt = now,
+                EndedAt = now.AddDays(defaultPlan.DurationDays), AutoRenew = false, CreatedAt = now
+            });
+        }
+        await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
     }
 
     private async Task<Plan?> GetEffectivePlanAsync(Guid userId, Guid planId, CancellationToken ct)
@@ -646,7 +765,43 @@ public sealed class PlanService(
             .SingleOrDefaultAsync(ct);
     }
 
-    private async Task SyncChannelQuotaAsync(Guid userId, long storageLimit, DateTimeOffset now, CancellationToken ct)
+    private async Task<long> GetBilledStorageAsync(Guid billingOwnerUserId, CancellationToken ct) =>
+        await db.Videos.AsNoTracking()
+            .Where(video => video.StorageBillingOwnerUserId == billingOwnerUserId
+                && video.Status != "deleted" && video.MediaPurgedAt == null)
+            .SumAsync(video => (long?)video.FileSize, ct) ?? 0L;
+
+    private async Task<long> GetChannelActiveVideoStorageAsync(Guid channelId, CancellationToken ct) =>
+        await db.Videos.AsNoTracking()
+            .Where(video => video.ChannelId == channelId && video.Status != "deleted" && video.MediaPurgedAt == null)
+            .SumAsync(video => (long?)video.FileSize, ct) ?? 0L;
+
+    private async Task<long> GetSharedMemberStorageLimitAsync(PlanHistory history, PlanMember member, Plan plan, CancellationToken ct)
+    {
+        if (member.AllocatedStorage.HasValue) return member.AllocatedStorage.Value;
+        var otherAllocated = await db.PlanMembers.AsNoTracking()
+            .Where(x => x.PlanHistoryId == history.PlanHistoryId && x.Status != "revoked" && x.PlanMemberId != member.PlanMemberId)
+            .SumAsync(x => x.AllocatedStorage ?? 0, ct);
+        return Math.Max(0, plan.StorageLimit - (history.OwnerAllocatedStorage ?? 0) - otherAllocated);
+    }
+
+    private async Task<Plan?> FindDefaultPlanAsync(CancellationToken ct) =>
+        await db.Plans.AsNoTracking()
+            .Where(plan => plan.Status == "active" && plan.IsDefaultForNewUsers)
+            .OrderBy(plan => plan.DisplayOrder)
+            .ThenBy(plan => plan.Price)
+            .FirstOrDefaultAsync(ct)
+        ?? await db.Plans.AsNoTracking()
+            .Where(plan => plan.Status == "active" && plan.Code == "free")
+            .FirstOrDefaultAsync(ct);
+
+    private async Task LockAsync(string key, CancellationToken ct)
+    {
+        if (db.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
+    }
+
+    private async Task SyncChannelQuotaAsync(Guid userId, long storageLimit, DateTimeOffset now, CancellationToken ct, long? storageUsed = null)
     {
         var channelId = await db.Channels.AsNoTracking()
             .Where(x => x.OwnerUserId == userId && x.Status == "active")
@@ -656,15 +811,18 @@ public sealed class PlanService(
         var quota = await db.ChannelQuotas.SingleOrDefaultAsync(x => x.ChannelId == channelId, ct);
         if (quota == null)
         {
-            db.ChannelQuotas.Add(new ChannelQuota { ChannelId = channelId, StorageLimit = storageLimit, UpdatedAt = now });
+            db.ChannelQuotas.Add(new ChannelQuota { ChannelId = channelId, StorageLimit = storageLimit, StorageUsed = storageUsed ?? 0, UpdatedAt = now });
             return;
         }
         quota.StorageLimit = storageLimit;
+        if (storageUsed.HasValue) quota.StorageUsed = storageUsed.Value;
         quota.UpdatedAt = now;
     }
 
     public async Task<PlanMemberResponse> UpdateMemberStorageAsync(Guid ownerUserId, Guid memberId, long? allocatedStorage, CancellationToken ct = default)
     {
+        if (await GetActiveSharedPlanAsync(ownerUserId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang dùng gói được chia sẻ và không thể chỉnh sửa quota thành viên.");
         var member = await db.PlanMembers.FirstOrDefaultAsync(x => x.PlanMemberId == memberId && x.OwnerUserId == ownerUserId && x.Status != "revoked", ct);
         if (member == null) throw new PlanException(404, "MEMBER_NOT_FOUND", "Không tìm thấy thành viên.");
 
@@ -674,6 +832,16 @@ public sealed class PlanService(
 
         var plan = await db.Plans.AsNoTracking().FirstOrDefaultAsync(x => x.PlanId == history.PlanId, ct);
         if (plan == null) throw new PlanException(404, "PLAN_NOT_FOUND", "Không tìm thấy gói.");
+
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        await LockAsync($"plan-membership:{ownerUserId}", ct);
+        if (await GetActiveSharedPlanAsync(ownerUserId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang dùng gói được chia sẻ và không thể chỉnh sửa quota thành viên.");
+        await LockAsync($"plan-allocation:{history.PlanHistoryId}", ct);
+        var memberChannelId = member.MemberUserId.HasValue
+            ? await db.Channels.AsNoTracking().Where(x => x.OwnerUserId == member.MemberUserId.Value && x.Status == "active").Select(x => x.ChannelId).SingleOrDefaultAsync(ct)
+            : Guid.Empty;
+        if (memberChannelId != Guid.Empty) await LockAsync($"quota:{memberChannelId}", ct);
 
         if (allocatedStorage.HasValue && allocatedStorage.Value < 0)
             throw new PlanException(400, "INVALID_STORAGE_LIMIT", "Dung lượng phân bổ không được nhỏ hơn 0.");
@@ -696,28 +864,36 @@ public sealed class PlanService(
         }
 
         member.AllocatedStorage = allocatedStorage;
-        await db.SaveChangesAsync(ct);
-        await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.member_storage_updated", "plan_member", member.PlanMemberId,
-            "Cập nhật dung lượng thành viên", NewValues: PersistenceJson.Serialize(new { allocatedStorage })), ct);
-
-        // Sync channel quota directly if member is accepted
         if (member.Status == "accepted" && member.MemberUserId.HasValue)
         {
-            var effectiveQuota = allocatedStorage ?? plan.StorageLimit;
+            var effectiveQuota = await GetSharedMemberStorageLimitAsync(history, member, plan, ct);
             await SyncChannelQuotaAsync(member.MemberUserId.Value, effectiveQuota, Now, ct);
-            await db.SaveChangesAsync(ct);
         }
+        await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
+        await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.member_storage_updated", "plan_member", member.PlanMemberId,
+            "Cập nhật dung lượng thành viên", NewValues: PersistenceJson.Serialize(new { allocatedStorage })), ct);
 
         return new PlanMemberResponse(member.PlanMemberId, plan.PlanId, ownerUserId, member.MemberEmail, member.MemberUserId, member.Status, member.InvitedAt, member.AcceptedAt, member.RevokedAt, member.AllocatedStorage);
     }
 
     public async Task UpdateOwnerStorageAsync(Guid ownerUserId, long? allocatedStorage, CancellationToken ct = default)
     {
+        if (await GetActiveSharedPlanAsync(ownerUserId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang dùng gói được chia sẻ và không thể chỉnh sửa quota chủ gói.");
         var history = await db.PlanHistories.FirstOrDefaultAsync(x => x.UserId == ownerUserId && x.Status == "active" && (!x.EndedAt.HasValue || x.EndedAt > Now), ct);
         if (history == null) throw new PlanException(400, "NO_ACTIVE_PLAN", "Bạn không có gói đang hoạt động.");
 
         var plan = await db.Plans.AsNoTracking().FirstOrDefaultAsync(x => x.PlanId == history.PlanId, ct);
         if (plan == null) throw new PlanException(404, "PLAN_NOT_FOUND", "Không tìm thấy gói.");
+
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        await LockAsync($"plan-membership:{ownerUserId}", ct);
+        if (await GetActiveSharedPlanAsync(ownerUserId, ct) != null)
+            throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang dùng gói được chia sẻ và không thể chỉnh sửa quota chủ gói.");
+        await LockAsync($"plan-allocation:{history.PlanHistoryId}", ct);
+        var ownerChannelId = await db.Channels.AsNoTracking().Where(x => x.OwnerUserId == ownerUserId && x.Status == "active").Select(x => x.ChannelId).SingleOrDefaultAsync(ct);
+        if (ownerChannelId != Guid.Empty) await LockAsync($"quota:{ownerChannelId}", ct);
 
         if (allocatedStorage.HasValue && allocatedStorage.Value < 0)
             throw new PlanException(400, "INVALID_STORAGE_LIMIT", "Dung lượng phân bổ không được nhỏ hơn 0.");
@@ -738,14 +914,13 @@ public sealed class PlanService(
         }
 
         history.OwnerAllocatedStorage = allocatedStorage;
-        await db.SaveChangesAsync(ct);
-        await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.owner_storage_updated", "plan_history", history.PlanHistoryId,
-            "Cập nhật dung lượng chủ gói", NewValues: PersistenceJson.Serialize(new { allocatedStorage })), ct);
-
-        // Sync channel quota for owner
         var effectiveQuota = allocatedStorage ?? plan.StorageLimit;
         await SyncChannelQuotaAsync(ownerUserId, effectiveQuota, Now, ct);
         await db.SaveChangesAsync(ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
+        await audit.LogAuditAsync(new AuditLogEntry(ownerUserId, "plan.owner_storage_updated", "plan_history", history.PlanHistoryId,
+            "Cập nhật dung lượng chủ gói", NewValues: PersistenceJson.Serialize(new { allocatedStorage })), ct);
+
     }
 
     private static bool IsValidEmail(string value) =>
