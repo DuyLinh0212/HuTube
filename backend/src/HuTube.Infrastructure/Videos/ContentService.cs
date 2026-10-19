@@ -1,5 +1,6 @@
 using System.Data;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using HuTube.Application.Recommendations;
 using HuTube.Application.Serialization;
@@ -1482,6 +1483,8 @@ public sealed class ContentService(
         if (await db.Comments.AnyAsync(x => x.UserId == userId && x.VideoId == videoId && x.Content == content && x.CreatedAt > Now.AddSeconds(-10), ct))
             throw Error(429, "COMMENT_SPAM_DETECTED", "Bạn đang gửi cùng một bình luận quá nhanh.");
         db.Comments.Add(comment); await db.SaveChangesAsync(ct);
+        SentimentCache.TryRemove($"video:{videoId}", out _);
+        SentimentCache.TryRemove($"channel:{video.ChannelId}", out _);
         if (parent != null && parent.UserId != userId)
         {
             await PublishInteractionNotificationAsync(parent.UserId, userId, "comment_reply", "Có người trả lời bình luận", content,
@@ -1514,6 +1517,8 @@ public sealed class ContentService(
         if (comment.UserId != userId && !await HasChannelPermissionAsync(video.ChannelId, userId, ChannelPermissions.CommentManage, ct))
             throw Error(403, "COMMENT_DELETE_DENIED", "Bạn không có quyền xóa bình luận này.");
         comment.Status = "deleted"; comment.Content = "[đã xóa]"; comment.UpdatedAt = Now; await db.SaveChangesAsync(ct);
+        SentimentCache.TryRemove($"video:{comment.VideoId}", out _);
+        SentimentCache.TryRemove($"channel:{video.ChannelId}", out _);
     }
 
     public async Task<ReactionResponse> SetCommentReactionAsync(Guid userId, Guid commentId, string? reaction, CancellationToken ct = default)
@@ -1935,6 +1940,135 @@ public sealed class ContentService(
                 comment.Status, comment.CreatedAt, comment.UpdatedAt, stats.Likes, stats.Dislikes, myReaction,
                 replies.GetValueOrDefault(comment.CommentId), videoTitles.GetValueOrDefault(comment.VideoId));
         }).ToList();
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTimeOffset ExpiresAt, CommentSentimentStatsResponse Stats)> SentimentCache = new();
+
+    public async Task<CommentSentimentStatsResponse> GetCommentSentimentStatsAsync(Guid? videoId, Guid? channelId, CancellationToken ct = default)
+    {
+        var cacheKey = videoId.HasValue ? $"video:{videoId.Value}" : channelId.HasValue ? $"channel:{channelId.Value}" : null;
+        if (cacheKey != null && SentimentCache.TryGetValue(cacheKey, out var cached) && cached.ExpiresAt > Now)
+        {
+            return cached.Stats;
+        }
+
+        if (SentimentCache.Count > 100)
+        {
+            var expired = SentimentCache.Where(kvp => kvp.Value.ExpiresAt <= Now).Select(kvp => kvp.Key).ToList();
+            foreach (var k in expired) SentimentCache.TryRemove(k, out _);
+        }
+
+        var query = db.Comments.AsNoTracking().Where(c => c.Status != "deleted");
+        if (videoId.HasValue)
+        {
+            query = query.Where(c => c.VideoId == videoId.Value);
+        }
+        else if (channelId.HasValue)
+        {
+            query = query.Where(c => db.Videos.Any(v => v.VideoId == c.VideoId && v.ChannelId == channelId.Value));
+        }
+        else
+        {
+            throw Error(400, "INVALID_TARGET", "Cần chỉ định videoId hoặc channelId.");
+        }
+
+        var rows = await query.OrderByDescending(c => c.CreatedAt).Take(200).ToListAsync(ct);
+        if (rows.Count == 0)
+        {
+            var empty = new CommentSentimentStatsResponse(
+                0, 0, 0, 0, 0.0, 0.0, 0.0,
+                new Dictionary<string, int>(),
+                [], []
+            );
+            if (cacheKey != null) SentimentCache[cacheKey] = (Now.AddSeconds(60), empty);
+            return empty;
+        }
+
+        var userIds = rows.Select(c => c.UserId).Distinct().ToList();
+        var users = await db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Where(u => userIds.Contains(u.UserId))
+            .ToDictionaryAsync(u => u.UserId, u => u.DisplayName, ct);
+
+        int positive = 0, negative = 0, neutral = 0;
+        var emotionCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var positiveSnippets = new List<CommentSnippetResponse>();
+        var negativeSnippets = new List<CommentSnippetResponse>();
+
+        bool analyzedSuccessfully = false;
+        try
+        {
+            using var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(60);
+            var texts = rows.Select(c => c.Content).ToList();
+            var res = await client.PostAsJsonAsync("http://127.0.0.1:8001/api/v1/analyze-batch", new { texts }, ct);
+            if (res.IsSuccessStatusCode)
+            {
+                using var doc = await JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+                var items = doc.RootElement.EnumerateArray().ToList();
+                for (int i = 0; i < Math.Min(rows.Count, items.Count); i++)
+                {
+                    var item = items[i];
+                    var row = rows[i];
+                    var sentiment = item.TryGetProperty("sentiment", out var sentProp) ? sentProp.GetString() ?? "NEUTRAL" : "NEUTRAL";
+                    var emotion = item.TryGetProperty("emotion", out var emProp) ? emProp.GetString() ?? "Other" : "Other";
+                    var author = users.TryGetValue(row.UserId, out var name) ? name : "Người dùng";
+
+                    if (sentiment == "POSITIVE")
+                    {
+                        positive++;
+                        if (positiveSnippets.Count < 5)
+                            positiveSnippets.Add(new CommentSnippetResponse(row.CommentId, row.Content, sentiment, emotion, row.CreatedAt, author));
+                    }
+                    else if (sentiment == "NEGATIVE")
+                    {
+                        negative++;
+                        if (negativeSnippets.Count < 5)
+                            negativeSnippets.Add(new CommentSnippetResponse(row.CommentId, row.Content, sentiment, emotion, row.CreatedAt, author));
+                    }
+                    else
+                    {
+                        neutral++;
+                    }
+
+                    emotionCounts[emotion] = emotionCounts.GetValueOrDefault(emotion, 0) + 1;
+                }
+                analyzedSuccessfully = true;
+            }
+            else
+            {
+                neutral = rows.Count;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Emotion batch analysis unavailable, defaulting comments to neutral");
+            neutral = rows.Count;
+        }
+
+        var total = rows.Count;
+        var posPercentage = total > 0 ? Math.Round((double)positive * 100.0 / total, 1) : 0.0;
+        var negPercentage = total > 0 ? Math.Round((double)negative * 100.0 / total, 1) : 0.0;
+        var neuPercentage = total > 0 ? Math.Round((double)neutral * 100.0 / total, 1) : 0.0;
+
+        var response = new CommentSentimentStatsResponse(
+            total,
+            positive,
+            negative,
+            neutral,
+            posPercentage,
+            negPercentage,
+            neuPercentage,
+            emotionCounts,
+            positiveSnippets,
+            negativeSnippets
+        );
+
+        if (cacheKey != null && analyzedSuccessfully)
+        {
+            SentimentCache[cacheKey] = (Now.AddSeconds(60), response);
+        }
+
+        return response;
     }
 
     private async Task<Video> RequireVideoAsync(Guid id, CancellationToken ct) => await db.Videos.SingleOrDefaultAsync(x => x.VideoId == id && x.Status != "deleted", ct) ?? throw Error(404, "VIDEO_NOT_FOUND", "Không tìm thấy video.");

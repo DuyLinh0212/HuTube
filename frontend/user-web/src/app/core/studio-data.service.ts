@@ -26,11 +26,14 @@ export class StudioDataService {
   readonly watchSeconds = computed(() => this.videos().reduce((sum, video) => sum + (video.stats.watchSeconds ?? 0), 0));
 
   load(preferredChannelId?: string | null, includeAllVideos = true) {
+    const requestedId = preferredChannelId ?? this.queryChannelId() ?? this.selectedChannelId();
+    const isSameChannel = this.channel()?.channelId === requestedId;
+    if (!isSameChannel || this.videos().length === 0) {
+      this.loading.set(true);
+    }
+    this.error.set('');
     this.selectionChanged.next();
     const generation = ++this.generation;
-    this.loading.set(true);
-    this.error.set('');
-    const requestedId = preferredChannelId ?? this.queryChannelId() ?? this.selectedChannelId();
     this.channels.getAccessibleChannels().pipe(takeUntil(this.selectionChanged)).subscribe({
       next: channels => {
         if (generation !== this.generation) return;
@@ -73,8 +76,11 @@ export class StudioDataService {
   }
 
   private loadContent(channelId: string, includeAllVideos = true) {
-    this.loading.set(true);
-    this.videos.set([]);
+    const isSameChannel = this.channel()?.channelId === channelId;
+    if (!isSameChannel || this.videos().length === 0) {
+      this.loading.set(true);
+      this.videos.set([]);
+    }
     if (!includeAllVideos) {
       this.loading.set(false);
       return;
@@ -90,8 +96,10 @@ export class StudioDataService {
   }
 
   private setSelection(channel: ChannelDetail) {
-    this.channel.set(channel);
-    this.selectedChannelId.set(channel.channelId);
+    if (this.channel()?.channelId !== channel.channelId) {
+      this.channel.set(channel);
+      this.selectedChannelId.set(channel.channelId);
+    }
     try { localStorage.setItem(this.storageKey, channel.channelId); } catch { /* storage is optional */ }
   }
 

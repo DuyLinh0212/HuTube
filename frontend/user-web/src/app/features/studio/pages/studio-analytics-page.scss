@@ -167,9 +167,328 @@ a:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 45%, tran
 .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Comment Sentiment & Emotion Analytics Styles */
+.sentiment-panel {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sentiment-meta-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sentiment-loading-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+
+.spinner-sm {
+  width: 13px;
+  height: 13px;
+  border: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+.sentiment-content-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: opacity 180ms ease;
+
+  &.updating {
+    opacity: 0.52;
+    pointer-events: none;
+    filter: grayscale(15%);
+  }
+}
+
+.sentiment-loading-box,
+.sentiment-empty-box {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+  gap: 8px;
+}
+
+.sentiment-empty-box h3 {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+
+.sentiment-empty-box p {
+  margin: 0;
+  font-size: 0.85rem;
+  max-width: 420px;
+}
+
+.sentiment-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sentiment-card {
+  box-sizing: border-box;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--canvas);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.sentiment-card--positive {
+  border-left: 4px solid #10b981;
+  background: linear-gradient(135deg, var(--canvas), color-mix(in srgb, #10b981 7%, var(--canvas)));
+}
+
+.sentiment-card--neutral {
+  border-left: 4px solid #64748b;
+  background: linear-gradient(135deg, var(--canvas), color-mix(in srgb, #64748b 7%, var(--canvas)));
+}
+
+.sentiment-card--negative {
+  border-left: 4px solid #ef4444;
+  background: linear-gradient(135deg, var(--canvas), color-mix(in srgb, #ef4444 7%, var(--canvas)));
+}
+
+.sentiment-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  font-size: 0.88rem;
+}
+
+.sentiment-icon {
+  font-size: 1.1rem;
+}
+
+.sentiment-card--positive .sentiment-percent { color: #059669; }
+.sentiment-card--neutral .sentiment-percent { color: #475569; }
+.sentiment-card--negative .sentiment-percent { color: #dc2626; }
+
+.sentiment-percent {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.sentiment-count {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.sentiment-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.sentiment-ratio-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.sentiment-ratio-slice {
+  height: 100%;
+  transition: width 300ms ease;
+}
+
+.sentiment-ratio-slice.positive { background: #10b981; }
+.sentiment-ratio-slice.neutral { background: #94a3b8; }
+.sentiment-ratio-slice.negative { background: #ef4444; }
+
+.sentiment-ratio-legend {
+  display: flex;
+  gap: 18px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.sentiment-ratio-legend .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.sentiment-ratio-legend .dot.positive { background: #10b981; }
+.sentiment-ratio-legend .dot.neutral { background: #94a3b8; }
+.sentiment-ratio-legend .dot.negative { background: #ef4444; }
+
+.emotion-breakdown-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.subsection-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.emotion-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.emotion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 99px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.emotion-chip.has-count {
+  font-weight: 600;
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+}
+
+.emotion-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--canvas));
+  color: var(--primary);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.sentiment-comments-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.sentiment-comments-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+}
+
+.comments-col-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.comments-col-title--positive { color: #059669; }
+.comments-col-title--negative { color: #dc2626; }
+
+.comments-empty-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 6px 0;
+}
+
+.comment-snippets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.comment-snippet-item {
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.snippet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+
+.snippet-author {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.snippet-tag {
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.snippet-tag.tag-positive {
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #047857;
+}
+
+.snippet-tag.tag-negative {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: #b91c1c;
+}
+
+.snippet-content {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--ink);
+  word-break: break-word;
+}
+
 @media (max-width: 1180px) {
   .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .analytics-grid { grid-template-columns: minmax(0, 1fr) minmax(350px, .95fr); }
+  .sentiment-comments-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px) {
@@ -177,6 +496,7 @@ a:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 45%, tran
   .video-picker { width: min(100%, 560px); }
   .analytics-grid { grid-template-columns: minmax(0, 1fr); }
   .radar-chart { width: min(100%, 520px); }
+  .sentiment-overview-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 560px) {
@@ -198,8 +518,11 @@ a:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 45%, tran
   .video-stats { font-size: .65rem; }
   .selected-video-card { grid-template-columns: 1fr; gap: 12px; }
   .selected-video-card img, .selected-thumb-placeholder { min-height: 180px; }
+  .sentiment-overview-grid { grid-template-columns: 1fr; }
+  .sentiment-ratio-legend { flex-direction: column; gap: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+

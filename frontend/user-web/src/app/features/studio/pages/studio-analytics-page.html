@@ -138,5 +138,162 @@
         </article>
       }
     </section>
+
+    <!-- Comment Sentiment & Emotion Analytics Section -->
+    <section class="panel sentiment-panel" aria-label="Phân tích cảm xúc bình luận">
+      <div class="panel-heading">
+        <div>
+          <h2>Phân tích cảm xúc bình luận (AI ViSoBERT)</h2>
+          <p>
+            @if (isAllVideos()) {
+              Thống kê cảm xúc tổng hợp từ các bình luận trên toàn bộ kênh.
+            } @else {
+              Thống kê cảm xúc từ người xem cho video "{{ selectedVideo()?.title }}".
+            }
+          </p>
+        </div>
+        <div class="sentiment-meta-badges">
+          @if (loadingSentiment()) {
+            <span class="sentiment-loading-tag">
+              <span class="spinner-sm" aria-hidden="true"></span> Đang cập nhật...
+            </span>
+          }
+          @if (sentimentStats(); as stats) {
+            <span class="count-badge">Tổng {{ stats.totalComments }} bình luận</span>
+          }
+        </div>
+      </div>
+
+      @if (!sentimentStats() && loadingSentiment()) {
+        <div class="sentiment-loading-box">
+          <span class="spinner" aria-hidden="true"></span>
+          <p>Đang xử lý dữ liệu cảm xúc bằng mô hình AI ViSoBERT...</p>
+        </div>
+      } @else if (!sentimentStats() || (sentimentStats()?.totalComments === 0 && !loadingSentiment())) {
+        <div class="sentiment-empty-box">
+          <span class="empty-icon" aria-hidden="true">💬</span>
+          <h3>Chưa có bình luận</h3>
+          <p>Chưa có bình luận nào trên video hoặc kênh này để phân tích cảm xúc.</p>
+        </div>
+      } @else if (sentimentStats(); as stats) {
+        <div class="sentiment-content-wrap" [class.updating]="loadingSentiment()">
+          <!-- Overview Sentiment Cards -->
+          <div class="sentiment-overview-grid">
+          <div class="sentiment-card sentiment-card--positive">
+            <div class="sentiment-card-header">
+              <span class="sentiment-icon">😊</span>
+              <span class="sentiment-label">Tích cực</span>
+            </div>
+            <strong class="sentiment-percent">{{ stats.positivePercentage }}%</strong>
+            <span class="sentiment-count">{{ stats.positiveCount }} bình luận</span>
+          </div>
+
+          <div class="sentiment-card sentiment-card--neutral">
+            <div class="sentiment-card-header">
+              <span class="sentiment-icon">😐</span>
+              <span class="sentiment-label">Trung lập</span>
+            </div>
+            <strong class="sentiment-percent">{{ stats.neutralPercentage }}%</strong>
+            <span class="sentiment-count">{{ stats.neutralCount }} bình luận</span>
+          </div>
+
+          <div class="sentiment-card sentiment-card--negative">
+            <div class="sentiment-card-header">
+              <span class="sentiment-icon">😡</span>
+              <span class="sentiment-label">Tiêu cực</span>
+            </div>
+            <strong class="sentiment-percent">{{ stats.negativePercentage }}%</strong>
+            <span class="sentiment-count">{{ stats.negativeCount }} bình luận</span>
+          </div>
+        </div>
+
+        <!-- Sentiment Distribution Bar -->
+        <div class="sentiment-bar-wrapper">
+          <div class="sentiment-ratio-bar" role="progressbar" aria-label="Tỷ lệ cảm xúc">
+            @if (stats.positivePercentage > 0) {
+              <div class="sentiment-ratio-slice positive" [style.width.%]="stats.positivePercentage" title="Tích cực: {{ stats.positivePercentage }}%"></div>
+            }
+            @if (stats.neutralPercentage > 0) {
+              <div class="sentiment-ratio-slice neutral" [style.width.%]="stats.neutralPercentage" title="Trung lập: {{ stats.neutralPercentage }}%"></div>
+            }
+            @if (stats.negativePercentage > 0) {
+              <div class="sentiment-ratio-slice negative" [style.width.%]="stats.negativePercentage" title="Tiêu cực: {{ stats.negativePercentage }}%"></div>
+            }
+          </div>
+          <div class="sentiment-ratio-legend">
+            <span><i class="dot positive"></i> Tích cực {{ stats.positivePercentage }}%</span>
+            <span><i class="dot neutral"></i> Trung lập {{ stats.neutralPercentage }}%</span>
+            <span><i class="dot negative"></i> Tiêu cực {{ stats.negativePercentage }}%</span>
+          </div>
+        </div>
+
+        <!-- Emotion Details Chips -->
+        <div class="emotion-breakdown-section">
+          <h3 class="subsection-title">Chi tiết sắc thái cảm xúc (7 nhóm VSMEC)</h3>
+          <div class="emotion-chips-grid">
+            @for (item of getEmotionList(stats.emotionCounts); track item.key) {
+              <div class="emotion-chip" [class.has-count]="item.count > 0">
+                <span class="emotion-chip-icon">{{ item.icon }}</span>
+                <span class="emotion-chip-name">{{ item.label }}</span>
+                <span class="emotion-chip-count">{{ item.count }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Highlighted Comments (Side-by-side) -->
+        <div class="sentiment-comments-grid">
+          <!-- Positive Highlights -->
+          <div class="sentiment-comments-col">
+            <h4 class="comments-col-title comments-col-title--positive">
+              <span>🌟</span> Bình luận tích cực nổi bật
+            </h4>
+            @if (stats.topPositiveComments.length === 0) {
+              <p class="comments-empty-text">Chưa có bình luận tích cực nào.</p>
+            } @else {
+              <div class="comment-snippets-list">
+                @for (snippet of stats.topPositiveComments; track snippet.commentId) {
+                  <div class="comment-snippet-item snippet-positive">
+                    <div class="snippet-header">
+                      <span class="snippet-author">{{ snippet.authorName }}</span>
+                      <span class="snippet-tag tag-positive">
+                        {{ emotionLabels[snippet.emotion]?.icon || '😊' }} {{ emotionLabels[snippet.emotion]?.label || snippet.emotion }}
+                      </span>
+                    </div>
+                    <p class="snippet-content">{{ snippet.content }}</p>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Negative / Feedback Highlights -->
+          <div class="sentiment-comments-col">
+            <h4 class="comments-col-title comments-col-title--negative">
+              <span>⚠️</span> Bình luận tiêu cực cần chú ý
+            </h4>
+            @if (stats.recentNegativeComments.length === 0) {
+              <p class="comments-empty-text">Không có bình luận tiêu cực nào. Tương tác rất tích cực! 🎉</p>
+            } @else {
+              <div class="comment-snippets-list">
+                @for (snippet of stats.recentNegativeComments; track snippet.commentId) {
+                  <div class="comment-snippet-item snippet-negative">
+                    <div class="snippet-header">
+                      <span class="snippet-author">{{ snippet.authorName }}</span>
+                      <span class="snippet-tag tag-negative">
+                        {{ emotionLabels[snippet.emotion]?.icon || '😡' }} {{ emotionLabels[snippet.emotion]?.label || snippet.emotion }}
+                      </span>
+                    </div>
+                    <p class="snippet-content">{{ snippet.content }}</p>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+        </div>
+      }
+    </section>
   }
 </main>
+

@@ -59,6 +59,26 @@ public sealed record UpdateCommentRequest(string Content);
 public sealed record CommentResponse(Guid CommentId, Guid VideoId, Guid UserId, string DisplayName, Guid? ParentCommentId,
     string Content, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, long Likes, long Dislikes,
     string? MyReaction, int ReplyCount, string? VideoTitle = null);
+public sealed record CommentSentimentStatsResponse(
+    int TotalComments,
+    int PositiveCount,
+    int NegativeCount,
+    int NeutralCount,
+    double PositivePercentage,
+    double NegativePercentage,
+    double NeutralPercentage,
+    IReadOnlyDictionary<string, int> EmotionCounts,
+    IReadOnlyList<CommentSnippetResponse> TopPositiveComments,
+    IReadOnlyList<CommentSnippetResponse> RecentNegativeComments
+);
+public sealed record CommentSnippetResponse(
+    Guid CommentId,
+    string Content,
+    string Sentiment,
+    string Emotion,
+    DateTimeOffset CreatedAt,
+    string AuthorName
+);
 public sealed record ReportCommentRequest(Guid ViolationTypeId, string Description);
 public sealed record ReportResponse(Guid ReportId, string Status, DateTimeOffset CreatedAt);
 public sealed record ViolationTypeResponse(Guid ViolationTypeId, string Code, string Name, string? Description);
@@ -142,6 +162,7 @@ public interface IContentService
     Task DeleteCommentAsync(Guid userId, Guid commentId, CancellationToken ct = default);
     Task<ReactionResponse> SetCommentReactionAsync(Guid userId, Guid commentId, string? reaction, CancellationToken ct = default);
     Task<CommentResponse> SetCommentHiddenAsync(Guid actorId, Guid commentId, bool hidden, string? reason, CancellationToken ct = default);
+    Task<CommentSentimentStatsResponse> GetCommentSentimentStatsAsync(Guid? videoId, Guid? channelId, CancellationToken ct = default);
     Task<IReadOnlyList<RenditionResponse>> GetDownloadOptionsAsync(Guid userId, Guid videoId, CancellationToken ct = default);
     Task<DownloadResponse> CreateDownloadAsync(Guid userId, Guid videoId, string quality, CancellationToken ct = default);
     Task<DownloadFileResponse> OpenDownloadFileAsync(Guid userId, Guid videoId, string quality, CancellationToken ct = default);

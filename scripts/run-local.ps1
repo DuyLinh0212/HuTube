@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('api', 'recommender', 'user', 'admin', 'mobile')][string]$Component,
+    [Parameter(Mandatory)][ValidateSet('api', 'recommender', 'emotion', 'user', 'admin', 'mobile')][string]$Component,
     [string]$Device,
     [string]$EnvironmentFile
 )
@@ -26,6 +26,9 @@ try {
         }
         'recommender' {
             & (Join-Path $PSScriptRoot 'run-recommender.ps1') -EnvironmentFile $EnvironmentFile
+        }
+        'emotion' {
+            & (Join-Path $PSScriptRoot 'run-emotion-service.ps1')
         }
         { $_ -in @('user', 'admin') } {
             Push-Location "frontend/$Component-web"

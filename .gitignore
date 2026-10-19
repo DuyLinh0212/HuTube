@@ -50,6 +50,15 @@ recommendation-service/reports/
 cf_interactions_*.csv
 tools/bot-simulator/
 
+# Python emotion service
+emotion-service/.venv/
+emotion-service/**/__pycache__/
+emotion-service/saved_models/
+emotion-service/training/outputs/
+*.safetensors
+*.bin
+*.pt
+
 # Local PostgreSQL exports may contain the complete application dataset.
 hutube-*.dump
 hutube-*.backup

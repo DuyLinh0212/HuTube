@@ -24,6 +24,26 @@ export interface VideoDetail extends VideoCard { categoryId: string | null; desc
 export interface Rendition { quality: string; width: number; height: number; fileSize: number; url: string; }
 export interface Playback { videoId: string; title: string; visibility: string; duration: number; renditions: Rendition[]; resumeAtSeconds: number; progress: number; }
 export interface CommentItem { commentId: string; videoId: string; userId: string; displayName: string; parentCommentId: string | null; content: string; status: string; createdAt: string; updatedAt: string; likes: number; dislikes: number; myReaction: 'like' | 'dislike' | null; replyCount: number; videoTitle?: string | null; }
+export interface CommentSnippet {
+  commentId: string;
+  content: string;
+  sentiment: string;
+  emotion: string;
+  createdAt: string;
+  authorName: string;
+}
+export interface CommentSentimentStats {
+  totalComments: number;
+  positiveCount: number;
+  negativeCount: number;
+  neutralCount: number;
+  positivePercentage: number;
+  negativePercentage: number;
+  neutralPercentage: number;
+  emotionCounts: Record<string, number>;
+  topPositiveComments: CommentSnippet[];
+  recentNegativeComments: CommentSnippet[];
+}
 export interface Category { categoryId: string; name: string; slug: string; description: string | null; }
 export interface ViolationType { violationTypeId: string; code: string; name: string; description: string | null; }
 export interface CategoryRankingGroup { categoryId: string; categoryName: string; slug: string; videos: VideoCard[]; }
@@ -155,6 +175,12 @@ export class ContentService {
   comments(videoId: string, page = 1, pageSize = 20, sort = 'newest') { return this.http.get<PageResult<CommentItem>>(`${this.base}/videos/${videoId}/comments`, { params: { page, pageSize, sort } }); }
   replies(commentId: string, page = 1, pageSize = 20) { return this.http.get<PageResult<CommentItem>>(`${this.base}/comments/${commentId}/replies`, { params: { page, pageSize } }); }
   managedComments(channelId: string, status = '', page = 1, pageSize = 20, sort = 'newest') { return this.http.get<PageResult<CommentItem>>(`${this.base}/channels/${channelId}/comments/manage`, { params: { status, sort, page, pageSize } }); }
+  getCommentSentimentStats(channelId: string, videoId?: string): Observable<CommentSentimentStats> {
+    const url = videoId && videoId !== 'all'
+      ? `${this.base}/videos/${videoId}/comments/sentiment-stats`
+      : `${this.base}/channels/${channelId}/comments/sentiment-stats`;
+    return this.http.get<CommentSentimentStats>(url);
+  }
   violationTypes(): Observable<ViolationType[]> {
     return this.http.get<ViolationType[]>(`${this.base}/violation-types`).pipe(
       map(types => (types && types.length > 0 ? types : DEFAULT_VIOLATION_TYPES)),

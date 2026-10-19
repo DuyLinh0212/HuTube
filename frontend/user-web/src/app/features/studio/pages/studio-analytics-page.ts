@@ -1,6 +1,7 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, computed, inject, signal, effect } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { VideoDetail } from '../../../core/content.service';
+import { Subscription } from 'rxjs';
+import { ContentService, CommentSentimentStats, VideoDetail } from '../../../core/content.service';
 import { StudioDataService } from '../../../core/studio-data.service';
 import { I18nService } from '../../../core/i18n.service';
 import { LocaleNumberPipe } from '../../../core/locale-number.pipe';
@@ -23,13 +24,86 @@ interface AnalyticsMetric {
   templateUrl: './studio-analytics-page.html',
   styleUrl: './studio-analytics-page.scss',
 })
-export class StudioAnalyticsPage implements OnInit {
+export class StudioAnalyticsPage implements OnInit, OnDestroy {
   readonly data = inject(StudioDataService);
+  private readonly content = inject(ContentService);
   private readonly i18n = inject(I18nService);
+  private sentimentSub?: Subscription;
+  private lastChannelId: string | null = null;
+  private readonly sentimentCache = new Map<string, { timestamp: number; stats: CommentSentimentStats }>();
   readonly selectedVideoId = signal('all');
-  readonly selectedVideo = computed(() => this.data.videos().find(video => video.videoId === this.selectedVideoId()) ?? null);
-  readonly isAllVideos = computed(() => this.selectedVideoId() === 'all' || !this.selectedVideo());
+  readonly selectedVideo = computed(() => {
+    const id = this.selectedVideoId();
+    if (id === 'all') return null;
+    return this.data.videos().find(video => video.videoId === id) ?? null;
+  });
+  readonly isAllVideos = computed(() => this.selectedVideoId() === 'all');
   readonly videoCount = computed(() => this.data.videos().length);
+  readonly sentimentStats = signal<CommentSentimentStats | null>(null);
+  readonly loadingSentiment = signal(false);
+
+  readonly emotionLabels: Record<string, { label: string; icon: string; color: string }> = {
+    Enjoyment: { label: 'Thích thú', icon: '😊', color: '#10b981' },
+    Sadness: { label: 'Buồn bã', icon: '😢', color: '#6366f1' },
+    Surprise: { label: 'Ngạc nhiên', icon: '😲', color: '#f59e0b' },
+    Other: { label: 'Khác', icon: '💬', color: '#94a3b8' },
+    Fear: { label: 'Sợ hãi', icon: '😨', color: '#8b5cf6' },
+    Anger: { label: 'Giận dữ', icon: '😡', color: '#ef4444' },
+    Disgust: { label: 'Ghê tởm', icon: '🤢', color: '#ec4899' },
+  };
+
+  constructor() {
+    effect(() => {
+      const channel = this.data.channel();
+      const currentChannelId = channel?.channelId ?? null;
+      if (this.lastChannelId !== null && this.lastChannelId !== currentChannelId) {
+        this.selectedVideoId.set('all');
+      }
+      this.lastChannelId = currentChannelId;
+
+      const videoId = this.selectedVideoId();
+      if (!channel?.channelId) {
+        this.sentimentStats.set(null);
+        return;
+      }
+      this.loadSentiment(channel.channelId, videoId);
+    }, { allowSignalWrites: true });
+  }
+
+  loadSentiment(channelId: string, videoId: string) {
+    const cacheKey = `${channelId}:${videoId}`;
+    const cached = this.sentimentCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && now - cached.timestamp < 60_000) {
+      this.sentimentStats.set(cached.stats);
+      this.loadingSentiment.set(false);
+      return;
+    }
+
+    this.sentimentSub?.unsubscribe();
+    this.loadingSentiment.set(true);
+    this.sentimentSub = this.content.getCommentSentimentStats(channelId, videoId).subscribe({
+      next: stats => {
+        this.sentimentCache.set(cacheKey, { timestamp: Date.now(), stats });
+        this.sentimentStats.set(stats);
+        this.loadingSentiment.set(false);
+      },
+      error: () => {
+        this.loadingSentiment.set(false);
+      }
+    });
+  }
+
+  getEmotionList(counts: Record<string, number> | undefined) {
+    return Object.keys(this.emotionLabels).map(emotion => ({
+      key: emotion,
+      count: counts?.[emotion] ?? 0,
+      label: this.emotionLabels[emotion].label,
+      icon: this.emotionLabels[emotion].icon,
+      color: this.emotionLabels[emotion].color
+    })).sort((a, b) => b.count - a.count);
+  }
+
   readonly topVideos = computed(() => [...this.data.videos()]
     .sort((left, right) => right.stats.views - left.stats.views || right.stats.likes - left.stats.likes || left.title.localeCompare(right.title))
     .slice(0, 5));
@@ -118,7 +192,13 @@ export class StudioAnalyticsPage implements OnInit {
   }).join(' '));
 
   ngOnInit() {
-    this.data.load();
+    if (!this.data.videos().length || !this.data.channel()) {
+      this.data.load();
+    }
+  }
+
+  ngOnDestroy() {
+    this.sentimentSub?.unsubscribe();
   }
 
   selectVideo(videoId: string) {

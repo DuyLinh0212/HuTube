@@ -283,6 +283,14 @@ public sealed class CommentsController(IContentService content, HuTube.Infrastru
     public Task<PageResult<CommentResponse>> ManageAsync(Guid channelId, [FromQuery] string? status = null, [FromQuery] string? sort = "newest", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
         content.GetManagedCommentsAsync(UserId, channelId, status, sort, page, pageSize, ct);
 
+    [HttpGet("videos/{videoId:guid}/comments/sentiment-stats")]
+    public Task<CommentSentimentStatsResponse> VideoSentimentStatsAsync(Guid videoId, CancellationToken ct = default) =>
+        content.GetCommentSentimentStatsAsync(videoId, null, ct);
+
+    [HttpGet("channels/{channelId:guid}/comments/sentiment-stats")]
+    public Task<CommentSentimentStatsResponse> ChannelSentimentStatsAsync(Guid channelId, CancellationToken ct = default) =>
+        content.GetCommentSentimentStatsAsync(null, channelId, ct);
+
     [Authorize, HttpPatch("comments/{id:guid}")]
     public Task<CommentResponse> UpdateAsync(Guid id, UpdateCommentRequest request, CancellationToken ct) => content.UpdateCommentAsync(UserId, id, request, ct);
 

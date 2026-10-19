@@ -1,0 +1,21 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Heavy Model Weights (>100MB - Khong push len Git vi GitHub chan file > 100MB)
+saved_models/
+*.safetensors
+*.bin
+*.pt
+*.zip
+training/outputs/
+
+# Temporary data / caches
+data/*.json
+!data/prepare_data.py
+data/charts/*.png
+probs_*.npy
+evaluation_*.png
