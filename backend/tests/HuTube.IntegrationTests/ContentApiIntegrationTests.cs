@@ -785,7 +785,7 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
     }
 
     [Fact]
-    public async Task UploadProbeOverridesClientClaims_AndRevalidatesActualDuration()
+    public async Task UploadProbeUsesActualDuration_AndHonorsLowerSourceQuality()
     {
         var (owner, _, channelId) = await CreateUserAndChannelAsync("media_probe");
         async Task<HttpResponseMessage> Upload(int actualDuration)
@@ -804,7 +804,7 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         var video = (await response.Content.ReadFromJsonAsync<VideoResponse>(JsonOptions))!;
         Assert.Equal(120, video.Duration);
         await using var verify = factory.CreateDb();
-        Assert.Equal(720, await verify.VideoRenditions.Where(x => x.VideoId == video.VideoId).OrderByDescending(x => x.Height).Select(x => x.Height).FirstAsync());
+        Assert.Equal(360, await verify.VideoRenditions.Where(x => x.VideoId == video.VideoId).OrderByDescending(x => x.Height).Select(x => x.Height).FirstAsync());
         var denied = await Upload(int.MaxValue);
         Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
         Assert.Contains("VIDEO_TOO_LONG", await denied.Content.ReadAsStringAsync());
