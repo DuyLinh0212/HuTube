@@ -36,94 +36,87 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _error;
 
-  List<VideoCard> get _allVideos => [
-    ..._recommendations,
-    ..._subscriptions,
-    ..._popular,
-    ..._random,
-  ];
+  int _generation = 0;
+  late int _sessionGeneration;
+  late bool _authenticated;
+
+  bool get _hasVideos =>
+      _recommendations.isNotEmpty ||
+      _subscriptions.isNotEmpty ||
+      _popular.isNotEmpty ||
+      _random.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    widget.auth.addListener(_identityChanged);
     unawaited(_load());
   }
 
-  Future<void> _load() async {
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
+  void _identityChanged() {
+    if (_sessionGeneration == widget.auth.sessionGeneration &&
+        _authenticated == widget.auth.authenticated) {
+      return;
     }
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    _recommendations = _subscriptions = _popular = _random = const [];
+    unawaited(_load());
+  }
 
-    try {
-      final recommendations = await _content.feed(
-        explore: false,
-        page: 1,
-        pageSize: 20,
-        sort: 'popular',
-      );
-      if (!mounted) return;
+  @override
+  void dispose() {
+    widget.auth.removeListener(_identityChanged);
+    super.dispose();
+  }
 
-      final seen = <String>{};
-      final recommendedItems = _unique(recommendations.items, seen);
-      var subscriptions = <VideoCard>[];
-      if (widget.auth.authenticated) {
-        try {
-          final result = await _content.subscriptionsFeed(
-            page: 1,
-            pageSize: 12,
-          );
-          subscriptions = _unique(result.items, seen);
-        } catch (_) {
-          // A missing subscription feed should not hide public home content.
+  Future<void> _load() async {
+    final generation = ++_generation;
+    final session = widget.auth.sessionGeneration;
+    final authenticated = widget.auth.authenticated;
+    var pending = authenticated ? 4 : 3;
+    final sections = <int, List<VideoCard>>{};
+    String? failure;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    Future<void> fetch(int index, Future<PageResult<VideoCard>> request) async {
+      try {
+        sections[index] = (await request).items;
+      } catch (error) {
+        failure ??= error is ApiFailure
+            ? AppStrings.apiError(error, fallback: 'feed.loadError')
+            : AppStrings.t('feed.loadError');
+      } finally {
+        pending--;
+        if (mounted &&
+            generation == _generation &&
+            session == widget.auth.sessionGeneration &&
+            authenticated == widget.auth.authenticated) {
+          // Keep deterministic section priority, regardless of response order.
+          final seen = <String>{};
+          setState(() {
+            _recommendations = _unique(sections[0] ?? const [], seen);
+            _subscriptions = _unique(sections[1] ?? const [], seen);
+            _popular = _unique(sections[2] ?? const [], seen);
+            _random = _unique(sections[3] ?? const [], seen);
+            _loading = pending > 0;
+            _error = pending == 0 ? failure : null;
+          });
         }
       }
-
-      var popular = <VideoCard>[];
-      try {
-        final result = await _content.feed(
-          explore: true,
-          page: 1,
-          pageSize: 20,
-          sort: 'popular',
-        );
-        popular = _unique(result.items, seen);
-      } catch (_) {}
-
-      var random = <VideoCard>[];
-      try {
-        final result = await _content.feed(
-          explore: true,
-          page: 1,
-          pageSize: 20,
-          sort: 'random',
-        );
-        random = _unique(result.items, seen);
-      } catch (_) {}
-
-      if (!mounted) return;
-      setState(() {
-        _recommendations = recommendedItems;
-        _subscriptions = subscriptions;
-        _popular = popular;
-        _random = random;
-        _loading = false;
-      });
-    } on ApiFailure catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = AppStrings.apiError(error, fallback: 'feed.loadError');
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = AppStrings.t('feed.loadError');
-      });
     }
+
+    await Future.wait([
+      fetch(0, _content.feed(explore: false, pageSize: 20, sort: 'popular')),
+      if (authenticated) fetch(1, _content.subscriptionsFeed(pageSize: 12)),
+      fetch(2, _content.feed(explore: true, pageSize: 20, sort: 'popular')),
+      fetch(3, _content.feed(explore: true, pageSize: 20, sort: 'random')),
+    ]);
   }
 
   List<VideoCard> _unique(List<VideoCard> items, Set<String> seen) =>
@@ -131,127 +124,122 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _allVideos.isEmpty) return const _HomeLoading();
-    if (_error != null && _allVideos.isEmpty) {
+    if (_loading && !_hasVideos) return const _HomeLoading();
+    if (_error != null && !_hasVideos) {
       return _HomeFailure(message: _error!, onRetry: _load);
     }
-
     return RefreshIndicator(
       color: AppColors.primaryPink,
       onRefresh: _load,
-      child: ListView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
-        children: [
-          if (_recommendations.isNotEmpty)
-            _HomeSection(
-              auth: widget.auth,
-              title: AppStrings.t('home.forYouTitle'),
-              videos: _recommendations,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                ..._section(context, _recommendations, 'home.forYouTitle'),
+                ..._section(
+                  context,
+                  _subscriptions,
+                  'home.followingTitle',
+                  kicker: 'home.followingKicker',
+                  horizontal: true,
+                ),
+                ..._section(
+                  context,
+                  _popular,
+                  'home.popularTitle',
+                  kicker: 'home.popularKicker',
+                ),
+                ..._section(
+                  context,
+                  _random,
+                  'home.randomTitle',
+                  kicker: 'home.randomKicker',
+                ),
+                if (!_hasVideos)
+                  SliverToBoxAdapter(
+                    child: HuTubeStateView(
+                      icon: Icons.video_library_outlined,
+                      title: AppStrings.t('home.empty'),
+                      message: AppStrings.t('feed.homeDescription'),
+                      compact: true,
+                    ),
+                  ),
+              ],
             ),
-          if (_subscriptions.isNotEmpty) ...[
-            const SizedBox(height: 26),
-            _HomeSection(
-              auth: widget.auth,
-              title: AppStrings.t('home.followingTitle'),
-              kicker: AppStrings.t('home.followingKicker'),
-              videos: _subscriptions,
-              horizontal: true,
-            ),
-          ],
-          if (_popular.isNotEmpty) ...[
-            const SizedBox(height: 26),
-            _HomeSection(
-              auth: widget.auth,
-              title: AppStrings.t('home.popularTitle'),
-              kicker: AppStrings.t('home.popularKicker'),
-              videos: _popular,
-            ),
-          ],
-          if (_random.isNotEmpty) ...[
-            const SizedBox(height: 26),
-            _HomeSection(
-              auth: widget.auth,
-              title: AppStrings.t('home.randomTitle'),
-              kicker: AppStrings.t('home.randomKicker'),
-              videos: _random,
-            ),
-          ],
-          if (_allVideos.isEmpty)
-            HuTubeStateView(
-              icon: Icons.video_library_outlined,
-              title: AppStrings.t('home.empty'),
-              message: AppStrings.t('feed.homeDescription'),
-              compact: true,
-            ),
+          ),
         ],
       ),
     );
   }
-}
 
-class _HomeSection extends StatelessWidget {
-  const _HomeSection({
-    required this.auth,
-    this.title,
-    this.kicker,
-    required this.videos,
-    this.horizontal = false,
-  });
-
-  final AuthController auth;
-  final String? title;
-  final String? kicker;
-  final List<VideoCard> videos;
-  final bool horizontal;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (title != null) ...[
-        if (kicker != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              kicker!,
-              style: TextStyle(
-                color: AppColors.textMutedFor(context),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
-              ),
-            ),
+  List<Widget> _section(
+    BuildContext context,
+    List<VideoCard> videos,
+    String title, {
+    String? kicker,
+    bool horizontal = false,
+  }) {
+    if (videos.isEmpty) return const [];
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.only(
+            top: identical(videos, _recommendations) ? 0 : 26,
+            bottom: 12,
           ),
-        Text(
-          title!,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w900,
-            letterSpacing: -.45,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (kicker != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    AppStrings.t(kicker),
+                    style: TextStyle(
+                      color: AppColors.textMutedFor(context),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+              Text(
+                AppStrings.t(title),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -.45,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-      ],
+      ),
       if (horizontal)
-        SizedBox(
-          height: 196,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: videos.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) =>
-                _HomeCompactCard(video: videos[index]),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 146 + MediaQuery.textScalerOf(context).scale(60),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: videos.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, index) => _HomeCompactCard(video: videos[index]),
+            ),
           ),
         )
       else
-        ...videos.map(
-          (video) => Padding(
+        SliverList.builder(
+          itemCount: videos.length,
+          itemBuilder: (_, index) => Padding(
+            key: ValueKey(videos[index].id),
             padding: const EdgeInsets.only(bottom: 10),
-            child: VideoCardTile(video: video, auth: auth),
+            child: VideoCardTile(video: videos[index], auth: widget.auth),
           ),
         ),
-    ],
-  );
+    ];
+  }
 }
 
 class _HomeCompactCard extends StatelessWidget {
@@ -287,6 +275,7 @@ class _HomeCompactCard extends StatelessWidget {
                     video.thumbnailUrl?.startsWith('http') == true
                         ? Image.network(
                             video.thumbnailUrl!,
+                            cacheWidth: 672,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) =>
                                 const _HomeThumbnailFallback(),

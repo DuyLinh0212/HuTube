@@ -104,7 +104,10 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   void _maybeLoadMore() {
-    if (_loading || _moreLoading || _error != null || _videos.length >= _total) {
+    if (_loading ||
+        _moreLoading ||
+        _error != null ||
+        _videos.length >= _total) {
       return;
     }
     if (_scroll.position.extentAfter > 360) return;
@@ -154,54 +157,85 @@ class _FeedScreenState extends State<FeedScreen> {
     return RefreshIndicator(
       color: AppColors.primaryPink,
       onRefresh: () => _load(refresh: true),
-      child: ListView(
+      child: CustomScrollView(
         controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          Text(
-            AppStrings.t(
-              widget.explore ? 'feed.exploreEyebrow' : 'feed.welcomeEyebrow',
-            ),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w900,
-              fontSize: 10.5,
-              letterSpacing: 1.1,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppStrings.t(
+                          widget.explore
+                              ? 'feed.exploreEyebrow'
+                              : 'feed.welcomeEyebrow',
+                        ),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10.5,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      HuTubeSectionHeader(
+                        title: title,
+                        subtitle: description,
+                        compact: true,
+                      ),
+                      const SizedBox(height: 12),
+                      _FilterRow(
+                        sort: _sort,
+                        categoryId: _categoryId,
+                        categories: _categories,
+                        showSort: widget.explore,
+                        onSort: _setSort,
+                        onCategory: _setCategory,
+                      ),
+                      const SizedBox(height: 16),
+                      if (_error != null)
+                        _InlineError(message: _error!, onRetry: () => _load()),
+                      if (_videos.isEmpty)
+                        HuTubeStateView(
+                          icon: Icons.video_library_outlined,
+                          title: AppStrings.t('feed.empty'),
+                          message: AppStrings.t('feed.tryAnotherTopic'),
+                          compact: true,
+                        ),
+                    ],
+                  ),
+                ),
+                SliverList.builder(
+                  itemCount: _videos.length,
+                  itemBuilder: (_, index) => VideoCardTile(
+                    key: ValueKey(_videos[index].id),
+                    video: _videos[index],
+                    auth: widget.auth,
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      if (_moreLoading)
+                        const Padding(
+                          padding: EdgeInsets.all(22),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primaryPink,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          HuTubeSectionHeader(
-            title: title,
-            subtitle: description,
-            compact: true,
-          ),
-          const SizedBox(height: 12),
-          _FilterRow(
-            sort: _sort,
-            categoryId: _categoryId,
-            categories: _categories,
-            showSort: widget.explore,
-            onSort: _setSort,
-            onCategory: _setCategory,
-          ),
-          const SizedBox(height: 16),
-          if (_error != null)
-            _InlineError(message: _error!, onRetry: () => _load()),
-          if (_videos.isEmpty)
-            HuTubeStateView(
-              icon: Icons.video_library_outlined,
-              title: AppStrings.t('feed.empty'),
-              message: AppStrings.t('feed.tryAnotherTopic'),
-              compact: true,
-            ),
-          ..._videos.map((video) => VideoCardTile(video: video, auth: widget.auth)),
-          if (_moreLoading)
-            const Padding(
-              padding: EdgeInsets.all(22),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primaryPink),
-              ),
-            ),
         ],
       ),
     );

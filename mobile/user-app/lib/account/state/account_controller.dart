@@ -7,6 +7,17 @@ import '../services/account_service.dart';
 class AccountController extends ChangeNotifier {
   AccountController(this.service);
   final AccountService service;
+  bool _disposed = false;
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   UserProfile? profile;
   NotificationSettingModel? notificationSettings;
@@ -25,13 +36,13 @@ class AccountController extends ChangeNotifier {
   void clearMessages() {
     errorMessage = null;
     successMessage = null;
-    notifyListeners();
+    _notify();
   }
 
   Future<void> loadProfile() async {
     loadingProfile = true;
     errorMessage = null;
-    notifyListeners();
+    _notify();
     try {
       profile = await service.getProfile();
     } on AppError catch (e) {
@@ -40,7 +51,7 @@ class AccountController extends ChangeNotifier {
       errorMessage = AppStrings.t('account.profileLoadError');
     } finally {
       loadingProfile = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -52,7 +63,7 @@ class AccountController extends ChangeNotifier {
     submitting = true;
     errorMessage = null;
     successMessage = null;
-    notifyListeners();
+    _notify();
     try {
       profile = await service.updateProfile(
         displayName: displayName,
@@ -69,7 +80,7 @@ class AccountController extends ChangeNotifier {
       return false;
     } finally {
       submitting = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -81,7 +92,7 @@ class AccountController extends ChangeNotifier {
     submitting = true;
     errorMessage = null;
     successMessage = null;
-    notifyListeners();
+    _notify();
     try {
       await service.changePassword(
         currentPassword: currentPassword,
@@ -98,14 +109,14 @@ class AccountController extends ChangeNotifier {
       return false;
     } finally {
       submitting = false;
-      notifyListeners();
+      _notify();
     }
   }
 
   Future<void> loadNotificationSettings() async {
     loadingNotifications = true;
     errorMessage = null;
-    notifyListeners();
+    _notify();
     try {
       notificationSettings = await service.getNotificationSettings();
     } on AppError catch (e) {
@@ -114,7 +125,7 @@ class AccountController extends ChangeNotifier {
       errorMessage = AppStrings.t('notif.loadError');
     } finally {
       loadingNotifications = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -124,7 +135,7 @@ class AccountController extends ChangeNotifier {
     submitting = true;
     errorMessage = null;
     successMessage = null;
-    notifyListeners();
+    _notify();
     try {
       notificationSettings = await service.updateNotificationSettings(settings);
       successMessage = AppStrings.t('notifications.settingsSaved');
@@ -137,14 +148,14 @@ class AccountController extends ChangeNotifier {
       return false;
     } finally {
       submitting = false;
-      notifyListeners();
+      _notify();
     }
   }
 
   Future<void> loadPreferences() async {
     loadingPreferences = true;
     errorMessage = null;
-    notifyListeners();
+    _notify();
     try {
       preferences = await service.getPreferences();
     } on AppError catch (e) {
@@ -153,7 +164,7 @@ class AccountController extends ChangeNotifier {
       errorMessage = AppStrings.t('prefs.loadError');
     } finally {
       loadingPreferences = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -161,7 +172,7 @@ class AccountController extends ChangeNotifier {
     submitting = true;
     errorMessage = null;
     successMessage = null;
-    notifyListeners();
+    _notify();
     try {
       preferences = await service.updatePreferences(prefs);
       successMessage = AppStrings.t('prefs.saved');
@@ -174,14 +185,14 @@ class AccountController extends ChangeNotifier {
       return false;
     } finally {
       submitting = false;
-      notifyListeners();
+      _notify();
     }
   }
 
   Future<void> loadSessions() async {
     loadingSessions = true;
     errorMessage = null;
-    notifyListeners();
+    _notify();
     try {
       sessions = await service.getSessions();
     } on AppError catch (e) {
@@ -190,14 +201,14 @@ class AccountController extends ChangeNotifier {
       errorMessage = AppStrings.t('profile.sessionsLoadError');
     } finally {
       loadingSessions = false;
-      notifyListeners();
+      _notify();
     }
   }
 
   Future<bool> revokeSession(String sessionId) async {
     submitting = true;
     errorMessage = null;
-    notifyListeners();
+    _notify();
     try {
       await service.revokeSession(sessionId);
       sessions.removeWhere((s) => s['sessionId'] == sessionId);
@@ -211,14 +222,14 @@ class AccountController extends ChangeNotifier {
       return false;
     } finally {
       submitting = false;
-      notifyListeners();
+      _notify();
     }
   }
 
   Future<bool> revokeOtherSessions() async {
     submitting = true;
     errorMessage = null;
-    notifyListeners();
+    _notify();
     try {
       await service.revokeOtherSessions();
       sessions.removeWhere((s) => s['isCurrent'] != true);
@@ -232,7 +243,7 @@ class AccountController extends ChangeNotifier {
       return false;
     } finally {
       submitting = false;
-      notifyListeners();
+      _notify();
     }
   }
 

@@ -97,6 +97,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final query = more ? _committedQuery : _query.text.trim();
     if (query.isEmpty || (more && _loading)) return;
     if (!more) {
+      FocusManager.instance.primaryFocus?.unfocus();
       ++_generation;
       _committedQuery = query;
       _committedSort = _sort;
@@ -125,32 +126,14 @@ class _SearchScreenState extends State<SearchScreen> {
         duration: _committedDuration,
         dateRange: _committedDateRange,
       );
-      ChannelDetail? matchedChannel = more ? _matchedChannel : null;
-      if (!more) {
-        final clean = query.startsWith('@') ? query.substring(1) : query;
-        try {
-          matchedChannel = await _channels.getChannel(clean);
-        } catch (_) {
-          if (page.items.isNotEmpty) {
-            final first = page.items.first;
-            final normQ = query.toLowerCase().replaceAll('@', '').trim();
-            if (first.channelName.toLowerCase().contains(normQ) ||
-                first.channelHandle.toLowerCase().contains(normQ)) {
-              try {
-                matchedChannel = await _channels.getChannel(first.channelHandle);
-              } catch (_) {}
-            }
-          }
-        }
-      }
       if (!mounted || generation != _generation) return;
       setState(() {
         _results = more ? [..._results, ...page.items] : page.items;
-        _matchedChannel = matchedChannel;
         _page = page.page;
         _hasMore = page.hasMore;
         _loading = false;
       });
+      if (!more) unawaited(_findChannel(query, page.items, generation));
     } on ApiFailure catch (error) {
       if (mounted && generation == _generation) {
         setState(() {
@@ -166,6 +149,33 @@ class _SearchScreenState extends State<SearchScreen> {
         });
       }
     }
+  }
+
+  Future<void> _findChannel(
+    String query,
+    List<VideoCard> items,
+    int generation,
+  ) async {
+    if (!mounted || generation != _generation) return;
+    ChannelDetail? matchedChannel;
+    final clean = query.startsWith('@') ? query.substring(1) : query;
+    try {
+      matchedChannel = await _channels.getChannel(clean);
+    } catch (_) {
+      if (items.isNotEmpty) {
+        final first = items.first;
+        final normQ = query.toLowerCase().replaceAll('@', '').trim();
+        if (first.channelName.toLowerCase().contains(normQ) ||
+            first.channelHandle.toLowerCase().contains(normQ)) {
+          try {
+            matchedChannel = await _channels.getChannel(first.channelHandle);
+          } catch (_) {}
+        }
+      }
+    }
+
+    if (!mounted || generation != _generation) return;
+    setState(() => _matchedChannel = matchedChannel);
   }
 
   void _showFilterSheet() {
@@ -188,8 +198,9 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkBackgroundCard : AppColors.surface,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: SafeArea(
               child: Column(
@@ -371,248 +382,310 @@ class _SearchScreenState extends State<SearchScreen> {
     final theme = Theme.of(context);
     final activeFilters = _activeFilterCount;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-      children: [
-        HuTubeSectionHeader(
-          title: AppStrings.t('search.title'),
-          subtitle: AppStrings.t('search.subtitle'),
-        ),
-        const SizedBox(height: 18),
-        TextField(
-          controller: _query,
-          autofocus: true,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => _search(),
-          decoration: InputDecoration(
-            hintText: AppStrings.t('search.queryHint'),
-            prefixIcon: Padding(
-              padding: const EdgeInsets.all(12),
-              child: AppIcons.asset(AppIcons.search, size: 20),
-            ),
-            suffixIcon: _query.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: AppStrings.t('search.clear'),
-                    onPressed: () => setState(() {
-                      ++_generation;
-                      _loading = false;
-                      _hasMore = false;
-                      _page = 1;
-                      _error = null;
-                      _committedQuery = '';
-                      _matchedChannel = null;
-                      _query.clear();
-                      _results = const [];
-                      _searched = false;
-                    }),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-          ),
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: _loading ? null : () => _search(),
-            icon: _loading
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : AppIcons.asset(
-                    AppIcons.search,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-            label: Text(AppStrings.t('search.submit')),
-          ),
-        ),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      AppStrings.t('search.title'),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _query,
+                      autofocus: false,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => _search(),
+                      decoration: InputDecoration(
+                        hintText: AppStrings.t('search.queryHint'),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: .4),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide(color: theme.dividerColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          borderSide: BorderSide(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 22),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_query.text.isNotEmpty)
+                              IconButton(
+                                tooltip: AppStrings.t('search.clear'),
+                                onPressed: () => setState(() {
+                                  ++_generation;
+                                  _loading = false;
+                                  _hasMore = false;
+                                  _page = 1;
+                                  _error = null;
+                                  _committedQuery = '';
+                                  _matchedChannel = null;
+                                  _query.clear();
+                                  _results = const [];
+                                  _searched = false;
+                                }),
+                                icon: const Icon(Icons.close_rounded, size: 20),
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: IconButton.filled(
+                                tooltip: AppStrings.t('search.submit'),
+                                onPressed:
+                                    _loading || _query.text.trim().isEmpty
+                                    ? null
+                                    : () => _search(),
+                                icon: _loading
+                                    ? const SizedBox.square(
+                                        dimension: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        size: 22,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
 
-        // Recent searches section
-        if (!_searched && _recentSearches.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.history_rounded,
-                    size: 18,
-                    color: AppColors.textMuted,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    AppStrings.t('search.recent'),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                    // Recent searches section
+                    if (!_searched && _recentSearches.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.history_rounded,
+                                size: 18,
+                                color: AppColors.textMuted,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                AppStrings.t('search.recent'),
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: _clearAllRecentSearches,
+                            child: Text(
+                              AppStrings.t('search.clearAllRecent'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final term in _recentSearches)
+                            InputChip(
+                              avatar: const Icon(
+                                Icons.history_rounded,
+                                size: 14,
+                              ),
+                              label: Text(term),
+                              shape: const StadiumBorder(),
+                              onDeleted: () => _removeRecentSearch(term),
+                              onPressed: () {
+                                _query.text = term;
+                                _search();
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // Horizontal Filters Bar
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: IconButton.outlined(
+                              tooltip: AppStrings.t('search.filterTitle'),
+                              onPressed: _showFilterSheet,
+                              icon: Badge(
+                                isLabelVisible: activeFilters > 0,
+                                label: Text('$activeFilters'),
+                                child: const Icon(Icons.tune_rounded, size: 20),
+                              ),
+                            ),
+                          ),
+                          for (final item in const [
+                            ('relevance', 'search.sort.relevance'),
+                            ('newest', 'search.sort.newest'),
+                            ('popular', 'search.sort.popular'),
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                labelPadding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                labelStyle: theme.textTheme.labelMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                                label: Text(AppStrings.t(item.$2)),
+                                selected: _sort == item.$1,
+                                showCheckmark: false,
+                                shape: const StadiumBorder(),
+                                onSelected: (_) {
+                                  setState(() => _sort = item.$1);
+                                  if (_searched) _search();
+                                },
+                              ),
+                            ),
+                          if (_duration != null)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: InputChip(
+                                avatar: const Icon(
+                                  Icons.timer_outlined,
+                                  size: 14,
+                                ),
+                                shape: const StadiumBorder(),
+                                label: Text(
+                                  _duration == 'short'
+                                      ? AppStrings.t('search.durationShort')
+                                      : (_duration == 'medium'
+                                            ? AppStrings.t(
+                                                'search.durationMedium',
+                                              )
+                                            : AppStrings.t(
+                                                'search.durationLong',
+                                              )),
+                                ),
+                                onDeleted: () {
+                                  setState(() => _duration = null);
+                                  if (_searched) _search();
+                                },
+                              ),
+                            ),
+                          if (_dateRange != null)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: InputChip(
+                                avatar: const Icon(
+                                  Icons.date_range_outlined,
+                                  size: 14,
+                                ),
+                                shape: const StadiumBorder(),
+                                label: Text(_dateRange!),
+                                onDeleted: () {
+                                  setState(() => _dateRange = null);
+                                  if (_searched) _search();
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    if (_error != null)
+                      HuTubeStateView(
+                        icon: Icons.wifi_off_rounded,
+                        title: _error!,
+                        message: AppStrings.t('common.networkError'),
+                        actionLabel: AppStrings.t('common.retry'),
+                        onAction: _search,
+                        compact: true,
+                        accent: AppColors.violet,
+                      )
+                    else if (_loading && _results.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(36),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_results.isEmpty)
+                      HuTubeStateView(
+                        icon: Icons.manage_search_rounded,
+                        title: AppStrings.t(
+                          _searched ? 'search.noResults' : 'search.startTitle',
+                        ),
+                        message: _searched
+                            ? AppStrings.t('search.tryAnother')
+                            : AppStrings.t('search.enterKeyword'),
+                        compact: true,
+                        accent: AppColors.violet,
+                      )
+                    else ...[
+                      const SizedBox(height: 8),
+                      if (_matchedChannel != null) ...[
+                        _SearchChannelCard(
+                          channel: _matchedChannel!,
+                          auth: widget.auth,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+              if (_error == null && _results.isNotEmpty)
+                SliverList.builder(
+                  itemCount: _results.length,
+                  itemBuilder: (_, index) => Padding(
+                    key: ValueKey(_results[index].id),
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: VideoCardTile(
+                      video: _results[index],
+                      auth: widget.auth,
                     ),
                   ),
-                ],
-              ),
-              TextButton(
-                onPressed: _clearAllRecentSearches,
-                child: Text(
-                  AppStrings.t('search.clearAllRecent'),
-                  style:
-                      const TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final term in _recentSearches)
-                InputChip(
-                  avatar: const Icon(Icons.history_rounded, size: 14),
-                  label: Text(term),
-                  shape: const StadiumBorder(),
-                  onDeleted: () => _removeRecentSearch(term),
-                  onPressed: () {
-                    _query.text = term;
-                    _search();
-                  },
-                ),
-            ],
-          ),
-        ],
-
-        const SizedBox(height: 16),
-
-        // Horizontal Filters Bar
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ActionChip(
-                  shape: const StadiumBorder(),
-                  avatar: AppIcons.asset(
-                    AppIcons.filter,
-                    size: 16,
-                    color: activeFilters > 0 ? AppColors.primaryPink : null,
-                  ),
-                  label: Text(
-                    activeFilters > 0
-                        ? 'Bộ lọc ($activeFilters)'
-                        : AppStrings.t('search.filterTitle'),
-                    style: TextStyle(
-                      color: activeFilters > 0 ? AppColors.primaryPink : null,
-                      fontWeight:
-                          activeFilters > 0 ? FontWeight.w700 : FontWeight.w500,
+              if (_error == null && _results.isNotEmpty && _hasMore)
+                SliverToBoxAdapter(
+                  child: OutlinedButton(
+                    onPressed: _loading ? null : () => _search(more: true),
+                    child: Text(
+                      AppStrings.t(
+                        _loading ? 'search.loading' : 'search.loadMore',
+                      ),
                     ),
-                  ),
-                  onPressed: _showFilterSheet,
-                ),
-              ),
-              for (final item in const [
-                ('relevance', 'search.sort.relevance'),
-                ('newest', 'search.sort.newest'),
-                ('popular', 'search.sort.popular'),
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(AppStrings.t(item.$2)),
-                    selected: _sort == item.$1,
-                    showCheckmark: false,
-                    shape: const StadiumBorder(),
-                    onSelected: (_) {
-                      setState(() => _sort = item.$1);
-                      if (_searched) _search();
-                    },
-                  ),
-                ),
-              if (_duration != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: InputChip(
-                    avatar: const Icon(Icons.timer_outlined, size: 14),
-                    shape: const StadiumBorder(),
-                    label: Text(
-                      _duration == 'short'
-                          ? AppStrings.t('search.durationShort')
-                          : (_duration == 'medium'
-                              ? AppStrings.t('search.durationMedium')
-                              : AppStrings.t('search.durationLong')),
-                    ),
-                    onDeleted: () {
-                      setState(() => _duration = null);
-                      if (_searched) _search();
-                    },
-                  ),
-                ),
-              if (_dateRange != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: InputChip(
-                    avatar: const Icon(Icons.date_range_outlined, size: 14),
-                    shape: const StadiumBorder(),
-                    label: Text(_dateRange!),
-                    onDeleted: () {
-                      setState(() => _dateRange = null);
-                      if (_searched) _search();
-                    },
                   ),
                 ),
             ],
           ),
         ),
-
-        const SizedBox(height: 12),
-
-        if (_error != null)
-          HuTubeStateView(
-            icon: Icons.wifi_off_rounded,
-            title: _error!,
-            message: AppStrings.t('common.networkError'),
-            actionLabel: AppStrings.t('common.retry'),
-            onAction: _search,
-            compact: true,
-            accent: AppColors.violet,
-          )
-        else if (_loading && _results.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(36),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_results.isEmpty)
-          HuTubeStateView(
-            icon: Icons.manage_search_rounded,
-            title: AppStrings.t(
-              _searched ? 'search.noResults' : 'search.startTitle',
-            ),
-            message: _searched
-                ? AppStrings.t('search.tryAnother')
-                : AppStrings.t('search.enterKeyword'),
-            compact: true,
-            accent: AppColors.violet,
-          )
-        else ...[
-          const SizedBox(height: 8),
-          if (_matchedChannel != null) ...[
-            _SearchChannelCard(channel: _matchedChannel!, auth: widget.auth),
-            const SizedBox(height: 8),
-          ],
-          for (final video in _results)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: VideoCardTile(video: video, auth: widget.auth),
-            ),
-          if (_hasMore)
-            OutlinedButton(
-              onPressed: _loading ? null : () => _search(more: true),
-              child: Text(
-                AppStrings.t(_loading ? 'search.loading' : 'search.loadMore'),
-              ),
-            ),
-        ],
       ],
     );
   }
@@ -711,7 +784,10 @@ class _SearchChannelCard extends StatelessWidget {
               onPressed: () => context.push('/channels/${channel.handle}'),
               style: FilledButton.styleFrom(
                 shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 visualDensity: VisualDensity.compact,
               ),
               child: const Text(
