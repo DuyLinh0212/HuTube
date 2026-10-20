@@ -161,16 +161,35 @@ describe('Authentication boundary', () => {
     expect(auth.accessToken()).toBeNull();
     expect(navigation).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'expired', returnUrl: '/' } });
   });
-  it('allows refresh to wait beyond 15 seconds for a sleeping API', fakeAsync(() => {
-    let completed = false;
-    auth.refresh().subscribe(() => { completed = true; });
+  it('stops a refresh when the API does not respond within 15 seconds', fakeAsync(() => {
+    let failed = false;
+    auth.refresh().subscribe({ error: () => { failed = true; } });
     const refresh = controller.expectOne(base + '/auth/refresh');
     tick(16_000);
-    expect(refresh.cancelled).toBeFalse();
-    refresh.flush(response);
     flushMicrotasks();
-    expect(completed).toBeTrue();
-    expect(auth.accessToken()).toBe('token-one');
+    expect(refresh.cancelled).toBeTrue();
+    expect(failed).toBeTrue();
+  }));
+  it('stops restoration after three failures instead of retrying indefinitely', fakeAsync(() => {
+    let failed = false;
+    auth.restore().subscribe({ error: () => { failed = true; } });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      controller.expectOne(base + '/auth/refresh').error(new ProgressEvent('error'));
+      flushMicrotasks();
+      if (attempt < 2) tick(5_000);
+    }
+    expect(failed).toBeTrue();
+    tick(60_000);
+    controller.expectNone(base + '/auth/refresh');
+  }));
+  it('does not automatically retry a rate-limited restoration', fakeAsync(() => {
+    let failed = false;
+    auth.restore().subscribe({ error: () => { failed = true; } });
+    controller.expectOne(base + '/auth/refresh').flush({}, { status: 429, statusText: 'Too Many Requests' });
+    flushMicrotasks();
+    expect(failed).toBeTrue();
+    tick(60_000);
+    controller.expectNone(base + '/auth/refresh');
   }));
   it('retries session restoration after temporary API unavailability', fakeAsync(() => {
     let restored: boolean | undefined;

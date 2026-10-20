@@ -25,7 +25,7 @@ export const networkInterceptor: HttpInterceptorFn = (request, next) => {
     || /\/api\/v1\/admin\/recommendations\/models\/?(?:[?#]|$)/.test(request.url)
   );
   const responseTimeoutMs = callsRecommendationService
-    ? RECOMMENDATION_RESPONSE_TIMEOUT_MS
+    ? config.ownsRecommendation(request.url) ? 8_000 : RECOMMENDATION_RESPONSE_TIMEOUT_MS
     : RESPONSE_TIMEOUT_MS;
   const response = next(request);
 

@@ -1,8 +1,8 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { TimeoutError, catchError, of, switchMap, throwError } from 'rxjs';
-import { AuthService, safeReturnUrl } from './auth.service';
+import { catchError, of, switchMap, throwError } from 'rxjs';
+import { AuthService, isSessionRejected, safeReturnUrl } from './auth.service';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
@@ -15,8 +15,6 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const wasAuthenticated = !!auth.user();
   const sessionVersion = auth.sessionVersion;
   const isAuthEndpoint = /\/auth\/(login|google|refresh|register|verify-email|resend-verification|forgot-password|reset-password|logout)(?:[/?]|$)/.test(request.url);
-  const isNetworkFailure = (error: unknown) => error instanceof TimeoutError
-    || (error instanceof HttpErrorResponse && error.status === 0);
   const withAuth = (accessToken: string | null) => request.clone({ withCredentials: !isRecommendation, setHeaders: {
     'X-HuTube-Client': 'web', ...(ADMIN_APP ? { 'X-HuTube-App': 'admin' } : {}), ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {})
   } });
@@ -24,7 +22,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     if (!(error instanceof HttpErrorResponse) || error.status !== 401 || isAuthEndpoint) return throwError(() => error);
     if (sessionVersion !== auth.sessionVersion) return throwError(() => error);
     const expire = (refreshError: unknown) => {
-      if (isNetworkFailure(refreshError)) return throwError(() => refreshError);
+      if (!isSessionRejected(refreshError)) return throwError(() => refreshError);
       if (sessionVersion !== auth.sessionVersion && auth.accessToken()) return throwError(() => refreshError);
       auth.clear();
       void router.navigate(['/login'], { queryParams: { reason: 'expired', returnUrl: safeReturnUrl(router.url) } });

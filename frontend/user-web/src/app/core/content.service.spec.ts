@@ -1,7 +1,7 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick, flushMicrotasks } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import { AuthService } from './auth.service';
 import { ContentService } from './content.service';
 import { RuntimeConfig } from './runtime-config';
@@ -17,7 +17,8 @@ describe('Direct recommendation feed', () => {
   beforeEach(() => {
     signedIn = true;
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(),
-      { provide: AuthService, useValue: { user: () => signedIn ? { userId: 'viewer' } : null, sessionVersion: 1 } },
+      { provide: AuthService, useValue: { user: () => signedIn ? { userId: 'viewer' } : null, sessionVersion: 1,
+        ensureFreshAccessToken: () => of('token') } },
     ] });
     const config = TestBed.inject(RuntimeConfig);
     config.apiBaseUrl = contentBase;
@@ -56,4 +57,35 @@ describe('Direct recommendation feed', () => {
     http.expectOne(`${contentBase}/feed/explore?page=2&pageSize=10`).flush(page);
     expect(await explore).toEqual(page);
   });
+  it('uses the fallback during the recommendation service cooldown', async () => {
+    const first = firstValueFrom(service.feed('home'));
+    http.expectOne(request => request.url.startsWith(recommendationBase)).flush({}, { status: 429, statusText: 'Limited' });
+    http.expectOne(`${contentBase}/feed/resolve`).flush(page);
+    await first;
+    const second = firstValueFrom(service.feed('home'));
+    http.expectNone(request => request.url.startsWith(recommendationBase));
+    http.expectOne(`${contentBase}/feed/resolve`).flush(page);
+    expect(await second).toEqual(page);
+  });
+  it('polls an accepted upload completion and emits only the completed video', fakeAsync(() => {
+    const data = new FormData();
+    data.append('Video', new File(['video'], 'video.mp4', { type: 'video/mp4' }));
+    data.append('ChannelId', 'channel');
+    let result: unknown;
+    service.upload(data, 'upload-id').subscribe(event => { if ('body' in event) result = event.body; });
+    http.expectOne(`${contentBase}/videos/upload-sessions`).flush({ uploadId: 'upload-id', chunkSize: 8, nextChunk: 0 });
+    http.expectOne(`${contentBase}/videos/upload-sessions/upload-id/chunks/0`).flush({ nextChunk: 1 });
+    const complete = http.expectOne(`${contentBase}/videos/upload-sessions/upload-id/complete`);
+    expect(complete.request.headers.get('Prefer')).toBe('respond-async');
+    complete.flush({ status: 'processing' }, { status: 202, statusText: 'Accepted' });
+    expect(result).toBeUndefined();
+    tick(5_000);
+    http.expectOne(`${contentBase}/videos/upload-sessions/upload-id`).flush({ status: 'processing' }, { status: 202, statusText: 'Accepted' });
+    tick(5_000);
+    http.expectOne(`${contentBase}/videos/upload-sessions/upload-id`).flush({ videoId: 'video-id' });
+    flushMicrotasks();
+    expect(result).toEqual({ videoId: 'video-id' });
+    tick(5_000);
+    http.expectNone(`${contentBase}/videos/upload-sessions/upload-id`);
+  }));
 });

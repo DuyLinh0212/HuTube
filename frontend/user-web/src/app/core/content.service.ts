@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpEvent, HttpEventType, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, TimeoutError, concat, defer, of, range, throwError, timer } from 'rxjs';
-import { map, catchError, concatMap, filter, retry, switchMap } from 'rxjs/operators';
+import { EMPTY, Observable, TimeoutError, concat, defer, of, range, throwError, timer } from 'rxjs';
+import { map, catchError, concatMap, expand, filter, retry, switchMap, take, tap } from 'rxjs/operators';
 import { RuntimeConfig } from './runtime-config';
 import { AuthService } from './auth.service';
 
@@ -109,6 +109,7 @@ export interface AppealItem {
 
 @Injectable({ providedIn: 'root' })
 export class ContentService {
+  private recommendationRetryAt = 0;
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
   private readonly auth = inject(AuthService);
@@ -121,12 +122,15 @@ export class ContentService {
     if (tag) params = params.set('tag', tag);
     if (kind === 'home' && this.auth.user() && !categoryId && !tag) {
       const sessionVersion = this.auth.sessionVersion;
+      const fallback = () => this.http.post<PageResult<VideoCard>>(`${this.base}/feed/resolve`, { videoIds: [], page, pageSize });
+      if (Date.now() < this.recommendationRetryAt) return fallback();
       return this.http.get<PageResult<VideoCard>>(`${this.config.recommendationBaseUrl}/feed/recommended`, {
         params: { page, pageSize },
-      }).pipe(catchError(error => {
+      }).pipe(tap(() => { this.recommendationRetryAt = 0; }), catchError(error => {
         if (sessionVersion !== this.auth.sessionVersion) return throwError(() => error);
-        if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500))) {
-          return this.http.post<PageResult<VideoCard>>(`${this.base}/feed/resolve`, { videoIds: [], page, pageSize });
+        if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 429 || error.status >= 500))) {
+          this.recommendationRetryAt = Date.now() + 30_000;
+          return fallback();
         }
         return throwError(() => error);
       }));
@@ -241,8 +245,9 @@ export class ContentService {
       : this.auth.ensureFreshAccessToken());
     const retryOptions = { count: 2, delay: (error: unknown, attempt: number) => {
       const status = error instanceof HttpErrorResponse ? error.status : error instanceof TimeoutError ? 0 : -1;
+      const retryAfter = error instanceof HttpErrorResponse ? Number(error.headers.get('Retry-After')) : 0;
       return [0, 429, 502, 503, 504].includes(status)
-        ? timer(status === 429 ? 60_000 : attempt * 1_500) : throwError(() => error);
+        ? timer(status === 429 ? Math.min(120, retryAfter > 0 ? retryAfter : 60) * 1_000 : attempt * 1_500) : throwError(() => error);
     } };
     const sessionRequest = {
       uploadId: idempotencyKey, channelId: data.get('ChannelId'), fileName: file.name,
@@ -278,7 +283,15 @@ export class ContentService {
         })),
         freshSession().pipe(switchMap(() => this.http.post<VideoDetail>(
           `${this.base}/videos/upload-sessions/${session.uploadId}/complete`, metadata,
-          { observe: 'events', reportProgress: true }).pipe(retry(retryOptions), filter(event => event.type === HttpEventType.Response)))),
+          { observe: 'response', headers: new HttpHeaders({ Prefer: 'respond-async' }) }).pipe(
+            retry(retryOptions),
+            expand(response => response.status === 202
+              ? timer(5_000).pipe(switchMap(() => freshSession()), switchMap(() => this.http.get<VideoDetail>(
+                `${this.base}/videos/upload-sessions/${session.uploadId}`, { observe: 'response' }).pipe(retry(retryOptions))))
+              : EMPTY, 1),
+            filter(response => response.status !== 202),
+            take(1),
+          ))),
       );
     }));
   }

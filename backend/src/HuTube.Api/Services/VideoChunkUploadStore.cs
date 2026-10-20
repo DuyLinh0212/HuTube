@@ -31,6 +31,9 @@ public sealed class VideoChunkUploadStore : IDisposable
         public string FilePath { get; } = filePath;
         public int NextChunk { get; set; }
         public Guid? CompletedVideoId { get; set; }
+        public bool IsCompleting { get; set; }
+        public ContentException? CompletionError { get; set; }
+        public CancellationTokenSource? CompletionCancellation { get; set; }
         public DateTimeOffset TouchedAt { get; set; } = DateTimeOffset.UtcNow;
         public SemaphoreSlim Gate { get; } = new(1, 1);
     }
@@ -116,11 +119,30 @@ public sealed class VideoChunkUploadStore : IDisposable
     {
         var session = Require(actorId, uploadId);
         await session.Gate.WaitAsync(ct);
-        try { sessions.TryRemove(uploadId, out _); Delete(session.FilePath); }
+        try
+        {
+            if (session.IsCompleting)
+            {
+                session.CompletionCancellation?.Cancel();
+                return;
+            }
+            RemoveSession(session);
+        }
         finally { session.Gate.Release(); }
     }
 
     public void RemoveSource(Session session) => Delete(session.FilePath);
+
+    internal void RemoveSession(Session session)
+    {
+        // Serialize deletion with Start so reusing an ID cannot delete a new source.
+        lock (startGate)
+        {
+            if (!sessions.TryGetValue(session.Request.UploadId, out var current) || !ReferenceEquals(current, session)) return;
+            sessions.TryRemove(session.Request.UploadId, out _);
+            Delete(session.FilePath);
+        }
+    }
 
     private void Cleanup()
     {
@@ -131,7 +153,7 @@ public sealed class VideoChunkUploadStore : IDisposable
             if (session.TouchedAt >= cutoff || !session.Gate.Wait(0)) continue;
             try
             {
-                if (session.TouchedAt < cutoff && sessions.TryRemove(pair.Key, out _)) Delete(session.FilePath);
+                if (!session.IsCompleting && session.TouchedAt < cutoff && sessions.TryRemove(pair.Key, out _)) Delete(session.FilePath);
             }
             finally { session.Gate.Release(); }
         }
