@@ -88,13 +88,11 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   private drawerCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private drawerEntranceTimer: ReturnType<typeof setTimeout> | null = null;
   private drawerSettleTimer: ReturnType<typeof setTimeout> | null = null;
-  private drawerClickResetTimer: ReturnType<typeof setTimeout> | null = null;
   private drawerPointerId: number | null = null;
   private drawerPointerStartX = 0;
   private drawerPointerStartY = 0;
   private drawerPointerStartTime = 0;
   private drawerPointerAxis: 'pending' | 'horizontal' | 'vertical' | null = null;
-  private suppressDrawerGripClick = false;
   private readonly drawerAnimationDurationMs = 500;
 
   readonly socialLinks = computed(() => {
@@ -196,18 +194,19 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     }, this.drawerAnimationDurationMs);
   }
 
-  onDrawerGripPointerDown(event: PointerEvent) {
+  onDrawerPointerDown(event: PointerEvent) {
     if (!this.accountDrawerOpen() || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('a, button, input, select, textarea, label, [role="button"], [role="link"], [contenteditable="true"]')) return;
     this.drawerPointerId = event.pointerId;
     this.drawerPointerStartX = event.clientX;
     this.drawerPointerStartY = event.clientY;
     this.drawerPointerStartTime = event.timeStamp;
     this.drawerPointerAxis = 'pending';
-    this.suppressDrawerGripClick = false;
-    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* Pointer capture is optional on older browsers. */ }
+    try { target?.setPointerCapture(event.pointerId); } catch { /* Pointer capture is optional on older browsers. */ }
   }
 
-  onDrawerGripPointerMove(event: PointerEvent) {
+  onDrawerPointerMove(event: PointerEvent) {
     if (this.drawerPointerId !== event.pointerId || !this.accountDrawerOpen()) return;
     const deltaX = event.clientX - this.drawerPointerStartX;
     const deltaY = event.clientY - this.drawerPointerStartY;
@@ -218,12 +217,11 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     if (this.drawerPointerAxis !== 'horizontal') return;
     this.accountDrawerDragX.set(Math.max(0, deltaX));
     if (Math.abs(deltaX) >= 8) {
-      this.suppressDrawerGripClick = true;
       event.preventDefault();
     }
   }
 
-  onDrawerGripPointerUp(event: PointerEvent) {
+  onDrawerPointerUp(event: PointerEvent) {
     if (this.drawerPointerId !== event.pointerId) return;
     const deltaX = event.clientX - this.drawerPointerStartX;
     const elapsedMs = Math.max(1, event.timeStamp - this.drawerPointerStartTime);
@@ -235,12 +233,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     this.drawerPointerAxis = null;
 
     if (wasHorizontalDrag && (quickSwipe || longSwipe)) {
-      this.preventNextDrawerGripClick();
       this.closeAccountDrawer();
       return;
     }
     if (wasHorizontalDrag) {
-      this.preventNextDrawerGripClick();
       this.accountDrawerDragging.set(false);
       this.accountDrawerSettling.set(true);
       this.accountDrawerDragX.set(0);
@@ -252,7 +248,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     }
   }
 
-  onDrawerGripPointerCancel(event: PointerEvent) {
+  onDrawerPointerCancel(event: PointerEvent) {
     if (this.drawerPointerId !== event.pointerId) return;
     this.drawerPointerId = null;
     this.drawerPointerAxis = null;
@@ -261,30 +257,10 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     this.accountDrawerDragX.set(0);
   }
 
-  onDrawerGripClick(event: MouseEvent) {
-    if (this.suppressDrawerGripClick) {
-      event.preventDefault();
-      this.suppressDrawerGripClick = false;
-      if (this.drawerClickResetTimer) clearTimeout(this.drawerClickResetTimer);
-      this.drawerClickResetTimer = null;
-      return;
-    }
-    this.closeAccountDrawer();
-  }
-
   drawerTransform(): string | null {
     return this.accountDrawerDragging() || this.accountDrawerSettling()
       ? `translateX(${this.accountDrawerDragX()}px)`
       : null;
-  }
-
-  private preventNextDrawerGripClick() {
-    this.suppressDrawerGripClick = true;
-    if (this.drawerClickResetTimer) clearTimeout(this.drawerClickResetTimer);
-    this.drawerClickResetTimer = setTimeout(() => {
-      this.suppressDrawerGripClick = false;
-      this.drawerClickResetTimer = null;
-    }, 500);
   }
 
   private resetDrawerGesture() {
@@ -336,7 +312,6 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     this.cancelDrawerClose();
     this.resetDrawerGesture();
     if (this.drawerEntranceTimer) clearTimeout(this.drawerEntranceTimer);
-    if (this.drawerClickResetTimer) clearTimeout(this.drawerClickResetTimer);
     this.destroyLogoutAnimation();
   }
 

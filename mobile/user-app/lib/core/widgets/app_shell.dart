@@ -1063,8 +1063,8 @@ class _AppShellState extends State<AppShell> {
                   onPressed: () => setState(() => _hidden = !_hidden),
                   icon: Icon(
                     _hidden
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     size: 20,
                     color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
                   ),

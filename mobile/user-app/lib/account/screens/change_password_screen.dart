@@ -129,8 +129,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   suffixIcon: IconButton(
                     icon: Icon(
                       _hideCurrent
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                     ),
                     tooltip: AppStrings.t(
                       _hideCurrent ? 'auth.showPassword' : 'auth.hidePassword',
@@ -157,8 +157,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   suffixIcon: IconButton(
                     icon: Icon(
                       _hideNew
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                     ),
                     tooltip: AppStrings.t(
                       _hideNew ? 'auth.showPassword' : 'auth.hidePassword',
@@ -184,8 +184,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   suffixIcon: IconButton(
                     icon: Icon(
                       _hideConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                     ),
                     tooltip: AppStrings.t(
                       _hideConfirm ? 'auth.showPassword' : 'auth.hidePassword',
