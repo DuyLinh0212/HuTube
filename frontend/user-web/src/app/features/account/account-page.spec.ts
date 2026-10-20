@@ -25,7 +25,7 @@ describe('Active device management', () => {
     http.expectOne(base+'/account/notifications').flush({notifyNewVideos:true,notifyComments:true,notifySubscriptions:true,notifyMarketing:false});
     http.expectOne(base+'/account/settings').flush({theme:'system',defaultPlaybackQuality:'auto',autoplayNext:true});
     http.expectOne(base+'/channels/me').flush(null, {status: 404, statusText: 'Not Found'});
-    http.expectOne(base+'/auth/sessions').flush({items:[current,other]}); http.expectOne(base+'/system/info').flush({name:'HuTube'}); fixture.detectChanges();
+    http.expectOne(base+'/auth/sessions').flush({items:[current,other]}); http.expectOne(base+'/system/info').flush({name:'Dalitu'}); fixture.detectChanges();
     return {fixture,current,other};
   }
   it('shows the current device and requires confirmation before revoking another',()=>{

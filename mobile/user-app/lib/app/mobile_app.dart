@@ -401,7 +401,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
     builder: (context, themeMode, _) => ValueListenableBuilder<String>(
       valueListenable: AppStrings.currentLang,
       builder: (context, _, _) => MaterialApp.router(
-        title: 'HuTube',
+        title: 'Dalitu',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

@@ -487,10 +487,10 @@ public sealed class PlanService(
         try
         {
             await emailSender.SendTemplateAsync(normalizedEmail, new(
-                "Lời mời dùng chung gói HuTube",
+                "Lời mời dùng chung gói Dalitu",
                 "LỜI MỜI DÙNG CHUNG GÓI",
                 $"Bạn được mời tham gia gói của {user.DisplayName}",
-                ["Bạn đã được thêm vào một gói HuTube dùng chung.",
+                ["Bạn đã được thêm vào một gói Dalitu dùng chung.",
                  "Mở lời mời để xem thông tin gói và xác nhận tham gia."],
                 "Xác nhận lời mời",
                 acceptUrl,
@@ -508,7 +508,7 @@ public sealed class PlanService(
             try
             {
                 await notifications.PublishInAppAsync(targetUserId.Value, "plan_invitation",
-                    "Lời mời dùng chung gói HuTube", "Bạn có lời mời dùng chung gói. Hãy kiểm tra email để xác nhận.",
+                    "Lời mời dùng chung gói Dalitu", "Bạn có lời mời dùng chung gói. Hãy kiểm tra email để xác nhận.",
                     "/my-plan", "plan_member", member.PlanMemberId, ct);
             }
             catch

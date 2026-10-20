@@ -195,7 +195,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Đăng nhập để xem cập nhật mới nhất từ các kênh HuTube bạn yêu thích.',
+                  'Đăng nhập để xem cập nhật mới nhất từ các kênh Dalitu bạn yêu thích.',
                   style: TextStyle(
                     fontSize: 14,
                     color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,

@@ -6,7 +6,7 @@ import { CommentItem, ContentService } from '../../../core/content.service';
 import { I18nService } from '../../../core/i18n.service';
 import { StudioDataService } from '../../../core/studio-data.service';
 import { LocaleDatePipe } from '../../../core/locale-date.pipe';
-import { LocaleNumberPipe } from '../../../core/locale-number.pipe';
+import { CompactLikeCountPipe, LocaleNumberPipe } from '../../../core/locale-number.pipe';
 import { TranslatePipe } from '../../../core/translate.pipe';
 
 interface StudioComment {
@@ -18,7 +18,7 @@ type CommentSort = 'newest' | 'oldest' | 'mostLiked';
 
 @Component({
   selector: 'app-studio-comments-page',
-  imports: [FormsModule, RouterLink, TranslatePipe, LocaleDatePipe, LocaleNumberPipe],
+  imports: [FormsModule, RouterLink, TranslatePipe, LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe],
   templateUrl: './studio-comments-page.html',
   styleUrl: './studio-comments-page.scss',
 })

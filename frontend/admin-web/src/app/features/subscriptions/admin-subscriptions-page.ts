@@ -296,7 +296,7 @@ export class AdminSubscriptionsPage implements OnInit {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `hutube-subscriptions-${this.localDate(new Date())}.csv`;
+    link.download = `dalitu-subscriptions-${this.localDate(new Date())}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }

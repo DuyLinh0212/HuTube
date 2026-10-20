@@ -482,11 +482,11 @@ class _AppShellState extends State<AppShell> {
                             ),
                             children: [
                               TextSpan(
-                                text: 'Hu',
+                                text: 'Dali',
                                 style: TextStyle(color: Colors.white),
                               ),
                               TextSpan(
-                                text: 'Tube',
+                                text: 'tu',
                                 style: TextStyle(color: AppColors.primary),
                               ),
                             ],

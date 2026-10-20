@@ -117,7 +117,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'playlists.editInfo': 'Chỉnh sửa thông tin',
     'playlists.descriptionFallback': 'Một tuyển tập video được sắp xếp để xem liền mạch.',
     'playlists.yours': 'Danh sách của bạn',
-    'playlists.hutubeCreator': 'Nhà sáng tạo HuTube',
+    'playlists.hutubeCreator': 'Nhà sáng tạo Dalitu',
     'playlists.playAll': 'Phát tất cả',
     'playlists.shuffle': 'Trộn',
     'playlists.addVideo': 'Thêm video',
@@ -190,7 +190,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'profile.defaultBio': 'Thích những video chữa lành, du lịch, ẩm thực và khám phá thế giới. Mỗi ngày một chút tích cực!',
     'profile.joinedIn': 'Tham gia từ',
     'profile.verifiedUser': 'Đã xác minh',
-    'profile.premiumMember': 'HuTube Premium',
+    'profile.premiumMember': 'Dalitu Premium',
     'profile.tabOverview': 'Tổng quan',
     'profile.tabHistory': 'Lịch sử xem',
     'profile.tabLiked': 'Video đã thích',
@@ -235,7 +235,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'profile.description': 'Mô tả',
     'profile.copiedLink': 'Đã sao chép liên kết vào clipboard',
 
-    'nav.studio': 'HuTube Studio',
+    'nav.studio': 'Dalitu Studio',
     'nav.enterStudio': 'Vào Studio',
     'nav.studioSub': 'Sáng tạo & Quản lý video',
     'nav.logout': 'Đăng xuất',
@@ -273,20 +273,20 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     'policies.breadcrumbHome': 'Trang chủ',
     'policies.breadcrumbLegal': 'Chính sách & Pháp lý',
-    'policies.badgeStandard': 'Tiêu chuẩn HuTube · Tham chiếu Chuẩn Quốc tế & Nghị định 13/2023/NĐ-CP',
+    'policies.badgeStandard': 'Tiêu chuẩn Dalitu · Tham chiếu Chuẩn Quốc tế & Nghị định 13/2023/NĐ-CP',
     'policies.heroTitle': 'Các chính sách của chúng tôi',
-    'policies.heroMission': 'Sứ mệnh của HuTube là trao cho mọi người tiếng nói và cho họ thấy thế giới. Sự cởi mở và quyền tự do biểu đạt đóng vai trò cốt lõi trong sứ mệnh này. Trên nền tảng của chúng tôi, các quan điểm đa chiều đều được khuyến khích, đồng thời luôn duy trì không gian an toàn, lành mạnh cho cộng đồng.',
+    'policies.heroMission': 'Sứ mệnh của Dalitu là trao cho mọi người tiếng nói và cho họ thấy thế giới. Sự cởi mở và quyền tự do biểu đạt đóng vai trò cốt lõi trong sứ mệnh này. Trên nền tảng của chúng tôi, các quan điểm đa chiều đều được khuyến khích, đồng thời luôn duy trì không gian an toàn, lành mạnh cho cộng đồng.',
     'policies.heroUpdated': 'Cập nhật: Năm 2026',
-    'policies.heroEffective': 'Hiệu lực: Toàn bộ nền tảng HuTube, ứng dụng di động & dịch vụ trực tuyến',
+    'policies.heroEffective': 'Hiệu lực: Toàn bộ nền tảng Dalitu, ứng dụng di động & dịch vụ trực tuyến',
 
     'policies.tab.guidelines.title': 'Quy tắc cộng đồng',
-    'policies.tab.guidelines.desc': 'Các tiêu chuẩn giữ cho HuTube là một không gian an toàn, tôn trọng và lành mạnh cho mọi người sáng tạo và khán giả.',
+    'policies.tab.guidelines.desc': 'Các tiêu chuẩn giữ cho Dalitu là một không gian an toàn, tôn trọng và lành mạnh cho mọi người sáng tạo và khán giả.',
     'policies.tab.privacy.title': 'Quyền riêng tư & Bảo mật',
     'policies.tab.privacy.desc': 'Cam kết minh bạch về dữ liệu, bảo vệ thông tin cá nhân theo Nghị định 13/2023/NĐ-CP và trao toàn quyền kiểm soát cho bạn.',
     'policies.tab.terms.title': 'Điều khoản dịch vụ',
-    'policies.tab.terms.desc': 'Quy định pháp lý ràng buộc về quyền và nghĩa vụ khi truy cập, chia sẻ video và sử dụng dịch vụ trên HuTube.',
+    'policies.tab.terms.desc': 'Quy định pháp lý ràng buộc về quyền và nghĩa vụ khi truy cập, chia sẻ video và sử dụng dịch vụ trên Dalitu.',
     'policies.tab.monetization.title': 'Kiếm tiền & Đối tác',
-    'policies.tab.monetization.desc': 'Tiêu chuẩn tham gia Chương trình Đối tác HuTube, định hướng nội dung phù hợp quảng cáo và cơ chế chia sẻ doanh thu.',
+    'policies.tab.monetization.desc': 'Tiêu chuẩn tham gia Chương trình Đối tác Dalitu, định hướng nội dung phù hợp quảng cáo và cơ chế chia sẻ doanh thu.',
     'policies.tab.enforcement.title': 'Thực thi & Khiếu nại',
     'policies.tab.enforcement.desc': 'Quy trình xử phạt vi phạm minh bạch qua hệ thống cảnh báo, xem xét ngoại lệ EDSA và giải quyết khiếu nại công bằng.',
 
@@ -303,7 +303,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.sev.info': 'Thông tin',
 
     'policies.tools.title': 'Quyền và Lựa chọn của Bạn',
-    'policies.tools.desc': 'Theo Nghị định 13/2023/NĐ-CP, bạn nắm giữ toàn quyền quản lý dữ liệu cá nhân tại HuTube.',
+    'policies.tools.desc': 'Theo Nghị định 13/2023/NĐ-CP, bạn nắm giữ toàn quyền quản lý dữ liệu cá nhân tại Dalitu.',
     'policies.tools.exportTag': 'XUẤT DỮ LIỆU',
     'policies.tools.exportTitle': 'Xuất bản sao dữ liệu',
     'policies.tools.exportDesc': 'Tải về bản sao video, bình luận, lịch sử và thông tin cá nhân dưới định dạng tệp ZIP nén bảo mật.',
@@ -324,7 +324,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.tools.adsChanged': 'Đã {status} tính năng cá nhân hóa quảng cáo theo hành vi.',
 
     'policies.strikes.systemTitle': 'Hệ thống Cảnh báo & Gậy Phạt (Strikes System)',
-    'policies.strikes.systemDesc': 'HuTube áp dụng cơ chế thực thi nhiều bước kết hợp khóa học chính sách nhằm hỗ trợ người sáng tạo nhận biết lỗi và khắc phục.',
+    'policies.strikes.systemDesc': 'Dalitu áp dụng cơ chế thực thi nhiều bước kết hợp khóa học chính sách nhằm hỗ trợ người sáng tạo nhận biết lỗi và khắc phục.',
     'policies.strikes.warning.badge': 'Nhắc nhở',
     'policies.strikes.warning.title': 'Nhắc nhở lần đầu',
     'policies.strikes.warning.desc': 'Lần đầu vi phạm sẽ chỉ nhận thông báo nhắc nhở kèm khóa học 15 phút. Nội dung bị gỡ nhưng kênh không bị phạt gậy và không bị hạn chế tính năng.',
@@ -336,10 +336,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.strikes.s2.desc': 'Nếu nhận gậy thứ 2 trong vòng 90 ngày kể từ gậy 1, kênh bị đóng băng toàn bộ hoạt động đăng tải trong 14 ngày.',
     'policies.strikes.s3.badge': 'Chấm dứt',
     'policies.strikes.s3.title': 'Gậy lần 3 - Chấm dứt',
-    'policies.strikes.s3.desc': 'Nhận đủ 3 gậy trong 90 ngày sẽ dẫn đến việc chấm dứt vĩnh viễn tài khoản HuTube, xóa toàn bộ video và cấm tạo kênh mới.',
+    'policies.strikes.s3.desc': 'Nhận đủ 3 gậy trong 90 ngày sẽ dẫn đến việc chấm dứt vĩnh viễn tài khoản Dalitu, xóa toàn bộ video và cấm tạo kênh mới.',
     'policies.footer.brandCaption': 'Trung tâm Minh bạch & An toàn Người dùng',
     'policies.footer.lang': 'Tiếng Việt (Việt Nam)',
-    'policies.footer.copyright': '© 2026 HuTube LLC. Bảo lưu mọi quyền theo quy chuẩn pháp luật Việt Nam.',
+    'policies.footer.copyright': '© 2026 Dalitu LLC. Bảo lưu mọi quyền theo quy chuẩn pháp luật Việt Nam.',
 
     // 33 Policy Names and Contents (VI)
     'policy.CHILD_SAFETY.name': 'An toàn cho trẻ em',
@@ -363,7 +363,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policy.IMPERSONATION.name': 'Hành vi mạo danh',
     'policy.IMPERSONATION.content': 'Cấm tạo kênh giả mạo người nổi tiếng, cơ quan chức năng hoặc thương hiệu để gây nhầm lẫn và trục lợi.',
     'policy.FAKE_ENGAGEMENT.name': 'Tương tác ảo và thao túng nền tảng',
-    'policy.FAKE_ENGAGEMENT.content': 'Cấm dùng bot, dịch vụ cày view hoặc mua bán sub/like ảo. HuTube tự động trừ bỏ và đóng băng các kênh vi phạm thao túng số liệu.',
+    'policy.FAKE_ENGAGEMENT.content': 'Cấm dùng bot, dịch vụ cày view hoặc mua bán sub/like ảo. Dalitu tự động trừ bỏ và đóng băng các kênh vi phạm thao túng số liệu.',
     'policy.MISLEADING_METADATA.name': 'Metadata sai lệch và clickbait lừa dối',
     'policy.MISLEADING_METADATA.content': 'Tiêu đề, ảnh thu nhỏ (thumbnail) và mô tả phải phản ánh đúng nội dung thực tế của video.',
     'policy.EXTERNAL_LINKS.name': 'Liên kết ngoài độc hại',
@@ -385,16 +385,16 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policy.SECURITY_ENCRYPTION.name': 'Tiêu chuẩn bảo mật TLS 1.3 và lưu trữ AES-256',
     'policy.SECURITY_ENCRYPTION.content': 'Toàn bộ dữ liệu truyền tải và lưu trữ được bảo vệ theo các chuẩn mã hóa hàng đầu tại Data Center Việt Nam.',
     'policy.TERMS_ACCEPTANCE.name': 'Chấp thuận điều khoản và phạm vi dịch vụ',
-    'policy.TERMS_ACCEPTANCE.content': 'Quy định pháp lý ràng buộc khi truy cập và sử dụng dịch vụ trên nền tảng mạng xã hội video HuTube.',
+    'policy.TERMS_ACCEPTANCE.content': 'Quy định pháp lý ràng buộc khi truy cập và sử dụng dịch vụ trên nền tảng mạng xã hội video Dalitu.',
     'policy.USER_ACCOUNTS.name': 'Quyền và trách nhiệm tài khoản người dùng',
     'policy.USER_ACCOUNTS.content': 'Bảo mật thông tin đăng nhập, xác thực 2 bước và chịu trách nhiệm về mọi hoạt động diễn ra dưới tài khoản.',
-    'policy.COPYRIGHT_UGC.name': 'Bản quyền nội dung tải lên và giấy phép cấp cho HuTube',
-    'policy.COPYRIGHT_UGC.content': 'Tác giả giữ toàn quyền sở hữu tác phẩm và cấp phép phát sóng cho HuTube. Nghiêm cấm vi phạm bản quyền bên thứ ba.',
+    'policy.COPYRIGHT_UGC.name': 'Bản quyền nội dung tải lên và giấy phép cấp cho Dalitu',
+    'policy.COPYRIGHT_UGC.content': 'Tác giả giữ toàn quyền sở hữu tác phẩm và cấp phép phát sóng cho Dalitu. Nghiêm cấm vi phạm bản quyền bên thứ ba.',
     'policy.SERVICE_TERMINATION.name': 'Chấm dứt dịch vụ và đóng tài khoản',
-    'policy.SERVICE_TERMINATION.content': 'HuTube có quyền ngưng cung cấp dịch vụ hoặc xóa tài khoản đối với các hành vi vi phạm nghiêm trọng hoặc tái phạm nhiều lần.',
+    'policy.SERVICE_TERMINATION.content': 'Dalitu có quyền ngưng cung cấp dịch vụ hoặc xóa tài khoản đối với các hành vi vi phạm nghiêm trọng hoặc tái phạm nhiều lần.',
     'policy.LIABILITY_LIMITATION.name': 'Giới hạn trách nhiệm pháp lý',
-    'policy.LIABILITY_LIMITATION.content': 'Phạm vi trách nhiệm pháp lý của HuTube đối với các nội dung do bên thứ ba hoặc người dùng tải lên.',
-    'policy.PARTNER_ELIGIBILITY.name': 'Điều kiện tham gia Chương trình Đối tác HuTube',
+    'policy.LIABILITY_LIMITATION.content': 'Phạm vi trách nhiệm pháp lý của Dalitu đối với các nội dung do bên thứ ba hoặc người dùng tải lên.',
+    'policy.PARTNER_ELIGIBILITY.name': 'Điều kiện tham gia Chương trình Đối tác Dalitu',
     'policy.PARTNER_ELIGIBILITY.content': 'Ngưỡng điều kiện người đăng ký, giờ xem công khai hợp lệ và kênh không có gậy cảnh cáo vi phạm còn hiệu lực.',
     'policy.AD_SUITABILITY_GUIDE.name': 'Tiêu chuẩn nội dung thân thiện với nhà quảng cáo',
     'policy.AD_SUITABILITY_GUIDE.content': 'Hệ thống đánh giá tính phù hợp hiển thị quảng cáo: Biểu tượng Xanh (Bật đầy đủ), Vàng (Hạn chế), Đỏ (Không quảng cáo).',
@@ -410,8 +410,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policy.MODERATION_INFRASTRUCTURE.content': 'Hệ sinh thái kiểm duyệt đa tầng: AI quét tự động đa phương thức kết hợp đội ngũ kiểm duyệt viên bản địa thẩm định.',
 
     // Auth
-    'auth.loginTitle': 'Đăng nhập vào HuTube',
-    'auth.registerTitle': 'Tạo tài khoản HuTube',
+    'auth.loginTitle': 'Đăng nhập vào Dalitu',
+    'auth.registerTitle': 'Tạo tài khoản Dalitu',
     'auth.forgotPasswordTitle': 'Khôi phục mật khẩu',
     'auth.resetPasswordTitle': 'Đặt lại mật khẩu mới',
     'auth.verifyEmailTitle': 'Xác minh tài khoản email',
@@ -423,7 +423,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'auth.loginBtn': 'Đăng nhập',
     'auth.registerBtn': 'Đăng ký ngay',
     'auth.forgotPasswordLink': 'Quên mật khẩu?',
-    'auth.dontHaveAccount': 'Chưa có tài khoản HuTube?',
+    'auth.dontHaveAccount': 'Chưa có tài khoản Dalitu?',
     'auth.alreadyHaveAccount': 'Đã có tài khoản?',
     'auth.resendOtp': 'Gửi lại mã OTP',
     'auth.backToLogin': 'Quay lại đăng nhập',
@@ -443,26 +443,26 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.tabAdvanced': 'Cài đặt nâng cao',
 
     // Tab Account Hero & Sections (Image 1)
-    'account.accountHeroTitle': 'Chọn cách bạn xuất hiện và nội dung bạn muốn xem trên HuTube',
+    'account.accountHeroTitle': 'Chọn cách bạn xuất hiện và nội dung bạn muốn xem trên Dalitu',
     'account.signedInAs': 'Đăng nhập bằng',
-    'account.channelDescImage1': 'Đây là sự hiện diện công khai của bạn trên HuTube. Bạn cần có một kênh để tải video của riêng mình lên, bình luận về các video hoặc tạo danh sách phát.',
+    'account.channelDescImage1': 'Đây là sự hiện diện công khai của bạn trên Dalitu. Bạn cần có một kênh để tải video của riêng mình lên, bình luận về các video hoặc tạo danh sách phát.',
     'account.yourChannelLabel': 'Kênh của bạn',
     'account.channelStatusLink': 'Trạng thái và tính năng của kênh',
     'account.createChannelLink': 'Tạo kênh mới',
     'account.viewAdvancedLink': 'Xem cài đặt nâng cao',
     'account.yourAccountSection': 'Tài khoản của bạn',
-    'account.yourAccountDesc': 'Bạn đăng nhập vào HuTube bằng Tài khoản HuTube của mình',
-    'account.hutubeAccountLabel': 'Tài khoản HuTube',
-    'account.hutubeAccountAction': 'Xem hoặc thay đổi các tùy chọn cài đặt cho Tài khoản HuTube của bạn',
+    'account.yourAccountDesc': 'Bạn đăng nhập vào Dalitu bằng Tài khoản Dalitu của mình',
+    'account.hutubeAccountLabel': 'Tài khoản Dalitu',
+    'account.hutubeAccountAction': 'Xem hoặc thay đổi các tùy chọn cài đặt cho Tài khoản Dalitu của bạn',
     'account.hutubeAccountRedirect': 'Bạn sẽ được chuyển đến trang Tài khoản của mình',
 
     // Tab Privacy (Image 2)
-    'account.privacyHeroTitle': 'Quản lý nội dung mà bạn chia sẻ trên HuTube',
+    'account.privacyHeroTitle': 'Quản lý nội dung mà bạn chia sẻ trên Dalitu',
     'account.privacyHeroSub': 'Chọn người có thể xem kênh đăng ký của bạn',
     'account.privacyHeroReview': 'Xem xét',
-    'account.privacyHeroTos': 'Điều khoản dịch vụ của HuTube',
+    'account.privacyHeroTos': 'Điều khoản dịch vụ của Dalitu',
     'account.privacyHeroAnd': 'và',
-    'account.privacyHeroPrivacyPolicy': 'Chính sách quyền riêng tư của HuTube',
+    'account.privacyHeroPrivacyPolicy': 'Chính sách quyền riêng tư của Dalitu',
     'account.subscriptionsHeading': 'Kênh đăng ký',
     'account.keepSubsPrivate': 'Đặt tất cả các kênh đăng ký của tôi ở chế độ riêng tư',
     'account.keepSubsPrivateDesc': 'Người khác sẽ không thể thấy danh sách kênh đăng ký của bạn, trừ khi bạn dùng những tính năng khiến danh sách này xuất hiện công khai.',
@@ -500,18 +500,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Tab Billing and Payments
     'account.billingHeroTitle': 'Lập hóa đơn và thanh toán',
-    'account.billingHeroSub': 'Quản lý phương thức thanh toán và các gói thành viên HuTube',
+    'account.billingHeroSub': 'Quản lý phương thức thanh toán và các gói thành viên Dalitu',
     'account.paymentMethodsHeading': 'Phương thức thanh toán',
     'account.noPaymentMethod': 'Chưa có phương thức thanh toán nào được lưu',
     'account.addPaymentMethod': 'Thêm phương thức thanh toán',
     'account.membershipsHeading': 'Giao dịch mua và gói thành viên',
-    'account.membershipsDesc': 'Tận hưởng trải nghiệm HuTube không quảng cáo, tải video ngoại tuyến và xem phát trong nền với HuTube Premium',
-    'account.learnMorePremium': 'Tìm hiểu về HuTube Premium',
+    'account.membershipsDesc': 'Tận hưởng trải nghiệm Dalitu không quảng cáo, tải video ngoại tuyến và xem phát trong nền với Dalitu Premium',
+    'account.learnMorePremium': 'Tìm hiểu về Dalitu Premium',
     'account.currentPlanTitle': 'Gói hiện tại',
     'account.currentPlanDesc': 'Thông tin gói và thời hạn đang áp dụng cho tài khoản này.',
     'account.currentPlanLoading': 'Đang tải thông tin gói...',
     'account.noCurrentPlan': 'Bạn chưa có gói đang hoạt động',
-    'account.noCurrentPlanDesc': 'Chọn một gói phù hợp để sử dụng thêm các tính năng của HuTube.',
+    'account.noCurrentPlanDesc': 'Chọn một gói phù hợp để sử dụng thêm các tính năng của Dalitu.',
     'account.viewPlans': 'Xem các gói',
     'account.planActive': 'Đang hoạt động',
     'account.planExpired': 'Đã hết hạn',
@@ -571,8 +571,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.videosCount': 'video',
     'account.viewChannel': 'Xem kênh',
     'account.customizeChannel': 'Tùy chỉnh kênh',
-    'account.yourHuTubeChannel': 'Kênh HuTube của bạn',
-    'account.noChannelDesc': 'Bạn chưa có kênh HuTube. Hãy tạo kênh ngay để bắt đầu tải video, xây dựng cộng đồng và chia sẻ đam mê sáng tạo!',
+    'account.yourHuTubeChannel': 'Kênh Dalitu của bạn',
+    'account.noChannelDesc': 'Bạn chưa có kênh Dalitu. Hãy tạo kênh ngay để bắt đầu tải video, xây dựng cộng đồng và chia sẻ đam mê sáng tạo!',
     'account.createChannelBtn': 'Tạo kênh mới',
     'account.passwordHeading': 'Đổi mật khẩu',
     'account.passwordDesc': 'Để bảo mật, hãy sử dụng mật khẩu mạnh có ít nhất 10 ký tự.',
@@ -597,7 +597,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.notifNewVideos': 'Video mới từ kênh đã đăng ký',
     'account.notifComments': 'Bình luận và phản hồi',
     'account.notifSubs': 'Người đăng ký mới',
-    'account.notifMarketing': 'Cập nhật tính năng và bản tin HuTube',
+    'account.notifMarketing': 'Cập nhật tính năng và bản tin Dalitu',
     'account.prefsHeading': 'Giao diện & Ngôn ngữ',
     'account.prefsDesc': 'Tùy chỉnh trải nghiệm xem và giao diện ứng dụng của bạn.',
     'account.themeLabel': 'Giao diện (Chế độ màu)',
@@ -653,8 +653,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.about': 'Giới thiệu',
     'channel.customize': 'Tùy chỉnh kênh',
     'channel.manageVideos': 'Quản lý video',
-    'channel.createTitle': 'Khởi tạo kênh HuTube',
-    'channel.createDesc': 'Bắt đầu hành trình sáng tạo nội dung của riêng bạn trên HuTube.',
+    'channel.createTitle': 'Khởi tạo kênh Dalitu',
+    'channel.createDesc': 'Bắt đầu hành trình sáng tạo nội dung của riêng bạn trên Dalitu.',
     'channel.name': 'Tên kênh',
     'channel.handle': 'Tên định danh (Handle)',
     'channel.description': 'Mô tả kênh',
@@ -665,7 +665,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noInvitations': 'Bạn hiện không có lời mời nào.',
 
     // Studio
-    'studio.title': 'HuTube Creator Studio',
+    'studio.title': 'Dalitu Creator Studio',
     'studio.navGroupManage': 'QUẢN LÝ KÊNH',
     'studio.navGroupCommunity': 'CỘNG ĐỒNG',
     'studio.navGroupTools': 'CÔNG CỤ',
@@ -678,14 +678,14 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.comments': 'Bình luận',
     'studio.subtitles': 'Phụ đề',
     'studio.settings': 'Cài đặt kênh',
-    'studio.proTitle': 'HuTube Pro',
+    'studio.proTitle': 'Dalitu Pro',
     'studio.proDesc': 'Mở khóa nhiều tính năng hơn cho nhà sáng tạo',
     'studio.upgradeNow': 'Nâng cấp ngay',
     'studio.collapse': 'Thu gọn',
     'studio.searchPlaceholder': 'Tìm kiếm trong kênh của bạn...',
     'studio.create': 'Tạo',
     'studio.creator': 'Creator',
-    'studio.backToWeb': 'Trở về HuTube',
+    'studio.backToWeb': 'Trở về Dalitu',
     'studio.overviewSubtitle': 'Tổng quan kênh và hiệu suất 28 ngày qua',
     'studio.subscribersCount': 'Số người đăng ký',
     'studio.viewsCount': 'Lượt xem',
@@ -726,7 +726,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.onVideo': 'trên',
     'studio.reply': 'Trả lời',
     'studio.like': '❤️ Thích',
-    'studio.subtitlesSubtitle': 'Quản lý phụ đề đa ngôn ngữ và tạo phụ đề tự động bằng HuTube AI',
+    'studio.subtitlesSubtitle': 'Quản lý phụ đề đa ngôn ngữ và tạo phụ đề tự động bằng Dalitu AI',
     'studio.primaryLanguage': 'Ngôn ngữ chính',
     'studio.autoSubtitle': 'Tự động',
     'studio.reviewed': 'Đã duyệt',
@@ -736,7 +736,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.currencyVND': 'VND - Đồng Việt Nam (₫)',
     'studio.currencyUSD': 'USD - Đô la Mỹ ($)',
     'studio.defaultLicense': 'Tiêu chuẩn giấy phép mặc định',
-    'studio.licenseStandard': 'Giấy phép Chuẩn của HuTube',
+    'studio.licenseStandard': 'Giấy phép Chuẩn của Dalitu',
     'studio.licenseCC': 'Creative Commons - Ghi nhận quyền tác giả (CC BY)',
     'studio.defaultCommentsMode': 'Chế độ bình luận mặc định cho video mới',
     'studio.commentsAllowAll': 'Cho phép tất cả bình luận',
@@ -745,7 +745,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Upload Video 6 Steps
     'upload.title': 'Upload video',
-    'upload.subtitle': 'Chia sẻ câu chuyện của bạn với cộng đồng HuTube',
+    'upload.subtitle': 'Chia sẻ câu chuyện của bạn với cộng đồng Dalitu',
     'upload.step1': 'Chọn file',
     'upload.step2': 'Chi tiết video',
     'upload.step3': 'Thành phần video',
@@ -810,13 +810,13 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step3.noPublishedVideos': 'Kênh chưa có video công khai đã xuất bản để gắn.',
     'upload.videoCardsInvalid': 'Video liên quan hoặc mốc thời gian không hợp lệ. Hãy kiểm tra video đã xuất bản và thời lượng.',
     'upload.videoCardFieldsInvalid': 'Chọn video và mốc thời gian hợp lệ, không trùng video hoặc mốc khác.',
-    'upload.step3.aiSubTitle': 'Phụ đề thông minh HuTube AI',
+    'upload.step3.aiSubTitle': 'Phụ đề thông minh Dalitu AI',
     'upload.step3.aiSubDesc': 'Tự động nhận diện giọng nói và tạo phụ đề có dấu chính xác 98%.',
     'upload.step5.schedDate': 'Ngày công chiếu',
     'upload.step5.schedTime': 'Giờ công chiếu',
 
     'upload.step4.heading': 'Kiểm tra ban đầu',
-    'upload.step4.subheading': 'Chúng tôi đang kiểm tra video của bạn để đảm bảo đáp ứng các tiêu chuẩn của HuTube.',
+    'upload.step4.subheading': 'Chúng tôi đang kiểm tra video của bạn để đảm bảo đáp ứng các tiêu chuẩn của Dalitu.',
     'upload.step4.checkFile': 'Tệp video hợp lệ',
     'upload.step4.checkFileSub': 'Định dạng, dung lượng, độ phân giải...',
     'upload.step4.checkMeta': 'Metadata đầy đủ',
@@ -851,7 +851,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step5.publishTime': 'Thời điểm đăng',
     'upload.step5.publishTimeSub': 'Chọn thời điểm video sẽ được xuất bản',
     'upload.step5.publishNow': 'Đăng ngay khi được phê duyệt',
-    'upload.step5.publishNowDesc': 'Video sẽ được đăng công khai sau khi xử lý và được duyệt bởi đội ngũ HuTube.',
+    'upload.step5.publishNowDesc': 'Video sẽ được đăng công khai sau khi xử lý và được duyệt bởi đội ngũ Dalitu.',
     'upload.step5.schedule': 'Lên lịch',
     'upload.step5.scheduleDesc': 'Chọn ngày và giờ bạn muốn video được đăng sau khi được phê duyệt.',
     'upload.step5.otherOptions': 'Tùy chọn khác',
@@ -860,12 +860,12 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step5.allowCommentsDesc': 'Người xem có thể bình luận về video của bạn.',
     'upload.step5.addPlaylist': 'Thêm vào danh sách phát',
     'upload.step5.selectPlaylist': 'Chọn danh sách phát (tùy chọn)',
-    'upload.step5.policyNotice': 'Lưu ý: Video chỉ được hiển thị công khai sau khi quá trình xử lý hoàn tất và được đội ngũ HuTube phê duyệt.',
+    'upload.step5.policyNotice': 'Lưu ý: Video chỉ được hiển thị công khai sau khi quá trình xử lý hoàn tất và được đội ngũ Dalitu phê duyệt.',
 
     'upload.step6.congrats': 'Video đã được gửi để xuất bản!',
-    'upload.step6.congratsDesc': 'Video của bạn đã được xử lý và sẵn sàng hiển thị trên kênh. Cảm ơn bạn đã chia sẻ nội dung tuyệt vời với cộng đồng HuTube!',
+    'upload.step6.congratsDesc': 'Video của bạn đã được xử lý và sẵn sàng hiển thị trên kênh. Cảm ơn bạn đã chia sẻ nội dung tuyệt vời với cộng đồng Dalitu!',
     'upload.step6.moderationPending': 'Video đã được gửi để kiểm duyệt!',
-    'upload.step6.moderationPendingDesc': 'Video đang chờ đội ngũ HuTube phê duyệt. Video chỉ hiển thị công khai sau khi được duyệt; bạn có thể theo dõi trạng thái trong trang Nội dung.',
+    'upload.step6.moderationPendingDesc': 'Video đang chờ đội ngũ Dalitu phê duyệt. Video chỉ hiển thị công khai sau khi được duyệt; bạn có thể theo dõi trạng thái trong trang Nội dung.',
     'upload.step6.moderationStatus': 'Đang chờ kiểm duyệt',
     'upload.step6.summaryHeading': 'Thông tin video',
     'upload.step6.videoLink': 'Liên kết video',
@@ -894,8 +894,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.sidebar.importantNotes': 'Lưu ý quan trọng',
     'upload.sidebar.note1': 'Chỉ tải lên nội dung do bạn sở hữu hoặc có quyền sử dụng.',
     'upload.sidebar.note2': 'Không đăng tải nội dung vi phạm bản quyền, bạo lực, thù hận hoặc thông tin sai lệch.',
-    'upload.sidebar.note3': 'HuTube có thể kiểm tra tự động nội dung của bạn trước khi xuất bản.',
-    'upload.sidebar.policyLink': 'Tìm hiểu thêm về chính sách nội dung của HuTube →',
+    'upload.sidebar.note3': 'Dalitu có thể kiểm tra tự động nội dung của bạn trước khi xuất bản.',
+    'upload.sidebar.policyLink': 'Tìm hiểu thêm về chính sách nội dung của Dalitu →',
     'upload.sidebar.statusTitle': 'Trạng thái xử lý',
     'upload.sidebar.statusUploaded': 'Upload hoàn tất',
     'upload.sidebar.statusProcessed': 'Xử lý video hoàn tất',
@@ -974,7 +974,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.filters': 'Bộ lọc khám phá',
     'explore.heading': 'Khám phá video',
     'explore.searchHeading': 'Kết quả tìm kiếm',
-    'explore.subtitle': 'Tìm câu chuyện, kiến thức và nhà sáng tạo mới trên HuTube.',
+    'explore.subtitle': 'Tìm câu chuyện, kiến thức và nhà sáng tạo mới trên Dalitu.',
     'explore.searchSubmit': 'Tìm kiếm',
     'explore.topics': 'Chủ đề nổi bật',
     'explore.sortBy': 'Sắp xếp theo',
@@ -1020,7 +1020,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.noRankedVideos': 'Chưa có video nào đủ điều kiện xếp hạng.',
     'explore.noCategoryVideos': 'Chưa có video nào trong danh mục này.',
     'explore.featuredCreators': 'Nhà sáng tạo nổi bật',
-    'explore.featuredCreatorsSubtitle': 'Những gương mặt nổi bật đang được yêu thích trên HuTube',
+    'explore.featuredCreatorsSubtitle': 'Những gương mặt nổi bật đang được yêu thích trên Dalitu',
     'explore.subscribers': 'người đăng ký',
     'explore.subscribed': 'Đã đăng ký',
     'explore.subscribe': 'Đăng ký',
@@ -1065,10 +1065,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.collaborationTitle': 'Bạn đang được mời cộng tác',
     'channel.collaborationDesc': 'Bạn không cần tạo kênh riêng để làm việc trên kênh đã được mời.',
     'channel.viewInvitations': 'Xem lời mời',
-    'channel.ownedTitle': 'Bạn đã sở hữu một kênh trên HuTube',
+    'channel.ownedTitle': 'Bạn đã sở hữu một kênh trên Dalitu',
     'channel.ownedDesc': 'Mỗi tài khoản được liên kết tối đa với một kênh phát sóng.',
     'channel.viewYourChannel': 'Xem kênh của bạn',
-    'channel.formTitle': 'Tạo kênh HuTube của bạn',
+    'channel.formTitle': 'Tạo kênh Dalitu của bạn',
     'channel.formDesc': 'Bắt đầu chia sẻ nội dung video sáng tạo và kết nối với cộng đồng người xem.',
     'channel.uploadBanner': 'Tải lên ảnh bìa kênh (khuyên dùng tỉ lệ 16:9 hoặc ảnh ngang)',
     'channel.bannerAlt': 'Xem trước ảnh bìa',
@@ -1078,7 +1078,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.namePlaceholder': 'Ví dụ: Khoa Học TV, Đi Để Trưởng Thành...',
     'channel.handleLabel': 'Handle (Tên định danh) *',
     'channel.handlePlaceholder': 'mychannel',
-    'channel.handleHelp': 'Handle sẽ là địa chỉ duy nhất của bạn: hutube.vn/@{handle}',
+    'channel.handleHelp': 'Handle sẽ là địa chỉ duy nhất của bạn: @{handle}',
     'channel.descriptionLabel': 'Mô tả kênh',
     'channel.descriptionPlaceholder': 'Giới thiệu về nội dung kênh của bạn để người xem hiểu thêm...',
     'channel.contactEmail': 'Email liên hệ công việc',
@@ -1119,7 +1119,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noPlaylistsDesc': 'Chưa có playlist công khai nào được tạo trên kênh này.',
     'channel.contactDetails': 'Chi tiết liên hệ',
     'channel.noLinks': 'Chưa có đường liên kết bên ngoài.',
-    'channel.channelUrl': 'www.hutube.vn/@{handle}',
+    'channel.channelUrl': '@{handle}',
     'channel.joined': 'Đã tham gia {date}',
     'channel.totalViews': 'lượt xem',
     'channel.shareCopied': 'Đã sao chép!',
@@ -1215,14 +1215,14 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.inviteWithdrawn': 'Đã thu hồi lời mời.',
     'channel.confirmNameMismatch': 'Tên kênh xác nhận chưa khớp chính xác.',
     'channel.handleChannel': 'Handle kênh *',
-    'channel.address': 'Địa chỉ kênh của bạn: hutube.vn/@{handle}',
+    'channel.address': 'Địa chỉ kênh của bạn: @{handle}',
     'channel.businessEmail': 'Email liên hệ kinh doanh',
     'channel.links': 'Đường liên kết',
     'channel.linksDesc': 'Chia sẻ đường liên kết bên ngoài với người xem. Các đường liên kết này sẽ hiển thị trên hồ sơ kênh và trang giới thiệu của bạn.',
     'channel.reorderLink': 'Kéo để sắp xếp',
     'channel.removeLink': 'Xóa đường liên kết',
     'channel.avatarTitle': 'Ảnh đại diện kênh',
-    'channel.avatarDesc': 'Ảnh đại diện sẽ xuất hiện bên cạnh video và bình luận của bạn trên HuTube.',
+    'channel.avatarDesc': 'Ảnh đại diện sẽ xuất hiện bên cạnh video và bình luận của bạn trên Dalitu.',
     'channel.changeAvatar': 'Thay đổi ảnh đại diện',
     'channel.bannerTitle': 'Hình ảnh biểu ngữ (Banner)',
     'channel.bannerDesc': 'Hình ảnh này sẽ xuất hiện ở đầu trang kênh của bạn.',
@@ -1292,6 +1292,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.sharedPlanOwnerFallback': 'chủ gói',
     'plans.sharedMemberQuota': 'Quota ở trên chỉ hiển thị dung lượng được cấp cho bạn.',
     'plans.leaveSharedPlan': 'Rời gói dùng chung',
+    'plans.leaveSharedHint': 'Sau khi rời, tài khoản của bạn sẽ trở về gói mặc định.',
     'plans.leaveSharedConfirm': 'Bạn muốn rời gói dùng chung với {owner}? Tài khoản sẽ trở về gói mặc định.',
     'plans.leftSharedPlan': 'Bạn đã rời gói dùng chung.',
     'plans.leaveSharedError': 'Không thể rời gói dùng chung.',
@@ -1388,7 +1389,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.viewMode': 'Chế độ hiển thị gói dịch vụ',
     'plans.catalogLabel': 'Các gói dịch vụ',
     'plans.allPlans': 'Tất cả gói dịch vụ',
-    'plans.detailDesc': 'Gói dịch vụ dành riêng cho nhà sáng tạo và người xem nâng cao trên HuTube.',
+    'plans.detailDesc': 'Gói dịch vụ dành riêng cho nhà sáng tạo và người xem nâng cao trên Dalitu.',
     'plans.notPurchased': 'Chưa mua gói này',
     'plans.backgroundPlay': 'Phát nền',
     'plans.pip': 'Chế độ phát thu nhỏ (PiP)',
@@ -1698,7 +1699,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'ui.delete': 'Xóa'
      ,'ui.confirmLogoutTitle': 'Xác nhận đăng xuất'
      ,'ui.confirmLogoutDesc': 'Bạn có chắc muốn đăng xuất khỏi tài khoản này không?'
-     ,'ui.userHuTube': 'Người dùng HuTube'
+     ,'ui.userHuTube': 'Người dùng Dalitu'
      ,'ui.user': 'Người dùng'
      ,'ui.liked': 'Đã thích'
      ,'ui.playlist': 'Danh sách phát'
@@ -1752,7 +1753,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.heroCreate': 'Sáng tạo.'
     ,'auth.heroShare': 'Chia sẻ.'
     ,'auth.heroBelong': 'Thuộc về.'
-    ,'auth.heroDescription': 'HuTube trao quyền để bạn sáng tạo, kết nối và khám phá thế giới video cùng cộng đồng tôn vinh câu chuyện và góc nhìn của bạn.'
+    ,'auth.heroDescription': 'Dalitu trao quyền để bạn sáng tạo, kết nối và khám phá thế giới video cùng cộng đồng tôn vinh câu chuyện và góc nhìn của bạn.'
     ,'auth.featureCreate': 'Sáng tạo không giới hạn'
     ,'auth.featureCreateDesc': 'Biến ý tưởng thành những video tuyệt vời'
     ,'auth.featureShare': 'Chia sẻ thế giới của bạn'
@@ -1769,7 +1770,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.cardShare': 'CHIA SẺ'
     ,'auth.cardBelong': 'THUỘC VỀ'
     ,'auth.subTagline': 'MỘT INTERNET CỞI MỞ, SÁNG TẠO VÀ TỬ TẾ HƠN'
-    ,'auth.loginSubtitle': 'Chào mừng bạn trở lại HuTube.'
+    ,'auth.loginSubtitle': 'Chào mừng bạn trở lại Dalitu.'
     ,'auth.adminSubtitle': 'Dành cho đội ngũ quản trị.'
     ,'auth.registerSubtitle': 'Bắt đầu với email của bạn.'
     ,'auth.verifySubtitle': 'Hoàn tất xác minh để bảo vệ tài khoản.'
@@ -1787,8 +1788,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.hidePassword': 'Ẩn mật khẩu'
     ,'auth.googleLogin': 'Đăng nhập bằng Google'
     ,'auth.resendEmailLabel': 'Email nhận liên kết mới'
-    ,'auth.mobileAppLink': 'Mở trong ứng dụng HuTube'
-    ,'auth.appLoginLink': 'Đăng nhập trên ứng dụng HuTube'
+    ,'auth.mobileAppLink': 'Mở trong ứng dụng Dalitu'
+    ,'auth.appLoginLink': 'Đăng nhập trên ứng dụng Dalitu'
     ,'auth.sessionExpired': 'Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.'
     ,'auth.resetMissingToken': 'Liên kết thiếu mã xác nhận. Vui lòng yêu cầu đặt lại mật khẩu.'
     ,'auth.googleCredentialMissing': 'Không nhận được thông tin xác thực từ Google.'
@@ -1808,8 +1809,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.unavailableError': 'Video không khả dụng hoặc bạn không có quyền xem video này.'
     ,'watch.playbackQualityError': 'Không tải được các bản chất lượng cao hơn. Video nguồn vẫn có thể phát.'
     ,'watch.renditionError': 'Không thể phát bản chất lượng này. Hãy thử chọn chất lượng khác.'
-    ,'watch.lowerRenditionFallback': 'Bản phát hiện tại gặp lỗi; HuTube đang thử chất lượng thấp hơn.'
-    ,'watch.sourceFallback': 'Bản phát chất lượng gặp lỗi; HuTube đang thử tệp nguồn.'
+    ,'watch.lowerRenditionFallback': 'Bản phát hiện tại gặp lỗi; Dalitu đang thử chất lượng thấp hơn.'
+    ,'watch.sourceFallback': 'Bản phát chất lượng gặp lỗi; Dalitu đang thử tệp nguồn.'
     ,'watch.pictureInPictureUnsupported': 'Trình duyệt này không hỗ trợ chế độ cửa sổ nổi.'
     ,'watch.pictureInPictureFailed': 'Không thể mở video trong cửa sổ nổi.'
     ,'watch.playError': 'Không thể phát video ở thời điểm này.'
@@ -1850,7 +1851,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.relatedVideos': 'Video liên quan'
     ,'watch.sameChannel': 'Cùng của kênh'
     ,'watch.recommendedTitle': 'Đề xuất cho bạn'
-    ,'watch.recommendedDesc': 'Tiếp tục khám phá trên HuTube'
+    ,'watch.recommendedDesc': 'Tiếp tục khám phá trên Dalitu'
     ,'watch.autoplay': 'Tự động phát'
     ,'watch.newlyPosted': 'Mới đăng'
      ,'watch.noRecommended': 'Chưa có video đề xuất.'
@@ -1873,7 +1874,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'watch.reportDescriptionPrompt': 'Mô tả thêm (không bắt buộc):'
      ,'watch.repliesError': 'Không thể tải câu trả lời.'
      ,'watch.recommendationViews': '{count} lượt xem'
-     ,'watch.originalBadge': 'HUTUBE ORIGINAL'
+     ,'watch.originalBadge': 'DALITU ORIGINAL'
 
     ,'plans.defaultUploadQuality': '1080p Full HD'
      ,'plans.defaultDownloadQuality': '720p'
@@ -1899,7 +1900,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'upload.chapterNameAria': 'Tên chương'
     ,'upload.chapterStartAria': 'Thời điểm bắt đầu'
     ,'upload.preModeration': 'Tiền kiểm duyệt'
-    ,'upload.preModerationDesc': 'Video sẽ được gửi đến hàng đợi thẩm định trước khi hiển thị công khai trên HuTube.'
+    ,'upload.preModerationDesc': 'Video sẽ được gửi đến hàng đợi thẩm định trước khi hiển thị công khai trên Dalitu.'
     ,'upload.commitment': 'Tôi cam kết video này tuân thủ'
     ,'upload.and': 'và'
     ,'upload.noPlaylist': '-- Chọn danh sách phát (tùy chọn) --'
@@ -1913,8 +1914,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'upload.frameLabel': 'Khung hình {index}'
      ,'upload.playlistDalat': 'Du lịch Đà Lạt'
      ,'upload.playlistVietnam': 'Vẻ đẹp Việt Nam'
-     ,'upload.policyCommitmentDesc': 'Tôi xác nhận video này tuân thủ {community} và {terms} của HuTube.'
-     ,'upload.commitmentSuffix': 'của HuTube. Video không chứa nội dung kích động thù địch, bạo lực, khiêu dâm hoặc vi phạm bản quyền.'
+     ,'upload.policyCommitmentDesc': 'Tôi xác nhận video này tuân thủ {community} và {terms} của Dalitu.'
+     ,'upload.commitmentSuffix': 'của Dalitu. Video không chứa nội dung kích động thù địch, bạo lực, khiêu dâm hoặc vi phạm bản quyền.'
      ,'upload.fileTypeError': 'File không phải định dạng video được hỗ trợ. Chọn MP4, WebM, MOV hoặc MKV.'
      ,'upload.metadataError': 'Không đọc được thông tin video. File có thể bị hỏng hoặc trình duyệt không hỗ trợ định dạng này.'
      ,'upload.selectFileError': 'Vui lòng chọn file video trước.'
@@ -1923,7 +1924,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'upload.storageWait': 'Đang kiểm tra dung lượng lưu trữ, vui lòng chờ một chút.'
      ,'upload.preflightUnavailable': 'Chưa kiểm tra được file với máy chủ.'
      ,'upload.titleRequired': 'Vui lòng nhập tiêu đề video.'
-     ,'upload.policyRequired': 'Vui lòng xác nhận cam kết tuân thủ Tiêu chuẩn cộng đồng HuTube trước khi gửi duyệt.'
+     ,'upload.policyRequired': 'Vui lòng xác nhận cam kết tuân thủ Tiêu chuẩn cộng đồng Dalitu trước khi gửi duyệt.'
      ,'upload.uploadInProgress': 'Đang có một video khác được tải lên.'
      ,'upload.chaptersInvalid': 'Các chương phải có tiêu đề, mốc thời gian tăng dần và nằm trong video.'
      ,'upload.previewError': 'Trình duyệt không thể phát bản xem trước của file này.'
@@ -1948,7 +1949,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'studio.defaultCreator': 'Nắng Lang Thang'
     ,'studio.commentManagedReason': 'Chủ kênh quản lý'
      ,'studio.defaultUsername': '@creator'
-     ,'ui.studioNavigation': 'Điều hướng HuTube Creator Studio'
+     ,'ui.studioNavigation': 'Điều hướng Dalitu Creator Studio'
      ,'channel.membersList': 'Danh sách thành viên kênh'
      ,'channel.handleMinCreate': 'Handle cần tối thiểu 3 ký tự.'
      ,'channel.handleMaxCreate': 'Handle tối đa 50 ký tự.'
@@ -1963,18 +1964,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'plans.inviteSent': 'Đã gửi lời mời gói dịch vụ.'
      ,'plans.revokeSent': 'Đã thu hồi lời mời.'
      ,'plans.members': '{count} người'
-     ,'plans.shareText': 'Gói {name} của HuTube'
+     ,'plans.shareText': 'Gói {name} của Dalitu'
      ,'plans.qualityUpload': 'Tải lên {quality}'
      ,'plans.qualityDownload': 'Tải xuống {quality}'
      ,'plans.subscribeErrorFallback': 'Không thể đăng ký gói dịch vụ ({status}).'
-     ,'auth.about': 'Giới thiệu về HuTube'
-     ,'auth.homeLink': 'HuTube — về trang chủ'
+     ,'auth.about': 'Giới thiệu về Dalitu'
+     ,'auth.homeLink': 'Dalitu — về trang chủ'
      ,'auth.slideStoryAlt': 'Người sáng tạo kể câu chuyện của mình'
      ,'auth.slideWorldAlt': 'Khám phá thế giới qua video'
      ,'auth.slideInspireAlt': 'Cộng đồng truyền cảm hứng'
      ,'auth.layoutTagline': 'Nền tảng video mở, sáng tạo và tử tế hơn.'
-     ,'auth.layoutFooter': '© 2026 HuTube LLC. Bảo lưu mọi quyền.'
-     ,'auth.layoutBrand': 'HuTube Orbit'
+     ,'auth.layoutFooter': '© 2026 Dalitu LLC. Bảo lưu mọi quyền.'
+     ,'auth.layoutBrand': 'Dalitu'
      ,'watch.yourLibrary': 'THƯ VIỆN CỦA BẠN'
      ,'watch.choosePlaylistToSave': 'Chọn một playlist để lưu video này đúng chỗ.'
      ,'watchPlaylist.loginRequired': 'Vui lòng đăng nhập để thêm video vào danh sách phát.'
@@ -2083,7 +2084,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'report.sample.abusiveComment': 'Bình luận xúc phạm, bôi nhọ danh dự',
     'report.sample.copyright': 'Vi phạm bản quyền hình ảnh / âm thanh',
     'report.sample.dangerousConduct': 'Hành vi nguy hiểm hoặc kích động thù hận',
-    'channel.reportSuccess': 'Cảm ơn bạn đã gửi báo cáo. Chúng tôi sẽ xem xét nội dung này theo Nguyên tắc cộng đồng HuTube.'
+    'channel.reportSuccess': 'Cảm ơn bạn đã gửi báo cáo. Chúng tôi sẽ xem xét nội dung này theo Nguyên tắc cộng đồng Dalitu.'
      ,'notification.channelInviteToast': 'Bạn có lời mời tham gia kênh{channel}.'
      ,'studio.accessibleChannelsError': 'Không thể tải danh sách kênh bạn có quyền truy cập.'
      ,'studio.channelDataError': 'Không thể tải dữ liệu Studio cho kênh này.'
@@ -2102,29 +2103,29 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'ui.statusScheduled': 'Đã lên lịch'
      ,'ui.statusPending': 'Đang chờ'
      ,'ui.statusRejected': 'Bị từ chối'
-     ,'title.login': 'Đăng nhập · HuTube'
-     ,'title.register': 'Đăng ký · HuTube'
-     ,'title.verifyEmail': 'Xác minh email · HuTube'
-     ,'title.forgotPassword': 'Quên mật khẩu · HuTube'
-     ,'title.resetPassword': 'Đặt lại mật khẩu · HuTube'
-     ,'title.home': 'Trang chủ · HuTube'
-     ,'title.explore': 'Khám phá · HuTube'
-     ,'title.watch': 'Xem video · HuTube'
-     ,'title.terms': 'Điều khoản dịch vụ · HuTube'
-     ,'title.privacy': 'Chính sách bảo mật · HuTube'
-     ,'title.guidelines': 'Tiêu chuẩn cộng đồng · HuTube'
-     ,'title.policies': 'Trung tâm chính sách · HuTube'
-     ,'title.plans': 'Gói dịch vụ · HuTube'
-     ,'title.planInvite': 'Nhận lời mời gói · HuTube'
-     ,'title.planDetail': 'Chi tiết gói · HuTube'
-     ,'title.account': 'Cài đặt · HuTube'
-     ,'title.history': 'Lịch sử xem · HuTube'
-     ,'title.liked': 'Video đã thích · HuTube'
-     ,'title.channelCreate': 'Tạo kênh · HuTube'
-     ,'title.channel': 'Kênh · HuTube'
-     ,'title.channelCustomize': 'Tùy chỉnh kênh · HuTube'
+     ,'title.login': 'Đăng nhập · Dalitu'
+     ,'title.register': 'Đăng ký · Dalitu'
+     ,'title.verifyEmail': 'Xác minh email · Dalitu'
+     ,'title.forgotPassword': 'Quên mật khẩu · Dalitu'
+     ,'title.resetPassword': 'Đặt lại mật khẩu · Dalitu'
+     ,'title.home': 'Trang chủ · Dalitu'
+     ,'title.explore': 'Khám phá · Dalitu'
+     ,'title.watch': 'Xem video · Dalitu'
+     ,'title.terms': 'Điều khoản dịch vụ · Dalitu'
+     ,'title.privacy': 'Chính sách bảo mật · Dalitu'
+     ,'title.guidelines': 'Tiêu chuẩn cộng đồng · Dalitu'
+     ,'title.policies': 'Trung tâm chính sách · Dalitu'
+     ,'title.plans': 'Gói dịch vụ · Dalitu'
+     ,'title.planInvite': 'Nhận lời mời gói · Dalitu'
+     ,'title.planDetail': 'Chi tiết gói · Dalitu'
+     ,'title.account': 'Cài đặt · Dalitu'
+     ,'title.history': 'Lịch sử xem · Dalitu'
+     ,'title.liked': 'Video đã thích · Dalitu'
+     ,'title.channelCreate': 'Tạo kênh · Dalitu'
+     ,'title.channel': 'Kênh · Dalitu'
+     ,'title.channelCustomize': 'Tùy chỉnh kênh · Dalitu'
      ,'title.studioSetup': 'Thiết lập kênh · Studio'
-     ,'title.studioOverview': 'Creator Studio · HuTube'
+     ,'title.studioOverview': 'Creator Studio · Dalitu'
      ,'title.studioContent': 'Nội dung kênh · Studio'
      ,'title.studioUpload': 'Tải lên video · Studio'
      ,'title.studioAnalytics': 'Số liệu phân tích · Studio'
@@ -2217,7 +2218,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'playlists.editInfo': 'Edit details',
     'playlists.descriptionFallback': 'A collection of videos arranged for continuous viewing.',
     'playlists.yours': 'Your playlist',
-    'playlists.hutubeCreator': 'HuTube creator',
+    'playlists.hutubeCreator': 'Dalitu creator',
     'playlists.playAll': 'Play all',
     'playlists.shuffle': 'Shuffle',
     'playlists.addVideo': 'Add video',
@@ -2290,7 +2291,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'profile.defaultBio': 'Loving healing videos, travel, cuisine and discovering the world. A bit of positivity every day!',
     'profile.joinedIn': 'Joined',
     'profile.verifiedUser': 'Verified',
-    'profile.premiumMember': 'HuTube Premium',
+    'profile.premiumMember': 'Dalitu Premium',
     'profile.tabOverview': 'Overview',
     'profile.tabHistory': 'Watch history',
     'profile.tabLiked': 'Liked videos',
@@ -2335,7 +2336,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'profile.description': 'Description',
     'profile.copiedLink': 'Profile link copied to clipboard',
 
-    'nav.studio': 'HuTube Studio',
+    'nav.studio': 'Dalitu Studio',
     'nav.enterStudio': 'Creator Studio',
     'nav.studioSub': 'Create & manage videos',
     'nav.logout': 'Sign out',
@@ -2373,20 +2374,20 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     'policies.breadcrumbHome': 'Home',
     'policies.breadcrumbLegal': 'Policy & Legal',
-    'policies.badgeStandard': 'HuTube Standards · International Best Practices & Decree 13/2023/ND-CP',
+    'policies.badgeStandard': 'Dalitu Standards · International Best Practices & Decree 13/2023/ND-CP',
     'policies.heroTitle': 'Our Platform Policies',
-    'policies.heroMission': 'HuTube’s mission is to give everyone a voice and show them the world. Openness and freedom of expression are central to this mission. Diverse viewpoints are encouraged while maintaining a safe, healthy environment for our community.',
+    'policies.heroMission': 'Dalitu’s mission is to give everyone a voice and show them the world. Openness and freedom of expression are central to this mission. Diverse viewpoints are encouraged while maintaining a safe, healthy environment for our community.',
     'policies.heroUpdated': 'Updated: 2026',
-    'policies.heroEffective': 'Scope: Entire HuTube platform, mobile apps & web services',
+    'policies.heroEffective': 'Scope: Entire Dalitu platform, mobile apps & web services',
 
     'policies.tab.guidelines.title': 'Community Guidelines',
-    'policies.tab.guidelines.desc': 'Standards that keep HuTube a safe, respectful, and vibrant space for creators and viewers alike.',
+    'policies.tab.guidelines.desc': 'Standards that keep Dalitu a safe, respectful, and vibrant space for creators and viewers alike.',
     'policies.tab.privacy.title': 'Privacy & Security',
     'policies.tab.privacy.desc': 'Transparent data practices, comprehensive protection compliant with Decree 13/2023/ND-CP, putting you in full control.',
     'policies.tab.terms.title': 'Terms of Service',
-    'policies.tab.terms.desc': 'Binding legal terms defining your rights and obligations when accessing, sharing videos, and using HuTube services.',
+    'policies.tab.terms.desc': 'Binding legal terms defining your rights and obligations when accessing, sharing videos, and using Dalitu services.',
     'policies.tab.monetization.title': 'Monetization & Partner',
-    'policies.tab.monetization.desc': 'Eligibility criteria for the HuTube Partner Program, advertiser-friendly guidelines, and revenue sharing rules.',
+    'policies.tab.monetization.desc': 'Eligibility criteria for the Dalitu Partner Program, advertiser-friendly guidelines, and revenue sharing rules.',
     'policies.tab.enforcement.title': 'Enforcement & Appeals',
     'policies.tab.enforcement.desc': 'Transparent disciplinary enforcement via strike stages, EDSA contextual exceptions, and a fair appeals framework.',
 
@@ -2403,7 +2404,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.sev.info': 'Info',
 
     'policies.tools.title': 'Your Rights & Choices',
-    'policies.tools.desc': 'In accordance with Decree 13/2023/ND-CP, you have full control over your personal data on HuTube.',
+    'policies.tools.desc': 'In accordance with Decree 13/2023/ND-CP, you have full control over your personal data on Dalitu.',
     'policies.tools.exportTag': 'DATA EXPORT',
     'policies.tools.exportTitle': 'Download Your Data Archive',
     'policies.tools.exportDesc': 'Download an encrypted ZIP archive containing your videos, comments, history, and profile data.',
@@ -2424,7 +2425,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.tools.adsChanged': 'Personalized behavioral advertising has been set to {status}.',
 
     'policies.strikes.systemTitle': 'Community Strikes & Disciplinary System',
-    'policies.strikes.systemDesc': 'HuTube applies a multi-step progressive enforcement mechanism paired with educational policy courses to help creators understand and correct mistakes.',
+    'policies.strikes.systemDesc': 'Dalitu applies a multi-step progressive enforcement mechanism paired with educational policy courses to help creators understand and correct mistakes.',
     'policies.strikes.warning.badge': 'Warning',
     'policies.strikes.warning.title': 'Initial Educational Warning',
     'policies.strikes.warning.desc': 'First-time violations trigger an educational notification and a 15-minute policy refresher. Content is removed without a strike penalty or functional restrictions.',
@@ -2439,7 +2440,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.strikes.s3.desc': 'Accumulating 3 strikes within 90 days results in permanent account and channel termination, deleting all videos and barring future channel creation.',
     'policies.footer.brandCaption': 'Transparency & User Safety Hub',
     'policies.footer.lang': 'English (US)',
-    'policies.footer.copyright': '© 2026 HuTube LLC. All rights reserved under statutory laws.',
+    'policies.footer.copyright': '© 2026 Dalitu LLC. All rights reserved under statutory laws.',
 
     // 33 Policy Names and Contents (EN)
     'policy.CHILD_SAFETY.name': 'Child Safety',
@@ -2485,13 +2486,13 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policy.SECURITY_ENCRYPTION.name': 'Security & Encryption Standards',
     'policy.SECURITY_ENCRYPTION.content': 'All user data in transit and at rest is secured via TLS 1.3 and hardware-level AES-256 encryption at domestic Tier-3 Data Centers.',
     'policy.TERMS_ACCEPTANCE.name': 'Terms Acceptance & Service Scope',
-    'policy.TERMS_ACCEPTANCE.content': 'Binding legal contract governing all access and utilization of video sharing and social community services on HuTube.',
+    'policy.TERMS_ACCEPTANCE.content': 'Binding legal contract governing all access and utilization of video sharing and social community services on Dalitu.',
     'policy.USER_ACCOUNTS.name': 'User Accounts & Security',
     'policy.USER_ACCOUNTS.content': 'Safeguarding login credentials, enabling 2-factor authentication, and assuming legal responsibility for activities conducted under your account.',
     'policy.COPYRIGHT_UGC.name': 'Copyright & UGC License',
-    'policy.COPYRIGHT_UGC.content': 'Creators retain intellectual property rights over original content while granting HuTube a global license to host and broadcast. Infringement is barred.',
+    'policy.COPYRIGHT_UGC.content': 'Creators retain intellectual property rights over original content while granting Dalitu a global license to host and broadcast. Infringement is barred.',
     'policy.SERVICE_TERMINATION.name': 'Service Termination & Account Closure',
-    'policy.SERVICE_TERMINATION.content': 'HuTube reserves the right to suspend or terminate accounts in response to severe terms violations, repeated strikes, or illicit conduct.',
+    'policy.SERVICE_TERMINATION.content': 'Dalitu reserves the right to suspend or terminate accounts in response to severe terms violations, repeated strikes, or illicit conduct.',
     'policy.LIABILITY_LIMITATION.name': 'Limitation of Liability',
     'policy.LIABILITY_LIMITATION.content': 'Scope of platform legal liability regarding third-party user-generated uploads and external third-party content.',
     'policy.PARTNER_ELIGIBILITY.name': 'Partner Program Eligibility',
@@ -2510,8 +2511,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policy.MODERATION_INFRASTRUCTURE.content': 'Multi-layered moderation ecosystem: multimodal automated AI scanning paired with native human moderation specialists.',
 
     // Auth
-    'auth.loginTitle': 'Sign in to HuTube',
-    'auth.registerTitle': 'Create your HuTube account',
+    'auth.loginTitle': 'Sign in to Dalitu',
+    'auth.registerTitle': 'Create your Dalitu account',
     'auth.forgotPasswordTitle': 'Recover password',
     'auth.resetPasswordTitle': 'Set a new password',
     'auth.verifyEmailTitle': 'Verify your email',
@@ -2543,26 +2544,26 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.tabAdvanced': 'Advanced settings',
 
     // Tab Account Hero & Sections (Image 1)
-    'account.accountHeroTitle': 'Choose how you appear and what you see on HuTube',
+    'account.accountHeroTitle': 'Choose how you appear and what you see on Dalitu',
     'account.signedInAs': 'Signed in as',
-    'account.channelDescImage1': 'This is your public presence on HuTube. You need a channel to upload your own videos, comment on videos, or create playlists.',
+    'account.channelDescImage1': 'This is your public presence on Dalitu. You need a channel to upload your own videos, comment on videos, or create playlists.',
     'account.yourChannelLabel': 'Your channel',
     'account.channelStatusLink': 'Channel status and features',
     'account.createChannelLink': 'Create a new channel',
     'account.viewAdvancedLink': 'View advanced settings',
     'account.yourAccountSection': 'Your account',
-    'account.yourAccountDesc': 'You sign in to HuTube with your HuTube account',
-    'account.hutubeAccountLabel': 'HuTube Account',
-    'account.hutubeAccountAction': 'View or change your HuTube account settings',
+    'account.yourAccountDesc': 'You sign in to Dalitu with your Dalitu account',
+    'account.hutubeAccountLabel': 'Dalitu Account',
+    'account.hutubeAccountAction': 'View or change your Dalitu account settings',
     'account.hutubeAccountRedirect': 'You will be redirected to your account page',
 
     // Tab Privacy (Image 2)
-    'account.privacyHeroTitle': 'Manage what you share on HuTube',
+    'account.privacyHeroTitle': 'Manage what you share on Dalitu',
     'account.privacyHeroSub': 'Choose who can see your subscriptions',
     'account.privacyHeroReview': 'Review the',
-    'account.privacyHeroTos': 'HuTube Terms of Service',
+    'account.privacyHeroTos': 'Dalitu Terms of Service',
     'account.privacyHeroAnd': 'and',
-    'account.privacyHeroPrivacyPolicy': 'HuTube Privacy Policy',
+    'account.privacyHeroPrivacyPolicy': 'Dalitu Privacy Policy',
     'account.subscriptionsHeading': 'Subscriptions',
     'account.keepSubsPrivate': 'Keep all my subscriptions private',
     'account.keepSubsPrivateDesc': "Other people will not be able to see your subscriptions, unless you use features that make them public.",
@@ -2600,18 +2601,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Tab Billing and Payments
     'account.billingHeroTitle': 'Billing and payments',
-    'account.billingHeroSub': 'Manage payment methods and HuTube memberships',
+    'account.billingHeroSub': 'Manage payment methods and Dalitu memberships',
     'account.paymentMethodsHeading': 'Payment methods',
     'account.noPaymentMethod': 'No payment methods saved',
     'account.addPaymentMethod': 'Add payment method',
     'account.membershipsHeading': 'Purchases and memberships',
-    'account.membershipsDesc': 'Enjoy ad-free HuTube, offline downloads and background play with HuTube Premium',
-    'account.learnMorePremium': 'Learn about HuTube Premium',
+    'account.membershipsDesc': 'Enjoy ad-free Dalitu, offline downloads and background play with Dalitu Premium',
+    'account.learnMorePremium': 'Learn about Dalitu Premium',
     'account.currentPlanTitle': 'Current plan',
     'account.currentPlanDesc': 'Plan details and validity for this account.',
     'account.currentPlanLoading': 'Loading plan details...',
     'account.noCurrentPlan': 'You do not have an active plan',
-    'account.noCurrentPlanDesc': 'Choose a plan to get more HuTube features.',
+    'account.noCurrentPlanDesc': 'Choose a plan to get more Dalitu features.',
     'account.viewPlans': 'Browse plans',
     'account.planActive': 'Active',
     'account.planExpired': 'Expired',
@@ -2671,8 +2672,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.videosCount': 'videos',
     'account.viewChannel': 'View channel',
     'account.customizeChannel': 'Customize channel',
-    'account.yourHuTubeChannel': 'Your HuTube Channel',
-    'account.noChannelDesc': "You don't have a HuTube channel yet. Create one now to start uploading videos, building a community, and sharing your creative passion!",
+    'account.yourHuTubeChannel': 'Your Dalitu Channel',
+    'account.noChannelDesc': "You don't have a Dalitu channel yet. Create one now to start uploading videos, building a community, and sharing your creative passion!",
     'account.createChannelBtn': 'Create new channel',
     'account.passwordHeading': 'Change Password',
     'account.passwordDesc': 'For security, use a strong password with at least 10 characters.',
@@ -2753,8 +2754,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.about': 'About',
     'channel.customize': 'Customize channel',
     'channel.manageVideos': 'Manage videos',
-    'channel.createTitle': 'Create HuTube Channel',
-    'channel.createDesc': 'Begin your creative storytelling journey on HuTube.',
+    'channel.createTitle': 'Create Dalitu Channel',
+    'channel.createDesc': 'Begin your creative storytelling journey on Dalitu.',
     'channel.name': 'Channel Name',
     'channel.handle': 'Channel Handle',
     'channel.description': 'Channel Description',
@@ -2765,7 +2766,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noInvitations': 'You have no pending invitations.',
 
     // Studio
-    'studio.title': 'HuTube Creator Studio',
+    'studio.title': 'Dalitu Creator Studio',
     'studio.navGroupManage': 'CHANNEL MANAGEMENT',
     'studio.navGroupCommunity': 'COMMUNITY',
     'studio.navGroupTools': 'TOOLS',
@@ -2778,14 +2779,14 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.comments': 'Comments',
     'studio.subtitles': 'Subtitles',
     'studio.settings': 'Channel Settings',
-    'studio.proTitle': 'HuTube Pro',
+    'studio.proTitle': 'Dalitu Pro',
     'studio.proDesc': 'Unlock premium creator tools and analytics',
     'studio.upgradeNow': 'Upgrade now',
     'studio.collapse': 'Collapse',
     'studio.searchPlaceholder': 'Search across your channel...',
     'studio.create': 'Create',
     'studio.creator': 'Creator',
-    'studio.backToWeb': 'Back to HuTube',
+    'studio.backToWeb': 'Back to Dalitu',
     'studio.overviewSubtitle': 'Channel overview and performance for the last 28 days',
     'studio.subscribersCount': 'Subscribers',
     'studio.viewsCount': 'Views',
@@ -2826,7 +2827,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.onVideo': 'on',
     'studio.reply': 'Reply',
     'studio.like': '❤️ Like',
-    'studio.subtitlesSubtitle': 'Manage multilingual subtitles and auto-generate with HuTube AI',
+    'studio.subtitlesSubtitle': 'Manage multilingual subtitles and auto-generate with Dalitu AI',
     'studio.primaryLanguage': 'Primary language',
     'studio.autoSubtitle': 'Automatic',
     'studio.reviewed': 'Reviewed',
@@ -2836,7 +2837,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'studio.currencyVND': 'VND - Vietnamese Dong (₫)',
     'studio.currencyUSD': 'USD - US Dollar ($)',
     'studio.defaultLicense': 'Default license standard',
-    'studio.licenseStandard': 'Standard HuTube License',
+    'studio.licenseStandard': 'Standard Dalitu License',
     'studio.licenseCC': 'Creative Commons - Attribution (CC BY)',
     'studio.defaultCommentsMode': 'Default comments mode for new videos',
     'studio.commentsAllowAll': 'Allow all comments',
@@ -2845,7 +2846,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
 
     // Upload Video 6 Steps
     'upload.title': 'Upload video',
-    'upload.subtitle': 'Share your story with the HuTube community',
+    'upload.subtitle': 'Share your story with the Dalitu community',
     'upload.step1': 'Choose file',
     'upload.step2': 'Video details',
     'upload.step3': 'Video elements',
@@ -2910,13 +2911,13 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step3.noPublishedVideos': 'This channel has no published public videos to link yet.',
     'upload.videoCardsInvalid': 'A related video or its timestamp is invalid. Check that the video is published and the time is within this video.',
     'upload.videoCardFieldsInvalid': 'Choose a video and a valid timestamp. Videos and timestamps must be unique.',
-    'upload.step3.aiSubTitle': 'HuTube AI Smart Subtitles',
+    'upload.step3.aiSubTitle': 'Dalitu AI Smart Subtitles',
     'upload.step3.aiSubDesc': 'Automatically recognize speech and generate 98% accurate subtitles.',
     'upload.step5.schedDate': 'Premiere Date',
     'upload.step5.schedTime': 'Premiere Time',
 
     'upload.step4.heading': 'Initial Checks',
-    'upload.step4.subheading': 'We are screening your video to ensure it meets HuTube quality and policy standards.',
+    'upload.step4.subheading': 'We are screening your video to ensure it meets Dalitu quality and policy standards.',
     'upload.step4.checkFile': 'Valid video file',
     'upload.step4.checkFileSub': 'Format, size, resolution...',
     'upload.step4.checkMeta': 'Complete metadata',
@@ -2960,12 +2961,12 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.step5.allowCommentsDesc': 'Viewers can leave comments on your video.',
     'upload.step5.addPlaylist': 'Add to playlist',
     'upload.step5.selectPlaylist': 'Select playlist (optional)',
-    'upload.step5.policyNotice': 'Notice: Videos are made public only after automated processing completes and passes HuTube guidelines.',
+    'upload.step5.policyNotice': 'Notice: Videos are made public only after automated processing completes and passes Dalitu guidelines.',
 
     'upload.step6.congrats': 'Your video has been submitted for publishing!',
-    'upload.step6.congratsDesc': 'Your video has been processed and is ready to appear on your channel. Thank you for sharing great content with HuTube!',
+    'upload.step6.congratsDesc': 'Your video has been processed and is ready to appear on your channel. Thank you for sharing great content with Dalitu!',
     'upload.step6.moderationPending': 'Video sent for moderation!',
-    'upload.step6.moderationPendingDesc': 'Your video is waiting for HuTube review. It will appear publicly only after approval; you can track its status in Content.',
+    'upload.step6.moderationPendingDesc': 'Your video is waiting for Dalitu review. It will appear publicly only after approval; you can track its status in Content.',
     'upload.step6.moderationStatus': 'Awaiting moderation',
     'upload.step6.summaryHeading': 'Video Details',
     'upload.step6.videoLink': 'Video link',
@@ -2994,8 +2995,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'upload.sidebar.importantNotes': 'Important Guidelines',
     'upload.sidebar.note1': 'Only upload content that you own or have explicit permission to use.',
     'upload.sidebar.note2': 'Do not post content that violates copyright, promotes violence, or spreads disinformation.',
-    'upload.sidebar.note3': 'HuTube automatically inspects media before public indexing.',
-    'upload.sidebar.policyLink': 'Learn more about HuTube Content Guidelines →',
+    'upload.sidebar.note3': 'Dalitu automatically inspects media before public indexing.',
+    'upload.sidebar.policyLink': 'Learn more about Dalitu Content Guidelines →',
     'upload.sidebar.statusTitle': 'Processing Status',
     'upload.sidebar.statusUploaded': 'Upload complete',
     'upload.sidebar.statusProcessed': 'Video encoding complete',
@@ -3074,7 +3075,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.filters': 'Explore filters',
     'explore.heading': 'Explore videos',
     'explore.searchHeading': 'Search results',
-    'explore.subtitle': 'Find new stories, ideas, and creators on HuTube.',
+    'explore.subtitle': 'Find new stories, ideas, and creators on Dalitu.',
     'explore.searchSubmit': 'Search',
     'explore.topics': 'Popular topics',
     'explore.sortBy': 'Sort by',
@@ -3120,7 +3121,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'explore.noRankedVideos': 'No videos qualify for ranking yet.',
     'explore.noCategoryVideos': 'There are no videos in this category yet.',
     'explore.featuredCreators': 'Featured creators',
-    'explore.featuredCreatorsSubtitle': 'Creators viewers are enjoying on HuTube',
+    'explore.featuredCreatorsSubtitle': 'Creators viewers are enjoying on Dalitu',
     'explore.subscribers': 'subscribers',
     'explore.subscribed': 'Subscribed',
     'explore.subscribe': 'Subscribe',
@@ -3165,10 +3166,10 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.collaborationTitle': 'You have been invited to collaborate',
     'channel.collaborationDesc': 'You do not need to create your own channel to work on an invited channel.',
     'channel.viewInvitations': 'View invitations',
-    'channel.ownedTitle': 'You already own a HuTube channel',
+    'channel.ownedTitle': 'You already own a Dalitu channel',
     'channel.ownedDesc': 'Each account can be linked to one broadcasting channel.',
     'channel.viewYourChannel': 'View your channel',
-    'channel.formTitle': 'Create your HuTube channel',
+    'channel.formTitle': 'Create your Dalitu channel',
     'channel.formDesc': 'Start sharing creative videos and connect with your viewers.',
     'channel.uploadBanner': 'Upload a channel banner (16:9 or landscape recommended)',
     'channel.bannerAlt': 'Banner preview',
@@ -3178,7 +3179,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.namePlaceholder': 'Example: Science TV, Travel Stories...',
     'channel.handleLabel': 'Handle *',
     'channel.handlePlaceholder': 'mychannel',
-    'channel.handleHelp': 'Your handle is your unique address: hutube.vn/@{handle}',
+    'channel.handleHelp': 'Your handle is your unique address: @{handle}',
     'channel.descriptionLabel': 'Channel description',
     'channel.descriptionPlaceholder': 'Introduce your channel so viewers know what to expect...',
     'channel.contactEmail': 'Business contact email',
@@ -3219,7 +3220,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.noPlaylistsDesc': 'No public playlists have been created on this channel.',
     'channel.contactDetails': 'Contact details',
     'channel.noLinks': 'No external links yet.',
-    'channel.channelUrl': 'www.hutube.vn/@{handle}',
+    'channel.channelUrl': '@{handle}',
     'channel.joined': 'Joined {date}',
     'channel.totalViews': 'views',
     'channel.shareCopied': 'Copied!',
@@ -3315,14 +3316,14 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'channel.inviteWithdrawn': 'Invitation withdrawn.',
     'channel.confirmNameMismatch': 'The confirmation channel name does not match.',
     'channel.handleChannel': 'Channel handle *',
-    'channel.address': 'Your channel address: hutube.vn/@{handle}',
+    'channel.address': 'Your channel address: @{handle}',
     'channel.businessEmail': 'Business contact email',
     'channel.links': 'Links',
     'channel.linksDesc': 'Share external links with viewers. These links appear on your channel profile and introduction page.',
     'channel.reorderLink': 'Drag to reorder',
     'channel.removeLink': 'Remove link',
     'channel.avatarTitle': 'Channel avatar',
-    'channel.avatarDesc': 'Your avatar appears beside your videos and comments on HuTube.',
+    'channel.avatarDesc': 'Your avatar appears beside your videos and comments on Dalitu.',
     'channel.changeAvatar': 'Change avatar',
     'channel.bannerTitle': 'Channel banner',
     'channel.bannerDesc': 'This image appears at the top of your channel.',
@@ -3392,6 +3393,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.sharedPlanOwnerFallback': 'the plan owner',
     'plans.sharedMemberQuota': 'The quota above shows only the storage allocated to you.',
     'plans.leaveSharedPlan': 'Leave shared plan',
+    'plans.leaveSharedHint': 'After leaving, your account will return to the default plan.',
     'plans.leaveSharedConfirm': 'Leave the shared plan with {owner}? Your account will return to the default plan.',
     'plans.leftSharedPlan': 'You left the shared plan.',
     'plans.leaveSharedError': 'Unable to leave the shared plan.',
@@ -3488,7 +3490,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.viewMode': 'Plan display mode',
     'plans.catalogLabel': 'Service plans',
     'plans.allPlans': 'All service plans',
-    'plans.detailDesc': 'A plan for creators and advanced viewers on HuTube.',
+    'plans.detailDesc': 'A plan for creators and advanced viewers on Dalitu.',
     'plans.notPurchased': 'Plan not purchased',
     'plans.backgroundPlay': 'Background play',
     'plans.pip': 'Picture-in-picture (PiP)',
@@ -3798,7 +3800,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'ui.delete': 'Delete'
      ,'ui.confirmLogoutTitle': 'Confirm sign out'
      ,'ui.confirmLogoutDesc': 'Are you sure you want to sign out of this account?'
-     ,'ui.userHuTube': 'HuTube user'
+     ,'ui.userHuTube': 'Dalitu user'
      ,'ui.user': 'User'
      ,'ui.liked': 'Liked'
      ,'ui.playlist': 'Playlist'
@@ -3852,7 +3854,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.heroCreate': 'Create.'
     ,'auth.heroShare': 'Share.'
     ,'auth.heroBelong': 'Belong.'
-    ,'auth.heroDescription': 'HuTube gives you the tools to create, connect and explore a world of video with a community that celebrates your stories and perspective.'
+    ,'auth.heroDescription': 'Dalitu gives you the tools to create, connect and explore a world of video with a community that celebrates your stories and perspective.'
     ,'auth.featureCreate': 'Create without limits'
     ,'auth.featureCreateDesc': 'Turn your ideas into amazing videos'
     ,'auth.featureShare': 'Share your world'
@@ -3869,7 +3871,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.cardShare': 'SHARE'
     ,'auth.cardBelong': 'BELONG'
     ,'auth.subTagline': 'A MORE OPEN, CREATIVE, KINDER INTERNET'
-    ,'auth.loginSubtitle': 'Welcome back to HuTube.'
+    ,'auth.loginSubtitle': 'Welcome back to Dalitu.'
     ,'auth.adminSubtitle': 'For the administration team.'
     ,'auth.registerSubtitle': 'Get started with your email.'
     ,'auth.verifySubtitle': 'Finish verification to protect your account.'
@@ -3887,8 +3889,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.hidePassword': 'Hide password'
     ,'auth.googleLogin': 'Sign in with Google'
     ,'auth.resendEmailLabel': 'Email to receive a new link'
-    ,'auth.mobileAppLink': 'Open in the HuTube app'
-    ,'auth.appLoginLink': 'Sign in in the HuTube app'
+    ,'auth.mobileAppLink': 'Open in the Dalitu app'
+    ,'auth.appLoginLink': 'Sign in in the Dalitu app'
     ,'auth.sessionExpired': 'Your session expired. Sign in again to continue.'
     ,'auth.resetMissingToken': 'This link is missing a verification token. Request a new password reset link.'
     ,'auth.googleCredentialMissing': 'Google did not return authentication details.'
@@ -3908,8 +3910,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.unavailableError': 'This video is unavailable or you do not have permission to view it.'
     ,'watch.playbackQualityError': 'Higher-quality versions could not be loaded. The source video may still play.'
     ,'watch.renditionError': 'This quality could not be played. Try another quality.'
-    ,'watch.lowerRenditionFallback': 'This rendition failed; HuTube is trying a lower quality.'
-    ,'watch.sourceFallback': 'The quality rendition failed; HuTube is trying the source file.'
+    ,'watch.lowerRenditionFallback': 'This rendition failed; Dalitu is trying a lower quality.'
+    ,'watch.sourceFallback': 'The quality rendition failed; Dalitu is trying the source file.'
     ,'watch.pictureInPictureUnsupported': 'This browser does not support picture-in-picture.'
     ,'watch.pictureInPictureFailed': 'Could not open the floating video window.'
     ,'watch.playError': 'The video cannot play at this time.'
@@ -3950,7 +3952,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.relatedVideos': 'Related videos'
     ,'watch.sameChannel': 'From this channel'
     ,'watch.recommendedTitle': 'Recommended for you'
-    ,'watch.recommendedDesc': 'Keep exploring on HuTube'
+    ,'watch.recommendedDesc': 'Keep exploring on Dalitu'
     ,'watch.autoplay': 'Autoplay'
     ,'watch.newlyPosted': 'Newly posted'
      ,'watch.noRecommended': 'No recommended videos yet.'
@@ -3973,7 +3975,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'watch.reportDescriptionPrompt': 'Additional details (optional):'
      ,'watch.repliesError': 'Unable to load replies.'
      ,'watch.recommendationViews': '{count} views'
-     ,'watch.originalBadge': 'HUTUBE ORIGINAL'
+     ,'watch.originalBadge': 'DALITU ORIGINAL'
 
     ,'plans.defaultUploadQuality': '1080p Full HD'
      ,'plans.defaultDownloadQuality': '720p'
@@ -3999,7 +4001,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'upload.chapterNameAria': 'Chapter name'
     ,'upload.chapterStartAria': 'Start time'
     ,'upload.preModeration': 'Pre-moderation'
-    ,'upload.preModerationDesc': 'The video will be sent to review before it becomes public on HuTube.'
+    ,'upload.preModerationDesc': 'The video will be sent to review before it becomes public on Dalitu.'
     ,'upload.commitment': 'I confirm that this video follows the'
     ,'upload.and': 'and'
     ,'upload.noPlaylist': '-- Select a playlist (optional) --'
@@ -4013,8 +4015,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'upload.frameLabel': 'Frame {index}'
      ,'upload.playlistDalat': 'Da Lat travel'
      ,'upload.playlistVietnam': 'Vietnam beauty'
-     ,'upload.policyCommitmentDesc': 'I confirm this video follows HuTube\'s {community} and {terms}.'
-     ,'upload.commitmentSuffix': 'on HuTube. It contains no hate, violence, sexual content, or copyright infringement.'
+     ,'upload.policyCommitmentDesc': 'I confirm this video follows Dalitu\'s {community} and {terms}.'
+     ,'upload.commitmentSuffix': 'on Dalitu. It contains no hate, violence, sexual content, or copyright infringement.'
      ,'upload.fileTypeError': 'This file format is not supported. Choose MP4, WebM, MOV, or MKV.'
      ,'upload.metadataError': 'Unable to read video metadata. The file may be damaged or unsupported by this browser.'
      ,'upload.selectFileError': 'Select a video file first.'
@@ -4023,7 +4025,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'upload.storageWait': 'Checking storage. Please wait.'
      ,'upload.preflightUnavailable': 'The file could not be checked with the server.'
      ,'upload.titleRequired': 'Enter a video title.'
-     ,'upload.policyRequired': 'Confirm that the video follows the HuTube Community Guidelines before submitting it.'
+     ,'upload.policyRequired': 'Confirm that the video follows the Dalitu Community Guidelines before submitting it.'
      ,'upload.uploadInProgress': 'Another video is already uploading.'
      ,'upload.chaptersInvalid': 'Chapters need titles, increasing timestamps, and must stay within the video.'
      ,'upload.previewError': 'This browser cannot play the file preview.'
@@ -4048,7 +4050,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'studio.defaultCreator': 'Wandering Sunshine'
      ,'studio.commentManagedReason': 'Channel owner managed this comment'
      ,'studio.defaultUsername': '@creator'
-     ,'ui.studioNavigation': 'HuTube Creator Studio navigation'
+     ,'ui.studioNavigation': 'Dalitu Creator Studio navigation'
      ,'channel.membersList': 'Channel member list'
      ,'channel.handleMinCreate': 'The handle must be at least 3 characters.'
      ,'channel.handleMaxCreate': 'The handle can be at most 50 characters.'
@@ -4063,18 +4065,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'plans.inviteSent': 'Plan invitation sent.'
      ,'plans.revokeSent': 'Invitation revoked.'
      ,'plans.members': '{count} members'
-     ,'plans.shareText': 'HuTube {name} plan'
+     ,'plans.shareText': 'Dalitu {name} plan'
      ,'plans.qualityUpload': 'Upload {quality}'
      ,'plans.qualityDownload': 'Download {quality}'
      ,'plans.subscribeErrorFallback': 'Unable to subscribe to this plan ({status}).'
-     ,'auth.about': 'About HuTube'
-     ,'auth.homeLink': 'HuTube — home page'
+     ,'auth.about': 'About Dalitu'
+     ,'auth.homeLink': 'Dalitu — home page'
      ,'auth.slideStoryAlt': 'A creator telling their story'
      ,'auth.slideWorldAlt': 'Explore the world through video'
      ,'auth.slideInspireAlt': 'An inspiring community'
      ,'auth.layoutTagline': 'A more open, creative, kinder video platform.'
-     ,'auth.layoutFooter': '© 2026 HuTube LLC. All rights reserved.'
-     ,'auth.layoutBrand': 'HuTube Orbit'
+     ,'auth.layoutFooter': '© 2026 Dalitu LLC. All rights reserved.'
+     ,'auth.layoutBrand': 'Dalitu'
      ,'watch.yourLibrary': 'YOUR LIBRARY'
      ,'watch.choosePlaylistToSave': 'Choose a playlist to save this video to.'
      ,'watchPlaylist.loginRequired': 'Sign in to add videos to a playlist.'
@@ -4183,7 +4185,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'report.sample.abusiveComment': 'Insulting or defamatory comment',
     'report.sample.copyright': 'Copyright infringement in image or audio',
     'report.sample.dangerousConduct': 'Dangerous conduct or incitement to hatred',
-    'channel.reportSuccess': 'Thanks for your report. We will review it under HuTube Community Guidelines.'
+    'channel.reportSuccess': 'Thanks for your report. We will review it under Dalitu Community Guidelines.'
      ,'notification.channelInviteToast': 'You have an invitation to join channel{channel}.'
      ,'studio.accessibleChannelsError': 'Unable to load channels you can access.'
      ,'studio.channelDataError': 'Unable to load Studio data for this channel.'
@@ -4202,29 +4204,29 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
      ,'ui.statusScheduled': 'Scheduled'
      ,'ui.statusPending': 'Pending'
      ,'ui.statusRejected': 'Rejected'
-     ,'title.login': 'Sign in · HuTube'
-     ,'title.register': 'Create account · HuTube'
-     ,'title.verifyEmail': 'Verify email · HuTube'
-     ,'title.forgotPassword': 'Forgot password · HuTube'
-     ,'title.resetPassword': 'Reset password · HuTube'
-     ,'title.home': 'Home · HuTube'
-     ,'title.explore': 'Explore · HuTube'
-     ,'title.watch': 'Watch video · HuTube'
-     ,'title.terms': 'Terms of Service · HuTube'
-     ,'title.privacy': 'Privacy Policy · HuTube'
-     ,'title.guidelines': 'Community Guidelines · HuTube'
-     ,'title.policies': 'Policy Center · HuTube'
-     ,'title.plans': 'Plans · HuTube'
-     ,'title.planInvite': 'Accept plan invitation · HuTube'
-     ,'title.planDetail': 'Plan details · HuTube'
-     ,'title.account': 'Settings · HuTube'
-     ,'title.history': 'Watch history · HuTube'
-     ,'title.liked': 'Liked videos · HuTube'
-     ,'title.channelCreate': 'Create channel · HuTube'
-     ,'title.channel': 'Channel · HuTube'
-     ,'title.channelCustomize': 'Customize channel · HuTube'
+     ,'title.login': 'Sign in · Dalitu'
+     ,'title.register': 'Create account · Dalitu'
+     ,'title.verifyEmail': 'Verify email · Dalitu'
+     ,'title.forgotPassword': 'Forgot password · Dalitu'
+     ,'title.resetPassword': 'Reset password · Dalitu'
+     ,'title.home': 'Home · Dalitu'
+     ,'title.explore': 'Explore · Dalitu'
+     ,'title.watch': 'Watch video · Dalitu'
+     ,'title.terms': 'Terms of Service · Dalitu'
+     ,'title.privacy': 'Privacy Policy · Dalitu'
+     ,'title.guidelines': 'Community Guidelines · Dalitu'
+     ,'title.policies': 'Policy Center · Dalitu'
+     ,'title.plans': 'Plans · Dalitu'
+     ,'title.planInvite': 'Accept plan invitation · Dalitu'
+     ,'title.planDetail': 'Plan details · Dalitu'
+     ,'title.account': 'Settings · Dalitu'
+     ,'title.history': 'Watch history · Dalitu'
+     ,'title.liked': 'Liked videos · Dalitu'
+     ,'title.channelCreate': 'Create channel · Dalitu'
+     ,'title.channel': 'Channel · Dalitu'
+     ,'title.channelCustomize': 'Customize channel · Dalitu'
      ,'title.studioSetup': 'Channel setup · Studio'
-     ,'title.studioOverview': 'Creator Studio · HuTube'
+     ,'title.studioOverview': 'Creator Studio · Dalitu'
      ,'title.studioContent': 'Channel content · Studio'
      ,'title.studioUpload': 'Upload video · Studio'
      ,'title.studioAnalytics': 'Analytics · Studio'
@@ -4259,6 +4261,40 @@ export class I18nService {
     const numericValue = Number(value ?? 0);
     return new Intl.NumberFormat(this.currentLang() === 'vi' ? 'vi-VN' : 'en-US', options)
       .format(Number.isFinite(numericValue) ? numericValue : 0);
+  }
+
+  formatCompactLikeCount(value: number | string | null | undefined): string {
+    const numericValue = Number(value ?? 0);
+    const count = Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
+    const lang = this.currentLang();
+    if (count < 1_000) return this.formatNumber(count, { maximumFractionDigits: 1 });
+
+    let divisor: number;
+    let suffix: string;
+    if (count >= 1_000_000_000) {
+      divisor = 1_000_000_000;
+      suffix = lang === 'vi' ? 'T' : 'B';
+    } else if (count >= 1_000_000) {
+      divisor = 1_000_000;
+      suffix = lang === 'vi' ? 'Tr' : 'M';
+    } else {
+      divisor = 1_000;
+      suffix = lang === 'vi' ? 'N' : 'K';
+    }
+
+    // Promote values that round to 1,000 of the current unit (for example 999,950 → 1M).
+    if (divisor < 1_000_000_000 && count / divisor >= 999.95) {
+      divisor *= 1_000;
+      suffix = lang === 'vi'
+        ? divisor === 1_000_000 ? 'Tr' : 'T'
+        : divisor === 1_000_000 ? 'M' : 'B';
+    }
+
+    const compactValue = new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'en-US', {
+      maximumFractionDigits: 1,
+    }).format(count / divisor);
+
+    return lang === 'vi' ? `${compactValue} ${suffix}` : `${compactValue}${suffix}`;
   }
 
   t(key: string, params?: TranslationParams): string {

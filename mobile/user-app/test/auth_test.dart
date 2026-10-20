@@ -215,7 +215,7 @@ void main() {
     expect(auth.authenticated, isFalse);
     expect(store.token, isNull);
   });
-  test('deep links only permit explicit HuTube auth routes', () {
+  test('deep links only permit explicit Dalitu auth routes', () {
     expect(
       AuthLink.parse(Uri.parse('hutube://auth/account'))?.path,
       '/account',

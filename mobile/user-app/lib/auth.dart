@@ -182,8 +182,8 @@ class AuthController extends ChangeNotifier {
         'password': password,
         'platform': 'mobile',
         'deviceName': Platform.isIOS
-            ? 'HuTube · iPhone / iPad'
-            : 'HuTube · Android',
+            ? 'Dalitu · iPhone / iPad'
+            : 'Dalitu · Android',
         'deviceId': deviceId,
       },
     );
@@ -207,8 +207,8 @@ class AuthController extends ChangeNotifier {
         'credential': credential,
         'platform': 'mobile',
         'deviceName': Platform.isIOS
-            ? 'HuTube · iPhone / iPad'
-            : 'HuTube · Android',
+            ? 'Dalitu · iPhone / iPad'
+            : 'Dalitu · Android',
         'deviceId': deviceId,
       },
     );

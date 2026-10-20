@@ -41,25 +41,25 @@ class AppStrings {
   static const Map<String, Map<String, String>> _localizedValues = {
     'vi': {
       'survey.close': 'Đóng lời mời khảo sát',
-      'survey.invitationTitle': 'Bạn ơi, giúp HuTube một chút nhé!',
+      'survey.invitationTitle': 'Bạn ơi, giúp Dalitu một chút nhé!',
       'survey.invitationDescription':
-          'Bạn đã trải nghiệm HuTube rồi nè. Cho tụi mình xin vài góp ý để việc xem video và khám phá nội dung ngày càng tốt hơn nhé!',
+          'Bạn đã trải nghiệm Dalitu rồi nè. Cho tụi mình xin vài góp ý để việc xem video và khám phá nội dung ngày càng tốt hơn nhé!',
       'survey.duration': 'Khảo sát khoảng 3–5 phút · Mọi góp ý đều đáng quý',
       'survey.doSurvey': 'Làm khảo sát',
       'survey.maybeLater': 'Để mình xem thêm đã',
       'survey.pleaTitle': 'Năn nỉ bạn đó…',
       'survey.pleaDescription':
-          'Bớt chút thời gian giúp tụi mình nha? Một lời góp ý của bạn cũng giúp HuTube tốt lên từng ngày.',
+          'Bớt chút thời gian giúp tụi mình nha? Một lời góp ý của bạn cũng giúp Dalitu tốt lên từng ngày.',
       'survey.imageTitle': 'Mèo năn nỉ: Đi đi mà, năn nỉ!',
       'survey.later': 'Hẹn lần sau nhé',
       'survey.waitingTitle': 'Hẹn gặp bạn ở trang khảo sát!',
       'survey.waitingDescription':
-          'Khảo sát đã mở trong trình duyệt. Bạn nhớ bấm Gửi trên Google Form khi làm xong rồi quay lại HuTube nhé.',
+          'Khảo sát đã mở trong trình duyệt. Bạn nhớ bấm Gửi trên Google Form khi làm xong rồi quay lại Dalitu nhé.',
       'survey.autoSync':
-          'Sau khi bạn gửi bài, HuTube sẽ tự cập nhật và ngừng nhắc khảo sát trên tài khoản này, cả web và Mobile.',
+          'Sau khi bạn gửi bài, Dalitu sẽ tự cập nhật và ngừng nhắc khảo sát trên tài khoản này, cả web và Mobile.',
       'survey.reopen': 'Mở lại khảo sát',
-      'survey.continue': 'Tiếp tục xem HuTube',
-      'survey.thanksTitle': 'HuTube nhận được góp ý rồi!',
+      'survey.continue': 'Tiếp tục xem Dalitu',
+      'survey.thanksTitle': 'Dalitu nhận được góp ý rồi!',
       'survey.thanksDescription':
           'Cảm ơn bạn rất nhiều! Tài khoản của bạn đã được ghi nhận hoàn thành khảo sát.',
       'survey.openError':
@@ -147,7 +147,7 @@ class AppStrings {
       'settings.title': 'Cài đặt',
       'settings.yourChannel': 'KÊNH CỦA BẠN',
       'settings.createFirstChannel': 'Tạo kênh đầu tiên',
-      'settings.startCreating': 'Bắt đầu sáng tạo nội dung trên HuTube',
+      'settings.startCreating': 'Bắt đầu sáng tạo nội dung trên Dalitu',
       'settings.channelSettings': 'Cài đặt kênh',
       'settings.customizeChannel': 'Tùy chỉnh kênh của bạn',
       'settings.plans': 'Các gói dịch vụ',
@@ -259,18 +259,18 @@ class AppStrings {
       'notif.newVideos': 'Video mới từ kênh đã đăng ký',
       'notif.comments': 'Bình luận và phản hồi',
       'notif.subs': 'Người đăng ký mới',
-      'notif.marketing': 'Cập nhật tính năng và tin tức HuTube',
+      'notif.marketing': 'Cập nhật tính năng và tin tức Dalitu',
       'notif.newVideosDesc':
           'Nhận thông báo khi kênh bạn theo dõi xuất bản video mới.',
       'notif.commentsDesc':
           'Thông báo về hoạt động trên bình luận và video của bạn.',
       'notif.subsDesc': 'Nhận tóm tắt về hoạt động của các kênh bạn quan tâm.',
-      'notif.marketingDesc': 'Nhận tin tức về các tính năng mới từ HuTube.',
+      'notif.marketingDesc': 'Nhận tin tức về các tính năng mới từ Dalitu.',
       'notif.deviceTitle': 'Thông báo nổi trên thiết bị',
       'notif.deviceEnabled':
           'Đang bật khi ứng dụng mở. Thông báo khi app chạy nền cần cổng push riêng.',
       'notif.deviceDisabled':
-          'Cho phép để hiện thông báo nổi khi HuTube đang mở. App hiện chưa có dịch vụ push cho lúc chạy nền.',
+          'Cho phép để hiện thông báo nổi khi Dalitu đang mở. App hiện chưa có dịch vụ push cho lúc chạy nền.',
       'notif.deviceEnable': 'Bật',
       'notif.permissionDenied': 'Chưa được cấp quyền thông báo trên thiết bị.',
       'notif.autoSaving': 'Đang tự động lưu...',
@@ -279,7 +279,7 @@ class AppStrings {
 
       // Auth
       'auth.loginTitle': 'Đăng nhập',
-      'auth.registerTitle': 'Tạo tài khoản HuTube mới',
+      'auth.registerTitle': 'Tạo tài khoản Dalitu mới',
       'auth.email': 'Email',
       'auth.password': 'Mật khẩu',
       'auth.loginBtn': 'Đăng nhập',
@@ -312,15 +312,15 @@ class AppStrings {
       'common.all': 'Tất cả',
       'common.copied': 'Đã sao chép.',
       'common.user': 'Người dùng',
-      'common.userHuTube': 'Người dùng HuTube',
-      'common.appName': 'HuTube',
+      'common.userHuTube': 'Người dùng Dalitu',
+      'common.appName': 'Dalitu',
 
       // App shell and feed
       'app.restoreSession': 'Đang khôi phục phiên đăng nhập…',
-      'app.opening': 'Đang mở HuTube…',
+      'app.opening': 'Đang mở Dalitu…',
       'app.viewVideo': 'Xem video',
       'app.connection': 'Kiểm tra kết nối',
-      'app.connected': 'Đã kết nối HuTube · {environment}',
+      'app.connected': 'Đã kết nối Dalitu · {environment}',
       'app.apiActive': 'API đang hoạt động',
       'app.navYou': 'Bạn',
       'app.librarySection': 'THƯ VIỆN',
@@ -329,10 +329,10 @@ class AppStrings {
           '{label} sẽ được kết nối khi module tương ứng hoàn tất.',
       'feed.homeTitle': 'Dành cho bạn',
       'feed.promoted': 'Được quảng bá',
-      'feed.homeDescription': 'Video mới và nổi bật từ cộng đồng HuTube.',
+      'feed.homeDescription': 'Video mới và nổi bật từ cộng đồng Dalitu.',
       'feed.exploreTitle': 'Khám phá',
       'feed.exploreDescription':
-          'Chọn chủ đề để tìm nội dung mới trong cộng đồng HuTube.',
+          'Chọn chủ đề để tìm nội dung mới trong cộng đồng Dalitu.',
       'feed.empty': 'Chưa có video phù hợp.',
       'feed.loadError': 'Không thể tải video. Kiểm tra kết nối rồi thử lại.',
       'feed.openVideo': 'Mở video {title}',
@@ -346,7 +346,7 @@ class AppStrings {
       'home.followingTitle': 'Kênh bạn đăng ký',
       'home.forYouTitle': 'Dành cho bạn',
       'home.followingKicker': 'Mới từ các kênh bạn theo dõi',
-      'home.popularTitle': 'Phổ biến trên HuTube',
+      'home.popularTitle': 'Phổ biến trên Dalitu',
       'home.popularKicker': 'Đang được xem nhiều',
       'home.randomTitle': 'Khám phá thêm',
       'home.randomKicker': 'Mở rộng lựa chọn',
@@ -358,7 +358,7 @@ class AppStrings {
       'explore.top12Category': 'Top 12 · {category}',
       'explore.featuredCreators': 'Nhà sáng tạo nổi bật',
       'explore.featuredCreatorsSubtitle':
-          'Những gương mặt nổi bật đang được yêu thích trên HuTube',
+          'Những gương mặt nổi bật đang được yêu thích trên Dalitu',
       'explore.subscribers': 'người đăng ký',
       'explore.subscribed': 'Đã đăng ký',
       'explore.subscribe': 'Đăng ký',
@@ -450,7 +450,7 @@ class AppStrings {
       'watch.ratingTitle': 'Đánh giá video',
       'watch.ratingStars': '{count} sao',
       'watch.ratingSaved': 'Đã cập nhật đánh giá của bạn.',
-      'watch.shareText': 'Xem {title} trên HuTube\nhutube://watch/{id}',
+      'watch.shareText': 'Xem {title} trên Dalitu\nhutube://watch/{id}',
       'watch.loginDownload': 'Đăng nhập để tải video xuống.',
       'watch.downloadQuality': 'Chọn chất lượng tải xuống',
       'watch.downloadAdded': 'Đã thêm vào danh sách tải xuống trên thiết bị.',
@@ -501,7 +501,7 @@ class AppStrings {
       'account.notificationSettings': 'Cài đặt thông báo',
       'account.checkingChannel': 'Đang kiểm tra kênh…',
       'account.createChannel': 'Tạo kênh',
-      'account.createChannelDesc': 'Bắt đầu đăng video với một kênh HuTube.',
+      'account.createChannelDesc': 'Bắt đầu đăng video với một kênh Dalitu.',
       'account.invitations': 'Lời mời cộng tác',
       'account.creatorStudio': 'Creator Studio',
       'account.plans': 'Gói và dung lượng',
@@ -522,7 +522,7 @@ class AppStrings {
       'profile.headerTitle': 'Tài khoản của bạn',
       'profile.channelView': 'Xem kênh',
       'profile.channelManage': 'Quản lý',
-      'profile.noChannelTitle': 'Bạn chưa có kênh HuTube',
+      'profile.noChannelTitle': 'Bạn chưa có kênh Dalitu',
       'profile.noChannelDescription':
           'Tạo kênh để xuất bản video, xây dựng cộng đồng và tiếp cận hàng triệu khán giả.',
       'profile.createNow': 'Tạo kênh ngay',
@@ -542,7 +542,7 @@ class AppStrings {
       'profile.updated': 'Đã cập nhật thông tin hồ sơ thành công!',
       'profile.avatarError': 'Không thể cập nhật ảnh đại diện.',
       'editProfile.displayNameHint': 'Nhập tên hiển thị của bạn',
-      'editProfile.bioHint': 'Chia sẻ ngắn gọn về bạn với cộng đồng HuTube...',
+      'editProfile.bioHint': 'Chia sẻ ngắn gọn về bạn với cộng đồng Dalitu...',
       'editProfile.noCountry': 'Chưa chọn quốc gia',
       'password.updated': 'Đổi mật khẩu thành công!',
       'password.currentHint': 'Nhập mật khẩu đang sử dụng',
@@ -559,7 +559,7 @@ class AppStrings {
           'Nhận cập nhật từ các kênh bạn đang theo dõi.',
       'notifications.marketing': 'Email thông tin và cập nhật',
       'notifications.marketingDesc':
-          'Nhận tin tức về các tính năng mới từ HuTube.',
+          'Nhận tin tức về các tính năng mới từ Dalitu.',
       'notifications.settingsSaved': 'Đã lưu cài đặt thông báo.',
 
       // Auth form
@@ -567,9 +567,9 @@ class AppStrings {
       'auth.welcome': 'Chào mừng trở lại',
       'auth.loginDescription': 'Đăng nhập để tiếp tục với tài khoản của bạn.',
       'auth.registerDescription':
-          'Bắt đầu với HuTube. Xác minh email để bảo vệ tài khoản của bạn.',
+          'Bắt đầu với Dalitu. Xác minh email để bảo vệ tài khoản của bạn.',
       'auth.forgotTitle': 'Quên mật khẩu?',
-      'auth.forgotDescription': 'Nhập email bạn đã dùng để đăng ký HuTube.',
+      'auth.forgotDescription': 'Nhập email bạn đã dùng để đăng ký Dalitu.',
       'auth.verifyTitle': 'Xác minh email',
       'auth.verifyDescription': 'Xác nhận địa chỉ email để hoàn tất đăng ký.',
       'auth.verifyMissing':
@@ -580,7 +580,7 @@ class AppStrings {
       'auth.resetMissing':
           'Liên kết thiếu mã đặt lại. Hãy yêu cầu một email mới.',
       'auth.resendTitle': 'Gửi lại email xác minh',
-      'auth.resendDescription': 'Nhập email bạn đã dùng để đăng ký HuTube.',
+      'auth.resendDescription': 'Nhập email bạn đã dùng để đăng ký Dalitu.',
       'auth.displayNameField': 'Tên hiển thị',
       'auth.usernameField': 'Tên người dùng',
       'auth.emailField': 'Email',
@@ -604,7 +604,7 @@ class AppStrings {
       'auth.resetSuccess':
           'Mật khẩu đã được đổi. Hãy đăng nhập bằng mật khẩu mới.',
       'auth.forgotSuccess':
-          'Nếu email thuộc tài khoản HuTube, bạn sẽ nhận được liên kết đặt lại mật khẩu.',
+          'Nếu email thuộc tài khoản Dalitu, bạn sẽ nhận được liên kết đặt lại mật khẩu.',
       'auth.resendSuccess':
           'Nếu tài khoản cần xác minh, chúng tôi đã gửi lại email. Kiểm tra cả thư rác.',
       'auth.accountMessage': 'Đăng nhập để tiếp tục đến tài khoản của bạn.',
@@ -663,10 +663,10 @@ class AppStrings {
       'channel.emptyVideos': 'Kênh chưa có video công khai.',
       'channel.about': 'Giới thiệu',
       'channel.otherInfo': 'Thông tin khác',
-      'channel.joinWelcome': 'Chào mừng bạn đến với kênh {name} trên HuTube!',
+      'channel.joinWelcome': 'Chào mừng bạn đến với kênh {name} trên Dalitu!',
       'channel.joinDescription':
           'Giới thiệu nội dung và định hướng kênh {name}',
-      'channel.guide': 'Hướng dẫn sử dụng nền tảng video HuTube toàn tập',
+      'channel.guide': 'Hướng dẫn sử dụng nền tảng video Dalitu toàn tập',
       'channel.stats': '{subscribers} người đăng ký · {videos} video',
       'channel.changeBanner': 'Đổi ảnh bìa',
       'channel.linksDescription':
@@ -694,11 +694,11 @@ class AppStrings {
       'channel.subscribedToast': 'Đã đăng ký kênh',
       'channel.unsubscribedToast': 'Đã hủy đăng ký kênh',
       'channel.latestVideo': 'Video mới nhất',
-      'channel.welcomeVideo': 'Chào mừng bạn đến với kênh {name} trên HuTube!',
+      'channel.welcomeVideo': 'Chào mừng bạn đến với kênh {name} trên Dalitu!',
       'channel.recent': 'Gần đây',
       'channel.introVideo': 'Giới thiệu nội dung và định hướng kênh {name}',
       'channel.tutorialVideo':
-          'Hướng dẫn sử dụng nền tảng video HuTube toàn tập',
+          'Hướng dẫn sử dụng nền tảng video Dalitu toàn tập',
       'channel.daysAgo': '{count} ngày trước',
       'channel.weekAgo': '1 tuần trước',
       'channel.noPlaylists': 'Chưa có danh sách phát nào',
@@ -706,7 +706,7 @@ class AppStrings {
       'channel.description': 'Mô tả',
       'channel.descriptionEmptyLong': 'Kênh này chưa thêm mô tả chi tiết.',
       'channel.detailedInfo': 'Thông tin chi tiết',
-      'channel.channelUrl': 'hutube.app/@{handle}',
+      'channel.channelUrl': '@{handle}',
       'channel.uploadedVideos': '{count} video đã đăng tải',
       'channel.totalViews': '{count} tổng lượt xem',
       'channel.joined': 'Đã tham gia: {date}',
@@ -741,7 +741,7 @@ class AppStrings {
       'channel.deleteThis': 'Xóa kênh này',
       'channel.confirmDeleteTitle': 'Xác nhận xóa kênh?',
       'channel.confirmDeleteDescription':
-          'Hành động này sẽ ẩn kênh, danh sách video và handle của bạn khỏi HuTube.',
+          'Hành động này sẽ ẩn kênh, danh sách video và handle của bạn khỏi Dalitu.',
       'channel.confirmDeletePrompt':
           'Nhập chính xác tên kênh "{name}" để xác nhận:',
       'channel.confirmDeleteHint': 'Nhập tên kênh',
@@ -835,7 +835,7 @@ class AppStrings {
           'Trạng thái phụ đề theo video; tính năng biên soạn đang được hoàn thiện.',
       'creator.createChannel': 'Tạo kênh',
       'creator.manageDescription':
-          'Quản lý kênh {name} bằng dữ liệu thật từ HuTube.',
+          'Quản lý kênh {name} bằng dữ liệu thật từ Dalitu.',
       'creator.upload': 'Tải video lên',
       'creator.content': 'Nội dung kênh',
       'creator.comments': 'Bình luận',
@@ -905,7 +905,7 @@ class AppStrings {
       'creator.editVideo': 'Sửa video',
       'creator.deleteVideo': 'Xóa video',
       'creator.deleteVideoTitle': 'Xóa video?',
-      'creator.deleteVideoDescription': '“{title}” sẽ bị xóa khỏi HuTube.',
+      'creator.deleteVideoDescription': '“{title}” sẽ bị xóa khỏi Dalitu.',
       'creator.save': 'Lưu thay đổi',
       'creator.approved': 'Đã duyệt',
       'creator.pendingReview': 'Chờ kiểm duyệt',
@@ -1020,7 +1020,7 @@ class AppStrings {
       'plans.inviteDialogTitle': 'Chia sẻ gói qua email',
       'plans.inviteEmail': 'Email người dùng',
       'plans.inviteEmailHint': 'Email đã đăng ký trong hệ thống',
-      'plans.shareSubject': 'Gói {name} của HuTube',
+      'plans.shareSubject': 'Gói {name} của Dalitu',
       'plans.shareError': 'Không thể mở bảng chia sẻ trên thiết bị này.',
       'plans.description':
           'Chọn gói phù hợp với kênh và chia sẻ thông tin gói bằng liên kết công khai.',
@@ -1061,7 +1061,7 @@ class AppStrings {
       'plans.transactionInfo':
           'Mã: {code}\nTrạng thái: {status}\nSố tiền: {amount} {currency}',
       'plans.close': 'Đóng',
-      'plans.planFallback': 'Gói HuTube',
+      'plans.planFallback': 'Gói Dalitu',
       'plans.planDetailInfo':
           'Giá: {price}\nThời hạn: {days} ngày\nDung lượng: {storage}\nDung lượng mỗi video tối đa: {upload}\nThời lượng tối đa: {duration} giây\nChất lượng video: {quality}\nThành viên: {members}\nQuảng bá video: {promotion}',
       'plans.videoPromotion': 'Quảng bá video mới lên đề xuất',
@@ -1075,7 +1075,7 @@ class AppStrings {
           'Theo dõi trạng thái các giao dịch gói dịch vụ.',
       'plans.serverNoPlans': 'Danh mục gói hiện chưa có dữ liệu từ máy chủ.',
       'plans.paymentReceived': 'Đã nhận thanh toán',
-      'plans.paymentHeader': 'Thanh toán gói HuTube',
+      'plans.paymentHeader': 'Thanh toán gói Dalitu',
       'plans.paymentCopied': 'Đã sao chép nội dung chuyển khoản.',
       'plans.copyPayment': 'Sao chép nội dung',
       'plans.activated': 'Gói của bạn đã được kích hoạt.',
@@ -1092,14 +1092,14 @@ class AppStrings {
       // Policies and notifications
       'policies.title': 'Trung tâm chính sách',
       'policies.description':
-          'Tìm hiểu các chính sách và nguyên tắc sử dụng HuTube.',
+          'Tìm hiểu các chính sách và nguyên tắc sử dụng Dalitu.',
       'policies.terms': 'Điều khoản dịch vụ',
       'policies.privacy': 'Quyền riêng tư',
       'policies.guidelines': 'Nguyên tắc cộng đồng',
       'policies.empty': 'Chưa có nội dung chính sách.',
       'policies.fallbackTitle': 'Nội dung chính sách đang được cập nhật',
       'policies.fallbackText':
-          'Không đăng nội dung gây hại, vi phạm bản quyền, lừa đảo hoặc xâm phạm quyền riêng tư. HuTube có thể kiểm tra nội dung trước khi xuất bản.',
+          'Không đăng nội dung gây hại, vi phạm bản quyền, lừa đảo hoặc xâm phạm quyền riêng tư. Dalitu có thể kiểm tra nội dung trước khi xuất bản.',
       'policies.version': 'Phiên bản {version}',
       // Search and channel feeds
       'search.title': 'Tìm video',
@@ -1190,7 +1190,7 @@ class AppStrings {
       'playlists.moveDown': 'Đưa xuống dưới',
       // Shared app navigation and basic validation
       'app.create.title': 'Tạo nội dung',
-      'app.create.description': 'Chọn cách bạn muốn bắt đầu trên HuTube.',
+      'app.create.description': 'Chọn cách bạn muốn bắt đầu trên Dalitu.',
       'app.create.videoTitle': 'Đăng video',
       'app.create.videoDescription': 'Chia sẻ video mới với cộng đồng.',
       'app.create.playlistTitle': 'Tạo playlist',
@@ -1256,13 +1256,13 @@ class AppStrings {
       'app.guest.description':
           'Khám phá video mới, lưu lại khoảnh khắc yêu thích và chia sẻ điều bạn tạo ra.',
       'moderation.navLabel': 'Báo cáo & kháng nghị',
-      'notifications.appName': 'Thông báo HuTube',
+      'notifications.appName': 'Thông báo Dalitu',
       'notifications.appDescription':
-          'Thông báo về kênh, video và tài khoản HuTube.',
+          'Thông báo về kênh, video và tài khoản Dalitu.',
       'notifications.emptyDescription':
           'Khi có hoạt động mới, bạn sẽ thấy cập nhật ở đây.',
       'account.hubDescription':
-          'Quản lý hồ sơ, nội dung và trải nghiệm HuTube của bạn.',
+          'Quản lý hồ sơ, nội dung và trải nghiệm Dalitu của bạn.',
       'account.sessionsHeading': 'Phiên đăng nhập & thiết bị',
       'account.sessionsDescription':
           'Xem và đăng xuất thiết bị đang dùng tài khoản.',
@@ -1288,7 +1288,7 @@ class AppStrings {
       'creator.cancelUploadTooltip': 'Hủy tải',
       'creator.thumbnailTypes': 'Ảnh thu nhỏ chỉ hỗ trợ JPG, PNG hoặc WEBP.',
       'creator.thumbnailSize': 'Kích thước ảnh thu nhỏ tối đa là {size}MB.',
-      'upload.subtitle': 'Chuẩn bị video, thêm thông tin và gửi lên HuTube.',
+      'upload.subtitle': 'Chuẩn bị video, thêm thông tin và gửi lên Dalitu.',
       'downloads.removeAllTitle': 'Xóa tất cả yêu cầu tải?',
       'downloads.removeAllDescription':
           'Các yêu cầu tải khỏi tài khoản sẽ bị xóa.',
@@ -1325,7 +1325,7 @@ class AppStrings {
       'huai.promptDescription':
           'Các gợi ý sẽ sẵn sàng khi dịch vụ được kết nối.',
       'huai.suggestion.personalized': 'Gợi ý nội dung phù hợp với tôi',
-      'huai.suggestion.howTo': 'Giải thích cách dùng HuTube',
+      'huai.suggestion.howTo': 'Giải thích cách dùng Dalitu',
       'huai.suggestion.videoIdeas': 'Gợi ý ý tưởng cho video mới',
       'huai.preparing': 'HuAI đang được chuẩn bị',
       'huai.signIn': 'Đăng nhập để dùng HuAI',
@@ -1410,24 +1410,24 @@ class AppStrings {
 
     'en': {
       'survey.close': 'Close survey invitation',
-      'survey.invitationTitle': 'Could you give HuTube a hand?',
+      'survey.invitationTitle': 'Could you give Dalitu a hand?',
       'survey.invitationDescription':
-          'You have spent some time on HuTube. We would love your feedback to make watching videos and discovering content better for you!',
+          'You have spent some time on Dalitu. We would love your feedback to make watching videos and discovering content better for you!',
       'survey.duration': 'About 3–5 minutes · Every suggestion matters',
       'survey.doSurvey': 'Take the survey',
       'survey.maybeLater': 'Let me explore a little more',
       'survey.pleaTitle': 'Pretty please…',
       'survey.pleaDescription':
-          'Could you spare a few minutes? Even one suggestion from you helps us make HuTube better.',
+          'Could you spare a few minutes? Even one suggestion from you helps us make Dalitu better.',
       'survey.imageTitle': 'A cat asking: Pretty please!',
       'survey.later': 'Maybe next time',
       'survey.waitingTitle': 'See you at the survey!',
       'survey.waitingDescription':
-          'The survey opened in your browser. Remember to press Submit on Google Forms when you finish, then return to HuTube.',
+          'The survey opened in your browser. Remember to press Submit on Google Forms when you finish, then return to Dalitu.',
       'survey.autoSync':
-          'After you submit, HuTube will automatically update your account and stop survey reminders on both web and Mobile.',
+          'After you submit, Dalitu will automatically update your account and stop survey reminders on both web and Mobile.',
       'survey.reopen': 'Reopen survey',
-      'survey.continue': 'Continue watching HuTube',
+      'survey.continue': 'Continue watching Dalitu',
       'survey.thanksTitle': 'We received your feedback!',
       'survey.thanksDescription':
           'Thank you so much! Your account is now marked as having completed the survey.',
@@ -1516,7 +1516,7 @@ class AppStrings {
       'settings.title': 'Settings',
       'settings.yourChannel': 'YOUR CHANNEL',
       'settings.createFirstChannel': 'Create your first channel',
-      'settings.startCreating': 'Start creating content on HuTube',
+      'settings.startCreating': 'Start creating content on Dalitu',
       'settings.channelSettings': 'Channel settings',
       'settings.customizeChannel': 'Customize your channel',
       'settings.plans': 'Subscription plans',
@@ -1634,12 +1634,12 @@ class AppStrings {
           'Get notifications about activity on your comments and videos.',
       'notif.subsDesc':
           'Get summaries about activity from channels you care about.',
-      'notif.marketingDesc': 'Get news about new HuTube features.',
+      'notif.marketingDesc': 'Get news about new Dalitu features.',
       'notif.deviceTitle': 'Device notifications',
       'notif.deviceEnabled':
           'Enabled while the app is open. Background notifications require a separate push service.',
       'notif.deviceDisabled':
-          'Allow alerts while HuTube is open. Background push is not configured for this app.',
+          'Allow alerts while Dalitu is open. Background push is not configured for this app.',
       'notif.deviceEnable': 'Enable',
       'notif.permissionDenied':
           'Notification permission was not granted on this device.',
@@ -1649,7 +1649,7 @@ class AppStrings {
 
       // Auth
       'auth.loginTitle': 'Sign in',
-      'auth.registerTitle': 'Create your HuTube account',
+      'auth.registerTitle': 'Create your Dalitu account',
       'auth.email': 'Email',
       'auth.password': 'Password',
       'auth.loginBtn': 'Sign In',
@@ -1683,15 +1683,15 @@ class AppStrings {
       'common.all': 'All',
       'common.copied': 'Copied.',
       'common.user': 'User',
-      'common.userHuTube': 'HuTube user',
-      'common.appName': 'HuTube',
+      'common.userHuTube': 'Dalitu user',
+      'common.appName': 'Dalitu',
 
       // App shell and feed
       'app.restoreSession': 'Restoring your session…',
-      'app.opening': 'Opening HuTube…',
+      'app.opening': 'Opening Dalitu…',
       'app.viewVideo': 'Watch video',
       'app.connection': 'Check connection',
-      'app.connected': 'HuTube connected · {environment}',
+      'app.connected': 'Dalitu connected · {environment}',
       'app.apiActive': 'API is active',
       'app.navYou': 'You',
       'app.librarySection': 'LIBRARY',
@@ -1701,10 +1701,10 @@ class AppStrings {
       'feed.homeTitle': 'For you',
       'feed.promoted': 'Promoted',
       'feed.homeDescription':
-          'New and notable videos from the HuTube community.',
+          'New and notable videos from the Dalitu community.',
       'feed.exploreTitle': 'Explore',
       'feed.exploreDescription':
-          'Choose a topic to find new content from the HuTube community.',
+          'Choose a topic to find new content from the Dalitu community.',
       'feed.empty': 'No matching videos yet.',
       'feed.loadError':
           'Unable to load videos. Check your connection and try again.',
@@ -1719,7 +1719,7 @@ class AppStrings {
       'home.followingTitle': 'Channels you follow',
       'home.forYouTitle': 'For you',
       'home.followingKicker': 'New from channels you follow',
-      'home.popularTitle': 'Popular on HuTube',
+      'home.popularTitle': 'Popular on Dalitu',
       'home.popularKicker': 'Watched by the community',
       'home.randomTitle': 'Discover more',
       'home.randomKicker': 'Broaden your watchlist',
@@ -1731,7 +1731,7 @@ class AppStrings {
       'explore.top12Category': 'Top 12 · {category}',
       'explore.featuredCreators': 'Featured creators',
       'explore.featuredCreatorsSubtitle':
-          'Creators viewers are enjoying on HuTube',
+          'Creators viewers are enjoying on Dalitu',
       'explore.subscribers': 'subscribers',
       'explore.subscribed': 'Subscribed',
       'explore.subscribe': 'Subscribe',
@@ -1823,7 +1823,7 @@ class AppStrings {
       'watch.ratingTitle': 'Rate this video',
       'watch.ratingStars': '{count} stars',
       'watch.ratingSaved': 'Your rating was updated.',
-      'watch.shareText': 'Watch {title} on HuTube\nhutube://watch/{id}',
+      'watch.shareText': 'Watch {title} on Dalitu\nhutube://watch/{id}',
       'watch.loginDownload': 'Sign in to download this video.',
       'watch.downloadQuality': 'Choose download quality',
       'watch.downloadAdded': 'Added to downloads on this device.',
@@ -1878,7 +1878,7 @@ class AppStrings {
       'account.checkingChannel': 'Checking channel…',
       'account.createChannel': 'Create a channel',
       'account.createChannelDesc':
-          'Start uploading videos with a HuTube channel.',
+          'Start uploading videos with a Dalitu channel.',
       'account.invitations': 'Collaboration invitations',
       'account.creatorStudio': 'Creator Studio',
       'account.plans': 'Plans and storage',
@@ -1899,7 +1899,7 @@ class AppStrings {
       'profile.headerTitle': 'Your account',
       'profile.channelView': 'View channel',
       'profile.channelManage': 'Manage',
-      'profile.noChannelTitle': 'You do not have a HuTube channel yet',
+      'profile.noChannelTitle': 'You do not have a Dalitu channel yet',
       'profile.noChannelDescription':
           'Create a channel to publish videos, build a community and reach more viewers.',
       'profile.createNow': 'Create a channel now',
@@ -1920,7 +1920,7 @@ class AppStrings {
       'profile.avatarError': 'Unable to update your avatar.',
       'editProfile.displayNameHint': 'Enter your display name',
       'editProfile.bioHint':
-          'Share a short introduction with the HuTube community...',
+          'Share a short introduction with the Dalitu community...',
       'editProfile.noCountry': 'No country selected',
       'password.updated': 'Password changed successfully!',
       'password.currentHint': 'Enter your current password',
@@ -1936,7 +1936,7 @@ class AppStrings {
       'notifications.channelActivityDesc':
           'Get updates from channels you follow.',
       'notifications.marketing': 'Product news and updates',
-      'notifications.marketingDesc': 'Get news about new HuTube features.',
+      'notifications.marketingDesc': 'Get news about new Dalitu features.',
       'notifications.settingsSaved': 'Notification settings saved.',
 
       // Auth form
@@ -1944,10 +1944,10 @@ class AppStrings {
       'auth.welcome': 'Welcome back',
       'auth.loginDescription': 'Sign in to continue with your account.',
       'auth.registerDescription':
-          'Get started with HuTube. Verify your email to protect your account.',
+          'Get started with Dalitu. Verify your email to protect your account.',
       'auth.forgotTitle': 'Forgot password?',
       'auth.forgotDescription':
-          'Enter the email address you used to sign up for HuTube.',
+          'Enter the email address you used to sign up for Dalitu.',
       'auth.verifyTitle': 'Verify email',
       'auth.verifyDescription':
           'Confirm your email address to finish signing up.',
@@ -1960,7 +1960,7 @@ class AppStrings {
           'This link is missing a reset token. Request a new email.',
       'auth.resendTitle': 'Resend verification email',
       'auth.resendDescription':
-          'Enter the email address you used to sign up for HuTube.',
+          'Enter the email address you used to sign up for Dalitu.',
       'auth.displayNameField': 'Display name',
       'auth.usernameField': 'Username',
       'auth.emailField': 'Email',
@@ -1983,7 +1983,7 @@ class AppStrings {
       'auth.verifySuccess': 'Email verified. You can sign in now.',
       'auth.resetSuccess': 'Password changed. Sign in with your new password.',
       'auth.forgotSuccess':
-          'If this email belongs to a HuTube account, you will receive a reset link.',
+          'If this email belongs to a Dalitu account, you will receive a reset link.',
       'auth.resendSuccess':
           'If your account needs verification, we sent another email. Check your spam folder too.',
       'auth.accountMessage': 'Sign in to continue to your account.',
@@ -2042,9 +2042,9 @@ class AppStrings {
       'channel.emptyVideos': 'This channel has no public videos yet.',
       'channel.about': 'About',
       'channel.otherInfo': 'More information',
-      'channel.joinWelcome': 'Welcome to {name} on HuTube!',
+      'channel.joinWelcome': 'Welcome to {name} on Dalitu!',
       'channel.joinDescription': 'Learn about {name} and its content.',
-      'channel.guide': 'The complete HuTube video platform guide',
+      'channel.guide': 'The complete Dalitu video platform guide',
       'channel.stats': '{subscribers} subscribers · {videos} videos',
       'channel.changeBanner': 'Change banner',
       'channel.linksDescription':
@@ -2072,10 +2072,10 @@ class AppStrings {
       'channel.subscribedToast': 'Subscribed to the channel',
       'channel.unsubscribedToast': 'Unsubscribed from the channel',
       'channel.latestVideo': 'Latest video',
-      'channel.welcomeVideo': 'Welcome to {name} on HuTube!',
+      'channel.welcomeVideo': 'Welcome to {name} on Dalitu!',
       'channel.recent': 'Recently',
       'channel.introVideo': 'An introduction to {name} and its content',
-      'channel.tutorialVideo': 'The complete HuTube video platform guide',
+      'channel.tutorialVideo': 'The complete Dalitu video platform guide',
       'channel.daysAgo': '{count} days ago',
       'channel.weekAgo': '1 week ago',
       'channel.noPlaylists': 'No playlists yet',
@@ -2084,7 +2084,7 @@ class AppStrings {
       'channel.descriptionEmptyLong':
           'This channel has not added a detailed description.',
       'channel.detailedInfo': 'Detailed information',
-      'channel.channelUrl': 'hutube.app/@{handle}',
+      'channel.channelUrl': '@{handle}',
       'channel.uploadedVideos': '{count} uploaded videos',
       'channel.totalViews': '{count} total views',
       'channel.joined': 'Joined: {date}',
@@ -2119,7 +2119,7 @@ class AppStrings {
       'channel.deleteThis': 'Delete this channel',
       'channel.confirmDeleteTitle': 'Confirm channel deletion?',
       'channel.confirmDeleteDescription':
-          'This action hides the channel, its videos and your handle from HuTube.',
+          'This action hides the channel, its videos and your handle from Dalitu.',
       'channel.confirmDeletePrompt':
           'Enter the exact channel name "{name}" to confirm:',
       'channel.confirmDeleteHint': 'Enter channel name',
@@ -2215,7 +2215,7 @@ class AppStrings {
       'creator.subtitlesDescription':
           'Subtitle status by video; authoring is still being completed.',
       'creator.createChannel': 'Create a channel',
-      'creator.manageDescription': 'Manage {name} with live HuTube data.',
+      'creator.manageDescription': 'Manage {name} with live Dalitu data.',
       'creator.upload': 'Upload video',
       'creator.content': 'Channel content',
       'creator.comments': 'Comments',
@@ -2286,7 +2286,7 @@ class AppStrings {
       'creator.deleteVideo': 'Delete video',
       'creator.deleteVideoTitle': 'Delete video?',
       'creator.deleteVideoDescription':
-          '“{title}” will be deleted from HuTube.',
+          '“{title}” will be deleted from Dalitu.',
       'creator.save': 'Save changes',
       'creator.approved': 'Approved',
       'creator.pendingReview': 'Pending review',
@@ -2407,7 +2407,7 @@ class AppStrings {
       'plans.inviteDialogTitle': 'Share plan by email',
       'plans.inviteEmail': 'User email',
       'plans.inviteEmailHint': 'Email registered in the system',
-      'plans.shareSubject': 'HuTube {name} plan',
+      'plans.shareSubject': 'Dalitu {name} plan',
       'plans.shareError': 'Sharing is not available on this device.',
       'plans.description':
           'Choose a plan for your channel and share its public information link.',
@@ -2448,7 +2448,7 @@ class AppStrings {
       'plans.transactionInfo':
           'Code: {code}\nStatus: {status}\nAmount: {amount} {currency}',
       'plans.close': 'Close',
-      'plans.planFallback': 'HuTube plan',
+      'plans.planFallback': 'Dalitu plan',
       'plans.planDetailInfo':
           'Price: {price}\nTerm: {days} days\nStorage: {storage}\nMaximum upload per video: {upload}\nMaximum video length: {duration} seconds\nVideo quality: {quality}\nMembers: {members}\nVideo promotion: {promotion}',
       'plans.videoPromotion': 'Promote new videos in recommendations',
@@ -2462,7 +2462,7 @@ class AppStrings {
           'Track the status of service plan transactions.',
       'plans.serverNoPlans': 'The server has not provided any plans yet.',
       'plans.paymentReceived': 'Payment received',
-      'plans.paymentHeader': 'HuTube plan payment',
+      'plans.paymentHeader': 'Dalitu plan payment',
       'plans.paymentCopied': 'Transfer details copied.',
       'plans.copyPayment': 'Copy transfer details',
       'plans.activated': 'Your plan has been activated.',
@@ -2480,14 +2480,14 @@ class AppStrings {
       // Policies and notifications
       'policies.title': 'Policy center',
       'policies.description':
-          'Learn about HuTube policies and community rules.',
+          'Learn about Dalitu policies and community rules.',
       'policies.terms': 'Terms of service',
       'policies.privacy': 'Privacy',
       'policies.guidelines': 'Community guidelines',
       'policies.empty': 'No policy content yet.',
       'policies.fallbackTitle': 'Policy content is being updated',
       'policies.fallbackText':
-          'Do not post harmful, infringing, fraudulent or privacy-invasive content. HuTube may review content before publication.',
+          'Do not post harmful, infringing, fraudulent or privacy-invasive content. Dalitu may review content before publication.',
       'policies.version': 'Version {version}',
       // Search and channel feeds
       'search.title': 'Search videos',
@@ -2505,7 +2505,7 @@ class AppStrings {
           'Enter a video title, topic, or keyword you are interested in.',
       'search.loading': 'Loading…',
       'search.loadMore': 'Load more results',
-      'feed.exploreEyebrow': 'EXPLORE HUTUBE',
+      'feed.exploreEyebrow': 'EXPLORE DALITU',
       'feed.welcomeEyebrow': 'WELCOME BACK',
       'feed.tryAnotherTopic':
           'Try another topic or come back later for new videos.',
@@ -2577,7 +2577,7 @@ class AppStrings {
       'playlists.moveDown': 'Move down',
       // Shared app navigation and basic validation
       'app.create.title': 'Create content',
-      'app.create.description': 'Choose how you want to get started on HuTube.',
+      'app.create.description': 'Choose how you want to get started on Dalitu.',
       'app.create.videoTitle': 'Upload a video',
       'app.create.videoDescription': 'Share a new video with the community.',
       'app.create.playlistTitle': 'Create a playlist',
@@ -2641,13 +2641,13 @@ class AppStrings {
       'app.guest.description':
           'Discover videos, save favorite moments, and share what you create.',
       'moderation.navLabel': 'Reports & appeals',
-      'notifications.appName': 'HuTube notifications',
+      'notifications.appName': 'Dalitu notifications',
       'notifications.appDescription':
-          'Updates about HuTube channels, videos, and your account.',
+          'Updates about Dalitu channels, videos, and your account.',
       'notifications.emptyDescription':
           'New activity and updates will appear here.',
       'account.hubDescription':
-          'Manage your profile, content, and HuTube experience.',
+          'Manage your profile, content, and Dalitu experience.',
       'account.sessionsHeading': 'Sign-in sessions and devices',
       'account.sessionsDescription':
           'Review devices using your account and sign them out.',
@@ -2675,7 +2675,7 @@ class AppStrings {
       'creator.thumbnailTypes': 'Thumbnails support JPG, PNG, or WEBP.',
       'creator.thumbnailSize': 'Thumbnails can be up to {size} MB.',
       'upload.subtitle':
-          'Prepare your video, add details, and upload it to HuTube.',
+          'Prepare your video, add details, and upload it to Dalitu.',
       'downloads.removeAllTitle': 'Remove all download requests?',
       'downloads.removeAllDescription':
           'The download requests will be removed from your account.',
@@ -2713,7 +2713,7 @@ class AppStrings {
       'huai.promptDescription':
           'Suggestions will be available when the service is connected.',
       'huai.suggestion.personalized': 'Recommend videos for me',
-      'huai.suggestion.howTo': 'Explain how to use HuTube',
+      'huai.suggestion.howTo': 'Explain how to use Dalitu',
       'huai.suggestion.videoIdeas': 'Suggest ideas for a new video',
       'huai.preparing': 'HuAI is being prepared',
       'huai.signIn': 'Sign in to use HuAI',

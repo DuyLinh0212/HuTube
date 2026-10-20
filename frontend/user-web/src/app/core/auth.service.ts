@@ -182,7 +182,7 @@ function browserDeviceName(google = false, mobileLabel: string, desktopLabel: st
     : /cros/i.test(agent) ? 'ChromeOS'
     : /linux/i.test(agent) ? 'Linux'
     : '';
-  const application = ADMIN_APP ? 'HuTube Admin' : `HuTube Web${google ? ' / Google' : ''}`;
+  const application = ADMIN_APP ? 'Dalitu Admin' : `Dalitu Web${google ? ' / Google' : ''}`;
   return [application, browser, operatingSystem, kind].filter(Boolean).join(' · ').slice(0, 200);
 }
 

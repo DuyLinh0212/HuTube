@@ -1743,7 +1743,7 @@ public sealed class ContentService(
             _ => "video/mp4"
         };
         var title = new string(download.Title.Where(c => !char.IsControl(c) && !"<>:\"/\\|?*".Contains(c)).Take(120).ToArray()).Trim().TrimEnd('.');
-        if (title.Length == 0) title = "HuTube";
+        if (title.Length == 0) title = "Dalitu";
         var stream = await storage.OpenReadAsync(storedPath, ct);
         return new(stream, $"{title}-{download.Quality}{extension}", contentType);
     }

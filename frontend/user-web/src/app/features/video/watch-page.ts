@@ -8,7 +8,7 @@ import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { CommentItem, ContentService, Playback, Rendition, VideoCard, VideoCardLink, VideoDetail, ViolationType } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
-import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { CompactLikeCountPipe, LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { PictureInPictureService } from '../../core/picture-in-picture.service';
@@ -18,7 +18,7 @@ import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/vid
 
 @Component({
   selector: 'app-watch-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })

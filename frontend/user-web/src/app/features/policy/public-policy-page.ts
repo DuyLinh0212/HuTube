@@ -237,11 +237,11 @@ export class PublicPolicyPage implements OnInit {
       summary: 'Cấm sử dụng bot, dịch vụ cày view hoặc trao đổi sub/like nhân tạo.',
       severity: 'high',
       rules: [
-        'HuTube tự động phát hiện và trừ bỏ các lượt xem, thích, đăng ký có nguồn gốc từ botfarm.',
+        'Dalitu tự động phát hiện và trừ bỏ các lượt xem, thích, đăng ký có nguồn gốc từ botfarm.',
         'Tài khoản mua bán tương tác ảo bị tước quyền đề xuất và có thể bị đóng băng kênh vĩnh viễn.'
       ],
       rulesEn: [
-        'HuTube automatically identifies and purges views, likes, and subscribers originating from clickfarms or bots.',
+        'Dalitu automatically identifies and purges views, likes, and subscribers originating from clickfarms or bots.',
         'Accounts purchasing artificial engagement will be stripped of recommendation rights and face permanent freezes.'
       ]
     },
@@ -265,11 +265,11 @@ export class PublicPolicyPage implements OnInit {
       summary: 'Cấm đính kèm đường link dẫn tới trang web lừa đảo, mã độc hoặc nội dung cấm.',
       severity: 'critical',
       rules: [
-        'Mọi link trong mô tả hoặc bình luận được quét tự động qua hệ thống HuTube Safe Browsing.',
+        'Mọi link trong mô tả hoặc bình luận được quét tự động qua hệ thống Dalitu Safe Browsing.',
         'Vi phạm dẫn link phishing dẫn tới xử lý gậy phạt ngay lập tức.'
       ],
       rulesEn: [
-        'All links in video descriptions and pinned comments are scanned via HuTube Safe Browsing.',
+        'All links in video descriptions and pinned comments are scanned via Dalitu Safe Browsing.',
         'Posting phishing or malware links results in immediate strikes and link privileges revocation.'
       ]
     },
@@ -308,10 +308,10 @@ export class PublicPolicyPage implements OnInit {
     {
       code: 'CONTENT_SURFACES',
       name: 'Phạm vi áp dụng trên toàn bộ nền tảng',
-      summary: 'Quy tắc cộng đồng áp dụng đồng đều và nhất quán trên tất cả điểm chạm của HuTube.',
+      summary: 'Quy tắc cộng đồng áp dụng đồng đều và nhất quán trên tất cả điểm chạm của Dalitu.',
       severity: 'info',
       rules: [
-        'Video dài và video ngắn HuTube Shorts.',
+        'Video dài và video ngắn Dalitu Shorts.',
         'Hình thu nhỏ (Thumbnail) và banner đại diện kênh.',
         'Tiêu đề video, mô tả và thẻ hashtag.',
         'Bình luận dưới video và trò chuyện trực tiếp (Live Chat).',
@@ -319,7 +319,7 @@ export class PublicPolicyPage implements OnInit {
         'Tên kênh, Handle (@tenkenh) và ảnh đại diện (Avatar).'
       ],
       rulesEn: [
-        'Long-form videos and HuTube Shorts vertical clips.',
+        'Long-form videos and Dalitu Shorts vertical clips.',
         'Thumbnails, channel art banners, and avatar icons.',
         'Video titles, descriptions, and hashtags.',
         'Comments sections and Live Chat messages.',
@@ -396,7 +396,7 @@ export class PublicPolicyPage implements OnInit {
         'Nhật ký hệ thống được bảo lưu theo đúng quy định của Luật An ninh mạng.'
       ],
       rulesEn: [
-        'TLS 1.3 encryption across all network communication between client apps and HuTube servers.',
+        'TLS 1.3 encryption across all network communication between client apps and Dalitu servers.',
         'User profile and credential data stored at certified domestic Tier-3 Data Centers with AES-256 hardware encryption.',
         'Audit logs retained strictly in compliance with cybersecurity regulations.'
       ]
@@ -408,15 +408,15 @@ export class PublicPolicyPage implements OnInit {
     {
       code: 'TERMS_ACCEPTANCE',
       name: 'Chấp thuận điều khoản và phạm vi dịch vụ',
-      summary: 'Quy định pháp lý ràng buộc khi truy cập và sử dụng dịch vụ trên nền tảng HuTube.',
+      summary: 'Quy định pháp lý ràng buộc khi truy cập và sử dụng dịch vụ trên nền tảng Dalitu.',
       severity: 'info',
       rules: [
-        'Bằng việc truy cập hoặc sử dụng HuTube, bạn đồng ý tuân thủ toàn bộ Điều khoản dịch vụ này.',
-        'HuTube cung cấp nền tảng chia sẻ video trực tuyến tuân thủ pháp luật Việt Nam về công nghệ thông tin.'
+        'Bằng việc truy cập hoặc sử dụng Dalitu, bạn đồng ý tuân thủ toàn bộ Điều khoản dịch vụ này.',
+        'Dalitu cung cấp nền tảng chia sẻ video trực tuyến tuân thủ pháp luật Việt Nam về công nghệ thông tin.'
       ],
       rulesEn: [
-        'By accessing or using HuTube, you agree to be bound by these Terms of Service in full.',
-        'HuTube provides video sharing services compliant with applicable information technology laws.'
+        'By accessing or using Dalitu, you agree to be bound by these Terms of Service in full.',
+        'Dalitu provides video sharing services compliant with applicable information technology laws.'
       ]
     },
     {
@@ -435,17 +435,17 @@ export class PublicPolicyPage implements OnInit {
     },
     {
       code: 'COPYRIGHT_UGC',
-      name: 'Bản quyền nội dung tải lên và giấy phép cấp cho HuTube',
-      summary: 'Bạn giữ quyền sở hữu nội dung do chính mình tạo ra và cấp giấy phép phát sóng cho HuTube.',
+      name: 'Bản quyền nội dung tải lên và giấy phép cấp cho Dalitu',
+      summary: 'Bạn giữ quyền sở hữu nội dung do chính mình tạo ra và cấp giấy phép phát sóng cho Dalitu.',
       severity: 'high',
       rules: [
         'Tác giả giữ toàn bộ quyền sở hữu trí tuệ đối với video do mình sáng tạo.',
-        'Khi tải lên công khai, bạn cấp cho HuTube quyền truyền phát và hiển thị video trên hệ sinh thái dịch vụ.',
+        'Khi tải lên công khai, bạn cấp cho Dalitu quyền truyền phát và hiển thị video trên hệ sinh thái dịch vụ.',
         'Tuyệt đối không đăng tải tác phẩm của người khác khi chưa có sự cho phép hợp pháp.'
       ],
       rulesEn: [
         'Creators retain full intellectual property rights over their original video uploads.',
-        'By uploading publicly, you grant HuTube a worldwide license to host, transcode, and broadcast your content.',
+        'By uploading publicly, you grant Dalitu a worldwide license to host, transcode, and broadcast your content.',
         'Uploading third-party copyrighted works without legal authorization is strictly prohibited.'
       ]
     },
@@ -455,22 +455,22 @@ export class PublicPolicyPage implements OnInit {
       summary: 'Quyền ngưng cung cấp dịch vụ đối với các hành vi vi phạm nghiêm trọng.',
       severity: 'critical',
       rules: [
-        'HuTube có quyền tạm ngưng hoặc khóa vĩnh viễn tài khoản nếu tái phạm Quy tắc cộng đồng hoặc lừa đảo.'
+        'Dalitu có quyền tạm ngưng hoặc khóa vĩnh viễn tài khoản nếu tái phạm Quy tắc cộng đồng hoặc lừa đảo.'
       ],
       rulesEn: [
-        'HuTube reserves the right to suspend or terminate accounts in response to repeated strikes or severe legal violations.'
+        'Dalitu reserves the right to suspend or terminate accounts in response to repeated strikes or severe legal violations.'
       ]
     },
     {
       code: 'LIABILITY_LIMITATION',
       name: 'Giới hạn trách nhiệm pháp lý',
-      summary: 'Phạm vi trách nhiệm pháp lý của HuTube đối với nội dung do người dùng tải lên.',
+      summary: 'Phạm vi trách nhiệm pháp lý của Dalitu đối với nội dung do người dùng tải lên.',
       severity: 'info',
       rules: [
-        'Dịch vụ được cung cấp trên cơ sở nguyên trạng, HuTube không chịu trách nhiệm gián tiếp đối với nội dung bên thứ ba phát tán.'
+        'Dịch vụ được cung cấp trên cơ sở nguyên trạng, Dalitu không chịu trách nhiệm gián tiếp đối với nội dung bên thứ ba phát tán.'
       ],
       rulesEn: [
-        'Services are provided on an "as-is" basis; HuTube assumes no indirect liability for third-party user-generated uploads.'
+        'Services are provided on an "as-is" basis; Dalitu assumes no indirect liability for third-party user-generated uploads.'
       ]
     }
   ];
@@ -479,7 +479,7 @@ export class PublicPolicyPage implements OnInit {
   readonly monetizationList: PolicyRuleItem[] = [
     {
       code: 'PARTNER_ELIGIBILITY',
-      name: 'Điều kiện tham gia Chương trình Đối tác HuTube',
+      name: 'Điều kiện tham gia Chương trình Đối tác Dalitu',
       summary: 'Ngưỡng điều kiện để bật tính năng kiếm tiền và nhận chia sẻ doanh thu.',
       severity: 'high',
       rules: [
@@ -516,11 +516,11 @@ export class PublicPolicyPage implements OnInit {
       severity: 'info',
       rules: [
         'Doanh thu được quyết toán định kỳ hàng tháng qua tài khoản ngân hàng chính chủ.',
-        'HuTube thực hiện khấu trừ và nộp thuế thu nhập cá nhân theo đúng biểu thuế nhà nước ban hành.'
+        'Dalitu thực hiện khấu trừ và nộp thuế thu nhập cá nhân theo đúng biểu thuế nhà nước ban hành.'
       ],
       rulesEn: [
         'Earnings are disbursed monthly to verified bank accounts matching the verified legal identity.',
-        'HuTube withholds and submits personal income taxes in compliance with statutory tax laws.'
+        'Dalitu withholds and submits personal income taxes in compliance with statutory tax laws.'
       ]
     }
   ];
@@ -584,7 +584,7 @@ export class PublicPolicyPage implements OnInit {
     {
       code: 'MODERATION_INFRASTRUCTURE',
       name: 'Hạ tầng kiểm duyệt kết hợp AI và chuyên viên con người',
-      summary: 'Hệ sinh thái kiểm duyệt đa tầng bảo vệ người dùng của HuTube.',
+      summary: 'Hệ sinh thái kiểm duyệt đa tầng bảo vệ người dùng của Dalitu.',
       severity: 'info',
       rules: [
         'Mô hình AI đa phương thức quét tự động hình ảnh, âm thanh và văn bản tại thời điểm video được tải lên.',

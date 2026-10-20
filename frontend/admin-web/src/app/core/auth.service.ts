@@ -29,7 +29,7 @@ function stableDeviceId(): string {
 
 function browserDeviceName(i18n: I18nService): string {
   const mobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
-  return `HuTube Admin · ${i18n.t(mobile ? 'auth.deviceMobile' : 'auth.deviceDesktop')}`;
+  return `Dalitu Admin · ${i18n.t(mobile ? 'auth.deviceMobile' : 'auth.deviceDesktop')}`;
 }
 
 export interface ClientGeoPayload {
@@ -188,7 +188,18 @@ export class AuthService {
   clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
   private accept(response: LoginResponse): void {
     this.accessTokenExpiresAt = Date.parse(response.expiresAt) || 0;
-    this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true;
+    this.accessToken.set(response.accessToken);
+    const currentUser = this.user();
+    const refreshedUser = response.user;
+    const currentAdminProfile = ADMIN_APP && currentUser?.isAdmin && refreshedUser.isAdmin
+      && currentUser.userId === refreshedUser.userId ? currentUser : null;
+    this.user.set(currentAdminProfile ? {
+      ...currentAdminProfile,
+      ...refreshedUser,
+      role: refreshedUser.role ?? currentAdminProfile.role,
+      permissions: refreshedUser.permissions ?? currentAdminProfile.permissions,
+    } : refreshedUser);
+    this.restored = true;
   }
   ensureFreshAccessToken(): Observable<string> {
     const token = this.accessToken();

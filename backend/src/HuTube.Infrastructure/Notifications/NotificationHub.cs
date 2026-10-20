@@ -152,10 +152,10 @@ public sealed class NotificationService(
             var emailActionUrl = ResolveActionUrl(actionUrl, authOptions?.WebBaseUrl);
             await emailSender.SendTemplateAsync(address, new(
                 title,
-                "THÔNG BÁO TỪ HUTUBE",
+                "THÔNG BÁO TỪ DALITU",
                 title,
                 [content],
-                emailActionUrl is null ? null : "Mở trên HuTube",
+                emailActionUrl is null ? null : "Mở trên Dalitu",
                 emailActionUrl), ct);
         }
     }

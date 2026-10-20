@@ -182,7 +182,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 @media(max-width:420px) { .page-tabs { gap:5px; padding:4px; }.page-tab { gap:7px; padding-inline:8px; }.page-tab-icon { width:27px; height:27px; font-size:.85rem; }.page-tab strong { font-size:.67rem; }.two-fields,.rate-grid { grid-template-columns:1fr; }.scenario-tabs button { white-space:normal; line-height:1.25; }.quick-create>div { flex-direction:column; }.quick-create .blue-button { width:100%; }.stat-card>span { font-size:.55rem; }.stat-rating>strong { gap:4px; }.selection-tools button { padding:5px; font-size:.56rem; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; scroll-behavior:auto!important; transition-duration:.01ms!important; } }
 
-/* Keep the simulator on the HuTube brand palette in both app themes. */
+/* Keep the simulator on the Dalitu brand palette in both app themes. */
 .simulator-panel {
   --sim-bg: #faf8f7;
   --sim-scroll-track: var(--card-hover);

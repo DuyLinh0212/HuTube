@@ -22,9 +22,9 @@ public sealed class EmailTemplateTests
                 NullLogger<AuthEmailSender>.Instance,
                 new TestHttpClientFactory());
             var template = new EmailTemplateMessage(
-                "Đặt lại mật khẩu HuTube",
+                "Đặt lại mật khẩu Dalitu",
                 "BẢO MẬT TÀI KHOẢN",
-                "Đặt lại mật khẩu HuTube",
+                "Đặt lại mật khẩu Dalitu",
                 ["Chúng tôi nhận được yêu cầu đặt lại mật khẩu."],
                 "Đặt lại mật khẩu",
                 "https://hutube.example/reset-password?token=abc123",
@@ -38,7 +38,7 @@ public sealed class EmailTemplateTests
             var html = Assert.Single(alternatives.OfType<TextPart>(), part => part.ContentType.MediaSubtype == "html");
 
             Assert.Contains("https://hutube.example/reset-password?token=abc123", plainText.Text);
-            Assert.Contains("Đặt lại mật khẩu HuTube", html.Text);
+            Assert.Contains("Đặt lại mật khẩu Dalitu", html.Text);
             Assert.Contains("href=\"https://hutube.example/reset-password?token=abc123\"", html.Text);
             Assert.Contains("#FF2B66", html.Text);
         }

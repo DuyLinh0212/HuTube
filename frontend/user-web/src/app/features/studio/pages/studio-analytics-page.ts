@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { VideoDetail } from '../../../core/content.service';
 import { StudioDataService } from '../../../core/studio-data.service';
 import { I18nService } from '../../../core/i18n.service';
-import { LocaleNumberPipe } from '../../../core/locale-number.pipe';
+import { CompactLikeCountPipe, LocaleNumberPipe } from '../../../core/locale-number.pipe';
 import { TranslatePipe } from '../../../core/translate.pipe';
 
 type MetricKey = 'views' | 'likes' | 'comments' | 'watchDuration' | 'rating';
@@ -19,7 +19,7 @@ interface AnalyticsMetric {
 
 @Component({
   selector: 'app-studio-analytics-page',
-  imports: [LocaleNumberPipe, TranslatePipe, RouterLink],
+  imports: [LocaleNumberPipe, CompactLikeCountPipe, TranslatePipe, RouterLink],
   templateUrl: './studio-analytics-page.html',
   styleUrl: './studio-analytics-page.scss',
 })
@@ -88,6 +88,7 @@ export class StudioAnalyticsPage implements OnInit {
         value: values[key],
         display: key === 'watchDuration' ? this.formatDuration(values[key])
           : key === 'rating' ? hasRating ? `${values[key].toFixed(2)} / 5` : '—'
+          : key === 'likes' ? this.i18n.formatCompactLikeCount(values[key])
           : this.formatNumber(values[key]),
         ratio: maxima[key] ? Math.min(1, values[key] / maxima[key]) : 0,
       };

@@ -15,3 +15,16 @@ export class LocaleNumberPipe implements PipeTransform {
     return this.numberPipe.transform(value, digitsInfo, this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US');
   }
 }
+
+@Pipe({
+  name: 'compactLikeCount',
+  standalone: true,
+  pure: false,
+})
+export class CompactLikeCountPipe implements PipeTransform {
+  private readonly i18n = inject(I18nService);
+
+  transform(value: number | string | null | undefined): string {
+    return this.i18n.formatCompactLikeCount(value);
+  }
+}

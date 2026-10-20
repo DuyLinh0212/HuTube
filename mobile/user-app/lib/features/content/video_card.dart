@@ -147,7 +147,7 @@ class VideoCardTile extends StatelessWidget {
                           onSelected: (action) {
                             if (action == 'share') {
                               Share.share(
-                                'Xem "${video.title}" trên HuTube:\nhttps://hutube.app/watch/${video.id}',
+                                'Xem "${video.title}" trên Dalitu:\nhttps://hutube.app/watch/${video.id}',
                               );
                             } else if (action == 'playlist' && auth != null) {
                               showAddVideoToPlaylistSheet(

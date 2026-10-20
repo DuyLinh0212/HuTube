@@ -5,14 +5,14 @@ import { RouterLink } from '@angular/router';
 import { AppealItem, ChannelStrikeStatus, ContentService, CreateAppealPayload } from '../../../core/content.service';
 import { I18nService } from '../../../core/i18n.service';
 import { LocaleDatePipe } from '../../../core/locale-date.pipe';
-import { LocaleNumberPipe } from '../../../core/locale-number.pipe';
+import { CompactLikeCountPipe, LocaleNumberPipe } from '../../../core/locale-number.pipe';
 import { StudioDataService } from '../../../core/studio-data.service';
 import { TranslatePipe } from '../../../core/translate.pipe';
 
 @Component({
   selector: 'app-studio-overview-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, LocaleDatePipe, LocaleNumberPipe, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe, TranslatePipe],
   templateUrl: './studio-overview-page.html',
   styleUrl: './studio-overview-page.scss',
 })

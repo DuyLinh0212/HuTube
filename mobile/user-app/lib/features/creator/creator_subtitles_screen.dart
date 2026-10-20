@@ -115,7 +115,7 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
                   alignment: Alignment.center,
                   child: const Icon(Icons.translate_rounded, color: Colors.teal),
                 ),
-                title: const Text('HuTube AI - Tự động tạo phụ đề'),
+                title: const Text('Dalitu AI - Tự động tạo phụ đề'),
                 subtitle: const Text('Nhận diện giọng nói và xuất phụ đề tiếng Việt tự động'),
                 onTap: () => Navigator.pop(bottomSheetContext, 'ai'),
               ),
@@ -137,7 +137,7 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
     } else if (choice == 'ai') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Hệ thống HuTube AI đang xử lý nhận diện giọng nói cho video...'),
+          content: Text('Hệ thống Dalitu AI đang xử lý nhận diện giọng nói cho video...'),
           behavior: SnackBarBehavior.floating,
         ),
       );

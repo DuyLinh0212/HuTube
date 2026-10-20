@@ -670,9 +670,9 @@ public sealed class ReportService(
                 {
                     var studioUrl = $"{(authOptions?.WebBaseUrl ?? "http://localhost:4200").TrimEnd('/')}/studio";
                     await emailSender.SendTemplateAsync(email, new(
-                        "Video đã bị gỡ khỏi HuTube",
+                        "Video đã bị gỡ khỏi Dalitu",
                         "QUYẾT ĐỊNH NỘI DUNG",
-                        "Video đã bị gỡ khỏi HuTube",
+                        "Video đã bị gỡ khỏi Dalitu",
                         [$"Video “{targetTitle}” đã bị gỡ.",
                          $"Lý do: {reason}.",
                          "Bạn có thể gửi khiếu nại trong 30 ngày tại Creator Studio."],
@@ -696,7 +696,7 @@ public sealed class ReportService(
             "recommendation_restricted" => "Đã hạn chế đề xuất video.",
             "age_restrict" => "Đã gắn giới hạn độ tuổi cho video.",
             "hide" => "Đã ẩn đối tượng khỏi bề mặt công khai.",
-            "remove" => "Đã gỡ đối tượng khỏi HuTube.",
+            "remove" => "Đã gỡ đối tượng khỏi Dalitu.",
             "warn" => "Đã gửi cảnh cáo đến chủ sở hữu nội dung.",
             _ => "Đã đóng hồ sơ và xác định không có vi phạm."
         };
@@ -961,7 +961,7 @@ public sealed class ReportService(
         // Notify the reporter with clear context
         string reporterMsg = decision == "dismiss"
             ? $"Cảm ơn bạn đã gửi báo cáo đối với {targetTypeStr} \"{targetTitle}\". Sau khi xem xét kỹ lưỡng, chúng tôi xác định nội dung này không vi phạm {policyText} và tuân thủ nguyên tắc cộng đồng."
-            : $"Cảm ơn bạn đã gửi báo cáo đối với {targetTypeStr} \"{targetTitle}\". Chúng tôi đã thẩm định và xác nhận nội dung vi phạm {policyText}. Biện pháp xử lý đã được áp dụng ({message}). Đóng góp của bạn giúp cộng đồng HuTube an toàn hơn.";
+            : $"Cảm ơn bạn đã gửi báo cáo đối với {targetTypeStr} \"{targetTitle}\". Chúng tôi đã thẩm định và xác nhận nội dung vi phạm {policyText}. Biện pháp xử lý đã được áp dụng ({message}). Đóng góp của bạn giúp cộng đồng Dalitu an toàn hơn.";
 
         await notifications.PublishAsync(
             report.UserId,

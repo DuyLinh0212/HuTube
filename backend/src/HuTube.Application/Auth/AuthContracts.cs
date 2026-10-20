@@ -59,7 +59,7 @@ public sealed record EmailTemplateMessage(
     }
 
     public static EmailTemplateMessage FromPlainText(string subject, string body) =>
-        new(subject, "THÔNG BÁO TỪ HUTUBE", subject,
+        new(subject, "THÔNG BÁO TỪ DALITU", subject,
             body.Replace("\r\n", "\n", StringComparison.Ordinal)
                 .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 }

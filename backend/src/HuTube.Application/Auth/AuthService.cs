@@ -227,10 +227,10 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         await store.SaveAsync(ct);
         var resetUrl = $"{options.WebBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(raw)}";
         await emailSender.SendTemplateAsync(user.Email, new(
-            "Đặt lại mật khẩu HuTube",
+            "Đặt lại mật khẩu Dalitu",
             "BẢO MẬT TÀI KHOẢN",
-            "Đặt lại mật khẩu HuTube",
-            ["Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản HuTube của bạn.",
+            "Đặt lại mật khẩu Dalitu",
+            ["Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Dalitu của bạn.",
              "Liên kết này chỉ có hiệu lực trong 30 phút.",
              "Nếu bạn không yêu cầu thay đổi mật khẩu, hãy bỏ qua email này."],
             "Đặt lại mật khẩu",
@@ -393,10 +393,10 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         await store.SaveAsync(ct);
         var verificationUrl = $"{options.WebBaseUrl.TrimEnd('/')}/verify-email?token={Uri.EscapeDataString(raw)}";
         await emailSender.SendTemplateAsync(user.Email, new(
-            "Xác minh email HuTube",
+            "Xác minh email Dalitu",
             "HOÀN TẤT TÀI KHOẢN",
             "Xác minh email của bạn",
-            ["Cảm ơn bạn đã tham gia HuTube. Chỉ còn một bước nữa để hoàn tất tài khoản.",
+            ["Cảm ơn bạn đã tham gia Dalitu. Chỉ còn một bước nữa để hoàn tất tài khoản.",
              "Liên kết xác minh có hiệu lực trong 24 giờ."],
             "Xác minh email",
             verificationUrl,

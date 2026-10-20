@@ -23,7 +23,7 @@ describe('Active device management', () => {
     const fixture=TestBed.createComponent(AccountPage);
     const current={sessionId:'current',deviceName:'Chrome',platform:'web',issuedAt:'2026-09-01T00:00:00Z',lastActiveAt:'2026-09-05T00:00:00Z',expiresAt:'2026-10-01T00:00:00Z',isCurrent:true};
     const other={...current,sessionId:'other',deviceName:'Điện thoại',platform:'mobile',isCurrent:false};
-    http.expectOne(base+'/auth/sessions').flush({items:[current,other]}); http.expectOne(base+'/system/info').flush({name:'HuTube'}); fixture.detectChanges();
+    http.expectOne(base+'/auth/sessions').flush({items:[current,other]}); http.expectOne(base+'/system/info').flush({name:'Dalitu'}); fixture.detectChanges();
     return {fixture,current,other};
   }
   it('shows the current device and requires confirmation before revoking another',()=>{

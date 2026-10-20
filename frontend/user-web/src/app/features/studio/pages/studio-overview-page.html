@@ -71,7 +71,7 @@
             <h3>{{ video.title }}</h3>
             <p>{{ video.createdAt | localeDate:'dd/MM/yyyy' }} · {{ visibilityLabel(video.visibility) }} · {{ statusLabel(video.status) }}</p>
             @if (video.moderationStatus === 'rejected' && video.moderationReason) { <p class="moderation-reason">{{ 'studio.rejectionReason' | translate }} {{ video.moderationReason }}</p> }
-            <span>{{ video.stats.views | localeNumber }} {{ 'ui.views' | translate }} · {{ video.stats.likes | localeNumber }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}</span>
+            <span>{{ video.stats.views | localeNumber }} {{ 'ui.views' | translate }} · {{ video.stats.likes | compactLikeCount }} {{ 'ui.likes' | translate }} · {{ video.stats.comments | localeNumber }} {{ 'ui.comments' | translate }}</span>
           </div>
         </a>
       } @else {

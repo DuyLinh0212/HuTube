@@ -26,7 +26,7 @@ class HuTubeLogo extends StatelessWidget {
             text: TextSpan(
               children: [
                 TextSpan(
-                  text: 'Hu',
+                  text: 'Dali',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: size * 0.68,
@@ -35,7 +35,7 @@ class HuTubeLogo extends StatelessWidget {
                   ),
                 ),
                 TextSpan(
-                  text: 'Tube',
+                  text: 'tu',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: size * 0.68,

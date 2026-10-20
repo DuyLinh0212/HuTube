@@ -42,7 +42,7 @@ describe('Authentication boundary', () => {
     const promise = firstValueFrom(auth.google('google-id-token'));
     const request = controller.expectOne(base + '/auth/google');
     expect(request.request.body).toEqual(jasmine.objectContaining({ credential: 'google-id-token', platform: 'web' }));
-    expect(request.request.body.deviceName).toBe('HuTube Web / Google · Microsoft Edge · Windows · Máy tính');
+    expect(request.request.body.deviceName).toBe('Dalitu Web / Google · Microsoft Edge · Windows · Máy tính');
     expect(request.request.body.deviceId).toEqual(jasmine.any(String));
     expect(request.request.withCredentials).toBeTrue();
     request.flush(response);
@@ -83,7 +83,7 @@ describe('Authentication boundary', () => {
   it('restores a session from the HttpOnly cookie and validates current account status', async () => {
     const promise = firstValueFrom(auth.restore());
     const request = controller.expectOne(base + '/auth/refresh');
-    expect(request.request.body).toEqual({deviceName: 'HuTube Web · Microsoft Edge · Windows · Máy tính'});
+    expect(request.request.body).toEqual({deviceName: 'Dalitu Web · Microsoft Edge · Windows · Máy tính'});
     expect(request.request.withCredentials).toBeTrue(); request.flush(response);
     await Promise.resolve(); await Promise.resolve();
     controller.expectOne(base + (ADMIN_APP ? '/admin/me' : '/auth/me')).flush(user);

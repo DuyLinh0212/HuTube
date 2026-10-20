@@ -159,10 +159,25 @@
         </div>
 
         @if (plan.isSharedMember) {
-          <div class="shared-notice-box"><p>ℹ️ {{ 'plans.sharedNotice' | translate }}</p></div>
-          <button type="button" class="btn-action-outline" (click)="leaveSharedPlan(plan)" [disabled]="busy()">
-            {{ 'plans.leaveSharedPlan' | translate }}
-          </button>
+          <div class="shared-member-panel">
+            <div class="shared-notice-box shared-member-notice" role="note">
+              <span class="shared-member-notice__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8h.01" /></svg>
+              </span>
+              <p>{{ 'plans.sharedNotice' | translate }}</p>
+            </div>
+            <div class="shared-member-action">
+              <p>{{ 'plans.leaveSharedHint' | translate }}</p>
+              <button type="button" class="btn-leave-shared" (click)="leaveSharedPlan(plan)" [disabled]="busy()" [attr.aria-busy]="busy()">
+                @if (busy()) {
+                  <span class="leave-shared-spinner" aria-hidden="true"></span>
+                } @else {
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3" /><path d="M12 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-8" /></svg>
+                }
+                <span>{{ 'plans.leaveSharedPlan' | translate }}</span>
+              </button>
+            </div>
+          </div>
         } @else if (plan.maxMembers <= 1) {
           <div class="single-user-box">
             <p>{{ 'plans.personalNotice' | translate }}</p>

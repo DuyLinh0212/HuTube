@@ -1,4 +1,4 @@
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '../../../frontend/user-web/node_modules/playwright/index.mjs';
@@ -7,6 +7,16 @@ const toolDirectory = dirname(fileURLToPath(import.meta.url));
 const appDirectory = resolve(toolDirectory, '..');
 const mark = readFileSync(resolve(appDirectory, 'assets/logo-mark.png'));
 const encodedMark = mark.toString('base64');
+
+// Keep the web and mobile identity in sync with the supplied Dalitu PNG.
+const wordmark = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 228 64" role="img" aria-label="Dalitu"><title>Dalitu</title><image href="data:image/png;base64,${encodedMark}" width="64" height="64"/><text x="72" y="42" fill="#111827" font-family="Plus Jakarta Sans,Arial,sans-serif" font-size="30" font-weight="800" letter-spacing="-1.4">Dali<tspan fill="#FF2B66">tu</tspan></text></svg>\n`;
+writeFileSync(resolve(appDirectory, 'assets/logo.svg'), wordmark);
+for (const webApp of ['user-web', 'admin-web']) {
+  const assets = resolve(appDirectory, '../../frontend', webApp, 'public/assets');
+  mkdirSync(assets, { recursive: true });
+  copyFileSync(resolve(appDirectory, 'assets/logo-mark.png'), resolve(assets, 'logo-mark.png'));
+  writeFileSync(resolve(assets, 'logo.svg'), wordmark);
+}
 
 const targets = [
   ['android/app/src/main/res/mipmap-mdpi/ic_launcher.png', 48],
@@ -29,11 +39,14 @@ const targets = [
   ['ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png', 152],
   ['ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png', 167],
   ['ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png', 1024],
+  ['ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png', 168],
+  ['ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png', 336],
+  ['ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png', 504],
 ];
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1024, height: 1024 } });
-await page.setContent(`<!doctype html><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}body{display:grid;place-items:center;background:#fff}img{display:block;width:82%;height:82%;object-fit:contain}</style><img src="data:image/png;base64,${encodedMark}">`);
+await page.setContent(`<!doctype html><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}body{display:grid;place-items:center;background:#fff}img{display:block;width:100%;height:100%;object-fit:contain}</style><img src="data:image/png;base64,${encodedMark}">`);
 
 for (const [relativePath, size] of targets) {
   const outputPath = resolve(appDirectory, relativePath);
@@ -63,4 +76,4 @@ for (const faviconPath of [
 }
 
 await browser.close();
-console.log(`Generated ${targets.length} launcher icons and 2 favicons from the HuTube Orbit mark.`);
+console.log(`Synced Dalitu logos; generated ${targets.length} launcher/splash images and 2 favicons from assets/logo-mark.png.`);

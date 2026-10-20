@@ -36,7 +36,7 @@ public sealed class AppealService(
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new AuthException(400, "REASON_REQUIRED", "Vui lòng nhập chi tiết lý do khiếu nại.");
         if (!string.IsNullOrWhiteSpace(request.EvidenceUrl))
-            throw new AuthException(400, "EVIDENCE_UPLOAD_REQUIRED", "Hãy tải tệp bằng chứng trực tiếp lên HuTube.");
+            throw new AuthException(400, "EVIDENCE_UPLOAD_REQUIRED", "Hãy tải tệp bằng chứng trực tiếp lên Dalitu.");
 
         await using var creationTransaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
         if (targetType == AppealTargetTypes.Video && db.Database.IsRelational())

@@ -162,7 +162,7 @@ builder.Services.AddHostedService<NotificationSessionMonitor>();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<IClientLocationResolver, IpApiClientLocationResolver>(client =>
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("HuTube/1.0 (IP geolocation for login security)"));
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Dalitu/1.0 (IP geolocation for login security)"));
 builder.Services.AddHttpClient<IRecommendationClient, RecommendationClient>();
 builder.Services.AddScoped<IRecommendationSnapshotStore, RecommendationSnapshotStore>();
 builder.Services.AddScoped<RecommendationAdminService>();
@@ -293,14 +293,14 @@ app.UseRateLimiter(); app.UseAuthentication(); app.UseMiddleware<AdminApiAuditMi
 app.UseStatusCodePages(context => ApiErrors.WriteAsync(context.HttpContext, context.HttpContext.Response.StatusCode, "HTTP_ERROR", "Yêu cầu không được xử lý."));
 if (!app.Environment.IsProduction()) {
     app.MapOpenApi();
-    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "HuTube API v1"));
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Dalitu API v1"));
 }
 app.MapGet("/health", async (HuTubeDbContext db, CancellationToken ct) => {
     try { return await db.Database.CanConnectAsync(ct) && await db.Users.OrderBy(x => x.UserId).Take(1).CountAsync(ct) >= 0
         ? Results.Ok(new { status = "healthy" }) : Results.Json(new { status = "unhealthy" }, statusCode: 503); }
     catch { return Results.Json(new { status = "unhealthy" }, statusCode: 503); }
 }).AllowAnonymous();
-app.MapGet("/api/v1/system/info", () => new { name = "HuTube", apiVersion = "v1", environment = app.Environment.EnvironmentName,
+app.MapGet("/api/v1/system/info", () => new { name = "Dalitu", apiVersion = "v1", environment = app.Environment.EnvironmentName,
     serverTime = DateTimeOffset.UtcNow, commitSha = Environment.GetEnvironmentVariable("RENDER_GIT_COMMIT") ?? Environment.GetEnvironmentVariable("HUTUBE_COMMIT_SHA") ?? "local" }).AllowAnonymous();
 app.MapGet("/api/v1/system/config", () => new { googleClientId = googleOptions.ClientId }).AllowAnonymous();
 app.MapControllers();

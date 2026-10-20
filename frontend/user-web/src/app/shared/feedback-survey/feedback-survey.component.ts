@@ -98,7 +98,7 @@ export class FeedbackSurveyComponent {
     this.phase.set('waiting');
     if (this.polling && !this.polling.closed) return;
     this.polling = timer(10_000, 10_000).pipe(
-      // Bound polling to ten minutes. Returning to HuTube always checks again.
+      // Bound polling to ten minutes. Returning to Dalitu always checks again.
       take(60),
       filter(() => this.document.visibilityState === 'visible'),
       exhaustMap(() => this.surveys.getStatus().pipe(timeout(15_000), catchError(() => EMPTY))),

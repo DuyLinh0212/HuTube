@@ -269,7 +269,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Tận hưởng HuTube trọn vẹn hơn',
+                  'Tận hưởng Dalitu trọn vẹn hơn',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -438,7 +438,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  hasPlan ? 'Thành viên Premium' : 'Thành viên HuTube',
+                                  hasPlan ? 'Thành viên Premium' : 'Thành viên Dalitu',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,

@@ -227,7 +227,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
                 ? "http://localhost:4200"
                 : authOptions.WebBaseUrl.TrimEnd('/');
             var invitationUrl = $"{webBaseUrl}/channel-invitations?invitation={invitation.ChannelInvitationId}";
-            var subject = $"Bạn được mời tham gia kênh {channel.Name} trên HuTube";
+            var subject = $"Bạn được mời tham gia kênh {channel.Name} trên Dalitu";
             try
             {
                 await emailSender.SendTemplateAsync(targetUser.Email, new(

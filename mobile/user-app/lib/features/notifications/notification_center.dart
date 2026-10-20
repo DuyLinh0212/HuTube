@@ -309,7 +309,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _showLocalNotification(Map<String, dynamic> item) async {
-    final title = '${item['title'] ?? 'HuTube'}'.trim();
+    final title = '${item['title'] ?? 'Dalitu'}'.trim();
     final body = '${item['content'] ?? item['body'] ?? ''}'.trim();
     if (body.isEmpty) return;
     final id = '${item['notificationId'] ?? ''}';

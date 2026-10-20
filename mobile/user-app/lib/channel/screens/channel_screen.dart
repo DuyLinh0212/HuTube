@@ -279,7 +279,7 @@ class _ChannelScreenState extends State<ChannelScreen>
           ),
           IconButton(
             icon: const Icon(Icons.share_outlined),
-            onPressed: () => Share.share('HuTube · ${c.name}\n@${c.handle}'),
+            onPressed: () => Share.share('Dalitu · ${c.name}\n@${c.handle}'),
           ),
         ],
       ),

@@ -815,7 +815,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       final url = withTimestamp
           ? 'https://hutube.app/watch/${video.id}?t=$currentPos'
           : 'https://hutube.app/watch/${video.id}';
-      await Share.share('Xem "${video.title}" trên HuTube:\n$url');
+      await Share.share('Xem "${video.title}" trên Dalitu:\n$url');
     } else {
       await Share.share(
         AppStrings.format('watch.shareText', {
@@ -2169,7 +2169,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
               'video=${videoSize?.width}x${videoSize?.height}';
           if (kDebugMode && layoutSignature != _lastLoggedLayout) {
             _lastLoggedLayout = layoutSignature;
-            debugPrint('[HuTube player] $layoutSignature');
+            debugPrint('[Dalitu player] $layoutSignature');
           }
 
           return GestureDetector(

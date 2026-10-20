@@ -24,7 +24,7 @@ export class I18nTitleStrategy extends TitleStrategy {
 
   private applyTitle(): void {
     this.title.setTitle(this.currentTitleKey
-      ? `${this.i18n.t(this.currentTitleKey)} · HuTube`
-      : 'HuTube Admin');
+      ? `${this.i18n.t(this.currentTitleKey)} · Dalitu`
+      : 'Dalitu Admin');
   }
 }

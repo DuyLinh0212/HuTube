@@ -16,7 +16,7 @@ import 'auth_test.dart' show MemoryStore, jsonResponse, session;
 Map<String, dynamic> channelJson({String? avatarUrl, String? bannerUrl}) => {
   'channelId': 'channel-1',
   'ownerUserId': 'user-1',
-  'name': 'HuTube Test',
+  'name': 'Dalitu Test',
   'handle': 'hutube-test',
   'description': 'Kênh kiểm thử',
   'avatarUrl': avatarUrl,

@@ -36,16 +36,16 @@ internal static class HuTubeEmailTemplateRenderer
         {
             html.Append("<td width=\"44\" height=\"44\" align=\"center\" valign=\"middle\" style=\"width:44px;height:44px;\"><img src=\"");
             html.Append(Html(logoUrl));
-            html.Append("\" width=\"44\" height=\"44\" alt=\"HuTube\" style=\"display:block;width:44px;height:44px;\"></td>");
+            html.Append("\" width=\"44\" height=\"44\" alt=\"Dalitu\" style=\"display:block;width:44px;height:44px;\"></td>");
         }
-        html.Append("<td style=\"padding-left:12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:21px;font-weight:800;letter-spacing:-.6px;color:#111827;\">Hu<span style=\"color:#FF2B66;\">Tube</span><div style=\"padding-top:3px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#9CA3AF;text-transform:uppercase;\">GOOD VIDEOS · BETTER PEOPLE</div></td>");
+        html.Append("<td style=\"padding-left:12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:21px;font-weight:800;letter-spacing:-.6px;color:#111827;\">Dali<span style=\"color:#FF2B66;\">tu</span><div style=\"padding-top:3px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#9CA3AF;text-transform:uppercase;\">GOOD VIDEOS · BETTER PEOPLE</div></td>");
         html.Append("</tr></table></td></tr>");
 
         html.Append("<tr><td class=\"email-card\" style=\"overflow:hidden;background:#FFFFFF;border:1px solid #E5E7EB;box-shadow:0 20px 45px -12px rgba(255,43,102,.12),0 8px 20px -4px rgba(17,24,39,.04);\">");
         html.Append("<div style=\"height:6px;background:linear-gradient(135deg,#FF3B69 0%,#FF2B66 50%,#E61952 100%);\"></div>");
         html.Append("<div class=\"email-content\" style=\"padding:42px 46px;\">");
         html.Append("<div style=\"font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:11px;font-weight:800;letter-spacing:1.8px;color:#FF2B66;text-transform:uppercase;\">");
-        html.Append(Html(FirstNonEmpty(message.Eyebrow, "THÔNG BÁO TỪ HUTUBE")));
+        html.Append(Html(FirstNonEmpty(message.Eyebrow, "THÔNG BÁO TỪ DALITU")));
         html.Append("</div>");
         html.Append("<h1 class=\"email-title\" style=\"margin:14px 0 22px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:34px;line-height:1.12;font-weight:800;letter-spacing:-1.1px;color:#111827;\">");
         html.Append(Html(message.Title));
@@ -63,7 +63,7 @@ internal static class HuTubeEmailTemplateRenderer
         if (safeActionUrl is not null)
         {
             var actionUrl = Html(safeActionUrl);
-            var actionLabel = Html(FirstNonEmpty(message.ActionLabel, "Mở trên HuTube"));
+            var actionLabel = Html(FirstNonEmpty(message.ActionLabel, "Mở trên Dalitu"));
             html.Append("<table role=\"presentation\" class=\"email-button\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin:28px 0 22px;\"><tr><td style=\"border-radius:12px;background:#FF2B66;box-shadow:0 8px 20px -2px rgba(255,43,102,.28);\">");
             html.Append("<a href=\"");
             html.Append(actionUrl);
@@ -81,8 +81,8 @@ internal static class HuTubeEmailTemplateRenderer
 
         html.Append("</div></td></tr>");
         html.Append("<tr><td class=\"email-footer\" align=\"center\" style=\"padding:22px 18px 4px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:11px;line-height:1.6;color:#9CA3AF;\">");
-        html.Append("Bạn nhận được email này từ HuTube vì có hoạt động liên quan đến tài khoản của bạn.<br>");
-        html.Append("Nếu cần hỗ trợ, hãy trả lời email này hoặc truy cập HuTube.");
+        html.Append("Bạn nhận được email này từ Dalitu vì có hoạt động liên quan đến tài khoản của bạn.<br>");
+        html.Append("Nếu cần hỗ trợ, hãy trả lời email này hoặc truy cập Dalitu.");
         html.Append("</td></tr></table></td></tr></table></body></html>");
         return html.ToString();
     }
@@ -102,7 +102,7 @@ internal static class HuTubeEmailTemplateRenderer
             || baseUri.Scheme is not ("http" or "https"))
             return null;
 
-        return new Uri(baseUri, "assets/logo-mark.png?v=hutube-mark-20261005").AbsoluteUri;
+        return new Uri(baseUri, "assets/logo-mark.png?v=dalitu-mark-20261020").AbsoluteUri;
     }
 
     private static string? SafeActionUrl(string? value)

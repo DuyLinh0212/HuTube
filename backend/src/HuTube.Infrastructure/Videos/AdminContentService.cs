@@ -511,7 +511,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             var channel = await db.Channels.AsNoTracking().FirstOrDefaultAsync(c => c.ChannelId == video.ChannelId, ct);
             if (channel != null)
             {
-                var notice = $"Video “{video.Title}” đã bị gỡ khỏi HuTube. Lý do: {request.Reason.Trim()}. Bạn có thể gửi khiếu nại trong 30 ngày.";
+                var notice = $"Video “{video.Title}” đã bị gỡ khỏi Dalitu. Lý do: {request.Reason.Trim()}. Bạn có thể gửi khiếu nại trong 30 ngày.";
                 try { await notifications.PublishAsync(channel.OwnerUserId, "video_removed", "Video đã bị gỡ", notice, "/studio/content", "video", videoId, ct); }
                 catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Không gửi được thông báo gỡ video {VideoId}", videoId); }
                 var email = await db.Users.IgnoreQueryFilters().AsNoTracking().Where(u => u.UserId == channel.OwnerUserId)
@@ -522,9 +522,9 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
                     {
                         var studioUrl = $"{(authOptions?.WebBaseUrl ?? "http://localhost:4200").TrimEnd('/')}/studio/content";
                         await emailSender.SendTemplateAsync(email, new(
-                            "Video đã bị gỡ khỏi HuTube",
+                            "Video đã bị gỡ khỏi Dalitu",
                             "QUYẾT ĐỊNH NỘI DUNG",
-                            "Video đã bị gỡ khỏi HuTube",
+                            "Video đã bị gỡ khỏi Dalitu",
                             [notice, "Mở Creator Studio để xem quyết định và gửi khiếu nại."],
                             "Mở Creator Studio",
                             studioUrl), ct);
