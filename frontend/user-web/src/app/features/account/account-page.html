@@ -29,7 +29,7 @@
   </aside>
 
   <!-- Right Column: Settings Content Panels -->
-  <main class="yt-settings-main">
+  <main id="main-content" class="yt-settings-main">
     <!-- Notification Alerts -->
     @if (error()) {
       <div class="yt-alert yt-alert-error" role="alert">
@@ -445,6 +445,19 @@
     <!-- TAB: NỘI DUNG TẢI XUỐNG (MATCHING SCREENSHOT)  -->
     <!-- ============================================== -->
     @if (activeTab() === 'downloads') {
+      <section class="pane-section download-inventory" [attr.aria-label]="'collection.downloads' | translate">
+        <h2>{{ 'collection.downloads' | translate }}</h2>
+        @if (downloadsLoading()) { <p aria-busy="true">{{ 'library.loading' | translate }}</p> }
+        @else if (downloadsError()) { <p role="alert">{{ downloadsError() }} <button type="button" (click)="loadDownloads()">{{ 'common.retry' | translate }}</button></p> }
+        @else {
+          @for (item of downloads(); track item.videoDownloadId) {
+            <article class="download-row" [attr.data-download-id]="item.videoDownloadId">
+              <div><a [routerLink]="['/watch', item.videoId]">{{ item.title }}</a><p>{{ item.quality }} · {{ item.status }} · {{ item.fileSize }} B</p></div>
+              <button type="button" class="btn-yt-outline" (click)="deleteDownload(item)" [disabled]="busy()">{{ 'collection.delete' | translate }}</button>
+            </article>
+          } @empty { <p role="status">{{ 'collection.noDownloads' | translate }}</p> }
+        }
+      </section>
       <div class="settings-pane">
         <!-- Section 1: Chất lượng tải xuống -->
         <section class="pane-section">
@@ -519,7 +532,7 @@
               <p class="delete-sub">{{ 'account.deleteAllDownloadsDesc' | translate }}</p>
             </div>
             <div class="delete-action">
-              <button type="button" class="btn-yt-outline" (click)="clearAllDownloads()">
+              <button type="button" class="btn-yt-outline" (click)="clearAllDownloads()" [disabled]="busy()">
                 {{ 'account.deleteAllDownloadsBtn' | translate }}
               </button>
             </div>

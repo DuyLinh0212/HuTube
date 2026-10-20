@@ -89,7 +89,9 @@ class ModelStatistics:
             for record in records:
                 if not record:
                     continue
-                value = record.get("manifest") if "jobId" in record else record
+                # Build manifests also carry jobId. Only job envelopes nest the
+                # manifest; treating every jobId record as an envelope hides builds.
+                value = record if "modelVersion" in record else record.get("manifest")
                 version = _version((value or {}).get("modelVersion"))
                 if version:
                     models[version] = {**models.get(version, {}), **value}

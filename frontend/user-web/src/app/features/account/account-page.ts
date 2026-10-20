@@ -1,7 +1,8 @@
 import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { finalize, EMPTY, expand, reduce, switchMap } from 'rxjs';
+import { ContentService, DownloadRecord } from '../../core/content.service';
 import { AuthService, LoginHistoryItem, Session, errorMessage } from '../../core/auth.service';
 import { AccountService, NotificationSettings, UserPreferences, UserProfile } from '../../core/account.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
@@ -37,6 +38,7 @@ interface SessionGroup {
 export class AccountPage implements OnInit {
   readonly auth = inject(AuthService);
   readonly account = inject(AccountService);
+  private readonly content = inject(ContentService);
   readonly channelService = inject(ChannelService);
   readonly themeService = inject(ThemeService);
   readonly i18n = inject(I18nService);
@@ -74,6 +76,9 @@ export class AccountPage implements OnInit {
   // Downloads settings matching screenshot
   readonly downloadQuality = signal<'ask' | '1080p' | '720p' | '480p' | '144p'>('480p');
   readonly smartDownloads = signal(false);
+  readonly downloads = signal<DownloadRecord[]>([]);
+  readonly downloadsLoading = signal(false);
+  readonly downloadsError = signal('');
 
   // Modals / toggles for account edit
   readonly editingProfile = signal(false);
@@ -163,6 +168,25 @@ export class AccountPage implements OnInit {
     this.error.set('');
     this.message.set('');
     if (tab === 'billing') this.loadCurrentPlan();
+    if (tab === 'downloads') this.loadDownloads();
+  }
+
+  loadDownloads() {
+    if (this.downloadsLoading()) return;
+    this.downloadsLoading.set(true); this.downloadsError.set('');
+    this.content.downloads().pipe(finalize(() => this.downloadsLoading.set(false))).subscribe({
+      next: items => this.downloads.set(items),
+      error: error => this.downloadsError.set(errorMessage(error, this.i18n))
+    });
+  }
+
+  deleteDownload(item: DownloadRecord) {
+    if (this.busy() || !confirm(this.i18n.t('collection.confirmDelete'))) return;
+    this.busy.set(true); this.error.set(''); this.message.set('');
+    this.content.deleteDownload(item.videoDownloadId).pipe(finalize(() => this.busy.set(false))).subscribe({
+      next: () => { this.downloads.update(items => items.filter(row => row.videoDownloadId !== item.videoDownloadId)); this.message.set(this.i18n.t('collection.deleted')); },
+      error: error => this.error.set(errorMessage(error, this.i18n))
+    });
   }
 
   loadCurrentPlan() {
@@ -360,9 +384,24 @@ export class AccountPage implements OnInit {
   }
 
   clearAllDownloads() {
-    localStorage.removeItem('hutube.offline.videos');
-    this.message.set(this.i18n.t('account.deleteAllDownloadsSuccess'));
-    setTimeout(() => this.message.set(''), 3500);
+    if (this.busy() || !confirm(this.i18n.t('collection.confirmClear'))) return;
+    this.busy.set(true);
+    this.error.set('');
+    this.message.set('');
+    // Delete page one repeatedly so deleting a page cannot skip shifted rows.
+    this.content.downloads().pipe(
+      expand(page => page.length ? this.content.deleteDownloads(page.map(item => item.videoDownloadId))
+        .pipe(switchMap(() => this.content.downloads())) : EMPTY),
+      reduce(() => undefined, undefined as void),
+      finalize(() => this.busy.set(false))
+    ).subscribe({
+      next: () => {
+        localStorage.removeItem('hutube.offline.videos');
+        this.downloads.set([]);
+        this.message.set(this.i18n.t('account.deleteAllDownloadsSuccess'));
+      },
+      error: error => this.error.set(errorMessage(error, this.i18n))
+    });
   }
 
   onSaveProfile() {

@@ -27,7 +27,7 @@
         <div class="player-shell">
           <div #playerStage class="player-stage">
             @if (activeRendition(); as source) {
-              <video #player class="video-player" playsinline autoplay preload="metadata" [volume]="volume()" [muted]="muted()" [poster]="item.thumbnailUrl || ''" [src]="source.url" (pointerup)="onPlayerPointerUp($event)" (pointercancel)="onPlayerPointerCancel()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="onVolumeChange()" (ended)="onEnded()" (error)="onPlayerError()"></video>
+              <video #player class="video-player" playsinline autoplay preload="metadata" [disablePictureInPicture]="!pipAllowed()" [volume]="volume()" [muted]="muted()" [poster]="item.thumbnailUrl || ''" [src]="source.url" (pointerup)="onPlayerPointerUp($event)" (pointercancel)="onPlayerPointerCancel()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="onVolumeChange()" (ended)="onEnded()" (error)="onPlayerError()"></video>
             } @else {
               <div class="player-empty"><span aria-hidden="true">▶</span><p>{{ 'watch.notReady' | translate }}</p></div>
             }
@@ -110,7 +110,11 @@
                     <label class="player-option player-speed-option"><span>{{ 'watch.speed' | translate }}</span><select [ngModel]="speed()" (ngModelChange)="changeSpeed($event)" [attr.aria-label]="'watch.speed' | translate">
                       @for (value of speeds; track value) { <option [ngValue]="value">{{ value }}×</option> }
                     </select></label>
-                    <button type="button" class="player-icon-button player-pip-button" (click)="togglePictureInPicture()" [disabled]="!supportsPictureInPicture()" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
+                    @if (playlistQueue().length) {
+                      <button type="button" class="player-icon-button playlist-previous" (click)="movePlaylist(-1)" [disabled]="!playlistTarget(-1)" [attr.aria-label]="'watch.playlistPrevious' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M18 5 8 12l10 7V5Z" fill="currentColor" stroke="currentColor"/></svg></button>
+                      <button type="button" class="player-icon-button playlist-next" (click)="movePlaylist(1)" [disabled]="!playlistTarget(1)" [attr.aria-label]="'watch.playlistNext' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M6 5l10 7-10 7V5Z" fill="currentColor" stroke="currentColor"/></svg></button>
+                    }
+                    <button type="button" class="player-icon-button player-pip-button" (click)="togglePictureInPicture()" [disabled]="!pipActive() && !supportsPictureInPicture()" [title]="(!pipAllowed() ? 'watch.pipNotIncluded' : 'watch.pictureInPicture') | translate" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
                     <button type="button" class="player-icon-button player-fullscreen-button" (click)="toggleFullscreen()" [attr.aria-label]="'watch.fullscreen' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                   </div>
                 </div>
@@ -283,7 +287,7 @@
           } @else {
             <div class="guest-comment-box" style="padding: 16px; margin-bottom: 20px; border-radius: 12px; background: var(--canvas); border: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px;">
               <span style="font-size: 0.86rem; color: var(--text-muted);">{{ 'watch.loginComment' | translate }}</span>
-              <a routerLink="/login" style="padding: 8px 18px; border-radius: 999px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 700; font-size: 0.8rem;">{{ 'ui.signIn' | translate }}</a>
+              <a routerLink="/login" [queryParams]="{ returnUrl: loginReturnUrl() }" style="padding: 8px 18px; border-radius: 999px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 700; font-size: 0.8rem;">{{ 'ui.signIn' | translate }}</a>
             </div>
           }
           <div class="comment-list">
@@ -292,7 +296,13 @@
                 <span class="comment-avatar">{{ initials(comment.displayName) }}</span>
                 <div class="comment-body">
                   <div class="comment-author"><strong>{{ comment.displayName }}</strong><time>{{ comment.createdAt | localeDate:'d MMM y' }}</time></div>
-                  <p>{{ comment.content }}</p>
+                  @if (editingCommentId() === comment.commentId) {
+                  <form class="comment-edit-form" style="display:flex;flex-wrap:wrap;gap:8px" (ngSubmit)="saveCommentEdit(comment)">
+                    <textarea name="commentEdit" [(ngModel)]="commentEditText" [attr.aria-label]="'common.edit' | translate" [disabled]="commentEditBusy()" required maxlength="5000"></textarea>
+                    <button type="submit" class="primary-button" [disabled]="commentEditBusy() || !commentEditText.trim()">{{ 'common.save' | translate }}</button>
+                    <button type="button" class="action-button" (click)="cancelCommentEdit()" [disabled]="commentEditBusy()">{{ 'common.cancel' | translate }}</button>
+                  </form>
+                } @else { <p>{{ comment.content }}</p> }
                   <div class="comment-actions">
                     @if (!auth.user()) { <a routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }" class="comment-login-link">{{ 'watch.loginCommentInteraction' | translate }}</a> }
                       <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" (click)="reactComment(comment, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ comment.likes | compactLikeCount }}</span></button>
@@ -304,7 +314,7 @@
                       </button>
                     }
                     @if (isOwner()) { <button type="button" (click)="hide(comment)">{{ commentStatusLabel(comment.status === 'hidden') }}</button> }
-                    @if (isOwnComment(comment)) { <button type="button" class="is-danger" (click)="remove(comment)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(comment)">{{ 'watch.report' | translate }}</button> }
+                    @if (isOwnComment(comment)) { <button type="button" (click)="editComment(comment)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(comment)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(comment)">{{ 'watch.report' | translate }}</button> }
                   </div>
                   @if (replyTo() === comment.commentId) {
                     <form class="reply-composer" (ngSubmit)="reply(comment)"><input name="reply" [(ngModel)]="replyText" [placeholder]="'watch.replyPlaceholder' | translate"/><button type="submit" class="primary-button">{{ 'watch.send' | translate }}</button></form>
@@ -317,12 +327,18 @@
                           <span class="comment-avatar">{{ initials(replyItem.displayName) }}</span>
                           <div class="comment-body">
                             <div class="comment-author"><strong>{{ replyItem.displayName }}</strong><time>{{ replyItem.createdAt | localeDate:'d MMM y' }}</time></div>
-                            <p>{{ replyItem.content }}</p>
+                            @if (editingCommentId() === replyItem.commentId) {
+                  <form class="comment-edit-form" style="display:flex;flex-wrap:wrap;gap:8px" (ngSubmit)="saveCommentEdit(replyItem)">
+                    <textarea name="commentEdit" [(ngModel)]="commentEditText" [attr.aria-label]="'common.edit' | translate" [disabled]="commentEditBusy()" required maxlength="5000"></textarea>
+                    <button type="submit" class="primary-button" [disabled]="commentEditBusy() || !commentEditText.trim()">{{ 'common.save' | translate }}</button>
+                    <button type="button" class="action-button" (click)="cancelCommentEdit()" [disabled]="commentEditBusy()">{{ 'common.cancel' | translate }}</button>
+                  </form>
+                } @else { <p>{{ replyItem.content }}</p> }
                             <div class="comment-actions">
                               <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" (click)="reactComment(replyItem, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ replyItem.likes | compactLikeCount }}</span></button>
                               <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" (click)="reactComment(replyItem, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
                               @if (isOwner()) { <button type="button" (click)="hide(replyItem)">{{ commentStatusLabel(replyItem.status === 'hidden') }}</button> }
-                              @if (isOwnComment(replyItem)) { <button type="button" class="is-danger" (click)="remove(replyItem)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(replyItem)">{{ 'watch.report' | translate }}</button> }
+                              @if (isOwnComment(replyItem)) { <button type="button" (click)="editComment(replyItem)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(replyItem)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(replyItem)">{{ 'watch.report' | translate }}</button> }
                             </div>
                           </div>
                         </article>
@@ -333,8 +349,14 @@
                   }
                 </div>
               </article>
-            } @empty { <div class="empty-comments"><span aria-hidden="true">✦</span><strong>{{ 'watch.emptyCommentsTitle' | translate }}</strong><p>{{ 'watch.emptyCommentsDesc' | translate }}</p></div> }
+            } @empty { @if (!commentsLoading() && !commentsError()) { <div class="empty-comments"><span aria-hidden="true">✦</span><strong>{{ 'watch.emptyCommentsTitle' | translate }}</strong><p>{{ 'watch.emptyCommentsDesc' | translate }}</p></div> } }
           </div>
+          @if (commentsLoading()) { <p role="status" aria-live="polite">{{ 'watch.commentsLoading' | translate }}</p> }
+          @if (commentsError()) {
+            <div role="alert"><p>{{ commentsError() }}</p><button type="button" class="action-button comments-retry" (click)="retryComments()" [disabled]="commentsLoading()">{{ 'common.retry' | translate }}</button></div>
+          } @else if (comments().length < commentTotal()) {
+            <button type="button" class="action-button comments-load-more" (click)="loadMoreComments()" [disabled]="commentsLoading()" [attr.aria-busy]="commentsLoading()">{{ 'watch.loadMoreComments' | translate }}</button>
+          }
         </section>
         @if (actionMessage()) { <p class="action-message" role="status">{{ actionMessage() }}</p> }
       </section>

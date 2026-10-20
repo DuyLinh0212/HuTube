@@ -4,6 +4,7 @@ import hashlib
 import json
 import time
 
+import pytest
 from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
@@ -93,7 +94,7 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
         for _ in range(100):
             progress = client.get(f"/internal/model/jobs/{job_id}",
                                   headers={"X-Model-Admin-Token": "admin-secret"}).json()
-            if progress["status"] != "running":
+            if progress["status"] not in ("running", "publishing"):
                 break
             time.sleep(.05)
         assert progress["status"] == "completed", progress
@@ -153,7 +154,6 @@ def test_r2_training_restart_and_failed_update_keep_active_model(tmp_path, monke
 def test_training_lease_excludes_replicas_and_fences_old_owner():
     store = FakeR2()
     first = store.acquire_training_lease()
-    import pytest
     with pytest.raises(RuntimeError):
         store.acquire_training_lease()
     store.release_training_lease(*first)

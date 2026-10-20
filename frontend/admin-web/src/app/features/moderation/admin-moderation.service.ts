@@ -10,7 +10,11 @@ export type ModerationDecision =
   | 'reject'
   | 'escalate';
 
+export interface ClaimLease { claimId?: string | null; claimExpiresAt?: string | null; message?: string; }
+
 export interface ModerationQueueItem {
+  claimId?: string | null;
+  claimExpiresAt?: string | null;
   moderationCaseId: string;
   videoId: string;
   title: string;
@@ -33,7 +37,7 @@ export interface ModerationQueueItem {
   note: string | null;
 }
 
-export interface ResolveModerationRequest {
+export interface ResolveModerationRequest { claimId?: string | null;
   decision: ModerationDecision;
   policyCode?: string;
   reason?: string;
@@ -88,6 +92,8 @@ export interface ReportItem {
 
 export interface ReportViolationCount { code: string | null; name: string | null; count: number; }
 export interface ReportCaseSummary {
+  claimId?: string | null;
+  claimExpiresAt?: string | null;
   caseId: string; targetType: 'video' | 'comment' | 'channel'; targetId: string; targetTitle: string | null;
   targetUrl: string | null; targetThumbnailUrl: string | null; targetChannelName: string | null; targetChannelHandle: string | null;
   status: string; reportCount: number; reporterCount: number; unclassifiedCount: number; violationCounts: ReportViolationCount[];
@@ -99,8 +105,8 @@ export interface ReportCaseReportDetail {
   dispositionByUserId: string | null; dispositionAt: string | null; abuseFlag: boolean; createdAt: string; updatedAt: string;
 }
 export interface ReportCaseDetail { case: ReportCaseSummary; reports: ReportCaseReportDetail[]; }
-export interface UpdateReportDispositionsRequest { reportIds: string[]; disposition: 'accepted' | 'rejected'; reason: string; }
-export interface ResolveReportCaseRequest { decision: string; reason: string; internalNote?: string; policyCode?: string; restrictionDays?: number; }
+export interface UpdateReportDispositionsRequest { claimId?: string | null; reportIds: string[]; disposition: 'accepted' | 'rejected'; reason: string; }
+export interface ResolveReportCaseRequest { claimId?: string | null; decision: string; reason: string; internalNote?: string; policyCode?: string; restrictionDays?: number; }
 
 export interface ResolveReportRequest {
   decision: string;
@@ -117,6 +123,8 @@ export interface ReportResolutionResponse {
 }
 
 export interface AppealItem {
+  claimId?: string | null;
+  claimExpiresAt?: string | null;
   appealId: string;
   userId: string;
   userName: string | null;
@@ -137,7 +145,7 @@ export interface AppealItem {
   resolvedAt: string | null;
 }
 
-export interface ResolveAppealRequest {
+export interface ResolveAppealRequest { claimId?: string | null;
   decision: 'approve' | 'reject' | 'escalate';
   reviewNote?: string;
 }
@@ -222,12 +230,12 @@ export class AdminModerationService {
     return this.allPages<ModerationQueueItem>(`${this.config.apiBaseUrl}/admin/moderation/queue`, params, pageSize);
   }
 
-  claim(caseId: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.config.apiBaseUrl}/admin/moderation/${caseId}/claim`, {});
+  claim(caseId: string): Observable<ClaimLease> {
+    return this.http.post<ClaimLease>(`${this.config.apiBaseUrl}/admin/moderation/${caseId}/claim`, {});
   }
 
-  release(caseId: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.config.apiBaseUrl}/admin/moderation/${caseId}/release`, {});
+  release(caseId: string, claimId?: string | null): Observable<ClaimLease> {
+    return this.http.post<ClaimLease>(`${this.config.apiBaseUrl}/admin/moderation/${caseId}/release`, { claimId });
   }
 
   resolve(caseId: string, request: ResolveModerationRequest): Observable<ModerationDecisionResponse> {
@@ -254,8 +262,8 @@ export class AdminModerationService {
   }
 
   getReportCase(caseId: string) { return this.http.get<ReportCaseDetail>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}`); }
-  claimReportCase(caseId: string): Observable<void> { return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/claim`, {}); }
-  releaseReportCase(caseId: string): Observable<void> { return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/release`, {}); }
+  claimReportCase(caseId: string): Observable<ClaimLease> { return this.http.post<ClaimLease>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/claim`, {}); }
+  releaseReportCase(caseId: string, claimId?: string | null): Observable<void> { return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/release`, { claimId }); }
   updateReportDispositions(caseId: string, request: UpdateReportDispositionsRequest): Observable<void> {
     return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/dispositions`, request);
   }
@@ -263,12 +271,12 @@ export class AdminModerationService {
     return this.http.post<ReportResolutionResponse>(`${this.config.apiBaseUrl}/admin/reports/cases/${caseId}/resolve`, request);
   }
 
-  claimReport(reportId: string): Observable<void> {
-    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/claim`, {});
+  claimReport(reportId: string): Observable<ClaimLease> {
+    return this.http.post<ClaimLease>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/claim`, {});
   }
 
-  releaseReport(reportId: string): Observable<void> {
-    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/release`, {});
+  releaseReport(reportId: string, claimId?: string | null): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/reports/${reportId}/release`, { claimId });
   }
 
   resolveReport(reportId: string, request: ResolveReportRequest): Observable<ReportResolutionResponse> {
@@ -287,12 +295,12 @@ export class AdminModerationService {
     return this.http.get(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/evidence`, { responseType: 'blob' });
   }
 
-  claimAppeal(appealId: string): Observable<void> {
-    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/claim`, {});
+  claimAppeal(appealId: string): Observable<ClaimLease> {
+    return this.http.post<ClaimLease>(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/claim`, {});
   }
 
-  releaseAppeal(appealId: string): Observable<void> {
-    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/release`, {});
+  releaseAppeal(appealId: string, claimId?: string | null): Observable<void> {
+    return this.http.post<void>(`${this.config.apiBaseUrl}/admin/appeals/${appealId}/release`, { claimId });
   }
 
   resolveAppeal(appealId: string, request: ResolveAppealRequest): Observable<AppealResolutionResponse> {

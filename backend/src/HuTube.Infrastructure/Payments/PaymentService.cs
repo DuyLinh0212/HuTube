@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using System.Text.Json;
 using HuTube.Application.Payments;
@@ -267,6 +268,19 @@ public sealed class PaymentService(
             var code = end >= 0 ? rest[..end] : rest;
             if (code.Length >= 6) // mã tối thiểu 6 ký tự
                 candidates.Add(options.TransactionCodePrefix + "-" + code);
+        }
+
+        // VietQR/banks may remove the separator or replace it with whitespace.
+        // Require a complete eight-character reference; never match a prefix of
+        // a longer unrelated identifier. Keep the original stored format.
+        var referencePattern = @"(?<![A-Z0-9])" + Regex.Escape(options.TransactionCodePrefix.ToUpperInvariant())
+            + @"[-\s]*([A-Z0-9]{8})(?![A-Z0-9])";
+        foreach (var value in new[] { payload.Code, payload.Content })
+        {
+            if (string.IsNullOrWhiteSpace(value)) continue;
+            foreach (Match match in Regex.Matches(value.ToUpperInvariant(), referencePattern,
+                RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+                candidates.Add(options.TransactionCodePrefix + "-" + match.Groups[1].Value);
         }
 
         foreach (var candidate in candidates.Where(c => !string.IsNullOrWhiteSpace(c)))

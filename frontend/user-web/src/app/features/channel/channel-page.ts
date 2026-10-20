@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { Subscription, catchError, finalize, forkJoin, of } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { AuthService, errorMessage } from '../../core/auth.service';
@@ -25,7 +26,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [FormsModule, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -57,7 +58,15 @@ export class ChannelPage {
   readonly playlistsLoading = signal(true);
   readonly playlistsError = signal(false);
   readonly featuredDescription = signal('');
-  readonly videoSort = signal<'newest' | 'views'>('newest');
+  readonly videoSort = signal('newest');
+  videoQuery = '';
+  readonly videoPage = signal(1);
+  readonly videoPageSize = signal(20);
+  readonly videoPageCount = computed(() => Math.max(1, Math.ceil(this.videoTotal() / this.videoPageSize())));
+  readonly videoResults = signal<VideoCard[]>([]);
+  readonly videoResultsLoading = signal(false);
+  readonly videoResultsError = signal(false);
+  private videoRequestVersion = 0;
   readonly videoTotal = signal(0);
   readonly loadingMore = signal(false);
   readonly loadMoreError = signal(false);
@@ -65,7 +74,7 @@ export class ChannelPage {
   readonly latestVideos = computed(() => this.videos().slice(0, 4));
   readonly popularPreview = computed(() => this.popularVideos().slice(1, 5));
   readonly featuredPlaylists = computed(() => this.playlists().filter(list => list.itemCount > 0).slice(0, 4));
-  readonly tabVideos = computed(() => this.videoSort() === 'views' ? this.popularVideos() : this.videos());
+  readonly tabVideos = this.videoResults;
   readonly playlists = signal<PlaylistSummary[]>([]);
   readonly playlistPreviewById = signal<Record<string, PlaylistItem[]>>({});
   readonly channelLinks = signal<ChannelLink[]>([]);
@@ -91,6 +100,17 @@ export class ChannelPage {
 
   constructor() {
     this.destroyRef.onDestroy(() => this.channelRequests.unsubscribe());
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
+      this.videoQuery = params.get('q') ?? '';
+      this.videoSort.set(['newest', 'views', 'engagement', 'relevance'].includes(params.get('sort') ?? '') ? params.get('sort')! : 'newest');
+      this.videoPageSize.set(params.get('pageSize') === '50' ? 50 : 20);
+      const page = Number(params.get('page'));
+      this.videoPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
+      const tab = params.get('tab');
+      if (tab === 'home' || tab === 'videos' || tab === 'playlists') this.activeTab.set(tab);
+      if (this.channel() && this.activeTab() === 'videos') this.loadVideos();
+    });
+
     effect(() => {
       const unavailable = this.networkStatus.unavailable();
       const hasError = !!this.error();
@@ -116,7 +136,8 @@ export class ChannelPage {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe(params => {
       const handle = params.get('handle');
       if (handle) {
-        this.activeTab.set('home');
+        const tab = this.route.snapshot.queryParamMap.get('tab');
+        this.activeTab.set(tab === 'videos' || tab === 'playlists' ? tab : 'home');
         this.pendingHandle = handle;
         if (this.authReady()) this.loadChannel(handle);
       }
@@ -204,13 +225,13 @@ export class ChannelPage {
         }).pipe(finalize(() => this.videosLoading.set(false))).subscribe(({ latest, popular }) => {
           this.videos.set(latest?.items ?? []);
           this.popularVideos.set(popular?.items ?? []);
-          this.videoTotal.set(latest?.total ?? popular?.total ?? 0);
           const featured = popular?.items[0];
           if (featured) {
             this.channelRequests.add(this.contentService.detail(featured.videoId).pipe(catchError(() => of(null)))
               .subscribe(detail => this.featuredDescription.set(detail?.description?.trim() ?? '')));
           }
         }));
+        if (this.activeTab() === 'videos') this.loadVideos();
 
       },
       error: err => this.error.set(errorMessage(err, this.i18n) || this.i18n.t('channel.notFound'))
@@ -219,6 +240,30 @@ export class ChannelPage {
 
   videoViews(video: VideoDetail | VideoCard): number {
     return 'stats' in video ? video.stats.views : video.views;
+  }
+
+  loadVideos() {
+    const channel = this.channel();
+    if (!channel) return;
+    const version = ++this.videoRequestVersion;
+    this.videoResultsLoading.set(true); this.videoResultsError.set(false);
+    this.channelRequests.add(this.contentService.search({ channelId: channel.channelId, q: this.videoQuery, sort: this.videoSort(),
+      page: this.videoPage(), pageSize: this.videoPageSize() }).pipe(finalize(() => {
+        if (version === this.videoRequestVersion) this.videoResultsLoading.set(false);
+      })).subscribe({
+        next: result => { if (version === this.videoRequestVersion) { this.videoResults.set(result.items); this.videoTotal.set(result.total); } },
+        error: () => { if (version === this.videoRequestVersion) { this.videoResults.set([]); this.videoTotal.set(0); this.videoResultsError.set(true); } }
+      }));
+  }
+
+  filterVideos(pageSize = this.videoPageSize()) {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: {
+      tab: 'videos', q: this.videoQuery || null, sort: this.videoSort(), page: 1, pageSize } });
+  }
+
+  changeVideoPage(page: number) {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
+      queryParams: { tab: 'videos', page: Math.max(1, Math.min(page, this.videoPageCount())) } });
   }
 
   private loadPlaylistPreviews(playlists: PlaylistSummary[]) {
@@ -268,6 +313,7 @@ export class ChannelPage {
   setTab(tab: ChannelTab) {
     this.activeTab.set(tab);
     this.host.nativeElement.querySelector('.channel-tabs-bar')?.scrollIntoView({ block: 'nearest' });
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: { tab, sort: this.videoSort() } });
   }
 
   showAllVideos(sort: 'newest' | 'views') {
@@ -303,7 +349,7 @@ export class ChannelPage {
     this.subscriptionMessage.set('');
 
     if (!this.auth.user()) {
-      void this.router.navigate(['/login']);
+      void this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
       return;
     }
 

@@ -21,7 +21,7 @@ public sealed record MatrixPreviewResponse(string[] Columns, IReadOnlyList<strin
     string[]? DisplayColumns = null, IReadOnlyList<string[]>? DisplayRows = null);
 public sealed record MatrixDiffResponse(string State, string? ModelVersion, string? CsvKey,
     string? CsvSha256, DateTimeOffset? UpdatedAt, MatrixCounts Active, MatrixCounts Current,
-    int Added, int Changed, int Removed, double ChangeRate, string? ModelAlgorithm = null);
+    int Added, int Changed, int Removed, double ChangeRate, string? ModelAlgorithm = null, ScoreAggregationConfig? ScoreAggregation = null);
 public sealed record AdminUserOption(Guid UserId, string Username, string DisplayName, bool IsBot);
 public sealed record AdminCategoryOption(Guid CategoryId, string Name, string Slug);
 public sealed record AdminVideoOption(Guid VideoId, Guid ChannelId, string Title, int Duration,
@@ -338,7 +338,7 @@ public sealed class RecommendationAdminService(
         return new("ready", active.ModelVersion, active.CsvKey, active.CsvSha256, active.UpdatedAt,
             Count(oldLines), current, added, changed, removed,
             oldMap.Count == 0 ? 0 : (double)(added + changed + removed) / oldMap.Count,
-            active.ModelAlgorithm);
+            active.ModelAlgorithm, active.ScoreAggregation ?? DefaultScoreAggregation());
     }
 
     private static MatrixCounts Count(IEnumerable<string> lines)
@@ -569,8 +569,45 @@ public sealed class RecommendationAdminService(
 
     public async Task StopAsync(Guid id, CancellationToken ct)
     {
-        var job = await db.RecommendationJobs.SingleOrDefaultAsync(x => x.JobId == id && x.Kind == "simulation", ct)
-            ?? throw Error(404, "JOB_NOT_FOUND", "Không tìm thấy job mô phỏng.");
+        var job = await db.RecommendationJobs.SingleOrDefaultAsync(x => x.JobId == id, ct)
+            ?? throw Error(404, "JOB_NOT_FOUND", "Không tìm thấy job.");
+        if (job.Status is "completed" or "failed" or "cancelled") return;
+        if (job.Kind == "model_update")
+        {
+            // A queued job must be claimed atomically against the worker.
+            if (db.Database.IsRelational() && job.Status == "queued")
+            {
+                var changed = await db.RecommendationJobs.Where(x => x.JobId == id && x.Status == "queued")
+                    .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, "cancelled")
+                        .SetProperty(x => x.Step, "cancelled").SetProperty(x => x.UpdatedAt, DateTimeOffset.UtcNow), ct);
+                if (changed != 0) return;
+                await db.Entry(job).ReloadAsync(ct);
+            }
+            if (job.Status == "queued")
+            { job.Status = "cancelled"; job.Step = "cancelled"; await db.SaveChangesAsync(ct); return; }
+            if (job.Status is "completed" or "failed" or "cancelled") return;
+            if (string.IsNullOrWhiteSpace(options.ServiceUrl) || string.IsNullOrWhiteSpace(options.AdminToken))
+                throw Error(503, "MODEL_SERVICE_UNAVAILABLE", "Không thể xác nhận hủy với dịch vụ model.");
+            using var client = clients.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+            using var request = new HttpRequestMessage(HttpMethod.Post, options.ServiceUrl.TrimEnd('/') +
+                "/internal/model/jobs/" + Uri.EscapeDataString(job.ServiceJobId ?? job.JobId.ToString()) + "/cancel");
+            request.Headers.Add("X-Model-Admin-Token", options.AdminToken);
+            using var response = await client.SendAsync(request, ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                throw Error(409, "MODEL_JOB_FINALIZING", "Model đang hoàn tất publish; không thể hủy lượt này.");
+            if (!response.IsSuccessStatusCode)
+                throw Error(503, "MODEL_CANCEL_UNCONFIRMED", "Dịch vụ model chưa xác nhận hủy.");
+            using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            if (result.RootElement.GetProperty("status").GetString() != "cancelled")
+                throw Error(409, "MODEL_JOB_ALREADY_FINISHED", "Job đã kết thúc trước khi nhận yêu cầu hủy.");
+            if (db.Database.IsRelational())
+                await db.RecommendationJobs.Where(x => x.JobId == id && (x.Status == "queued" || x.Status == "running" || x.Status == "cancelling"))
+                    .ExecuteUpdateAsync(update => update.SetProperty(x => x.Status, "cancelled")
+                        .SetProperty(x => x.Step, "cancelled").SetProperty(x => x.UpdatedAt, DateTimeOffset.UtcNow), ct);
+            else { job.Status = "cancelled"; job.Step = "cancelled"; await db.SaveChangesAsync(ct); }
+            return;
+        }
         if (job.Status is "queued" or "running")
         { job.Status = "cancelling"; job.UpdatedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(ct); }
     }
@@ -579,12 +616,15 @@ public sealed class RecommendationAdminService(
     {
         try
         {
+            if (job.Kind == "model_update") await EnsureModelJobActiveAsync(job, ct);
             if (job.Kind == "model_update") await ProcessModelAsync(job, ct);
             else await ProcessSimulatorAsync(job, ct);
             job.Status = job.Status == "cancelling" ? "cancelled" : "completed";
             job.Step = job.Status;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+        catch (OperationCanceledException) when (job.Kind == "model_update")
+        { job.Status = "cancelled"; job.Step = "cancelled"; job.Error = null; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Recommendation job {JobId} failed at {Step}", job.JobId, job.Step);
@@ -604,6 +644,7 @@ public sealed class RecommendationAdminService(
         {
         job.Step = "matrix"; await db.SaveChangesAsync(ct);
         var rows = await BuildMatrixAsync(ct);
+        await EnsureModelJobActiveAsync(job, ct);
         if (rows.Count < 3 || rows.Select(x => x.UserId).Distinct().Count() < 2 || rows.Select(x => x.VideoId).Distinct().Count() < 2)
             throw Error(422, "MATRIX_TOO_SMALL", "CF cần ít nhất 2 user, 2 video và 3 cặp tương tác.");
         var bytes = ToCsv(rows, scoreAggregation);
@@ -620,6 +661,7 @@ public sealed class RecommendationAdminService(
         job.ServiceJobId ??= job.JobId.ToString();
         await db.SaveChangesAsync(ct);
         job.Step = "train_model"; await db.SaveChangesAsync(ct);
+        await EnsureModelJobActiveAsync(job, ct);
         if (string.IsNullOrWhiteSpace(options.ServiceUrl) || string.IsNullOrWhiteSpace(options.AdminToken))
             throw new InvalidOperationException("Recommendation Service URL/AdminToken is not configured.");
         using var client = clients.CreateClient();
@@ -631,6 +673,7 @@ public sealed class RecommendationAdminService(
         var deadline = DateTimeOffset.UtcNow.AddMinutes(20);
         while (DateTimeOffset.UtcNow < deadline)
         {
+            await EnsureModelJobActiveAsync(job, ct);
             await Task.Delay(TimeSpan.FromSeconds(3), ct);
             using var poll = new HttpRequestMessage(HttpMethod.Get,
                 options.ServiceUrl.TrimEnd('/') + "/internal/model/jobs/" + Uri.EscapeDataString(serviceJobId));
@@ -656,6 +699,7 @@ public sealed class RecommendationAdminService(
             }
             using var progressJson = JsonDocument.Parse(progressBody);
             var state = progressJson.RootElement.GetProperty("status").GetString();
+            if (state == "cancelled") throw new OperationCanceledException("Model job cancelled.");
             if (state == "completed") break;
             if (state == "failed")
                 throw new InvalidOperationException(progressJson.RootElement.GetProperty("error").GetString() ?? "Model training failed.");
@@ -687,6 +731,13 @@ public sealed class RecommendationAdminService(
             $"Score aggregation: {scoreAggregation.Mode}.",
             cleanupMessage
         });
+    }
+
+    private async Task EnsureModelJobActiveAsync(RecommendationJob job, CancellationToken ct)
+    {
+        var state = await db.RecommendationJobs.AsNoTracking().Where(x => x.JobId == job.JobId)
+            .Select(x => x.Status).SingleAsync(ct);
+        if (state is "cancelled" or "cancelling") throw new OperationCanceledException("Model update was cancelled.");
     }
 
     private async Task ProcessSimulatorAsync(RecommendationJob job, CancellationToken ct)

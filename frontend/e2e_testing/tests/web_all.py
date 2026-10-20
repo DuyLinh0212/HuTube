@@ -6,8 +6,12 @@ import sys
 import traceback
 from types import SimpleNamespace
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+TESTS_DIR = Path(__file__).resolve().parent
+ROOT = TESTS_DIR.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 from playwright.sync_api import sync_playwright
 from support.web_suite import WebSuite
 from flows.user.functional import run as run_user
@@ -29,8 +33,12 @@ from flows.user.preferences import run as run_preferences
 from flows.user.interactions import run as run_interactions
 from flows.user.membership import run as run_membership
 from flows.user.errors import run as run_errors
-from user_account import run_checks as run_user_account
-from admin_account import run_checks as run_admin_account
+try:
+    from user_account import run_checks as run_user_account
+    from admin_account import run_checks as run_admin_account
+except ImportError:
+    from tests.user_account import run_checks as run_user_account
+    from tests.admin_account import run_checks as run_admin_account
 
 ACCOUNT_CASES = {
     'U-ACCOUNT-READ-01': ('Đọc hồ sơ và mở form sửa', 'Tên/email đúng fixture; form giữ tên/bio; bio maxlength 160'),

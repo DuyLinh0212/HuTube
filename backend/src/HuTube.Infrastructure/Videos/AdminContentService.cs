@@ -159,7 +159,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             if (normalizedStatus == "published")
                 query = query.Where(x => x.Status == "published" && x.ModerationStatus != "rejected");
             else if (normalizedStatus == "processing")
-                query = query.Where(x => x.Status == "processing" || x.ModerationStatus == "pending");
+                query = query.Where(x => x.Status == "processing");
             else if (normalizedStatus == "blocked")
                 query = query.Where(x => x.Status == "blocked" || x.ModerationStatus == "rejected");
             else if (normalizedStatus == "rejected")

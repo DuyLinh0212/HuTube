@@ -12,7 +12,9 @@ public sealed class PolicyService(HuTubeDbContext db)
     {
         var query = db.Policies
             .AsNoTracking()
-            .Where(p => p.Status == "published");
+            .Where(p => p.Status == "published" && p.EffectiveAt <= DateTimeOffset.UtcNow
+                && !db.Policies.Any(newer => newer.Code == p.Code && newer.Status == "published"
+                    && newer.EffectiveAt <= DateTimeOffset.UtcNow && newer.EffectiveAt > p.EffectiveAt));
 
         if (!string.IsNullOrWhiteSpace(group))
         {
@@ -115,6 +117,24 @@ public sealed class PolicyService(HuTubeDbContext db)
     {
         var policy = await db.Policies.FirstOrDefaultAsync(p => p.PolicyId == policyId, ct)
             ?? throw new AuthException(404, "POLICY_NOT_FOUND", "Không tìm thấy chính sách.");
+
+        // Published records are referenced by moderation evidence. Keep their
+        // identity and content intact when publishing the next version.
+        if (policy.Status == "published")
+        {
+            var version = request?.Version?.Trim();
+            if (string.IsNullOrWhiteSpace(version) || version == policy.Version)
+                throw new AuthException(409, "POLICY_VERSION_REQUIRED", "Phiên bản đã công bố không thể sửa. Hãy chọn phiên bản mới.");
+            if (await db.Policies.AnyAsync(p => p.Code == policy.Code && p.Version == version, ct))
+                throw new AuthException(409, "POLICY_VERSION_EXISTS", "Phiên bản chính sách đã tồn tại.");
+            policy = new Policy
+            {
+                Code = policy.Code, Name = policy.Name, Group = policy.Group,
+                Content = policy.Content, Severity = policy.Severity,
+                Version = version, CreatedAt = DateTimeOffset.UtcNow
+            };
+            db.Policies.Add(policy);
+        }
 
         if (request != null)
         {

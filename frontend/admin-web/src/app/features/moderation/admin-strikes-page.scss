@@ -981,4 +981,7 @@
 
 @media (max-width: 760px) {
   .toolbar .search-box { width: 100%; min-width: 0; }
+  .page-header { min-width: 0; }
+  .page-header .header-actions { width: 100%; min-width: 0; flex-shrink: 1; flex-wrap: wrap; }
+  .header-actions .btn { min-height: 44px; max-width: 100%; white-space: normal; }
 }

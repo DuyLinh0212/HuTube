@@ -82,6 +82,121 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         _db.Dispose();
     }
 
+    [Fact]
+    public async Task Decision_PinsPublishedPolicyVersion_AfterNewPublication()
+    {
+        var channel = new Channel { OwnerUserId = Guid.NewGuid(), Name = "Policy evidence" };
+        var video = new Video { ChannelId = channel.ChannelId, Title = "Policy target", Visibility = "public", Status = "pending", ModerationStatus = "pending" };
+        var item = new ModerationCase { VideoId = video.VideoId, CaseType = "upload_review" };
+        var policy = new Policy { Code = "DELTA.PINNED", Name = "Original", Content = "Original rule", Version = "1.0", Status = "published", EffectiveAt = DateTimeOffset.UtcNow.AddMinutes(-1) };
+        _db.Channels.Add(channel); _db.Videos.Add(video); _db.ModerationCases.Add(item); _db.Policies.Add(policy);
+        await _db.SaveChangesAsync();
+        var reviewer = Guid.NewGuid();
+        var lease = await _moderationService.ClaimCaseAsync(reviewer, item.ModerationCaseId);
+        await _moderationService.ResolveCaseAsync(reviewer, item.ModerationCaseId,
+            new ResolveModerationRequest("reject", policy.Code, "Original policy decision", null, lease.ClaimId));
+        Assert.Equal("1.0", item.PolicyVersion);
+        var policies = new HuTube.Infrastructure.Policies.PolicyService(_db);
+        await policies.PublishPolicyVersionAsync(reviewer, policy.PolicyId,
+            new HuTube.Application.Policies.UpdatePolicyRequest("Next", "content", "New rule", "high", "published", "2.0"));
+        _db.ChangeTracker.Clear();
+        var saved = await _db.ModerationCases.SingleAsync(c => c.ModerationCaseId == item.ModerationCaseId);
+        Assert.Equal("1.0", saved.PolicyVersion);
+        Assert.Equal(policy.Code, saved.PolicyCode);
+        Assert.Equal("Original rule", (await _db.Policies.SingleAsync(p => p.PolicyId == policy.PolicyId)).Content);
+        Assert.Equal("2.0", Assert.Single(await policies.GetPublicPoliciesAsync()).Version);
+    }
+
+    [Theory]
+    [InlineData("suspended", 409)]
+    [InlineData("deleted", 404)]
+    public async Task Decision_RejectsChannelUnavailableAfterClaim_WithoutMutatingTarget(string status, int expectedStatus)
+    {
+        var channel = new Channel { OwnerUserId = Guid.NewGuid(), Name = "Unavailable target" };
+        var video = new Video { ChannelId = channel.ChannelId, Title = "Pending target", Visibility = "public", Status = "pending", ModerationStatus = "pending" };
+        var item = new ModerationCase { VideoId = video.VideoId, CaseType = "upload_review" };
+        _db.Channels.Add(channel); _db.Videos.Add(video); _db.ModerationCases.Add(item);
+        await _db.SaveChangesAsync();
+        var reviewer = Guid.NewGuid();
+        var lease = await _moderationService.ClaimCaseAsync(reviewer, item.ModerationCaseId);
+        channel.Status = status;
+        await _db.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<AuthException>(() => _moderationService.ResolveCaseAsync(reviewer, item.ModerationCaseId,
+            new ResolveModerationRequest("approve", null, "Do not publish unavailable channel", null, lease.ClaimId)));
+        Assert.Equal(expectedStatus, error.Status);
+        Assert.Null(item.Decision);
+        Assert.Null(item.ResolvedAt);
+        Assert.Equal("pending", video.Status);
+        Assert.Equal("pending", video.ModerationStatus);
+        Assert.Null(video.PublishedAt);
+        Assert.Empty(_notifications.Notifications);
+    }
+
+    [Fact]
+    public async Task ApprovedCase_RejectsReplayAndReclaim_WithoutDuplicateNotification()
+    {
+        var ownerId = Guid.NewGuid();
+        var channel = new Channel { ChannelId = Guid.NewGuid(), OwnerUserId = ownerId, Name = "Replay test", Handle = "replay-test" };
+        var video = new Video { VideoId = Guid.NewGuid(), ChannelId = channel.ChannelId, Title = "Replay video", Visibility = "public", Status = "pending", ModerationStatus = "pending" };
+        var item = new ModerationCase { ModerationCaseId = Guid.NewGuid(), VideoId = video.VideoId, CaseType = "video_upload", Status = "reviewing" };
+        _db.Channels.Add(channel); _db.Videos.Add(video); _db.ModerationCases.Add(item);
+        await _db.SaveChangesAsync();
+        var reviewerId = Guid.NewGuid();
+        var lease = await _moderationService.ClaimCaseAsync(reviewerId, item.ModerationCaseId);
+        var request = new ResolveModerationRequest("approve", "Safe", null, null, lease.ClaimId);
+        await _moderationService.ResolveCaseAsync(reviewerId, item.ModerationCaseId, request);
+        var resolvedAt = item.ResolvedAt;
+        var noticeCount = _notifications.Notifications.Count;
+        Assert.Equal(1, noticeCount);
+
+        var error = await Assert.ThrowsAsync<AuthException>(() => _moderationService.ResolveCaseAsync(Guid.NewGuid(), item.ModerationCaseId, request));
+        Assert.Equal(409, error.Status);
+        Assert.Equal("CASE_ALREADY_PROCESSED", error.Code);
+        var claimError = await Assert.ThrowsAsync<AuthException>(() => _moderationService.ClaimCaseAsync(Guid.NewGuid(), item.ModerationCaseId));
+        Assert.Equal(409, claimError.Status);
+        Assert.Equal("approved", item.Status);
+        Assert.Equal(reviewerId, item.ReviewerId);
+        Assert.Equal(resolvedAt, item.ResolvedAt);
+        Assert.Equal(noticeCount, _notifications.Notifications.Count);
+    }
+
+    [Fact]
+    public async Task ClaimedCase_CannotBeResolvedByAnotherReviewer_WithoutSideEffects()
+    {
+        var claimant = Guid.NewGuid();
+        var channel = new Channel { ChannelId = Guid.NewGuid(), OwnerUserId = Guid.NewGuid(), Name = "Claimed" };
+        var video = new Video { VideoId = Guid.NewGuid(), ChannelId = channel.ChannelId, Status = "pending", ModerationStatus = "pending" };
+        var item = new ModerationCase { VideoId = video.VideoId, Status = "reviewing", ReviewerId = claimant };
+        _db.Channels.Add(channel); _db.Videos.Add(video); _db.ModerationCases.Add(item);
+        await _db.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<AuthException>(() => _moderationService.ResolveCaseAsync(Guid.NewGuid(), item.ModerationCaseId,
+            new ResolveModerationRequest("approve", "Wrong reviewer", null, null)));
+        Assert.Equal(409, error.Status);
+        Assert.Equal(claimant, item.ReviewerId);
+        Assert.Null(item.ResolvedAt);
+        Assert.Equal("pending", video.Status);
+        Assert.Null(video.PublishedAt);
+        Assert.Empty(_notifications.Notifications);
+        var lease = await _moderationService.ClaimCaseAsync(claimant, item.ModerationCaseId);
+        await _moderationService.ResolveCaseAsync(claimant, item.ModerationCaseId, new ResolveModerationRequest("approve", "Claim owner", null, null, lease.ClaimId));
+        Assert.Equal("published", video.Status);
+        Assert.Single(_notifications.Notifications);
+    }
+
+    [Theory]
+    [InlineData("approved")]
+    [InlineData("rejected")]
+    [InlineData("resolved")]
+    public async Task TerminalCase_RejectsAnotherDecisionBeforeTargetOrNotificationChanges(string status)
+    {
+        var item = new ModerationCase { ModerationCaseId = Guid.NewGuid(), Status = status };
+        _db.ModerationCases.Add(item); await _db.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<AuthException>(() => _moderationService.ResolveCaseAsync(Guid.NewGuid(), item.ModerationCaseId, new ResolveModerationRequest("approve", "Retry", null, null)));
+        Assert.Equal(409, error.Status);
+        Assert.Equal(status, item.Status);
+        Assert.Empty(_notifications.Notifications);
+    }
+
     [Theory]
     [InlineData(0, 7, false)]
     [InlineData(1, 14, false)]
@@ -155,7 +270,7 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
             ModerationCaseId = Guid.NewGuid(),
             VideoId = fifthVideo.VideoId,
             CaseType = "video_upload",
-            Status = "in_review",
+            Status = "pending",
             ReviewerId = reviewerId,
             SubmittedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -164,11 +279,12 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         await _db.SaveChangesAsync();
 
         // Act - Reviewer rejects the 5th video
+        var lease = await _moderationService.ClaimCaseAsync(reviewerId, mc.ModerationCaseId);
         var resolution = await _moderationService.ResolveCaseAsync(reviewerId, mc.ModerationCaseId, new ResolveModerationRequest(
             "reject",
             "Vi phạm bản quyền nghiêm trọng",
             "Auto lock check",
-            "COPYRIGHT"
+            "COPYRIGHT", lease.ClaimId
         ));
 
         // Assert
@@ -335,9 +451,10 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         Assert.Equal("CANNOT_RESOLVE_OWN_CASE", resolveEx.Code);
 
         // Act & Assert 2: Reviewer B (independent reviewer) can resolve and approve
+        var lease = await _appealService.ClaimAppealAsync(reviewerB, appealDto.AppealId);
         var result = await _appealService.ResolveAppealAsync(reviewerB, appealDto.AppealId, new ResolveAppealRequest(
             "approve",
-            "Đã kiểm tra lại và chấp thuận kháng cáo."
+            "Đã kiểm tra lại và chấp thuận kháng cáo.", lease.ClaimId
         ));
 
         Assert.Equal(AppealStatuses.Approved, result.Status);
@@ -345,6 +462,17 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         // Verify video is restored to approved
         var restoredVideo = await _db.Videos.SingleAsync(v => v.VideoId == video.VideoId);
         Assert.Equal("approved", restoredVideo.ModerationStatus);
+        Assert.Equal("published", restoredVideo.Status);
+        Assert.NotNull(restoredVideo.PublishedAt);
+        var publishedAt = restoredVideo.PublishedAt;
+        var noticeCount = _notifications.Notifications.Count;
+        var replay = await Assert.ThrowsAsync<AuthException>(() => _appealService.ResolveAppealAsync(reviewerB, appealDto.AppealId,
+            new ResolveAppealRequest("approve", "Duplicate decision")));
+        Assert.Equal(409, replay.Status);
+        var reclaim = await Assert.ThrowsAsync<AuthException>(() => _appealService.ClaimAppealAsync(reviewerB, appealDto.AppealId));
+        Assert.Equal(409, reclaim.Status);
+        Assert.Equal(publishedAt, restoredVideo.PublishedAt);
+        Assert.Equal(noticeCount, _notifications.Notifications.Count);
     }
 
     [Fact]

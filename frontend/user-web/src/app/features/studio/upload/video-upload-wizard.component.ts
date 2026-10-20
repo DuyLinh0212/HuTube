@@ -65,6 +65,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   readonly isFileDragActive = signal<boolean>(false);
   readonly isPreparing = signal<boolean>(false);
   readonly uploadError = signal('');
+  readonly draftMessage = signal('');
   readonly preflightError = signal('');
   readonly preflight = signal<UploadPreflight | null>(null);
   readonly preflightLoading = signal(false);
@@ -132,9 +133,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
     effect(() => {
       const channel = this.studio.channel();
       if (!channel) return;
+      const channelChanged = this.channelId !== channel.channelId;
       this.channelId = channel.channelId;
       this.restoreDraft();
-      this.runPreflight();
+      if (channelChanged) this.runPreflight();
     });
     this.content.categories().subscribe({ next: items => this.categoryOptions.set(items) });
     this.playlistService.mine().subscribe({
@@ -491,7 +493,16 @@ export class VideoUploadWizardComponent implements OnDestroy {
       localStorage.setItem(this.draftKey(), JSON.stringify({ videoTitle: this.videoTitle, videoDesc: this.videoDesc,
         category: this.category, videoLang: this.videoLang, visibility: this.visibility, allowComments: this.allowComments,
         tags: this.tags(), chapters: this.chapters(), videoCards: this.videoCards() }));
-      this.uploadError.set(this.i18n.t('upload.draftSaved'));
+      this.uploadError.set('');
+      this.draftMessage.set(this.i18n.t('upload.draftSaved'));
+    } catch { this.uploadError.set(this.i18n.t('upload.draftFailed')); }
+  }
+
+  discardDraft() {
+    try {
+      localStorage.removeItem(this.draftKey());
+      this.resetWizard();
+      this.draftMessage.set(this.i18n.t('upload.draftDiscarded'));
     } catch { this.uploadError.set(this.i18n.t('upload.draftFailed')); }
   }
 
@@ -507,7 +518,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
       if (Array.isArray(draft.tags)) this.tags.set(draft.tags.filter((x: unknown) => typeof x === 'string'));
       if (Array.isArray(draft.chapters)) this.chapters.set(draft.chapters.filter((x: Chapter) => typeof x.title === 'string' && typeof x.time === 'string'));
       if (Array.isArray(draft.videoCards)) this.videoCards.set(draft.videoCards.filter((x: VideoCardMarker) => Number.isInteger(x.id) && typeof x.videoId === 'string' && typeof x.time === 'string'));
-      this.uploadError.set(this.i18n.t('upload.draftRestored'));
+      this.draftMessage.set(this.i18n.t('upload.draftRestored'));
     } catch { this.uploadError.set(this.i18n.t('upload.draftFailed')); }
   }
 
@@ -795,8 +806,14 @@ export class VideoUploadWizardComponent implements OnDestroy {
     this.qualityLimitPrompt.set('');
     this.videoTitle = '';
     this.videoDesc = '';
+    this.category = '';
+    this.videoLang = 'vi';
+    this.visibility = 'public';
+    this.allowComments = true;
+    this.policyAgreed = false;
     this.selectedPlaylistId = '';
     this.playlistMessage.set('');
+    this.draftMessage.set('');
     this.chapters.set([]);
     this.videoCards.set([]);
     this.tags.set([]);

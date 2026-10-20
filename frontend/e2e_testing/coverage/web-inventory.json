@@ -680,6 +680,15 @@
     {
       "app": "user",
       "event": "click",
+      "expression": "skipToContent($event)",
+      "source": "frontend/user-web/src/app/app.html",
+      "line": 1,
+      "scenario": "X-SHELL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
       "expression": "retry()",
       "source": "frontend/user-web/src/app/core/network/network-fallback.component.html",
       "line": 16,
@@ -986,9 +995,27 @@
     {
       "app": "user",
       "event": "click",
+      "expression": "loadDownloads()",
+      "source": "frontend/user-web/src/app/features/account/account-page.html",
+      "line": 451,
+      "scenario": "U-ACCOUNT",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "deleteDownload(item)",
+      "source": "frontend/user-web/src/app/features/account/account-page.html",
+      "line": 456,
+      "scenario": "U-ACCOUNT",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
       "expression": "setDownloadQuality('ask')",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 455,
+      "line": 468,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -997,7 +1024,7 @@
       "event": "click",
       "expression": "setDownloadQuality('1080p')",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 461,
+      "line": 474,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1006,7 +1033,7 @@
       "event": "click",
       "expression": "setDownloadQuality('720p')",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 467,
+      "line": 480,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1015,7 +1042,7 @@
       "event": "click",
       "expression": "setDownloadQuality('480p')",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 473,
+      "line": 486,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1024,7 +1051,7 @@
       "event": "click",
       "expression": "setDownloadQuality('144p')",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 479,
+      "line": 492,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1033,7 +1060,7 @@
       "event": "change",
       "expression": "onToggleSmartDownloads($any($event.target).checked)",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 499,
+      "line": 512,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1042,7 +1069,7 @@
       "event": "click",
       "expression": "clearAllDownloads()",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 522,
+      "line": 535,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1051,7 +1078,7 @@
       "event": "click",
       "expression": "loadCurrentPlan()",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 549,
+      "line": 562,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1060,7 +1087,7 @@
       "event": "click",
       "expression": "togglePurchaseHistory()",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 616,
+      "line": 629,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1069,7 +1096,7 @@
       "event": "click",
       "expression": "loadBillingPayments()",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 626,
+      "line": 639,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1078,7 +1105,7 @@
       "event": "click",
       "expression": "togglePaymentHistory()",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 659,
+      "line": 672,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1087,7 +1114,7 @@
       "event": "click",
       "expression": "loadBillingPayments()",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 669,
+      "line": 682,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -1417,10 +1444,64 @@
     },
     {
       "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterVideos()",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 120,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterVideos()",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 121,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterVideos(+$event)",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 122,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "loadVideos()",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 126,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "changeVideoPage(videoPage() - 1)",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 155,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "changeVideoPage(videoPage() + 1)",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 157,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
       "event": "click",
       "expression": "closeInfoModal()",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 186,
+      "line": 203,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1429,7 +1510,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 187,
+      "line": 204,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1438,7 +1519,7 @@
       "event": "click",
       "expression": "closeInfoModal()",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 190,
+      "line": 207,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1447,7 +1528,7 @@
       "event": "click",
       "expression": "copyShareLink()",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 305,
+      "line": 322,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1456,7 +1537,7 @@
       "event": "click",
       "expression": "toggleReportMenu($event)",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 313,
+      "line": 330,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1465,7 +1546,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 322,
+      "line": 339,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1474,7 +1555,7 @@
       "event": "click",
       "expression": "hideUserFromMyChannel()",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 323,
+      "line": 340,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1483,7 +1564,7 @@
       "event": "click",
       "expression": "openChannelReportModal('banner')",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 326,
+      "line": 343,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1492,7 +1573,7 @@
       "event": "click",
       "expression": "openChannelReportModal('avatar')",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 329,
+      "line": 346,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1501,7 +1582,7 @@
       "event": "click",
       "expression": "openChannelReportModal('user')",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 332,
+      "line": 349,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1510,7 +1591,7 @@
       "event": "close",
       "expression": "reportModalOpen.set(false)",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 349,
+      "line": 366,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -1786,8 +1867,8 @@
     },
     {
       "app": "user",
-      "event": "change",
-      "expression": "changeSort($any($event.target).value)",
+      "event": "ngModelChange",
+      "expression": "changeSort($event)",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
       "line": 44,
       "scenario": "U-DISCOVERY",
@@ -1795,8 +1876,8 @@
     },
     {
       "app": "user",
-      "event": "change",
-      "expression": "changeDuration($any($event.target).value)",
+      "event": "ngModelChange",
+      "expression": "changeDuration($event)",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
       "line": 53,
       "scenario": "U-DISCOVERY",
@@ -1804,8 +1885,8 @@
     },
     {
       "app": "user",
-      "event": "change",
-      "expression": "changeDateRange($any($event.target).value)",
+      "event": "ngModelChange",
+      "expression": "changeDateRange($event)",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
       "line": 62,
       "scenario": "U-DISCOVERY",
@@ -1915,7 +1996,7 @@
       "event": "click",
       "expression": "toggleSubscribe(creator.channelId, $event)",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
-      "line": 318,
+      "line": 320,
       "scenario": "U-DISCOVERY",
       "status": "PLANNED"
     },
@@ -1924,7 +2005,7 @@
       "event": "click",
       "expression": "scrollTrending('left')",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
-      "line": 366,
+      "line": 369,
       "scenario": "U-DISCOVERY",
       "status": "PLANNED"
     },
@@ -1933,7 +2014,7 @@
       "event": "error",
       "expression": "onImageError($event)",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
-      "line": 379,
+      "line": 382,
       "scenario": "U-DISCOVERY",
       "status": "PLANNED"
     },
@@ -1942,8 +2023,35 @@
       "event": "click",
       "expression": "scrollTrending('right')",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
-      "line": 418,
+      "line": 421,
       "scenario": "U-DISCOVERY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterHistory()",
+      "source": "frontend/user-web/src/app/features/library/library-page.html",
+      "line": 4,
+      "scenario": "U-LIBRARY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterHistory()",
+      "source": "frontend/user-web/src/app/features/library/library-page.html",
+      "line": 5,
+      "scenario": "U-LIBRARY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterHistory()",
+      "source": "frontend/user-web/src/app/features/library/library-page.html",
+      "line": 6,
+      "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
     {
@@ -1951,7 +2059,7 @@
       "event": "click",
       "expression": "setRatingFilter(null)",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 9,
+      "line": 16,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -1960,7 +2068,7 @@
       "event": "click",
       "expression": "setRatingFilter(star)",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 11,
+      "line": 18,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -1969,7 +2077,7 @@
       "event": "click",
       "expression": "goToPage(page() - 1)",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 81,
+      "line": 88,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -1978,7 +2086,7 @@
       "event": "click",
       "expression": "goToPage(page() + 1)",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 83,
+      "line": 90,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -1987,7 +2095,7 @@
       "event": "click",
       "expression": "setRatingFilter(null)",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 93,
+      "line": 100,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -2263,8 +2371,44 @@
     },
     {
       "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterLists($event)",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 15,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterLists(listQuery(), $event)",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 16,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngModelChange",
+      "expression": "filterLists(listQuery(), listVisibility(), +$event)",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 19,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
       "event": "click",
-      "expression": "focusCreateForm()",
+      "expression": "changeListPage(currentListPage() - 1)",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 51,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "changeListPage(currentListPage() + 1)",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
       "line": 53,
       "scenario": "U-PLAYLIST",
@@ -2273,9 +2417,18 @@
     {
       "app": "user",
       "event": "click",
+      "expression": "focusCreateForm()",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 66,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
       "expression": "create()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 73,
+      "line": 86,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2284,7 +2437,7 @@
       "event": "click",
       "expression": "openEditDialog()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 101,
+      "line": 114,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2293,7 +2446,7 @@
       "event": "click",
       "expression": "playAll()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 112,
+      "line": 125,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2302,7 +2455,7 @@
       "event": "click",
       "expression": "shuffle()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 113,
+      "line": 126,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2311,7 +2464,7 @@
       "event": "click",
       "expression": "share()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 114,
+      "line": 127,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2320,7 +2473,7 @@
       "event": "click",
       "expression": "move(i, -1)",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 151,
+      "line": 164,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2329,7 +2482,7 @@
       "event": "click",
       "expression": "move(i, 1)",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 152,
+      "line": 165,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2338,7 +2491,7 @@
       "event": "click",
       "expression": "removeVideo(item.videoId)",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 153,
+      "line": 166,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2347,7 +2500,7 @@
       "event": "click",
       "expression": "closeEditDialog()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 169,
+      "line": 182,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2356,7 +2509,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 170,
+      "line": 183,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2365,7 +2518,7 @@
       "event": "click",
       "expression": "closeEditDialog()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 173,
+      "line": 186,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2374,7 +2527,7 @@
       "event": "ngSubmit",
       "expression": "save()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 175,
+      "line": 188,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2383,7 +2536,7 @@
       "event": "click",
       "expression": "deletePlaylist()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 183,
+      "line": 196,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -2425,10 +2578,19 @@
     },
     {
       "app": "user",
+      "event": "ngModelChange",
+      "expression": "searchQuery.set($event)",
+      "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
+      "line": 112,
+      "scenario": "U-POLICY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
       "event": "click",
       "expression": "searchQuery.set('')",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 164,
+      "line": 171,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
@@ -2437,52 +2599,52 @@
       "event": "change",
       "expression": "toggleAdPersonalization()",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 217,
+      "line": 224,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
     {
       "app": "user",
       "event": "click",
-      "expression": "setTab('guidelines')",
+      "expression": "setTab('guidelines', true)",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 284,
+      "line": 291,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
     {
       "app": "user",
       "event": "click",
-      "expression": "setTab('privacy')",
+      "expression": "setTab('privacy', true)",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 285,
+      "line": 292,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
     {
       "app": "user",
       "event": "click",
-      "expression": "setTab('terms')",
+      "expression": "setTab('terms', true)",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 286,
+      "line": 293,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
     {
       "app": "user",
       "event": "click",
-      "expression": "setTab('monetization')",
+      "expression": "setTab('monetization', true)",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 287,
+      "line": 294,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
     {
       "app": "user",
       "event": "click",
-      "expression": "setTab('enforcement')",
+      "expression": "setTab('enforcement', true)",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 288,
+      "line": 295,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
@@ -3175,7 +3337,7 @@
       "event": "dragover",
       "expression": "onVideoDragOver($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 66,
+      "line": 68,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3184,7 +3346,7 @@
       "event": "dragleave",
       "expression": "onVideoDragLeave($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 66,
+      "line": 68,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3193,7 +3355,7 @@
       "event": "drop",
       "expression": "onVideoDrop($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 66,
+      "line": 68,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3202,7 +3364,7 @@
       "event": "click",
       "expression": "videoFileInput.click()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 75,
+      "line": 77,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3211,7 +3373,7 @@
       "event": "change",
       "expression": "selectVideo($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 76,
+      "line": 78,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3220,7 +3382,7 @@
       "event": "click",
       "expression": "cancelFile()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 93,
+      "line": 95,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3229,7 +3391,7 @@
       "event": "submit",
       "expression": "$event.preventDefault()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 128,
+      "line": 130,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3238,7 +3400,7 @@
       "event": "click",
       "expression": "chooseThumbnail(thumb.id)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 154,
+      "line": 156,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3247,7 +3409,7 @@
       "event": "change",
       "expression": "selectThumbnail($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 166,
+      "line": 168,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3256,7 +3418,7 @@
       "event": "ngModelChange",
       "expression": "onSourceQualityChange($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 194,
+      "line": 196,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3265,7 +3427,7 @@
       "event": "click",
       "expression": "removeTag(tag)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 209,
+      "line": 211,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3274,7 +3436,7 @@
       "event": "keydown.enter",
       "expression": "$event.preventDefault(); addTag()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 214,
+      "line": 216,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3283,7 +3445,7 @@
       "event": "click",
       "expression": "useCurrentTimeForChapter()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 235,
+      "line": 237,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3292,7 +3454,7 @@
       "event": "click",
       "expression": "togglePreview($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 236,
+      "line": 238,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3301,7 +3463,7 @@
       "event": "pointerdown",
       "expression": "beginTimelineDrag($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 241,
+      "line": 243,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3310,7 +3472,7 @@
       "event": "pointerdown",
       "expression": "beginChapterDrag($event, ch.id)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 246,
+      "line": 248,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3319,7 +3481,7 @@
       "event": "ngModelChange",
       "expression": "updateChapterTitle(ch.id, $event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 275,
+      "line": 277,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3328,7 +3490,7 @@
       "event": "ngModelChange",
       "expression": "updateChapterTime(ch.id, $event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 276,
+      "line": 278,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3337,7 +3499,7 @@
       "event": "click",
       "expression": "removeChapter(ch.id)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 278,
+      "line": 280,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3346,7 +3508,7 @@
       "event": "click",
       "expression": "addChapter()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 291,
+      "line": 293,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3355,7 +3517,7 @@
       "event": "click",
       "expression": "useCurrentTimeForVideoCard()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 319,
+      "line": 321,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3364,7 +3526,7 @@
       "event": "click",
       "expression": "addVideoCard()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 320,
+      "line": 322,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3373,7 +3535,7 @@
       "event": "ngModelChange",
       "expression": "updateVideoCardTime(card.id, $event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 338,
+      "line": 340,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3382,7 +3544,7 @@
       "event": "click",
       "expression": "removeVideoCard(card.id)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 340,
+      "line": 342,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3391,7 +3553,7 @@
       "event": "click",
       "expression": "setStep(2)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 431,
+      "line": 433,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3400,7 +3562,7 @@
       "event": "click",
       "expression": "setStep(3)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 439,
+      "line": 441,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3409,7 +3571,7 @@
       "event": "click",
       "expression": "copyLink()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 623,
+      "line": 625,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3418,7 +3580,7 @@
       "event": "click",
       "expression": "navigateToContent()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 642,
+      "line": 644,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3427,7 +3589,7 @@
       "event": "click",
       "expression": "resetWizard()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 645,
+      "line": 647,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3436,7 +3598,7 @@
       "event": "play",
       "expression": "previewPlaying.set(true)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 663,
+      "line": 665,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3445,7 +3607,7 @@
       "event": "pause",
       "expression": "previewPlaying.set(false)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 663,
+      "line": 665,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3454,7 +3616,7 @@
       "event": "ended",
       "expression": "previewPlaying.set(false)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 664,
+      "line": 666,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3463,7 +3625,7 @@
       "event": "timeupdate",
       "expression": "onPreviewTimeUpdate($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 664,
+      "line": 666,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3472,7 +3634,7 @@
       "event": "click",
       "expression": "togglePreview($event)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 666,
+      "line": 668,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3481,7 +3643,7 @@
       "event": "change",
       "expression": "watermarkPreviewEnabled.set($any($event.target).checked)",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 679,
+      "line": 681,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3490,7 +3652,7 @@
       "event": "click",
       "expression": "prevStep()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 747,
+      "line": 749,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3499,7 +3661,7 @@
       "event": "click",
       "expression": "saveDraft()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 754,
+      "line": 756,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3508,7 +3670,7 @@
       "event": "click",
       "expression": "nextStep()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 759,
+      "line": 761,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3517,7 +3679,7 @@
       "event": "click",
       "expression": "nextStep()",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 763,
+      "line": 766,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -3532,8 +3694,17 @@
     },
     {
       "app": "user",
-      "event": "click",
-      "expression": "togglePlayback()",
+      "event": "pointerup",
+      "expression": "onPlayerPointerUp($event)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 30,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "pointercancel",
+      "expression": "onPlayerPointerCancel()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
       "line": 30,
       "scenario": "U-WATCH",
@@ -3605,7 +3776,16 @@
     {
       "app": "user",
       "event": "click",
-      "expression": "$event.stopPropagation(); openVideoCard(card)",
+      "expression": "$event.stopPropagation(); toggleVideoInfo()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 37,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "$event.stopPropagation()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
       "line": 39,
       "scenario": "U-WATCH",
@@ -3614,61 +3794,34 @@
     {
       "app": "user",
       "event": "click",
+      "expression": "closeVideoInfo()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 45,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "openVideoCard(linked)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 50,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "$event.stopPropagation(); openVideoCard(card)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 64,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
       "expression": "$event.stopPropagation()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 46,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "closeVideoCard()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 47,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "openLinkedVideo()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 54,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "$event.stopPropagation(); togglePlayback()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 60,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "input",
-      "expression": "seekFromSlider($any($event.target).value)",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 65,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "togglePlayback()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 68,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "seekBy(-10)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
       "line": 71,
       "scenario": "U-WATCH",
@@ -3677,7 +3830,7 @@
     {
       "app": "user",
       "event": "click",
-      "expression": "seekBy(10)",
+      "expression": "closeVideoCard()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
       "line": 72,
       "scenario": "U-WATCH",
@@ -3686,9 +3839,63 @@
     {
       "app": "user",
       "event": "click",
+      "expression": "openLinkedVideo()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 79,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "$event.stopPropagation(); togglePlayback()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 85,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "input",
+      "expression": "seekFromSlider($any($event.target).value)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 90,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "togglePlayback()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 93,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "seekBy(-10)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 96,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "seekBy(10)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 97,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
       "expression": "toggleMute()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 73,
+      "line": 98,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3697,7 +3904,7 @@
       "event": "input",
       "expression": "setVolume($any($event.target).value)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 76,
+      "line": 101,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3706,7 +3913,7 @@
       "event": "ngModelChange",
       "expression": "changeQuality($event)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 81,
+      "line": 106,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3715,59 +3922,14 @@
       "event": "ngModelChange",
       "expression": "changeSpeed($event)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 85,
+      "line": 110,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
     {
       "app": "user",
       "event": "click",
-      "expression": "togglePictureInPicture()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 88,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "toggleFullscreen()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 89,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "react('like')",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 106,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "react('dislike')",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 107,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "share()",
-      "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 112,
-      "scenario": "U-WATCH",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "event": "click",
-      "expression": "openPlaylistPicker()",
+      "expression": "movePlaylist(-1)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
       "line": 114,
       "scenario": "U-WATCH",
@@ -3776,7 +3938,16 @@
     {
       "app": "user",
       "event": "click",
-      "expression": "openDownloads()",
+      "expression": "movePlaylist(1)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 115,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "togglePictureInPicture()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
       "line": 117,
       "scenario": "U-WATCH",
@@ -3785,7 +3956,7 @@
     {
       "app": "user",
       "event": "click",
-      "expression": "reportVideo()",
+      "expression": "toggleFullscreen()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
       "line": 118,
       "scenario": "U-WATCH",
@@ -3794,9 +3965,63 @@
     {
       "app": "user",
       "event": "click",
+      "expression": "react('like')",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 141,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "react('dislike')",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 142,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "share()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 147,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "openPlaylistPicker()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 149,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "openDownloads()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 152,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "reportVideo()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 153,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
       "expression": "rate(star)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 130,
+      "line": 165,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3805,7 +4030,7 @@
       "event": "click",
       "expression": "rate(null)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 135,
+      "line": 170,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3814,7 +4039,7 @@
       "event": "click",
       "expression": "closeShare()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 143,
+      "line": 178,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3823,7 +4048,7 @@
       "event": "focus",
       "expression": "$any($event.target).select()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 144,
+      "line": 179,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3832,7 +4057,7 @@
       "event": "click",
       "expression": "copyShareLink()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 145,
+      "line": 180,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3841,7 +4066,7 @@
       "event": "click",
       "expression": "downloadOpen.set(false)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 150,
+      "line": 185,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3850,7 +4075,7 @@
       "event": "click",
       "expression": "download(rendition.quality)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 154,
+      "line": 189,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3859,7 +4084,7 @@
       "event": "click",
       "expression": "closePlaylistPicker()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 160,
+      "line": 195,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3868,7 +4093,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 161,
+      "line": 196,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3877,7 +4102,7 @@
       "event": "click",
       "expression": "closePlaylistPicker()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 164,
+      "line": 199,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3886,7 +4111,7 @@
       "event": "click",
       "expression": "addToPlaylist(list)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 171,
+      "line": 206,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3895,7 +4120,7 @@
       "event": "click",
       "expression": "closePlaylistPicker()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 177,
+      "line": 212,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3904,7 +4129,7 @@
       "event": "click",
       "expression": "toggleSubscriptionNotifications()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 211,
+      "line": 246,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3913,7 +4138,7 @@
       "event": "click",
       "expression": "toggleSubscribe()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 220,
+      "line": 255,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3922,7 +4147,7 @@
       "event": "click",
       "expression": "seekTo(chapter.startSeconds)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 239,
+      "line": 274,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3931,7 +4156,7 @@
       "event": "ngModelChange",
       "expression": "setCommentSort($event)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 246,
+      "line": 281,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3940,7 +4165,25 @@
       "event": "ngSubmit",
       "expression": "comment()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 248,
+      "line": 283,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngSubmit",
+      "expression": "saveCommentEdit(comment)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 300,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "cancelCommentEdit()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 303,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3949,7 +4192,7 @@
       "event": "click",
       "expression": "reactComment(comment, 'like')",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 267,
+      "line": 308,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3958,7 +4201,7 @@
       "event": "click",
       "expression": "reactComment(comment, 'dislike')",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 268,
+      "line": 309,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3967,7 +4210,7 @@
       "event": "click",
       "expression": "replyTo.set(comment.commentId)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 269,
+      "line": 310,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3976,7 +4219,7 @@
       "event": "click",
       "expression": "toggleReplies(comment)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 271,
+      "line": 312,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3985,7 +4228,16 @@
       "event": "click",
       "expression": "hide(comment)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 275,
+      "line": 316,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "editComment(comment)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 317,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -3994,7 +4246,7 @@
       "event": "click",
       "expression": "remove(comment)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 276,
+      "line": 317,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4003,7 +4255,7 @@
       "event": "click",
       "expression": "report(comment)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 276,
+      "line": 317,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4012,7 +4264,25 @@
       "event": "ngSubmit",
       "expression": "reply(comment)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 279,
+      "line": 320,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "ngSubmit",
+      "expression": "saveCommentEdit(replyItem)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 331,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "cancelCommentEdit()",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 334,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4021,7 +4291,7 @@
       "event": "click",
       "expression": "reactComment(replyItem, 'like')",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 291,
+      "line": 338,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4030,7 +4300,7 @@
       "event": "click",
       "expression": "reactComment(replyItem, 'dislike')",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 292,
+      "line": 339,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4039,7 +4309,16 @@
       "event": "click",
       "expression": "hide(replyItem)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 293,
+      "line": 340,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "editComment(replyItem)",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 341,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4048,7 +4327,7 @@
       "event": "click",
       "expression": "remove(replyItem)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 294,
+      "line": 341,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4057,7 +4336,7 @@
       "event": "click",
       "expression": "report(replyItem)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 294,
+      "line": 341,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4066,7 +4345,7 @@
       "event": "click",
       "expression": "setRecommendationFilter('all')",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 313,
+      "line": 360,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4075,7 +4354,7 @@
       "event": "click",
       "expression": "setRecommendationFilter('related')",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 314,
+      "line": 361,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4084,7 +4363,7 @@
       "event": "click",
       "expression": "setRecommendationFilter('channel')",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 315,
+      "line": 362,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4093,7 +4372,7 @@
       "event": "click",
       "expression": "toggleAutoplay()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 317,
+      "line": 364,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4102,7 +4381,7 @@
       "event": "close",
       "expression": "reportModalOpen.set(false)",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 339,
+      "line": 386,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4111,7 +4390,7 @@
       "event": "submitted",
       "expression": "onReportSubmitted()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 340,
+      "line": 387,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -4732,7 +5011,16 @@
       "event": "click",
       "expression": "openLogoutConfirm()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 82,
+      "line": 83,
+      "scenario": "X-SHELL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "event": "click",
+      "expression": "closeAccountDrawer()",
+      "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
+      "line": 86,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4741,7 +5029,7 @@
       "event": "click",
       "expression": "cancelLogout()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 88,
+      "line": 91,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4750,7 +5038,7 @@
       "event": "click",
       "expression": "cancelLogout()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 93,
+      "line": 96,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4759,7 +5047,7 @@
       "event": "click",
       "expression": "logout()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 94,
+      "line": 97,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4768,7 +5056,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 103,
+      "line": 106,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4777,7 +5065,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 118,
+      "line": 121,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4786,7 +5074,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 132,
+      "line": 135,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4795,7 +5083,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 142,
+      "line": 145,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4804,7 +5092,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 159,
+      "line": 162,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4813,7 +5101,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 167,
+      "line": 170,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4822,7 +5110,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 174,
+      "line": 177,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4831,7 +5119,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 180,
+      "line": 183,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4840,7 +5128,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 185,
+      "line": 188,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4849,7 +5137,7 @@
       "event": "click",
       "expression": "toggleTheme()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 190,
+      "line": 193,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4858,7 +5146,7 @@
       "event": "click",
       "expression": "toggleLanguage()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 201,
+      "line": 204,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4867,7 +5155,7 @@
       "event": "click",
       "expression": "openShortcutsDialog()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 208,
+      "line": 211,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4876,7 +5164,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 218,
+      "line": 221,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4885,7 +5173,7 @@
       "event": "click",
       "expression": "closeAccountDrawer()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 238,
+      "line": 241,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4894,7 +5182,7 @@
       "event": "click",
       "expression": "closeShortcutsDialog()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 245,
+      "line": 248,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4903,7 +5191,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 246,
+      "line": 249,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4912,7 +5200,7 @@
       "event": "keydown",
       "expression": "onShortcutsDialogKeydown($event)",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 246,
+      "line": 249,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4921,7 +5209,7 @@
       "event": "click",
       "expression": "closeShortcutsDialog()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 252,
+      "line": 255,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4930,7 +5218,7 @@
       "event": "click",
       "expression": "toggleTheme()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 267,
+      "line": 270,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -4939,7 +5227,7 @@
       "event": "click",
       "expression": "toggleLanguage()",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 271,
+      "line": 274,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -5801,18 +6089,9 @@
     {
       "app": "admin",
       "event": "click",
-      "expression": "openResolveModal(item)",
-      "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 193,
-      "scenario": "A-MODERATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "click",
       "expression": "releaseAppeal(item)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 197,
+      "line": 194,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5821,7 +6100,7 @@
       "event": "click",
       "expression": "openResolveModal(item)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 200,
+      "line": 197,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5830,7 +6109,7 @@
       "event": "ngModelChange",
       "expression": "setPageSize($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 223,
+      "line": 220,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5839,7 +6118,7 @@
       "event": "click",
       "expression": "goToPage(currentPage() - 1)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 228,
+      "line": 225,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5848,7 +6127,7 @@
       "event": "click",
       "expression": "goToPage(pageNumber)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 232,
+      "line": 229,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5857,7 +6136,7 @@
       "event": "click",
       "expression": "goToPage(currentPage() + 1)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 236,
+      "line": 233,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5866,7 +6145,7 @@
       "event": "click",
       "expression": "closeResolveModal()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 246,
+      "line": 243,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5875,7 +6154,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 247,
+      "line": 244,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5884,7 +6163,7 @@
       "event": "click",
       "expression": "closeResolveModal()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 251,
+      "line": 248,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5893,7 +6172,7 @@
       "event": "click",
       "expression": "openEvidence(activeAppeal()!)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 273,
+      "line": 270,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5902,7 +6181,7 @@
       "event": "ngModelChange",
       "expression": "selectedDecision.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 280,
+      "line": 277,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5911,7 +6190,7 @@
       "event": "ngModelChange",
       "expression": "reviewNote.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 290,
+      "line": 287,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5920,7 +6199,7 @@
       "event": "click",
       "expression": "closeResolveModal()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 295,
+      "line": 292,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5929,7 +6208,7 @@
       "event": "click",
       "expression": "submitResolution()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 296,
+      "line": 293,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5956,7 +6235,7 @@
       "event": "click",
       "expression": "selectedStatus.set('pending')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 14,
+      "line": 25,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5965,7 +6244,7 @@
       "event": "click",
       "expression": "selectedStatus.set('reviewing')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 15,
+      "line": 26,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5974,7 +6253,7 @@
       "event": "click",
       "expression": "selectedStatus.set('processed')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 16,
+      "line": 27,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5983,7 +6262,7 @@
       "event": "click",
       "expression": "selectedStatus.set('escalated')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 17,
+      "line": 28,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -5992,7 +6271,7 @@
       "event": "ngModelChange",
       "expression": "searchQuery.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 23,
+      "line": 34,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6001,7 +6280,7 @@
       "event": "ngModelChange",
       "expression": "selectedCategory.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 24,
+      "line": 35,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6010,7 +6289,7 @@
       "event": "ngModelChange",
       "expression": "selectedDuration.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 25,
+      "line": 36,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6019,7 +6298,7 @@
       "event": "ngModelChange",
       "expression": "selectedRisk.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 26,
+      "line": 37,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6028,7 +6307,7 @@
       "event": "click",
       "expression": "bulkClaimSelected()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 31,
+      "line": 42,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6037,7 +6316,7 @@
       "event": "click",
       "expression": "bulkReleaseSelected()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 31,
+      "line": 42,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6046,7 +6325,7 @@
       "event": "change",
       "expression": "toggleVisibleSelection($any($event.target).checked)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 40,
+      "line": 51,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6055,15 +6334,6 @@
       "event": "change",
       "expression": "toggleCaseSelection(item, $any($event.target).checked)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 44,
-      "scenario": "A-MODERATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "click",
-      "expression": "claimCase(item)",
-      "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
       "line": 55,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
@@ -6071,9 +6341,18 @@
     {
       "app": "admin",
       "event": "click",
+      "expression": "claimCase(item)",
+      "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
+      "line": 66,
+      "scenario": "A-MODERATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "event": "click",
       "expression": "openReviewModal(item)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 56,
+      "line": 67,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6082,7 +6361,7 @@
       "event": "click",
       "expression": "claimCase(item)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 56,
+      "line": 67,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6091,7 +6370,7 @@
       "event": "click",
       "expression": "openReviewModal(item)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 57,
+      "line": 68,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6100,7 +6379,7 @@
       "event": "click",
       "expression": "releaseCase(item)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 57,
+      "line": 68,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6109,7 +6388,7 @@
       "event": "click",
       "expression": "closeReviewModal()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 73,
+      "line": 84,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6118,7 +6397,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 74,
+      "line": 85,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6127,7 +6406,7 @@
       "event": "click",
       "expression": "toggleTheaterMode()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 75,
+      "line": 86,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6136,7 +6415,7 @@
       "event": "click",
       "expression": "closeReviewModal()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 75,
+      "line": 86,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6145,7 +6424,7 @@
       "event": "ngModelChange",
       "expression": "selectedPolicyCode.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 77,
+      "line": 88,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6154,7 +6433,7 @@
       "event": "ngModelChange",
       "expression": "actionReason.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 77,
+      "line": 88,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6163,7 +6442,7 @@
       "event": "ngModelChange",
       "expression": "internalNote.set($event)",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 77,
+      "line": 88,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6172,7 +6451,7 @@
       "event": "click",
       "expression": "submitDecision('approve')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 78,
+      "line": 89,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6181,7 +6460,7 @@
       "event": "click",
       "expression": "submitDecision('age_restricted')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 78,
+      "line": 89,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6190,7 +6469,7 @@
       "event": "click",
       "expression": "submitDecision('recommendation_restricted')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 78,
+      "line": 89,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6199,7 +6478,7 @@
       "event": "click",
       "expression": "submitDecision('reject')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 79,
+      "line": 90,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6208,7 +6487,7 @@
       "event": "click",
       "expression": "submitDecision('escalate')",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 80,
+      "line": 91,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -6217,7 +6496,7 @@
       "event": "click",
       "expression": "closeReviewModal()",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 82,
+      "line": 93,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -7936,7 +8215,7 @@
       "event": "click",
       "expression": "toggleModelPreview()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 57,
+      "line": 58,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -7945,7 +8224,7 @@
       "event": "click",
       "expression": "updateModel()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 83,
+      "line": 84,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -7954,7 +8233,7 @@
       "event": "ngModelChange",
       "expression": "setScoreWeight(feature, $event)",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 106,
+      "line": 118,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -7963,7 +8242,16 @@
       "event": "click",
       "expression": "stop()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 152,
+      "line": 128,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "event": "click",
+      "expression": "stop()",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 165,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -7972,7 +8260,7 @@
       "event": "click",
       "expression": "selectAllUsers()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 166,
+      "line": 179,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -7981,7 +8269,7 @@
       "event": "click",
       "expression": "clearSelectedUsers()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 167,
+      "line": 180,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -7990,7 +8278,7 @@
       "event": "click",
       "expression": "loadUsers()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 168,
+      "line": 181,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -7999,7 +8287,7 @@
       "event": "keyup.enter",
       "expression": "loadUsers()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 173,
+      "line": 186,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8008,7 +8296,7 @@
       "event": "click",
       "expression": "loadUsers()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 174,
+      "line": 187,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8017,7 +8305,7 @@
       "event": "change",
       "expression": "toggleUser(user)",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 179,
+      "line": 192,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8026,7 +8314,7 @@
       "event": "keyup.enter",
       "expression": "createQuickBot()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 188,
+      "line": 201,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8035,7 +8323,7 @@
       "event": "click",
       "expression": "createQuickBot()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 188,
+      "line": 201,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8044,7 +8332,7 @@
       "event": "click",
       "expression": "toggleSimulatorTab('target')",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 194,
+      "line": 207,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8053,7 +8341,7 @@
       "event": "click",
       "expression": "toggleSimulatorTab('cluster')",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 195,
+      "line": 208,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8062,7 +8350,7 @@
       "event": "click",
       "expression": "toggleSimulatorTab('comments')",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 196,
+      "line": 209,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8071,7 +8359,7 @@
       "event": "click",
       "expression": "categoryPickerOpen = !categoryPickerOpen",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 206,
+      "line": 219,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8080,7 +8368,7 @@
       "event": "click",
       "expression": "selectAllCategories()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 211,
+      "line": 224,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8089,7 +8377,7 @@
       "event": "click",
       "expression": "clearCategories()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 211,
+      "line": 224,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8098,7 +8386,7 @@
       "event": "change",
       "expression": "toggleCategory(category.categoryId)",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 215,
+      "line": 228,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8107,7 +8395,7 @@
       "event": "ngModelChange",
       "expression": "setCategoryRate(category.categoryId, $event)",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 227,
+      "line": 240,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8116,7 +8404,7 @@
       "event": "click",
       "expression": "toggleAllVideos()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 243,
+      "line": 256,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8125,7 +8413,7 @@
       "event": "keyup.enter",
       "expression": "loadVideos()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 244,
+      "line": 257,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8134,7 +8422,7 @@
       "event": "click",
       "expression": "loadVideos()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 244,
+      "line": 257,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8143,7 +8431,7 @@
       "event": "click",
       "expression": "loadMoreVideos()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 249,
+      "line": 262,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8152,43 +8440,16 @@
       "event": "change",
       "expression": "toggleVideo(video.videoId)",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 255,
-      "scenario": "A-RECOMMENDATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "ngModelChange",
-      "expression": "onLikeRateChange()",
-      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 267,
-      "scenario": "A-RECOMMENDATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "ngModelChange",
-      "expression": "onDislikeRateChange()",
-      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
       "line": 268,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
     {
       "app": "admin",
-      "event": "click",
-      "expression": "simulate()",
-      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 279,
-      "scenario": "A-RECOMMENDATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
       "event": "ngModelChange",
       "expression": "onLikeRateChange()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 299,
+      "line": 280,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8197,7 +8458,7 @@
       "event": "ngModelChange",
       "expression": "onDislikeRateChange()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 300,
+      "line": 281,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8206,7 +8467,34 @@
       "event": "click",
       "expression": "simulate()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 311,
+      "line": 292,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "event": "ngModelChange",
+      "expression": "onLikeRateChange()",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 312,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "event": "ngModelChange",
+      "expression": "onDislikeRateChange()",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 313,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "event": "click",
+      "expression": "simulate()",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 324,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8215,7 +8503,7 @@
       "event": "click",
       "expression": "removeCommentTemplate($index)",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 327,
+      "line": 340,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8224,7 +8512,7 @@
       "event": "keyup.enter",
       "expression": "addCommentTemplate()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 331,
+      "line": 344,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8233,7 +8521,7 @@
       "event": "click",
       "expression": "addCommentTemplate()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 331,
+      "line": 344,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8242,7 +8530,7 @@
       "event": "click",
       "expression": "clearLogs()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 342,
+      "line": 355,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -8251,7 +8539,7 @@
       "event": "click",
       "expression": "exportCsv()",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 342,
+      "line": 355,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -9085,8 +9373,8 @@
     },
     {
       "app": "admin",
-      "event": "click",
-      "expression": "openAddVideo()",
+      "event": "ngModelChange",
+      "expression": "toggleSort($event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
       "line": 88,
       "scenario": "A-VIDEOS",
@@ -9095,9 +9383,18 @@
     {
       "app": "admin",
       "event": "click",
+      "expression": "toggleSort(sortBy())",
+      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
+      "line": 98,
+      "scenario": "A-VIDEOS",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "event": "click",
       "expression": "exportData()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 95,
+      "line": 116,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9106,7 +9403,7 @@
       "event": "click",
       "expression": "toggleSort('title')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 117,
+      "line": 138,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9115,7 +9412,7 @@
       "event": "click",
       "expression": "toggleSort('channel')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 133,
+      "line": 154,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9124,7 +9421,7 @@
       "event": "click",
       "expression": "toggleSort('category')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 149,
+      "line": 170,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9133,7 +9430,7 @@
       "event": "click",
       "expression": "toggleSort('status')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 165,
+      "line": 186,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9142,7 +9439,7 @@
       "event": "click",
       "expression": "toggleSort('visibility')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 181,
+      "line": 202,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9151,7 +9448,7 @@
       "event": "click",
       "expression": "toggleSort('views')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 197,
+      "line": 218,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9160,7 +9457,7 @@
       "event": "click",
       "expression": "toggleSort('reports')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 213,
+      "line": 234,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9169,7 +9466,7 @@
       "event": "click",
       "expression": "toggleSort('createdAt')",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 229,
+      "line": 250,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9178,7 +9475,7 @@
       "event": "click",
       "expression": "openPreview(video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 252,
+      "line": 273,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9187,7 +9484,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 360,
+      "line": 381,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9196,7 +9493,7 @@
       "event": "click",
       "expression": "openPreview(video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 367,
+      "line": 388,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9205,7 +9502,7 @@
       "event": "click",
       "expression": "openStats(video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 380,
+      "line": 401,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9214,7 +9511,7 @@
       "event": "click",
       "expression": "openEdit(video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 394,
+      "line": 415,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9223,7 +9520,7 @@
       "event": "click",
       "expression": "toggleActionMenu(video.videoId, $event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 408,
+      "line": 429,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9232,7 +9529,7 @@
       "event": "click",
       "expression": "openAction('hide', video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 420,
+      "line": 441,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9241,7 +9538,7 @@
       "event": "click",
       "expression": "openAction('unhide', video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 426,
+      "line": 447,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9250,7 +9547,7 @@
       "event": "click",
       "expression": "openAction('remove', video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 431,
+      "line": 452,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9259,7 +9556,7 @@
       "event": "click",
       "expression": "openAction('restore', video)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 436,
+      "line": 457,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9268,7 +9565,7 @@
       "event": "click",
       "expression": "prevPage()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 470,
+      "line": 491,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9277,7 +9574,7 @@
       "event": "click",
       "expression": "setPage(p)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 484,
+      "line": 505,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9286,7 +9583,7 @@
       "event": "click",
       "expression": "nextPage()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 495,
+      "line": 516,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9295,7 +9592,7 @@
       "event": "click",
       "expression": "closePreview()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 507,
+      "line": 528,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9304,7 +9601,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 508,
+      "line": 529,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9313,7 +9610,7 @@
       "event": "click",
       "expression": "closePreview()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 514,
+      "line": 535,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9322,7 +9619,7 @@
       "event": "click",
       "expression": "closeEdit()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 635,
+      "line": 656,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9331,7 +9628,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 636,
+      "line": 657,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9340,7 +9637,7 @@
       "event": "click",
       "expression": "closeEdit()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 639,
+      "line": 660,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9349,7 +9646,7 @@
       "event": "ngSubmit",
       "expression": "saveEdit()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 642,
+      "line": 663,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9358,7 +9655,7 @@
       "event": "ngModelChange",
       "expression": "editTitle.set($event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 652,
+      "line": 673,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9367,7 +9664,7 @@
       "event": "ngModelChange",
       "expression": "editDescription.set($event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 664,
+      "line": 685,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9376,7 +9673,7 @@
       "event": "ngModelChange",
       "expression": "editCategoryId.set($event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 674,
+      "line": 695,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9385,7 +9682,7 @@
       "event": "ngModelChange",
       "expression": "editReason.set($event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 693,
+      "line": 714,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9394,7 +9691,7 @@
       "event": "click",
       "expression": "closeEdit()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 699,
+      "line": 720,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9403,7 +9700,7 @@
       "event": "click",
       "expression": "closeAction()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 717,
+      "line": 738,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9412,7 +9709,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 718,
+      "line": 739,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9421,7 +9718,7 @@
       "event": "click",
       "expression": "closeAction()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 721,
+      "line": 742,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9430,7 +9727,7 @@
       "event": "ngModelChange",
       "expression": "actionModalReason.set($event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 739,
+      "line": 760,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9439,7 +9736,7 @@
       "event": "ngModelChange",
       "expression": "notifyOwner.set($event)",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 748,
+      "line": 769,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9448,7 +9745,7 @@
       "event": "click",
       "expression": "closeAction()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 755,
+      "line": 776,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9457,7 +9754,7 @@
       "event": "click",
       "expression": "submitAction()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 762,
+      "line": 783,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9466,7 +9763,7 @@
       "event": "click",
       "expression": "closeStats()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 773,
+      "line": 794,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9475,7 +9772,7 @@
       "event": "click",
       "expression": "$event.stopPropagation()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 774,
+      "line": 795,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9484,7 +9781,7 @@
       "event": "click",
       "expression": "closeStats()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 777,
+      "line": 798,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9493,70 +9790,7 @@
       "event": "click",
       "expression": "closeStats()",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 808,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "click",
-      "expression": "closeAddVideo()",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 816,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "click",
-      "expression": "$event.stopPropagation()",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 817,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "click",
-      "expression": "closeAddVideo()",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 820,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "ngModelChange",
-      "expression": "newVideoTitle.set($event)",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 832,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "ngModelChange",
-      "expression": "newVideoVisibility.set($event)",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 841,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "click",
-      "expression": "closeAddVideo()",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 851,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "event": "click",
-      "expression": "submitAddVideo()",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 852,
+      "line": 829,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -9879,8 +10113,8 @@
   "navigation": [
     {
       "app": "user",
-      "attribute": "href",
-      "expression": "#main-content",
+      "attribute": "[attr.href]",
+      "expression": "skipHref()",
       "source": "frontend/user-web/src/app/app.html",
       "line": 1,
       "scenario": "X-SHELL",
@@ -9960,10 +10194,10 @@
     },
     {
       "app": "user",
-      "attribute": "routerLink",
-      "expression": "/plans",
+      "attribute": "[routerLink]",
+      "expression": "['/watch', item.videoId]",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 590,
+      "line": 455,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -9972,7 +10206,16 @@
       "attribute": "routerLink",
       "expression": "/plans",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 598,
+      "line": 603,
+      "scenario": "U-ACCOUNT",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "attribute": "routerLink",
+      "expression": "/plans",
+      "source": "frontend/user-web/src/app/features/account/account-page.html",
+      "line": 611,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -10116,7 +10359,7 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', video.videoId]",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 121,
+      "line": 131,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -10125,7 +10368,7 @@
       "attribute": "[routerLink]",
       "expression": "['/channel', ch.handle, 'playlists']",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 147,
+      "line": 164,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -10134,7 +10377,7 @@
       "attribute": "[routerLink]",
       "expression": "['/channel', ch.handle, 'playlists', list.playlistId]",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 152,
+      "line": 169,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -10143,7 +10386,7 @@
       "attribute": "[href]",
       "expression": "'mailto:' + ch.contactEmail",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 208,
+      "line": 225,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -10152,7 +10395,7 @@
       "attribute": "[href]",
       "expression": "formatUrl(link.url)",
       "source": "frontend/user-web/src/app/features/channel/channel-page.html",
-      "line": 219,
+      "line": 236,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -10242,7 +10485,7 @@
       "attribute": "[routerLink]",
       "expression": "['/search']",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
-      "line": 354,
+      "line": 357,
       "scenario": "U-DISCOVERY",
       "status": "PLANNED"
     },
@@ -10251,7 +10494,7 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', video.videoId]",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
-      "line": 375,
+      "line": 378,
       "scenario": "U-DISCOVERY",
       "status": "PLANNED"
     },
@@ -10260,16 +10503,7 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', video.videoId]",
       "source": "frontend/user-web/src/app/features/home/home-page.html",
-      "line": 14,
-      "scenario": "U-DISCOVERY",
-      "status": "PLANNED"
-    },
-    {
-      "app": "user",
-      "attribute": "[routerLink]",
-      "expression": "['/watch', video.videoId]",
-      "source": "frontend/user-web/src/app/features/home/home-page.html",
-      "line": 30,
+      "line": 34,
       "scenario": "U-DISCOVERY",
       "status": "PLANNED"
     },
@@ -10287,7 +10521,16 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', video.videoId]",
       "source": "frontend/user-web/src/app/features/home/home-page.html",
-      "line": 66,
+      "line": 70,
+      "scenario": "U-DISCOVERY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "attribute": "[routerLink]",
+      "expression": "['/watch', video.videoId]",
+      "source": "frontend/user-web/src/app/features/home/home-page.html",
+      "line": 86,
       "scenario": "U-DISCOVERY",
       "status": "PLANNED"
     },
@@ -10296,7 +10539,7 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', item.videoId]",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 43,
+      "line": 50,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -10305,7 +10548,7 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', item.videoId]",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 54,
+      "line": 61,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -10314,7 +10557,7 @@
       "attribute": "[routerLink]",
       "expression": "['/channel', item.channelHandle]",
       "source": "frontend/user-web/src/app/features/library/library-page.html",
-      "line": 57,
+      "line": 64,
       "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
@@ -10386,7 +10629,7 @@
       "attribute": "[routerLink]",
       "expression": "['/playlists', item.playlistId]",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 20,
+      "line": 27,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -10395,7 +10638,7 @@
       "attribute": "[routerLink]",
       "expression": "listBackLink()",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 80,
+      "line": 93,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -10404,7 +10647,7 @@
       "attribute": "[routerLink]",
       "expression": "item.available ? ['/watch', item.videoId] : null",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 141,
+      "line": 154,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -10413,7 +10656,7 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', item.videoId]",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 146,
+      "line": 159,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -10449,7 +10692,7 @@
       "attribute": "routerLink",
       "expression": "/home",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 289,
+      "line": 296,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
@@ -10575,7 +10818,7 @@
       "attribute": "routerLink",
       "expression": "/guidelines",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 576,
+      "line": 578,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -10584,7 +10827,7 @@
       "attribute": "routerLink",
       "expression": "/terms",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 576,
+      "line": 578,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -10593,7 +10836,7 @@
       "attribute": "[href]",
       "expression": "publishedVideoUrl",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 638,
+      "line": 640,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -10602,7 +10845,7 @@
       "attribute": "href",
       "expression": "#",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 736,
+      "line": 738,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -10656,7 +10899,7 @@
       "attribute": "routerLink",
       "expression": "/login",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 110,
+      "line": 145,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10665,7 +10908,7 @@
       "attribute": "routerLink",
       "expression": "/login",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 123,
+      "line": 158,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10674,7 +10917,7 @@
       "attribute": "[href]",
       "expression": "shareUrl()",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 145,
+      "line": 180,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10683,7 +10926,7 @@
       "attribute": "routerLink",
       "expression": "/playlists",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 177,
+      "line": 212,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10692,7 +10935,7 @@
       "attribute": "[routerLink]",
       "expression": "['/channel', item.channelHandle]",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 189,
+      "line": 224,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10701,7 +10944,7 @@
       "attribute": "[routerLink]",
       "expression": "['/explore']",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 232,
+      "line": 267,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10710,7 +10953,7 @@
       "attribute": "routerLink",
       "expression": "/login",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 255,
+      "line": 290,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10719,7 +10962,7 @@
       "attribute": "routerLink",
       "expression": "/login",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 266,
+      "line": 307,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -10728,14 +10971,14 @@
       "attribute": "[routerLink]",
       "expression": "['/watch', recommended.videoId]",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 321,
+      "line": 368,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
     {
       "app": "user",
       "attribute": "routerLink",
-      "expression": "/account",
+      "expression": "/home",
       "source": "frontend/user-web/src/app/layouts/auth-layout/auth-layout.component.html",
       "line": 2,
       "scenario": "X-SHELL",
@@ -11016,7 +11259,7 @@
       "attribute": "[routerLink]",
       "expression": "['/channel', ch.handle]",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 103,
+      "line": 106,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11025,7 +11268,7 @@
       "attribute": "routerLink",
       "expression": "/studio/overview",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 118,
+      "line": 121,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11034,7 +11277,7 @@
       "attribute": "routerLink",
       "expression": "/studio/invitations",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 132,
+      "line": 135,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11043,7 +11286,7 @@
       "attribute": "routerLink",
       "expression": "/channel/create",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 142,
+      "line": 145,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11052,7 +11295,7 @@
       "attribute": "routerLink",
       "expression": "/liked",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 159,
+      "line": 162,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11061,7 +11304,7 @@
       "attribute": "routerLink",
       "expression": "/channel/create",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 167,
+      "line": 170,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11070,7 +11313,7 @@
       "attribute": "[routerLink]",
       "expression": "['/channel', ch.handle, 'customize']",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 174,
+      "line": 177,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11079,7 +11322,7 @@
       "attribute": "routerLink",
       "expression": "/plans",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 180,
+      "line": 183,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11088,7 +11331,7 @@
       "attribute": "routerLink",
       "expression": "/account",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 185,
+      "line": 188,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11097,7 +11340,7 @@
       "attribute": "[routerLink]",
       "expression": "myChannel() ? ['/channel', myChannel()!.handle, 'customize'] : ['/channel/create']",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 218,
+      "line": 221,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11106,7 +11349,7 @@
       "attribute": "[href]",
       "expression": "link.url",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 222,
+      "line": 225,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11115,7 +11358,7 @@
       "attribute": "[routerLink]",
       "expression": "myChannel() ? ['/channel', myChannel()!.handle, 'customize'] : ['/channel/create']",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 238,
+      "line": 241,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11124,7 +11367,7 @@
       "attribute": "routerLink",
       "expression": "/login",
       "source": "frontend/user-web/src/app/shared/topbar/user-topbar.component.html",
-      "line": 275,
+      "line": 278,
       "scenario": "X-SHELL",
       "status": "PLANNED"
     },
@@ -11234,6 +11477,15 @@
       "source": "frontend/admin-web/src/app/features/operations/system-notifications-page.html",
       "line": 66,
       "scenario": "X-SHELL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "attribute": "[href]",
+      "expression": "config.userWebBaseUrl + '/studio/upload'",
+      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
+      "line": 106,
+      "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
     {
@@ -11576,7 +11828,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"downloadQuality\" value=\"ask\" [checked]=\"downloadQuality() === 'ask'\" /",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 456,
+      "line": 469,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -11585,7 +11837,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"downloadQuality\" value=\"1080p\" [checked]=\"downloadQuality() === '1080p'\" /",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 462,
+      "line": 475,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -11594,7 +11846,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"downloadQuality\" value=\"720p\" [checked]=\"downloadQuality() === '720p'\" /",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 468,
+      "line": 481,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -11603,7 +11855,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"downloadQuality\" value=\"480p\" [checked]=\"downloadQuality() === '480p'\" /",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 474,
+      "line": 487,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -11612,7 +11864,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"downloadQuality\" value=\"144p\" [checked]=\"downloadQuality() === '144p'\" /",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 480,
+      "line": 493,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -11621,7 +11873,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [checked]=\"smartDownloads()\" (change)=\"onToggleSmartDownloads($any($event.target).checked)\" /",
       "source": "frontend/user-web/src/app/features/account/account-page.html",
-      "line": 499,
+      "line": 512,
       "scenario": "U-ACCOUNT",
       "status": "PLANNED"
     },
@@ -11730,6 +11982,33 @@
       "attributes": "id=\"channelEmail\" type=\"email\" class=\"text-input\" [(ngModel)]=\"contactEmail\" name=\"contactEmail\" [placeholder]=\"'channel.contactEmailPlaceholder' | translate\" [disabled]=\"busy()\" /",
       "source": "frontend/user-web/src/app/features/channel/channel-create-page.html",
       "line": 121,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "input",
+      "attributes": "id=\"channel-video-query\" type=\"search\" [(ngModel)]=\"videoQuery\" (ngModelChange)=\"filterVideos()\" /",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 120,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "select",
+      "attributes": "id=\"channel-video-sort\" [(ngModel)]=\"videoSort\" (ngModelChange)=\"filterVideos()\"",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 121,
+      "scenario": "U-CHANNEL",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "select",
+      "attributes": "id=\"channel-video-page-size\" [ngModel]=\"videoPageSize()\" (ngModelChange)=\"filterVideos(+$event)\"",
+      "source": "frontend/user-web/src/app/features/channel/channel-page.html",
+      "line": 122,
       "scenario": "U-CHANNEL",
       "status": "PLANNED"
     },
@@ -11871,7 +12150,7 @@
     {
       "app": "user",
       "element": "select",
-      "attributes": "[value]=\"selectedSort()\" (change)=\"changeSort($any($event.target).value)\"",
+      "attributes": "[ngModel]=\"selectedSort()\" (ngModelChange)=\"changeSort($event)\"",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
       "line": 44,
       "scenario": "U-DISCOVERY",
@@ -11880,7 +12159,7 @@
     {
       "app": "user",
       "element": "select",
-      "attributes": "[value]=\"selectedDuration()\" (change)=\"changeDuration($any($event.target).value)\"",
+      "attributes": "[ngModel]=\"selectedDuration()\" (ngModelChange)=\"changeDuration($event)\"",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
       "line": 53,
       "scenario": "U-DISCOVERY",
@@ -11889,10 +12168,37 @@
     {
       "app": "user",
       "element": "select",
-      "attributes": "[value]=\"selectedDateRange()\" (change)=\"changeDateRange($any($event.target).value)\"",
+      "attributes": "[ngModel]=\"selectedDateRange()\" (ngModelChange)=\"changeDateRange($event)\"",
       "source": "frontend/user-web/src/app/features/explore/explore-page.html",
       "line": 62,
       "scenario": "U-DISCOVERY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "input",
+      "attributes": "id=\"history-query\" type=\"search\" [(ngModel)]=\"historyQuery\" (ngModelChange)=\"filterHistory()\" /",
+      "source": "frontend/user-web/src/app/features/library/library-page.html",
+      "line": 4,
+      "scenario": "U-LIBRARY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "select",
+      "attributes": "id=\"history-sort\" [(ngModel)]=\"historySort\" (ngModelChange)=\"filterHistory()\"",
+      "source": "frontend/user-web/src/app/features/library/library-page.html",
+      "line": 5,
+      "scenario": "U-LIBRARY",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "select",
+      "attributes": "id=\"history-date\" [(ngModel)]=\"historyDateRange\" (ngModelChange)=\"filterHistory()\"",
+      "source": "frontend/user-web/src/app/features/library/library-page.html",
+      "line": 6,
+      "scenario": "U-LIBRARY",
       "status": "PLANNED"
     },
     {
@@ -11943,9 +12249,36 @@
     {
       "app": "user",
       "element": "input",
+      "attributes": "id=\"playlist-query\" type=\"search\" [ngModel]=\"listQuery()\" (ngModelChange)=\"filterLists($event)\" /",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 15,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "select",
+      "attributes": "id=\"playlist-filter\" [ngModel]=\"listVisibility()\" (ngModelChange)=\"filterLists(listQuery(), $event)\"",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 16,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "select",
+      "attributes": "id=\"playlist-page-size\" [ngModel]=\"listPageSize()\" (ngModelChange)=\"filterLists(listQuery(), listVisibility(), +$event)\"",
+      "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
+      "line": 19,
+      "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "input",
       "attributes": "id=\"playlist-name\" [(ngModel)]=\"name\" maxlength=\"150\" [placeholder]=\"'playlists.namePlaceholder' | translate\" /",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 66,
+      "line": 79,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -11954,7 +12287,7 @@
       "element": "textarea",
       "attributes": "id=\"playlist-description\" [(ngModel)]=\"description\" maxlength=\"1000\" [placeholder]=\"'playlists.descriptionPlaceholder' | translate\"",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 68,
+      "line": 81,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -11963,7 +12296,7 @@
       "element": "select",
       "attributes": "id=\"playlist-visibility\" [(ngModel)]=\"visibility\"",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 70,
+      "line": 83,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -11972,7 +12305,7 @@
       "element": "input",
       "attributes": "id=\"edit-playlist-name\" name=\"name\" [(ngModel)]=\"name\" maxlength=\"150\" /",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 177,
+      "line": 190,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -11981,7 +12314,7 @@
       "element": "textarea",
       "attributes": "id=\"edit-playlist-description\" name=\"description\" [(ngModel)]=\"description\" maxlength=\"1000\"",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 179,
+      "line": 192,
       "scenario": "U-PLAYLIST",
       "status": "PLANNED"
     },
@@ -11990,8 +12323,17 @@
       "element": "select",
       "attributes": "id=\"edit-playlist-visibility\" name=\"visibility\" [(ngModel)]=\"visibility\"",
       "source": "frontend/user-web/src/app/features/playlists/playlists-page.html",
-      "line": 181,
+      "line": 194,
       "scenario": "U-PLAYLIST",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "input",
+      "attributes": "id=\"policy-search\" type=\"search\" [ngModel]=\"searchQuery()\"\n          (ngModelChange)=\"searchQuery.set($event)\" [placeholder]=\"'policies.searchPlaceholder' | translate\" /",
+      "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
+      "line": 111,
+      "scenario": "U-POLICY",
       "status": "PLANNED"
     },
     {
@@ -11999,7 +12341,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\"\n                    disabled [title]=\"'common.notSupported' | translate\"\n                    [checked]=\"adPersonalization()\"\n                    (change)=\"toggleAdPersonalization()\"\n                  /",
       "source": "frontend/user-web/src/app/features/policy/public-policy-page.html",
-      "line": 213,
+      "line": 220,
       "scenario": "U-POLICY",
       "status": "PLANNED"
     },
@@ -12269,7 +12611,7 @@
       "element": "input",
       "attributes": "#videoFileInput id=\"videoFile\" type=\"file\" accept=\"video/mp4,video/webm,video/quicktime,video/x-matroska\" hidden (change)=\"selectVideo($event)\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 76,
+      "line": 78,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12278,7 +12620,7 @@
       "element": "input",
       "attributes": "id=\"videoTitle\" type=\"text\" class=\"text-input\" [(ngModel)]=\"videoTitle\" name=\"videoTitle\" maxlength=\"100\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 135,
+      "line": 137,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12287,7 +12629,7 @@
       "element": "textarea",
       "attributes": "id=\"videoDesc\" rows=\"5\" class=\"textarea-input\" [(ngModel)]=\"videoDesc\" name=\"videoDesc\" maxlength=\"5000\"",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 145,
+      "line": 147,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12296,7 +12638,7 @@
       "element": "input",
       "attributes": "id=\"thumbnailFile\" type=\"file\" accept=\"image/jpeg,image/png,image/webp\" hidden (change)=\"selectThumbnail($event)\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 166,
+      "line": 168,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12305,7 +12647,7 @@
       "element": "select",
       "attributes": "id=\"videoCategory\" class=\"select-input\" [(ngModel)]=\"category\" name=\"category\"",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 175,
+      "line": 177,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12314,7 +12656,7 @@
       "element": "select",
       "attributes": "id=\"videoLang\" class=\"select-input\" [(ngModel)]=\"videoLang\" name=\"videoLang\"",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 183,
+      "line": 185,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12323,7 +12665,7 @@
       "element": "select",
       "attributes": "id=\"sourceQuality\" class=\"select-input\" [(ngModel)]=\"sourceQuality\" name=\"sourceQuality\" (ngModelChange)=\"onSourceQualityChange($event)\"",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 194,
+      "line": 196,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12332,7 +12674,7 @@
       "element": "input",
       "attributes": "id=\"newTag\" type=\"text\" class=\"tag-input\" [(ngModel)]=\"newTag\" name=\"newTag\"\n                       [placeholder]=\"'upload.step2.tagsPlaceholder' | translate\"\n                       (keydown.enter)=\"$event.preventDefault(); addTag()\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 212,
+      "line": 214,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12341,7 +12683,7 @@
       "element": "input",
       "attributes": "class=\"chapter-edit-input\" [class.is-invalid]=\"!ch.title.trim()\" [ngModel]=\"ch.title\" (ngModelChange)=\"updateChapterTitle(ch.id, $event)\" [attr.aria-label]=\"'upload.chapterNameAria' | translate\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 275,
+      "line": 277,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12350,7 +12692,7 @@
       "element": "input",
       "attributes": "class=\"chapter-edit-input chapter-time-edit\" [class.is-invalid]=\"!isChapterValid(ch.id)\" [ngModel]=\"ch.time\" (ngModelChange)=\"updateChapterTime(ch.id, $event)\" [attr.aria-label]=\"'upload.chapterStartAria' | translate\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 276,
+      "line": 278,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12359,7 +12701,7 @@
       "element": "input",
       "attributes": "#newChapterTitleInput type=\"text\" class=\"text-input\" [(ngModel)]=\"newChapterTitle\" [placeholder]=\"'upload.step3.chapterNamePlaceholder' | translate\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 289,
+      "line": 291,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12368,7 +12710,7 @@
       "element": "input",
       "attributes": "type=\"text\" class=\"text-input time-input\" [(ngModel)]=\"newChapterTime\" [placeholder]=\"'upload.step3.timePlaceholder' | translate\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 290,
+      "line": 292,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12377,7 +12719,7 @@
       "element": "select",
       "attributes": "name=\"videoCardTarget\" [(ngModel)]=\"selectedVideoCardId\"",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 308,
+      "line": 310,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12386,7 +12728,7 @@
       "element": "input",
       "attributes": "name=\"videoCardTime\" type=\"text\" [(ngModel)]=\"newVideoCardTime\" [placeholder]=\"formatDuration(timelineSeconds())\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 317,
+      "line": 319,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12395,7 +12737,7 @@
       "element": "input",
       "attributes": "type=\"text\" [class.is-invalid]=\"!isVideoCardValid(card.id)\" [ngModel]=\"card.time\" (ngModelChange)=\"updateVideoCardTime(card.id, $event)\" [attr.aria-label]=\"'upload.step3.bannerTime' | translate\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 338,
+      "line": 340,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12404,7 +12746,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"visibility\" value=\"public\" [(ngModel)]=\"visibility\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 462,
+      "line": 464,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12413,7 +12755,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"visibility\" value=\"unlisted\" [(ngModel)]=\"visibility\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 477,
+      "line": 479,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12422,7 +12764,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"visibility\" value=\"private\" [(ngModel)]=\"visibility\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 491,
+      "line": 493,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12431,7 +12773,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"publishMode\" value=\"now\" [(ngModel)]=\"publishMode\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 511,
+      "line": 513,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12440,7 +12782,7 @@
       "element": "input",
       "attributes": "type=\"radio\" name=\"publishMode\" value=\"schedule\" disabled [(ngModel)]=\"publishMode\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 515,
+      "line": 517,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12449,7 +12791,7 @@
       "element": "input",
       "attributes": "id=\"schedDate\" type=\"date\" class=\"text-input\" [(ngModel)]=\"scheduleDate\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 524,
+      "line": 526,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12458,7 +12800,7 @@
       "element": "input",
       "attributes": "id=\"schedTime\" type=\"time\" class=\"text-input\" [(ngModel)]=\"scheduleTime\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 528,
+      "line": 530,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12467,7 +12809,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [(ngModel)]=\"allowComments\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 545,
+      "line": 547,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12476,7 +12818,7 @@
       "element": "select",
       "attributes": "id=\"videoPlaylist\" class=\"select-input\" [(ngModel)]=\"selectedPlaylistId\"",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 552,
+      "line": 554,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12485,7 +12827,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [(ngModel)]=\"policyAgreed\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 574,
+      "line": 576,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12494,7 +12836,7 @@
       "element": "input",
       "attributes": "type=\"text\" class=\"link-input\" [value]=\"publishedVideoUrl\" readonly /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 622,
+      "line": 624,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12503,7 +12845,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [checked]=\"watermarkPreviewEnabled()\" (change)=\"watermarkPreviewEnabled.set($any($event.target).checked)\" /",
       "source": "frontend/user-web/src/app/features/studio/upload/video-upload-wizard.component.html",
-      "line": 679,
+      "line": 681,
       "scenario": "U-STUDIO",
       "status": "PLANNED"
     },
@@ -12512,7 +12854,7 @@
       "element": "input",
       "attributes": "class=\"player-progress\" type=\"range\" min=\"0\" [max]=\"totalDuration() || 1\" step=\"0.1\" [value]=\"currentTime()\" [style.--progress]=\"progressPercent() + '%'\" (input)=\"seekFromSlider($any($event.target).value)\" [attr.aria-label]=\"'watch.progress' | translate\" /",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 65,
+      "line": 90,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12521,7 +12863,7 @@
       "element": "input",
       "attributes": "class=\"player-volume\" type=\"range\" min=\"0\" max=\"1\" step=\"0.05\" [value]=\"volume()\" (input)=\"setVolume($any($event.target).value)\" [attr.aria-label]=\"'watch.volume' | translate\" /",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 76,
+      "line": 101,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12530,7 +12872,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"quality()\" (ngModelChange)=\"changeQuality($event)\" [attr.aria-label]=\"'watch.videoQuality' | translate\"",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 81,
+      "line": 106,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12539,7 +12881,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"speed()\" (ngModelChange)=\"changeSpeed($event)\" [attr.aria-label]=\"'watch.speed' | translate\"",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 85,
+      "line": 110,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12548,7 +12890,7 @@
       "element": "input",
       "attributes": "readonly [attr.aria-label]=\"'watch.videoLink' | translate\" [value]=\"shareUrl()\" (focus)=\"$any($event.target).select()\" /",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 144,
+      "line": 179,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12557,7 +12899,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"commentSort()\" (ngModelChange)=\"setCommentSort($event)\"",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 246,
+      "line": 281,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12566,7 +12908,16 @@
       "element": "textarea",
       "attributes": "name=\"comment\" [(ngModel)]=\"commentText\" rows=\"2\" [placeholder]=\"'watch.commentPlaceholder' | translate\"",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 250,
+      "line": 285,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "textarea",
+      "attributes": "name=\"commentEdit\" [(ngModel)]=\"commentEditText\" [attr.aria-label]=\"'common.edit' | translate\" [disabled]=\"commentEditBusy()\" required maxlength=\"5000\"",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 301,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12575,7 +12926,16 @@
       "element": "input",
       "attributes": "name=\"reply\" [(ngModel)]=\"replyText\" [placeholder]=\"'watch.replyPlaceholder' | translate\"/",
       "source": "frontend/user-web/src/app/features/video/watch-page.html",
-      "line": 279,
+      "line": 320,
+      "scenario": "U-WATCH",
+      "status": "PLANNED"
+    },
+    {
+      "app": "user",
+      "element": "textarea",
+      "attributes": "name=\"commentEdit\" [(ngModel)]=\"commentEditText\" [attr.aria-label]=\"'common.edit' | translate\" [disabled]=\"commentEditBusy()\" required maxlength=\"5000\"",
+      "source": "frontend/user-web/src/app/features/video/watch-page.html",
+      "line": 332,
       "scenario": "U-WATCH",
       "status": "PLANNED"
     },
@@ -12836,7 +13196,7 @@
       "element": "select",
       "attributes": "id=\"appeal-page-size\" [ngModel]=\"pageSize()\" (ngModelChange)=\"setPageSize($event)\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 223,
+      "line": 220,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12845,7 +13205,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"selectedDecision()\" (ngModelChange)=\"selectedDecision.set($event)\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 280,
+      "line": 277,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12854,7 +13214,7 @@
       "element": "textarea",
       "attributes": "rows=\"3\" [placeholder]=\"'appeals.outcomePlaceholder' | translate\"\n              [ngModel]=\"reviewNote()\" (ngModelChange)=\"reviewNote.set($event)\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-appeals-page.html",
-      "line": 289,
+      "line": 286,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12863,7 +13223,7 @@
       "element": "input",
       "attributes": "type=\"search\" [placeholder]=\"'moderationPage.search' | translate\" [ngModel]=\"searchQuery()\" (ngModelChange)=\"searchQuery.set($event)\" /",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 23,
+      "line": 34,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12872,7 +13232,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"selectedCategory()\" (ngModelChange)=\"selectedCategory.set($event)\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 24,
+      "line": 35,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12881,7 +13241,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"selectedDuration()\" (ngModelChange)=\"selectedDuration.set($event)\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 25,
+      "line": 36,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12890,7 +13250,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"selectedRisk()\" (ngModelChange)=\"selectedRisk.set($event)\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 26,
+      "line": 37,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12899,7 +13259,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [checked]=\"visibleSelectionComplete()\" [disabled]=\"!canClaim()\" (change)=\"toggleVisibleSelection($any($event.target).checked)\" [attr.aria-label]=\"'moderationPage.selectAvailableCases' | translate\" /",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 40,
+      "line": 51,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12908,7 +13268,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [checked]=\"isSelected(item)\" [disabled]=\"!canSelectForBatch(item)\" (change)=\"toggleCaseSelection(item, $any($event.target).checked)\" [attr.aria-label]=\"'moderationPage.selectCase' | translate:{ title: item.title }\" /",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 44,
+      "line": 55,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12917,7 +13277,7 @@
       "element": "select",
       "attributes": "[ngModel]=\"selectedPolicyCode()\" (ngModelChange)=\"selectedPolicyCode.set($event)\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 77,
+      "line": 88,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12926,7 +13286,7 @@
       "element": "input",
       "attributes": "type=\"text\" [ngModel]=\"actionReason()\" (ngModelChange)=\"actionReason.set($event)\" [placeholder]=\"'moderationPage.reasonPlaceholder' | translate\" /",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 77,
+      "line": 88,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -12935,7 +13295,7 @@
       "element": "textarea",
       "attributes": "rows=\"3\" [ngModel]=\"internalNote()\" (ngModelChange)=\"internalNote.set($event)\" [placeholder]=\"'moderationPage.internalPlaceholder' | translate\"",
       "source": "frontend/admin-web/src/app/features/moderation/admin-moderation-page.html",
-      "line": 77,
+      "line": 88,
       "scenario": "A-MODERATION",
       "status": "PLANNED"
     },
@@ -13626,16 +13986,16 @@
     {
       "app": "admin",
       "element": "select",
-      "attributes": "[(ngModel)]=\"scoreMode\"",
+      "attributes": "[(ngModel)]=\"modelAlgorithm\"",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 94,
+      "line": 90,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
     {
       "app": "admin",
-      "element": "input",
-      "attributes": "type=\"number\" min=\"0\" step=\"0.01\" [ngModel]=\"scoreWeights[feature]\" (ngModelChange)=\"setScoreWeight(feature, $event)\" /",
+      "element": "select",
+      "attributes": "[(ngModel)]=\"scoreMode\"",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
       "line": 106,
       "scenario": "A-RECOMMENDATION",
@@ -13644,9 +14004,18 @@
     {
       "app": "admin",
       "element": "input",
+      "attributes": "type=\"number\" min=\"0\" step=\"0.01\" [ngModel]=\"scoreWeights[feature]\" (ngModelChange)=\"setScoreWeight(feature, $event)\" /",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 118,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "element": "input",
       "attributes": "id=\"user-search\" [(ngModel)]=\"userSearch\" [placeholder]=\"'recommendations.searchUser' | translate\" (keyup.enter)=\"loadUsers()\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 173,
+      "line": 186,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13655,7 +14024,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [checked]=\"selectedUsers.has(user.userId)\" (change)=\"toggleUser(user)\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 179,
+      "line": 192,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13664,7 +14033,7 @@
       "element": "input",
       "attributes": "id=\"quick-bot-name\" [(ngModel)]=\"quickBotName\" [placeholder]=\"'recommendations.quickBotPlaceholder' | translate\" (keyup.enter)=\"createQuickBot()\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 188,
+      "line": 201,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13673,7 +14042,7 @@
       "element": "input",
       "attributes": "class=\"category-search\" [(ngModel)]=\"categorySearch\" [placeholder]=\"'recommendations.searchCategory' | translate\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 212,
+      "line": 225,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13682,7 +14051,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [checked]=\"isCategorySelected(category.categoryId)\" (change)=\"toggleCategory(category.categoryId)\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 215,
+      "line": 228,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13691,7 +14060,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"1\" max=\"10\" step=\"1\" [ngModel]=\"categoryRate(category.categoryId)\" (ngModelChange)=\"setCategoryRate(category.categoryId, $event)\" [attr.aria-label]=\"category.name\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 227,
+      "line": 240,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13700,7 +14069,7 @@
       "element": "input",
       "attributes": "type=\"number\" min=\"1\" max=\"1000\" step=\"1\" [(ngModel)]=\"actionsPerUser\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 240,
+      "line": 253,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13709,7 +14078,7 @@
       "element": "input",
       "attributes": "[(ngModel)]=\"videoSearch\" [placeholder]=\"'recommendations.searchVideo' | translate\" (keyup.enter)=\"loadVideos()\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 244,
+      "line": 257,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13718,7 +14087,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\" [checked]=\"selectedVideos.has(video.videoId)\" (change)=\"toggleVideo(video.videoId)\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 255,
+      "line": 268,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13727,7 +14096,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"likeRate\" (ngModelChange)=\"onLikeRateChange()\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 267,
+      "line": 280,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13736,7 +14105,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"dislikeRate\" (ngModelChange)=\"onDislikeRateChange()\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 268,
+      "line": 281,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13745,7 +14114,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"ratingRate\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 269,
+      "line": 282,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13754,7 +14123,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"commentRate\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 270,
+      "line": 283,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13763,7 +14132,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"subscribeRate\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 271,
+      "line": 284,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13771,24 +14140,6 @@
       "app": "admin",
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"videoSkipRate\" /",
-      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 274,
-      "scenario": "A-RECOMMENDATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "element": "input",
-      "attributes": "type=\"checkbox\" [(ngModel)]=\"confirmRealUsers\" /",
-      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 278,
-      "scenario": "A-RECOMMENDATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "element": "input",
-      "attributes": "type=\"number\" min=\"1\" max=\"100\" step=\"1\" [(ngModel)]=\"botCount\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
       "line": 287,
       "scenario": "A-RECOMMENDATION",
@@ -13797,25 +14148,16 @@
     {
       "app": "admin",
       "element": "input",
-      "attributes": "type=\"number\" min=\"1\" max=\"1000\" step=\"1\" [(ngModel)]=\"videosPerBot\" /",
+      "attributes": "type=\"checkbox\" [(ngModel)]=\"confirmRealUsers\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 288,
+      "line": 291,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
     {
       "app": "admin",
       "element": "input",
-      "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"likeRate\" (ngModelChange)=\"onLikeRateChange()\" /",
-      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 299,
-      "scenario": "A-RECOMMENDATION",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "element": "input",
-      "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"dislikeRate\" (ngModelChange)=\"onDislikeRateChange()\" /",
+      "attributes": "type=\"number\" min=\"1\" max=\"100\" step=\"1\" [(ngModel)]=\"botCount\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
       "line": 300,
       "scenario": "A-RECOMMENDATION",
@@ -13824,7 +14166,7 @@
     {
       "app": "admin",
       "element": "input",
-      "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"ratingRate\" /",
+      "attributes": "type=\"number\" min=\"1\" max=\"1000\" step=\"1\" [(ngModel)]=\"videosPerBot\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
       "line": 301,
       "scenario": "A-RECOMMENDATION",
@@ -13833,9 +14175,36 @@
     {
       "app": "admin",
       "element": "input",
+      "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"likeRate\" (ngModelChange)=\"onLikeRateChange()\" /",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 312,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "element": "input",
+      "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"dislikeRate\" (ngModelChange)=\"onDislikeRateChange()\" /",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 313,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "element": "input",
+      "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"ratingRate\" /",
+      "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
+      "line": 314,
+      "scenario": "A-RECOMMENDATION",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
+      "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"commentRate\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 302,
+      "line": 315,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13844,7 +14213,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"subscribeRate\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 303,
+      "line": 316,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13853,7 +14222,7 @@
       "element": "input",
       "attributes": "type=\"range\" min=\"0\" max=\"100\" [(ngModel)]=\"videoSkipRate\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 306,
+      "line": 319,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13862,7 +14231,7 @@
       "element": "select",
       "attributes": "[(ngModel)]=\"commentCategory\"",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 319,
+      "line": 332,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -13871,7 +14240,7 @@
       "element": "input",
       "attributes": "id=\"new-comment\" [(ngModel)]=\"newCommentTemplate\" [placeholder]=\"'recommendations.commentPlaceholder' | translate\" (keyup.enter)=\"addCommentTemplate()\" /",
       "source": "frontend/admin-web/src/app/features/recommendations/recommendations-page.html",
-      "line": 331,
+      "line": 344,
       "scenario": "A-RECOMMENDATION",
       "status": "PLANNED"
     },
@@ -14120,10 +14489,19 @@
     },
     {
       "app": "admin",
+      "element": "select",
+      "attributes": "id=\"video-mobile-sort\" [ngModel]=\"sortBy()\" (ngModelChange)=\"toggleSort($event)\"",
+      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
+      "line": 88,
+      "scenario": "A-VIDEOS",
+      "status": "PLANNED"
+    },
+    {
+      "app": "admin",
       "element": "input",
       "attributes": "type=\"text\"\n              class=\"modal-input\"\n              required\n              maxlength=\"200\"\n              [disabled]=\"editLoading() || busy()\" [ngModel]=\"editTitle()\"\n              (ngModelChange)=\"editTitle.set($event)\"\n              name=\"title\"\n            /",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 646,
+      "line": 667,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -14132,7 +14510,7 @@
       "element": "textarea",
       "attributes": "class=\"modal-textarea\"\n              rows=\"3\"\n              maxlength=\"3000\"\n              [disabled]=\"editLoading() || busy()\" [ngModel]=\"editDescription()\"\n              (ngModelChange)=\"editDescription.set($event)\"\n              name=\"desc\"",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 659,
+      "line": 680,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -14141,7 +14519,7 @@
       "element": "select",
       "attributes": "class=\"modal-select\"\n              [disabled]=\"editLoading() || busy()\" [ngModel]=\"editCategoryId()\"\n              (ngModelChange)=\"editCategoryId.set($event)\"\n              name=\"cat\"",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 671,
+      "line": 692,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -14150,7 +14528,7 @@
       "element": "input",
       "attributes": "type=\"text\"\n              class=\"modal-input\"\n              required\n              minlength=\"3\"\n              [placeholder]=\"'videos.changeMetadataPlaceholder' | translate\"\n              [disabled]=\"editLoading() || busy()\" [ngModel]=\"editReason()\"\n              (ngModelChange)=\"editReason.set($event)\"\n              name=\"reason\"\n            /",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 686,
+      "line": 707,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -14159,7 +14537,7 @@
       "element": "textarea",
       "attributes": "class=\"modal-textarea\"\n              rows=\"3\"\n              [placeholder]=\"'videos.actionReasonPlaceholder' | translate\"\n              [ngModel]=\"actionModalReason()\"\n              (ngModelChange)=\"actionModalReason.set($event)\"",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 734,
+      "line": 755,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     },
@@ -14168,25 +14546,7 @@
       "element": "input",
       "attributes": "type=\"checkbox\"\n              class=\"custom-check\"\n              [ngModel]=\"notifyOwner()\"\n              (ngModelChange)=\"notifyOwner.set($event)\"\n            /",
       "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 744,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "element": "input",
-      "attributes": "type=\"text\"\n              class=\"modal-input\"\n              [placeholder]=\"'videos.enterTitle' | translate\"\n              [ngModel]=\"newVideoTitle()\"\n              (ngModelChange)=\"newVideoTitle.set($event)\"\n            /",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 827,
-      "scenario": "A-VIDEOS",
-      "status": "PLANNED"
-    },
-    {
-      "app": "admin",
-      "element": "select",
-      "attributes": "class=\"modal-select\"\n              [ngModel]=\"newVideoVisibility()\"\n              (ngModelChange)=\"newVideoVisibility.set($event)\"",
-      "source": "frontend/admin-web/src/app/features/videos/admin-videos-page.html",
-      "line": 838,
+      "line": 765,
       "scenario": "A-VIDEOS",
       "status": "PLANNED"
     }

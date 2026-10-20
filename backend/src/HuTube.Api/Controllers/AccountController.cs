@@ -48,7 +48,7 @@ public sealed class AccountController(
         accountService.UpdatePreferencesAsync(UserId, request, ct);
 
     [HttpPost("avatar")]
-    [RequestSizeLimit(5 * 1024 * 1024)] // 5MB limit
+    [RequestSizeLimit(5 * 1024 * 1024 + 64 * 1024)] // 5 MiB file plus multipart headers.
     public async Task<ActionResult<UserProfileDto>> UploadAvatarAsync(IFormFile? file, CancellationToken ct)
     {
         if (file == null || file.Length == 0)

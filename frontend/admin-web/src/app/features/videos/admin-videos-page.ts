@@ -2,6 +2,7 @@ import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal, OnInit, HostListener, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
+import { RuntimeConfig } from '../../core/runtime-config';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import {
@@ -25,6 +26,7 @@ import {
 export class AdminVideosPage implements OnInit {
   private readonly service = inject(AdminVideosService);
   readonly auth = inject(AuthService);
+  readonly config = inject(RuntimeConfig);
   readonly i18n = inject(I18nService);
 
   // Data signals
@@ -111,9 +113,6 @@ export class AdminVideosPage implements OnInit {
   readonly actionModalReason = signal('');
   readonly notifyOwner = signal(true);
 
-  readonly showAddModal = signal(false);
-  readonly newVideoTitle = signal('');
-  readonly newVideoVisibility = signal('public');
 
   // Permissions
   readonly editLoading = signal(false);
@@ -126,7 +125,7 @@ export class AdminVideosPage implements OnInit {
 
   // Computed Pagination
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
-  readonly showingStart = computed(() => (this.page() - 1) * this.pageSize() + 1);
+  readonly showingStart = computed(() => this.total() === 0 ? 0 : (this.page() - 1) * this.pageSize() + 1);
   readonly showingEnd = computed(() => Math.min(this.page() * this.pageSize(), this.total()));
 
   // Visible page numbers matching: < 1 2 3 4 5 ... 2.072 >
@@ -445,23 +444,6 @@ export class AdminVideosPage implements OnInit {
           this.error.set(err?.error?.message || this.i18n.t('videos.actionError'));
         }
       });
-  }
-
-  // Add video modal
-  openAddVideo(): void {
-    this.newVideoTitle.set('');
-    this.newVideoVisibility.set('public');
-    this.showAddModal.set(true);
-  }
-
-  closeAddVideo(): void {
-    this.showAddModal.set(false);
-  }
-
-  submitAddVideo(): void {
-    this.notice.set(this.i18n.format('videos.addSuccess', { title: this.newVideoTitle() }));
-    setTimeout(() => this.notice.set(''), 4000);
-    this.closeAddVideo();
   }
 
   exportData(): void {

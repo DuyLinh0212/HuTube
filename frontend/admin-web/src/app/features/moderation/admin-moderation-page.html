@@ -10,7 +10,18 @@
   @if (successMessage()) { <div class="alert success" role="status"><span>✓</span>{{ successMessage() }}</div> }
   @if (error()) { <div class="alert error" role="alert"><span>!</span>{{ error() }}</div> }
 
-  <div class="status-tabs" role="tablist" [attr.aria-label]="'moderationPage.caseStatuses' | translate">
+  @if (bulkResult(); as result) {
+    <section class="alert" [class.error]="result.failed.length > 0" role="status" aria-live="polite">
+      <div>
+        <p>{{ 'moderationPage.bulkSummary' | translate:{ succeeded: result.succeeded, failed: result.failed.length } }}</p>
+        @if (result.failed.length) {
+          <ul>@for (item of result.failed; track item.id) { <li><strong>{{ item.title }}</strong>: {{ item.reason }}</li> }</ul>
+        }
+      </div>
+    </section>
+  }
+  <div class="status-tabs" role="tablist"
+ [attr.aria-label]="'moderationPage.caseStatuses' | translate">
     <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'pending'" [class.is-active]="selectedStatus() === 'pending'" (click)="selectedStatus.set('pending')">{{ 'moderationPage.pendingReview' | translate }} <b>{{ stats().pending }}</b></button>
     <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'reviewing'" [class.is-active]="selectedStatus() === 'reviewing'" (click)="selectedStatus.set('reviewing')">{{ 'moderationPage.underReview' | translate }} <b>{{ stats().reviewing }}</b></button>
     <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'processed'" [class.is-active]="selectedStatus() === 'processed'" (click)="selectedStatus.set('processed')">{{ 'moderationPage.processed' | translate }} <b>{{ stats().processed }}</b></button>
@@ -49,11 +60,11 @@
                     <td class="queue-date">{{ formatDate(item.submittedAt) }}</td>
                     <td><span class="waiting-text" [class.is-old]="item.riskLevel === 'high'">{{ isProcessed(item) ? '—' : waitingTime(item.submittedAt) }}</span></td>
                     <td><span class="risk-pill" [class.is-high]="item.riskLevel === 'high'"><i></i>{{ getRiskLabel(item.riskLevel) }}</span></td>
-                    <td><span class="reviewer-text">{{ item.reviewerName || '—' }}</span></td>
+                    <td><span class="reviewer-text">{{ item.reviewerName || '—' }}</span>@if (lease.expired(item)) { <small role="status">{{ 'moderation.claimExpired' | translate }}</small> }</td>
                     <td class="actions-column"><div class="row-actions">
                       @if (isProcessed(item)) { <span class="processed-label">{{ getStatusLabel(item.status) }}</span> }
-                      @else if (item.status === 'pending' && canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> }
-                      @else if (item.status === 'pending') { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ 'moderationPage.details' | translate }}</button>@if (canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> } }
+                      @else if ((item.status === 'pending' || item.status === 'escalated' || lease.expired(item)) && canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> }
+                      @else if ((item.status === 'pending' || lease.expired(item))) { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ 'moderationPage.details' | translate }}</button>@if (canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> } }
                       @else if (item.status === 'reviewing' || item.status === 'escalated') { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ canReview() || isClaimedByMe(item) ? ('moderationPage.open' | translate) : ('moderationPage.details' | translate) }}</button>@if (isClaimedByMe(item) && canClaim()) { <button type="button" class="table-action subtle" (click)="releaseCase(item)">{{ 'moderationPage.release' | translate }}</button> } }
                       @else { <span class="locked-label">{{ 'moderationPage.processing' | translate }}</span> }
                     </div></td>

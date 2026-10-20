@@ -69,6 +69,27 @@ public sealed class PaymentServiceTests : IDisposable
         _service = new PaymentService(_db, _mockPlanService, _options, TimeProvider.System);
     }
 
+    [Theory]
+    [InlineData("HUTUBEABCDEFG2", true)]
+    [InlineData("hutubeabcdefg2", true)]
+    [InlineData("Thanh toan HUTUBE ABCDEFG2.", true)]
+    [InlineData("HUTUBE-ABCDEFG2", true)]
+    [InlineData("HUTUBEABCDEFG2Z", false)]
+    [InlineData("OTHERABCDEFG2", false)]
+    [InlineData("HUTUBEABCDEFG", false)]
+    public async Task Webhook_MatchesCompleteNormalizedQrReference(string content, bool paid)
+    {
+        var payment = new Payment { PaymentId = Guid.NewGuid(), UserId = Guid.NewGuid(), PlanId = Guid.NewGuid(),
+            TransactionCode = "HUTUBE-ABCDEFG2", Status = "pending", Amount = 12345,
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) };
+        _db.Payments.Add(payment); await _db.SaveChangesAsync();
+        var payload = new SepayWebhookPayload(98765, "QC", "2026-10-16", _options.AccountNumber,
+            null, null, content, "in", 12345, 0, "QC");
+        Assert.True(await _service.HandleSepayWebhookAsync(payload));
+        Assert.Equal(paid ? "paid" : "pending", payment.Status);
+        Assert.Equal(paid, _mockPlanService.ActivatePaidPlanAsyncCalled);
+    }
+
     public void Dispose()
     {
         _db.Database.EnsureDeleted();

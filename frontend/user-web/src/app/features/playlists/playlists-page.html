@@ -11,12 +11,19 @@
   } @else if (!playlist()) {
     <div class="library-layout">
       <section class="library-main" [attr.aria-label]="'playlists.yourPlaylists' | translate">
+        <div class="collection-controls">
+          <label for="playlist-query">{{ 'collection.search' | translate }}<input id="playlist-query" type="search" [ngModel]="listQuery()" (ngModelChange)="filterLists($event)" /></label>
+          <label for="playlist-filter">{{ 'upload.step5' | translate }}<select id="playlist-filter" [ngModel]="listVisibility()" (ngModelChange)="filterLists(listQuery(), $event)">
+            <option value="all">{{ 'ui.all' | translate }}</option><option value="public">{{ 'studio.public' | translate }}</option><option value="unlisted">{{ 'playlists.unlisted' | translate }}</option><option value="private">{{ 'playlists.private' | translate }}</option>
+          </select></label>
+          <label for="playlist-page-size">{{ 'collection.pageSize' | translate }}<select id="playlist-page-size" [ngModel]="listPageSize()" (ngModelChange)="filterLists(listQuery(), listVisibility(), +$event)"><option [ngValue]="20">20</option><option [ngValue]="50">50</option></select></label>
+        </div>
         @if (lists().length) {
           <div class="section-heading">
-            <div><h2>{{ 'playlists.saved' | translate }}</h2><p>{{ lists().length }} {{ 'playlists.playlistCount' | translate }}</p></div>
+            <div><h2>{{ 'playlists.saved' | translate }}</h2><p>{{ filteredLists().length }} {{ 'playlists.playlistCount' | translate }}</p></div>
           </div>
           <div class="playlist-grid">
-            @for (item of lists(); track item.playlistId) {
+            @for (item of visibleLists(); track item.playlistId) {
               <a class="playlist-card" [routerLink]="['/playlists', item.playlistId]">
                 <div class="card-mosaic" [class.card-mosaic--empty]="!item.coverUrl && !previewItems(item).length">
                   @if (item.coverUrl) {
@@ -39,6 +46,12 @@
               </a>
             }
           </div>
+          @if (!filteredLists().length) { <p role="status">{{ 'collection.noResults' | translate }}</p> }
+          <nav class="collection-pagination" [attr.aria-label]="'library.pagination' | translate">
+            <button type="button" (click)="changeListPage(currentListPage() - 1)" [disabled]="currentListPage() === 1">{{ 'library.previous' | translate }}</button>
+            <span>{{ currentListPage() }} / {{ listPageCount() }}</span>
+            <button type="button" (click)="changeListPage(currentListPage() + 1)" [disabled]="currentListPage() === listPageCount()">{{ 'library.next' | translate }}</button>
+          </nav>
         } @else {
           <div class="empty-library">
             <div class="empty-art" aria-hidden="true">

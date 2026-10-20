@@ -484,13 +484,13 @@ public sealed class ContentService(
             if (tokens.Length <= 1)
             {
                 query = query.Where(x =>
-                    EF.Functions.ILike(x.Title, $"%{term}%") ||
-                    (x.Description != null && EF.Functions.ILike(x.Description, $"%{term}%")) ||
+                    EF.Functions.ILike(EF.Functions.Unaccent(x.Title), EF.Functions.Unaccent($"%{term}%")) ||
+                    (x.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(x.Description), EF.Functions.Unaccent($"%{term}%"))) ||
                     db.Channels.Any(c => c.ChannelId == x.ChannelId && (
-                        EF.Functions.ILike(c.Name, $"%{term}%") ||
-                        EF.Functions.ILike(c.Handle, $"%{term}%") ||
-                        (cleanTerm != null && EF.Functions.ILike(c.Handle, $"%{cleanTerm}%")))) ||
-                    db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && EF.Functions.ILike(t.Name, $"%{term}%")))
+                        EF.Functions.ILike(EF.Functions.Unaccent(c.Name), EF.Functions.Unaccent($"%{term}%")) ||
+                        EF.Functions.ILike(EF.Functions.Unaccent(c.Handle), EF.Functions.Unaccent($"%{term}%")) ||
+                        (cleanTerm != null && EF.Functions.ILike(EF.Functions.Unaccent(c.Handle), EF.Functions.Unaccent($"%{cleanTerm}%"))))) ||
+                    db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(t => t.TagId == vt.TagId && EF.Functions.ILike(EF.Functions.Unaccent(t.Name), EF.Functions.Unaccent($"%{term}%"))))
                 );
             }
             else
@@ -499,13 +499,13 @@ public sealed class ContentService(
                 {
                     var t = token.TrimStart('@');
                     query = query.Where(x =>
-                        EF.Functions.ILike(x.Title, $"%{token}%") ||
-                        (x.Description != null && EF.Functions.ILike(x.Description, $"%{token}%")) ||
+                        EF.Functions.ILike(EF.Functions.Unaccent(x.Title), EF.Functions.Unaccent($"%{token}%")) ||
+                        (x.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(x.Description), EF.Functions.Unaccent($"%{token}%"))) ||
                         db.Channels.Any(c => c.ChannelId == x.ChannelId && (
-                            EF.Functions.ILike(c.Name, $"%{token}%") ||
-                            EF.Functions.ILike(c.Handle, $"%{token}%") ||
-                            EF.Functions.ILike(c.Handle, $"%{t}%"))) ||
-                        db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(tTag => tTag.TagId == vt.TagId && EF.Functions.ILike(tTag.Name, $"%{token}%")))
+                            EF.Functions.ILike(EF.Functions.Unaccent(c.Name), EF.Functions.Unaccent($"%{token}%")) ||
+                            EF.Functions.ILike(EF.Functions.Unaccent(c.Handle), EF.Functions.Unaccent($"%{token}%")) ||
+                            EF.Functions.ILike(EF.Functions.Unaccent(c.Handle), EF.Functions.Unaccent($"%{t}%")))) ||
+                        db.VideoTags.Any(vt => vt.VideoId == x.VideoId && db.Tags.Any(tTag => tTag.TagId == vt.TagId && EF.Functions.ILike(EF.Functions.Unaccent(tTag.Name), EF.Functions.Unaccent($"%{token}%"))))
                     );
                 }
             }
@@ -658,9 +658,9 @@ public sealed class ContentService(
             "engagement" => rows.OrderByDescending(x => (x.Likes ?? 0L) + (x.Comments ?? 0L)).ThenByDescending(x => x.Views ?? 0L),
             "random" => rows.OrderBy(_ => EF.Functions.Random()),
             _ when !string.IsNullOrWhiteSpace(term) =>
-                rows.OrderByDescending(x => EF.Functions.ILike(x.Title, $"{term}%"))
-                    .ThenByDescending(x => EF.Functions.ILike(x.Title, $"%{term}%"))
-                    .ThenByDescending(x => EF.Functions.ILike(x.ChannelName, $"%{term}%") || (cleanTerm != null && EF.Functions.ILike(x.ChannelHandle, $"%{cleanTerm}%")))
+                rows.OrderByDescending(x => EF.Functions.ILike(EF.Functions.Unaccent(x.Title), EF.Functions.Unaccent($"{term}%")))
+                    .ThenByDescending(x => EF.Functions.ILike(EF.Functions.Unaccent(x.Title), EF.Functions.Unaccent($"%{term}%")))
+                    .ThenByDescending(x => EF.Functions.ILike(EF.Functions.Unaccent(x.ChannelName), EF.Functions.Unaccent($"%{term}%")) || (cleanTerm != null && EF.Functions.ILike(EF.Functions.Unaccent(x.ChannelHandle), EF.Functions.Unaccent($"%{cleanTerm}%"))))
                     .ThenByDescending(x => x.Views ?? 0L)
                     .ThenByDescending(x => x.PublishedAt),
             _ => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt)
@@ -687,11 +687,19 @@ public sealed class ContentService(
     }
 
     public async Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize,
-        DateTimeOffset? before = null, CancellationToken ct = default)
+        DateTimeOffset? before = null, CancellationToken ct = default, string? q = null, string sort = "newest", string? dateRange = null)
     {
         (page, pageSize) = Page(page, pageSize);
         var windowEnd = before.HasValue && before.Value < Now ? before.Value : Now;
-        var windowStart = windowEnd.AddDays(-30);
+        if (sort is not ("newest" or "oldest") || dateRange is not (null or "all" or "today" or "week" or "month") || q?.Length > 200)
+            throw new ContentException(400, "INVALID_HISTORY_FILTER", "Bộ lọc lịch sử không hợp lệ.");
+        DateTimeOffset? windowStart = dateRange switch
+        {
+            "all" => null,
+            "today" => new DateTimeOffset(windowEnd.UtcDateTime.Date, TimeSpan.Zero),
+            "week" => windowEnd.AddDays(-7),
+            _ => windowEnd.AddDays(-30)
+        };
         // Keep only the newest row for each video. A correlated NOT EXISTS is
         // translated reliably by PostgreSQL, unlike joining a GroupBy/First
         // projection to the video query.
@@ -702,16 +710,24 @@ public sealed class ContentService(
                 other.VideoId == history.VideoId &&
                   (other.ViewedAt > history.ViewedAt ||
                   (other.ViewedAt == history.ViewedAt && other.ViewingHistoryId > history.ViewingHistoryId))));
-        latest = latest.Where(history => history.ViewedAt >= windowStart && history.ViewedAt < windowEnd);
+        latest = latest.Where(history => history.ViewedAt < windowEnd);
+        if (windowStart.HasValue) latest = latest.Where(history => history.ViewedAt >= windowStart.Value);
         var query = from history in latest
                     join video in LibraryVisibleVideos(userId) on history.VideoId equals video.VideoId
                     join channel in db.Channels.AsNoTracking() on video.ChannelId equals channel.ChannelId
-                    orderby history.ViewedAt descending
                     select new { video.VideoId, video.ChannelId, ChannelName = channel.Name, ChannelHandle = channel.Handle,
                         video.Title, video.ThumbnailUrl, video.Duration, history.WatchDuration, history.Progress, history.ViewedAt };
 
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var term = q.Trim().ToLower();
+            query = query.Where(row => row.Title.ToLower().Contains(term) || row.ChannelName.ToLower().Contains(term) || row.ChannelHandle.ToLower().Contains(term));
+        }
+        var ordered = sort == "oldest"
+            ? query.OrderBy(row => row.ViewedAt).ThenBy(row => row.VideoId)
+            : query.OrderByDescending(row => row.ViewedAt).ThenBy(row => row.VideoId);
         var total = await query.CountAsync(ct);
-        var rows = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var rows = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         var items = new List<WatchHistoryResponse>(rows.Count);
         foreach (var row in rows)
         {
@@ -940,6 +956,7 @@ public sealed class ContentService(
             }
         }
 
+        if (processingError != null) video.Status = "failed";
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         try
         {
@@ -2159,20 +2176,16 @@ public sealed class ContentService(
     private async Task<Plan?> GetEffectivePlanForUserAsync(Guid userId, CancellationToken ct)
     {
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.UserId == userId, ct);
-        if (user.PlanId.HasValue)
-        {
-            var selected = await GetEffectivePlanAsync(userId, user.PlanId.Value, ct);
-            if (selected != null) return selected;
-        }
-
+        var selected = user.PlanId.HasValue ? await GetEffectivePlanAsync(userId, user.PlanId.Value, ct) : null;
         var sharedPlan = await (from member in db.PlanMembers.AsNoTracking()
                                 join history in db.PlanHistories.AsNoTracking() on member.PlanHistoryId equals history.PlanHistoryId
                                 join plan in db.Plans.AsNoTracking() on history.PlanId equals plan.PlanId
                                 where member.MemberUserId == userId && member.Status == "accepted"
                                       && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now) && plan.Status == "active"
-                                orderby history.EndedAt descending
+                                orderby member.AcceptedAt descending
                                 select plan).FirstOrDefaultAsync(ct);
-        if (sharedPlan != null) return sharedPlan;
+        if (sharedPlan != null && (selected == null || selected.Price == 0 || user.PlanId == sharedPlan.PlanId)) return sharedPlan;
+        if (selected != null) return selected;
 
         // Users without an active subscription still use the configured Free plan.
         // This keeps admin changes to the Free plan effective for legacy accounts

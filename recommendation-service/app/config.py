@@ -40,6 +40,7 @@ class Settings(BaseSettings):
         "r2_secret_access_key", "Storage__R2__SecretAccessKey"))
     r2_bucket_name: str = Field(default="", validation_alias=AliasChoices(
         "r2_bucket_name", "Storage__R2__BucketName"))
+    r2_endpoint_url: str = ""
     allow_benchmark_model: bool = False
 
     model_config = SettingsConfigDict(

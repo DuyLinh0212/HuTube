@@ -20,15 +20,21 @@ public sealed record ModerationQueueItemResponse(
     string? ReviewerName,
     DateTimeOffset SubmittedAt,
     DateTimeOffset? ClaimedAt,
-    string? Note
+    string? Note,
+    Guid? ClaimId = null,
+    DateTimeOffset? ClaimExpiresAt = null
 );
 
 public sealed record ResolveModerationRequest(
     string Decision, // approve, age_restricted, recommendation_restricted, reject, escalate
     string? PolicyCode,
     string? Reason,
-    string? InternalNote
+    string? InternalNote,
+    Guid? ClaimId = null
 );
+
+public sealed record ClaimActionRequest(Guid? ClaimId = null);
+public sealed record ClaimLeaseResponse(Guid? ClaimId, DateTimeOffset? ClaimExpiresAt);
 
 public sealed record ModerationDecisionResponse(
     Guid ModerationCaseId,

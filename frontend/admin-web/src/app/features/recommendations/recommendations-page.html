@@ -188,6 +188,7 @@
       @if (currentJob.kind === 'model_update') {
         <div class="job-card" role="status" aria-live="polite">
           <div><strong>{{ 'recommendations.modelKind' | translate }}</strong><span>{{ jobStatus(currentJob.status) }} · {{ jobStep(currentJob.step) }}</span></div>
+          @if (isModelLive()) { <button type="button" class="stop-button" [disabled]="stopping() || currentJob.status === 'cancelling'" (click)="stop()">{{ 'recommendations.stopModel' | translate }}</button> }
           <span>{{ currentJob.completed }}/{{ currentJob.total }}</span>
           <div class="progress-track"><div [style.width.%]="progress()"></div></div>
           @if (currentJob.error) { <p class="job-error">{{ currentJob.error }}</p> }

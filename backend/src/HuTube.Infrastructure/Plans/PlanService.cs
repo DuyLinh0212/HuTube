@@ -163,7 +163,12 @@ public sealed class PlanService(
         }
         else if (user.PlanId.HasValue)
         {
-            plan = await db.Plans.AsNoTracking().FirstOrDefaultAsync(x => x.PlanId == user.PlanId.Value && x.Status == "active", ct);
+            // Expired paid history must not grant rights through a cached PlanId.
+            plan = await db.Plans.AsNoTracking()
+                .Where(x => x.Status == "active" && (x.IsDefaultForNewUsers || x.Code == "free"))
+                .OrderByDescending(x => x.IsDefaultForNewUsers)
+                .ThenBy(x => x.DisplayOrder)
+                .FirstOrDefaultAsync(ct);
         }
 
         if (plan == null) return null;
@@ -180,8 +185,26 @@ public sealed class PlanService(
                 .Select(x => x.StorageUsed)
                 .SingleOrDefaultAsync(ct);
 
+        var usedStorage = isSharedMember
+            ? channelUsedStorage
+            : activeHistory == null ? channelUsedStorage : await GetBilledStorageAsync(userId, ct);
+        var storageLimit = isSharedMember
+            ? await GetSharedMemberStorageLimitAsync(sharedPlan!.Value.History, sharedPlan.Value.Member, sharedPlan.Value.Plan, ct)
+            : plan.StorageLimit;
+        var remainingStorage = Math.Max(0, (isSharedMember ? storageLimit : activeHistory?.OwnerAllocatedStorage ?? storageLimit) - usedStorage);
+        var sharedOwnerDisplayName = isSharedMember
+            ? await db.Users.AsNoTracking().Where(x => x.UserId == sharedPlan!.Value.Member.OwnerUserId).Select(x => x.DisplayName).SingleOrDefaultAsync(ct)
+            : null;
+
         List<PlanMemberResponse> members;
-        if (activeHistory == null || isSharedMember)
+        if (isSharedMember && sharedPlan != null)
+        {
+            var member = sharedPlan.Value.Member;
+            members = [new PlanMemberResponse(member.PlanMemberId, plan.PlanId, member.OwnerUserId,
+                member.MemberEmail, member.MemberUserId, member.Status, member.InvitedAt,
+                member.AcceptedAt, member.RevokedAt, member.AllocatedStorage, usedStorage)];
+        }
+        else if (activeHistory == null)
         {
             members = [];
         }
@@ -211,17 +234,6 @@ public sealed class PlanService(
                 x.MemberUserId.HasValue && memberQuotas.TryGetValue(x.MemberUserId.Value, out var used) ? used : 0L
             )).ToList();
         }
-
-        var usedStorage = isSharedMember
-            ? channelUsedStorage
-            : activeHistory == null ? channelUsedStorage : await GetBilledStorageAsync(userId, ct);
-        var storageLimit = isSharedMember
-            ? await GetSharedMemberStorageLimitAsync(sharedPlan!.Value.History, sharedPlan.Value.Member, sharedPlan.Value.Plan, ct)
-            : plan.StorageLimit;
-        var remainingStorage = Math.Max(0, storageLimit - usedStorage);
-        var sharedOwnerDisplayName = isSharedMember
-            ? await db.Users.AsNoTracking().Where(x => x.UserId == sharedPlan!.Value.Member.OwnerUserId).Select(x => x.DisplayName).SingleOrDefaultAsync(ct)
-            : null;
 
         var subscriptionInfo = activeHistory != null
             ? new PlanSubscriptionInfo(
@@ -270,7 +282,8 @@ public sealed class PlanService(
         if (await GetActiveSharedPlanAsync(userId, ct) != null)
             throw new PlanException(403, "SHARED_PLAN_ACTION_FORBIDDEN", "Bạn đang sử dụng gói được chia sẻ và không thể đăng ký gói khác.");
         var user = await db.Users.SingleAsync(x => x.UserId == userId, ct);
-        var plan = await db.Plans.SingleAsync(x => x.PlanId == planId && x.Status == "active", ct);
+        var plan = await db.Plans.SingleOrDefaultAsync(x => x.PlanId == planId && x.Status == "active", ct)
+            ?? throw new PlanException(404, "PLAN_NOT_FOUND", "Gói dịch vụ không tồn tại.");
         if (plan.Price > 0)
             throw new PlanException(402, "PAYMENT_REQUIRED", "Vui lòng thanh toán để kích hoạt gói trả phí.");
         var now = Now;
@@ -709,7 +722,7 @@ public sealed class PlanService(
                              where member.MemberUserId == userId && member.Status == "accepted"
                                    && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now)
                                    && plan.Status == "active"
-                             orderby history.EndedAt descending
+                             orderby member.AcceptedAt descending
                              select new { Plan = plan, History = history, Member = member }).FirstOrDefaultAsync(ct);
         return result == null ? null : (result.Plan, result.History, result.Member);
     }

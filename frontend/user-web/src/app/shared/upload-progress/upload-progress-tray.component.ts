@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { UploadStateService } from '../../core/upload-state.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
@@ -6,11 +7,14 @@ import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-upload-progress-tray',
+  host: { '[class.in-upload-page]': 'isUploadPage()' },
   imports: [LocaleNumberPipe, TranslatePipe],
   templateUrl: './upload-progress-tray.component.html',
   styleUrl: './upload-progress-tray.component.scss',
 })
 export class UploadProgressTrayComponent {
+  private readonly router = inject(Router);
+  isUploadPage() { return this.router.url.split(/[?#]/)[0] === '/studio/upload'; }
   readonly upload = inject(UploadStateService);
   readonly i18n = inject(I18nService);
 

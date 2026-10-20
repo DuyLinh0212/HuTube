@@ -26,6 +26,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly destroy$ = new Subject<void>();
+  private readonly searchCancelled$ = new Subject<void>();
 
   @ViewChild('trendingCarousel') trendingCarouselRef?: ElementRef<HTMLDivElement>;
 
@@ -168,9 +169,14 @@ export class ExplorePage implements OnInit, OnDestroy {
 
       if (this.isSearchMode) {
         this.loadSearch();
-      } else if (!this.hubRequested) {
-        this.hubRequested = true;
-        this.loadHub();
+      } else {
+        this.searchRequest?.unsubscribe();
+        this.searchCancelled$.next();
+        this.loading.set(false);
+        if (!this.hubRequested) {
+          this.hubRequested = true;
+          this.loadHub();
+        }
       }
     });
   }
@@ -179,6 +185,7 @@ export class ExplorePage implements OnInit, OnDestroy {
     this.searchRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
+    this.searchCancelled$.complete();
   }
 
   loadHub() {

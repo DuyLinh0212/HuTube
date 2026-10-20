@@ -1,4 +1,9 @@
 <main id="main-content" class="create-channel-container">
+  @if (error()) {
+    <div class="alert-banner alert-error" role="alert">
+      <span>⚠️ {{ error() }}</span>
+    </div>
+  }
   @if (!existingChannel() && pendingInvitations().length > 0) {
     <section class="collaboration-callout" aria-labelledby="collaboration-callout-title">
       <div class="callout-icon" aria-hidden="true">✉</div>
@@ -41,12 +46,6 @@
         <h1 class="card-title">{{ 'channel.formTitle' | translate }}</h1>
         <p class="card-subtitle">{{ 'channel.formDesc' | translate }}</p>
       </header>
-
-      @if (error()) {
-        <div class="alert-banner alert-error" role="alert">
-          <span>⚠️ {{ error() }}</span>
-        </div>
-      }
 
       <form (ngSubmit)="onSubmit()" class="create-form">
         <!-- Visual Previews (Banner & Avatar) -->

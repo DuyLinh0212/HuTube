@@ -1,3 +1,4 @@
+import { ReviewerLeaseService } from './reviewer-lease.service';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { EMPTY, expand, reduce } from 'rxjs';
 import { RuntimeConfig } from '../../core/runtime-config';
@@ -20,6 +21,7 @@ interface ViolationTypeOption { value: string; label: string; }
   styleUrl: './admin-reports-page.scss'
 })
 export class AdminReportsPage implements OnInit {
+  readonly lease = inject(ReviewerLeaseService);
   private readonly moderation = inject(AdminModerationService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
@@ -117,7 +119,7 @@ export class AdminReportsPage implements OnInit {
     const to = allTabActive ? this.processedTo() : '';
     return this.cases().filter(item => {
       const typeMatches = this.selectedTargetType() === 'ALL' || item.targetType === this.selectedTargetType();
-      const statusMatches = status === 'ALL' || item.status === status;
+      const statusMatches = status === 'ALL' || (status === 'pending' ? item.status === 'pending' || this.lease.expired(item) : status === 'reviewing' ? this.lease.active(item) : item.status === status);
       const violationMatches = violationType === 'ALL' || item.violationCounts.some(violation =>
         violationType === '__unclassified__' ? !violation.code : violation.code === violationType);
       const resolvedAt = item.resolvedAt || (item.status === 'resolved' || item.status === 'escalated' ? item.updatedAt : null);
@@ -145,7 +147,7 @@ export class AdminReportsPage implements OnInit {
     return details.filter(report => report.disposition === 'accepted' || report.disposition === 'rejected').length;
   });
   readonly unclassifiedCount = computed(() => Math.max(0, (this.activeCase()?.reports.length ?? 0) - this.classifiedCount()));
-  readonly isCaseOwner = computed(() => this.activeCase()?.case.reviewerId === this.auth.user()?.userId);
+  readonly isCaseOwner = computed(() => !!this.activeCase() && this.activeCase()!.case.reviewerId === this.auth.user()?.userId && this.lease.active(this.activeCase()!.case));
 
   private readonly config = inject(RuntimeConfig);
   private loadGeneration = 0;
@@ -227,7 +229,7 @@ export class AdminReportsPage implements OnInit {
   release(item: ReportCaseSummary): void {
     if (!this.canClaim()) return;
     this.submitting.set(true);
-    this.moderation.releaseReportCase(item.caseId).subscribe({
+    this.moderation.releaseReportCase(item.caseId, item.claimId).subscribe({
       next: () => { this.submitting.set(false); this.successMessage.set(this.i18n.t('reports.returnSuccess')); this.loadData(); this.closeCase(); },
       error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.returnError')); }
     });
@@ -238,7 +240,7 @@ export class AdminReportsPage implements OnInit {
     const reportIds = this.selectedReportIds();
     if (!current || !this.canResolve() || !this.isCaseOwner() || !reportIds.length || this.dispositionReason().trim().length < 3) return;
     this.submitting.set(true);
-    this.moderation.updateReportDispositions(current.case.caseId, { reportIds, disposition, reason: this.dispositionReason().trim() }).subscribe({
+    this.moderation.updateReportDispositions(current.case.caseId, { claimId: current.case.claimId, reportIds, disposition, reason: this.dispositionReason().trim() }).subscribe({
       next: () => {
         this.submitting.set(false);
         this.successMessage.set(this.i18n.format('reports.classifySuccess', { count: reportIds.length }));
@@ -255,6 +257,7 @@ export class AdminReportsPage implements OnInit {
     if (!this.availableDecisions().some(option => option.value === this.decision())) return;
     this.submitting.set(true);
     this.moderation.resolveReportCase(current.case.caseId, {
+      claimId: current.case.claimId,
       decision: this.decision(), reason: this.decisionReason().trim(),
       internalNote: this.internalNote().trim() || undefined, policyCode: this.policyCode().trim() || undefined,
       restrictionDays: this.decision() === 'upload_restriction' ? this.restrictionDays() : undefined

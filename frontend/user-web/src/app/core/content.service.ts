@@ -6,6 +6,7 @@ import { RuntimeConfig } from './runtime-config';
 import { AuthService } from './auth.service';
 
 export interface PageResult<T> { items: T[]; page: number; pageSize: number; total: number; }
+export interface DownloadRecord { videoDownloadId: string; videoId: string; title: string; quality: string; fileUrl: string | null; fileSize: number; status: string; createdAt: string; }
 export interface VideoStats { views: number; likes: number; dislikes: number; comments: number; averageRating: number | null; ratingCount: number; shares: number; watchSeconds?: number; }
 export interface VideoViewerState { reaction: 'like' | 'dislike' | null; rating: number | null; resumeAtSeconds: number; progress: number; }
 export interface VideoCardLink { videoId: string; startSeconds: number; title: string; thumbnailUrl: string | null; }
@@ -151,9 +152,10 @@ export class ContentService {
     for (const [key, value] of Object.entries(opts)) if (value) params = params.set(key, value);
     return this.http.get<PageResult<SearchChannel>>(`${this.base}/channels/search`, { params });
   }
-  history(page = 1, pageSize = 20, before?: string | null) {
+  history(page = 1, pageSize = 20, before?: string | null, filters?: { q: string; sort: string; dateRange: string }) {
     const params: Record<string, string | number> = { page, pageSize };
     if (before) params['before'] = before;
+    if (filters) { params['q'] = filters.q; params['sort'] = filters.sort; params['dateRange'] = filters.dateRange; }
     return this.http.get<PageResult<WatchHistoryItem>>(`${this.base}/library/history`, { params });
   }
   liked(rating: number | null = null, page = 1, pageSize = 20) {
@@ -190,6 +192,10 @@ export class ContentService {
   }
   reactComment(commentId: string, type: 'like' | 'dislike' | null): Observable<{ myReaction: string | null; likes: number; dislikes: number }> { return type ? this.http.put<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/comments/${commentId}/reaction`, { type }) : this.http.delete<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/comments/${commentId}/reaction`); }
   hideComment(commentId: string, hidden: boolean, reason = '') { return this.http.patch<CommentItem>(`${this.base}/comments/${commentId}/visibility`, { hidden, reason }); }
+  updateComment(commentId: string, content: string) { return this.http.patch<CommentItem>(`${this.base}/comments/${commentId}`, { content }); }
+  downloads() { return this.http.get<DownloadRecord[]>(`${this.base}/downloads`); }
+  deleteDownload(id: string) { return this.http.delete<void>(`${this.base}/downloads/${id}`); }
+  deleteDownloads(ids: string[]) { return this.http.delete<void>(`${this.base}/downloads`, { body: { ids } }); }
   deleteComment(commentId: string) { return this.http.delete<void>(`${this.base}/comments/${commentId}`); }
   reportComment(commentId: string, violationTypeId: string, description: string) {
     return this.http.post(`${this.base}/reports`, { targetType: 'comment', targetId: commentId, violationTypeId, description }).pipe(

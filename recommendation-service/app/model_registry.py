@@ -34,6 +34,17 @@ ModelType = Literal[
 ]
 
 
+class ModelJobCancelled(RuntimeError):
+    pass
+
+
+class ModelJobFinalizing(RuntimeError):
+    pass
+
+
+_CONFLICT_CODES = {'PreconditionFailed', '412', 'ConditionalRequestConflict', '409'}
+
+
 @dataclass(slots=True)
 class LoadedModel:
     model: CollaborativeFilter
@@ -217,6 +228,7 @@ class ModelRegistry:
         csv_sha256: str,
         score_aggregation: dict[str, Any] | None = None,
         model_algorithm: str = "item_based",
+        job_id: str | None = None,
     ) -> dict:
         from datetime import UTC, datetime
 
@@ -232,6 +244,8 @@ class ModelRegistry:
         store = None
         try:
             store = R2Store(self.settings)
+            if job_id and (self.get_job(job_id) or {}).get('status') == 'cancelled':
+                raise ModelJobCancelled('Model update was cancelled.')
             lease = store.acquire_training_lease()
             build_started_at = datetime.now(UTC).isoformat()
             build_started = time.perf_counter()
@@ -253,6 +267,7 @@ class ModelRegistry:
                     raise ValueError("Artifact exceeds the 64 MiB upload limit.")
                 metadata = json.loads((artifact_dir / "metadata.json").read_text(encoding="utf-8"))
                 manifest = {
+                    "jobId": job_id,
                     "modelVersion": metadata["modelVersion"], "csvKey": csv_key,
                     "csvSha256": csv_sha256,
                     "artifactKey": f"collaborative_cf/artifacts/{metadata['modelVersion']}.zip",
@@ -276,6 +291,8 @@ class ModelRegistry:
                 # active.json is the publication point. Before this write the old
                 # model remains authoritative, including after process restarts.
                 lease = (lease[0], store.renew_training_lease(*lease))
+                if job_id:
+                    self.begin_publication(job_id)
                 store.write_json("collaborative_cf/active.json", manifest)
                 self.loaded = preview
                 self.manifest = manifest
@@ -305,9 +322,55 @@ class ModelRegistry:
         self.update_jobs[job_id] = value
         return True
 
+    def cancel_job(self, job_id: str) -> dict:
+        from uuid import UUID
+        job_id = str(UUID(job_id))
+        key = f'collaborative_cf/jobs/{job_id}.json'
+        store = R2Store(self.settings)
+        for _ in range(8):
+            value, etag = store.read_versioned_json(key)
+            if value and value['status'] in ('completed', 'failed', 'cancelled'):
+                return value
+            if value and value['status'] == 'publishing':
+                raise ModelJobFinalizing('Model publication has already begun.')
+            cancelled = {**(value or {'jobId': job_id}), 'status': 'cancelled'}
+            try:
+                store.compare_write_json(key, cancelled, etag)
+                self.update_jobs[job_id] = cancelled
+                return cancelled
+            except ClientError as exc:
+                if exc.response.get('Error', {}).get('Code') not in _CONFLICT_CODES:
+                    raise
+        raise ModelJobFinalizing('Concurrent model state change; retry cancellation.')
+
+    def begin_publication(self, job_id: str) -> None:
+        store = R2Store(self.settings)
+        key = f'collaborative_cf/jobs/{job_id}.json'
+        value, etag = store.read_versioned_json(key)
+        if not value or value['status'] != 'running':
+            raise ModelJobCancelled('Model update was cancelled before publication.')
+        try:
+            store.compare_write_json(key, {**value, 'status': 'publishing'}, etag)
+        except ClientError as exc:
+            if exc.response.get('Error', {}).get('Code') in _CONFLICT_CODES:
+                raise ModelJobCancelled('Cancellation won the publication race.') from exc
+            raise
+
     def record_job(self, job_id: str, value: dict) -> None:
-        R2Store(self.settings).write_json(f"collaborative_cf/jobs/{job_id}.json", value)
-        self.update_jobs[job_id] = value
+        store = R2Store(self.settings)
+        key = f'collaborative_cf/jobs/{job_id}.json'
+        for _ in range(8):
+            current, etag = store.read_versioned_json(key)
+            if current and current['status'] == 'cancelled' and value['status'] != 'cancelled':
+                return
+            try:
+                store.compare_write_json(key, value, etag)
+                self.update_jobs[job_id] = value
+                return
+            except ClientError as exc:
+                if exc.response.get('Error', {}).get('Code') not in _CONFLICT_CODES:
+                    raise
+        raise RuntimeError('Concurrent model job update; retry.')
 
     def get_job(self, job_id: str) -> dict | None:
         from uuid import UUID
@@ -318,12 +381,13 @@ class ModelRegistry:
             return None
         store = R2Store(self.settings)
         job = store.read_json(f"collaborative_cf/jobs/{job_id}.json")
-        if job and job["status"] == "running":
+        if job and job["status"] in ("running", "publishing"):
             active = store.read_json("collaborative_cf/active.json")
             from training.train_hutube import normalize_score_aggregation
             from training.trainer import normalize_model_algorithm
 
-            if (active and all(active.get(key) == job.get(key) for key in ("csvKey", "csvSha256"))
+            if (active and (not job.get('publicationGuard') or active.get('jobId') == job_id)
+                    and all(active.get(key) == job.get(key) for key in ("csvKey", "csvSha256"))
                     and normalize_model_algorithm(active.get("modelAlgorithm"))
                     == normalize_model_algorithm(job.get("modelAlgorithm"))
                     and normalize_score_aggregation(active.get("scoreAggregation"))
