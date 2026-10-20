@@ -5,9 +5,10 @@ class AppConfig {
     ),
     this.apiBaseUrl = const String.fromEnvironment(
       'API_BASE_URL',
-      // Android Emulator reaches the host machine through 10.0.2.2.
-      // Release/CI builds override this with --dart-define=API_BASE_URL=...
-      defaultValue: 'http://10.0.2.2:5080/api/v1',
+      // Physical Android device over USB: adb reverse tcp:5080 tcp:5080.
+      // Emulator: --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1.
+      // Release/CI builds also supply their own API_BASE_URL.
+      defaultValue: 'http://127.0.0.1:5080/api/v1',
     ),
     this.googleWebClientId = const String.fromEnvironment(
       'GOOGLE_WEB_CLIENT_ID',

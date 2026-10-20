@@ -123,9 +123,16 @@ void main() {
   test(
     'recommendation URL follows local hosts and supports deployed overrides',
     () {
+      expect(const AppConfig().apiBaseUrl, 'http://127.0.0.1:5080/api/v1');
+      expect(
+        const AppConfig(
+          apiBaseUrl: 'http://10.0.2.2:5080/api/v1',
+        ).recommendationBaseUrl,
+        'http://10.0.2.2:8000/api/v1',
+      );
       expect(
         const AppConfig().recommendationBaseUrl,
-        'http://10.0.2.2:8000/api/v1',
+        'http://127.0.0.1:8000/api/v1',
       );
       expect(
         const AppConfig(
