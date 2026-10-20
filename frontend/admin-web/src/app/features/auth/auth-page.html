@@ -10,6 +10,9 @@
     <p class="muted">{{ tagline }}</p>
     @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
     @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
+    @if (connectionIssue()) {
+      <button type="button" class="primary full" [disabled]="busy()" (click)="retryRestore()">{{ (busy() ? 'common.loading' : 'common.retry') | translate }}</button>
+    }
     @if (mode() !== 'verify-email' && !completed()) {
       <form #form="ngForm" (ngSubmit)="submit(form)" novalidate>
         @if (mode() === 'register') {

@@ -3,6 +3,9 @@
 `origin/develop` tại `1503d5d` được fast-forward tới `origin/main`
 `41383ef` (đủ 5 commit còn thiếu). Hai nhánh bằng nhau tại thời điểm đó,
 trước khi merge `origin/test/web-e2e` tại `3d41222`.
+Trong lúc kiểm thử, main có thêm commit `1f5cd7c` về giới hạn thử lại
+đăng nhập và khôi phục tải lên. Commit này được merge thêm và các bộ
+backend, frontend, build, Web E2E được chạy lại trên mã mới nhất.
 
 ## Xử lý xung đột và lỗi kiểm thử
 
@@ -23,24 +26,25 @@ trước khi merge `origin/test/web-e2e` tại `3d41222`.
 
 | Bộ kiểm thử | Đạt | Lỗi | Bỏ qua |
 |---|---:|---:|---:|
-| Backend main `41383ef`: unit .NET | 131 | 0 | 0 |
-| Backend main `41383ef`: integration PostgreSQL | 119 | 0 | 0 |
-| Backend sau merge: unit .NET | 175 | 0 | 0 |
-| Backend sau merge: integration PostgreSQL | 120 | 0 | 0 |
+| Backend main `1f5cd7c`: unit .NET | 135 | 0 | 0 |
+| Backend main `1f5cd7c`: integration PostgreSQL | 124 | 0 | 0 |
+| Backend sau merge: unit .NET | 179 | 0 | 0 |
+| Backend sau merge: integration PostgreSQL | 125 | 0 | 0 |
 | Recommendation Python | 54 | 0 | 1 |
-| User Web unit | 63 | 0 | 0 |
-| Admin Web unit | 64 | 0 | 0 |
+| User Web unit | 70 | 0 | 0 |
+| Admin Web unit | 67 | 0 | 0 |
 | Runner E2E unit | 6 | 0 | 1 |
 | Web E2E: lượt chạy mới | 112 | 0 | 0 |
 
 Backend sau merge được chạy lại toàn bộ bằng `dotnet test backend/HuTube.sln
---configuration Release --no-restore`; kết quả TRX cuối cùng là 175 unit và
-120 integration cùng đạt. Cả hai production build Angular, API build và
+--configuration Release --no-restore`; kết quả TRX cuối cùng là 179 unit và
+125 integration cùng đạt. Cả hai production build Angular, API build và
 Ruff đều thành công. Các cảnh báo build có sẵn được giữ trong log.
 
 Web E2E lượt `20261020T092859.514490Z` thực thi mới đủ 112 ca; runner gặp
 timeout khi dừng PostgreSQL sau khi các ca đã đạt. Sau sửa runner và bộ
-chọn chính sách, lượt `20261020T094402.569722Z` kết thúc mã 0: 102 ca
+chọn chính sách và đồng bộ main mới nhất, lượt `20261020T095632.560494Z`
+kết thúc mã 0: 102 ca
 thực thi đạt, 10 bước chuẩn bị dùng lại bằng chứng trước đó; không lỗi,
 không bị chặn và CSDL dừng thành công. Không tính dữ liệu dùng lại là
 lượt tạo dữ liệu mới.
@@ -53,7 +57,7 @@ media ở mục 6. Trạng thái nguồn ngày 05/10/2026 gồm 482 PASS, 48 PLA
 Đây là danh mục kịch bản API/nghiệp vụ/media/Python/hiệu năng, không tương
 đương số test .NET được runner phát hiện.
 
-Excel bên ngoài repo giữ đủ 530 ID trong `Backend Tests`, kết quả 250 test
+Excel bên ngoài repo giữ đủ 530 ID trong `Backend Tests`, kết quả 259 test
 tự động chạy trên main trong `Backend Executions`, 112 ca chạy Web mới
 trong `Regression 20-10`, các bước tiếng Việt và Summary bằng công thức.
 Ngày chạy mới chỉ gắn với bằng chứng thực thi; không ghi 530 PASS mới.

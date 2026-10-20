@@ -177,7 +177,7 @@ export class AuthService {
   }
   private isTransientNetworkError(error: unknown): boolean {
     return error instanceof TimeoutError || (error instanceof HttpErrorResponse && (
-      error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500
+      error.status === 0 || error.status === 408 || error.status >= 500
     ));
   }
   private post<T>(path: string, body: unknown, timeoutMs = 15_000): Observable<T> {
@@ -233,7 +233,7 @@ export class AuthService {
       // Serialize refresh cookie rotation across same-origin tabs as well as within this tab.
       const request = () => firstValueFrom(this.post<LoginResponse>('/auth/refresh', {
         deviceName: browserDeviceName(this.i18n),
-      }, 90_000));
+      }));
       this.refreshFlight = defer(async () => typeof navigator !== 'undefined' && navigator.locks
         ? await navigator.locks.request('hutube-refresh-' + (ADMIN_APP ? 'admin' : 'web'), request)
         : await request()).pipe(
@@ -265,9 +265,10 @@ export class AuthService {
           : this.refresh().pipe(switchMap(() => this.me()), map(() => true));
       };
       this.restoreFlight = defer(restoreAttempt).pipe(
-        retry({ delay: error => this.isTransientNetworkError(error) && generation === this.generation
+        retry({ count: 2, delay: error => this.isTransientNetworkError(error) && generation === this.generation
           ? timer(5_000)
           : throwError(() => error) }),
+        timeout({ first: 30_000 }),
         catchError(denied),
         finalize(() => { this.restoreFlight = undefined; }),
         shareReplay({ bufferSize: 1, refCount: false })
@@ -311,6 +312,7 @@ export function safeReturnUrl(value: string | null): string {
 }
 
 export function errorMessage(error: unknown, i18n: I18nService): string {
+  if (error instanceof TimeoutError) return i18n.t('auth.error.serverUnavailable');
   if (!(error instanceof HttpErrorResponse)) return i18n.t('auth.error.generic');
   const messageKeys: Record<string, string> = {
     INVALID_CREDENTIALS: 'auth.error.invalidCredentials',

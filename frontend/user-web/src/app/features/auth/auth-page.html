@@ -129,6 +129,9 @@
         <p class="verification-help">{{ 'auth.verificationHelp' | translate }} <a routerLink="/verify-email" [queryParams]="{ email: email }">{{ 'auth.resendEmail' | translate }}</a></p>
       }
     }
+    @if (connectionIssue()) {
+      <button type="button" class="primary full" [disabled]="busy()" (click)="retryRestore()">{{ (busy() ? 'common.loading' : 'common.retry') | translate }}</button>
+    }
     @if (mode() !== 'verify-email' && !completed()) {
       <form #form="ngForm" (ngSubmit)="submit(form)" novalidate>
         @if (mode() === 'register') {

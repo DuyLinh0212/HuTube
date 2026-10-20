@@ -135,6 +135,8 @@ builder.Services.AddHostedService<VideoRenditionProcessingWorker>();
 builder.Services.AddHostedService<VideoMediaRetentionCleanupService>();
 builder.Services.AddSingleton(_ => new CfSeedChunkUploadStore(builder.Configuration["CfSeedUpload:Directory"]));
 builder.Services.AddSingleton<VideoChunkUploadStore>();
+builder.Services.AddSingleton<VideoUploadCompletionWorker>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<VideoUploadCompletionWorker>());
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddHostedService<PlanExpirationWorker>();
 builder.Services.AddScoped<AdminSubscriptionService>();
@@ -181,7 +183,9 @@ var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url =
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
     .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
-    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With", "X-SignalR-User-Agent", "X-HuTube-Client", "X-HuTube-App")
+    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "Prefer", "X-Requested-With", "X-SignalR-User-Agent", "X-HuTube-Client", "X-HuTube-App")
+    .WithExposedHeaders("Retry-After", "X-Request-ID")
+    .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
     .AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
     options.MapInboundClaims = false;
@@ -247,6 +251,7 @@ builder.Services.AddRateLimiter(options => {
     options.AddPolicy("upload", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("upload-preflight", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadPreflightPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("upload-chunk", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadChunkPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("upload-status", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadStatusPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("payment-initiate", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentInitiatePermitLimit, rateLimitOptions.Window));
     options.AddPolicy("payment-webhook", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentWebhookPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("feedback-survey-webhook", context => RateLimitPolicies.FixedWindow(context, 120, rateLimitOptions.Window));

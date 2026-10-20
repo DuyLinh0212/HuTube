@@ -12,6 +12,7 @@ public sealed class RateLimitOptions
     public int UploadPermitLimit { get; init; } = 8;
     public int UploadPreflightPermitLimit { get; init; } = 24;
     public int UploadChunkPermitLimit { get; init; } = 300;
+    public int UploadStatusPermitLimit { get; init; } = 120;
     public int PaymentInitiatePermitLimit { get; init; } = 12;
     public int PaymentWebhookPermitLimit { get; init; } = 120;
     public int AdminPermitLimit { get; init; } = 120;
@@ -36,6 +37,7 @@ public sealed class RateLimitOptions
         ValidatePositive(nameof(UploadPermitLimit), UploadPermitLimit);
         ValidatePositive(nameof(UploadPreflightPermitLimit), UploadPreflightPermitLimit);
         ValidatePositive(nameof(UploadChunkPermitLimit), UploadChunkPermitLimit);
+        ValidatePositive(nameof(UploadStatusPermitLimit), UploadStatusPermitLimit);
         ValidatePositive(nameof(PaymentInitiatePermitLimit), PaymentInitiatePermitLimit);
         ValidatePositive(nameof(PaymentWebhookPermitLimit), PaymentWebhookPermitLimit);
         ValidatePositive(nameof(AdminPermitLimit), AdminPermitLimit);

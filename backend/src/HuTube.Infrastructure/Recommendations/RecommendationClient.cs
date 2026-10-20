@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using HuTube.Application.Recommendations;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace HuTube.Infrastructure.Recommendations;
@@ -11,6 +12,7 @@ public sealed class RecommendationOptions
     public string ServiceToken { get; set; } = "";
     public string AdminToken { get; set; } = "";
     public int TimeoutSeconds { get; set; } = RecommendationWakeupPolicy.DefaultTimeoutSeconds;
+    public int FeedTimeoutSeconds { get; set; } = 8;
     public bool Enabled { get; set; } = true;
 }
 
@@ -19,6 +21,8 @@ public sealed class RecommendationClient : IRecommendationClient
     private readonly HttpClient _http;
     private readonly RecommendationOptions _options;
     private readonly ILogger<RecommendationClient> _logger;
+    private readonly IMemoryCache _cache;
+    private readonly string _cooldownKey;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -27,11 +31,14 @@ public sealed class RecommendationClient : IRecommendationClient
     public RecommendationClient(
         HttpClient http,
         RecommendationOptions options,
-        ILogger<RecommendationClient> logger)
+        ILogger<RecommendationClient> logger,
+        IMemoryCache cache)
     {
         _http = http;
         _options = options;
         _logger = logger;
+        _cache = cache;
+        _cooldownKey = "recommendation-unavailable:" + options.ServiceUrl.TrimEnd('/');
 
         if (!string.IsNullOrWhiteSpace(_options.ServiceUrl))
         {
@@ -49,7 +56,7 @@ public sealed class RecommendationClient : IRecommendationClient
         IReadOnlyList<Guid>? excludeVideoIds = null,
         CancellationToken ct = default)
     {
-        if (!IsEnabled)
+        if (!IsEnabled || _cache.TryGetValue(_cooldownKey, out _))
         {
             return null;
         }
@@ -63,7 +70,7 @@ public sealed class RecommendationClient : IRecommendationClient
             );
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(RecommendationWakeupPolicy.GetTimeout(_options.TimeoutSeconds));
+            timeoutCts.CancelAfter(FeedTimeout);
             var retryAttempt = 0;
 
             while (true)
@@ -117,12 +124,12 @@ public sealed class RecommendationClient : IRecommendationClient
                     // the instance is asleep. A GET to the health endpoint is held
                     // until the instance has started, so wait for that before retrying
                     // the inference request instead of repeatedly POSTing into the 502.
-                    if (!await WaitForServiceHealthAsync(timeoutCts.Token))
+                    if (retryAttempt++ > 0 || !await WaitForServiceHealthAsync(timeoutCts.Token))
                     {
+                        MarkUnavailable();
                         return null;
                     }
 
-                    retryAttempt = 0;
                     continue;
                 }
 
@@ -139,56 +146,42 @@ public sealed class RecommendationClient : IRecommendationClient
 
                 if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
                 {
+                    MarkUnavailable();
                     _logger.LogWarning("CF recommendation service model is not ready (503): {Error}. Falling back to default feed.", errBody);
                     return null;
                 }
 
                 _logger.LogWarning("CF recommendation service returned HTTP {StatusCode}: {Error}. Falling back.", response.StatusCode, errBody);
+                MarkUnavailable();
                 return null;
             }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            _logger.LogWarning("CF recommendation service call timed out after {Timeout}s. Falling back to default feed.", _options.TimeoutSeconds);
+            MarkUnavailable();
+            _logger.LogWarning("CF recommendation service call timed out after {Timeout}s. Falling back to default feed.", FeedTimeout.TotalSeconds);
             return null;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            MarkUnavailable();
             _logger.LogWarning(ex, "Failed to call CF recommendation service. Falling back to default feed.");
             return null;
         }
     }
 
+    private TimeSpan FeedTimeout => TimeSpan.FromSeconds(Math.Min(
+        RecommendationWakeupPolicy.GetTimeout(_options.TimeoutSeconds).TotalSeconds,
+        Math.Clamp(_options.FeedTimeoutSeconds, 1, 15)));
+
+    private void MarkUnavailable() => _cache.Set(_cooldownKey, true, TimeSpan.FromSeconds(30));
+
     private async Task<bool> WaitForServiceHealthAsync(CancellationToken ct)
     {
-        var attempt = 0;
-        while (!ct.IsCancellationRequested)
-        {
-            using var response = await _http.GetAsync("health", ct);
-            if (response.IsSuccessStatusCode)
-            {
-                _logger.LogInformation("Recommendation Service health check succeeded after startup.");
-                return true;
-            }
-
-            var body = await response.Content.ReadAsStringAsync(ct);
-            if (response.StatusCode is not (System.Net.HttpStatusCode.BadGateway
-                or System.Net.HttpStatusCode.ServiceUnavailable))
-            {
-                _logger.LogWarning(
-                    "Recommendation Service health check returned HTTP {StatusCode}: {Error}.",
-                    response.StatusCode, body);
-                return false;
-            }
-
-            attempt++;
-            var delay = RecommendationWakeupPolicy.GetRetryDelay(attempt);
-            _logger.LogInformation(
-                "Recommendation Service health check returned HTTP {StatusCode} while starting. Retrying in {Delay} (attempt {Attempt}).",
-                response.StatusCode, delay, attempt);
-            await Task.Delay(delay, ct);
-        }
-
-        return false;
+        // A single GET can wake an idle instance. Serve the fallback immediately
+        // if it is still unavailable; subsequent viewers share a short cooldown.
+        using var response = await _http.GetAsync("health", ct);
+        return response.IsSuccessStatusCode;
     }
 }
