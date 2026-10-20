@@ -34,6 +34,7 @@ export class HomePage implements AfterViewInit, OnDestroy {
   private loadingMoreInFlight = false;
   private subscriptionLoadingVersion?: number;
   private readonly displayedIds = new Set<string>();
+  private recommendationCandidates: VideoCard[] = [];
 
   private subscriptionsPage = 1;
   subscriptionsDone = false;
@@ -66,6 +67,7 @@ export class HomePage implements AfterViewInit, OnDestroy {
   }
 
   readonly recommendations = signal<VideoCard[]>([]);
+  readonly hasMoreRecommendations = signal(false);
   readonly subscriptionVideos = signal<VideoCard[]>([]);
   readonly loadingSubscriptionVideos = signal(false);
   readonly popularVideos = signal<VideoCard[]>([]);
@@ -156,9 +158,7 @@ export class HomePage implements AfterViewInit, OnDestroy {
       );
       if (version !== this.loadVersion) return;
 
-      this.recommendations.set(
-        this.addUnique(this.pickRecommendations(value.items ?? [], HomePage.RECOMMENDATION_DISPLAY_COUNT)),
-      );
+      this.setRecommendationCandidates(value.items ?? []);
       this.error.set('');
       // Keep subscription pagination independent from the vertical discovery feed.
       // Start after recommendations so duplicate videos always stay in the intended section.
@@ -171,18 +171,14 @@ export class HomePage implements AfterViewInit, OnDestroy {
           this.content.feed(
             'explore',
             1,
-            HomePage.RECOMMENDATION_DISPLAY_COUNT,
+            HomePage.RECOMMENDATION_CANDIDATE_COUNT,
             undefined,
             undefined,
-            'random',
+            'popular',
           ),
         );
         if (version !== this.loadVersion) return;
-        const items = this.addUnique(fallback.items ?? []);
-        this.randomVideos.set(items);
-        this.randomTotal = fallback.total;
-        this.randomEmptyAttempts = 0;
-        this.randomDone = items.length === 0 || this.displayedIds.size >= this.randomTotal;
+        this.setRecommendationCandidates(fallback.items ?? []);
         this.error.set('');
         if (this.auth.user()) void this.loadSubscriptionPage(version);
         else this.subscriptionsDone = true;
@@ -197,6 +193,38 @@ export class HomePage implements AfterViewInit, OnDestroy {
     } finally {
       if (version === this.loadVersion) this.loading.set(false);
     }
+  }
+
+  showMoreRecommendations() {
+    const currentCount = this.recommendations().length;
+    const next = this.recommendationCandidates.slice(
+      currentCount,
+      Math.min(currentCount + HomePage.RECOMMENDATION_DISPLAY_COUNT, HomePage.RECOMMENDATION_CANDIDATE_COUNT),
+    );
+    if (next.length === 0) {
+      this.hasMoreRecommendations.set(false);
+      return;
+    }
+
+    this.recommendations.update(current => [...current, ...next]);
+    this.hasMoreRecommendations.set(this.recommendations().length < this.recommendationCandidates.length);
+  }
+
+  private setRecommendationCandidates(items: VideoCard[]) {
+    const seen = new Set<string>();
+    this.recommendationCandidates = items
+      .filter(item => {
+        if (seen.has(item.videoId)) return false;
+        seen.add(item.videoId);
+        return true;
+      })
+      .slice(0, HomePage.RECOMMENDATION_CANDIDATE_COUNT);
+
+    // Reserve the complete recommendation set so the later home sections do
+    // not display videos that are waiting behind the “See more” button.
+    this.recommendationCandidates.forEach(item => this.displayedIds.add(item.videoId));
+    this.recommendations.set(this.recommendationCandidates.slice(0, HomePage.RECOMMENDATION_DISPLAY_COUNT));
+    this.hasMoreRecommendations.set(this.recommendationCandidates.length > this.recommendations().length);
   }
 
   private async loadMore() {
@@ -328,24 +356,10 @@ export class HomePage implements AfterViewInit, OnDestroy {
     });
   }
 
-  private pickRandom<T>(items: T[], count: number): T[] {
-    const shuffled = [...items];
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      const randomIndex = Math.floor(Math.random() * (index + 1));
-      [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
-    }
-    return shuffled.slice(0, count);
-  }
-
-  private pickRecommendations(items: VideoCard[], count: number): VideoCard[] {
-    const promoted = items.filter(item => item.isPromoted).slice(0, count);
-    const promotedIds = new Set(promoted.map(item => item.videoId));
-    const organic = items.filter(item => !promotedIds.has(item.videoId));
-    return [...promoted, ...this.pickRandom(organic, Math.max(0, count - promoted.length))];
-  }
-
   private resetFeed() {
     this.recommendations.set([]);
+    this.recommendationCandidates = [];
+    this.hasMoreRecommendations.set(false);
     this.subscriptionVideos.set([]);
     this.loadingSubscriptionVideos.set(false);
     this.popularVideos.set([]);

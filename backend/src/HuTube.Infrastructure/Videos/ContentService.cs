@@ -300,13 +300,11 @@ public sealed class ContentService(
             && string.IsNullOrWhiteSpace(tag)
             && (recommendedVideoIds is not null || recommendationClient.IsEnabled))
         {
-            var useRandomFallback = false;
             try
             {
                 var recommended = recommendedVideoIds ??
                     (await recommendationClient.GetRecommendationsAsync(currentUserId.Value, 100, viewedIds, ct))?
                     .Select(item => item.VideoId).ToList();
-                useRandomFallback = recommended is null || recommended.Count == 0;
                 if ((recommended?.Count ?? 0) > 0 || promotedVideoCount > 0)
                 {
                     var candidateRecIds = recommended?.Where(id => !viewedIds.Contains(id)).Distinct().ToList() ?? [];
@@ -351,9 +349,8 @@ public sealed class ContentService(
                             fallbackVideosQuery = fallbackVideosQuery.Where(video => !recIds.Contains(video.VideoId));
 
                         var fallbackRowsQuery = FeedRows(fallbackVideosQuery, isPromoted: false);
-                        fallbackRowsQuery = useRandomFallback
-                            ? fallbackRowsQuery.OrderBy(_ => EF.Functions.Random())
-                            : fallbackRowsQuery.OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt);
+                        fallbackRowsQuery = fallbackRowsQuery
+                            .OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt);
                         var fallbackRows = await fallbackRowsQuery
                             .Skip(fallbackSkip).Take(pageSize - personalizedPageRows.Count).ToListAsync(ct);
                         personalizedPageRows.AddRange(fallbackRows);
@@ -370,14 +367,11 @@ public sealed class ContentService(
             }
             catch (Exception ex)
             {
-                useRandomFallback = true;
-                logger.LogWarning(ex, "Error while processing personalized feed for user {UserId}. Falling back to random public videos.", currentUserId.Value);
+                logger.LogWarning(ex, "Error while processing personalized feed for user {UserId}. Falling back to popular public videos.", currentUserId.Value);
             }
 
             // If CF has no usable result (for example when Recommendation Service is down),
-            // serve public catalogue videos in a random order instead of a popularity-only feed.
-            if (useRandomFallback)
-                sort = "random";
+            // keep the fallback deterministic and useful by ordering the public catalogue by views.
         }
 
         var query = VideoAccessPolicy.Catalogue(db).Where(x => x.Status == "published" && x.ModerationStatus == "approved" && x.Visibility == "public");
