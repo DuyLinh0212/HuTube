@@ -196,11 +196,11 @@ class LocalDownloadManager extends ChangeNotifier {
     return next;
   }
 
-  void _replace(String id, LocalDownload item) {
+  void _replace(String id, LocalDownload item, {bool persist = true}) {
     final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
     _items[index] = item;
-    unawaited(_persist().catchError((Object _) {}));
+    if (persist) unawaited(_persist().catchError((Object _) {}));
     notifyListeners();
   }
 
@@ -296,17 +296,23 @@ class LocalDownloadManager extends ChangeNotifier {
       sink = temporary.openWrite();
       var received = 0;
       final expected = response.contentLength ?? item.totalBytes;
+      final progressClock = Stopwatch()..start();
+      var lastUpdate = 0;
       await for (final chunk in response.stream) {
         if (!current()) return;
         sink.add(chunk);
         received += chunk.length;
-        _replace(
-          id,
-          item.copyWith(
-            status: 'downloading',
-            progress: expected > 0 ? received / expected : 0,
-          ),
-        );
+        if (progressClock.elapsedMilliseconds - lastUpdate >= 200) {
+          lastUpdate = progressClock.elapsedMilliseconds;
+          _replace(
+            id,
+            item.copyWith(
+              status: 'downloading',
+              progress: expected > 0 ? (received / expected).clamp(0, 1) : 0,
+            ),
+            persist: false,
+          );
+        }
       }
       await sink.flush();
       await sink.close();

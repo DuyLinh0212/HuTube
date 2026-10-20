@@ -39,6 +39,8 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
   void _identityChanged() {
     if (LocalDownloadManager.instance.ownerId != widget.auth.user?['userId'] ||
         !widget.auth.authenticated) {
+      _backgroundPlaybackGuard?.dispose();
+      _backgroundPlaybackGuard = null;
       unawaited(_player?.dispose());
       _player = null;
       if (mounted) setState(() => _error = AppStrings.t('common.loginAgain'));
@@ -47,6 +49,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
 
   Future<void> _open() async {
     final owner = widget.auth.user?['userId'];
+    final session = widget.auth.sessionGeneration;
     if (owner == null ||
         LocalDownloadManager.instance.ownerId != owner ||
         !LocalDownloadManager.instance.items.any(
@@ -63,7 +66,11 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
       return;
     }
     final entitlements = await MediaEntitlements.load(widget.auth);
-    if (!mounted) return;
+    if (!mounted ||
+        session != widget.auth.sessionGeneration ||
+        widget.auth.user?['userId'] != owner) {
+      return;
+    }
     final player = NativeVideoPlayerController(
       id: widget.download.id.hashCode & 0x7fffffff,
       autoPlay: false,
@@ -94,6 +101,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
   ) async {
     try {
       await player.initialize();
+      if (!mounted || !identical(_player, player)) return;
       await player.loadFile(path: path);
       if (mounted && identical(_player, player)) {
         setState(() => _ready = true);
@@ -142,6 +150,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
 
   @override
   void dispose() {
+    widget.auth.removeListener(_identityChanged);
     _backgroundPlaybackGuard?.dispose();
     unawaited(_player?.dispose());
     super.dispose();

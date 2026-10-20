@@ -1,3 +1,4 @@
+import '../../core/widgets/text_entry_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../content/content_models.dart';
 import 'creator_service.dart';
+import '../content/content_service.dart';
 
 class CreatorCommentsScreen extends StatefulWidget {
   const CreatorCommentsScreen({
@@ -145,6 +147,34 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
       if (mounted) {
         _message(AppStrings.apiError(error, fallback: 'common.error'));
       }
+    }
+  }
+
+  String? _replyingId;
+  Future<void> _reply(CommentItem comment) async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => TextEntryDialog(
+        title: AppStrings.t('parity.reply'),
+        hint: AppStrings.t('watch.commentHint'),
+        submitLabel: AppStrings.t('parity.reply'),
+      ),
+    );
+    if (text == null || !mounted) return;
+    final session = widget.auth.sessionGeneration;
+    setState(() => _replyingId = comment.id);
+    try {
+      await ContentService(
+        widget.auth,
+      ).createComment(comment.videoId, text, parentCommentId: comment.id);
+      if (!mounted || session != widget.auth.sessionGeneration) return;
+      await _load();
+    } on ApiFailure catch (error) {
+      if (mounted && session == widget.auth.sessionGeneration) {
+        _message(AppStrings.apiError(error));
+      }
+    } finally {
+      if (mounted) setState(() => _replyingId = null);
     }
   }
 
@@ -325,7 +355,10 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                               const SizedBox(height: 9),
-                              Row(
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   const Icon(Icons.favorite_border, size: 16),
                                   const SizedBox(width: 4),
@@ -337,6 +370,18 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                                   ),
                                   const SizedBox(width: 4),
                                   Text('${comment.replyCount}'),
+
+                                  if (widget.channel.isOwner ||
+                                      widget.channel.permissions.contains(
+                                        'comment.manage',
+                                      ))
+                                    TextButton.icon(
+                                      onPressed: _replyingId != null
+                                          ? null
+                                          : () => _reply(comment),
+                                      icon: const Icon(Icons.reply),
+                                      label: Text(AppStrings.t('parity.reply')),
+                                    ),
                                 ],
                               ),
                             ],
@@ -372,6 +417,7 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           key: ValueKey(_sort),
           initialValue: _sort,
           decoration: InputDecoration(

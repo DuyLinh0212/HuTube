@@ -23,10 +23,10 @@ class MiniPlayer extends StatelessWidget {
         205.0,
         270.0,
       );
-      return Material(
-        color: Colors.transparent,
-        child: Align(
-          alignment: Alignment.bottomRight,
+      return Align(
+        alignment: Alignment.bottomRight,
+        child: Material(
+          color: Colors.transparent,
           child: Container(
             width: width,
             margin: const EdgeInsets.fromLTRB(12, 8, 12, 10),
@@ -47,6 +47,8 @@ class MiniPlayer extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
+                  key: const ValueKey('mini-player-video'),
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     session.restore();
                     context.push('/watch/$videoId');
@@ -87,7 +89,7 @@ class MiniPlayer extends StatelessWidget {
                   ),
                 ),
                 SizedBox(
-                  height: 48,
+                  height: 12 + MediaQuery.textScalerOf(context).scale(26),
                   child: Row(
                     children: [
                       const SizedBox(width: 11),
@@ -126,7 +128,9 @@ class MiniPlayer extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: AppStrings.t(session.isPlaying ? 'mini.pause' : 'mini.play'),
+                        tooltip: AppStrings.t(
+                          session.isPlaying ? 'mini.pause' : 'mini.play',
+                        ),
                         onPressed: session.togglePlayback,
                         color: Colors.white,
                         icon: Icon(

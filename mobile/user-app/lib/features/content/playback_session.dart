@@ -13,6 +13,8 @@ import 'media_entitlements.dart';
 /// controller above the router lets the same native session move from the
 /// watch page to the in-app mini-player without stopping the video.
 class PlaybackSession extends ChangeNotifier {
+  static int _nextControllerId =
+      DateTime.now().microsecondsSinceEpoch & 0x7fffffff;
   NativeVideoPlayerController? player;
   BackgroundPlaybackGuard? _backgroundGuard;
   StreamSubscription<Duration>? _positionSubscription;
@@ -35,6 +37,11 @@ class PlaybackSession extends ChangeNotifier {
   bool backgroundPlaybackEnabled = false;
   bool _initializing = false;
   int _lastSavedSecond = 0;
+  int _generation = 0;
+  int _authGeneration = -1;
+  bool _disposed = false;
+  bool _savingProgress = false;
+  Duration _lastNotifiedPosition = Duration.zero;
 
   // Queue & autoplay state
   List<VideoCard> queue = [];
@@ -93,6 +100,7 @@ class PlaybackSession extends ChangeNotifier {
   void removeFromQueue(int index) {
     if (index >= 0 && index < queue.length) {
       queue.removeAt(index);
+      if (index < queueIndex) queueIndex--;
       if (queueIndex >= queue.length) {
         queueIndex = queue.length - 1;
       }
@@ -155,6 +163,8 @@ class PlaybackSession extends ChangeNotifier {
     required String sourceUrl,
     required int resumeAt,
   }) async {
+    if (_disposed) throw StateError('Playback session disposed');
+    final generation = ++_generation;
     _advancing = false;
     final matchedIdx = queue.indexWhere((item) => item.id == video.id);
     if (matchedIdx >= 0) {
@@ -171,14 +181,20 @@ class PlaybackSession extends ChangeNotifier {
       return player!;
     }
 
-    await dismiss(notify: false);
+    await _dismiss(notify: false);
     final prefs = const AppPreferencesStore();
-    final pipPref = await prefs.readPipEnabled();
-    final allowPip = mediaEntitlements.pictureInPicture || pipPref;
-    autoplayNext = await prefs.readAutoplayNext();
+    final settings = await Future.wait([
+      prefs.readPipEnabled(),
+      prefs.readAutoplayNext(),
+    ]);
+    if (_disposed || generation != _generation) {
+      throw StateError('Playback request superseded');
+    }
+    final allowPip = mediaEntitlements.pictureInPicture || settings[0];
+    autoplayNext = settings[1];
 
     final controller = NativeVideoPlayerController(
-      id: video.id.hashCode & 0x7fffffff,
+      id: _nextControllerId++ & 0x7fffffff,
       autoPlay: false,
       showNativeControls: false,
       mediaInfo: NativeVideoPlayerMediaInfo(
@@ -190,6 +206,7 @@ class PlaybackSession extends ChangeNotifier {
       canStartPictureInPictureAutomatically: allowPip,
     );
     _auth = auth;
+    _authGeneration = auth.sessionGeneration;
     _content = ContentService(auth);
     videoId = video.id;
     title = video.title;
@@ -206,6 +223,8 @@ class PlaybackSession extends ChangeNotifier {
     backgroundPlaybackEnabled = false;
     _initializing = false;
     _lastSavedSecond = resumeAt;
+    _lastNotifiedPosition = position;
+    _savingProgress = false;
     player = controller;
     _backgroundGuard = BackgroundPlaybackGuard(
       controller,
@@ -216,46 +235,84 @@ class PlaybackSession extends ChangeNotifier {
       pauseInBackground: true,
     );
     _positionSubscription = controller.positionStream.listen((value) {
+      if (_disposed || !identical(player, controller)) return;
       position = value;
       final seconds = value.inSeconds;
-      if (_auth?.authenticated == true && seconds - _lastSavedSecond >= 10) {
+      if (_auth?.authenticated == true &&
+          _auth?.sessionGeneration == _authGeneration &&
+          seconds - _lastSavedSecond >= 10 &&
+          !_savingProgress) {
+        _savingProgress = true;
         _lastSavedSecond = seconds;
-        final id = videoId;
-        if (id != null) {
-          unawaited(
-            _content?.progress(id, seconds, saveHistory: !isHistoryPaused),
-          );
-        }
+        unawaited(
+          _saveProgress(video.id, seconds).whenComplete(() {
+            if (identical(player, controller)) _savingProgress = false;
+          }),
+        );
       }
-
-      // Detect end of video for loop or autoplay next
-      if (duration > Duration.zero &&
-          position >= duration - const Duration(milliseconds: 400) &&
-          !_advancing) {
+      // Completion is latched until the native position leaves the end region.
+      // Repeated native end events must not navigate twice or seek in a loop.
+      final ended =
+          duration > Duration.zero &&
+          position >= duration - const Duration(milliseconds: 400);
+      if (!ended) _advancing = false;
+      if (ended && !_advancing) {
+        _advancing = true;
         if (isLoop) {
-          seekTo(Duration.zero);
-          player?.play();
+          unawaited(_restart(controller));
         } else if (autoplayNext) {
-          _advancing = true;
           onVideoCompleted?.call();
-          Future.delayed(const Duration(seconds: 2), () {
-            _advancing = false;
-          });
         }
       }
-
-      notifyListeners();
+      // The native view handles frames; Flutter only needs progress at 4 Hz.
+      if ((value - _lastNotifiedPosition).inMilliseconds.abs() >= 250) {
+        _lastNotifiedPosition = value;
+        notifyListeners();
+      }
     });
     _stateSubscription = controller.playerStateStream.listen((state) {
+      if (_disposed ||
+          !identical(player, controller) ||
+          isPlaying == state.isPlaying) {
+        return;
+      }
       isPlaying = state.isPlaying;
       notifyListeners();
     });
     _durationSubscription = controller.durationStream.listen((value) {
+      if (_disposed || !identical(player, controller) || duration == value) {
+        return;
+      }
       duration = value;
       notifyListeners();
     });
     notifyListeners();
     return controller;
+  }
+
+  Future<void> _saveProgress(String id, int seconds) async {
+    try {
+      await _content?.progress(id, seconds, saveHistory: !isHistoryPaused);
+    } catch (_) {
+      // A later checkpoint retries naturally; history must never stop playback.
+    }
+  }
+
+  Future<void> _restart(NativeVideoPlayerController controller) async {
+    try {
+      await controller.seekTo(Duration.zero);
+      if (!_disposed && identical(player, controller)) await controller.play();
+    } catch (_) {
+      // Native playback may already be closing during navigation.
+    }
+  }
+
+  Future<void> _release(NativeVideoPlayerController controller) async {
+    try {
+      await controller.dispose();
+    } catch (_) {
+      // The platform view may already have released its native player.
+    }
   }
 
   List<Rendition> _sort(List<Rendition> items) =>
@@ -278,6 +335,7 @@ class PlaybackSession extends ChangeNotifier {
     _initializing = true;
     try {
       await controller.initialize();
+      if (_disposed || !identical(player, controller)) return;
       await controller.loadUrl(
         url: url,
         startAt: resumeAt > 0 ? Duration(seconds: resumeAt) : null,
@@ -293,7 +351,7 @@ class PlaybackSession extends ChangeNotifier {
       }
       rethrow;
     } finally {
-      _initializing = false;
+      if (identical(player, controller)) _initializing = false;
     }
   }
 
@@ -303,14 +361,16 @@ class PlaybackSession extends ChangeNotifier {
     final wasPlaying = controller.activityState.isPlaying;
     final at = controller.currentPosition;
     await controller.loadUrl(url: rendition.url, startAt: at, force: true);
+    if (_disposed || !identical(player, controller)) return;
     selectedRendition = rendition;
     if (wasPlaying) await controller.play();
-    notifyListeners();
+    if (!_disposed && identical(player, controller)) notifyListeners();
   }
 
   Future<void> setSpeed(double value) async {
-    await player?.setSpeed(value);
-    notifyListeners();
+    final controller = player;
+    await controller?.setSpeed(value);
+    if (!_disposed && identical(player, controller)) notifyListeners();
   }
 
   Future<void> togglePlayback() async {
@@ -365,20 +425,20 @@ class PlaybackSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> dismiss({bool notify = true}) async {
+  Future<void> dismiss({bool notify = true}) {
+    ++_generation;
+    return _dismiss(notify: notify);
+  }
+
+  Future<void> _dismiss({bool notify = true}) async {
     final oldPlayer = player;
     final finalVideoId = videoId;
     final finalSeconds = position.inSeconds;
     if (_auth?.authenticated == true &&
+        _auth?.sessionGeneration == _authGeneration &&
         finalVideoId != null &&
         finalSeconds > _lastSavedSecond) {
-      unawaited(
-        _content?.progress(
-          finalVideoId,
-          finalSeconds,
-          saveHistory: !isHistoryPaused,
-        ),
-      );
+      unawaited(_saveProgress(finalVideoId, finalSeconds));
     }
     player = null;
     videoId = null;
@@ -393,28 +453,41 @@ class PlaybackSession extends ChangeNotifier {
     selectedRendition = null;
     _backgroundGuard?.dispose();
     _backgroundGuard = null;
-    await _positionSubscription?.cancel();
+    // Detach all old subscriptions before awaiting: another start can run here.
+    final subscriptions = [
+      _positionSubscription,
+      _durationSubscription,
+      _stateSubscription,
+    ];
     _positionSubscription = null;
-    await _durationSubscription?.cancel();
     _durationSubscription = null;
-    await _stateSubscription?.cancel();
     _stateSubscription = null;
-    if (notify) notifyListeners();
+    _initializing = false;
+    _advancing = false;
+    if (notify && !_disposed) notifyListeners();
     if (oldPlayer != null) {
-      // Let Flutter detach the platform view before releasing its controller.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(oldPlayer.dispose());
+        unawaited(_release(oldPlayer));
       });
     }
+    await Future.wait(
+      subscriptions.whereType<StreamSubscription<dynamic>>().map(
+        (s) => s.cancel(),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    ++_generation;
     _backgroundGuard?.dispose();
     unawaited(_positionSubscription?.cancel());
     unawaited(_durationSubscription?.cancel());
     unawaited(_stateSubscription?.cancel());
-    unawaited(player?.dispose());
+    final controller = player;
+    player = null;
+    if (controller != null) unawaited(_release(controller));
     super.dispose();
   }
 }
