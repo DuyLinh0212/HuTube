@@ -70,7 +70,13 @@ public sealed class VideoUploadCompletionWorker(
                 job.Session.IsCompleting = false;
                 job.Session.CompletionCancellation = null;
                 job.Session.TouchedAt = DateTimeOffset.UtcNow;
-                if (videoId.HasValue) uploads.RemoveSource(job.Session);
+                // Save the committed video ID before removing the source, so a
+                // process restart cannot turn a successful upload into a re-upload.
+                var receiptSaved = false;
+                try { uploads.Persist(job.Session); receiptSaved = true; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { logger.LogWarning(ex, "Could not persist upload receipt {UploadId}", job.Session.Request.UploadId); }
+                if (videoId.HasValue && receiptSaved) uploads.RemoveSource(job.Session);
                 else if (cancellation.IsCancellationRequested) uploads.RemoveSession(job.Session);
             }
             finally { job.Session.Gate.Release(); }

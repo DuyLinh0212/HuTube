@@ -86,7 +86,12 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
             await db.SaveChangesAsync();
         }
 
+        var unreadPage = await viewer.GetFromJsonAsync<NotificationPage>("/api/v1/notifications", JsonOptions);
+        Assert.True(unreadPage!.UnreadCount >= 2);
         var readAll = await viewer.PostAsync("/api/v1/notifications/read-all", null);
+        var readPage = await viewer.GetFromJsonAsync<NotificationPage>("/api/v1/notifications", JsonOptions);
+        Assert.Equal(0, readPage!.UnreadCount);
+        Assert.All(readPage.Items, item => Assert.True(item.IsRead));
         var guestExplore = await factory.CreateClient().GetFromJsonAsync<ExploreHubResponse>("/api/v1/feed/explore-hub", JsonOptions);
         var subscriptions = await viewer.GetFromJsonAsync<PageResult<VideoCardResponse>>(
             "/api/v1/feed/subscriptions?page=1&pageSize=20", JsonOptions);
@@ -138,6 +143,12 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
                 });
             await db.SaveChangesAsync();
         }
+
+        // Warm the per-user cache before mutating the notification.
+        var beforeRead = await owner.GetFromJsonAsync<NotificationPage>("/api/v1/notifications", JsonOptions);
+        Assert.Equal(1, beforeRead!.UnreadCount);
+        var otherPage = await other.GetFromJsonAsync<NotificationPage>("/api/v1/notifications", JsonOptions);
+        Assert.DoesNotContain(otherPage!.Items, item => item.NotificationId == ownerNotificationId);
 
         // Act
         var firstRead = await owner.PatchAsJsonAsync($"/api/v1/notifications/{ownerNotificationId}/read", new { });

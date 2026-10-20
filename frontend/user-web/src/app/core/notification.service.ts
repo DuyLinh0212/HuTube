@@ -1,22 +1,27 @@
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, finalize, takeUntil } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, OnDestroy, effect, inject, signal } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { RuntimeConfig } from './runtime-config';
 import { I18nService } from './i18n.service';
+import { NetworkStatusService } from './network/network-status.service';
 
 export interface AppNotification { notificationId: string; type: string; title: string; content: string; actionUrl: string | null; isRead: boolean; createdAt: string; }
 interface NotificationPage { items: AppNotification[]; page: number; pageSize: number; total: number; unreadCount: number; hasMore: boolean; }
 
 @Injectable({ providedIn: 'root' })
-export class NotificationService {
+export class NotificationService implements OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly config = inject(RuntimeConfig);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
+  private readonly network = inject(NetworkStatusService);
+  private notificationFlight = false;
+  private revocationFlight = false;
+  private nextConnectionAt = 0;
   private generation = 0;
   private identity = '';
   private identityChanged = new Subject<void>();
@@ -48,6 +53,11 @@ export class NotificationService {
     });
   }
 
+  ngOnDestroy(): void {
+    this.reset();
+    this.identityChanged.complete();
+  }
+
   private reset() {
     ++this.generation;
     this.identityChanged.next();
@@ -57,6 +67,7 @@ export class NotificationService {
     if (this.notificationPoll) clearInterval(this.notificationPoll);
     if (this.invitationToastTimer) clearTimeout(this.invitationToastTimer);
     this.revocationPoll = undefined; this.notificationPoll = undefined;
+    this.notificationFlight = false; this.revocationFlight = false; this.nextConnectionAt = 0;
     this.notificationIds.clear(); this.notificationPollInitialized = false;
     this.readingIds.clear(); this.readAllRevision = 0;
     this.items.set([]); this.unread.set(0); this.hasMore.set(false);
@@ -64,14 +75,28 @@ export class NotificationService {
   }
 
   async connect() {
-    if (!this.auth.accessToken() || this.connection) return;
-    const generation = this.generation;
+    if (!this.auth.accessToken()) return;
     this.startRevocationWatchdog();
     this.startNotificationPolling();
+    if (this.connection || this.network.unavailable() || Date.now() < this.nextConnectionAt) return;
+    this.nextConnectionAt = Date.now() + 120_000;
+    const generation = this.generation;
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(this.config.apiBaseUrl.replace(/\/api\/v1$/, '') + '/hubs/notifications', { accessTokenFactory: () => this.auth.accessToken() ?? '' })
-      .withAutomaticReconnect()
+      .withAutomaticReconnect({ nextRetryDelayInMilliseconds: context => {
+        if (context.previousRetryCount >= 3) return null;
+        return this.network.unavailable() || document.hidden ? 60_000 : [5_000, 15_000, 60_000][context.previousRetryCount];
+      } })
+      .configureLogging(signalR.LogLevel.Warning)
       .build();
+    this.connection.onreconnected(() => { if (generation === this.generation) this.loadInitial(); });
+    this.connection.onreconnecting(() => {
+      if (generation !== this.generation || this.network.unavailable() || this.revocationFlight) return;
+      this.revocationFlight = true;
+      this.auth.me().pipe(takeUntil(this.identityChanged), finalize(() => { this.revocationFlight = false; }))
+        .subscribe({ error: () => undefined });
+    });
+    this.connection.onclose(() => { if (generation === this.generation) this.connection = undefined; });
     this.connection.on('NotificationReceived', (item: AppNotification) => {
       if (generation !== this.generation) return;
       this.items.update(items => [item, ...items.filter(existing => existing.notificationId !== item.notificationId)]);
@@ -98,28 +123,39 @@ export class NotificationService {
       if (generation !== this.generation) { await connection.stop(); return; }
       this.loadInitial();
     } catch {
-      if (generation === this.generation) this.connection = undefined;
+      if (generation === this.generation) {
+        this.connection = undefined;
+        if (!this.network.unavailable()) this.loadInitial();
+      }
     }
   }
 
   private startRevocationWatchdog() {
     if (this.revocationPoll) return;
     this.revocationPoll = setInterval(() => {
-      if (!this.auth.accessToken()) return;
-      this.auth.me().pipe(takeUntil(this.identityChanged)).subscribe({ error: () => undefined });
-    }, 3000);
+      // SessionRevoked is pushed over the hub. This is a fallback for missed events.
+      if (!this.auth.accessToken() || document.hidden || this.network.unavailable()
+          || this.connection?.state === signalR.HubConnectionState.Connected || this.revocationFlight) return;
+      this.revocationFlight = true;
+      this.auth.me().pipe(takeUntil(this.identityChanged), finalize(() => { this.revocationFlight = false; }))
+        .subscribe({ error: () => undefined });
+    }, 60_000);
   }
 
   private startNotificationPolling() {
     if (this.notificationPoll) return;
-    this.pollLatestNotifications();
-    this.notificationPoll = setInterval(() => this.pollLatestNotifications(), 3000);
+    this.notificationPoll = setInterval(() => this.pollLatestNotifications(), 30_000);
   }
 
   private pollLatestNotifications() {
-    if (!this.auth.accessToken() || this.loading()) return;
+    if (!this.auth.accessToken() || this.loading() || this.notificationFlight || document.hidden || this.network.unavailable()
+        || this.connection?.state === signalR.HubConnectionState.Connected) return;
+    if (!this.connection && Date.now() >= this.nextConnectionAt) void this.connect();
+    this.notificationFlight = true;
     const generation = this.generation;
-    this.http.get<NotificationPage>(`${this.config.apiBaseUrl}/notifications`, { params: { page: 1, pageSize: 5 } }).pipe(takeUntil(this.identityChanged)).subscribe({
+    this.http.get<NotificationPage>(`${this.config.apiBaseUrl}/notifications`, { params: { page: 1, pageSize: 5 } }).pipe(
+      takeUntil(this.identityChanged), finalize(() => { this.notificationFlight = false; }),
+    ).subscribe({
       next: value => {
         if (generation !== this.generation) return;
         const fresh = value.items.filter(item => !this.notificationIds.has(item.notificationId));

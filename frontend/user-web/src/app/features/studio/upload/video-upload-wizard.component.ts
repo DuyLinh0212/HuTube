@@ -498,14 +498,6 @@ export class VideoUploadWizardComponent implements OnDestroy {
     } catch { this.uploadError.set(this.i18n.t('upload.draftFailed')); }
   }
 
-  discardDraft() {
-    try {
-      localStorage.removeItem(this.draftKey());
-      this.resetWizard();
-      this.draftMessage.set(this.i18n.t('upload.draftDiscarded'));
-    } catch { this.uploadError.set(this.i18n.t('upload.draftFailed')); }
-  }
-
   private restoreDraft() {
     if (!this.auth.user() || this.restoredDraftKey === this.draftKey()) return;
     this.restoredDraftKey = this.draftKey();

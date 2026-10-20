@@ -31,11 +31,12 @@ export const networkInterceptor: HttpInterceptorFn = (request, next) => {
 
   return (isLongTransfer ? response : response.pipe(timeout({ each: responseTimeoutMs }))).pipe(
     tap(event => {
-      if (event instanceof HttpResponse) networkStatus.markAvailable();
+      if (event instanceof HttpResponse && !config.ownsRecommendation(request.url)) networkStatus.markAvailable();
     }),
     catchError((error: unknown) => {
-      if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0)) {
-        void networkStatus.checkConnection();
+      if (config.ownsRecommendation(request.url)) return throwError(() => error);
+      if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 429 || error.status >= 500))) {
+        networkStatus.markUnavailable();
       } else if (error instanceof HttpErrorResponse && error.status > 0) {
         networkStatus.markAvailable();
       }

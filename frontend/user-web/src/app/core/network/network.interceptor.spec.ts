@@ -11,7 +11,7 @@ describe('Recommendation response deadline', () => {
     TestBed.configureTestingModule({ providers: [
       provideHttpClient(withInterceptors([networkInterceptor])), provideHttpClientTesting(),
       { provide: NetworkStatusService, useValue: {
-        markAvailable() {}, checkConnection: () => Promise.resolve(true),
+        markAvailable() {}, markUnavailable() {}, checkConnection: () => Promise.resolve(true),
       } },
     ] });
     const config = TestBed.inject(RuntimeConfig);

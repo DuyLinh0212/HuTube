@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Caching.Hybrid;
 
 namespace HuTube.Infrastructure.Notifications;
 
@@ -75,11 +76,25 @@ public sealed class NotificationService(
     IHubContext<NotificationHub> hub,
     IAuthEmailSender emailSender,
     TimeProvider clock,
-    AuthOptions? authOptions = null) : INotificationService
+    AuthOptions? authOptions = null,
+    HybridCache? cache = null) : INotificationService
 {
+    private static string CacheKey(Guid userId) => $"notifications:{userId:N}:recent";
+
     public async Task<NotificationPage> GetAsync(Guid userId, int page = 1, int pageSize = 5, CancellationToken ct = default)
     {
         page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 25);
+        if (cache != null && page == 1 && pageSize == 5)
+            return await cache.GetOrCreateAsync(CacheKey(userId),
+                async token => await ReadPageAsync(userId, page, pageSize, token),
+                new HybridCacheEntryOptions {
+                    Expiration = TimeSpan.FromSeconds(30), LocalCacheExpiration = TimeSpan.FromSeconds(5)
+                }, cancellationToken: ct);
+        return await ReadPageAsync(userId, page, pageSize, ct);
+    }
+
+    private async Task<NotificationPage> ReadPageAsync(Guid userId, int page, int pageSize, CancellationToken ct)
+    {
         var query = db.Notifications.AsNoTracking().Where(x => x.UserId == userId);
         var total = await query.CountAsync(ct);
         var unread = await query.CountAsync(x => !x.IsRead, ct);
@@ -94,6 +109,7 @@ public sealed class NotificationService(
             .ExecuteUpdateAsync(update => update.SetProperty(x => x.IsRead, true).SetProperty(x => x.ReadAt, clock.GetUtcNow()), ct);
         if (changed == 0 && !await db.Notifications.AnyAsync(x => x.UserId == userId && x.NotificationId == notificationId, ct))
             throw new ContentException(404, "NOTIFICATION_NOT_FOUND", "Không tìm thấy thông báo.");
+        if (cache != null) await cache.RemoveAsync(CacheKey(userId), CancellationToken.None);
         await hub.Clients.User(userId.ToString()).SendAsync("UnreadCountChanged", await UnreadAsync(userId, ct), ct);
     }
 
@@ -101,6 +117,7 @@ public sealed class NotificationService(
     {
         await db.Notifications.Where(x => x.UserId == userId && !x.IsRead)
             .ExecuteUpdateAsync(update => update.SetProperty(x => x.IsRead, true).SetProperty(x => x.ReadAt, clock.GetUtcNow()), ct);
+        if (cache != null) await cache.RemoveAsync(CacheKey(userId), CancellationToken.None);
         await hub.Clients.User(userId.ToString()).SendAsync("UnreadCountChanged", 0, ct);
     }
 
@@ -143,6 +160,7 @@ public sealed class NotificationService(
             var row = new HuTube.Domain.Videos.Notification { UserId = userId, Type = type, Title = title, Content = content,
                 ActionUrl = actionUrl, ResourceType = resourceType, ResourceId = resourceId, CreatedAt = clock.GetUtcNow() };
             db.Notifications.Add(row); await db.SaveChangesAsync(ct);
+            if (cache != null) await cache.RemoveAsync(CacheKey(userId), CancellationToken.None);
             await hub.Clients.User(userId.ToString()).SendAsync("NotificationReceived", ToResponse(row), ct);
             await hub.Clients.User(userId.ToString()).SendAsync("UnreadCountChanged", await UnreadAsync(userId, ct), ct);
         }

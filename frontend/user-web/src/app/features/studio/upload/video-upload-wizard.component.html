@@ -732,10 +732,6 @@
           {{ 'upload.step2.saveDraft' | translate }}
         </button>
 
-        <button type="button" class="btn-wizard-discard-draft" (click)="discardDraft()">
-          {{ 'common.discardChanges' | translate }}
-        </button>
-
         @if (currentStep() < 5) {
           <button type="button" class="btn-wizard-next" (click)="nextStep()"
             [disabled]="currentStep() === 1 && hasFile() && (isPreparing() || preflightLoading())">

@@ -12,6 +12,7 @@ COPY --from=build /app .
 ARG HUTUBE_COMMIT_SHA=local
 ENV HUTUBE_COMMIT_SHA=$HUTUBE_COMMIT_SHA
 ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_HTTP_PORTS=""
 RUN mkdir -p /app/.work/mail /app/uploads \
     && chown -R $APP_UID:$APP_UID /app/.work /app/uploads
 USER $APP_UID

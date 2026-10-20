@@ -12,6 +12,7 @@ COPY --from=build /app .
 ARG HUTUBE_COMMIT_SHA=local
 ENV HUTUBE_COMMIT_SHA=$HUTUBE_COMMIT_SHA
 ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_HTTP_PORTS=""
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgssapi-krb5-2 ffmpeg \

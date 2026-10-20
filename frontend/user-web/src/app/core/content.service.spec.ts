@@ -1,5 +1,5 @@
 import { TestBed, fakeAsync, tick, flushMicrotasks } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { firstValueFrom, of } from 'rxjs';
 import { AuthService } from './auth.service';
@@ -88,4 +88,39 @@ describe('Direct recommendation feed', () => {
     tick(5_000);
     http.expectNone(`${contentBase}/videos/upload-sessions/upload-id`);
   }));
+  it('reuses one chunk URL with index headers when the server supports protocol 2', () => {
+    const data = new FormData();
+    data.append('Video', new File(['0123456789'], 'video.mp4', { type: 'video/mp4' }));
+    data.append('ChannelId', 'channel');
+    let completed: unknown;
+    service.upload(data, 'resumed').subscribe(event => { if ('body' in event) completed = event.body; });
+    http.expectOne(`${contentBase}/videos/upload-sessions`).flush({
+      uploadId: 'resumed', chunkSize: 4, nextChunk: 1, chunkProtocol: 2,
+    });
+    const first = http.expectOne(`${contentBase}/videos/upload-sessions/resumed/chunks`);
+    expect(first.request.headers.get('X-Upload-Chunk-Index')).toBe('1');
+    expect(first.request.body.get('chunk').size).toBe(4);
+    first.flush({ nextChunk: 2 });
+    const second = http.expectOne(`${contentBase}/videos/upload-sessions/resumed/chunks`);
+    expect(second.request.headers.get('X-Upload-Chunk-Index')).toBe('2');
+    expect(second.request.body.get('chunk').size).toBe(2);
+    second.flush({ nextChunk: 3 });
+    http.expectOne(`${contentBase}/videos/upload-sessions/resumed/complete`).flush({ videoId: 'saved' });
+    expect(completed).toEqual({ videoId: 'saved' });
+  });
+  it('waits for the final chunk acknowledgement before reporting all bytes received', () => {
+    const data = new FormData();
+    data.append('Video', new File(['0123'], 'video.mp4', { type: 'video/mp4' }));
+    const loaded: number[] = [];
+    service.upload(data, 'ack').subscribe(event => {
+      if (event.type === HttpEventType.UploadProgress) loaded.push(event.loaded);
+    });
+    http.expectOne(`${contentBase}/videos/upload-sessions`).flush({ uploadId: 'ack', chunkSize: 4, nextChunk: 0 });
+    const chunk = http.expectOne(`${contentBase}/videos/upload-sessions/ack/chunks/0`);
+    chunk.event({ type: HttpEventType.UploadProgress, loaded: 4, total: 4 });
+    expect(loaded.at(-1)).toBe(3);
+    chunk.flush({ nextChunk: 1 });
+    expect(loaded.at(-1)).toBe(4);
+    http.expectOne(`${contentBase}/videos/upload-sessions/ack/complete`).flush({ videoId: 'saved' });
+  });
 });

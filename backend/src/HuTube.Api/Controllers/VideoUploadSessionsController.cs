@@ -31,6 +31,12 @@ public sealed class VideoUploadSessionsController(IContentService content, Video
     public async Task<object> Append(Guid uploadId, int index, IFormFile chunk, CancellationToken ct) =>
         new { nextChunk = await uploads.AppendAsync(UserId, uploadId, index, chunk, ct) };
 
+    // Reusing one URL lets browsers reuse the CORS preflight across file parts.
+    // Keep the indexed route above for existing web and mobile clients.
+    [HttpPost("{uploadId:guid}/chunks"), RequestSizeLimit(10L * 1024 * 1024), EnableRateLimiting("upload-chunk")]
+    public Task<object> AppendPart(Guid uploadId, [FromHeader(Name = "X-Upload-Chunk-Index")] int index,
+        IFormFile chunk, CancellationToken ct) => Append(uploadId, index, chunk, ct);
+
     [HttpPost("{uploadId:guid}/complete"), RequestSizeLimit(8L * 1024 * 1024), EnableRateLimiting("upload")]
     public async Task<ActionResult<VideoResponse>> Complete(Guid uploadId, [FromForm] UploadVideoForm form, CancellationToken ct)
     {
@@ -79,6 +85,7 @@ public sealed class VideoUploadSessionsController(IContentService content, Video
                 var result = await content.CreateVideoAsync(UserId, command with { Content = source, ThumbnailContent = thumbnail }, ct);
                 session.CompletedVideoId = result.VideoId;
                 session.TouchedAt = DateTimeOffset.UtcNow;
+                uploads.Persist(session);
                 await source.DisposeAsync();
                 uploads.RemoveSource(session);
                 return Created($"/api/v1/videos/{result.VideoId}", result);

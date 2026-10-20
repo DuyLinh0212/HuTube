@@ -253,14 +253,14 @@ export class ContentService {
       const status = error instanceof HttpErrorResponse ? error.status : error instanceof TimeoutError ? 0 : -1;
       const retryAfter = error instanceof HttpErrorResponse ? Number(error.headers.get('Retry-After')) : 0;
       return [0, 429, 502, 503, 504].includes(status)
-        ? timer(status === 429 ? Math.min(120, retryAfter > 0 ? retryAfter : 60) * 1_000 : attempt * 1_500) : throwError(() => error);
+        ? timer(status === 429 ? Math.min(120, retryAfter > 0 ? retryAfter : 60) * 1_000 : attempt * 10_000) : throwError(() => error);
     } };
     const sessionRequest = {
       uploadId: idempotencyKey, channelId: data.get('ChannelId'), fileName: file.name,
       contentType: file.type || 'video/mp4', fileSize: file.size,
       duration: Number(data.get('Duration')), sourceQuality: data.get('SourceQuality'),
     };
-    return freshSession().pipe(switchMap(() => this.http.post<{ uploadId: string; chunkSize: number; nextChunk: number }>(
+    return freshSession().pipe(switchMap(() => this.http.post<{ uploadId: string; chunkSize: number; nextChunk: number; chunkProtocol?: number }>(
       `${this.base}/videos/upload-sessions`, sessionRequest).pipe(retry(retryOptions))), switchMap(session => {
       const totalChunks = Math.ceil(file.size / session.chunkSize);
       if (!Number.isInteger(session.chunkSize) || session.chunkSize <= 0 || session.chunkSize > 24 * 1024 * 1024
@@ -277,13 +277,20 @@ export class ContentService {
           const part = file.slice(offset, Math.min(offset + session.chunkSize, file.size));
           const chunk = new FormData();
           chunk.append('chunk', part, 'chunk');
+          const chunkUrl = `${this.base}/videos/upload-sessions/${session.uploadId}/chunks`
+            + (session.chunkProtocol === 2 ? '' : `/${index}`);
+          const headers = session.chunkProtocol === 2
+            ? new HttpHeaders({ 'X-Upload-Chunk-Index': String(index) }) : new HttpHeaders();
           return freshSession().pipe(
             switchMap(() => this.http.post<{ nextChunk: number }>(
-              `${this.base}/videos/upload-sessions/${session.uploadId}/chunks/${index}`, chunk,
-              { observe: 'events', reportProgress: true }).pipe(
+              chunkUrl, chunk,
+              { observe: 'events', reportProgress: true, headers }).pipe(
                 retry(retryOptions),
                 filter(event => event.type === HttpEventType.UploadProgress || event.type === HttpEventType.Response),
-                map(event => progress(offset + (event.type === HttpEventType.UploadProgress ? Math.min(event.loaded, part.size) : part.size))),
+                // Reserve the final byte for the server acknowledgement: sending
+                // the last byte does not yet mean the part was accepted.
+                map(event => progress(offset + (event.type === HttpEventType.UploadProgress
+                  ? Math.min(event.loaded, Math.max(0, part.size - 1)) : part.size))),
               )),
           );
         })),
