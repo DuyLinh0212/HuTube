@@ -26,7 +26,7 @@ public sealed class RedisSessionPlayerPreferencesStore(
         return 1
         """;
 
-    private static string Key(Guid id) => $"hutube:auth:session:{id:N}";
+    private static string Key(Guid id) => $"dalitu:auth:session:{id:N}";
     private static string MemoryKey(Guid id) => $"session-player-preferences:{id:N}";
 
     public async Task<SessionPlayerPreferences?> GetAsync(UserSession session, CancellationToken ct)

@@ -32,10 +32,11 @@ public sealed class GmailEmailOptions
 
 public sealed class AuthEmailSender(
     EmailOptions options,
-    AuthOptions authOptions,
     ILogger<AuthEmailSender> logger,
     IHttpClientFactory httpClientFactory) : IAuthEmailSender
 {
+    private static readonly byte[] DalituEmailLogo = LoadDalituEmailLogo();
+
     public Task SendAsync(string email, string subject, string body, CancellationToken ct) =>
         SendTemplateAsync(email, EmailTemplateMessage.FromPlainText(subject, body), ct);
 
@@ -44,11 +45,14 @@ public sealed class AuthEmailSender(
         var message = new MimeMessage();
         message.From.Add(MailboxAddress.Parse(options.From)); message.To.Add(MailboxAddress.Parse(email));
         message.Subject = template.Subject;
-        message.Body = new BodyBuilder
+        var body = new BodyBuilder
         {
             TextBody = template.ToPlainText(),
-            HtmlBody = HuTubeEmailTemplateRenderer.RenderHtml(template, authOptions.WebBaseUrl)
-        }.ToMessageBody();
+            HtmlBody = HuTubeEmailTemplateRenderer.RenderHtml(template)
+        };
+        var logo = body.LinkedResources.Add("dalitu-email-logo.png", DalituEmailLogo, ContentType.Parse("image/png"));
+        logo.ContentId = "dalitu-email-logo";
+        message.Body = body.ToMessageBody();
         try
         {
             if (options.Mode == "Pickup")
@@ -76,6 +80,15 @@ public sealed class AuthEmailSender(
             logger.LogError(ex, "SMTP email delivery failed for {Recipient}", email);
             throw new AuthException(503, "EMAIL_DELIVERY_UNAVAILABLE", "Chưa thể gửi email. Vui lòng thử lại sau.");
         }
+    }
+
+    private static byte[] LoadDalituEmailLogo()
+    {
+        using var stream = typeof(AuthEmailSender).Assembly.GetManifestResourceStream("Dalitu.EmailLogo.png")
+            ?? throw new InvalidOperationException("The embedded Dalitu email logo is missing.");
+        using var image = new MemoryStream();
+        stream.CopyTo(image);
+        return image.ToArray();
     }
 
     private async Task SendViaGmailApiAsync(MimeMessage message, CancellationToken ct)

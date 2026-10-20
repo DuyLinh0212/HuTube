@@ -22,6 +22,9 @@
     <PackageReference Include="AWSSDK.S3" Version="4.0.102.4" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <EmbeddedResource Include="Persistence/Migrations/Bootstrap.sql" />
+    <EmbeddedResource Include="Authentication/Assets/dalitu-email-logo.png">
+      <LogicalName>Dalitu.EmailLogo.png</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>
