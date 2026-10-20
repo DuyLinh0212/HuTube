@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'core/errors/app_error.dart';
 import 'core/localization/app_strings.dart';
 import 'core/network/api_client.dart';
+import 'core/network/upload_control.dart';
 import 'core/storage/token_store.dart';
 
 export 'core/config/app_config.dart';
@@ -58,7 +59,8 @@ class AuthController extends ChangeNotifier {
           final entries = await protectedList('/downloads');
           if (user?['userId'] != owner) return null;
           for (final entry in entries.whereType<Map>()) {
-            if (entry['videoDownloadId'] == id && entry['status'] != 'revoked') {
+            if (entry['videoDownloadId'] == id &&
+                entry['status'] != 'revoked') {
               return entry['fileUrl'] as String?;
             }
           }
@@ -241,7 +243,8 @@ class AuthController extends ChangeNotifier {
       try {
         account = await GoogleSignIn.instance.authenticate();
       } on GoogleSignInException catch (error) {
-        final isReauth = error.description != null &&
+        final isReauth =
+            error.description != null &&
             (error.description!.contains('16') ||
                 error.description!.toLowerCase().contains('reauth'));
         if (isReauth) {
@@ -268,11 +271,14 @@ class AuthController extends ChangeNotifier {
     } on ApiFailure {
       rethrow;
     } on GoogleSignInException catch (error) {
-      debugPrint('[GoogleSignIn] code: ${error.code}, description: ${error.description}');
+      debugPrint(
+        '[GoogleSignIn] code: ${error.code}, description: ${error.description}',
+      );
       final detail = error.description != null && error.description!.isNotEmpty
           ? ' - ${error.description}'
           : '';
-      final isReauthError = error.description != null &&
+      final isReauthError =
+          error.description != null &&
           (error.description!.contains('16') ||
               error.description!.toLowerCase().contains('reauth'));
       throw switch (error.code) {
@@ -282,8 +288,8 @@ class AuthController extends ChangeNotifier {
           isReauthError
               ? '${AppStrings.t('auth.googleCancelled')} (Lỗi [16]: Kiểm tra mã SHA-1 của keystore trên Google Cloud Console hoặc thêm Gmail vào danh sách Test Users)'
               : (detail.isNotEmpty
-                  ? '${AppStrings.t('auth.googleCancelled')} [${error.code.name}$detail]'
-                  : AppStrings.t('auth.googleCancelled')),
+                    ? '${AppStrings.t('auth.googleCancelled')} [${error.code.name}$detail]'
+                    : AppStrings.t('auth.googleCancelled')),
         ),
         GoogleSignInExceptionCode.clientConfigurationError ||
         GoogleSignInExceptionCode.providerConfigurationError => ApiFailure(
@@ -510,6 +516,8 @@ class AuthController extends ChangeNotifier {
     required Map<String, String> fields,
     required List<MultipartFilePayload> files,
     Map<String, String>? headers,
+    UploadControl? uploadControl,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final generation = _generation;
     final sentToken = _accessToken;
@@ -520,6 +528,8 @@ class AuthController extends ChangeNotifier {
         files: files,
         accessToken: _accessToken,
         headers: headers,
+        uploadControl: uploadControl,
+        onProgress: onProgress,
       );
     } on ApiFailure catch (error) {
       if (error.status != 401 || generation != _generation) rethrow;
@@ -538,6 +548,8 @@ class AuthController extends ChangeNotifier {
           files: files,
           accessToken: _accessToken,
           headers: headers,
+          uploadControl: uploadControl,
+          onProgress: onProgress,
         );
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {

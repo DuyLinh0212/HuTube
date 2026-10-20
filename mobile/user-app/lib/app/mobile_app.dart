@@ -1,3 +1,5 @@
+import '../channel/screens/create_channel_screen.dart';
+import '../features/creator/upload_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -45,6 +47,7 @@ class HuTubeApp extends StatefulWidget {
 
 class _HuTubeAppState extends State<HuTubeApp> {
   late final GoRouter _router;
+  late final UploadController _uploads;
   final _navigatorKey = GlobalKey<NavigatorState>();
   final PlaybackSession _playback = PlaybackSession();
   late final NotificationCenter _notifications;
@@ -55,6 +58,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
   @override
   void initState() {
     super.initState();
+    _uploads = UploadController(widget.auth);
     _notifications = NotificationCenter(widget.auth);
     _router = _buildRouter(widget.auth, _playback, _notifications);
     unawaited(_notifications.initialize(onOpenNotification: _openNotification));
@@ -122,6 +126,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
         '/account',
         '/notifications',
         '/creator',
+        '/create-channel',
         '/downloads',
         '/subscriptions',
         '/moderation',
@@ -174,7 +179,10 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/playlists',
-            builder: (_, _) => PlaylistsScreen(auth: auth),
+            builder: (_, state) => PlaylistsScreen(
+              auth: auth,
+              openCreate: state.uri.queryParameters['create'] == 'true',
+            ),
           ),
           GoRoute(
             path: '/playlists/:playlistId',
@@ -240,8 +248,15 @@ class _HuTubeAppState extends State<HuTubeApp> {
                 AccountSettingsScreen(auth: auth, notifications: notifications),
           ),
           GoRoute(
+            path: '/create-channel',
+            builder: (_, _) => CreateChannelScreen(auth: auth),
+          ),
+          GoRoute(
             path: '/creator',
-            builder: (_, _) => CreatorHubScreen(auth: auth),
+            builder: (_, state) => CreatorHubScreen(
+              auth: auth,
+              openUpload: state.uri.queryParameters['upload'] == 'true',
+            ),
           ),
           GoRoute(
             path: '/notifications',
@@ -389,6 +404,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
   void dispose() {
     _linkSubscription?.cancel();
     _networkRetryTimer?.cancel();
+    _uploads.dispose();
     _router.dispose();
     _playback.dispose();
     _notifications.dispose();
@@ -407,13 +423,25 @@ class _HuTubeAppState extends State<HuTubeApp> {
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
         routerConfig: _router,
-        builder: (context, child) => FeedbackSurveyHost(
-          auth: widget.auth,
-          router: _router,
-          navigatorKey: _navigatorKey,
-          child: NetworkFallbackOverlay(
-            api: widget.auth.api,
-            child: child ?? const SizedBox.shrink(),
+        // The banner and upload tray are outside the router's Navigator.
+        // Give these global controls an Overlay for tooltips and menus too.
+        builder: (context, child) => Overlay.wrap(
+          child: FeedbackSurveyHost(
+            auth: widget.auth,
+            router: _router,
+            navigatorKey: _navigatorKey,
+            child: NetworkFallbackOverlay(
+              api: widget.auth.api,
+              child: UploadScope(
+                controller: _uploads,
+                child: Column(
+                  children: [
+                    Expanded(child: child ?? const SizedBox.shrink()),
+                    UploadTray(controller: _uploads),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

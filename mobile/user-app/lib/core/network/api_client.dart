@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import '../config/app_config.dart';
 import '../errors/app_error.dart';
 import 'network_status.dart';
+import 'upload_control.dart';
 
 class UploadPayload {
   const UploadPayload({
@@ -107,9 +108,17 @@ class ApiClient {
     String method = 'POST',
     String? accessToken,
     Map<String, String>? headers,
+    UploadControl? uploadControl,
+    void Function(int sent, int total)? onProgress,
   }) async {
     try {
-      final request = http.MultipartRequest(method, Uri.parse(_buildUrl(path)));
+      uploadControl?.check();
+      final request = ProgressMultipartRequest(
+        method,
+        Uri.parse(_buildUrl(path)),
+        control: uploadControl,
+        onProgress: onProgress,
+      );
       request.headers.addAll({
         'Accept': 'application/json',
         'X-HuTube-Client': AppConfig.standard.clientHeader,
@@ -133,9 +142,14 @@ class ApiClient {
       NetworkStatus.instance.markAvailable();
       final data = _decodeResponse(response);
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
+    } on http.RequestAbortedException {
+      throw const UploadCancelled();
+    } on UploadCancelled {
+      rethrow;
     } on AppError {
       rethrow;
     } on TimeoutException {
+      uploadControl?.cancel();
       unawaited(checkConnection());
       throw ApiFailure.timeoutError;
     } on SocketException {
@@ -246,7 +260,10 @@ class ApiClient {
         try {
           final fallbackBase = fallback.replaceAll(RegExp(r'/+$'), '');
           final cleanPath = path.startsWith('/') ? path : '/$path';
-          final fallbackRequest = http.Request(method, Uri.parse('$fallbackBase$cleanPath'));
+          final fallbackRequest = http.Request(
+            method,
+            Uri.parse('$fallbackBase$cleanPath'),
+          );
           fallbackRequest.headers.addAll({
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -254,8 +271,12 @@ class ApiClient {
             if (accessToken != null) 'Authorization': 'Bearer $accessToken',
           });
           if (body != null) fallbackRequest.body = jsonEncode(body);
-          final streamed = await client.send(fallbackRequest).timeout(const Duration(seconds: 15));
-          final response = await http.Response.fromStream(streamed).timeout(const Duration(seconds: 15));
+          final streamed = await client
+              .send(fallbackRequest)
+              .timeout(const Duration(seconds: 15));
+          final response = await http.Response.fromStream(
+            streamed,
+          ).timeout(const Duration(seconds: 15));
           _currentBaseUrl = fallback;
           NetworkStatus.instance.markAvailable();
           return _decodeResponse(response);

@@ -20,39 +20,54 @@ class HuTubeSectionHeader extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final stacked =
+          constraints.maxWidth < 380 ||
+          MediaQuery.textScalerOf(context).scale(14) > 20;
+      final heading = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style:
+                (compact
+                        ? Theme.of(context).textTheme.titleMedium
+                        : Theme.of(context).textTheme.titleLarge)
+                    ?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: compact ? -.2 : -.35,
+                      fontSize: compact ? 18 : null,
+                    ),
+          ),
+          if (subtitle != null) ...[
+            SizedBox(height: compact ? 2 : 3),
             Text(
-              title,
-              style: (compact
-                      ? Theme.of(context).textTheme.titleMedium
-                      : Theme.of(context).textTheme.titleLarge)
-                  ?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: compact ? -.2 : -.35,
-                    fontSize: compact ? 18 : null,
-                  ),
+              subtitle!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontSize: compact ? 12 : null),
             ),
-            if (subtitle != null) ...[
-              SizedBox(height: compact ? 2 : 3),
-              Text(
-                subtitle!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: compact ? 12 : null,
-                  color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.85),
-                ),
-              ),
-            ],
           ],
-        ),
-      ),
-      if (action != null) TextButton(onPressed: onAction, child: Text(action!)),
-    ],
+        ],
+      );
+      final button = action == null
+          ? null
+          : TextButton(onPressed: onAction, child: Text(action!));
+      if (stacked) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [heading, ?button],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(child: heading),
+          ?button,
+        ],
+      );
+    },
   );
 }
 

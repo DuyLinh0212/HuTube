@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:image_picker/image_picker.dart';
 
 import '../../auth.dart';
+import '../../core/network/upload_control.dart';
 import '../../core/localization/app_strings.dart';
 import '../content/content_models.dart';
 
@@ -81,17 +82,24 @@ class CreatorService {
     List<Map<String, dynamic>> chapters = const [],
     List<Map<String, dynamic>> videoCards = const [],
     bool promotionEnabled = false,
+    String languageCode = 'vi',
+    bool allowComments = true,
+    String? idempotencyKey,
+    UploadControl? uploadControl,
+    void Function(int sent, int total)? onProgress,
     required MultipartFilePayload video,
     MultipartFilePayload? thumbnail,
   }) async {
-    final idempotencyKey =
+    final requestKey =
+        idempotencyKey ??
         '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
     final fields = <String, String>{
       'ChannelId': channelId,
       'Title': title.trim(),
       'Description': description.trim(),
       if (categoryId != null && categoryId.isNotEmpty) 'CategoryId': categoryId,
-      'LanguageCode': 'vi',
+      'LanguageCode': languageCode,
+      'AllowComments': '$allowComments',
       'Visibility': visibility,
       'AgeRestricted': '$ageRestricted',
       'Duration': '$duration',
@@ -102,16 +110,14 @@ class CreatorService {
     for (var index = 0; index < tags.length; index++) {
       fields['Tags[$index]'] = tags[index];
     }
-    for (var index = 0; index < chapters.length; index++) {
-      fields['Chapters[$index].StartSeconds'] =
-          '${chapters[index]['startSeconds']}';
-      fields['Chapters[$index].Title'] = '${chapters[index]['title']}';
-    }
+    fields['ChaptersJson'] = jsonEncode(chapters);
     final json = await auth.protectedMultipart(
       '/videos',
       fields: fields,
       files: [video, ?thumbnail],
-      headers: {'Idempotency-Key': idempotencyKey},
+      headers: {'Idempotency-Key': requestKey},
+      uploadControl: uploadControl,
+      onProgress: onProgress,
     );
     return VideoDetail.fromJson(json);
   }

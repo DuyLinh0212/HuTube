@@ -92,6 +92,7 @@ class ContentService {
   Future<PageResult<VideoCard>> searchVideos({
     required String query,
     String? categoryId,
+    String? tag,
     String? channelId,
     String? dateRange,
     String? duration,
@@ -101,6 +102,7 @@ class ContentService {
   }) async {
     final endpoint = _query('/videos/search', {
       'q': query.trim(),
+      'tag': tag,
       'categoryId': categoryId,
       'channelId': channelId,
       'dateRange': dateRange,
@@ -180,9 +182,12 @@ class ContentService {
   Future<PageResult<CommentItem>> comments(
     String videoId, {
     int page = 1,
+    String sort = 'newest',
   }) async {
-    final endpoint =
-        '/videos/${Uri.encodeComponent(videoId)}/comments?page=$page&pageSize=20';
+    final endpoint = _query(
+      '/videos/${Uri.encodeComponent(videoId)}/comments',
+      {'page': page, 'pageSize': 20, 'sort': sort},
+    );
     final json = auth.authenticated
         ? await auth.protected('GET', endpoint)
         : await auth.api.request('GET', endpoint);
@@ -302,6 +307,18 @@ class ContentService {
           body: {'type': type},
         );
 
+  Future<CommentItem> setCommentCreatorState(
+    String id, {
+    required bool enabled,
+    required bool pin,
+  }) async => CommentItem.fromJson(
+    await auth.protected(
+      'PUT',
+      '/comments/${Uri.encodeComponent(id)}/${pin ? 'pin' : 'creator-heart'}',
+      body: {'enabled': enabled},
+    ),
+  );
+
   Future<CommentItem> setCommentVisibility(
     String id,
     bool hidden, {
@@ -373,8 +390,19 @@ class ContentService {
     body: {'violationTypeId': violationTypeId, 'description': description},
   );
 
-  Future<PageResult<LibraryVideo>> history({int page = 1}) =>
-      _library('history', page: page, fromHistory: true);
+  Future<PageResult<LibraryVideo>> history({
+    int page = 1,
+    String? query,
+    String sort = 'newest',
+    String dateRange = 'all',
+  }) => _library(
+    'history',
+    page: page,
+    fromHistory: true,
+    query: query,
+    sort: sort,
+    dateRange: dateRange,
+  );
 
   Future<PageResult<LibraryVideo>> liked({int page = 1, int? rating}) =>
       _library('liked', page: page, rating: rating);
@@ -384,11 +412,17 @@ class ContentService {
     required int page,
     int? rating,
     bool fromHistory = false,
+    String? query,
+    String? sort,
+    String? dateRange,
   }) async {
     final path = _query('/library/$kind', {
       'page': page,
       'pageSize': 20,
       'rating': rating,
+      'q': query,
+      'sort': sort,
+      'dateRange': dateRange,
     });
     final json = await auth.protected('GET', path);
     return PageResult(
