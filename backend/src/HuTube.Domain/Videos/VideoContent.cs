@@ -184,6 +184,7 @@ public sealed class Comment
 {
     public Guid CommentId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid VideoId { get; set; }
     public Guid? ParentCommentId { get; set; } public string Content { get; set; } = ""; public string Status { get; set; } = "visible";
+    public bool IsPinned { get; set; } public bool HasCreatorHeart { get; set; }
     public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; }
 }
 public sealed class CommentReaction { public Guid CommentReactionId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid CommentId { get; set; } public string Type { get; set; } = "like"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }

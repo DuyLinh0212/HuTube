@@ -84,8 +84,9 @@ public sealed class LibraryController(IContentService content) : ControllerBase
 
     [HttpGet("history")]
     public Task<PageResult<WatchHistoryResponse>> HistoryAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
-        [FromQuery] DateTimeOffset? before = null, CancellationToken ct = default) =>
-        content.GetWatchHistoryAsync(UserId, page, pageSize, before, ct);
+        [FromQuery] DateTimeOffset? before = null, CancellationToken ct = default,
+        [FromQuery] string? q = null, [FromQuery] string sort = "newest", [FromQuery] string dateRange = "all") =>
+        content.GetWatchHistoryAsync(UserId, page, pageSize, before, ct, q, sort, dateRange);
 
     [HttpDelete("history")]
     public async Task<IActionResult> ClearHistoryAsync(CancellationToken ct = default)
@@ -321,6 +322,14 @@ public sealed class CommentsController(IContentService content, HuTube.Infrastru
         var result = await reports.CreateReportAsync(UserId, new CreateContentReportRequest("comment", id, request.ViolationTypeId, request.Description ?? ""), ct);
         return StatusCode(StatusCodes.Status201Created, new ReportResponse(result.ReportId, result.Status, result.CreatedAt));
     }
+
+    [Authorize, HttpPut("comments/{id:guid}/pin")]
+    public Task<CommentResponse> PinAsync(Guid id, CommentCreatorStateRequest request, CancellationToken ct) =>
+        content.SetCommentCreatorStateAsync(UserId, id, request.Enabled, pin: true, ct);
+
+    [Authorize, HttpPut("comments/{id:guid}/creator-heart")]
+    public Task<CommentResponse> CreatorHeartAsync(Guid id, CommentCreatorStateRequest request, CancellationToken ct) =>
+        content.SetCommentCreatorStateAsync(UserId, id, request.Enabled, pin: false, ct);
 
     [Authorize, HttpPatch("comments/{id:guid}/visibility")]
     public Task<CommentResponse> VisibilityAsync(Guid id, [FromBody] CommentVisibilityRequest request, CancellationToken ct) => content.SetCommentHiddenAsync(UserId, id, request.Hidden, request.Reason, ct);
