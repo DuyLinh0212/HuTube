@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/content_filters.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../auth.dart';
@@ -11,6 +12,8 @@ import '../content/content_service.dart';
 import '../content/video_card.dart';
 import '../plans/plan_service.dart';
 import 'creator_service.dart';
+import '../playlists/playlist_service.dart';
+import '../playlists/playlist_selector.dart';
 
 class CreatorContentScreen extends StatefulWidget {
   const CreatorContentScreen({
@@ -31,6 +34,9 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   bool _loading = true;
   String? _error;
   String? _visibility;
+  String _query = '';
+  String? _status;
+  int _requestGeneration = 0;
 
   @override
   void initState() {
@@ -39,6 +45,8 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_requestGeneration;
+    final search = _query, status = _status, visibility = _visibility;
     setState(() {
       _loading = true;
       _error = null;
@@ -48,23 +56,25 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         (page) => _service.managedVideos(
           widget.channel.id,
           page: page,
-          visibility: _visibility,
+          visibility: visibility,
+          search: search,
+          status: status,
         ),
       );
-      if (!mounted) return;
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
         _items = result.items;
         _loading = false;
       });
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _error = AppStrings.apiError(error, fallback: 'creator.loadError');
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _error = AppStrings.t('creator.loadError');
           _loading = false;
@@ -80,6 +90,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       builder: (_) => _VideoEditor(item: item, auth: widget.auth),
     );
     if (result == null) return;
+    final session = widget.auth.sessionGeneration;
     try {
       await _service.updateVideo(
         item.id,
@@ -92,9 +103,41 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         videoCards: result.videoCards,
         promotionEnabled: result.promotionEnabled,
       );
-      await _load();
+      await _attachPlaylists(item.id, result.playlistIds, session);
+      if (mounted) await _load();
     } on ApiFailure catch (error) {
       if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
+    }
+  }
+
+  Future<void> _attachPlaylists(
+    String videoId,
+    Set<String> ids,
+    int session,
+  ) async {
+    final failed = <String>{};
+    for (final id in ids) {
+      if (session != widget.auth.sessionGeneration) return;
+      try {
+        await PlaylistService(widget.auth).addVideo(id, videoId);
+      } on ApiFailure catch (e) {
+        if (e.code != 'PLAYLIST_VIDEO_EXISTS') failed.add(id);
+      } catch (_) {
+        failed.add(id);
+      }
+    }
+    if (mounted &&
+        session == widget.auth.sessionGeneration &&
+        failed.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.t('parity.playlistPartial')),
+          action: SnackBarAction(
+            label: AppStrings.t('parity.retry'),
+            onPressed: () => _attachPlaylists(videoId, failed, session),
+          ),
+        ),
+      );
     }
   }
 
@@ -257,16 +300,16 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     appBar: AppBar(
       title: Text(AppStrings.t('creator.content')),
       actions: [
-        PopupMenuButton<String?>(
+        PopupMenuButton<String>(
           tooltip: AppStrings.t('creator.filterPrivacy'),
-          initialValue: _visibility,
+          initialValue: _visibility ?? 'all',
           onSelected: (value) {
-            setState(() => _visibility = value);
+            setState(() => _visibility = value == 'all' ? null : value);
             _load();
           },
           itemBuilder: (_) => [
             PopupMenuItem(
-              value: null,
+              value: 'all',
               child: Text(AppStrings.t('creator.allVideos')),
             ),
             PopupMenuItem(
@@ -285,125 +328,146 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         ),
       ],
     ),
-    body: _loading
-        ? const Center(
-            child: CircularProgressIndicator(color: AppColors.violet),
-          )
-        : _error != null
-        ? HuTubeStateView(
-            icon: Icons.video_library_outlined,
-            title: _error!,
-            message: AppStrings.t('common.networkError'),
-            actionLabel: AppStrings.t('common.retry'),
-            onAction: _load,
-            accent: AppColors.violet,
-          )
-        : RefreshIndicator(
-            onRefresh: _load,
-            child: _items.isEmpty
-                ? ListView(
-                    children: [
-                      HuTubeStateView(
-                        icon: Icons.video_library_outlined,
-                        title: AppStrings.t('creator.noManagedVideos'),
-                        message: AppStrings.t('creator.uploadDescription'),
-                        compact: true,
-                        accent: AppColors.violet,
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                    itemCount: _items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (_, index) {
-                      final video = _items[index];
-                      return Card(
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          children: [
-                            VideoCardTile(video: video, auth: widget.auth),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 0, 8, 8),
-                              child: Row(
-                                children: [
-                                  _StatusPill(
-                                    label: video.moderationStatus.isEmpty
-                                        ? _statusLabel(video.visibility)
-                                        : _statusLabel(video.moderationStatus),
-                                  ),
-                                  const Spacer(),
-                                  if (video.moderationStatus.toLowerCase() !=
-                                          'approved' &&
-                                      !video.processingStatus
-                                          .toLowerCase()
-                                          .contains('upload'))
-                                    TextButton(
-                                      onPressed: () => _submit(video),
-                                      child: Text(
-                                        AppStrings.t('creator.submitReview'),
-                                      ),
-                                    ),
-                                  IconButton(
-                                    tooltip: AppStrings.t(
-                                      'creator.thumbnailTooltip',
-                                    ),
-                                    onPressed: () => _updateThumbnail(video),
-                                    icon: const Icon(Icons.image_outlined),
-                                  ),
-                                  if (video.moderationStatus.toLowerCase() ==
-                                          'approved' &&
-                                      video.visibility.toLowerCase() !=
-                                          'public')
-                                    IconButton(
-                                      tooltip: AppStrings.t(
-                                        'creator.publishVideo',
-                                      ),
-                                      onPressed: () => _publish(video),
-                                      icon: const Icon(Icons.publish_rounded),
-                                    ),
-                                  if (video.processingStatus
-                                      .toLowerCase()
-                                      .contains('fail'))
-                                    IconButton(
-                                      tooltip: AppStrings.t(
-                                        'creator.reprocessVideo',
-                                      ),
-                                      onPressed: () => _retryProcessing(video),
-                                      icon: const Icon(Icons.refresh_rounded),
-                                    ),
-                                  if (video.processingStatus
-                                      .toLowerCase()
-                                      .contains('upload'))
-                                    IconButton(
-                                      tooltip: AppStrings.t(
-                                        'creator.cancelUploadTooltip',
-                                      ),
-                                      onPressed: () => _cancelUpload(video),
-                                      icon: const Icon(Icons.cancel_outlined),
-                                    ),
-                                  IconButton(
-                                    tooltip: AppStrings.t('creator.editVideo'),
-                                    onPressed: () => _edit(video),
-                                    icon: const Icon(Icons.edit_outlined),
-                                  ),
-                                  IconButton(
-                                    tooltip: AppStrings.t(
-                                      'creator.deleteVideo',
-                                    ),
-                                    onPressed: () => _delete(video),
-                                    icon: const Icon(Icons.delete_outline),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
+    body: Column(
+      children: [
+        ContentFilters(
+          options: const {
+            'status': [
+              'all',
+              'draft',
+              'processing',
+              'published',
+              'blocked',
+              'failed',
+            ],
+          },
+          onChanged: (query, values) {
+            _query = query;
+            _status = values['status'] == 'all' ? null : values['status'];
+            _load();
+          },
+        ),
+        Expanded(child: _buildResults()),
+      ],
+    ),
   );
+
+  Widget _buildResults() => _loading
+      ? const Center(child: CircularProgressIndicator(color: AppColors.violet))
+      : _error != null
+      ? HuTubeStateView(
+          icon: Icons.video_library_outlined,
+          title: _error!,
+          message: AppStrings.t('common.networkError'),
+          actionLabel: AppStrings.t('common.retry'),
+          onAction: _load,
+          accent: AppColors.violet,
+        )
+      : RefreshIndicator(
+          onRefresh: _load,
+          child: _items.isEmpty
+              ? ListView(
+                  children: [
+                    HuTubeStateView(
+                      icon: Icons.video_library_outlined,
+                      title: AppStrings.t('creator.noManagedVideos'),
+                      message: AppStrings.t('creator.uploadDescription'),
+                      compact: true,
+                      accent: AppColors.violet,
+                    ),
+                  ],
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  itemCount: _items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (_, index) {
+                    final video = _items[index];
+                    return Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          VideoCardTile(video: video, auth: widget.auth),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 8, 8),
+                            child: Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                _StatusPill(
+                                  label: video.moderationStatus.isEmpty
+                                      ? _statusLabel(video.visibility)
+                                      : _statusLabel(video.moderationStatus),
+                                ),
+
+                                if (video.moderationStatus.toLowerCase() !=
+                                        'approved' &&
+                                    !video.processingStatus
+                                        .toLowerCase()
+                                        .contains('upload'))
+                                  TextButton(
+                                    onPressed: () => _submit(video),
+                                    child: Text(
+                                      AppStrings.t('creator.submitReview'),
+                                    ),
+                                  ),
+                                IconButton(
+                                  tooltip: AppStrings.t(
+                                    'creator.thumbnailTooltip',
+                                  ),
+                                  onPressed: () => _updateThumbnail(video),
+                                  icon: const Icon(Icons.image_outlined),
+                                ),
+                                if (video.moderationStatus.toLowerCase() ==
+                                        'approved' &&
+                                    video.visibility.toLowerCase() != 'public')
+                                  IconButton(
+                                    tooltip: AppStrings.t(
+                                      'creator.publishVideo',
+                                    ),
+                                    onPressed: () => _publish(video),
+                                    icon: const Icon(Icons.publish_rounded),
+                                  ),
+                                if (video.processingStatus
+                                    .toLowerCase()
+                                    .contains('fail'))
+                                  IconButton(
+                                    tooltip: AppStrings.t(
+                                      'creator.reprocessVideo',
+                                    ),
+                                    onPressed: () => _retryProcessing(video),
+                                    icon: const Icon(Icons.refresh_rounded),
+                                  ),
+                                if (video.processingStatus
+                                    .toLowerCase()
+                                    .contains('upload'))
+                                  IconButton(
+                                    tooltip: AppStrings.t(
+                                      'creator.cancelUploadTooltip',
+                                    ),
+                                    onPressed: () => _cancelUpload(video),
+                                    icon: const Icon(Icons.cancel_outlined),
+                                  ),
+                                IconButton(
+                                  tooltip: AppStrings.t('creator.editVideo'),
+                                  onPressed: () => _edit(video),
+                                  icon: const Icon(Icons.edit_outlined),
+                                ),
+                                IconButton(
+                                  tooltip: AppStrings.t('creator.deleteVideo'),
+                                  onPressed: () => _delete(video),
+                                  icon: const Icon(Icons.delete_outline),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        );
 }
 
 class _StatusPill extends StatelessWidget {
@@ -427,6 +491,7 @@ class _VideoEdit {
     this.chapters = const [],
     this.videoCards = const [],
     this.promotionEnabled,
+    this.playlistIds = const {},
   });
 
   final String title;
@@ -437,6 +502,7 @@ class _VideoEdit {
   final List<Map<String, dynamic>> chapters;
   final List<Map<String, dynamic>> videoCards;
   final bool? promotionEnabled;
+  final Set<String> playlistIds;
 }
 
 class _VideoEditor extends StatefulWidget {
@@ -450,6 +516,7 @@ class _VideoEditor extends StatefulWidget {
 }
 
 class _VideoEditorState extends State<_VideoEditor> {
+  Set<String> _playlistIds = {};
   late final _title = TextEditingController(text: widget.item.title);
   late final _description = TextEditingController(
     text: widget.item.description ?? '',
@@ -620,6 +687,7 @@ class _VideoEditorState extends State<_VideoEditor> {
             )
             .toList(),
         promotionEnabled: _canPromote ? _promotionEnabled : null,
+        playlistIds: Set.of(_playlistIds),
       ),
     );
   }
@@ -984,6 +1052,7 @@ class _VideoEditorState extends State<_VideoEditor> {
               const SizedBox(height: 14),
 
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _visibility,
                 decoration: InputDecoration(
                   labelText: AppStrings.t('creator.visibilityField'),
@@ -1005,6 +1074,11 @@ class _VideoEditorState extends State<_VideoEditor> {
                 onChanged: (value) => setState(() => _visibility = value!),
               ),
               const SizedBox(height: 20),
+              PlaylistSelector(
+                auth: widget.auth,
+                selected: _playlistIds,
+                onChanged: (ids) => setState(() => _playlistIds = ids),
+              ),
               FilledButton(
                 onPressed: _save,
                 child: Text(AppStrings.t('creator.save')),

@@ -1,3 +1,4 @@
+import '../../core/widgets/scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization/app_strings.dart';
@@ -52,7 +53,7 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => ScrollableSheet(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Column(

@@ -1,3 +1,4 @@
+import '../../core/widgets/scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
@@ -41,7 +42,9 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
 
     try {
       final service = CreatorService(widget.auth);
-      final result = await service.managedVideos(widget.channel.id);
+      final result = await loadAllPages(
+        (page) => service.managedVideos(widget.channel.id, page: page),
+      );
       if (mounted) {
         setState(() {
           _videos = result.items;
@@ -65,17 +68,11 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
     }
   }
 
-  String _formatDuration(int seconds) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
   Future<void> _manageSubtitles(VideoDetail video) async {
     final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      builder: (bottomSheetContext) => SafeArea(
+      builder: (bottomSheetContext) => ScrollableSheet(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
           child: Column(
@@ -86,7 +83,10 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
                 'Phụ đề: ${video.title}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 16),
               ListTile(
@@ -98,7 +98,10 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.upload_file_rounded, color: AppColors.violet),
+                  child: const Icon(
+                    Icons.upload_file_rounded,
+                    color: AppColors.violet,
+                  ),
                 ),
                 title: const Text('Tải tệp phụ đề lên (.vtt, .srt)'),
                 subtitle: const Text('Đính kèm tệp văn bản phụ đề từ thiết bị'),
@@ -113,10 +116,15 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.translate_rounded, color: Colors.teal),
+                  child: const Icon(
+                    Icons.translate_rounded,
+                    color: Colors.teal,
+                  ),
                 ),
                 title: const Text('Dalitu AI - Tự động tạo phụ đề'),
-                subtitle: const Text('Nhận diện giọng nói và xuất phụ đề tiếng Việt tự động'),
+                subtitle: const Text(
+                  'Nhận diện giọng nói và xuất phụ đề tiếng Việt tự động',
+                ),
                 onTap: () => Navigator.pop(bottomSheetContext, 'ai'),
               ),
             ],
@@ -130,14 +138,18 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
     if (choice == 'upload') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Đã chọn tải phụ đề cho "${video.title}". Tệp sẽ được đồng bộ khi xuất bản.'),
+          content: Text(
+            'Đã chọn tải phụ đề cho "${video.title}". Tệp sẽ được đồng bộ khi xuất bản.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } else if (choice == 'ai') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Hệ thống Dalitu AI đang xử lý nhận diện giọng nói cho video...'),
+          content: Text(
+            'Hệ thống Dalitu AI đang xử lý nhận diện giọng nói cho video...',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -148,7 +160,7 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quản lý Phụ đề'),
+        title: Text(AppStrings.t('creator.subtitles')),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -162,149 +174,65 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
               child: CircularProgressIndicator(color: AppColors.violet),
             )
           : _error != null
-              ? HuTubeStateView(
-                  icon: Icons.subtitles_outlined,
-                  title: _error!,
-                  message: AppStrings.t('common.networkError'),
-                  actionLabel: AppStrings.t('common.retry'),
-                  onAction: _load,
-                  accent: AppColors.violet,
-                )
-              : _videos.isEmpty
-                  ? Center(
-                      child: Text(
-                        AppStrings.t('creator.noManagedVideos'),
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      color: AppColors.violet,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                        itemCount: _videos.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final video = _videos[index];
-                          return Card(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Thumbnail
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      width: 100,
-                                      height: 60,
-                                      color: Colors.grey.withValues(alpha: .2),
-                                      child: video.thumbnailUrl != null &&
-                                              video.thumbnailUrl!.isNotEmpty
-                                          ? Image.network(
-                                              video.thumbnailUrl!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, _, _) =>
-                                                  const Icon(Icons.video_file_outlined),
-                                            )
-                                          : const Icon(Icons.video_file_outlined),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  // Details
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          video.title,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              _formatDuration(video.duration),
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.color,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 6,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.violet
-                                                    .withValues(alpha: .12),
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: const Text(
-                                                'Tiếng Việt',
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppColors.violet,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        InkWell(
-                                          onTap: () => _manageSubtitles(video),
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: const Padding(
-                                            padding: EdgeInsets.symmetric(vertical: 4),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.add_circle_outline_rounded,
-                                                  size: 16,
-                                                  color: AppColors.violet,
-                                                ),
-                                                SizedBox(width: 6),
-                                                Text(
-                                                  'Thêm phụ đề',
-                                                  style: TextStyle(
-                                                    color: AppColors.violet,
-                                                    fontWeight: FontWeight.w700,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.more_vert_rounded),
-                                    onPressed: () => _manageSubtitles(video),
-                                  ),
-                                ],
+          ? HuTubeStateView(
+              icon: Icons.subtitles_outlined,
+              title: _error!,
+              message: AppStrings.t('common.networkError'),
+              actionLabel: AppStrings.t('common.retry'),
+              onAction: _load,
+              accent: AppColors.violet,
+            )
+          : _videos.isEmpty
+          ? Center(
+              child: Text(
+                AppStrings.t('creator.noManagedVideos'),
+                style: const TextStyle(color: Colors.grey),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              color: AppColors.violet,
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                itemCount: _videos.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final video = _videos[index];
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            video.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              Text(
+                                '${video.duration ~/ 60}:${(video.duration % 60).toString().padLeft(2, '0')}',
+                                style: Theme.of(context).textTheme.bodySmall,
                               ),
-                            ),
-                          );
-                        },
+                              TextButton.icon(
+                                onPressed: () => _manageSubtitles(video),
+                                icon: const Icon(Icons.subtitles_outlined),
+                                label: Text(AppStrings.t('creator.subtitles')),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
+                  );
+                },
+              ),
+            ),
     );
   }
 }

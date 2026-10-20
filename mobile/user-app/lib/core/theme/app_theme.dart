@@ -104,7 +104,7 @@ class AppTheme {
       surface: AppColors.darkSurface,
       onSurface: AppColors.darkTextPrimary,
       onSurfaceVariant: AppColors.darkTextMuted,
-      error: AppColors.danger,
+      error: AppColors.dangerBorder,
     ),
     scaffold: AppColors.darkBackground,
     surface: AppColors.darkSurface,
@@ -264,7 +264,7 @@ class AppTheme {
             ? AppColors.darkBackgroundCard
             : AppColors.surfaceAlt,
         side: BorderSide(color: border),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        shape: const StadiumBorder(),
         labelStyle: TextStyle(
           fontFamily: 'Plus Jakarta Sans',
           color: text,

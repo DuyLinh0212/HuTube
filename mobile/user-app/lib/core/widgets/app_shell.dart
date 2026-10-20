@@ -9,6 +9,7 @@ import '../../auth.dart';
 import '../../features/notifications/notification_center.dart';
 import '../localization/app_strings.dart';
 import '../theme/app_theme.dart';
+import '../theme/theme_notifier.dart';
 import 'app_logo.dart';
 import 'google_logo_icon.dart';
 
@@ -442,121 +443,111 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildAuthLayout(String? message, ColorScheme scheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final compact = MediaQuery.sizeOf(context).height < 700;
+    final canGoBack = _page != '/login' || Navigator.of(context).canPop();
+
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  compact ? 16 : 28,
-                  24,
-                  compact ? 20 : 42,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Image.asset(
-                          'assets/logo-mark.png',
-                          width: 30,
-                          height: 30,
-                        ),
-                        const SizedBox(width: 9),
-                        RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -.6,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: 'Dali',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                              TextSpan(
-                                text: 'tu',
-                                style: TextStyle(color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (canGoBack)
+                    IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.textPrimary,
+                      ),
+                      tooltip: AppStrings.t('common.back'),
+                      onPressed: () {
+                        if (_page != '/login') {
+                          _navigate('/login');
+                        } else if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                    )
+                  else
+                    const SizedBox(width: 48, height: 48),
+                  const HuTubeLogo(size: 26, showWordmark: true),
+                  IconButton(
+                    icon: Icon(
+                      isDark
+                          ? Icons.light_mode_outlined
+                          : Icons.dark_mode_outlined,
+                      size: 22,
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.textMuted,
                     ),
-                    SizedBox(height: compact ? 18 : 38),
-                    Text(
-                      AppStrings.t('app.guest.heroEyebrow'),
-                      style: TextStyle(
-                        color: AppColors.primaryHover,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      AppStrings.t(
-                        compact
-                            ? 'app.guest.storyPrimary'
-                            : 'app.guest.storySecondary',
-                      ),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: compact ? 25 : 30,
-                        height: 1.12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -.8,
-                      ),
-                    ),
-                    if (!compact) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        AppStrings.t('app.guest.description'),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: .68),
-                          height: 1.45,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                    tooltip: isDark
+                        ? 'Chuyển sang giao diện sáng'
+                        : 'Chuyển sang giao diện tối',
+                    onPressed: () {
+                      ThemeNotifier.setTheme(isDark ? 'light' : 'dark');
+                    },
+                  ),
+                ],
               ),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                padding: EdgeInsets.fromLTRB(24, compact ? 20 : 28, 24, 34),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (message != null) ...[
-                        _messageBanner(message, scheme),
-                        const SizedBox(height: 18),
-                      ],
-                      ..._authForm(),
-                    ],
+            ),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    compact ? 8 : 16,
+                    16,
+                    compact ? 16 : 24,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSurface : Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.borderSubtle,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.25 : 0.04,
+                            ),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      padding: EdgeInsets.all(compact ? 20 : 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (message != null) ...[
+                            _messageBanner(message, scheme),
+                            const SizedBox(height: 18),
+                          ],
+                          ..._authForm(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -577,7 +568,9 @@ class _AppShellState extends State<AppShell> {
           border: Border.all(
             color: isError
                 ? (isDark ? const Color(0xFF5C202E) : const Color(0xFFFFCCD3))
-                : (isDark ? const Color(0xFF1E4632) : AppColors.primary.withValues(alpha: 0.3)),
+                : (isDark
+                      ? const Color(0xFF1E4632)
+                      : AppColors.primary.withValues(alpha: 0.3)),
             width: 1,
           ),
         ),
@@ -585,7 +578,9 @@ class _AppShellState extends State<AppShell> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(
-              isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
               size: 20,
               color: isError
                   ? (isDark ? const Color(0xFFFF6B81) : const Color(0xFFDC2626))
@@ -597,8 +592,12 @@ class _AppShellState extends State<AppShell> {
                 message,
                 style: TextStyle(
                   color: isError
-                      ? (isDark ? const Color(0xFFFFD1D8) : const Color(0xFF991B1B))
-                      : (isDark ? const Color(0xFFD1FAE5) : AppColors.primaryDark),
+                      ? (isDark
+                            ? const Color(0xFFFFD1D8)
+                            : const Color(0xFF991B1B))
+                      : (isDark
+                            ? const Color(0xFFD1FAE5)
+                            : AppColors.primaryDark),
                   height: 1.4,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
@@ -736,7 +735,9 @@ class _AppShellState extends State<AppShell> {
                     child: Text(
                       AppStrings.t('auth.passwordRequirement'),
                       style: TextStyle(
-                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                        color: isDark
+                            ? AppColors.darkTextMuted
+                            : AppColors.textMuted,
                         fontSize: 12.5,
                       ),
                     ),
@@ -763,7 +764,10 @@ class _AppShellState extends State<AppShell> {
                           : () => _navigate('/forgot-password'),
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -823,7 +827,9 @@ class _AppShellState extends State<AppShell> {
                     children: [
                       Expanded(
                         child: Divider(
-                          color: isDark ? AppColors.darkBorder : AppColors.border,
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.border,
                           thickness: 1,
                         ),
                       ),
@@ -833,14 +839,18 @@ class _AppShellState extends State<AppShell> {
                           AppStrings.t('auth.or'),
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                            color: isDark
+                                ? AppColors.darkTextMuted
+                                : AppColors.textMuted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Divider(
-                          color: isDark ? AppColors.darkBorder : AppColors.border,
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.border,
                           thickness: 1,
                         ),
                       ),
@@ -854,7 +864,9 @@ class _AppShellState extends State<AppShell> {
                     backgroundColor: isDark
                         ? AppColors.darkBackgroundCard
                         : Colors.white,
-                    foregroundColor: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                    foregroundColor: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
                     side: BorderSide(
                       color: isDark ? AppColors.darkBorder : AppColors.border,
                       width: 1.2,
@@ -878,7 +890,9 @@ class _AppShellState extends State<AppShell> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -904,7 +918,9 @@ class _AppShellState extends State<AppShell> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontFamily: 'Plus Jakarta Sans',
-                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.textMuted,
                     ),
                     children: [
                       TextSpan(text: AppStrings.t('auth.noAccountPrefix')),
@@ -927,11 +943,15 @@ class _AppShellState extends State<AppShell> {
             padding: const EdgeInsets.only(top: 4),
             child: Center(
               child: TextButton(
-                onPressed: _busy ? null : () => _navigate('/resend-verification'),
+                onPressed: _busy
+                    ? null
+                    : () => _navigate('/resend-verification'),
                 child: Text(
                   AppStrings.t('auth.resendVerification'),
                   style: TextStyle(
-                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    color: isDark
+                        ? AppColors.darkTextMuted
+                        : AppColors.textMuted,
                     fontSize: 13,
                   ),
                 ),
@@ -965,7 +985,9 @@ class _AppShellState extends State<AppShell> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontFamily: 'Plus Jakarta Sans',
-                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.textMuted,
                     ),
                     children: [
                       TextSpan(
@@ -994,8 +1016,9 @@ class _AppShellState extends State<AppShell> {
             padding: const EdgeInsets.only(top: 4),
             child: Center(
               child: TextButton(
-                onPressed: () =>
-                    _navigate(reset ? '/forgot-password' : '/resend-verification'),
+                onPressed: () => _navigate(
+                  reset ? '/forgot-password' : '/resend-verification',
+                ),
                 child: Text(AppStrings.t('auth.requestNewLink')),
               ),
             ),
@@ -1051,7 +1074,10 @@ class _AppShellState extends State<AppShell> {
               ? AppColors.darkBackgroundCard
               : AppColors.surfaceAlt,
           prefixIcon: Icon(
-            icon ?? (secret ? Icons.lock_outline_rounded : Icons.mail_outline_rounded),
+            icon ??
+                (secret
+                    ? Icons.lock_outline_rounded
+                    : Icons.mail_outline_rounded),
             size: 20,
             color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
           ),
@@ -1066,11 +1092,16 @@ class _AppShellState extends State<AppShell> {
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
                     size: 20,
-                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    color: isDark
+                        ? AppColors.darkTextMuted
+                        : AppColors.textMuted,
                   ),
                 )
               : null,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
@@ -1080,10 +1111,7 @@ class _AppShellState extends State<AppShell> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
-              color: AppColors.primary,
-              width: 1.5,
-            ),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),

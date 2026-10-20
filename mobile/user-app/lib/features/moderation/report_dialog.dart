@@ -35,12 +35,7 @@ Future<void> showContentReportDialog(
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, refresh) => ScrollableSheet(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              MediaQuery.viewInsetsOf(context).bottom + 24,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -57,6 +52,7 @@ Future<void> showContentReportDialog(
                 Text(AppStrings.t('report.instruction')),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: selected,
                   decoration: InputDecoration(
                     labelText: AppStrings.t('report.reason'),

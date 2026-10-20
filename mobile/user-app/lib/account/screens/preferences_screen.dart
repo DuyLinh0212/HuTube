@@ -179,8 +179,8 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,6 +202,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                         ],
                       ),
                       DropdownButton<String>(
+                        isExpanded: true,
                         value: _preferences.defaultPlaybackQuality,
                         underline: const SizedBox(),
                         dropdownColor: Theme.of(context).colorScheme.surface,
@@ -369,8 +370,11 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
               width: selected ? 1.5 : 1.0,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+
             children: [
               Text(flag, style: const TextStyle(fontSize: 18)),
               const SizedBox(width: 8),

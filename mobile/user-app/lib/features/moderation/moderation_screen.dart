@@ -98,11 +98,20 @@ class _ModerationScreenState extends State<ModerationScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: targetType,
-                  decoration: InputDecoration(labelText: AppStrings.t('moderation.targetType')),
+                  decoration: InputDecoration(
+                    labelText: AppStrings.t('moderation.targetType'),
+                  ),
                   items: [
-                    DropdownMenuItem(value: 'video', child: Text(AppStrings.t('moderation.target.video'))),
-                    DropdownMenuItem(value: 'channel', child: Text(AppStrings.t('moderation.target.channel'))),
+                    DropdownMenuItem(
+                      value: 'video',
+                      child: Text(AppStrings.t('moderation.target.video')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'channel',
+                      child: Text(AppStrings.t('moderation.target.channel')),
+                    ),
                     DropdownMenuItem(
                       value: 'comment',
                       child: Text(AppStrings.t('moderation.target.comment')),
@@ -184,9 +193,9 @@ class _ModerationScreenState extends State<ModerationScreen> {
         evidenceNote: evidenceNote.text,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.t('moderation.appealSent'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('moderation.appealSent'))),
+        );
         await _load();
       }
     } on ApiFailure catch (error) {
@@ -302,18 +311,28 @@ class _ModerationScreenState extends State<ModerationScreen> {
                               ),
                             ),
                           ),
-                          Chip(label: Text(_appealStatus('${appeal['status'] ?? 'pending'}'))),
+                          Chip(
+                            label: Text(
+                              _appealStatus('${appeal['status'] ?? 'pending'}'),
+                            ),
+                          ),
                         ],
                       ),
                       Text('${appeal['reason'] ?? ''}'),
                       const SizedBox(height: 5),
                       Text(
-                        AppStrings.format('moderation.appealDate', {'date': _date(appeal['createdAt'])}),
+                        AppStrings.format('moderation.appealDate', {
+                          'date': _date(appeal['createdAt']),
+                        }),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       if ('${appeal['reviewNote'] ?? ''}'.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        Text(AppStrings.format('moderation.reviewNote', {'note': appeal['reviewNote']})),
+                        Text(
+                          AppStrings.format('moderation.reviewNote', {
+                            'note': appeal['reviewNote'],
+                          }),
+                        ),
                       ],
                     ],
                   ),

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../../core/widgets/scrollable_sheet.dart';
 
 import 'package:flutter/material.dart';
 
@@ -263,35 +264,37 @@ class _CreatorAnalyticsScreenState extends State<CreatorAnalyticsScreen> {
     );
   }
 
-  Widget _emptyState() => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.analytics_outlined,
-            size: 46,
-            color: AppColors.violet,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            AppStrings.t('analytics.noVideos'),
-            style: Theme.of(context).textTheme.titleLarge,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            AppStrings.t('analytics.noVideosDescription'),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _uploadFirstVideo,
-            icon: const Icon(Icons.upload_rounded),
-            label: Text(AppStrings.t('creator.upload')),
-          ),
-        ],
+  Widget _emptyState() => HuTubeScrollable(
+    child: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.analytics_outlined,
+              size: 46,
+              color: AppColors.violet,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              AppStrings.t('analytics.noVideos'),
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              AppStrings.t('analytics.noVideosDescription'),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _uploadFirstVideo,
+              icon: const Icon(Icons.upload_rounded),
+              label: Text(AppStrings.t('creator.upload')),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -580,25 +583,9 @@ class _Panel extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-            if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-          ],
-        ),
+        HuTubeSectionHeader(title: title, subtitle: subtitle, compact: true),
+        if (trailing != null)
+          Padding(padding: const EdgeInsets.only(top: 8), child: trailing!),
         const SizedBox(height: 12),
         child,
       ],
@@ -627,8 +614,11 @@ class _LegendLabel extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => Wrap(
+    spacing: 5,
+    runSpacing: 4,
+    crossAxisAlignment: WrapCrossAlignment.center,
+
     children: [
       Container(
         width: 8,

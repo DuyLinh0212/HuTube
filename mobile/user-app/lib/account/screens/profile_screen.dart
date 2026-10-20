@@ -1,3 +1,4 @@
+import '../../core/widgets/scrollable_sheet.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../auth.dart';
@@ -130,445 +131,459 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final email = _profile?.email ?? user['email'] as String? ?? '';
     final username = _profile?.username ?? user['username'] as String? ?? '';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Header title for test compatibility & UI hierarchy
-        Text(
-          AppStrings.t('profile.headerTitle'),
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimaryFor(context),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // User Card (Header)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
-                backgroundImage: _profile?.avatarUrl != null
-                    ? NetworkImage(_profile!.avatarUrl!)
-                    : null,
-                child: _profile?.avatarUrl == null
-                    ? Text(
-                        (displayName.isNotEmpty ? displayName[0] : 'U')
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryPink,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimaryFor(context),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '@$username',
-                      style: TextStyle(
-                        color: AppColors.textSecondaryFor(context),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      email,
-                      style: TextStyle(
-                        color: AppColors.textSecondaryFor(context),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  color: AppColors.primaryPink,
-                ),
-                tooltip: AppStrings.t('account.editTooltip'),
-                onPressed: () async {
-                  if (_profile == null) return;
-                  final updated = await Navigator.of(context).push<UserProfile>(
-                    MaterialPageRoute(
-                      builder: (_) => EditProfileScreen(
-                        auth: widget.auth,
-                        profile: _profile!,
-                      ),
-                    ),
-                  );
-                  if (updated != null) {
-                    setState(() => _profile = updated);
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Channel Section (1 User = Max 1 Channel rule)
-        if (_loadingChannel)
-          Container(
-            height: 90,
-            alignment: Alignment.center,
-            child: const CircularProgressIndicator(
-              color: AppColors.primaryPink,
+    return HuTubeScrollable(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header title for test compatibility & UI hierarchy
+          Text(
+            AppStrings.t('profile.headerTitle'),
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimaryFor(context),
             ),
-          )
-        else if (_channel != null) ...[
-          // Has channel card
+          ),
+          const SizedBox(height: 16),
+
+          // User Card (Header)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primaryPink.withValues(alpha: 0.12),
-                  AppColors.surfaceFor(context),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.primaryPink.withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: AppColors.primaryPink,
-                      backgroundImage: _channel!.avatarUrl != null
-                          ? NetworkImage(_channel!.avatarUrl!)
-                          : null,
-                      child: _channel!.avatarUrl == null
-                          ? Text(
-                              _channel!.name.isNotEmpty
-                                  ? _channel!.name[0].toUpperCase()
-                                  : 'K',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                _channel!.name,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: AppColors.textPrimaryFor(context),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.check_circle,
-                                size: 14,
-                                color: AppColors.primaryPink,
-                              ),
-                            ],
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: AppColors.primaryPink.withValues(
+                    alpha: 0.15,
+                  ),
+                  backgroundImage: _profile?.avatarUrl != null
+                      ? NetworkImage(_profile!.avatarUrl!)
+                      : null,
+                  child: _profile?.avatarUrl == null
+                      ? Text(
+                          (displayName.isNotEmpty ? displayName[0] : 'U')
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryPink,
                           ),
-                          Text(
-                            '@${_channel!.handle} · ${AppStrings.format('channel.subscriberCount', {'count': AppStrings.number(_channel!.subscriberCount)})}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondaryFor(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        )
+                      : null,
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primaryPink,
-                          minimumSize: const Size.fromHeight(40),
-                        ),
-                        onPressed: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ChannelScreen(
-                                auth: widget.auth,
-                                channelOrHandle: _channel!.handle,
-                              ),
-                            ),
-                          );
-                          _loadChannel();
-                        },
-                        child: Text(
-                          AppStrings.t('profile.channelView'),
-                          style: TextStyle(fontSize: 13),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimaryFor(context),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(40),
-                        ),
-                        onPressed: () async {
-                          final res = await Navigator.of(context).push<bool>(
-                            MaterialPageRoute(
-                              builder: (_) => ChannelSettingsScreen(
-                                auth: widget.auth,
-                                channel: _channel!,
-                              ),
-                            ),
-                          );
-                          if (res == true) _loadChannel();
-                        },
-                        child: Text(
-                          AppStrings.t('profile.channelManage'),
-                          style: TextStyle(fontSize: 13),
+                      const SizedBox(height: 2),
+                      Text(
+                        '@$username',
+                        style: TextStyle(
+                          color: AppColors.textSecondaryFor(context),
+                          fontSize: 13,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ] else ...[
-          // No channel card -> Create Channel CTA
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceFor(context),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderFor(context)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.video_call_rounded,
-                      color: AppColors.primaryPink,
-                      size: 28,
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      AppStrings.t('profile.noChannelTitle'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppColors.textPrimaryFor(context),
+                      const SizedBox(height: 2),
+                      Text(
+                        email,
+                        style: TextStyle(
+                          color: AppColors.textSecondaryFor(context),
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  AppStrings.t('profile.noChannelDescription'),
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondaryFor(context),
-                    height: 1.4,
+                    ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primaryPink,
-                    minimumSize: const Size.fromHeight(44),
+                IconButton(
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    color: AppColors.primaryPink,
                   ),
-                  icon: const Icon(Icons.add, size: 20),
-                  label: Text(AppStrings.t('profile.createNow')),
+                  tooltip: AppStrings.t('account.editTooltip'),
                   onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => CreateChannelScreen(auth: widget.auth),
-                      ),
-                    );
-                    _loadChannel();
+                    if (_profile == null) return;
+                    final updated = await Navigator.of(context)
+                        .push<UserProfile>(
+                          MaterialPageRoute(
+                            builder: (_) => EditProfileScreen(
+                              auth: widget.auth,
+                              profile: _profile!,
+                            ),
+                          ),
+                        );
+                    if (updated != null) {
+                      setState(() => _profile = updated);
+                    }
                   },
                 ),
               ],
             ),
           ),
-        ],
-        const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-        // Menu Options List
-        Material(
-          color: Theme.of(context).cardColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Theme.of(context).dividerColor),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              _menuTile(
-                icon: Icons.person_outline_rounded,
-                title: AppStrings.t('profile.editProfile'),
-                onTap: () async {
-                  if (_profile == null) return;
-                  final updated = await Navigator.of(context).push<UserProfile>(
+          // Channel Section (1 User = Max 1 Channel rule)
+          if (_loadingChannel)
+            Container(
+              height: 90,
+              alignment: Alignment.center,
+              child: const CircularProgressIndicator(
+                color: AppColors.primaryPink,
+              ),
+            )
+          else if (_channel != null) ...[
+            // Has channel card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primaryPink.withValues(alpha: 0.12),
+                    AppColors.surfaceFor(context),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.primaryPink.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: AppColors.primaryPink,
+                        backgroundImage: _channel!.avatarUrl != null
+                            ? NetworkImage(_channel!.avatarUrl!)
+                            : null,
+                        child: _channel!.avatarUrl == null
+                            ? Text(
+                                _channel!.name.isNotEmpty
+                                    ? _channel!.name[0].toUpperCase()
+                                    : 'K',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  _channel!.name,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: AppColors.textPrimaryFor(context),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.check_circle,
+                                  size: 14,
+                                  color: AppColors.primaryPink,
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '@${_channel!.handle} · ${AppStrings.format('channel.subscriberCount', {'count': AppStrings.number(_channel!.subscriberCount)})}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondaryFor(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primaryPink,
+                            minimumSize: const Size.fromHeight(40),
+                          ),
+                          onPressed: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChannelScreen(
+                                  auth: widget.auth,
+                                  channelOrHandle: _channel!.handle,
+                                ),
+                              ),
+                            );
+                            _loadChannel();
+                          },
+                          child: Text(
+                            AppStrings.t('profile.channelView'),
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(40),
+                          ),
+                          onPressed: () async {
+                            final res = await Navigator.of(context).push<bool>(
+                              MaterialPageRoute(
+                                builder: (_) => ChannelSettingsScreen(
+                                  auth: widget.auth,
+                                  channel: _channel!,
+                                ),
+                              ),
+                            );
+                            if (res == true) _loadChannel();
+                          },
+                          child: Text(
+                            AppStrings.t('profile.channelManage'),
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // No channel card -> Create Channel CTA
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceFor(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderFor(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.video_call_rounded,
+                        color: AppColors.primaryPink,
+                        size: 28,
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        AppStrings.t('profile.noChannelTitle'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppColors.textPrimaryFor(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    AppStrings.t('profile.noChannelDescription'),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondaryFor(context),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primaryPink,
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                    icon: const Icon(Icons.add, size: 20),
+                    label: Text(AppStrings.t('profile.createNow')),
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              CreateChannelScreen(auth: widget.auth),
+                        ),
+                      );
+                      _loadChannel();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+
+          // Menu Options List
+          Material(
+            color: Theme.of(context).cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _menuTile(
+                  icon: Icons.person_outline_rounded,
+                  title: AppStrings.t('profile.editProfile'),
+                  onTap: () async {
+                    if (_profile == null) return;
+                    final updated = await Navigator.of(context)
+                        .push<UserProfile>(
+                          MaterialPageRoute(
+                            builder: (_) => EditProfileScreen(
+                              auth: widget.auth,
+                              profile: _profile!,
+                            ),
+                          ),
+                        );
+                    if (updated != null) setState(() => _profile = updated);
+                  },
+                ),
+                const Divider(height: 1),
+                _menuTile(
+                  icon: Icons.lock_outline_rounded,
+                  title: AppStrings.t('profile.password'),
+                  onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => EditProfileScreen(
+                      builder: (_) => ChangePasswordScreen(auth: widget.auth),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                _menuTile(
+                  icon: Icons.notifications_none_rounded,
+                  title: AppStrings.t('profile.notifications'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => NotificationSettingsScreen(
                         auth: widget.auth,
-                        profile: _profile!,
+                        notifications: widget.notifications,
                       ),
                     ),
-                  );
-                  if (updated != null) setState(() => _profile = updated);
-                },
-              ),
-              const Divider(height: 1),
-              _menuTile(
-                icon: Icons.lock_outline_rounded,
-                title: AppStrings.t('profile.password'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChangePasswordScreen(auth: widget.auth),
                   ),
                 ),
-              ),
-              const Divider(height: 1),
-              _menuTile(
-                icon: Icons.notifications_none_rounded,
-                title: AppStrings.t('profile.notifications'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => NotificationSettingsScreen(
-                      auth: widget.auth,
-                      notifications: widget.notifications,
+                const Divider(height: 1),
+                _menuTile(
+                  icon: Icons.mark_email_unread_outlined,
+                  title: AppStrings.t('profile.channelInvitations'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ChannelInvitationsScreen(auth: widget.auth),
                     ),
                   ),
                 ),
-              ),
-              const Divider(height: 1),
-              _menuTile(
-                icon: Icons.mark_email_unread_outlined,
-                title: AppStrings.t('profile.channelInvitations'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChannelInvitationsScreen(auth: widget.auth),
+                const Divider(height: 1),
+                _menuTile(
+                  icon: Icons.tune_rounded,
+                  title: AppStrings.t('profile.preferences'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PreferencesScreen(auth: widget.auth),
+                    ),
                   ),
                 ),
-              ),
-              const Divider(height: 1),
-              _menuTile(
-                icon: Icons.tune_rounded,
-                title: AppStrings.t('profile.preferences'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => PreferencesScreen(auth: widget.auth),
-                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Sessions Section
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Text(
+                AppStrings.t('profile.sessionsHeading'),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimaryFor(context),
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: AppStrings.t('profile.refreshDevices'),
+                onPressed: widget.onRefreshSessions,
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 24),
-
-        // Sessions Section
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              AppStrings.t('profile.sessionsHeading'),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimaryFor(context),
-              ),
+          Text(
+            AppStrings.t('profile.sessionsDescription'),
+            style: TextStyle(
+              color: AppColors.textSecondaryFor(context),
+              fontSize: 13,
             ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: AppStrings.t('profile.refreshDevices'),
-              onPressed: widget.onRefreshSessions,
-            ),
-          ],
-        ),
-        Text(
-          AppStrings.t('profile.sessionsDescription'),
-          style: TextStyle(
-            color: AppColors.textSecondaryFor(context),
-            fontSize: 13,
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
 
-        if ((widget.accountController?.loadingSessions ??
-            widget.sessionsLoading))
-          const LinearProgressIndicator(color: AppColors.primaryPink)
-        else if ((widget.accountController?.sessions ?? widget.sessions)
-            .isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text(AppStrings.t('profile.sessionsEmpty')),
-          )
-        else
-          ...(widget.accountController?.sessions ?? widget.sessions).map((
-            session,
-          ) {
-            final sessionId = session['sessionId'] as String? ?? '';
-            return SessionCard(
-              session: session,
-              onRevoke: () => widget.onRevokeSession(sessionId),
-            );
-          }),
+          if ((widget.accountController?.loadingSessions ??
+              widget.sessionsLoading))
+            const LinearProgressIndicator(color: AppColors.primaryPink)
+          else if ((widget.accountController?.sessions ?? widget.sessions)
+              .isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(AppStrings.t('profile.sessionsEmpty')),
+            )
+          else
+            ...(widget.accountController?.sessions ?? widget.sessions).map((
+              session,
+            ) {
+              final sessionId = session['sessionId'] as String? ?? '';
+              return SessionCard(
+                session: session,
+                onRevoke: () => widget.onRevokeSession(sessionId),
+              );
+            }),
 
-        const SizedBox(height: 16),
-        OutlinedButton(
-          onPressed: widget.onLogoutOthers,
-          child: Text(AppStrings.t('profile.logoutOthers')),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: widget.onLogoutAll,
-          child: Text(AppStrings.t('profile.logoutAll')),
-        ),
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: widget.onLogout,
-          child: Text(AppStrings.t('profile.logout')),
-        ),
-      ],
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: widget.onLogoutOthers,
+            child: Text(AppStrings.t('profile.logoutOthers')),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: widget.onLogoutAll,
+            child: Text(AppStrings.t('profile.logoutAll')),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: widget.onLogout,
+            child: Text(AppStrings.t('profile.logout')),
+          ),
+        ],
+      ),
     );
   }
 
