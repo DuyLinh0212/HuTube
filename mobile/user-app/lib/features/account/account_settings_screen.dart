@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/storage/app_preferences.dart';
+import '../../core/theme/app_icons.dart';
 import '../../core/widgets/scrollable_sheet.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_notifier.dart';
@@ -153,15 +154,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => ScrollableSheet(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,36 +180,58 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 ),
               ),
               const Divider(),
-              const SizedBox(height: 8),
-              _actionTile(
-                icon: Icons.person_outline_rounded,
-                title: AppStrings.t('settings.accountSheet.profile'),
-                subtitle: AppStrings.t('settings.accountSheet.profileDesc'),
-                textColor: textColor,
+              ListTile(
+                leading: Icon(Icons.person_outline_rounded, color: textColor),
+                title: Text(
+                  AppStrings.t('settings.accountSheet.profile'),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  AppStrings.t('settings.accountSheet.profileDesc'),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () {
                   Navigator.pop(ctx);
                   _openProfileEditor();
                 },
               ),
-              const SizedBox(height: 8),
-              _actionTile(
-                icon: Icons.lock_outline_rounded,
-                title: AppStrings.t('settings.accountSheet.security'),
-                subtitle: AppStrings.t('settings.accountSheet.securityDesc'),
-                textColor: textColor,
+              ListTile(
+                leading: Icon(Icons.lock_outline_rounded, color: textColor),
+                title: Text(
+                  AppStrings.t('settings.accountSheet.security'),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  AppStrings.t('settings.accountSheet.securityDesc'),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () {
                   Navigator.pop(ctx);
                   _open(ChangePasswordScreen(auth: widget.auth));
                 },
               ),
-              const SizedBox(height: 8),
-              _actionTile(
-                icon: Icons.notifications_none_outlined,
-                title: AppStrings.t('settings.accountSheet.notifications'),
-                subtitle: AppStrings.t(
-                  'settings.accountSheet.notificationsDesc',
+              ListTile(
+                leading: Icon(
+                  Icons.notifications_none_outlined,
+                  color: textColor,
                 ),
-                textColor: textColor,
+                title: Text(
+                  AppStrings.t('settings.accountSheet.notifications'),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  AppStrings.t('settings.accountSheet.notificationsDesc'),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () {
                   Navigator.pop(ctx);
                   _open(
@@ -221,25 +242,37 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 8),
-              _actionTile(
-                icon: Icons.devices_rounded,
-                title: AppStrings.t('settings.accountSheet.sessions'),
-                subtitle: AppStrings.t('settings.accountSheet.sessionsDesc'),
-                textColor: textColor,
+              ListTile(
+                leading: Icon(Icons.devices_rounded, color: textColor),
+                title: Text(
+                  AppStrings.t('settings.accountSheet.sessions'),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  AppStrings.t('settings.accountSheet.sessionsDesc'),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () {
                   Navigator.pop(ctx);
                   _openSessions();
                 },
               ),
-              const SizedBox(height: 8),
-              _actionTile(
-                icon: Icons.tune_rounded,
-                title: AppStrings.t('settings.accountSheet.playbackPref'),
-                subtitle: AppStrings.t(
-                  'settings.accountSheet.playbackPrefDesc',
+              ListTile(
+                leading: Icon(Icons.tune_rounded, color: textColor),
+                title: Text(
+                  AppStrings.t('settings.accountSheet.playbackPref'),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                textColor: textColor,
+                subtitle: Text(
+                  AppStrings.t('settings.accountSheet.playbackPrefDesc'),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () {
                   Navigator.pop(ctx);
                   _open(PreferencesScreen(auth: widget.auth));
@@ -254,12 +287,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
   void _showLanguageDialog() {
     final current = AppStrings.currentLang.value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -292,7 +324,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       ? AppColors.primaryPink
                       : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                title: const Text('Tiếng Việt'),
+                title: const Text('Tiếng Việt (VI) 🇻🇳'),
                 onTap: () {
                   Navigator.pop(ctx);
                   AppStrings.setLanguage('vi');
@@ -309,7 +341,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       ? AppColors.primaryPink
                       : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                title: const Text('English'),
+                title: const Text('English (EN) 🇺🇸'),
                 onTap: () {
                   Navigator.pop(ctx);
                   AppStrings.setLanguage('en');
@@ -369,14 +401,23 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         final email = (user?['email'] as String?)?.isNotEmpty == true
             ? user!['email'] as String
             : '';
+        final avatarLetter = displayName.isNotEmpty
+            ? displayName[0].toUpperCase()
+            : 'D';
 
-        final cardBorderColor = Theme.of(context).dividerColor;
-        final cardBgColor = Theme.of(context).colorScheme.surface;
+        final cardBorderColor = isDark
+            ? const Color(0xFF2C2C2C)
+            : const Color(0xFFE5E5E5);
+        final cardBgColor = isDark ? const Color(0xFF161616) : Colors.white;
 
         return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          backgroundColor: isDark
+              ? const Color(0xFF0F0F0F)
+              : AppColors.background,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            backgroundColor: isDark
+                ? const Color(0xFF0F0F0F)
+                : AppColors.surface,
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: IconButton(
@@ -401,10 +442,34 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
-                      HuTubeAvatar(
-                        url: _profile?.avatarUrl,
-                        label: displayName,
-                        radius: 27,
+                      // Circular Avatar
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(
+                            0xFFFF1744,
+                          ), // Pink/Red circle like Image 5
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFFF1744,
+                              ).withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          avatarLetter,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 14),
                       // Name, handle, email
@@ -421,27 +486,25 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            if (username.isNotEmpty)
-                              Text(
-                                '@$username',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: isDark
-                                      ? const Color(0xFFAAAAAA)
-                                      : AppColors.textMuted,
-                                ),
+                            Text(
+                              '@$username',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark
+                                    ? const Color(0xFFAAAAAA)
+                                    : AppColors.textMuted,
                               ),
+                            ),
                             const SizedBox(height: 1),
-                            if (email.isNotEmpty)
-                              Text(
-                                email,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: isDark
-                                      ? const Color(0xFFAAAAAA)
-                                      : AppColors.textMuted,
-                                ),
+                            Text(
+                              email,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: isDark
+                                    ? const Color(0xFFAAAAAA)
+                                    : AppColors.textMuted,
                               ),
+                            ),
                           ],
                         ),
                       ),
@@ -710,7 +773,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
                 // ================= ACTION LIST ITEMS (Image 5) =================
                 _actionTile(
-                  icon: Icons.storefront_outlined,
+                  customIcon: AppIcons.asset(
+                    AppIcons.myChannel,
+                    size: 24,
+                    color: textColor,
+                  ),
                   title: AppStrings.t('settings.channelSettings'),
                   subtitle: AppStrings.t('settings.customizeChannel'),
                   textColor: textColor,
@@ -722,15 +789,19 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 8),
+                const Divider(height: 1),
                 _actionTile(
-                  icon: Icons.workspace_premium_outlined,
+                  customIcon: AppIcons.asset(
+                    AppIcons.plan,
+                    size: 24,
+                    color: textColor,
+                  ),
                   title: AppStrings.t('settings.plans'),
                   subtitle: AppStrings.t('settings.managePlans'),
                   textColor: textColor,
                   onTap: () => context.push('/plans'),
                 ),
-                const SizedBox(height: 8),
+                const Divider(height: 1),
                 _actionTile(
                   icon: Icons.play_circle_outline_rounded,
                   title: AppStrings.t('settings.playback'),
@@ -742,9 +813,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const Divider(height: 1),
                 _actionTile(
-                  icon: Icons.download_rounded,
+                  customIcon: AppIcons.asset(
+                    AppIcons.download,
+                    size: 24,
+                    color: textColor,
+                  ),
                   title: AppStrings.t('settings.bgAndDownloads'),
                   subtitle: AppStrings.t('settings.bgAndDownloadsDesc'),
                   textColor: textColor,
@@ -754,15 +829,19 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const Divider(height: 1),
                 _actionTile(
-                  icon: Icons.manage_accounts_outlined,
+                  customIcon: AppIcons.asset(
+                    AppIcons.setting,
+                    size: 24,
+                    color: textColor,
+                  ),
                   title: AppStrings.t('settings.accountSettings'),
                   subtitle: AppStrings.t('settings.accountSettingsDesc'),
                   textColor: textColor,
                   onTap: _showAccountSettingsSheet,
                 ),
-                const SizedBox(height: 8),
+                const Divider(height: 1),
                 _actionTile(
                   icon: Icons.translate_rounded,
                   title: AppStrings.t('settings.language'),
@@ -852,14 +931,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 OutlinedButton.icon(
                   onPressed: _logout,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.error,
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.error.withValues(alpha: .06),
+                    foregroundColor: Colors.redAccent,
                     side: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.error.withValues(alpha: .18),
+                      color: Colors.redAccent.withValues(alpha: 0.5),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -886,69 +960,49 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   Widget _actionTile({
-    required IconData icon,
+    IconData? icon,
+    Widget? customIcon,
     required String title,
     required String subtitle,
     required Color textColor,
     required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Material(
-      color: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.dividerColor.withValues(alpha: .5)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: .08),
-                  borderRadius: BorderRadius.circular(12),
+  }) => InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        children: [
+          if (customIcon != null)
+            customIcon
+          else if (icon != null)
+            Icon(icon, size: 24, color: textColor),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
                 ),
-                child: Icon(icon, size: 21, color: colors.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12.5, color: Colors.grey),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: colors.onSurfaceVariant,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          const Text(
+            '›',
+            style: TextStyle(fontSize: 22, color: Colors.grey, height: 1),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
