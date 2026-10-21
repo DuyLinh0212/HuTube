@@ -1109,12 +1109,13 @@ class _FilePicker extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: AppColors.surfaceFor(context),
+  Widget build(BuildContext context) => Material(
+    color: AppColors.surfaceFor(context),
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.borderFor(context)),
+      side: BorderSide(color: AppColors.borderFor(context)),
     ),
+    clipBehavior: Clip.antiAlias,
     child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       onTap: onTap,

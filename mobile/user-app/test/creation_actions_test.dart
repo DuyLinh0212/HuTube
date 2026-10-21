@@ -125,6 +125,35 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(VideoUploadScreen), findsOneWidget);
+    // Flutter 3.47 reports this paint obstruction itself. Check it explicitly
+    // so older local SDKs also catch file-picker ink hidden by a background.
+    final uploadTiles = find.descendant(
+      of: find.byType(VideoUploadScreen),
+      matching: find.byType(ListTile),
+    );
+    expect(uploadTiles, findsWidgets);
+    for (final element in uploadTiles.evaluate()) {
+      Widget? obstruction;
+      element.visitAncestorElements((ancestor) {
+        if (ancestor.widget is Material) return false;
+        final color = switch (ancestor.widget) {
+          ColoredBox(:final color) => color,
+          DecoratedBox(decoration: BoxDecoration(:final color)) => color,
+          DecoratedBox(decoration: ShapeDecoration(:final color)) => color,
+          _ => null,
+        };
+        if (color != null && color.a > 0) {
+          obstruction = ancestor.widget;
+          return false;
+        }
+        return true;
+      });
+      expect(
+        obstruction,
+        isNull,
+        reason: 'Upload picker ink must remain visible',
+      );
+    }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
