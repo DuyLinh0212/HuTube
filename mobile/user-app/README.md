@@ -6,7 +6,7 @@
 
 Backend cần chạy cổng 5080. Theo quyết định hiện tại của chủ dự án, local thay Staging cho giai đoạn này.
 
-Feed cá nhân hóa gọi trực tiếp FastAPI tại `RECOMMENDATION_BASE_URL`, dùng access token đăng nhập và tự refresh qua .NET khi hết hạn. Với Android Emulator, URL tự suy ra là `http://10.0.2.2:8000/api/v1`; với API local trên localhost/127.0.0.1, dùng cùng host ở cổng 8000. Bản deploy mặc định dùng `https://hutube-recommendation-services.onrender.com/api/v1`. Ghi đè bằng `--dart-define=RECOMMENDATION_BASE_URL=...` cho URL khác, đặc biệt khi dùng IP LAN. Với Android USB, thêm `adb reverse tcp:8000 tcp:8000`; script `run-local.ps1 -Component mobile` tự thiết lập cả hai cổng.
+Feed cá nhân hóa gọi trực tiếp FastAPI tại `RECOMMENDATION_BASE_URL`, dùng access token đăng nhập và tự refresh qua .NET khi hết hạn. Với Android Emulator, URL tự suy ra là `http://10.0.2.2:8000/api/v1`; với API local trên localhost/127.0.0.1, dùng cùng host ở cổng 8000. Bản deploy hiện dùng API `https://api.dalitu.app/api/v1` và Recommendation Service `https://recommendation.dalitu.app/api/v1`. Ghi đè bằng `--dart-define=RECOMMENDATION_BASE_URL=...` cho URL khác, đặc biệt khi dùng IP LAN. Với Android USB, thêm `adb reverse tcp:8000 tcp:8000`; script `run-local.ps1 -Component mobile` tự thiết lập cả hai cổng.
 
 ```powershell
 flutter pub get
@@ -17,7 +17,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1
 - Điện thoại Android nối USB: chạy `adb reverse tcp:5080 tcp:5080` rồi dùng `http://127.0.0.1:5080/api/v1`.
 - iOS Simulator: dùng `http://localhost:5080/api/v1` khi backend chạy trên máy Mac. iOS cần Xcode để build.
 - Điện thoại thật cùng LAN: truyền IP LAN máy backend và bind backend vào địa chỉ có thể truy cập. Không lưu URL vào source để chuyển môi trường.
-- Khi dùng Render hoặc môi trường deploy, bắt buộc truyền `API_BASE_URL` bằng `--dart-define`; build release dùng HTTPS. Android chỉ cho HTTP ở debug/profile.
+- Build release dùng HTTPS. Có thể truyền `--dart-define=API_BASE_URL=https://api.dalitu.app/api/v1` và `--dart-define=RECOMMENDATION_BASE_URL=https://recommendation.dalitu.app/api/v1`; Android chỉ cho HTTP ở debug/profile.
 
 Biểu tượng kết nối trên thanh đầu trang gọi `GET /system/info`, hiện trạng thái thực từ backend.
 

@@ -31,21 +31,22 @@ export class RuntimeConfig {
       && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
     const configuredHost = new URL(configuredApiUrl).hostname;
 
-    // A production build can leave config.json pointing at Render. When that
-    // build is previewed on localhost, use the local API instead of silently
-    // calling an older staging deployment that may not have the latest routes.
-    this.apiBaseUrl = localHost && configuredHost === 'hutube.onrender.com'
+    // A production build previewed on localhost should use local services,
+    // rather than silently calling a deployed API from a local browser.
+    this.apiBaseUrl = localHost && ['api.dalitu.app', 'hutube.onrender.com'].includes(configuredHost)
       ? 'http://localhost:5080/api/v1'
       : configuredApiUrl;
     const apiHost = new URL(this.apiBaseUrl).hostname;
     const localApi = ['localhost', '127.0.0.1', '[::1]'].includes(apiHost);
     const hostedRecommendationHosts = [
-      'hutube-recommendation-service.onrender.com', 'hutube-recommendation-services.onrender.com'
+      'recommendation.dalitu.app',
+      'hutube-recommendation-service.onrender.com',
+      'hutube-recommendation-services.onrender.com'
     ];
     this.recommendationBaseUrl = localApi
       && (!config.RECOMMENDATION_BASE_URL || hostedRecommendationHosts.includes(new URL(config.RECOMMENDATION_BASE_URL).hostname))
       ? `${new URL(this.apiBaseUrl).protocol}//${apiHost}:8000/api/v1`
-      : validateApiUrl(config.RECOMMENDATION_BASE_URL || 'https://hutube-recommendation-services.onrender.com/api/v1');
+      : validateApiUrl(config.RECOMMENDATION_BASE_URL || 'https://recommendation.dalitu.app/api/v1');
     const configuredGoogleClientId = config.GOOGLE_CLIENT_ID;
     this.googleClientId = typeof configuredGoogleClientId === 'string' && configuredGoogleClientId.endsWith('.apps.googleusercontent.com')
       ? configuredGoogleClientId

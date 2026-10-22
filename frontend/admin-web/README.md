@@ -8,9 +8,9 @@ $env:API_BASE_URL = 'http://localhost:5080/api/v1'
 npm start
 ```
 
-Mặc định chạy tại `http://localhost:4201`. API phải cho phép origin này qua CORS. Hiện dùng API local theo quyết định của chủ dự án.
+Mặc định chạy tại `http://localhost:4201`; `npm start` tự đặt API local. Build mặc định trỏ đến `https://api.dalitu.app/api/v1`. Có thể ghi đè bằng `API_BASE_URL` cho môi trường khác. API phải cho phép origin local qua CORS.
 
-Cấu hình runtime ở `public/config.json`. `scripts/configure-api.mjs` nhận biến `API_BASE_URL` trước `npm start` / `npm run build`. Có thể đổi `dist/admin-web/browser/config.json` sau build. Không chứa secret. Hosting phải fallback route về `index.html`, phục vụ config không cache.
+Cấu hình runtime ở `public/config.json`. `scripts/configure-api.mjs` nhận biến `API_BASE_URL` trước `npm start` / `npm run build`; biến này nếu đã đặt trong Vercel Project Settings sẽ ghi đè cấu hình trong repo. Có thể đổi `dist/admin-web/browser/config.json` sau build. Không chứa secret. Hosting phải fallback route về `index.html`, phục vụ config không cache.
 
 ```powershell
 npm run build

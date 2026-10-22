@@ -14,7 +14,7 @@ describe('Recommendation service configuration', () => {
 
   it('uses the deployed recommendation service when no explicit URL is set', async () => {
     const config = await load('https://api.example.test/api/v1');
-    expect(config.recommendationBaseUrl).toBe('https://hutube-recommendation-services.onrender.com/api/v1');
+    expect(config.recommendationBaseUrl).toBe('https://recommendation.dalitu.app/api/v1');
   });
 
   it('preserves an explicitly configured recommendation service', async () => {
@@ -28,4 +28,13 @@ describe('Recommendation service configuration', () => {
       expect(config.recommendationBaseUrl).toBe('http://localhost:8000/api/v1');
     });
   }
+
+  it('uses local services when previewing the EC2 configuration locally', async () => {
+    const config = await load(
+      'https://api.dalitu.app/api/v1',
+      'https://recommendation.dalitu.app/api/v1',
+    );
+    expect(config.apiBaseUrl).toBe('http://localhost:5080/api/v1');
+    expect(config.recommendationBaseUrl).toBe('http://localhost:8000/api/v1');
+  });
 });

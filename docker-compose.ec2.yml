@@ -1,0 +1,57 @@
+name: hutube-ec2
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env.ec2-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Recommendation__Enabled: "true"
+      Recommendation__ServiceUrl: http://recommendation:8000
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-5080}:8080"
+    volumes:
+      - hutube-work:/app/.work
+      - hutube-uploads:/app/uploads
+    restart: unless-stopped
+    depends_on:
+      recommendation:
+        condition: service_started
+
+  recommendation:
+    build:
+      context: ./recommendation-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./recommendation-service/.env.ec2
+    environment:
+      HUTUBE_API_BASE_URL: http://api:8080/api/v1
+      APP_ENV: production
+    ports:
+      - "127.0.0.1:${RECOMMENDATION_HOST_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    depends_on:
+      - api
+      - recommendation
+
+volumes:
+  hutube-work:
+  hutube-uploads:
+  caddy-data:
+  caddy-config:
