@@ -35,7 +35,6 @@ public sealed class AdminOperationsService(
     private static readonly TimeSpan SignalRProbeTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan R2UsageCacheDuration = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan UpstashUsageCacheDuration = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan RenderUsageCacheDuration = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan NeonUsageCacheDuration = TimeSpan.FromMinutes(15);
     private const string CloudflareGraphQlEndpoint = "https://api.cloudflare.com/client/v4/graphql";
 
@@ -76,6 +75,7 @@ public sealed class AdminOperationsService(
         var apiErrors = apiTraffic.ServerErrorsLast15Minutes;
 
         var (memoryPercent, workingSetBytes, availableBytes) = ReadMemoryUsage();
+        var ec2Memory = ReadEc2MemoryUsage(now);
         var signals = new List<AdminSystemSignal>();
         if (memoryPercent is int currentMemoryPercent)
         {
@@ -138,28 +138,27 @@ public sealed class AdminOperationsService(
         overviewTimer.Stop();
         var r2StorageUsageTask = GetR2StorageUsageAsync(ct);
         var redisUsageTask = GetRedisUsageAsync(ct);
-        var renderUsageTask = GetRenderUsageAsync(ct);
         var servicesTask = GetServiceStatusesAsync(databaseTimer.Elapsed.TotalMilliseconds,
-            overviewTimer.Elapsed.TotalMilliseconds, notificationConnections.Active.Count, ct);
+            overviewTimer.Elapsed.TotalMilliseconds, notificationConnections.Active.Count, ec2Memory, ct);
         var neonUsageTask = GetNeonUsageAsync(ct);
         var services = await servicesTask;
         var r2StorageUsage = await r2StorageUsageTask;
         var neonUsage = await neonUsageTask;
         var redisUsage = await redisUsageTask;
-        var renderUsage = await renderUsageTask;
         await RecordSignalTransitionsAsync(signals, now, ct);
         var incidentHistory = await GetIncidentHistoryAsync(ct);
         var recentActivity = await GetRecentActivityAsync(ct);
 
         return new AdminSystemOverviewResponse(now, triggered.Count, triggered.Count(signal => signal.Severity == "critical"),
             signals, settings, apiTraffic, liveMetrics, services, r2StorageUsage, neonUsage, redisUsage,
-            renderUsage, recentActivity, incidentHistory);
+            ec2Memory, recentActivity, incidentHistory);
     }
 
     private async Task<IReadOnlyList<AdminSystemServiceStatus>> GetServiceStatusesAsync(
         double databaseResponseTimeMs,
         double overviewResponseTimeMs,
         int activeSignalRConnections,
+        AdminEc2MemoryUsage ec2Memory,
         CancellationToken ct)
     {
         var redisTask = CheckRedisAsync(ct);
@@ -172,7 +171,8 @@ public sealed class AdminOperationsService(
             new("api", "healthy", "Endpoint giám sát vừa xử lý dữ liệu thành công.", overviewResponseTimeMs),
             new("database", "healthy", "Truy vấn database Neon/PostgreSQL thành công.", databaseResponseTimeMs),
             await redisTask,
-            await CheckRenderAsync(overviewResponseTimeMs, ct),
+            new("ec2", ec2Memory.Status == "available" ? "healthy" : ec2Memory.Status,
+                ec2Memory.Detail, null),
             await vercelTask,
             await r2Task,
             await signalRTask
@@ -333,20 +333,6 @@ public sealed class AdminOperationsService(
         var status = failed.Length == 0 ? "healthy"
             : failed.Any(result => result.Result.StatusCode >= 500 || result.Result.StatusCode == 0) ? "error" : "warning";
         return new("vercel", status, detail, results.Average(result => result.Result.ResponseTimeMs));
-    }
-
-    private Task<AdminSystemServiceStatus> CheckRenderAsync(double responseTimeMs, CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        var renderUrl = configuration["SystemMonitoring:RenderHealthUrl"]
-            ?? configuration["RENDER_EXTERNAL_URL"]
-            ?? Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL");
-        if (string.IsNullOrWhiteSpace(renderUrl))
-            return Task.FromResult(new AdminSystemServiceStatus("render", "unmonitored",
-                "Không phát hiện URL service Render trong môi trường hiện tại.", null));
-
-        return Task.FromResult(new AdminSystemServiceStatus("render", "healthy",
-            "Backend trên Render vừa xử lý thành công request giám sát này.", responseTimeMs));
     }
 
     private async Task<AdminSystemServiceStatus> CheckR2Async(CancellationToken ct)
@@ -719,110 +705,6 @@ public sealed class AdminOperationsService(
         }
     }
 
-    private async Task<AdminRenderUsage> GetRenderUsageAsync(CancellationToken ct)
-    {
-        var apiKey = configuration["RENDER_API_KEY"]?.Trim();
-        var serviceId = configuration["RENDER_SERVICE_ID"]?.Trim()
-            ?? Environment.GetEnvironmentVariable("RENDER_SERVICE_ID")?.Trim();
-        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(serviceId))
-            return new("unmonitored", null, null, null, null, null,
-                "Render CPU/memory API cần RENDER_API_KEY; RENDER_SERVICE_ID được cấp tự động trên Render.");
-
-        var cacheKey = $"admin-render-usage:{serviceId}";
-        return await memoryCache.GetOrCreateAsync(cacheKey, async entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = RenderUsageCacheDuration;
-            return await QueryRenderUsageAsync(apiKey, serviceId, ct);
-        }) ?? new AdminRenderUsage("error", null, null, null, null, null, "Không lấy được usage từ Render Metrics API.");
-    }
-
-    private async Task<AdminRenderUsage> QueryRenderUsageAsync(string apiKey, string serviceId, CancellationToken ct)
-    {
-        var metricTasks = await Task.WhenAll(
-            GetRenderMetricAsync("cpu", apiKey, serviceId, ct),
-            GetRenderMetricAsync("cpu-limit", apiKey, serviceId, ct),
-            GetRenderMetricAsync("memory", apiKey, serviceId, ct),
-            GetRenderMetricAsync("memory-limit", apiKey, serviceId, ct));
-        var cpu = metricTasks[0];
-        var cpuLimit = metricTasks[1];
-        var memory = metricTasks[2];
-        var memoryLimit = metricTasks[3];
-        double? cpuPercent = cpu.Value is > 0 && cpuLimit.Value is > 0 ? Math.Clamp(cpu.Value.Value / cpuLimit.Value.Value * 100d, 0, 1000) : null;
-        var memoryBytes = ToBytes(memory.Value, memory.Unit);
-        var memoryLimitBytes = ToBytes(memoryLimit.Value, memoryLimit.Unit);
-        double? memoryPercent = memoryBytes is > 0 && memoryLimitBytes is > 0
-            ? Math.Clamp(memoryBytes.Value * 100d / memoryLimitBytes.Value, 0, 1000) : null;
-        var available = cpuPercent is not null || memoryPercent is not null;
-        var metricErrors = metricTasks
-            .Where(result => !string.IsNullOrWhiteSpace(result.Error))
-            .Select(result => result.Error!)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var detail = available
-            ? metricErrors.Length == 0
-                ? "CPU và bộ nhớ lấy từ mẫu Render Metrics API mới nhất của service."
-                : $"Đã đọc được một phần metrics Render. {string.Join(" ", metricErrors)}"
-            : metricErrors.Length > 0
-                ? string.Join(" ", metricErrors)
-                : "Render Metrics API trả thành công nhưng chưa có mẫu CPU/memory trong 10 phút gần nhất.";
-        return new(available ? "available" : "error", cpuPercent, cpuLimit.Value,
-            memoryPercent, memoryBytes, memoryLimitBytes,
-            detail);
-    }
-
-    private async Task<RenderMetricValue> GetRenderMetricAsync(string metric, string apiKey, string serviceId, CancellationToken ct)
-    {
-        // Use the documented minimum query. Render defaults the time range to the
-        // most recent hour; omitting optional time/instance filters also avoids
-        // rejecting a service when its instance has just rotated during a deploy.
-        var query = $"resource={Uri.EscapeDataString(serviceId)}&resolutionSeconds=60";
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(ProviderMetricsTimeout);
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.render.com/v1/metrics/{metric}?{query}");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            using var response = await httpClientFactory.CreateClient().SendAsync(request,
-                HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            if (!response.IsSuccessStatusCode)
-            {
-                var responseBody = await response.Content.ReadAsStringAsync(timeout.Token);
-                var providerDetail = CompactProviderError(responseBody);
-                var suffix = providerDetail.Length == 0 ? string.Empty : $" — {providerDetail}";
-                return new(null, null, $"Render API metric {metric} trả HTTP {(int)response.StatusCode}{suffix}.");
-            }
-            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
-            using var payload = await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
-            if (payload.RootElement.ValueKind != JsonValueKind.Array)
-                return new(null, null, $"Render API metric {metric} trả JSON không đúng định dạng.");
-            var points = new List<(DateTimeOffset At, double Value, string? Unit)>();
-            foreach (var series in payload.RootElement.EnumerateArray())
-            {
-                var unit = ReadText(series, "unit");
-                if (!series.TryGetProperty("values", out var values) || values.ValueKind != JsonValueKind.Array) continue;
-                foreach (var point in values.EnumerateArray())
-                {
-                    if (!point.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Number
-                        || !value.TryGetDouble(out var numeric)) continue;
-                    var timestamp = point.TryGetProperty("timestamp", out var time)
-                        && DateTimeOffset.TryParse(time.GetString(), CultureInfo.InvariantCulture,
-                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed)
-                        ? parsed : DateTimeOffset.MinValue;
-                    points.Add((timestamp, numeric, unit));
-                }
-            }
-            if (points.Count == 0) return new(null, null, $"Render API metric {metric} không có mẫu trong 10 phút gần nhất.");
-            var latestTime = points.Max(point => point.At);
-            var latest = points.Where(point => point.At == latestTime).MaxBy(point => point.Value);
-            return new(latest.Value, latest.Unit, null);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (OperationCanceledException) { return new(null, null, $"Đọc Render API metric {metric} quá thời gian 10 giây."); }
-        catch (HttpRequestException) { return new(null, null, $"Không kết nối được Render API metric {metric}."); }
-        catch (JsonException) { return new(null, null, $"Render API metric {metric} trả JSON không hợp lệ."); }
-    }
-
     private async Task RecordSignalTransitionsAsync(
         IReadOnlyList<AdminSystemSignal> signals, DateTimeOffset now, CancellationToken ct)
     {
@@ -1012,8 +894,6 @@ public sealed class AdminOperationsService(
     }
 
     private sealed record NeonConsumptionResult(string Status, double? ComputeUnitHours, string Detail);
-    private sealed record RenderMetricValue(double? Value, string? Unit, string? Error);
-
     private static long? ReadMetric(JsonElement metrics, string name)
     {
         if (!metrics.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number)
@@ -1258,6 +1138,47 @@ public sealed class AdminOperationsService(
             return ((int)Math.Clamp(Math.Round(workingSet * 100d / available), 0, 100), workingSet, available);
         }
         catch (Exception) { return (null, null, null); }
+    }
+
+    private static AdminEc2MemoryUsage ReadEc2MemoryUsage(DateTimeOffset sampledAt)
+    {
+        if (!OperatingSystem.IsLinux())
+            return new("unmonitored", null, null, null, null, null,
+                "RAM host được đọc từ /proc/meminfo trên Linux EC2.");
+
+        try
+        {
+            long? totalKilobytes = null;
+            long? availableKilobytes = null;
+            foreach (var line in File.ReadLines("/proc/meminfo"))
+            {
+                var separator = line.IndexOf(':');
+                if (separator < 0) continue;
+                var key = line[..separator];
+                if (key is not ("MemTotal" or "MemAvailable")) continue;
+                var fields = line[(separator + 1)..].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length == 0 || !long.TryParse(fields[0], NumberStyles.None,
+                        CultureInfo.InvariantCulture, out var kilobytes) || kilobytes < 0) continue;
+                if (key == "MemTotal") totalKilobytes = kilobytes;
+                else availableKilobytes = kilobytes;
+            }
+
+            if (totalKilobytes is not > 0 || availableKilobytes is null)
+                return new("error", null, null, null, null, null,
+                    "Không tìm thấy MemTotal và MemAvailable trong /proc/meminfo.");
+
+            var totalBytes = checked(totalKilobytes.Value * 1024);
+            var availableBytes = Math.Clamp(checked(availableKilobytes.Value * 1024), 0, totalBytes);
+            var usedBytes = totalBytes - availableBytes;
+            var usedPercent = (int)Math.Round(usedBytes * 100d / totalBytes);
+            return new("available", totalBytes, usedBytes, availableBytes, usedPercent, sampledAt,
+                "RAM của máy EC2 đọc trực tiếp từ /proc/meminfo trên máy chủ Linux.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OverflowException)
+        {
+            return new("error", null, null, null, null, null,
+                "Không thể đọc RAM host từ /proc/meminfo trong container API.");
+        }
     }
 
     private static string FormatBytes(long? value) => value switch

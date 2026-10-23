@@ -29,7 +29,7 @@ export interface SystemOverview {
   r2StorageUsage?: R2StorageUsage | null;
   neonUsage?: NeonUsage | null;
   redisUsage?: RedisUsage | null;
-  renderUsage?: RenderUsage | null;
+  ec2Memory?: Ec2MemoryUsage | null;
   recentActivity?: SystemActivity[];
   incidentHistory?: SystemActivity[];
 }
@@ -54,13 +54,13 @@ export interface RedisUsage {
   detail: string;
 }
 
-export interface RenderUsage {
+export interface Ec2MemoryUsage {
   status: string;
-  cpuPercent: number | null;
-  cpuLimit: number | null;
-  memoryPercent: number | null;
-  memoryBytes: number | null;
-  memoryLimitBytes: number | null;
+  totalBytes: number | null;
+  usedBytes: number | null;
+  availableBytes: number | null;
+  usedPercent: number | null;
+  sampledAt: string | null;
   detail: string;
 }
 
@@ -145,7 +145,7 @@ function normalizeServiceKey(value: unknown, index: number): string {
     api: 'api', backend: 'api', backendapi: 'api',
     database: 'database', db: 'database', neon: 'database', neondatabase: 'database', neonpostgresql: 'database', postgres: 'database', postgresql: 'database',
     redis: 'redis', upstash: 'redis', upstashredis: 'redis', redisupstash: 'redis',
-    vercel: 'vercel', vercelfrontend: 'vercel', render: 'render', renderbackend: 'render',
+    vercel: 'vercel', vercelfrontend: 'vercel', ec2: 'ec2', awsec2: 'ec2',
     storage: 'storage', r2: 'storage', cloudflarer2: 'storage', cloudflarer2storage: 'storage', cloudflarestorage: 'storage',
     signalr: 'signalr',
   };

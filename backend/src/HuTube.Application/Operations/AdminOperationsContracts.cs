@@ -81,13 +81,13 @@ public sealed record AdminRedisUsage(
     string Plan,
     string Detail);
 
-public sealed record AdminRenderUsage(
+public sealed record AdminEc2MemoryUsage(
     string Status,
-    double? CpuPercent,
-    double? CpuLimit,
-    double? MemoryPercent,
-    long? MemoryBytes,
-    long? MemoryLimitBytes,
+    long? TotalBytes,
+    long? UsedBytes,
+    long? AvailableBytes,
+    int? UsedPercent,
+    DateTimeOffset? SampledAt,
     string Detail);
 
 public sealed record AdminSystemActivity(
@@ -110,7 +110,7 @@ public sealed record AdminSystemOverviewResponse(
     AdminR2StorageUsage R2StorageUsage,
     AdminNeonUsage NeonUsage,
     AdminRedisUsage RedisUsage,
-    AdminRenderUsage RenderUsage,
+    AdminEc2MemoryUsage Ec2Memory,
     IReadOnlyList<AdminSystemActivity> RecentActivity,
     IReadOnlyList<AdminSystemActivity> IncidentHistory);
 
