@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import '../config/app_config.dart';
 import '../errors/app_error.dart';
 import 'network_status.dart';
+import 'read_cache.dart';
 
 class UploadPayload {
   const UploadPayload({
@@ -38,6 +39,9 @@ class MultipartFilePayload {
 }
 
 class ApiClient {
+  static void invalidateReadCache() => ReadCache.clear();
+  static void invalidateNotificationCache() =>
+      ReadCache.invalidateNotifications();
   ApiClient({
     http.Client? client,
     String? baseUrl,
@@ -85,6 +89,7 @@ class ApiClient {
       ).timeout(const Duration(seconds: 40));
       NetworkStatus.instance.markAvailable();
       final data = _decodeResponse(response);
+      ReadCache.clear();
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
     } on AppError {
       rethrow;
@@ -132,6 +137,7 @@ class ApiClient {
       ).timeout(const Duration(minutes: 5));
       NetworkStatus.instance.markAvailable();
       final data = _decodeResponse(response);
+      ReadCache.clear();
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
     } on AppError {
       rethrow;
@@ -178,6 +184,24 @@ class ApiClient {
   }
 
   Future<dynamic> _requestJson(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    String? accessToken,
+  }) => ReadCache.read(
+    method,
+    Uri.parse(_buildUrl(path)),
+    accessToken,
+    body,
+    () => _requestJsonUncached(
+      method,
+      path,
+      body: body,
+      accessToken: accessToken,
+    ),
+  );
+
+  Future<dynamic> _requestJsonUncached(
     String method,
     String path, {
     Map<String, dynamic>? body,
@@ -246,7 +270,10 @@ class ApiClient {
         try {
           final fallbackBase = fallback.replaceAll(RegExp(r'/+$'), '');
           final cleanPath = path.startsWith('/') ? path : '/$path';
-          final fallbackRequest = http.Request(method, Uri.parse('$fallbackBase$cleanPath'));
+          final fallbackRequest = http.Request(
+            method,
+            Uri.parse('$fallbackBase$cleanPath'),
+          );
           fallbackRequest.headers.addAll({
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -254,8 +281,12 @@ class ApiClient {
             if (accessToken != null) 'Authorization': 'Bearer $accessToken',
           });
           if (body != null) fallbackRequest.body = jsonEncode(body);
-          final streamed = await client.send(fallbackRequest).timeout(const Duration(seconds: 15));
-          final response = await http.Response.fromStream(streamed).timeout(const Duration(seconds: 15));
+          final streamed = await client
+              .send(fallbackRequest)
+              .timeout(const Duration(seconds: 15));
+          final response = await http.Response.fromStream(
+            streamed,
+          ).timeout(const Duration(seconds: 15));
           _currentBaseUrl = fallback;
           NetworkStatus.instance.markAvailable();
           return _decodeResponse(response);

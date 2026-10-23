@@ -13,6 +13,7 @@ using HuTube.Domain.Videos;
 using HuTube.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Hybrid;
 
 namespace HuTube.Infrastructure.Recommendations;
 
@@ -56,7 +57,7 @@ public sealed class RecommendationAdminService(
     HuTubeDbContext db, IRecommendationSnapshotStore snapshots,
     IHttpClientFactory clients, RecommendationOptions options,
     IPasswordService passwords, IContentService content, ChannelService channels,
-    ILogger<RecommendationAdminService> logger)
+    ILogger<RecommendationAdminService> logger, HybridCache? readCache = null)
 {
     private const int VideoPickerPageSize = 200;
     private const int MaxSimulationVideoCount = 10_000;
@@ -314,11 +315,19 @@ public sealed class RecommendationAdminService(
         }
     }
 
+    private Task<List<Signal>> ReadMatrixSnapshotAsync(CancellationToken ct) => readCache is null
+        ? BuildMatrixAsync(ct)
+        : readCache.GetOrCreateAsync($"recommendation:matrix-preview:v1:{DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30}",
+            token => new ValueTask<List<Signal>>(BuildMatrixAsync(token)), new HybridCacheEntryOptions {
+                Expiration = TimeSpan.FromSeconds(30), LocalCacheExpiration = TimeSpan.FromSeconds(30),
+                Flags = HybridCacheEntryFlags.DisableDistributedCache
+            }, cancellationToken: ct).AsTask();
+
     public async Task<MatrixDiffResponse> DiffAsync(CancellationToken ct)
     {
         var active = await ActiveAsync(ct);
         var scoreAggregation = active?.ScoreAggregation ?? DefaultScoreAggregation();
-        var rows = await BuildMatrixAsync(ct);
+        var rows = await ReadMatrixSnapshotAsync(ct);
         var current = Count(rows.Select(x => x.CsvLine(scoreAggregation)));
         if (active == null)
             return new("uninitialized", null, null, null, null,
@@ -354,7 +363,7 @@ public sealed class RecommendationAdminService(
     public async Task<MatrixPreviewResponse> PreviewMatrixAsync(CancellationToken ct)
     {
         var scoreConfig = (await ActiveAsync(ct))?.ScoreAggregation ?? DefaultScoreAggregation();
-        var rows = await BuildMatrixAsync(ct);
+        var rows = await ReadMatrixSnapshotAsync(ct);
         var previewRows = rows.Take(20).ToList();
         var userIds = previewRows.Select(x => x.UserId).Distinct().ToArray();
         var videoIds = previewRows.Select(x => x.VideoId).Distinct().ToArray();

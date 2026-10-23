@@ -59,9 +59,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   final List<Map<String, dynamic>> _chapters = [];
 
   List<VideoDetail> get _availableRelatedVideos => _relatedVideos
-      .where(
-        (item) => !_videoCards.any((card) => card['videoId'] == item.id),
-      )
+      .where((item) => !_videoCards.any((card) => card['videoId'] == item.id))
       .toList();
 
   void _addChapter() {
@@ -160,8 +158,9 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
 
   Future<void> _loadRelatedVideos() async {
     try {
-      final result = await loadAllPages(
-        (page) => _creator.managedVideos(widget.channel.id, page: page),
+      final result = await _creator.videoMetrics(
+        widget.channel.id,
+        includeStats: false,
       );
       if (!mounted) return;
       setState(() {
@@ -623,7 +622,8 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                   ),
                   const SizedBox(width: 8),
                   FilledButton.tonalIcon(
-                    onPressed: _uploading ||
+                    onPressed:
+                        _uploading ||
                             _durationSeconds <= 0 ||
                             _selectedRelatedVideoId == null
                         ? null

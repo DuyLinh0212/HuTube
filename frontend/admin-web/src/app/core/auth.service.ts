@@ -2,6 +2,7 @@ import { HttpBackend, HttpClient, HttpErrorResponse, HttpHeaders } from '@angula
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, TimeoutError, catchError, defer, finalize, firstValueFrom, map, of, retry, shareReplay, switchMap, timer, tap, throwError, timeout } from 'rxjs';
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
+import { ReadCacheStore } from './read-cache.interceptor';
 import { I18nService } from './i18n.service';
 
 export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; role?: string; permissions?: string[]; }
@@ -161,6 +162,7 @@ export class AuthService {
   private raw = new HttpClient(inject(HttpBackend));
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
+  private readonly readCache = inject(ReadCacheStore);
   private readonly i18n = inject(I18nService);
   readonly user = signal<User | null>(null);
   readonly accessToken = signal<string | null>(null);
@@ -185,7 +187,7 @@ export class AuthService {
       timeout({ first: timeoutMs }),
     );
   }
-  clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
+  clear(): void { this.readCache.clear(); this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
   private accept(response: LoginResponse): void {
     this.accessTokenExpiresAt = Date.parse(response.expiresAt) || 0;
     this.accessToken.set(response.accessToken);

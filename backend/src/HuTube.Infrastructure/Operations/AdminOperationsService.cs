@@ -14,6 +14,7 @@ using HuTube.Infrastructure.Notifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
@@ -28,7 +29,7 @@ public sealed class AdminOperationsService(
     IObjectStorage objectStorage,
     IHttpClientFactory httpClientFactory,
     IMemoryCache memoryCache,
-    IHttpContextAccessor httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor, HybridCache? readCache = null)
 {
     private static readonly TimeSpan HealthProbeTimeout = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan ProviderMetricsTimeout = TimeSpan.FromSeconds(10);
@@ -37,6 +38,34 @@ public sealed class AdminOperationsService(
     private static readonly TimeSpan UpstashUsageCacheDuration = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan NeonUsageCacheDuration = TimeSpan.FromMinutes(15);
     private const string CloudflareGraphQlEndpoint = "https://api.cloudflare.com/client/v4/graphql";
+
+    public sealed record CounterSnapshot(long Signups, long Locked, long Abuse, long Reviews,
+        long FailedPayments, long Sessions, long PendingPayments, long ExpiredPayments,
+        long ProcessingVideos, long FailedVideos, long ProcessingRenditions, long FailedRenditions);
+
+    private Task<CounterSnapshot> ReadCountersAsync(DateTimeOffset now, CancellationToken ct) => readCache is null
+        ? QueryCountersAsync(now, ct)
+        : readCache.GetOrCreateAsync($"operations:counters:v1:{now.ToUnixTimeSeconds() / 15}",
+            token => new ValueTask<CounterSnapshot>(QueryCountersAsync(now, token)),
+            new HybridCacheEntryOptions { Expiration = TimeSpan.FromSeconds(15), LocalCacheExpiration = TimeSpan.FromSeconds(5) },
+            cancellationToken: ct).AsTask();
+
+    private Task<CounterSnapshot> QueryCountersAsync(DateTimeOffset now, CancellationToken ct) =>
+        db.Database.SqlQuery<CounterSnapshot>($"""
+            SELECT
+                (SELECT count(*) FROM public.users WHERE deleted_at IS NULL AND created_at >= {now.AddHours(-1)} AND created_at < {now}) AS "Signups",
+                (SELECT count(*) FROM public.users WHERE deleted_at IS NULL AND locked_until > {now}) AS "Locked",
+                (SELECT count(*) FROM public.reports WHERE abuse_flag AND status = 'pending') AS "Abuse",
+                (SELECT count(*) FROM public.moderation_cases WHERE case_type = 'upload_review' AND status = 'pending') AS "Reviews",
+                (SELECT count(*) FROM public.payments WHERE status IN ('failed','cancelled') AND updated_at >= {now.AddDays(-1)} AND updated_at < {now}) AS "FailedPayments",
+                (SELECT count(*) FROM public.refresh_tokens WHERE revoked_at IS NULL AND expires_at > {now}) AS "Sessions",
+                (SELECT count(*) FROM public.payments WHERE status = 'pending') AS "PendingPayments",
+                (SELECT count(*) FROM public.payments WHERE status = 'pending' AND expires_at <= {now}) AS "ExpiredPayments",
+                (SELECT count(*) FROM public.videos WHERE status = 'processing') AS "ProcessingVideos",
+                (SELECT count(*) FROM public.videos WHERE status = 'failed' AND updated_at >= {now.AddDays(-1)} AND updated_at < {now}) AS "FailedVideos",
+                (SELECT count(*) FROM public.video_renditions WHERE status = 'processing') AS "ProcessingRenditions",
+                (SELECT count(*) FROM public.video_renditions WHERE status = 'failed' AND updated_at >= {now.AddDays(-1)} AND updated_at < {now}) AS "FailedRenditions"
+            """).SingleAsync(ct);
 
     public async Task<AdminSystemOverviewResponse> GetSystemOverviewAsync(CancellationToken ct)
     {
@@ -51,24 +80,9 @@ public sealed class AdminOperationsService(
         var apiErrorThreshold = Math.Max(1, configuration.GetValue("SystemAlerts:ApiErrorsPer15Minutes", 5));
         var memoryWarningThreshold = Math.Clamp(configuration.GetValue("SystemAlerts:MemoryWarningPercent", 75), 1, 99);
 
-        var signupsLastHour = await db.Users.AsNoTracking().LongCountAsync(user => user.CreatedAt >= hourAgo && user.CreatedAt < now, ct);
-        var lockedAccounts = await db.Users.AsNoTracking().LongCountAsync(user => user.LockedUntil != null && user.LockedUntil > now, ct);
-        var abuseReports = await db.Reports.AsNoTracking().LongCountAsync(report => report.AbuseFlag && report.Status == "pending", ct);
-        var pendingReviews = await db.ModerationCases.AsNoTracking().LongCountAsync(item =>
-            item.CaseType == "upload_review" && item.Status == "pending", ct);
-        var failedPayments = await db.Payments.AsNoTracking().LongCountAsync(payment =>
-            (payment.Status == "failed" || payment.Status == "cancelled") && payment.UpdatedAt >= dayAgo && payment.UpdatedAt < now, ct);
-        var activeSessions = await db.Sessions.AsNoTracking().LongCountAsync(session =>
-            session.RevokedAt == null && session.ExpiresAt > now, ct);
-        var pendingPayments = db.Payments.AsNoTracking().Where(payment => payment.Status == "pending");
-        var pendingPaymentCount = await pendingPayments.LongCountAsync(ct);
-        var expiredPendingPayments = await pendingPayments.LongCountAsync(payment => payment.ExpiresAt <= now, ct);
-        var processingVideos = await db.Videos.AsNoTracking().LongCountAsync(video => video.Status == "processing", ct);
-        var failedVideos = await db.Videos.AsNoTracking().LongCountAsync(video =>
-            video.Status == "failed" && video.UpdatedAt >= dayAgo && video.UpdatedAt < now, ct);
-        var processingRenditions = await db.VideoRenditions.AsNoTracking().LongCountAsync(rendition => rendition.Status == "processing", ct);
-        var failedRenditions = await db.VideoRenditions.AsNoTracking().LongCountAsync(rendition =>
-            rendition.Status == "failed" && rendition.UpdatedAt >= dayAgo && rendition.UpdatedAt < now, ct);
+        var counts = await ReadCountersAsync(now, ct);
+        var (signupsLastHour, lockedAccounts, abuseReports, pendingReviews, failedPayments, activeSessions,
+            pendingPaymentCount, expiredPendingPayments, processingVideos, failedVideos, processingRenditions, failedRenditions) = counts;
         databaseTimer.Stop();
 
         var apiTraffic = telemetry.Snapshot(now);

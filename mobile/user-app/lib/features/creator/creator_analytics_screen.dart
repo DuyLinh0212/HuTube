@@ -48,11 +48,9 @@ class _CreatorAnalyticsScreenState extends State<CreatorAnalyticsScreen> {
       _error = null;
     });
     try {
-      final result = await loadAllPages(
-        (page) => CreatorService(
-          widget.auth,
-        ).managedVideos(widget.channel.id, page: page),
-      );
+      final result = await CreatorService(
+        widget.auth,
+      ).videoMetrics(widget.channel.id);
       if (!mounted) return;
       setState(() {
         _videos = result.items;

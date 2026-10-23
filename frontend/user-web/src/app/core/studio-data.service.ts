@@ -1,14 +1,21 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { EMPTY, Subject, expand, reduce, takeUntil } from 'rxjs';
+import { EMPTY, Subject, catchError, expand, reduce, takeUntil, throwError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { RuntimeConfig } from './runtime-config';
 import { Router } from '@angular/router';
 import { ChannelDetail, ChannelService } from './channel.service';
 import { ContentService, VideoDetail } from './content.service';
 import { I18nService } from './i18n.service';
 
+export type StudioVideoSummary = Pick<VideoDetail, 'videoId' | 'channelId' | 'title' | 'thumbnailUrl' | 'duration'
+  | 'visibility' | 'status' | 'moderationStatus' | 'moderationReason' | 'languageCode' | 'createdAt' | 'publishedAt' | 'stats'>;
+
 @Injectable({ providedIn: 'root' })
 export class StudioDataService {
   private readonly channels = inject(ChannelService);
+  private readonly http = inject(HttpClient);
   private readonly content = inject(ContentService);
+  private readonly config = inject(RuntimeConfig);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly selectionChanged = new Subject<void>();
@@ -17,7 +24,7 @@ export class StudioDataService {
   readonly channel = signal<ChannelDetail | null>(null);
   readonly accessibleChannels = signal<ChannelDetail[]>([]);
   readonly selectedChannelId = signal<string | null>(this.readSelectedId());
-  readonly videos = signal<VideoDetail[]>([]);
+  readonly videos = signal<StudioVideoSummary[]>([]);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly views = computed(() => this.videos().reduce((sum, video) => sum + video.stats.views, 0));
@@ -79,9 +86,12 @@ export class StudioDataService {
       this.loading.set(false);
       return;
     }
-    this.content.managed(channelId, 1, 50).pipe(
-      expand(page => page.page * page.pageSize < page.total ? this.content.managed(channelId, page.page + 1, page.pageSize) : EMPTY),
-      reduce((videos, page) => [...videos, ...page.items], [] as VideoDetail[]),
+    const includeStats = /\/(overview|analytics)(?:[?/#]|$)/.test(this.router.url);
+    this.http.get<StudioVideoSummary[]>(`${this.config.apiBaseUrl}/studio/channels/${channelId}/metrics`, { params: { includeStats } }).pipe(
+      catchError(error => error?.status === 404 ? this.content.managed(channelId, 1, 50).pipe(
+        expand(page => page.page * page.pageSize < page.total ? this.content.managed(channelId, page.page + 1, page.pageSize) : EMPTY),
+        reduce((videos, page) => [...videos, ...page.items], [] as VideoDetail[])
+      ) : throwError(() => error)),
       takeUntil(this.selectionChanged)
     ).subscribe({
       next: videos => { this.videos.set(videos); this.loading.set(false); },

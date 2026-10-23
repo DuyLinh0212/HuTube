@@ -5,6 +5,7 @@ import * as signalR from '@microsoft/signalr';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { RuntimeConfig } from './runtime-config';
+import { ReadCacheStore } from './read-cache.interceptor';
 import { I18nService } from './i18n.service';
 import { NetworkStatusService } from './network/network-status.service';
 
@@ -16,6 +17,7 @@ export class NotificationService implements OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly config = inject(RuntimeConfig);
+  private readonly readCache = inject(ReadCacheStore);
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly network = inject(NetworkStatusService);
@@ -99,12 +101,14 @@ export class NotificationService implements OnDestroy {
     this.connection.onclose(() => { if (generation === this.generation) this.connection = undefined; });
     this.connection.on('NotificationReceived', (item: AppNotification) => {
       if (generation !== this.generation) return;
+      this.readCache.invalidate('/notifications/received');
       this.items.update(items => [item, ...items.filter(existing => existing.notificationId !== item.notificationId)]);
       if (item.type === 'channel_invitation') this.showInvitationToast(item.content);
     });
-    this.connection.on('UnreadCountChanged', (count: number) => { if (generation === this.generation) this.unread.set(count); });
+    this.connection.on('UnreadCountChanged', (count: number) => { if (generation === this.generation) { this.readCache.invalidate('/notifications/read'); this.unread.set(count); } });
     this.connection.on('InvitationReceived', (event: { channelName?: string }) => {
       if (generation !== this.generation) return;
+      this.readCache.clear();
       this.invitationVersion.update(version => version + 1);
       this.showInvitationToast(this.i18n.t('notification.channelInviteToast', { channel: event?.channelName ? ` ${event.channelName}` : '' }));
     });

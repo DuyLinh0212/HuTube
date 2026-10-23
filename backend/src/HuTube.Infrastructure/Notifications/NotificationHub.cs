@@ -84,12 +84,25 @@ public sealed class NotificationService(
     public async Task<NotificationPage> GetAsync(Guid userId, int page = 1, int pageSize = 5, CancellationToken ct = default)
     {
         page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 25);
-        if (cache != null && page == 1 && pageSize == 5)
-            return await cache.GetOrCreateAsync(CacheKey(userId),
+        if (cache != null && db.Database.IsNpgsql())
+        {
+            string revision;
+            try { revision = await db.Database.SqlQuery<string>($"""
+                SELECT COALESCE((SELECT revision::text FROM public.read_cache_revisions
+                    WHERE scope = {"notifications:" + userId.ToString()}),
+                    (SELECT revision::text FROM public.read_cache_revisions WHERE scope = 'shared')) AS "Value"
+                """).SingleAsync(ct); }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == Npgsql.PostgresErrorCodes.UndefinedTable)
+            { return await ReadPageAsync(userId, page, pageSize, ct); }
+            return await cache.GetOrCreateAsync($"notifications:v1:{userId:N}:{revision}:{page}:{pageSize}",
                 async token => await ReadPageAsync(userId, page, pageSize, token),
                 new HybridCacheEntryOptions {
-                    Expiration = TimeSpan.FromSeconds(30), LocalCacheExpiration = TimeSpan.FromSeconds(5)
+                    Expiration = TimeSpan.FromSeconds(30),
+                    // A local copy cannot observe invalidation from another API
+                    // instance. Use shared L2 only for this mutable user state.
+                    Flags = HybridCacheEntryFlags.DisableLocalCache
                 }, cancellationToken: ct);
+        }
         return await ReadPageAsync(userId, page, pageSize, ct);
     }
 

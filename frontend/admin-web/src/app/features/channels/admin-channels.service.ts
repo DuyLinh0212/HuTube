@@ -1,7 +1,7 @@
 import { csvCell } from '../../core/csv';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, forkJoin, map, of, catchError } from 'rxjs';
+import { Observable, forkJoin, map, of, catchError, throwError } from 'rxjs';
 import { I18nService } from '../../core/i18n.service';
 import { RuntimeConfig } from '../../core/runtime-config';
 
@@ -112,45 +112,13 @@ export class AdminChannelsService {
   }
 
   getChannelCounts(): Observable<ChannelCounts> {
-    // Perform parallel calls to fetch actual counts per status
-    const all$ = this.http
-      .get<AdminPage<AdminChannel>>(`${this.base}/channels`, {
-        params: new HttpParams().set('page', 1).set('pageSize', 1)
-      })
-      .pipe(
-        map(res => res.total)
-      );
-
-    const active$ = this.http
-      .get<AdminPage<AdminChannel>>(`${this.base}/channels`, {
-        params: new HttpParams().set('page', 1).set('pageSize', 1).set('status', 'active')
-      })
-      .pipe(
-        map(res => res.total)
-      );
-
-    const suspended$ = this.http
-      .get<AdminPage<AdminChannel>>(`${this.base}/channels`, {
-        params: new HttpParams().set('page', 1).set('pageSize', 1).set('status', 'suspended')
-      })
-      .pipe(
-        map(res => res.total)
-      );
-
-    const banned$ = this.http
-      .get<AdminPage<AdminChannel>>(`${this.base}/channels`, {
-        params: new HttpParams().set('page', 1).set('pageSize', 1).set('status', 'banned')
-      })
-      .pipe(
-        map(res => res.total)
-      );
-
-    return forkJoin({
-      all: all$,
-      active: active$,
-      restricted: suspended$,
-      banned: banned$
-    });
+    return this.http.get<ChannelCounts>(`${this.base}/channels/counts`).pipe(catchError(error => {
+      if (error?.status !== 404) return throwError(() => error);
+      const count = (status?: string) => this.http.get<AdminPage<AdminChannel>>(`${this.base}/channels`, {
+        params: new HttpParams().set('page', 1).set('pageSize', 1).set('status', status ?? '')
+      }).pipe(map(value => value.total));
+      return forkJoin({ all: count(), active: count('active'), restricted: count('suspended'), banned: count('banned') });
+    }));
   }
 
   channelAction(

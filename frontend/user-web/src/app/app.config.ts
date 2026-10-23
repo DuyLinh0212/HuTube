@@ -7,6 +7,7 @@ import { provideRouter, withInMemoryScrolling, withRouterConfig } from '@angular
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth.interceptor';
 import { networkInterceptor } from './core/network/network.interceptor';
+import { readCacheInterceptor } from './core/read-cache.interceptor';
 import { RuntimeConfig } from './core/runtime-config';
 
 // Keep locale data available to every route, including lazy-loaded pages that
@@ -19,7 +20,7 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withRouterConfig({ onSameUrlNavigation: 'reload' }),
       withInMemoryScrolling({ scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled' })),
-    provideHttpClient(withInterceptors([authInterceptor, networkInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, readCacheInterceptor, networkInterceptor])),
     provideAppInitializer(() => inject(RuntimeConfig).load()),
     { provide: COMPOSITION_BUFFER_MODE, useValue: false }
   ]

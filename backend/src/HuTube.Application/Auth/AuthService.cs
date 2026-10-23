@@ -296,17 +296,19 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
 
     public async Task<bool> ValidateSessionAsync(Guid userId, Guid sessionId, Guid jti, CancellationToken ct = default, string? ipAddress = null)
     {
-        var session = await store.FindSessionAsync(sessionId, ct);
-        if (session == null || session.UserId != userId || session.Jti != jti || !session.IsActive(Now)
-            || session.LastActiveAt <= Now.AddDays(-options.SessionInactivityDays)) return false;
-        var user = await store.FindUserAsync(userId, ct);
-        if (user == null || user.IsBlocked || user.Status != "active" || user.EmailVerifiedAt == null) return false;
-        if (session.Platform == "admin" && !await store.IsAdminAsync(userId, ct)) return false;
-        // Keep active users signed in. The store throttles this write to once per
-        // minute while the session expiry moves with the user's activity.
+        // Read current security state on every request, in one untracked query.
+        // Revocation, account suspension and admin-role changes are never cached.
+        var session = await store.ReadSessionValidationAsync(sessionId, ct);
+        var now = Now;
+        if (session == null || session.UserId != userId || session.Jti != jti || session.RevokedAt != null
+            || session.ExpiresAt <= now || session.LastActiveAt <= now.AddDays(-options.SessionInactivityDays)
+            || !session.UserAllowed || !session.AdminAllowed) return false;
+        // Avoid sending a no-op UPDATE for every read. The conditional database
+        // update still arbitrates concurrent requests at the one-minute boundary.
+        if (session.LastActiveAt >= now.AddMinutes(-1)) return true;
         try
         {
-            await store.TouchSessionAsync(sessionId, Now, Now.AddDays(options.RefreshTokenDays), ipAddress, ct);
+            await store.TouchSessionAsync(sessionId, now, now.AddDays(options.RefreshTokenDays), ipAddress, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

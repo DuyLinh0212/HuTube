@@ -27,6 +27,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<LibraryVideo> _liked = [];
   late int _tab;
   int? _rating;
+  int _page = 0;
+  int _total = 0;
+  int _generation = 0;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -36,37 +40,41 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool more = false}) async {
+    if (more && _loadingMore) return;
+    final generation = more ? _generation : ++_generation;
+    final tab = _tab;
+    final page = more ? _page + 1 : 1;
     setState(() {
-      _loading = true;
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+      }
       _error = null;
     });
     try {
-      final history = await loadAllPages(
-        (page) => _content.history(page: page),
-      );
-      final liked = await loadAllPages(
-        (page) => _content.liked(page: page, rating: _rating),
-      );
-      if (mounted) {
-        setState(() {
-          _history = history.items;
-          _liked = liked.items;
-          _loading = false;
-        });
-      }
-    } on ApiFailure catch (error) {
-      if (mounted) {
-        setState(() {
-          _error = AppStrings.apiError(error, fallback: 'library.loadError');
-          _loading = false;
-        });
-      }
+      final result = tab == 0
+          ? await _content.history(page: page)
+          : await _content.liked(page: page, rating: _rating);
+      if (!mounted || generation != _generation || tab != _tab) return;
+      setState(() {
+        if (tab == 0) {
+          _history = more ? [..._history, ...result.items] : result.items;
+        } else {
+          _liked = more ? [..._liked, ...result.items] : result.items;
+        }
+        _page = page;
+        _total = result.total;
+        _loading = false;
+        _loadingMore = false;
+      });
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = AppStrings.t('library.loadError');
           _loading = false;
+          _loadingMore = false;
         });
       }
     }
@@ -98,6 +106,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final items = _tab == 0 ? _history : _liked;
     return DefaultTabController(
       length: 2,
+      initialIndex: _tab,
       child: Column(
         children: [
           Padding(
@@ -110,7 +119,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           ),
           TabBar(
-            onTap: (value) => setState(() => _tab = value),
+            onTap: (value) {
+              if (value != _tab) {
+                setState(() => _tab = value);
+                _load();
+              }
+            },
             tabs: [
               Tab(
                 icon: AppIcons.asset(AppIcons.history, size: 20),
@@ -157,7 +171,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Expanded(
             child: RefreshIndicator(
               color: AppColors.primaryPink,
-              onRefresh: _load,
+              onRefresh: () {
+                ApiClient.invalidateReadCache();
+                return _load();
+              },
               child: items.isEmpty
                   ? ListView(
                       children: [
@@ -174,8 +191,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                      itemCount: items.length,
+                      itemCount: items.length + (items.length < _total ? 1 : 0),
                       itemBuilder: (_, index) {
+                        if (index == items.length) {
+                          return TextButton(
+                            onPressed: _loadingMore
+                                ? null
+                                : () => _load(more: true),
+                            child: Text(AppStrings.t('notifications.loadMore')),
+                          );
+                        }
                         final item = items[index];
                         return VideoCardTile(
                           video: item,

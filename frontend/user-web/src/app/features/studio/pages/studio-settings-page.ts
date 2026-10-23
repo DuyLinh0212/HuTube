@@ -27,7 +27,7 @@ export class StudioSettingsPage {
   contactEmail = '';
 
   constructor() {
-    this.data.load();
+    this.data.load(undefined, false);
     effect(() => {
       const channel = this.data.channel();
       if (channel && channel.channelId !== this.id) {

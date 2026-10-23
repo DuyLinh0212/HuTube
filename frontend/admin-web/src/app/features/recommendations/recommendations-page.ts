@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize, Subscription } from 'rxjs';
 import { errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { RuntimeConfig } from '../../core/runtime-config';
@@ -163,6 +163,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.pollHandle) clearInterval(this.pollHandle);
+    this.jobRequest?.unsubscribe();
   }
 
   private configuredModelVersion: string | null | undefined;
@@ -781,14 +782,18 @@ export class RecommendationsPage implements OnInit, OnDestroy {
     });
   }
 
+  private jobRequest?: Subscription;
+
   private watch(id: string): void {
+    this.jobRequest?.unsubscribe();
     if (this.pollHandle) clearInterval(this.pollHandle);
     this.refreshJob(id);
-    this.pollHandle = setInterval(() => this.refreshJob(id), 2000);
+    this.pollHandle = setInterval(() => this.refreshJob(id), 5000);
   }
 
   private refreshJob(id: string): void {
-    this.http.get<Job>(`${this.base()}/jobs/${id}`).subscribe({
+    if (document.hidden || !navigator.onLine || (this.jobRequest && !this.jobRequest.closed)) return;
+    this.jobRequest = this.http.get<Job>(`${this.base()}/jobs/${id}`).subscribe({
       next: value => {
         this.job.set(value);
         setTimeout(() => {

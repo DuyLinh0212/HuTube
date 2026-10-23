@@ -494,14 +494,11 @@ export class ExplorePage implements OnInit, OnDestroy {
     // every featured creator.
     this.subscriptionStateRequestKey = requestKey;
 
-    forkJoin(creators.map(creator => this.channelService.getSubscriptionStatus(creator.channelId).pipe(
-      catchError(() => of(null)),
-    ))).pipe(takeUntil(this.destroy$)).subscribe(statuses => {
-      statuses.forEach((status, index) => {
-        if (status) this.subscribedMap.set(creators[index].channelId, status.isSubscribed);
-      });
+    this.channelService.getSubscribedChannels().pipe(takeUntil(this.destroy$)).subscribe({ next: subscriptions => {
+      const subscribed = new Set(subscriptions.map(item => item.channelId));
+      creators.forEach(creator => this.subscribedMap.set(creator.channelId, subscribed.has(creator.channelId)));
       this.featuredCreators.update(list => [...list]);
-    });
+    }, error: () => { this.subscriptionStateRequestKey = ''; } });
   }
 
   private setCreatorSubscriptionBusy(channelId: string, busy: boolean) {

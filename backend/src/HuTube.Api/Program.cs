@@ -198,7 +198,8 @@ builder.Services.AddScoped<IRecommendationSnapshotStore>(_ => new Recommendation
 builder.Services.AddScoped<RecommendationAdminService>();
 builder.Services.AddHostedService<RecommendationJobWorker>();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
-builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
+builder.Services.AddScoped<ReadModelCacheFilter>();
+builder.Services.AddControllers(options => options.Filters.AddService<ReadModelCacheFilter>()).ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
     var problem = ApiErrors.Create(context.HttpContext, 400, "VALIDATION_ERROR", "Vui lòng kiểm tra các trường dữ liệu.");
     problem.Extensions["errors"] = context.ModelState.Where(x => x.Value?.Errors.Count > 0).ToDictionary(x => x.Key, x => x.Value!.Errors.Select(_ => "Giá trị không hợp lệ.").ToArray());
     var result = new BadRequestObjectResult(problem); result.ContentTypes.Add("application/problem+json"); return result;
@@ -208,8 +209,8 @@ var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url =
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
     .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
-    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "Prefer", "X-Upload-Chunk-Index", "X-Requested-With", "X-SignalR-User-Agent", "X-HuTube-Client", "X-HuTube-App")
-    .WithExposedHeaders("Retry-After", "X-Request-ID")
+    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "Prefer", "Cache-Control", "X-Upload-Chunk-Index", "X-Requested-With", "X-SignalR-User-Agent", "X-HuTube-Client", "X-HuTube-App")
+    .WithExposedHeaders("Retry-After", "X-Request-ID", "X-Data-Cache")
     .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
     .AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {

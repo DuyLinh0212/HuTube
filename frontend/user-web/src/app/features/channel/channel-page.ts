@@ -267,6 +267,10 @@ export class ChannelPage {
   }
 
   private loadPlaylistPreviews(playlists: PlaylistSummary[]) {
+    if (playlists.every(list => Array.isArray(list.previewItems))) {
+      this.playlistPreviewById.set(Object.fromEntries(playlists.map(list => [list.playlistId, list.previewItems!])));
+      return;
+    }
     const previewPlaylists = playlists.filter(playlist => playlist.itemCount > 0).slice(0, 12);
     this.playlistPreviewById.set({});
     if (!previewPlaylists.length) return;

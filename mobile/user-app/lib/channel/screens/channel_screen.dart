@@ -43,6 +43,11 @@ class _ChannelScreenState extends State<ChannelScreen>
   int _subscriberCount = 0;
   bool _showFullDesc = false;
   List<VideoCard> _videos = const [];
+  VideoCard? _trailerVideo;
+  int _videoPage = 1;
+  int _videoTotal = 0;
+  int _loadGeneration = 0;
+  bool _loadingMore = false;
   List<PlaylistSummary> _playlists = const [];
 
   @override
@@ -60,6 +65,9 @@ class _ChannelScreenState extends State<ChannelScreen>
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
+    _loadingMore = false;
+    _trailerVideo = null;
     setState(() {
       _loading = true;
       _error = null;
@@ -78,22 +86,23 @@ class _ChannelScreenState extends State<ChannelScreen>
         }
       }
       final results = await Future.wait([
-        loadAllPages(
-          (page) => ContentService(widget.auth).searchVideos(
-            query: '',
-            channelId: detail.id,
-            page: page,
-            pageSize: 30,
-            sort: 'newest',
-          ),
+        ContentService(widget.auth).searchVideos(
+          query: '',
+          channelId: detail.id,
+          page: 1,
+          pageSize: 30,
+          sort: 'newest',
         ),
         detail.isOwner
             ? PlaylistService(widget.auth).channelMine(detail.id)
             : PlaylistService(widget.auth).publicByChannel(detail.id),
       ]);
-      if (mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
-          _videos = (results[0] as PageResult<VideoCard>).items;
+          final page = results[0] as PageResult<VideoCard>;
+          _videos = page.items;
+          _videoPage = page.page;
+          _videoTotal = page.total;
           _playlists = results[1] as List<PlaylistSummary>;
           _channel = detail;
           _isSubscribed = subscribed;
@@ -101,6 +110,7 @@ class _ChannelScreenState extends State<ChannelScreen>
           _subscriberCount = detail.subscriberCount;
           _loading = false;
         });
+        _loadTrailer(detail, generation);
       }
     } on ApiFailure catch (e) {
       if (mounted) {
@@ -115,6 +125,52 @@ class _ChannelScreenState extends State<ChannelScreen>
           _error = AppStrings.t('common.serverError');
           _loading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadTrailer(ChannelDetail detail, int generation) async {
+    final id = _parseTrailerVideoId(detail.settings);
+    if (id == null || _videos.any((video) => video.id == id)) return;
+    try {
+      final video = await ContentService(widget.auth).detail(id);
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _trailerVideo = video);
+    } catch (_) {
+      /* Unavailable trailers do not block the channel. */
+    }
+  }
+
+  Future<void> _loadMoreVideos() async {
+    final channel = _channel;
+    if (channel == null || _loadingMore || _videos.length >= _videoTotal) {
+      return;
+    }
+    final generation = _loadGeneration;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await ContentService(widget.auth).searchVideos(
+        query: '',
+        channelId: channel.id,
+        page: _videoPage + 1,
+        pageSize: 30,
+        sort: 'newest',
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      final seen = _videos.map((item) => item.id).toSet();
+      setState(() {
+        _videos = [
+          ..._videos,
+          ...page.items.where((item) => seen.add(item.id)),
+        ];
+        _videoPage = page.page;
+        _videoTotal = page.total;
+      });
+    } catch (_) {
+      /* Keep loaded videos and the retry button. */
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loadingMore = false);
       }
     }
   }
@@ -538,7 +594,8 @@ class _ChannelScreenState extends State<ChannelScreen>
     final trailerId = _parseTrailerVideoId(c.settings);
     VideoCard? trailerVideo;
     if (trailerId != null) {
-      trailerVideo = _videos.where((v) => v.id == trailerId).firstOrNull;
+      trailerVideo =
+          _videos.where((v) => v.id == trailerId).firstOrNull ?? _trailerVideo;
     }
 
     return ListView(
@@ -625,7 +682,14 @@ class _ChannelScreenState extends State<ChannelScreen>
                 style: TextStyle(color: AppColors.textSecondaryFor(context)),
               ),
             ]
-          : [for (final video in _videos) VideoCardTile(video: video)],
+          : [
+              for (final video in _videos) VideoCardTile(video: video),
+              if (_videos.length < _videoTotal)
+                TextButton(
+                  onPressed: _loadingMore ? null : _loadMoreVideos,
+                  child: Text(AppStrings.t('notifications.loadMore')),
+                ),
+            ],
     );
   }
 
@@ -754,14 +818,20 @@ class _ChannelScreenState extends State<ChannelScreen>
                 avatar: _platformIcon(platform),
                 label: Text(
                   title,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 visualDensity: VisualDensity.compact,
                 onPressed: () async {
                   final uri = Uri.tryParse(url);
                   if (uri != null) {
                     try {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     } catch (_) {}
                   }
                 },
@@ -826,7 +896,11 @@ class _ChannelScreenState extends State<ChannelScreen>
                       ],
                     ),
                   ),
-                  const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.grey),
+                  const Icon(
+                    Icons.open_in_new_rounded,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
                 ],
               ),
             ),
@@ -843,11 +917,13 @@ class _ChannelScreenState extends State<ChannelScreen>
       if (links is List) {
         return links
             .whereType<Map>()
-            .map((l) => {
-                  'platform': '${l['platform'] ?? 'website'}',
-                  'title': '${l['title'] ?? ''}',
-                  'url': '${l['url'] ?? ''}',
-                })
+            .map(
+              (l) => {
+                'platform': '${l['platform'] ?? 'website'}',
+                'title': '${l['title'] ?? ''}',
+                'url': '${l['url'] ?? ''}',
+              },
+            )
             .where((l) => l['url']!.isNotEmpty)
             .toList();
       }
@@ -868,10 +944,26 @@ class _ChannelScreenState extends State<ChannelScreen>
   Widget _platformIcon(String platform) {
     return switch (platform.toLowerCase()) {
       'facebook' => const Icon(Icons.facebook, size: 16, color: Colors.blue),
-      'tiktok' => const Icon(Icons.music_note, size: 16, color: Colors.pinkAccent),
-      'instagram' => const Icon(Icons.camera_alt, size: 16, color: Colors.purpleAccent),
-      'twitter' => const Icon(Icons.alternate_email, size: 16, color: Colors.lightBlue),
-      'youtube' => const Icon(Icons.play_circle_filled, size: 16, color: Colors.red),
+      'tiktok' => const Icon(
+        Icons.music_note,
+        size: 16,
+        color: Colors.pinkAccent,
+      ),
+      'instagram' => const Icon(
+        Icons.camera_alt,
+        size: 16,
+        color: Colors.purpleAccent,
+      ),
+      'twitter' => const Icon(
+        Icons.alternate_email,
+        size: 16,
+        color: Colors.lightBlue,
+      ),
+      'youtube' => const Icon(
+        Icons.play_circle_filled,
+        size: 16,
+        color: Colors.red,
+      ),
       'discord' => const Icon(Icons.forum, size: 16, color: Colors.indigo),
       _ => const Icon(Icons.language, size: 16, color: Colors.teal),
     };

@@ -106,7 +106,10 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
           .toList();
       final res = await Future.wait(
         summaries.map((playlist) async {
-          if (playlist.coverUrl?.isNotEmpty == true) return playlist;
+          if (playlist.previewItems != null ||
+              playlist.coverUrl?.isNotEmpty == true) {
+            return playlist;
+          }
           try {
             final detail = await _playlistService.get(playlist.id);
             return PlaylistSummary(
@@ -169,16 +172,18 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     try {
       await _playlistService.delete(playlist.id);
       if (mounted) {
-        setState(() => _playlists.removeWhere((item) => item.id == playlist.id));
+        setState(
+          () => _playlists.removeWhere((item) => item.id == playlist.id),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppStrings.t('playlists.deleted'))),
         );
       }
     } on ApiFailure catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.apiError(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
       }
     } catch (_) {
       if (mounted) {
@@ -190,16 +195,18 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
   }
 
   void _openSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AccountSettingsScreen(
-          auth: widget.auth,
-          notifications: widget.notifications,
-        ),
-      ),
-    ).then((_) {
-      if (mounted) _loadAll();
-    });
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => AccountSettingsScreen(
+              auth: widget.auth,
+              notifications: widget.notifications,
+            ),
+          ),
+        )
+        .then((_) {
+          if (mounted) _loadAll();
+        });
   }
 
   String _formatDuration(int seconds) {
@@ -220,7 +227,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
 
     if (!widget.auth.authenticated) {
       return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0F0F0F) : AppColors.background,
+        backgroundColor: isDark
+            ? const Color(0xFF0F0F0F)
+            : AppColors.background,
         appBar: AppBar(
           backgroundColor: isDark ? const Color(0xFF0F0F0F) : AppColors.surface,
           elevation: 0,
@@ -282,7 +291,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                   'Đăng nhập để xem lịch sử, danh sách phát, video đã lưu và nhiều tính năng khác.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+                    color: isDark
+                        ? const Color(0xFFAAAAAA)
+                        : AppColors.textMuted,
                     height: 1.4,
                   ),
                   textAlign: TextAlign.center,
@@ -293,7 +304,10 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primaryPink,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -405,7 +419,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                         url: avatarUrl,
                         label: name,
                         radius: 38,
-                        backgroundColor: AppColors.primaryPink.withValues(alpha: 0.25),
+                        backgroundColor: AppColors.primaryPink.withValues(
+                          alpha: 0.25,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       // Name & Handle
@@ -418,7 +434,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : AppColors.textPrimary,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
                                 letterSpacing: -0.3,
                               ),
                             ),
@@ -432,17 +450,23 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 13,
-                                      color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+                                      color: isDark
+                                          ? const Color(0xFFAAAAAA)
+                                          : AppColors.textMuted,
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  hasPlan ? 'Thành viên Premium' : 'Thành viên Dalitu',
+                                  hasPlan
+                                      ? 'Thành viên Premium'
+                                      : 'Thành viên Dalitu',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+                                    color: isDark
+                                        ? const Color(0xFFAAAAAA)
+                                        : AppColors.textMuted,
                                   ),
                                 ),
                               ],
@@ -462,17 +486,25 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                           if (_channelHandle != null) {
                             context.push('/channels/$_channelHandle');
                           } else {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => CreateChannelScreen(auth: widget.auth),
-                              ),
-                            ).then((_) => _loadChannel());
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        CreateChannelScreen(auth: widget.auth),
+                                  ),
+                                )
+                                .then((_) => _loadChannel());
                           }
                         },
                         style: FilledButton.styleFrom(
-                          backgroundColor: isDark ? Colors.white : AppColors.ink,
+                          backgroundColor: isDark
+                              ? Colors.white
+                              : AppColors.ink,
                           foregroundColor: isDark ? Colors.black : Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(22),
                           ),
@@ -481,7 +513,10 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                         ),
                         child: Text(
                           _channelHandle != null ? 'Xem kênh' : 'Tạo kênh',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -489,12 +524,21 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                       OutlinedButton(
                         onPressed: () => context.push('/plans'),
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
-                          foregroundColor: isDark ? Colors.white : AppColors.textPrimary,
+                          backgroundColor: isDark
+                              ? const Color(0xFF272727)
+                              : AppColors.surfaceAlt,
+                          foregroundColor: isDark
+                              ? Colors.white
+                              : AppColors.textPrimary,
                           side: BorderSide(
-                            color: isDark ? const Color(0xFF3F3F3F) : AppColors.borderSubtle,
+                            color: isDark
+                                ? const Color(0xFF3F3F3F)
+                                : AppColors.borderSubtle,
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(22),
                           ),
@@ -504,7 +548,10 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                           'Các lợi ích của gói',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ),
                     ],
@@ -534,14 +581,18 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                             style: TextStyle(
                               fontSize: 19,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : AppColors.textPrimary,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
                             Icons.chevron_right_rounded,
                             size: 22,
-                            color: isDark ? Colors.white : AppColors.textPrimary,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors.textPrimary,
                           ),
                         ],
                       ),
@@ -565,23 +616,33 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
               )
             else if (_history.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1A1A1A) : AppColors.surfaceAlt,
+                    color: isDark
+                        ? const Color(0xFF1A1A1A)
+                        : AppColors.surfaceAlt,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.history_toggle_off_rounded, color: isDark ? Colors.white54 : AppColors.textMuted),
+                      Icon(
+                        Icons.history_toggle_off_rounded,
+                        color: isDark ? Colors.white54 : AppColors.textMuted,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Chưa có video đã xem. Các video bạn xem sẽ hiển thị tại đây.',
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? Colors.white70 : AppColors.textMuted,
+                            color: isDark
+                                ? Colors.white70
+                                : AppColors.textMuted,
                           ),
                         ),
                       ),
@@ -662,7 +723,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
               title: 'Video đã thích',
               subtitle: 'Riêng tư',
               countText: '${_liked.length} video',
-              thumbnailUrl: _liked.isNotEmpty ? _liked.first.thumbnailUrl : null,
+              thumbnailUrl: _liked.isNotEmpty
+                  ? _liked.first.thumbnailUrl
+                  : null,
               fallbackIcon: Icons.thumb_up_alt_rounded,
               isDark: isDark,
               onTap: () => context.push('/library'),
@@ -761,18 +824,23 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty)
+                  if (video.thumbnailUrl != null &&
+                      video.thumbnailUrl!.isNotEmpty)
                     Image.network(
                       video.thumbnailUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Container(
-                        color: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
+                        color: isDark
+                            ? const Color(0xFF272727)
+                            : AppColors.surfaceAlt,
                         child: const Icon(Icons.video_file_outlined),
                       ),
                     )
                   else
                     Container(
-                      color: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
+                      color: isDark
+                          ? const Color(0xFF272727)
+                          : AppColors.surfaceAlt,
                       child: const Icon(Icons.video_file_outlined),
                     ),
 
@@ -781,7 +849,10 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                     bottom: 6,
                     right: 6,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(4),
@@ -807,7 +878,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                         value: (video.progress / 100).clamp(0.0, 1.0),
                         minHeight: 3,
                         backgroundColor: Colors.black45,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.red,
+                        ),
                       ),
                     ),
                 ],
@@ -908,14 +981,25 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                       thumbnailUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Container(
-                        color: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
-                        child: Icon(fallbackIcon, color: isDark ? Colors.white70 : AppColors.textMuted),
+                        color: isDark
+                            ? const Color(0xFF272727)
+                            : AppColors.surfaceAlt,
+                        child: Icon(
+                          fallbackIcon,
+                          color: isDark ? Colors.white70 : AppColors.textMuted,
+                        ),
                       ),
                     )
                   else
                     Container(
-                      color: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
-                      child: Icon(fallbackIcon, size: 28, color: isDark ? Colors.white70 : AppColors.textMuted),
+                      color: isDark
+                          ? const Color(0xFF272727)
+                          : AppColors.surfaceAlt,
+                      child: Icon(
+                        fallbackIcon,
+                        size: 28,
+                        color: isDark ? Colors.white70 : AppColors.textMuted,
+                      ),
                     ),
 
                   // Bottom badge icon overlay
@@ -928,11 +1012,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                         color: Colors.black.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Icon(
-                        fallbackIcon,
-                        size: 14,
-                        color: Colors.white,
-                      ),
+                      child: Icon(fallbackIcon, size: 14, color: Colors.white),
                     ),
                   ),
                 ],
@@ -960,7 +1040,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                   countText != null ? '$subtitle • $countText' : subtitle,
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+                    color: isDark
+                        ? const Color(0xFFAAAAAA)
+                        : AppColors.textMuted,
                   ),
                 ),
               ],

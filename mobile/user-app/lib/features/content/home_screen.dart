@@ -58,51 +58,54 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      final recommendations = await _content.feed(
-        explore: false,
-        page: 1,
-        pageSize: 20,
-        sort: 'popular',
-      );
+      final rails = await Future.wait([
+        _content.feed(explore: false, page: 1, pageSize: 20, sort: 'popular'),
+        widget.auth.authenticated
+            ? _content
+                  .subscriptionsFeed(page: 1, pageSize: 12)
+                  .catchError(
+                    (_) => PageResult<VideoCard>(
+                      items: [],
+                      page: 1,
+                      pageSize: 12,
+                      total: 0,
+                    ),
+                  )
+            : Future.value(
+                PageResult<VideoCard>(
+                  items: [],
+                  page: 1,
+                  pageSize: 12,
+                  total: 0,
+                ),
+              ),
+        _content
+            .feed(explore: true, page: 1, pageSize: 20, sort: 'popular')
+            .catchError(
+              (_) => PageResult<VideoCard>(
+                items: [],
+                page: 1,
+                pageSize: 20,
+                total: 0,
+              ),
+            ),
+        _content
+            .feed(explore: true, page: 1, pageSize: 20, sort: 'random')
+            .catchError(
+              (_) => PageResult<VideoCard>(
+                items: [],
+                page: 1,
+                pageSize: 20,
+                total: 0,
+              ),
+            ),
+      ]);
       if (!mounted) return;
-
       final seen = <String>{};
-      final recommendedItems = _unique(recommendations.items, seen);
-      var subscriptions = <VideoCard>[];
-      if (widget.auth.authenticated) {
-        try {
-          final result = await _content.subscriptionsFeed(
-            page: 1,
-            pageSize: 12,
-          );
-          subscriptions = _unique(result.items, seen);
-        } catch (_) {
-          // A missing subscription feed should not hide public home content.
-        }
-      }
-
-      var popular = <VideoCard>[];
-      try {
-        final result = await _content.feed(
-          explore: true,
-          page: 1,
-          pageSize: 20,
-          sort: 'popular',
-        );
-        popular = _unique(result.items, seen);
-      } catch (_) {}
-
-      var random = <VideoCard>[];
-      try {
-        final result = await _content.feed(
-          explore: true,
-          page: 1,
-          pageSize: 20,
-          sort: 'random',
-        );
-        random = _unique(result.items, seen);
-      } catch (_) {}
-
+      final recommendedItems = _unique(rails[0].items, seen);
+      final subscriptions = _unique(rails[1].items, seen);
+      final popular = _unique(rails[2].items, seen);
+      final random = _unique(rails[3].items, seen);
       if (!mounted) return;
       setState(() {
         _recommendations = recommendedItems;

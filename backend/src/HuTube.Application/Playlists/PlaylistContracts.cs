@@ -5,7 +5,7 @@ public sealed record PlaylistItemResponse(Guid PlaylistVideoId, Guid VideoId, in
 public sealed record PlaylistResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string? CoverUrl, string Visibility,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, IReadOnlyList<PlaylistItemResponse> Items);
 public sealed record PlaylistSummaryResponse(Guid PlaylistId, Guid UserId, string Name, string? Description, string? CoverUrl, string Visibility,
-    int ItemCount, DateTimeOffset UpdatedAt);
+    int ItemCount, DateTimeOffset UpdatedAt, IReadOnlyList<PlaylistItemResponse>? PreviewItems = null);
 public sealed record CreatePlaylistRequest(string Name, string? Description = null, string Visibility = "private");
 public sealed record UpdatePlaylistRequest(string Name, string? Description, string Visibility);
 public sealed record AddPlaylistVideoRequest(Guid VideoId);

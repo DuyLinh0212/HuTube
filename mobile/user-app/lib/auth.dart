@@ -58,7 +58,8 @@ class AuthController extends ChangeNotifier {
           final entries = await protectedList('/downloads');
           if (user?['userId'] != owner) return null;
           for (final entry in entries.whereType<Map>()) {
-            if (entry['videoDownloadId'] == id && entry['status'] != 'revoked') {
+            if (entry['videoDownloadId'] == id &&
+                entry['status'] != 'revoked') {
               return entry['fileUrl'] as String?;
             }
           }
@@ -241,7 +242,8 @@ class AuthController extends ChangeNotifier {
       try {
         account = await GoogleSignIn.instance.authenticate();
       } on GoogleSignInException catch (error) {
-        final isReauth = error.description != null &&
+        final isReauth =
+            error.description != null &&
             (error.description!.contains('16') ||
                 error.description!.toLowerCase().contains('reauth'));
         if (isReauth) {
@@ -268,11 +270,14 @@ class AuthController extends ChangeNotifier {
     } on ApiFailure {
       rethrow;
     } on GoogleSignInException catch (error) {
-      debugPrint('[GoogleSignIn] code: ${error.code}, description: ${error.description}');
+      debugPrint(
+        '[GoogleSignIn] code: ${error.code}, description: ${error.description}',
+      );
       final detail = error.description != null && error.description!.isNotEmpty
           ? ' - ${error.description}'
           : '';
-      final isReauthError = error.description != null &&
+      final isReauthError =
+          error.description != null &&
           (error.description!.contains('16') ||
               error.description!.toLowerCase().contains('reauth'));
       throw switch (error.code) {
@@ -282,8 +287,8 @@ class AuthController extends ChangeNotifier {
           isReauthError
               ? '${AppStrings.t('auth.googleCancelled')} (Lỗi [16]: Kiểm tra mã SHA-1 của keystore trên Google Cloud Console hoặc thêm Gmail vào danh sách Test Users)'
               : (detail.isNotEmpty
-                  ? '${AppStrings.t('auth.googleCancelled')} [${error.code.name}$detail]'
-                  : AppStrings.t('auth.googleCancelled')),
+                    ? '${AppStrings.t('auth.googleCancelled')} [${error.code.name}$detail]'
+                    : AppStrings.t('auth.googleCancelled')),
         ),
         GoogleSignInExceptionCode.clientConfigurationError ||
         GoogleSignInExceptionCode.providerConfigurationError => ApiFailure(
@@ -549,6 +554,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> clearSession([String? message]) async {
+    ApiClient.invalidateReadCache();
     try {
       await beforeSessionCleared?.call().timeout(const Duration(seconds: 2));
     } catch (_) {}

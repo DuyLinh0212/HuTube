@@ -1830,16 +1830,19 @@ public sealed class ContentService(
         var channel = await db.Channels.AsNoTracking().SingleAsync(x => x.ChannelId == video.ChannelId, ct);
         var tags = await (from vt in db.VideoTags.AsNoTracking() join tag in db.Tags.AsNoTracking() on vt.TagId equals tag.TagId where vt.VideoId == video.VideoId orderby tag.Name select tag.Name).ToListAsync(ct);
         var chapters = ReadChapters(video.Metadata);
-        var likes = await db.VideoReactions.LongCountAsync(x => x.VideoId == video.VideoId && x.Type == "like", ct);
-        var dislikes = await db.VideoReactions.LongCountAsync(x => x.VideoId == video.VideoId && x.Type == "dislike", ct);
-        var views = await db.ViewingHistories.LongCountAsync(x => x.VideoId == video.VideoId, ct);
-        var watchSeconds = await db.ViewingHistories.Where(x => x.VideoId == video.VideoId).SumAsync(x => (long)x.WatchDuration, ct);
-        var comments = await db.Comments.CountAsync(x => x.VideoId == video.VideoId && x.Status == "visible", ct);
-        var ratingAggregate = await db.VideoRatings.AsNoTracking().Where(x => x.VideoId == video.VideoId)
-            .GroupBy(_ => 1)
-            .Select(group => new { Count = group.Count(), Average = group.Average(row => (double)row.Score) })
-            .SingleOrDefaultAsync(ct);
-        var shares = await db.ShareHistories.LongCountAsync(x => x.VideoId == video.VideoId, ct);
+        // Aggregate on the server in one round trip rather than issuing eight
+        // sequential commands for each video detail request under load.
+        var stats = await db.Videos.AsNoTracking().Where(row => row.VideoId == video.VideoId)
+            .Select(row => new {
+                Likes = db.VideoReactions.LongCount(x => x.VideoId == row.VideoId && x.Type == "like"),
+                Dislikes = db.VideoReactions.LongCount(x => x.VideoId == row.VideoId && x.Type == "dislike"),
+                Views = db.ViewingHistories.LongCount(x => x.VideoId == row.VideoId),
+                WatchSeconds = db.ViewingHistories.Where(x => x.VideoId == row.VideoId).Sum(x => (long?)x.WatchDuration) ?? 0,
+                Comments = db.Comments.Count(x => x.VideoId == row.VideoId && x.Status == "visible"),
+                AverageRating = db.VideoRatings.Where(x => x.VideoId == row.VideoId).Average(x => (double?)x.Score),
+                RatingCount = db.VideoRatings.Count(x => x.VideoId == row.VideoId),
+                Shares = db.ShareHistories.LongCount(x => x.VideoId == row.VideoId)
+            }).SingleAsync(ct);
         var videoCards = await ResolveVideoCardLinksAsync(video, ct);
         VideoViewerStateResponse? state = null;
         if (viewerId.HasValue)
@@ -1852,8 +1855,9 @@ public sealed class ContentService(
         return new(video.VideoId, video.ChannelId, channel.Name, channel.Handle, video.CategoryId, video.Title, video.Description,
             "", video.ThumbnailUrl == null ? null : await ReadUrlAsync(video.ThumbnailUrl, ct), video.Duration, video.FileSize, video.Visibility, video.Status, video.ModerationStatus,
             video.LanguageCode, video.AgeRestricted, video.PublishedAt, video.CreatedAt, tags, chapters,
-            new(views, likes, dislikes, comments, ratingAggregate == null ? null : Math.Round((decimal)ratingAggregate.Average, 2),
-                ratingAggregate?.Count ?? 0, shares, watchSeconds), state,
+            new(stats.Views, stats.Likes, stats.Dislikes, stats.Comments,
+                stats.AverageRating.HasValue ? Math.Round((decimal)stats.AverageRating.Value, 2) : null,
+                stats.RatingCount, stats.Shares, stats.WatchSeconds), state,
              viewerId == channel.OwnerUserId ? video.ModerationReason : null,
              channel.WatermarkUrl == null ? null : await ReadUrlAsync(channel.WatermarkUrl, ct),
              video.PromotionEnabled, videoCards);

@@ -2,6 +2,7 @@ name: hutube-ec2
 
 services:
   api:
+    image: dalitu-api:local
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -19,8 +20,22 @@ services:
       - hutube-uploads:/app/uploads
     restart: unless-stopped
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       recommendation:
         condition: service_started
+
+  migrate:
+    image: dalitu-api:local
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env.ec2-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    command: ["--migrate"]
+    restart: "no"
 
   recommendation:
     build:

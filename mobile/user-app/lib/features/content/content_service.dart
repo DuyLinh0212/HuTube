@@ -180,9 +180,10 @@ class ContentService {
   Future<PageResult<CommentItem>> comments(
     String videoId, {
     int page = 1,
+    String sort = 'newest',
   }) async {
     final endpoint =
-        '/videos/${Uri.encodeComponent(videoId)}/comments?page=$page&pageSize=20';
+        '/videos/${Uri.encodeComponent(videoId)}/comments?page=$page&pageSize=20&sort=${Uri.encodeQueryComponent(sort)}';
     final json = auth.authenticated
         ? await auth.protected('GET', endpoint)
         : await auth.api.request('GET', endpoint);

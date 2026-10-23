@@ -126,11 +126,6 @@ export class StudioOverviewPage implements OnInit {
 
   ngOnInit() {
     this.data.load();
-    const ch = this.data.channel();
-    if (ch?.channelId) {
-      this.loadStrikes(ch.channelId);
-      this.loadAppeals();
-    }
   }
 
   loadStrikes(channelId: string) {

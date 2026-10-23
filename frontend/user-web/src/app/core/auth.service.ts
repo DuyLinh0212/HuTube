@@ -20,6 +20,7 @@ import {
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
 import { I18nService } from './i18n.service';
 import { NetworkStatusService } from './network/network-status.service';
+import { ReadCacheStore } from './read-cache.interceptor';
 
 export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; }
 export interface LoginResponse { accessToken: string; expiresAt: string; user: User; }
@@ -194,6 +195,7 @@ export class AuthService {
   private raw = new HttpClient(inject(HttpBackend));
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
+  private readonly readCache = inject(ReadCacheStore);
   private networkStatus = inject(NetworkStatusService);
   readonly i18n = inject(I18nService);
   readonly user = signal<User | null>(null);
@@ -234,7 +236,7 @@ export class AuthService {
       this.raw.post<T>(this.config.apiBaseUrl + path, body, { withCredentials: true, headers: this.headers }),
     );
   }
-  clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
+  clear(): void { this.readCache.clear(); this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
   private accept(response: LoginResponse): void {
     this.accessTokenExpiresAt = Date.parse(response.expiresAt) || 0;
     this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true;

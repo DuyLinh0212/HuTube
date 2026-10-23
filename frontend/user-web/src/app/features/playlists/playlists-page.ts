@@ -97,6 +97,11 @@ export class PlaylistsPage {
   }
 
   private loadPreviews(lists: PlaylistSummary[]) {
+    if (lists.every(list => Array.isArray(list.previewItems))) {
+      this.previewById.set(Object.fromEntries(lists.map(list => [list.playlistId,
+        { ...list, createdAt: list.updatedAt, items: list.previewItems! }])));
+      return;
+    }
     if (!lists.length) { this.previewById.set({}); return; }
     const requests = lists.slice(0, 12).map(list => this.service.get(list.playlistId).pipe(catchError(() => of(null))));
     forkJoin(requests).subscribe(details => {

@@ -29,6 +29,10 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   late final CreatorService _service = CreatorService(widget.auth);
   List<VideoDetail> _items = const [];
   bool _loading = true;
+  bool _loadingMore = false;
+  int _page = 1;
+  int _total = 0;
+  int _loadGeneration = 0;
   String? _error;
   String? _visibility;
 
@@ -39,21 +43,23 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
+    _loadingMore = false;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final result = await loadAllPages(
-        (page) => _service.managedVideos(
-          widget.channel.id,
-          page: page,
-          visibility: _visibility,
-        ),
+      final result = await _service.managedVideos(
+        widget.channel.id,
+        page: 1,
+        visibility: _visibility,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _items = result.items;
+        _page = 1;
+        _total = result.total;
         _loading = false;
       });
     } on ApiFailure catch (error) {
@@ -69,6 +75,36 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
           _error = AppStrings.t('creator.loadError');
           _loading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _items.length >= _total) return;
+    final generation = _loadGeneration;
+    final nextPage = _page + 1;
+    setState(() => _loadingMore = true);
+    try {
+      final result = await _service.managedVideos(
+        widget.channel.id,
+        page: nextPage,
+        visibility: _visibility,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      final seen = _items.map((item) => item.id).toSet();
+      setState(() {
+        _items = [
+          ..._items,
+          ...result.items.where((item) => seen.add(item.id)),
+        ];
+        _page = result.page;
+        _total = result.total;
+      });
+    } catch (_) {
+      /* Keep loaded rows and the retry button. */
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loadingMore = false);
       }
     }
   }
@@ -314,9 +350,15 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                    itemCount: _items.length,
+                    itemCount: _items.length + (_items.length < _total ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, index) {
+                      if (index == _items.length) {
+                        return TextButton(
+                          onPressed: _loadingMore ? null : _loadMore,
+                          child: Text(AppStrings.t('notifications.loadMore')),
+                        );
+                      }
                       final video = _items[index];
                       return Card(
                         clipBehavior: Clip.antiAlias,
@@ -495,11 +537,9 @@ class _VideoEditorState extends State<_VideoEditor> {
 
   Future<void> _loadRelatedVideos() async {
     try {
-      final result = await loadAllPages(
-        (page) => CreatorService(
-          widget.auth,
-        ).managedVideos(widget.item.channelId, page: page),
-      );
+      final result = await CreatorService(
+        widget.auth,
+      ).videoMetrics(widget.item.channelId, includeStats: false);
       if (!mounted) return;
       setState(() {
         _relatedVideos = result.items

@@ -36,6 +36,30 @@ class CreatorService {
   CreatorService(this.auth);
   final AuthController auth;
 
+  Future<PageResult<VideoDetail>> videoMetrics(
+    String channelId, {
+    bool includeStats = true,
+  }) async {
+    try {
+      final rows = await auth.protectedList(
+        '/studio/channels/$channelId/metrics?includeStats=$includeStats',
+      );
+      final items = rows
+          .whereType<Map>()
+          .map((row) => VideoDetail.fromJson(Map<String, dynamic>.from(row)))
+          .toList();
+      return PageResult(
+        items: items,
+        page: 1,
+        pageSize: items.length,
+        total: items.length,
+      );
+    } on ApiFailure catch (error) {
+      if (error.status != 404) rethrow;
+      return loadAllPages((page) => managedVideos(channelId, page: page));
+    }
+  }
+
   String _path(String path, Map<String, Object?> query) {
     final pairs = query.entries
         .where((entry) => entry.value != null && '${entry.value}'.isNotEmpty)

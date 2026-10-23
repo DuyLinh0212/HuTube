@@ -57,6 +57,10 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   List<Rendition> _renditions = const [];
   MediaEntitlements _entitlements = const MediaEntitlements.none();
   List<CommentItem> _comments = [];
+  int _commentPage = 0;
+  int _commentTotal = 0;
+  int _commentRequest = 0;
+  bool _loadingComments = false;
   List<VideoCard> _related = [];
   int _generation = 0;
   bool _loading = true;
@@ -195,6 +199,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       _error = null;
       _video = null;
       _comments = [];
+      _loadingComments = false;
+      _commentRequest++;
       _related = [];
       _actionMessage = null;
       _sendingComment = false;
@@ -204,26 +210,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       final detail = await _content.detail(videoId);
       final playback = await _content.playback(videoId);
       final entitlements = await MediaEntitlements.load(widget.auth);
-      final comments = await loadAllPages(
-        (page) => _content.comments(videoId, page: page),
-      );
-      final related = await _content.feed(
-        explore: false,
-        pageSize: 12,
-        sort: 'popular',
-      );
-      bool isOwner = false;
-      if (widget.auth.authenticated) {
-        try {
-          final myChannel = await ChannelService(widget.auth).getMyChannel();
-          if (myChannel != null &&
-              (myChannel.id == detail.channelId ||
-                  myChannel.handle == detail.channelHandle ||
-                  widget.auth.user?['userId'] == detail.channelId)) {
-            isOwner = true;
-          }
-        } catch (_) {}
-      }
+      const isOwner = false;
       if (!mounted || generation != _generation) return;
       setState(() {
         _video = detail;
@@ -231,11 +218,10 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         _renditions = [...playback.renditions]
           ..sort((a, b) => a.height.compareTo(b.height));
         _entitlements = entitlements;
-        _comments = comments.items;
-        _related = related.items
-            .where((item) => item.id != detail.id)
-            .take(8)
-            .toList();
+        _comments = [];
+        _commentPage = 0;
+        _commentTotal = 0;
+        _related = [];
         _loading = false;
       });
 
@@ -346,6 +332,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           );
         });
       }
+      unawaited(_loadExtras(generation, videoId, detail));
       if (mounted && generation == _generation) {
         setState(
           () => _backgroundPlaybackEnabled =
@@ -367,6 +354,89 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  Future<void> _loadComments() async {
+    if (_loadingComments) return;
+    final request = ++_commentRequest;
+    final generation = _generation;
+    final sort = _commentSort;
+    setState(() => _loadingComments = true);
+    try {
+      final page = await _content.comments(
+        widget.videoId,
+        page: _commentPage + 1,
+        sort: sort,
+      );
+      if (!mounted ||
+          generation != _generation ||
+          sort != _commentSort ||
+          request != _commentRequest) {
+        return;
+      }
+      setState(() {
+        final seen = _comments.map((item) => item.id).toSet();
+        _comments = [
+          ..._comments,
+          ...page.items.where((item) => seen.add(item.id)),
+        ];
+        _commentPage = page.page;
+        _commentTotal = page.total;
+      });
+    } catch (_) {
+      /* The player remains available; allow retry. */
+    } finally {
+      if (mounted &&
+          generation == _generation &&
+          sort == _commentSort &&
+          request == _commentRequest) {
+        setState(() => _loadingComments = false);
+      }
+    }
+  }
+
+  Future<void> _loadExtras(
+    int generation,
+    String videoId,
+    VideoDetail detail,
+  ) async {
+    unawaited(_loadComments());
+    unawaited(_loadOwner(generation, detail));
+    try {
+      final related = await _content.feed(
+        explore: false,
+        pageSize: 12,
+        sort: 'popular',
+      );
+      if (!mounted || generation != _generation) return;
+      setState(
+        () => _related = related.items
+            .where((item) => item.id != videoId)
+            .take(8)
+            .toList(),
+      );
+      if (widget.playlistId == null &&
+          widget.playback.videoId == videoId &&
+          widget.playback.queue.length <= 1) {
+        widget.playback.setQueue([detail, ..._related], initialIndex: 0);
+      }
+    } catch (_) {
+      /* Related results must not delay or fail playback. */
+    }
+  }
+
+  Future<void> _loadOwner(int generation, VideoDetail detail) async {
+    if (!widget.auth.authenticated) return;
+    try {
+      final channel = await ChannelService(widget.auth).getMyChannel();
+      if (!mounted || generation != _generation) return;
+      setState(
+        () => _isOwner =
+            channel != null &&
+            (channel.id == detail.channelId ||
+                channel.handle == detail.channelHandle),
+      );
+    } catch (_) {}
   }
 
   void _handleVideoCompleted() {
@@ -1753,7 +1823,13 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             onSelected: (val) {
-                              setState(() => _commentSort = val);
+                              setState(() {
+                                _commentSort = val;
+                                _commentPage = 0;
+                                _comments = [];
+                                _loadingComments = false;
+                              });
+                              _loadComments();
                             },
                             itemBuilder: (ctx) => const [
                               PopupMenuItem(
@@ -1871,6 +1947,13 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                         ),
                       );
                     }(),
+                    if (_loadingComments ||
+                        _commentPage == 0 ||
+                        _comments.length < _commentTotal)
+                      TextButton(
+                        onPressed: _loadingComments ? null : _loadComments,
+                        child: Text(AppStrings.t('notifications.loadMore')),
+                      ),
                     const SizedBox(height: 22),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),

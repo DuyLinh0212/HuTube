@@ -37,6 +37,7 @@ export interface PlaylistSummary {
   visibility: string;
   itemCount: number;
   updatedAt: string;
+  previewItems?: PlaylistItem[];
 }
 
 @Injectable({ providedIn: 'root' })
