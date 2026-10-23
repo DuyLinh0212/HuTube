@@ -10,7 +10,18 @@ Create these files on the EC2 host and keep them out of Git:
 - `recommendation-service/.env.ec2`: `CORS_ALLOWED_ORIGINS`, matching `RECOMMENDER_SERVICE_TOKEN` and `RECOMMENDER_ADMIN_TOKEN`, and the four R2 settings (`Storage__R2__AccountId`, `Storage__R2__AccessKeyId`, `Storage__R2__SecretAccessKey`, `Storage__R2__BucketName`).
 - `Caddyfile` routes `api.dalitu.app` to the API and `recommendation.dalitu.app` to Recommendation Service. Caddy obtains and renews public HTTPS certificates automatically after both DNS names point to this EC2 host and inbound TCP 80/443 is allowed in its AWS Security Group.
 
-Use the supplied `Docs/HuTube.env` and `Docs/HuTube-recommendation-services.env` as the source, but copy only these runtime settings. Do not put Neon management, Render, or Upstash management API keys in the application environment. The API's `Recommendation__ServiceToken` and `Recommendation__AdminToken` must exactly match the corresponding Python service tokens. Set `CORS_ALLOWED_ORIGINS` to a JSON array of the actual browser client origins. The Compose file sets service-to-service URLs to Docker network names automatically.
+Use the supplied `Docs/HuTube.env` and `Docs/HuTube-recommendation-services.env` as the source. For the admin system monitor, also copy `UPSTASH_EMAIL`, `UPSTASH_API_KEY`, `UPSTASH_REDIS_DATABASE_ID`, `NEON_API_KEY`, `NEON_ORG_ID`, and `NEON_PROJECT_ID` into `.env.ec2-api`. These provider credentials are required for usage metrics; the Redis REST URL/token alone only covers Redis operations and health checks. Use read-only provider API keys where supported. Render credentials are no longer used by the monitor. Keep all secret values out of Git.
+
+The API's `Recommendation__ServiceToken` and `Recommendation__AdminToken` must exactly match the corresponding Python service tokens. Set `CORS_ALLOWED_ORIGINS` to a JSON array of the actual browser client origins. The Compose file sets service-to-service URLs to Docker network names automatically.
+
+After changing `.env.ec2-api`, recreate the API container so Docker loads the new environment:
+
+```bash
+sudo docker compose -f docker-compose.ec2.yml config --quiet
+sudo docker compose -f docker-compose.ec2.yml up -d --no-deps --force-recreate api
+```
+
+The monitor shows host RAM from Linux `/proc/meminfo` and caches Upstash usage for five minutes. Neon monthly compute consumption depends on the account plan; a provider HTTP 403 leaves database size and connections available while monthly consumption remains unavailable. See [system monitoring integrations](SYSTEM_MONITORING.md) for the variable list and metric scope.
 
 ## Start
 

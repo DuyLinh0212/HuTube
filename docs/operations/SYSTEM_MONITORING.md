@@ -1,10 +1,10 @@
 # System monitoring integrations
 
-The admin system monitor reads operational data from the running API and from provider read APIs. Secrets are configured in the `hutube-api` Render service; do not add their values to this repository.
+The admin system monitor reads operational data from the API running on EC2 and from provider read APIs. Set secrets in `.env.ec2-api` on EC2; do not add their values to this repository. Use `Docs/HuTube.env` as the source for the provider credentials.
 
-## Render environment
+## EC2 API environment
 
-Add the following variables to the `hutube-api` service in Render. `render.yaml` declares them as `sync: false`, so Render keeps the values in its dashboard.
+Add the following variables to `.env.ec2-api`. After changing the file, run `sudo docker compose -f docker-compose.ec2.yml up -d --no-deps --force-recreate api` to load the values into the running container.
 
 | Variable | Used for | Where to get it |
 | --- | --- | --- |
@@ -14,18 +14,18 @@ Add the following variables to the `hutube-api` service in Render. `render.yaml`
 | `UPSTASH_EMAIL` | Upstash Developer API authentication | Email used by the Upstash account |
 | `UPSTASH_API_KEY` | Redis plan and usage API | Upstash Console → Account → Developer API; use a read-only key |
 | `UPSTASH_REDIS_DATABASE_ID` | Selects the Redis database | Upstash database details |
-| `RENDER_API_KEY` | Render CPU and memory metrics | Render Account Settings → API Keys |
 
 The existing `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` remain the Redis connection and health-check credentials. They do not grant access to the Upstash account usage API.
 
-Render automatically provides `RENDER_SERVICE_ID` and `RENDER_INSTANCE_ID` to the running service.
+EC2 host RAM is read directly from Linux `/proc/meminfo`; this does not require a CloudWatch Agent or AWS access key.
 
 ## What the monitor records
 
 - Neon database size, active connections, and the PostgreSQL connection limit are queried directly from the connected database. Neon monthly compute usage comes from the Neon Consumption API; Neon only exposes that endpoint to supported plans.
 - Upstash current storage, database limits, and current-month request totals come from the Upstash Developer API.
-- Render CPU and memory usage/limits come from Render Metrics API samples.
+- The resources panel shows one host RAM gauge for EC2: used, total, and available memory. The API process memory signal remains available in the alerts tab.
+- API request traffic is collected in process memory for up to 24 hours and resets on an API restart. Direct Recommendation Service requests are not included.
 - Cloudflare R2 usage continues to come from Cloudflare Analytics.
 - Failed video uploads, failed rendition processing, SePay webhook outcomes, administrator actions, and alert state transitions are written to `audit_logs` and shown in recent activity.
 
-The monitor caches provider metrics briefly to avoid polling provider APIs on every page refresh. Neon consumption is refreshed every 15 minutes.
+The page refreshes every minute. Upstash usage is cached for five minutes and Neon consumption for 15 minutes. Neon consumption can return HTTP 403 when the account plan does not support the endpoint; database size and connections remain measured directly. See [Neon consumption API](https://api-docs.neon.tech/reference/getconsumptionhistoryperprojectv2) and [Upstash database stats](https://upstash.com/docs/devops/developer-api/redis/get_database_stats).
