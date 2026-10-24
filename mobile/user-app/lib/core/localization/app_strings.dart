@@ -154,7 +154,6 @@ class AppStrings {
       'nav.upload': 'Đăng video',
       'nav.profile': 'Hồ sơ',
       'nav.playlists': 'Playlist',
-      'huai.title': 'HuAI',
       'prefs.quality1080': '1080p (FHD)',
       'prefs.quality720': '720p (HD)',
       'prefs.quality480': '480p (SD)',
@@ -272,11 +271,14 @@ class AppStrings {
       'bgDownload.sectionDownload': 'Tải xuống',
       'bgDownload.smartDownload': 'Tải xuống thông minh',
       'bgDownload.smartDownloadDesc':
-          'Tự động tải video đề xuất xuống qua Wi-Fi',
+          'Tự tải tối đa 3 video đề xuất qua Wi-Fi, trong giới hạn bộ nhớ đã chọn.',
       'bgDownload.adjustStorage':
           'Điều chỉnh bộ nhớ cho nội dung Tải xuống thông minh',
       'bgDownload.adjustStorageDesc':
-          'Điều chỉnh mức sử dụng bộ nhớ và chất lượng của video tải xuống thông minh',
+          'Chỉ tính video tải thông minh. Không tự xóa video bạn đã tải. Nếu chọn Hỏi mỗi lần, tải thông minh dùng tối đa 480p.',
+      'bgDownload.storageLimitValue': 'Tối đa {limit} MB',
+      'bgDownload.backgroundRequirements':
+          'Áp dụng khi gói của bạn có quyền phát nền.',
       'bgDownload.quality': 'Chất lượng tải xuống',
       'bgDownload.qualityAsk': 'Hỏi mỗi lần',
       'bgDownload.qualityHigh': 'Chất lượng cao (1080p)',
@@ -463,7 +465,7 @@ class AppStrings {
       // Watch & Queue
       'watch.queue': 'Hàng đợi',
       'watch.nextVideo': 'Video tiếp theo',
-      'watch.autoPlayingNext': 'Tự động phát tiếp sau {seconds}s',
+      'watch.autoPlayingNext': 'Phát tiếp sau {seconds} giây',
       'queue.title': 'Hàng đợi phát',
       'queue.count': '{count} video',
       'queue.autoplay': 'Tự động phát',
@@ -500,6 +502,24 @@ class AppStrings {
       'downloads.downloading': 'Đang tải {percent}%',
       'downloads.completed': 'Đã lưu trên thiết bị',
       'downloads.paused': 'Đã tạm dừng',
+      'downloads.waitingWifi': 'Đang chờ Wi-Fi',
+      'downloads.waitingNetwork': 'Đang chờ kết nối mạng',
+      'downloads.waitingSettings': 'Tải thông minh đang tắt',
+      'downloads.waitingStorage': 'Chờ dung lượng tải thông minh',
+      'downloads.wifiPolicy':
+          'Chỉ tải qua Wi-Fi. Khi đổi sang dữ liệu di động, tải sẽ tạm chờ và tự tiếp tục khi có Wi-Fi.',
+      'downloads.smartSummary':
+          'Tải thông minh: tối đa 3 video qua Wi-Fi, trong {limit} MB. Video bạn tải thủ công được giữ nguyên.',
+      'downloads.suggestedTitle': 'Gợi ý để xem offline',
+      'downloads.planRequired':
+          'Gói hiện tại chưa có quyền tải video. Chọn gói có hỗ trợ tải xuống để sử dụng tính năng này.',
+      'downloads.qualityDenied':
+          'Gói hiện tại chưa hỗ trợ chất lượng này. Hãy chọn chất lượng thấp hơn.',
+      'downloads.smartUnavailable':
+          'Chưa có video đủ quyền và dung lượng để tải thông minh.',
+      'downloads.suggestedDescription':
+          'Chọn video muốn lưu để xem khi không có mạng.',
+      'downloads.noSuggestions': 'Chưa có video mới để đề xuất tải.',
       'downloads.failed': 'Tải thất bại',
       'downloads.remove': 'Xóa khỏi thiết bị',
       'downloads.error': 'Không thể tải video xuống.',
@@ -514,6 +534,8 @@ class AppStrings {
           'Thiết bị hiện không hỗ trợ PiP cho nguồn video này.',
       'watch.loginInteract': 'Đăng nhập để tương tác với video.',
       'watch.loginRate': 'Đăng nhập để đánh giá video.',
+      'watch.ratingHint': 'Chọn số sao thể hiện cảm nhận của bạn về video.',
+      'watch.removeRating': 'Xóa đánh giá',
       'watch.ratingTitle': 'Đánh giá video',
       'watch.ratingStars': '{count} sao',
       'watch.ratingSaved': 'Đã cập nhật đánh giá của bạn.',
@@ -529,6 +551,9 @@ class AppStrings {
       'watch.fullscreen': 'Toàn màn hình',
       'watch.exitFullscreen': 'Thoát toàn màn hình',
       'watch.background': 'Phát nền',
+      'watch.backgroundNeedsAudio':
+          'Hãy kết nối tai nghe/loa ngoài hoặc chọn Luôn bật trong cài đặt phát nền.',
+      'watch.backgroundWaitingAudio': 'Chờ tai nghe',
       'watch.backgroundEnabled': 'Đã bật phát nền cho video này.',
       'watch.backgroundDisabled': 'Đã tắt phát nền cho video này.',
       'watch.backgroundUnavailable': 'Gói hiện tại chưa hỗ trợ phát nền.',
@@ -702,6 +727,27 @@ class AppStrings {
       'auth.saveNewPassword': 'Lưu mật khẩu mới',
       'auth.sendEmail': 'Gửi email',
       'auth.createAccount': 'Tạo tài khoản',
+      'auth.backHome': 'Về trang chủ',
+      'common.validationError':
+          'Thông tin chưa hợp lệ. Kiểm tra dữ liệu và thử lại.',
+      'auth.checkEmailTitle': 'Kiểm tra hộp thư của bạn',
+      'auth.checkEmailDescription':
+          'Tài khoản đã được tạo. Mở email gửi đến {email} và nhấn liên kết xác minh. Nhớ kiểm tra cả thư rác.',
+      'auth.pasteVerificationHelp':
+          'Bạn cũng có thể sao chép liên kết trong email và dán vào đây để xác minh ngay trong ứng dụng.',
+      'auth.verificationLinkField': 'Liên kết xác minh',
+      'auth.invalidVerificationInput':
+          'Hãy dán đầy đủ liên kết xác minh từ email Dalitu.',
+      'auth.emailTaken':
+          'Email này đã có tài khoản. Hãy đăng nhập hoặc gửi lại email xác minh.',
+      'auth.usernameTaken':
+          'Tên người dùng đã được sử dụng. Hãy chọn tên khác.',
+      'auth.emailDeliveryUnavailable':
+          'Chưa gửi được email xác minh. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.',
+      'auth.invalidVerificationLink':
+          'Liên kết không hợp lệ, đã sử dụng hoặc đã hết hạn. Hãy yêu cầu email xác minh mới.',
+      'auth.invalidRegistration':
+          'Thông tin chưa hợp lệ. Kiểm tra tên người dùng, email và yêu cầu mật khẩu.',
       'auth.resendVerification': 'Gửi lại email xác minh',
       'auth.restoreAgain': 'Thử khôi phục phiên lần nữa',
       'auth.requestNewLink': 'Yêu cầu liên kết mới',
@@ -1174,12 +1220,14 @@ class AppStrings {
       'policies.fallbackText':
           'Không đăng nội dung gây hại, vi phạm bản quyền, lừa đảo hoặc xâm phạm quyền riêng tư. Dalitu có thể kiểm tra nội dung trước khi xuất bản.',
       'policies.version': 'Phiên bản {version}',
+      'policies.effectiveDate': 'Hiệu lực từ {date}',
       // Search and channel feeds
       'search.title': 'Tìm video',
       'search.subtitle': 'Tìm kiếm video theo tên, chủ đề hoặc từ khóa.',
       'search.queryHint': 'Bạn muốn xem gì hôm nay?',
       'search.clear': 'Xóa từ khóa',
       'search.submit': 'Tìm kiếm video',
+      'search.sort.title': 'Sắp xếp theo',
       'search.sort.relevance': 'Phù hợp nhất',
       'search.sort.newest': 'Mới nhất',
       'search.sort.popular': 'Nhiều lượt xem',
@@ -1209,6 +1257,9 @@ class AppStrings {
       'library.likedDescription':
           'Hãy thả tim video để tìm lại chúng nhanh hơn.',
       // Playlists
+      'playlists.chooseHint':
+          'Chọn danh sách để lưu video hoặc tạo danh sách mới.',
+      'playlists.videoAlreadySaved': 'Video đã có trong danh sách phát này.',
       'playlists.title': 'Playlist của bạn',
       'playlists.subtitle': 'Lưu và sắp xếp video để xem lại bất cứ lúc nào.',
       'playlists.create': 'Tạo playlist',
@@ -1392,20 +1443,6 @@ class AppStrings {
       'downloads.invalidUrl': 'Máy chủ không trả về URL tải xuống HTTP hợp lệ.',
       'downloads.serverError': 'Máy chủ trả về lỗi {status}.',
       'downloads.interrupted': 'Tải xuống bị gián đoạn khi ứng dụng đóng.',
-      'huai.subtitle':
-          'Trợ lý thông minh cho hành trình xem và sáng tạo của bạn.',
-      'huai.promptTitle': 'Bạn có thể hỏi HuAI',
-      'huai.promptDescription':
-          'Các gợi ý sẽ sẵn sàng khi dịch vụ được kết nối.',
-      'huai.suggestion.personalized': 'Gợi ý nội dung phù hợp với tôi',
-      'huai.suggestion.howTo': 'Giải thích cách dùng Dalitu',
-      'huai.suggestion.videoIdeas': 'Gợi ý ý tưởng cho video mới',
-      'huai.preparing': 'HuAI đang được chuẩn bị',
-      'huai.signIn': 'Đăng nhập để dùng HuAI',
-      'huai.unavailable':
-          'Tính năng hội thoại chưa có API trong phiên bản mobile hiện tại.',
-      'huai.messageHint': 'Nhắn tin với HuAI',
-      'huai.apiNotice': 'HuAI sẽ hoạt động khi API hội thoại được kết nối.',
       'watch.loginPlaylist': 'Đăng nhập để lưu video vào playlist.',
       'watch.saveVideo': 'Lưu video',
       'watch.savedVideo': 'Video đã lưu',
@@ -1595,7 +1632,6 @@ class AppStrings {
       'nav.upload': 'Upload Video',
       'nav.profile': 'Profile',
       'nav.playlists': 'Playlists',
-      'huai.title': 'HuAI',
       'prefs.quality1080': '1080p (FHD)',
       'prefs.quality720': '720p (HD)',
       'prefs.quality480': '480p (SD)',
@@ -1713,10 +1749,13 @@ class AppStrings {
       'bgDownload.sectionDownload': 'Downloads',
       'bgDownload.smartDownload': 'Smart downloads',
       'bgDownload.smartDownloadDesc':
-          'Automatically download recommended videos over Wi-Fi',
+          'Automatically download up to 3 recommended videos over Wi-Fi, within your storage limit.',
       'bgDownload.adjustStorage': 'Adjust storage for Smart Downloads',
       'bgDownload.adjustStorageDesc':
-          'Adjust storage usage and quality for smart downloads',
+          'Applies only to smart downloads. Your manual downloads are kept. Ask each time uses up to 480p for smart downloads.',
+      'bgDownload.storageLimitValue': 'Up to {limit} MB',
+      'bgDownload.backgroundRequirements':
+          'Requires background playback in your plan.',
       'bgDownload.quality': 'Download quality',
       'bgDownload.qualityAsk': 'Ask each time',
       'bgDownload.qualityHigh': 'High (1080p)',
@@ -1908,7 +1947,7 @@ class AppStrings {
       // Watch & Queue
       'watch.queue': 'Queue',
       'watch.nextVideo': 'Next video',
-      'watch.autoPlayingNext': 'Playing next in {seconds}s',
+      'watch.autoPlayingNext': 'Playing next in {seconds} seconds',
       'queue.title': 'Playing Queue',
       'queue.count': '{count} videos',
       'queue.autoplay': 'Autoplay',
@@ -1945,6 +1984,24 @@ class AppStrings {
       'downloads.downloading': 'Downloading {percent}%',
       'downloads.completed': 'Saved on this device',
       'downloads.paused': 'Paused',
+      'downloads.waitingWifi': 'Waiting for Wi-Fi',
+      'downloads.waitingNetwork': 'Waiting for a connection',
+      'downloads.waitingSettings': 'Smart downloads are off',
+      'downloads.waitingStorage': 'Waiting for smart download storage',
+      'downloads.wifiPolicy':
+          'Wi-Fi only. Downloads wait on mobile data and resume when Wi-Fi returns.',
+      'downloads.smartSummary':
+          'Smart downloads: up to 3 videos over Wi-Fi, within {limit} MB. Manual downloads are kept.',
+      'downloads.suggestedTitle': 'Suggested for offline viewing',
+      'downloads.planRequired':
+          'Your plan does not include video downloads. Choose a plan with downloads to use this feature.',
+      'downloads.qualityDenied':
+          'Your plan does not support this quality. Choose a lower quality.',
+      'downloads.smartUnavailable':
+          'No videos currently fit your download permissions and storage limit.',
+      'downloads.suggestedDescription':
+          'Choose videos to save and watch without a connection.',
+      'downloads.noSuggestions': 'No new download suggestions yet.',
       'downloads.failed': 'Download failed',
       'downloads.remove': 'Remove from device',
       'downloads.error': 'Unable to download this video.',
@@ -1959,6 +2016,8 @@ class AppStrings {
           'Picture-in-picture is not supported for this video source.',
       'watch.loginInteract': 'Sign in to interact with this video.',
       'watch.loginRate': 'Sign in to rate this video.',
+      'watch.ratingHint': 'Choose a star rating for this video.',
+      'watch.removeRating': 'Remove rating',
       'watch.ratingTitle': 'Rate this video',
       'watch.ratingStars': '{count} stars',
       'watch.ratingSaved': 'Your rating was updated.',
@@ -1974,6 +2033,9 @@ class AppStrings {
       'watch.fullscreen': 'Fullscreen',
       'watch.exitFullscreen': 'Exit fullscreen',
       'watch.background': 'Background play',
+      'watch.backgroundNeedsAudio':
+          'Connect headphones or an external speaker, or select Always on in background settings.',
+      'watch.backgroundWaitingAudio': 'Waiting for audio',
       'watch.backgroundEnabled': 'Background play is enabled for this video.',
       'watch.backgroundDisabled': 'Background play is disabled for this video.',
       'watch.backgroundUnavailable':
@@ -2153,6 +2215,27 @@ class AppStrings {
       'auth.saveNewPassword': 'Save new password',
       'auth.sendEmail': 'Send email',
       'auth.createAccount': 'Create account',
+      'auth.backHome': 'Back to home',
+      'common.validationError':
+          'Some information is invalid. Check the data and try again.',
+      'auth.checkEmailTitle': 'Check your inbox',
+      'auth.checkEmailDescription':
+          'Your account has been created. Open the email sent to {email} and follow the verification link. Check spam too.',
+      'auth.pasteVerificationHelp':
+          'You can also copy the link from the email and paste it here to verify in the app.',
+      'auth.verificationLinkField': 'Verification link',
+      'auth.invalidVerificationInput':
+          'Paste the complete verification link from your Dalitu email.',
+      'auth.emailTaken':
+          'This email already has an account. Sign in or resend the verification email.',
+      'auth.usernameTaken':
+          'This username is already in use. Choose another one.',
+      'auth.emailDeliveryUnavailable':
+          'Unable to send the verification email. Try again later or contact support.',
+      'auth.invalidVerificationLink':
+          'This link is invalid, used or expired. Request a new verification email.',
+      'auth.invalidRegistration':
+          'Check your username, email and password requirements.',
       'auth.resendVerification': 'Resend verification email',
       'auth.restoreAgain': 'Try restoring the session again',
       'auth.requestNewLink': 'Request a new link',
@@ -2634,12 +2717,14 @@ class AppStrings {
       'policies.fallbackText':
           'Do not post harmful, infringing, fraudulent or privacy-invasive content. Dalitu may review content before publication.',
       'policies.version': 'Version {version}',
+      'policies.effectiveDate': 'Effective {date}',
       // Search and channel feeds
       'search.title': 'Search videos',
       'search.subtitle': 'Search by video title, topic, or keyword.',
       'search.queryHint': 'What would you like to watch today?',
       'search.clear': 'Clear keyword',
       'search.submit': 'Search videos',
+      'search.sort.title': 'Sort by',
       'search.sort.relevance': 'Most relevant',
       'search.sort.newest': 'Newest',
       'search.sort.popular': 'Most viewed',
@@ -2667,6 +2752,8 @@ class AppStrings {
       'library.historyDescription': 'Videos you watched will appear here.',
       'library.likedDescription': 'Like videos to find them again more easily.',
       // Playlists
+      'playlists.chooseHint': 'Choose a playlist or create a new one.',
+      'playlists.videoAlreadySaved': 'This video is already in the playlist.',
       'playlists.title': 'Your playlists',
       'playlists.subtitle': 'Save and organize videos to revisit anytime.',
       'playlists.create': 'Create playlist',
@@ -2853,20 +2940,6 @@ class AppStrings {
       'downloads.serverError': 'The server returned error {status}.',
       'downloads.interrupted':
           'The download was interrupted when the app closed.',
-      'huai.subtitle': 'An intelligent companion for watching and creating.',
-      'huai.promptTitle': 'Ask HuAI',
-      'huai.promptDescription':
-          'Suggestions will be available when the service is connected.',
-      'huai.suggestion.personalized': 'Recommend videos for me',
-      'huai.suggestion.howTo': 'Explain how to use Dalitu',
-      'huai.suggestion.videoIdeas': 'Suggest ideas for a new video',
-      'huai.preparing': 'HuAI is being prepared',
-      'huai.signIn': 'Sign in to use HuAI',
-      'huai.unavailable':
-          'Chat is not available in the current mobile version.',
-      'huai.messageHint': 'Message HuAI',
-      'huai.apiNotice':
-          'HuAI will be available when the chat API is connected.',
       'watch.loginPlaylist': 'Sign in to save videos to a playlist.',
       'watch.saveVideo': 'Save video',
       'watch.savedVideo': 'Saved video',
@@ -3021,6 +3094,13 @@ class AppStrings {
       'ONE_CHANNEL_LIMIT_EXCEEDED': 'common.oneChannelLimit',
       'CHANNEL_HANDLE_ALREADY_EXISTS': 'common.handleTaken',
       'REQUEST_FAILED': 'common.requestError',
+      'EMAIL_ALREADY_EXISTS': 'auth.emailTaken',
+      'USERNAME_ALREADY_EXISTS': 'auth.usernameTaken',
+      'EMAIL_DELIVERY_UNAVAILABLE': 'auth.emailDeliveryUnavailable',
+      'DOWNLOAD_NOT_INCLUDED': 'downloads.planRequired',
+      'DOWNLOAD_QUALITY_DENIED': 'downloads.qualityDenied',
+      'INVALID_OR_EXPIRED_TOKEN': 'auth.invalidVerificationLink',
+      'VALIDATION_ERROR': 'common.validationError',
     };
     return t(codes[error.code] ?? fallback);
   }

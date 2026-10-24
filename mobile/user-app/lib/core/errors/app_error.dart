@@ -35,9 +35,13 @@ class ApiFailure implements Exception, LocalizedApiFailure {
   String toString() => message;
 
   factory ApiFailure.fromResponse(int status, Map<String, dynamic> data) {
-    final code = data['code'] as String? ?? 'REQUEST_FAILED';
-    final traceId = data['traceId'] as String?;
-    final detail = data['detail'] as String?;
+    final code = data['code'] is String
+        ? data['code'] as String
+        : 'REQUEST_FAILED';
+    final traceId = data['traceId'] is String
+        ? data['traceId'] as String
+        : null;
+    final detail = data['detail'] is String ? data['detail'] as String : null;
 
     AppErrorKind kind;
     if (status == 401) {
@@ -59,8 +63,16 @@ class ApiFailure implements Exception, LocalizedApiFailure {
     final messageKey = switch (code) {
       'INVALID_CREDENTIALS' => 'auth.invalidCredentials',
       'EMAIL_NOT_VERIFIED' || 'EMAIL_UNVERIFIED' => 'auth.emailNotVerified',
-      'ACCOUNT_SUSPENDED' || 'USER_SUSPENDED' || 'ACCOUNT_BLOCKED' =>
-        'auth.accountSuspended',
+      'EMAIL_ALREADY_EXISTS' => 'auth.emailTaken',
+      'USERNAME_ALREADY_EXISTS' => 'auth.usernameTaken',
+      'EMAIL_DELIVERY_UNAVAILABLE' => 'auth.emailDeliveryUnavailable',
+      'DOWNLOAD_NOT_INCLUDED' => 'downloads.planRequired',
+      'DOWNLOAD_QUALITY_DENIED' => 'downloads.qualityDenied',
+      'INVALID_OR_EXPIRED_TOKEN' => 'auth.invalidVerificationLink',
+      'VALIDATION_ERROR' => 'common.validationError',
+      'ACCOUNT_SUSPENDED' ||
+      'USER_SUSPENDED' ||
+      'ACCOUNT_BLOCKED' => 'auth.accountSuspended',
       'ACCOUNT_BANNED' || 'USER_BANNED' => 'auth.accountBanned',
       'RATE_LIMITED' || 'RATE_LIMIT_EXCEEDED' => 'common.rateLimited',
       'STORAGE_UPLOAD_FAILED' => 'common.imageUploadError',

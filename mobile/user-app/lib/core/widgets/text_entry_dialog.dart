@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
+import 'modal_header.dart';
 
 /// Owns the input until the dialog's closing animation has finished.
 class TextEntryDialog extends StatefulWidget {
@@ -33,30 +34,57 @@ class _TextEntryDialogState extends State<TextEntryDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    scrollable: true,
-    title: Text(widget.title),
-    content: TextField(
-      key: const ValueKey('text-entry-input'),
-      controller: _controller,
-      autofocus: true,
-      minLines: 2,
-      maxLines: 5,
-      maxLength: widget.maxLength,
-      decoration: InputDecoration(hintText: widget.hint),
-      onChanged: (_) => setState(() {}),
+  Widget build(BuildContext context) => Dialog(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ModalHeader(title: widget.title, icon: Icons.edit_note_rounded),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: TextField(
+                key: const ValueKey('text-entry-input'),
+                controller: _controller,
+                autofocus: true,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: widget.maxLength,
+                decoration: InputDecoration(
+                  hintText: widget.hint,
+                  alignLabelWithHint: true,
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: OverflowBar(
+                spacing: 12,
+                overflowSpacing: 12,
+                alignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(AppStrings.t('common.cancel')),
+                  ),
+                  FilledButton(
+                    onPressed: _controller.text.trim().isEmpty
+                        ? null
+                        : () => Navigator.pop(context, _controller.text.trim()),
+                    child: Text(widget.submitLabel),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: Text(AppStrings.t('common.cancel')),
-      ),
-      FilledButton(
-        onPressed: _controller.text.trim().isEmpty
-            ? null
-            : () => Navigator.pop(context, _controller.text.trim()),
-        child: Text(widget.submitLabel),
-      ),
-    ],
   );
 }

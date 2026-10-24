@@ -35,7 +35,7 @@ class HuTubeSectionHeader extends StatelessWidget {
                         ? Theme.of(context).textTheme.titleMedium
                         : Theme.of(context).textTheme.titleLarge)
                     ?.copyWith(
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: compact ? -.2 : -.35,
                       fontSize: compact ? 18 : null,
                     ),
@@ -44,9 +44,10 @@ class HuTubeSectionHeader extends StatelessWidget {
             SizedBox(height: compact ? 2 : 3),
             Text(
               subtitle!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(fontSize: compact ? 12 : null),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondaryFor(context),
+                height: 1.5,
+              ),
             ),
           ],
         ],
@@ -121,7 +122,7 @@ class HuTubePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color ?? AppColors.surfaceAlt,
+        color: color ?? AppColors.surfaceAltFor(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -131,12 +132,14 @@ class HuTubePill extends StatelessWidget {
             Icon(icon, size: 14, color: foreground),
             const SizedBox(width: 5),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: foreground,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -170,10 +173,11 @@ class HuTubeStateView extends StatelessWidget {
     final color = accent ?? AppColors.primary;
     return HuTubeScrollable(
       child: Center(
-        child: Padding(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 440),
           padding: EdgeInsets.symmetric(
-            horizontal: 28,
-            vertical: compact ? 28 : 72,
+            horizontal: 24,
+            vertical: compact ? 28 : 48,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -193,16 +197,17 @@ class HuTubeStateView extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               if (message != null) ...[
                 const SizedBox(height: 7),
                 Text(
                   message!,
                   textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(height: 1.45),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondaryFor(context),
+                    height: 1.5,
+                  ),
                 ),
               ],
               if (actionLabel != null) ...[
@@ -248,7 +253,7 @@ class HuTubeMetricCard extends StatelessWidget {
           value,
           style: Theme.of(
             context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 3),
         Text(label, style: Theme.of(context).textTheme.bodySmall),
@@ -274,26 +279,124 @@ class HuTubeAvatar extends StatelessWidget {
   final Color? foregroundColor;
 
   @override
-  Widget build(BuildContext context) => CircleAvatar(
-    radius: radius,
-    backgroundColor:
-        backgroundColor ?? AppColors.primary.withValues(alpha: .12),
-    backgroundImage: url != null && url!.startsWith('http')
-        ? ResizeImage(
-            NetworkImage(url!),
-            width: (radius * 4).round().clamp(48, 256),
-            height: (radius * 4).round().clamp(48, 256),
-          )
-        : null,
-    child: url != null && url!.startsWith('http')
-        ? null
-        : Text(
-            label.isEmpty ? 'H' : label.substring(0, 1).toUpperCase(),
-            style: TextStyle(
-              color: foregroundColor ?? AppColors.primary,
-              fontWeight: FontWeight.w900,
-              fontSize: radius * .72,
-            ),
+  Widget build(BuildContext context) {
+    final cleanLabel = label.trim();
+    final fallback = Center(
+      child: Text(
+        cleanLabel.isEmpty ? 'H' : cleanLabel.characters.first.toUpperCase(),
+        style: TextStyle(
+          color: foregroundColor ?? Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w800,
+          fontSize: radius * .72,
+        ),
+      ),
+    );
+    final uri = Uri.tryParse(url ?? '');
+    final hasImage =
+        uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
+    return SizedBox.square(
+      dimension: radius * 2,
+      child: ClipOval(
+        child: ColoredBox(
+          color:
+              backgroundColor ??
+              Theme.of(context).colorScheme.primary.withValues(alpha: .12),
+          child: hasImage
+              ? Image.network(
+                  url!,
+                  fit: BoxFit.cover,
+                  cacheWidth: (radius * 4).round().clamp(48, 256),
+                  cacheHeight: (radius * 4).round().clamp(48, 256),
+                  errorBuilder: (_, _, _) => fallback,
+                  frameBuilder: (_, child, frame, _) =>
+                      frame == null ? fallback : child,
+                )
+              : fallback,
+        ),
+      ),
+    );
+  }
+}
+
+/// Static placeholders respect reduced motion and use the active theme.
+class HuTubeSkeleton extends StatelessWidget {
+  const HuTubeSkeleton({
+    super.key,
+    this.width,
+    required this.height,
+    this.radius = 8,
+  });
+  final double? width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.skeletonFor(context),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    ),
+  );
+}
+
+/// Recoverable failures keep already loaded content visible and usable.
+class HuTubeNotice extends StatelessWidget {
+  const HuTubeNotice({
+    super.key,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String message;
+  final String actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: HuTubeSurface(
+      color: Theme.of(context).colorScheme.errorContainer,
+      border: BorderSide.none,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.cloud_off_rounded,
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: Text(actionLabel),
+          ),
+        ],
+      ),
+    ),
   );
 }
