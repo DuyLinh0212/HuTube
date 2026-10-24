@@ -71,6 +71,9 @@
 .review-modal .form-field input, .review-modal .form-field textarea, .review-modal .form-field select { background: var(--surface); color: var(--ink); border-color: var(--line); }
 .review-modal .info-card { background: var(--card-hover); border-color: var(--line); }
 .review-modal .info-card strong, .review-modal .modal-header h2 { color: var(--ink); }
+.review-modal .form-field, .review-modal .decision-actions h3, .review-modal .info-card h3, .review-modal .info-card > div span { color: var(--text-body); }
+.review-modal .info-card p { color: var(--text-muted); }
+.review-modal :is(.outline-button, .expand-button) { background: var(--surface); color: var(--text-body); border-color: var(--line); }
 .review-video-title { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
 .review-modal .decision-button.is-selected { outline: 2px solid var(--primary-hover); outline-offset: 2px; }
 .review-modal button:disabled { opacity: .5; cursor: not-allowed; }
