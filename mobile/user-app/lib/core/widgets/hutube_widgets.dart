@@ -89,16 +89,14 @@ class HuTubeSurface extends StatelessWidget {
   final BorderSide? border;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: BoxDecoration(
-      color: color ?? AppColors.surfaceFor(context),
+  Widget build(BuildContext context) => Material(
+    color: color ?? AppColors.surfaceFor(context),
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.fromBorderSide(
-        border ?? BorderSide(color: AppColors.borderFor(context)),
-      ),
+      side: border ?? BorderSide(color: AppColors.borderFor(context)),
     ),
-    child: child,
+    clipBehavior: Clip.antiAlias,
+    child: Padding(padding: padding, child: child),
   );
 }
 

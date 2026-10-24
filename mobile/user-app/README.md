@@ -76,7 +76,13 @@ vẫn cần xác nhận bằng thiết bị theo checklist.
 
 ## Kiểm tra
 
+CI dùng Flutter **3.47.2 stable** (xem `.github/workflows/ci.yml` tại repo root).
+Nên chạy kiểm tra local cùng phiên bản: SDK cũ có thể chưa có các assertion
+Material/ListTile đang được CI kiểm tra. Các surface chứa hàng nhấn dùng
+`Material` để nền và hiệu ứng nhấn được vẽ đúng.
+
 ```powershell
+flutter --version
 flutter analyze
 flutter test --reporter expanded
 flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1
