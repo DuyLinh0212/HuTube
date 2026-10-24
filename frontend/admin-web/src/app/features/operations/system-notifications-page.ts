@@ -28,7 +28,7 @@ const SERVICE_CATALOG: SystemServiceStatus[] = [
   { key: 'database', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra từ API.', responseTimeMs: null },
   { key: 'redis', status: 'unmonitored', detail: 'Backend chưa kết nối Redis hoặc chưa cấu hình health check.', responseTimeMs: null },
   { key: 'vercel', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra frontend trên Vercel.', responseTimeMs: null },
-  { key: 'render', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra backend trên Render.', responseTimeMs: null },
+  { key: 'ec2', status: 'unmonitored', detail: 'Chưa nhận được số đo RAM host từ EC2.', responseTimeMs: null },
   { key: 'storage', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra Cloudflare R2.', responseTimeMs: null },
   { key: 'signalr', status: 'unmonitored', detail: 'Chưa nhận dữ liệu kiểm tra SignalR.', responseTimeMs: null },
 ];
@@ -92,10 +92,10 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
         en: 'Upstash usage is unavailable. Check UPSTASH_EMAIL, UPSTASH_API_KEY, UPSTASH_REDIS_DATABASE_ID, and the Developer API key permissions.',
       });
     }
-    if (!data?.renderUsage || data.renderUsage.status !== 'available') {
+    if (!data?.ec2Memory || data.ec2Memory.status !== 'available') {
       sources.push({
-        vi: data?.renderUsage?.detail ?? 'CPU và bộ nhớ Render cần RENDER_API_KEY; RENDER_SERVICE_ID được Render cấp tự động.',
-        en: 'Render CPU and memory metrics require RENDER_API_KEY; Render provides RENDER_SERVICE_ID automatically.',
+        vi: data?.ec2Memory?.detail ?? 'RAM máy EC2 cần API chạy trên Linux và đọc được /proc/meminfo.',
+        en: 'EC2 host memory requires the API to run on Linux with access to /proc/meminfo.',
       });
     }
     return sources;
@@ -231,7 +231,7 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
       database: ['Neon PostgreSQL', 'Neon PostgreSQL'],
       redis: ['Redis · Upstash', 'Redis · Upstash'],
       vercel: ['Vercel · frontend', 'Vercel · frontend'],
-      render: ['Render · backend', 'Render · backend'],
+      ec2: ['AWS EC2 · API server', 'AWS EC2 · API server'],
       storage: ['Cloudflare R2', 'Cloudflare R2'],
       signalr: ['SignalR', 'SignalR'],
     };
@@ -267,7 +267,6 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
       database: '/assets/brands/neon.svg',
       redis: '/assets/brands/upstash.png',
       vercel: '/assets/brands/vercel.svg',
-      render: '/assets/brands/render.svg',
       storage: '/assets/brands/cloudflare.ico',
       signalr: '/assets/brands/signalr.png',
     } as Record<string, string>)[key.toLowerCase()] ?? '/assets/logo-mark.png';

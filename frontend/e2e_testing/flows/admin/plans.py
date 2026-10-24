@@ -2,10 +2,10 @@
 from playwright.sync_api import expect
 
 
-def run(suite, admin, member):
+def run(suite, admin, member, fixture_suffix=None):
     page = admin['page']
     plan = {}
-    code = 'hutube_e2e_functional'
+    code = 'hutube_e2e_functional'+('_'+fixture_suffix if fixture_suffix else '')
 
     def open_plans():
         suite.go(admin, '/plans', 'app-admin-plans-page')

@@ -1332,7 +1332,29 @@ body.dark-theme {
 // On compact screens the table becomes a stack of readable cards.  Keeping
 // the labels in data-label means every value remains understandable without
 // forcing users to scroll a wide desktop table sideways.
+.mobile-sort-controls { display: none; }
+
 @media (max-width: 720px) {
+  .mobile-sort-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-block: 12px;
+
+    label { flex-basis: 100%; color: var(--muted); font-size: .85rem; }
+    select, button {
+      min-height: 44px;
+      border: 1px solid var(--line, #d5d9e0);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--surface, #fff);
+      color: var(--ink, #172033);
+      font: inherit;
+    }
+    select { flex: 1; min-width: 0; }
+    button { cursor: pointer; }
+  }
   .videos-view-container {
     min-width: 0;
     gap: 14px;
@@ -1622,3 +1644,5 @@ body.dark-theme {
 .modal-card, .modal-dialog, .edit-modal, .action-modal { max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; max-width: 100%; }
 
 .dropdown-menu { position: fixed; top: auto; bottom: auto; right: auto; z-index: 2100; width: 210px; max-height: calc(100dvh - 16px); overflow-y: auto; }
+
+.btn-add-video { text-decoration: none; }

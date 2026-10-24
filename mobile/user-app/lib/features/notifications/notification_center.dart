@@ -155,11 +155,13 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
         return;
       }
       final item = Map<String, dynamic>.from(arguments.first as Map);
+      ApiClient.invalidateNotificationCache();
       _newNotifications.add(item);
       if (_localAlertsEnabled) unawaited(_showLocalNotification(item));
     });
     connection.on('UnreadCountChanged', (arguments) {
       if (arguments == null || arguments.isEmpty) return;
+      ApiClient.invalidateNotificationCache();
       final value = arguments.first;
       if (value is num) setUnreadCount(value.toInt());
       if (value is String) setUnreadCount(int.tryParse(value) ?? 0);

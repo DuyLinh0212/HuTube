@@ -16,6 +16,7 @@ using HuTube.Infrastructure.Account;
 using HuTube.Application.CfSeeding;
 using HuTube.Infrastructure.CfSeeding;
 using HuTube.Infrastructure.Authentication;
+using HuTube.Infrastructure.Caching;
 using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Plans;
 using HuTube.Infrastructure.Playlists;
@@ -31,6 +32,9 @@ using HuTube.Application.Payments;
 using HuTube.Application.Recommendations;
 using HuTube.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -92,12 +96,33 @@ if (emailOptions.Mode == "GmailApi" && (string.IsNullOrWhiteSpace(emailOptions.F
 builder.Services.AddSingleton(jwt); builder.Services.AddSingleton(authOptions); builder.Services.AddSingleton(googleOptions); builder.Services.AddSingleton(emailOptions); builder.Services.AddSingleton(storageOptions); builder.Services.AddSingleton(r2Options); builder.Services.AddSingleton(featureOptions); builder.Services.AddSingleton(videoProcessingOptions); builder.Services.AddSingleton(sepayOptions); builder.Services.AddSingleton(recommendationOptions); builder.Services.AddSingleton(rateLimitOptions); builder.Services.AddSingleton(geoIpOptions);
 builder.Services.AddSingleton<SepaySignatureVerifier>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHttpClient("redis-rest", client => client.Timeout = TimeSpan.FromSeconds(3));
+builder.Services.AddSingleton<UpstashRedisClient>();
+builder.Services.AddHybridCache(options => {
+    options.DefaultEntryOptions = new() {
+        Expiration = TimeSpan.FromSeconds(30), LocalCacheExpiration = TimeSpan.FromSeconds(5)
+    };
+});
+if (UpstashRedisClient.IsConfigured(builder.Configuration))
+{
+    var redisNamespace = $"dalitu:{builder.Environment.EnvironmentName.ToLowerInvariant()}";
+    builder.Services.AddSingleton<IDistributedCache>(services => new UpstashDistributedCache(
+        services.GetRequiredService<UpstashRedisClient>(), redisNamespace + ":cache:", TimeProvider.System));
+    builder.Services.AddSingleton<RedisDataProtectionRepository>(services => new(
+        services.GetRequiredService<UpstashRedisClient>(), redisNamespace + ":data-protection:keys"));
+    builder.Services.AddSingleton<DataProtectionKeyEncryptor>();
+    builder.Services.AddDataProtection().SetApplicationName(redisNamespace);
+    builder.Services.AddOptions<KeyManagementOptions>()
+        .Configure<RedisDataProtectionRepository, DataProtectionKeyEncryptor>((options, repository, encryptor) => {
+            options.XmlRepository = repository;
+            options.XmlEncryptor = encryptor;
+        });
+}
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 256L * 1024 * 1024 * 1024);
 builder.Services.AddDbContext<HuTubeDbContext>(options => options.UseNpgsql(connection));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthStore, AuthStore>(); builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<ISessionPlayerPreferencesStore, RedisSessionPlayerPreferencesStore>();
-builder.Services.AddHttpClient("session-player-preferences", client => client.Timeout = TimeSpan.FromSeconds(3));
 builder.Services.AddHostedService<AuthSessionCleanupWorker>();
 builder.Services.AddScoped<HuTube.Application.Channels.IChannelStore, ChannelStore>();
 builder.Services.AddScoped<HuTube.Application.Channels.ChannelService>();
@@ -135,6 +160,8 @@ builder.Services.AddHostedService<VideoRenditionProcessingWorker>();
 builder.Services.AddHostedService<VideoMediaRetentionCleanupService>();
 builder.Services.AddSingleton(_ => new CfSeedChunkUploadStore(builder.Configuration["CfSeedUpload:Directory"]));
 builder.Services.AddSingleton<VideoChunkUploadStore>();
+builder.Services.AddSingleton<VideoUploadCompletionWorker>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<VideoUploadCompletionWorker>());
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddHostedService<PlanExpirationWorker>();
 builder.Services.AddScoped<AdminSubscriptionService>();
@@ -164,11 +191,15 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<IClientLocationResolver, IpApiClientLocationResolver>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Dalitu/1.0 (IP geolocation for login security)"));
 builder.Services.AddHttpClient<IRecommendationClient, RecommendationClient>();
-builder.Services.AddScoped<IRecommendationSnapshotStore, RecommendationSnapshotStore>();
+// Model snapshots may use a separate bucket/endpoint from video storage.
+// Without an override, retain the existing R2 configuration.
+var recommendationStorage = builder.Configuration.GetSection("Recommendation:Storage").Get<R2Options>() ?? r2Options;
+builder.Services.AddScoped<IRecommendationSnapshotStore>(_ => new RecommendationSnapshotStore(recommendationStorage));
 builder.Services.AddScoped<RecommendationAdminService>();
 builder.Services.AddHostedService<RecommendationJobWorker>();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
-builder.Services.AddControllers().ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
+builder.Services.AddScoped<ReadModelCacheFilter>();
+builder.Services.AddControllers(options => options.Filters.AddService<ReadModelCacheFilter>()).ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
     var problem = ApiErrors.Create(context.HttpContext, 400, "VALIDATION_ERROR", "Vui lòng kiểm tra các trường dữ liệu.");
     problem.Extensions["errors"] = context.ModelState.Where(x => x.Value?.Errors.Count > 0).ToDictionary(x => x.Key, x => x.Value!.Errors.Select(_ => "Giá trị không hợp lệ.").ToArray());
     var result = new BadRequestObjectResult(problem); result.ContentTypes.Add("application/problem+json"); return result;
@@ -178,7 +209,9 @@ var corsOrigins = requiredAuthOrigins.Concat(additionalAuthOrigins).Select(url =
     .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(corsOrigins)
     .WithMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
-    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With", "X-SignalR-User-Agent", "X-HuTube-Client", "X-HuTube-App")
+    .WithHeaders("Accept", "Content-Type", "Authorization", "Idempotency-Key", "Prefer", "Cache-Control", "X-Upload-Chunk-Index", "X-Requested-With", "X-SignalR-User-Agent", "X-HuTube-Client", "X-HuTube-App")
+    .WithExposedHeaders("Retry-After", "X-Request-ID", "X-Data-Cache")
+    .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
     .AllowCredentials()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
     options.MapInboundClaims = false;
@@ -244,6 +277,7 @@ builder.Services.AddRateLimiter(options => {
     options.AddPolicy("upload", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("upload-preflight", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadPreflightPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("upload-chunk", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadChunkPermitLimit, rateLimitOptions.Window));
+    options.AddPolicy("upload-status", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.UploadStatusPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("payment-initiate", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentInitiatePermitLimit, rateLimitOptions.Window));
     options.AddPolicy("payment-webhook", context => RateLimitPolicies.FixedWindow(context, rateLimitOptions.PaymentWebhookPermitLimit, rateLimitOptions.Window));
     options.AddPolicy("feedback-survey-webhook", context => RateLimitPolicies.FixedWindow(context, 120, rateLimitOptions.Window));

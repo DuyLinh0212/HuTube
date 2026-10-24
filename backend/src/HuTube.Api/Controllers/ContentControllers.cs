@@ -84,8 +84,8 @@ public sealed class LibraryController(IContentService content) : ControllerBase
 
     [HttpGet("history")]
     public Task<PageResult<WatchHistoryResponse>> HistoryAsync([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
-        [FromQuery] DateTimeOffset? before = null, CancellationToken ct = default,
-        [FromQuery] string? q = null, [FromQuery] string sort = "newest", [FromQuery] string dateRange = "all") =>
+        [FromQuery] DateTimeOffset? before = null, [FromQuery] string? q = null,
+        [FromQuery] string sort = "newest", [FromQuery] string? dateRange = null, CancellationToken ct = default) =>
         content.GetWatchHistoryAsync(UserId, page, pageSize, before, ct, q, sort, dateRange);
 
     [HttpDelete("history")]

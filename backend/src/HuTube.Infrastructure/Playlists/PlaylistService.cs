@@ -196,11 +196,36 @@ public sealed class PlaylistService(HuTubeDbContext db, IObjectStorage storage, 
     private async Task<HuTube.Domain.Playlists.Playlist> OwnedAsync(Guid userId, Guid playlistId, CancellationToken ct) =>
         await db.Playlists.SingleOrDefaultAsync(x => x.PlaylistId == playlistId && x.UserId == userId, ct)
         ?? throw Error(403, "PLAYLIST_OWNER_REQUIRED", "Chi chu playlist moi duoc thao tac.");
-    private async Task<IReadOnlyList<PlaylistSummaryResponse>> SummariesAsync(IReadOnlyList<PlaylistSummaryResponse> summaries, CancellationToken ct) =>
-        await Task.WhenAll(summaries.Select(async summary => summary with
+    private async Task<IReadOnlyList<PlaylistSummaryResponse>> SummariesAsync(IReadOnlyList<PlaylistSummaryResponse> summaries, CancellationToken ct)
+    {
+        var ids = summaries.Select(x => x.PlaylistId).ToArray();
+        if (ids.Length == 0) return [];
+        // One projection for all covers/previews. Catalogue visibility is enforced
+        // here so a private/removed video never leaks through a playlist thumbnail.
+        var visible = HuTube.Infrastructure.Videos.VideoAccessPolicy.Catalogue(db);
+        var previews = await (from playlist in db.Playlists.AsNoTracking()
+            where ids.Contains(playlist.PlaylistId)
+            from preview in (from item in db.PlaylistVideos.AsNoTracking()
+                join video in visible on item.VideoId equals video.VideoId
+                where item.PlaylistId == playlist.PlaylistId
+                orderby item.Position
+                select new { item.PlaylistId, item.PlaylistVideoId, item.VideoId, item.Position, video.Title, video.ThumbnailUrl, video.Duration,
+                    video.Visibility, video.Status, video.ModerationStatus }).Take(4)
+            select preview).ToListAsync(ct);
+        var result = new List<PlaylistSummaryResponse>(summaries.Count);
+        foreach (var summary in summaries)
         {
-            CoverUrl = summary.CoverUrl == null ? null : await storage.GetReadUrlAsync(summary.CoverUrl, TimeSpan.FromMinutes(60), ct),
-        }));
+            var items = new List<PlaylistItemResponse>();
+            foreach (var item in previews.Where(x => x.PlaylistId == summary.PlaylistId))
+                items.Add(new(item.PlaylistVideoId, item.VideoId, item.Position, item.Title,
+                    item.ThumbnailUrl == null ? null : await storage.GetReadUrlAsync(item.ThumbnailUrl, TimeSpan.FromMinutes(60), ct),
+                    item.Duration, item.Visibility, item.Status, item.ModerationStatus, true, null));
+            var cover = summary.CoverUrl == null ? items.FirstOrDefault()?.ThumbnailUrl
+                : await storage.GetReadUrlAsync(summary.CoverUrl, TimeSpan.FromMinutes(60), ct);
+            result.Add(summary with { CoverUrl = cover, PreviewItems = items });
+        }
+        return result;
+    }
     private static string NormalizeVisibility(string value) => value.Trim().ToLowerInvariant() switch { "public" => "public", "unlisted" => "unlisted", _ => "private" };
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static PlaylistException Error(int status, string code, string message) => new(status, code, message);

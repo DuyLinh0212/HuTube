@@ -562,6 +562,27 @@
     },
     {
       "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RateLimitIntegrationTests.cs",
+      "method": "Search_RateLimitExceeded_ShouldReturnRetryContract",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RateLimitIntegrationTests.cs",
+      "method": "UploadPreflight_RateLimitExceeded_ShouldReturnRetryContract",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/RateLimitIntegrationTests.cs",
+      "method": "PaymentWebhook_RateLimitExceeded_ShouldReturnRetryContract",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/RbacAndChannelIntegrationTests.cs",
       "method": "INT_S4_03_AdminRbac_Moderator_CanViewQueue_ButCannotApprove",
       "kind": "Fact",
@@ -947,6 +968,90 @@
     },
     {
       "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ClaimLeasePolicyTests.cs",
+      "method": "FirstClaimUsesDatabaseMicrosecondPrecisionWithoutExtendingDuration",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ClaimLeasePolicyTests.cs",
+      "method": "ClaimExpiresExactlyAtFifteenMinutes",
+      "kind": "Theory",
+      "inline_data_rows": 3
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ClaimLeasePolicyTests.cs",
+      "method": "IdempotentClaimDoesNotRenewAndAnotherReviewerCannotSteal",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ClaimLeasePolicyTests.cs",
+      "method": "ReclaimRotatesTokenAndStaleBrowserCannotReleaseOrResolve",
+      "kind": "Theory",
+      "inline_data_rows": 2
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ClaimLeasePolicyTests.cs",
+      "method": "ClosedCaseAndLegacyUnleasedCaseCannotBeResolved",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ClaimLeasePolicyTests.cs",
+      "method": "UnresolvedEscalationRequiresANewLeaseButClosedReportCannotReopen",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/LocalStorageEvidenceTests.cs",
+      "method": "EvidenceDeletedAfterUpload_Returns404WithoutDisclosingStoragePath",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ModelCancellationTests.cs",
+      "method": "QueuedCancellationAndTerminalReplayDoNotNeedModelTransport",
+      "kind": "Theory",
+      "inline_data_rows": 4
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ModelCancellationTests.cs",
+      "method": "RunningJobRequiresActualCancellationAcknowledgement",
+      "kind": "Theory",
+      "inline_data_rows": 4
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ModerationStrikeAndAppealTests.cs",
+      "method": "ApprovedCase_RejectsReplayAndReclaim_WithoutDuplicateNotification",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ModerationStrikeAndAppealTests.cs",
+      "method": "ClaimedCase_CannotBeResolvedByAnotherReviewer_WithoutSideEffects",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/ModerationStrikeAndAppealTests.cs",
+      "method": "TerminalCase_RejectsAnotherDecisionBeforeTargetOrNotificationChanges",
+      "kind": "Theory",
+      "inline_data_rows": 3
+    },
+    {
+      "project": "HuTube.UnitTests",
       "file": "backend/tests/HuTube.UnitTests/ModerationStrikeAndAppealTests.cs",
       "method": "AutoStrikeRule_FifthVideoRejection_AppliesConfiguredTier",
       "kind": "Theory",
@@ -972,6 +1077,13 @@
       "method": "Report_CanReportVideoCommentAndChannel",
       "kind": "Fact",
       "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/PaymentServiceTests.cs",
+      "method": "Webhook_MatchesCompleteNormalizedQrReference",
+      "kind": "Theory",
+      "inline_data_rows": 7
     },
     {
       "project": "HuTube.UnitTests",
@@ -1073,6 +1185,13 @@
     },
     {
       "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/PolicyVersionTests.cs",
+      "method": "PublishedVersion_KeepsOriginalEvidence_AndOnlyLatestIsPublic",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
       "file": "backend/tests/HuTube.UnitTests/R2StorageTests.cs",
       "method": "LoadDevelopmentFile_ReadsLastBucketScopedCredentialWithoutLoggingSecrets",
       "kind": "Fact",
@@ -1166,6 +1285,20 @@
       "project": "HuTube.UnitTests",
       "file": "backend/tests/HuTube.UnitTests/SepaySignatureVerifierTests.cs",
       "method": "Verify_WhenTimestampTooOld_ReturnsFalse",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/SharedPlanServiceTests.cs",
+      "method": "ExpiredHistory_CannotGrantCachedPaidFeatures_BeforeWorker",
+      "kind": "Theory",
+      "inline_data_rows": 2
+    },
+    {
+      "project": "HuTube.UnitTests",
+      "file": "backend/tests/HuTube.UnitTests/SharedPlanServiceTests.cs",
+      "method": "AcceptSharedPlan_OverridesDefaultFreeQuota_AndRevocationRestoresIt",
       "kind": "Fact",
       "inline_data_rows": 0
     },
@@ -1299,11 +1432,31 @@
     },
     {
       "file": "recommendation-service/tests/test_hutube_training.py",
+      "method": "test_selected_batch_incremental_partial_topk_is_persisted"
+    },
+    {
+      "file": "recommendation-service/tests/test_hutube_training.py",
       "method": "test_weighted_score_configuration_is_persisted"
     },
     {
       "file": "recommendation-service/tests/test_item_cf.py",
       "method": "test_item_cf_predicts_and_excludes_seen_items"
+    },
+    {
+      "file": "recommendation-service/tests/test_model_cancellation.py",
+      "method": "test_cancel_before_submission_is_durable_and_idempotent"
+    },
+    {
+      "file": "recommendation-service/tests/test_model_cancellation.py",
+      "method": "test_cancel_wins_publication_race_and_cannot_be_overwritten"
+    },
+    {
+      "file": "recommendation-service/tests/test_model_cancellation.py",
+      "method": "test_publication_winner_rejects_late_cancel_without_false_ack"
+    },
+    {
+      "file": "recommendation-service/tests/test_model_cancellation.py",
+      "method": "test_old_identical_manifest_does_not_complete_new_guarded_job"
     },
     {
       "file": "recommendation-service/tests/test_quality_gate.py",

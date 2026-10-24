@@ -1,4 +1,5 @@
 using HuTube.Application.Storage;
+using HuTube.Application.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 
@@ -39,7 +40,17 @@ public sealed class LocalStorageService(IWebHostEnvironment environment, IHttpCo
     public Task<string> SaveVideoAsync(string folder, string fileName, Stream content, string contentType, CancellationToken ct = default) =>
         SaveFileAsync(folder, fileName, content, contentType, ct);
 
-    public Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default) => Task.FromResult(storedPath);
+    public Task<string> GetReadUrlAsync(string storedPath, TimeSpan lifetime, CancellationToken ct = default)
+    {
+        // Background uploads have no HTTP request and persist a relative path.
+        // Resolve it when serving the DTO so a separate Web origin does not
+        // receive the media request meant for this API's static file endpoint.
+        var request = httpContextAccessor.HttpContext?.Request;
+        var url = storedPath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) && request != null
+            ? $"{request.Scheme}://{request.Host}{request.PathBase}{storedPath}"
+            : storedPath;
+        return Task.FromResult(url);
+    }
 
     public Task<Stream> OpenReadAsync(string storedPath, CancellationToken ct = default)
     {
@@ -47,7 +58,10 @@ public sealed class LocalStorageService(IWebHostEnvironment environment, IHttpCo
         if (!storedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) throw new FileNotFoundException("Không tìm thấy bằng chứng.");
         var fileName = Path.GetFileName(storedPath[prefix.Length..]);
         if (string.IsNullOrWhiteSpace(fileName)) throw new FileNotFoundException("Không tìm thấy bằng chứng.");
-        Stream stream = new FileStream(Path.Combine(_privateUploadRoot, fileName), FileMode.Open, FileAccess.Read, FileShare.Read);
+        Stream stream;
+        try { stream = new FileStream(Path.Combine(_privateUploadRoot, fileName), FileMode.Open, FileAccess.Read, FileShare.Read); }
+        catch (FileNotFoundException) { throw new AuthException(404, "APPEAL_EVIDENCE_NOT_FOUND", "Không tìm thấy tệp bằng chứng."); }
+        catch (DirectoryNotFoundException) { throw new AuthException(404, "APPEAL_EVIDENCE_NOT_FOUND", "Không tìm thấy tệp bằng chứng."); }
         return Task.FromResult(stream);
     }
 

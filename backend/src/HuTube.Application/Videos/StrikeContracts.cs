@@ -131,7 +131,9 @@ public sealed record ReportCaseSummary(
     string? ReviewerName,
     DateTimeOffset SubmittedAt,
     DateTimeOffset UpdatedAt,
-    DateTimeOffset? ResolvedAt = null
+    DateTimeOffset? ResolvedAt = null,
+    Guid? ClaimId = null,
+    DateTimeOffset? ClaimExpiresAt = null
 );
 public sealed record ReportCaseReportDetail(
     Guid ReportId,
@@ -151,13 +153,13 @@ public sealed record ReportCaseReportDetail(
     DateTimeOffset UpdatedAt
 );
 public sealed record ReportCaseDetail(ReportCaseSummary Case, IReadOnlyList<ReportCaseReportDetail> Reports);
-public sealed record UpdateReportDispositionsRequest(IReadOnlyList<Guid> ReportIds, string Disposition, string Reason);
+public sealed record UpdateReportDispositionsRequest(IReadOnlyList<Guid> ReportIds, string Disposition, string Reason, Guid? ClaimId = null);
 public sealed record ResolveReportCaseRequest(
     string Decision, // dismiss, warn, age_restrict, recommendation_restricted, hide, remove, upload_restriction, strike, lock_channel, escalate
     string Reason,
     string? InternalNote,
     string? PolicyCode,
-    int? RestrictionDays = null);
+    int? RestrictionDays = null, Guid? ClaimId = null);
 
 // ================= APPEAL CONTRACTS =================
 
@@ -179,7 +181,9 @@ public sealed record AppealDto(
     Guid? ModerationCaseId,
     Guid? StrikeId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ResolvedAt
+    DateTimeOffset? ResolvedAt,
+    Guid? ClaimId = null,
+    DateTimeOffset? ClaimExpiresAt = null
 );
 
 public sealed record CreateAppealRequest(
@@ -194,7 +198,8 @@ public sealed record CreateAppealRequest(
 
 public sealed record ResolveAppealRequest(
     string Decision, // approve, reject, escalate
-    string? ReviewNote
+    string? ReviewNote,
+    Guid? ClaimId = null
 );
 
 public sealed record AppealResolutionResponse(

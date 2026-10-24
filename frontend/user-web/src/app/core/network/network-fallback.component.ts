@@ -12,7 +12,7 @@ export class NetworkFallbackComponent {
   readonly network = inject(NetworkStatusService);
 
   retry(): void {
-    void this.network.checkConnection();
+    void this.network.checkConnection(true);
   }
 
   dismiss(): void {

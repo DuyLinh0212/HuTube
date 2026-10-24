@@ -9,6 +9,7 @@ class PlaylistSummary {
     this.description,
     this.coverUrl,
     this.updatedAt,
+    this.previewItems,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class PlaylistSummary {
   final String? description;
   final String? coverUrl;
   final DateTime? updatedAt;
+  final List<PlaylistItem>? previewItems;
 
   factory PlaylistSummary.fromJson(Map<String, dynamic> json) =>
       PlaylistSummary(
@@ -30,6 +32,15 @@ class PlaylistSummary {
         description: json['description'] as String?,
         coverUrl: (json['coverUrl'] ?? json['cover_url']) as String?,
         updatedAt: DateTime.tryParse('${json['updatedAt'] ?? ''}'),
+        previewItems: json['previewItems'] is List
+            ? (json['previewItems'] as List)
+                  .whereType<Map>()
+                  .map(
+                    (item) =>
+                        PlaylistItem.fromJson(Map<String, dynamic>.from(item)),
+                  )
+                  .toList()
+            : null,
       );
 }
 

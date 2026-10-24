@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
+from threading import Lock
+from time import monotonic
 from typing import Annotated
 
 import httpx
@@ -12,19 +15,37 @@ from app.inference import InferenceEngine, UserNotInModelError
 
 router = APIRouter()
 logger = logging.getLogger("uvicorn.error")
+_rank_cache: OrderedDict[tuple, tuple[float, tuple[str, ...]]] = OrderedDict()
+_rank_lock = Lock()
 
 
 def _rank(registry, context: dict) -> list[str]:
     loaded = registry.loaded
     if not context["enabled"] or loaded is None:
         return []
+    # Identity and excludes come from the authenticated content API, never from
+    # a client-supplied user ID. A model swap creates a different partition.
+    key = (id(loaded), loaded.metadata["modelVersion"], context["userId"],
+           tuple(sorted(context["excludeItemIds"])))
+    with _rank_lock:
+        cached = _rank_cache.get(key)
+        if cached is not None and cached[0] > monotonic():
+            _rank_cache.move_to_end(key)
+            registry.statistics.record_use(str(loaded.metadata["modelVersion"]))
+            return list(cached[1])
+        _rank_cache.pop(key, None)
     try:
         items = InferenceEngine(loaded).recommend(
             user_id=context["userId"], limit=100,
             exclude_item_ids=context["excludeItemIds"],
         )
         registry.statistics.record_use(str(loaded.metadata["modelVersion"]))
-        return [item.item_id for item in items]
+        ids = tuple(item.item_id for item in items)
+        with _rank_lock:
+            if len(_rank_cache) >= 500:
+                _rank_cache.popitem(last=False)
+            _rank_cache[key] = (monotonic() + 30, ids)
+        return list(ids)
     except UserNotInModelError:
         return []
     except Exception:

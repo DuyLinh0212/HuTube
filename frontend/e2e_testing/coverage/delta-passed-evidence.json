@@ -1,0 +1,1241 @@
+{
+  "cases": {
+    "FULL-PLAN-INVITATION-EXPIRY-PREPARATION": {
+      "parent": "U-PLAN.03",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-EXPIRY-PREPARATION/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-EXPIRY-PREPARATION/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-EXPIRY-PREPARATION/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Create independent synthetic owner and zero-price shared plan through real API",
+        "Actual Owner UI subscribes without payment",
+        "Actual UI invites existing independent Member with 1 GB allocation",
+        "Read recipient-specific real mail link; IDs agree",
+        "Pending invitation grants no entitlement or quota"
+      ],
+      "resource_ids": [
+        "bcb19ee5-5508-4534-ae83-aa56a3d41952",
+        "c7f0c098-df63-4a5a-b811-1bf7864b6d0f",
+        "ccbbad6c-25ff-483a-b724-ed8679b5ecd1"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-PLAN-INVITATION-EXPIRY-PREPARATION",
+      "run_id": "20261017T032047.478334Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T032047.478334Z/report.json"
+    },
+    "FULL-PLAN-INVITATION-INVALID-TOKEN-IDENTITY-INCOMPLETE": {
+      "parent": "U-PLAN.03",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-INVALID-TOKEN-IDENTITY-INCOMPLETE/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-INVALID-TOKEN-IDENTITY-INCOMPLETE/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-INVALID-TOKEN-IDENTITY-INCOMPLETE/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Wrong actual token 400 INVALID_TOKEN",
+        "Valid token used by another identity 403 EMAIL_MISMATCH",
+        "Pending row and original member plan/quota unchanged",
+        "Incomplete invite route shows error and no accept button"
+      ],
+      "resource_ids": [
+        "c7f0c098-df63-4a5a-b811-1bf7864b6d0f"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-PLAN-INVITATION-INVALID-TOKEN-IDENTITY-INCOMPLETE",
+      "run_id": "20261017T032047.478334Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T032047.478334Z/report.json"
+    },
+    "FULL-PLAN-INVITATION-EXPIRED-NO-ENTITLEMENT": {
+      "parent": "U-PLAN.03",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-EXPIRED-NO-ENTITLEMENT/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-EXPIRED-NO-ENTITLEMENT/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T032047.478334Z/user/plans/functional/FULL-PLAN-INVITATION-EXPIRED-NO-ENTITLEMENT/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Load actual emailed invitation in recipient UI",
+        "Shorten only the exact owned token deadline; never seed a success/failure state",
+        "Wait backend clock and press real accept button",
+        "410 INVITATION_EXPIRED; UI error without success",
+        "Token stays unused, invitation pending, member plan/quota unchanged"
+      ],
+      "resource_ids": [
+        "c7f0c098-df63-4a5a-b811-1bf7864b6d0f",
+        "bcb19ee5-5508-4534-ae83-aa56a3d41952"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-PLAN-INVITATION-EXPIRED-NO-ENTITLEMENT",
+      "run_id": "20261017T032047.478334Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T032047.478334Z/report.json"
+    },
+    "FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES": {
+      "parent": "U-PLAN.03",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "owner-0-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/desktop/owner-0-bytes-remaining.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "owner-0-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/mobile/owner-0-bytes-remaining.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "owner-0-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/tablet/owner-0-bytes-remaining.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "desktop",
+          "step": "owner-1-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/desktop/owner-1-bytes-remaining.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "owner-1-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/mobile/owner-1-bytes-remaining.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "owner-1-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/tablet/owner-1-bytes-remaining.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "desktop",
+          "step": "member-0-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/desktop/member-0-bytes-remaining.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "member-0-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/mobile/member-0-bytes-remaining.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "member-0-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/tablet/member-0-bytes-remaining.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "desktop",
+          "step": "member-1-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/desktop/member-1-bytes-remaining.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "member-1-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/mobile/member-1-bytes-remaining.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "member-1-bytes-remaining",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES/tablet/member-1-bytes-remaining.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Independent synthetic owner/member with real encoded uploads",
+        "For both actors: usedBytes-1 rejected and allocation unchanged",
+        "Exact usedBytes accepted with zero remaining",
+        "usedBytes+1 accepted with one remaining",
+        "Real plans reload and three viewport evidence at each accepted boundary"
+      ],
+      "resource_ids": [
+        "9ca49536-aa14-45d5-b222-dfe0b73f6b02",
+        "0616de02-10f2-405d-be15-2e03f5c4293d",
+        "e21b069c-479c-4ade-b208-3a46f03940db",
+        "f65851d6-7c95-4f1e-9a43-14869aa974fc"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-PLAN-EXACT-OWNER-MEMBER-USED-BYTES",
+      "run_id": "20261017T035428.147737Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T035428.147737Z/report.json"
+    },
+    "FULL-DELTA-PLAN-RENEWAL-CURRENT-PRODUCT-CONTRACT": {
+      "parent": "U-PLAN.03",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-RENEWAL-CURRENT-PRODUCT-CONTRACT/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-RENEWAL-CURRENT-PRODUCT-CONTRACT/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T035428.147737Z/user/plans/functional/FULL-DELTA-PLAN-RENEWAL-CURRENT-PRODUCT-CONTRACT/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Read actual subscription dates/autoRenew",
+        "Current User UI exposes timing read-only",
+        "Reload leaves history ID/dates/autoRenew unchanged",
+        "Source-reviewed absence of User renew API is documented, not a provider success claim"
+      ],
+      "resource_ids": [],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-PLAN-RENEWAL-CURRENT-PRODUCT-CONTRACT",
+      "run_id": "20261017T035428.147737Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T035428.147737Z/report.json"
+    },
+    "FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE": {
+      "parent": "A-VIDEOS.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "stats-exact-row",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE/desktop/stats-exact-row.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": [
+              {
+                "left": 480,
+                "right": 960,
+                "top": 290,
+                "bottom": 670
+              }
+            ]
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "stats-exact-row",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE/mobile/stats-exact-row.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": [
+              {
+                "left": 16,
+                "right": 374,
+                "top": 240,
+                "bottom": 604
+              }
+            ]
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "stats-exact-row",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE/tablet/stats-exact-row.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": [
+              {
+                "left": 144,
+                "right": 624,
+                "top": 322,
+                "bottom": 702
+              }
+            ]
+          }
+        },
+        {
+          "viewport": "desktop",
+          "step": "actual-preview-source-or-unavailable",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE/desktop/actual-preview-source-or-unavailable.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": [
+              {
+                "left": 300,
+                "right": 1140,
+                "top": 238.203125,
+                "bottom": 721.796875
+              }
+            ]
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "actual-preview-source-or-unavailable",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE/mobile/actual-preview-source-or-unavailable.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": [
+              {
+                "left": 16,
+                "right": 374,
+                "top": 121.96875,
+                "bottom": 722.03125
+              }
+            ]
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "actual-preview-source-or-unavailable",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE/tablet/actual-preview-source-or-unavailable.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": [
+              {
+                "left": 16,
+                "right": 752,
+                "top": 109.90625,
+                "bottom": 914.09375
+              }
+            ]
+          }
+        }
+      ],
+      "steps": [
+        "Stats modal values match exact API list row",
+        "Preview requests the same immutable video ID",
+        "Actual returned stream decodes when available; unavailable stream shows no player",
+        "Close/reload leaves no stale modal"
+      ],
+      "resource_ids": [
+        "f65851d6-7c95-4f1e-9a43-14869aa974fc"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-ADMIN-VIDEO-STATS-PREVIEW-SOURCE",
+      "run_id": "20261017T035659.426630Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T035659.426630Z/report.json"
+    },
+    "FULL-DELTA-ADMIN-METADATA-LATE-TARGET-RESPONSE": {
+      "parent": "A-VIDEOS.02",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-METADATA-LATE-TARGET-RESPONSE/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-METADATA-LATE-TARGET-RESPONSE/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-METADATA-LATE-TARGET-RESPONSE/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Hold genuine first detail HTTP response without replacing payload",
+        "Close first edit and open second video through UI",
+        "Deliver first response only after second loaded",
+        "Second title/description stay bound to second ID; both persisted records unchanged"
+      ],
+      "resource_ids": [
+        "f65851d6-7c95-4f1e-9a43-14869aa974fc",
+        "e21b069c-479c-4ade-b208-3a46f03940db"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-ADMIN-METADATA-LATE-TARGET-RESPONSE",
+      "run_id": "20261017T035659.426630Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T035659.426630Z/report.json"
+    },
+    "FULL-DELTA-ADMIN-METADATA-PERMISSION-DENIED": {
+      "parent": "A-VIDEOS.02",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-METADATA-PERMISSION-DENIED/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-METADATA-PERMISSION-DENIED/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T035659.426630Z/admin/videos/functional/FULL-DELTA-ADMIN-METADATA-PERMISSION-DENIED/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Actual reviewer has video.view without video.edit",
+        "UI edit disabled before and after reload",
+        "Direct actual mutation denied 403",
+        "Exact target title/description unchanged in admin read-back"
+      ],
+      "resource_ids": [
+        "7c54bf95-7d2a-4b90-87ac-9f0d7ccfc985"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-ADMIN-METADATA-PERMISSION-DENIED",
+      "run_id": "20261017T035659.426630Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T035659.426630Z/report.json"
+    },
+    "FULL-DELTA-POLICY-DRAFT-EDIT-PUBLISH": {
+      "parent": "A-POLICY.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T035951.748012Z/admin/policy/functional/FULL-DELTA-POLICY-DRAFT-EDIT-PUBLISH/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T035951.748012Z/admin/policy/functional/FULL-DELTA-POLICY-DRAFT-EDIT-PUBLISH/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T035951.748012Z/admin/policy/functional/FULL-DELTA-POLICY-DRAFT-EDIT-PUBLISH/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Real draft excluded from public policy list",
+        "Edit draft version/content in actual Admin modal then publish",
+        "Draft identity preserved; exact edited content/version becomes public",
+        "Reload Admin retains published draft result"
+      ],
+      "resource_ids": [
+        "3f7c985a-65dd-4cb4-a587-8806710cd88e"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-POLICY-DRAFT-EDIT-PUBLISH",
+      "run_id": "20261017T035951.748012Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T035951.748012Z/report.json"
+    },
+    "FULL-DELTA-MODERATION-POLICY-VERSION-PINNED": {
+      "parent": "A-POLICY.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T035951.748012Z/admin/policy/functional/FULL-DELTA-MODERATION-POLICY-VERSION-PINNED/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T035951.748012Z/admin/policy/functional/FULL-DELTA-MODERATION-POLICY-VERSION-PINNED/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T035951.748012Z/admin/policy/functional/FULL-DELTA-MODERATION-POLICY-VERSION-PINNED/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Independent reviewer rejects actual processed upload under published 1.0",
+        "Persisted moderation policy_version is exactly 1.0",
+        "Actual UI publishes separate 2.0 and preserves 1.0 content",
+        "Public API selects 2.0; original decision still references 1.0 after reload"
+      ],
+      "resource_ids": [
+        "3de4bc8a-4a66-45ea-8bce-f6ad0035443e",
+        "7aefc2ab-34a9-41a3-a959-b0e521313408",
+        "3f7c985a-65dd-4cb4-a587-8806710cd88e",
+        "b868fc18-dfb1-4d32-8245-24820e32c604"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-MODERATION-POLICY-VERSION-PINNED",
+      "run_id": "20261017T035951.748012Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T035951.748012Z/report.json"
+    },
+    "FULL-DELTA-ADMIN-VIDEO-CATEGORY-FIXED-PAGE-SIZE": {
+      "parent": "A-VIDEOS.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-CATEGORY-FIXED-PAGE-SIZE/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-CATEGORY-FIXED-PAGE-SIZE/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/videos/functional/FULL-DELTA-ADMIN-VIDEO-CATEGORY-FIXED-PAGE-SIZE/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Every currently offered category option drives exact categoryId query",
+        "Each result row belongs to selected category and page resets",
+        "Reset returns actual default collection",
+        "Source-reviewed fixed six-row page size; no offered sizes omitted"
+      ],
+      "resource_ids": [],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-ADMIN-VIDEO-CATEGORY-FIXED-PAGE-SIZE",
+      "run_id": "20261017T040219.853059Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T040219.853059Z/report.json"
+    },
+    "FULL-DELTA-TAXONOMY-DUPLICATE-LENGTH-BOUNDARIES": {
+      "parent": "A-TOPICS.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/topics/functional/FULL-DELTA-TAXONOMY-DUPLICATE-LENGTH-BOUNDARIES/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/topics/functional/FULL-DELTA-TAXONOMY-DUPLICATE-LENGTH-BOUNDARIES/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/topics/functional/FULL-DELTA-TAXONOMY-DUPLICATE-LENGTH-BOUNDARIES/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Normalized duplicate slug/tag rejects 409",
+        "Name101/slug121/description1001/tag81 reject 400 without extra records",
+        "Exact topic maximum lengths persist through actual API",
+        "Restore readable fixture and reload exact Admin row"
+      ],
+      "resource_ids": [
+        "ad103fe8-8899-46a8-b2bf-c26ccc59abee",
+        "ff4673b3-6feb-4392-a39d-c9367bfb7e5a"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-TAXONOMY-DUPLICATE-LENGTH-BOUNDARIES",
+      "run_id": "20261017T040219.853059Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T040219.853059Z/report.json"
+    },
+    "FULL-DELTA-TAXONOMY-LINKED-ARCHIVE-DELETE": {
+      "parent": "A-TOPICS.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/topics/functional/FULL-DELTA-TAXONOMY-LINKED-ARCHIVE-DELETE/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/topics/functional/FULL-DELTA-TAXONOMY-LINKED-ARCHIVE-DELETE/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/topics/functional/FULL-DELTA-TAXONOMY-LINKED-ARCHIVE-DELETE/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Actual video references category/tag through real API",
+        "Linked tag delete rejects TAG_IN_USE",
+        "Category archive is allowed without unlinking/deleting video",
+        "Inactive category absent from new-selection catalog, retained with usage count in Admin",
+        "Reload inactive row matches exact fixture"
+      ],
+      "resource_ids": [
+        "a1a68c10-c269-4c8b-a00f-53168fa53ca2",
+        "ad103fe8-8899-46a8-b2bf-c26ccc59abee",
+        "ff4673b3-6feb-4392-a39d-c9367bfb7e5a"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-TAXONOMY-LINKED-ARCHIVE-DELETE",
+      "run_id": "20261017T040219.853059Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T040219.853059Z/report.json"
+    },
+    "FULL-DELTA-STRIKE-NATURAL-EXPIRY-AUDIT-NOTIFICATION": {
+      "parent": "A-MODERATION.05",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/strikes/functional/FULL-DELTA-STRIKE-NATURAL-EXPIRY-AUDIT-NOTIFICATION/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/strikes/functional/FULL-DELTA-STRIKE-NATURAL-EXPIRY-AUDIT-NOTIFICATION/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T040219.853059Z/admin/strikes/functional/FULL-DELTA-STRIKE-NATURAL-EXPIRY-AUDIT-NOTIFICATION/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Real strike blocks upload; creation audit and recipient Pickup mail verified",
+        "Shorten only owned expiry deadline and wait actual server time",
+        "Actual API reports expired/count zero and preflight permits upload",
+        "No duplicate audit/notification from repeated expiry reads",
+        "Admin expired tab retains exact strike across reload in three viewports"
+      ],
+      "resource_ids": [
+        "0b95a248-3c88-4fb8-a985-c524e1cebe3d",
+        "e5638be6-14c0-4eb8-ad80-b035b53046d8"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-STRIKE-NATURAL-EXPIRY-AUDIT-NOTIFICATION",
+      "run_id": "20261017T040219.853059Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T040219.853059Z/report.json"
+    },
+    "FULL-DELTA-STUDIO-CONTENT-FILTER-SEARCH-PAGINATION": {
+      "parent": "U-STUDIO.05",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-CONTENT-FILTER-SEARCH-PAGINATION/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-CONTENT-FILTER-SEARCH-PAGINATION/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-CONTENT-FILTER-SEARCH-PAGINATION/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "21 actual encoded uploads produce exact first20/last1 with no duplicate IDs",
+        "Real load-more sentinel fetches page2",
+        "Every offered visibility/status resets page1 and filters actual data",
+        "Unmatched search shows no rows; category filter absent by source review"
+      ],
+      "resource_ids": [
+        "a57be9f2-8e97-4449-955d-3e9fb9ac4139",
+        "c3980ac4-b4cb-4743-8072-ba0806287094",
+        "90b96bb5-ed09-4fe5-b95c-71e2c2c177e4",
+        "5c5b5d94-f9fe-499b-90db-92d5465db1a5",
+        "a71e58b0-730e-4e5a-bb52-730f8e330d68",
+        "0690b844-0fef-4619-be69-2c02ff2d26b8",
+        "eccaa340-a00d-4cc1-9ba1-ed008ab5bad8",
+        "367b90e7-864e-4ceb-b9f2-b3ae95ef8db2",
+        "631580c2-ea42-4512-b88d-d0eb716faa55",
+        "a227437a-8e1e-4b0f-be76-7fbbce3315c6",
+        "6c6db6c7-e1b5-4b8e-9c3c-81a393e7a40e",
+        "92a519e7-7c51-4b1c-8efe-579c90ff3963",
+        "a226abcb-96c8-4a10-8a28-26ac97364cce",
+        "9471873c-3a9c-4127-b26c-1d3fd006a60b",
+        "75659b6f-8a7d-4282-89c3-5665be2b53b8",
+        "946e31e8-782d-411d-887f-ad083473d0cb",
+        "f99dac88-fb9b-4f60-be42-cf55ed976081",
+        "270fa663-d31e-418c-b30f-a55fbd926256",
+        "7ecf68ac-cd86-4fe5-ac27-66d28dd85ecf",
+        "bc7b8f32-3cab-49fa-bf58-f900dcae45dc",
+        "d44a97f3-bff6-4785-a021-a6391ee3705b"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-STUDIO-CONTENT-FILTER-SEARCH-PAGINATION",
+      "run_id": "20261017T041714.339171Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T041714.339171Z/report.json"
+    },
+    "FULL-DELTA-STUDIO-THUMBNAIL-PARTIAL-FAILURE": {
+      "parent": "U-STUDIO.05",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-THUMBNAIL-PARTIAL-FAILURE/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-THUMBNAIL-PARTIAL-FAILURE/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-THUMBNAIL-PARTIAL-FAILURE/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Real metadata PATCH commits, then thumbnail transport alone fails",
+        "Actual UI shows error and no complete-save success",
+        "API preserves old thumbnail with new committed metadata",
+        "Reload retains partial saved title"
+      ],
+      "resource_ids": [
+        "a57be9f2-8e97-4449-955d-3e9fb9ac4139"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-STUDIO-THUMBNAIL-PARTIAL-FAILURE",
+      "run_id": "20261017T041714.339171Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T041714.339171Z/report.json"
+    },
+    "FULL-DELTA-STUDIO-PLAYLIST-PARTIAL-FAILURE": {
+      "parent": "U-STUDIO.05",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-PLAYLIST-PARTIAL-FAILURE/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-PLAYLIST-PARTIAL-FAILURE/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-PLAYLIST-PARTIAL-FAILURE/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Metadata commits then exact selected playlist transport fails",
+        "Partial error visible; full success absent",
+        "Reload/API retain edited metadata with zero unintended playlist membership"
+      ],
+      "resource_ids": [
+        "a57be9f2-8e97-4449-955d-3e9fb9ac4139",
+        "db67b232-b137-43bd-b141-66aec604a3d4"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-STUDIO-PLAYLIST-PARTIAL-FAILURE",
+      "run_id": "20261017T041714.339171Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T041714.339171Z/report.json"
+    },
+    "FULL-DELTA-STUDIO-EDIT-LATE-RESPONSE-TARGET": {
+      "parent": "U-STUDIO.05",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-EDIT-LATE-RESPONSE-TARGET/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-EDIT-LATE-RESPONSE-TARGET/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T041714.339171Z/user/studio/functional/FULL-DELTA-STUDIO-EDIT-LATE-RESPONSE-TARGET/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Hold genuine first metadata-save response after server commit",
+        "Navigate through real Back to content and open different video",
+        "Release original response after second form loads",
+        "Second form/resource remains unchanged by late first save"
+      ],
+      "resource_ids": [
+        "a57be9f2-8e97-4449-955d-3e9fb9ac4139",
+        "c3980ac4-b4cb-4743-8072-ba0806287094"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-STUDIO-EDIT-LATE-RESPONSE-TARGET",
+      "run_id": "20261017T041714.339171Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T041714.339171Z/report.json"
+    },
+    "FULL-DELTA-LEGACY-REPORT-WORKFLOW-REJECTION": {
+      "parent": "X-MODERATION.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/admin/reports/functional/FULL-DELTA-LEGACY-REPORT-WORKFLOW-REJECTION/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/admin/reports/functional/FULL-DELTA-LEGACY-REPORT-WORKFLOW-REJECTION/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/admin/reports/functional/FULL-DELTA-LEGACY-REPORT-WORKFLOW-REJECTION/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Exact persisted report/case/channel IDs linked",
+        "Legacy single-report resolve returns workflow-required 409",
+        "Report case remains pending and channel active",
+        "Admin report UI still shows exact target"
+      ],
+      "resource_ids": [
+        "95054483-7577-41c8-9f2d-c20464f39415",
+        "d39a59cd-5834-4856-be91-66d90f3b4214",
+        "8db66844-baa0-4dba-858f-d942f7f11be5"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-LEGACY-REPORT-WORKFLOW-REJECTION",
+      "run_id": "20261017T042522.410524Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T042522.410524Z/report.json"
+    },
+    "FULL-DELTA-CHANNEL-REPORT-APPEAL-OWNER-STATUS-LINKS": {
+      "parent": "U-CHANNEL.05",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/user/channel/functional/FULL-DELTA-CHANNEL-REPORT-APPEAL-OWNER-STATUS-LINKS/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/user/channel/functional/FULL-DELTA-CHANNEL-REPORT-APPEAL-OWNER-STATUS-LINKS/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/user/channel/functional/FULL-DELTA-CHANNEL-REPORT-APPEAL-OWNER-STATUS-LINKS/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Foreign owner and mismatched moderation-case appeals rejected",
+        "Actual suspended-channel UI submits owner appeal",
+        "Exact report→case→channel→owner→appeal IDs agree",
+        "Owner pending appeal visible only in own collection; reload preserves suspended target",
+        "New report on suspended target rejects 404"
+      ],
+      "resource_ids": [
+        "8db66844-baa0-4dba-858f-d942f7f11be5",
+        "d39a59cd-5834-4856-be91-66d90f3b4214",
+        "95054483-7577-41c8-9f2d-c20464f39415",
+        "909d7f19-cb6f-4479-972b-80c22afcd472"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-CHANNEL-REPORT-APPEAL-OWNER-STATUS-LINKS",
+      "run_id": "20261017T042522.410524Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T042522.410524Z/report.json"
+    },
+    "FULL-DELTA-MODERATION-LOCKED-DELETED-CHANNEL-TARGETS": {
+      "parent": "X-MODERATION.01",
+      "status": "passed",
+      "screenshots": [
+        {
+          "viewport": "desktop",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/admin/moderation/functional/FULL-DELTA-MODERATION-LOCKED-DELETED-CHANNEL-TARGETS/desktop/result.png",
+          "metrics": {
+            "width": 1440,
+            "scrollWidth": 1440,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "mobile",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/admin/moderation/functional/FULL-DELTA-MODERATION-LOCKED-DELETED-CHANNEL-TARGETS/mobile/result.png",
+          "metrics": {
+            "width": 390,
+            "scrollWidth": 390,
+            "dialogs": []
+          }
+        },
+        {
+          "viewport": "tablet",
+          "step": "result",
+          "path": "screenshots/20261017T042522.410524Z/admin/moderation/functional/FULL-DELTA-MODERATION-LOCKED-DELETED-CHANNEL-TARGETS/tablet/result.png",
+          "metrics": {
+            "width": 768,
+            "scrollWidth": 768,
+            "dialogs": []
+          }
+        }
+      ],
+      "steps": [
+        "Reviewer claims each actual pending upload before channel changes",
+        "Locked channel resolution rejects 409; deleted channel rejects 404",
+        "Exact DB cases retain no decision/resolved timestamp",
+        "Foreign playback denied for both targets; queue reload cannot publish deleted channel"
+      ],
+      "resource_ids": [
+        "8db66844-baa0-4dba-858f-d942f7f11be5",
+        "99769f67-ee70-4b87-b8de-b0dc629863f2",
+        "246b1ba2-2c6f-4c2f-a4be-337fe41547f7",
+        "71361479-a365-4cb2-a5dc-b7acc5577186",
+        "8c981ee3-e68c-4193-8c02-f4ace748f1b5"
+      ],
+      "actual": "All recorded UI/API/persistence assertions completed; three viewport evidence captured.",
+      "id": "FULL-DELTA-MODERATION-LOCKED-DELETED-CHANNEL-TARGETS",
+      "run_id": "20261017T042522.410524Z",
+      "report": "frontend/e2e_testing/artifacts/runs/20261017T042522.410524Z/report.json"
+    }
+  }
+}

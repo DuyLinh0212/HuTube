@@ -154,7 +154,10 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
           .toList();
       final res = await Future.wait(
         summaries.map((playlist) async {
-          if (playlist.coverUrl?.isNotEmpty == true) return playlist;
+          if (playlist.previewItems != null ||
+              playlist.coverUrl?.isNotEmpty == true) {
+            return playlist;
+          }
           try {
             final detail = await _playlistService.get(playlist.id);
             return PlaylistSummary(

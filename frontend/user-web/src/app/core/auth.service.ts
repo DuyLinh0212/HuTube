@@ -20,6 +20,7 @@ import {
 import { ADMIN_APP, RuntimeConfig } from './runtime-config';
 import { I18nService } from './i18n.service';
 import { NetworkStatusService } from './network/network-status.service';
+import { ReadCacheStore } from './read-cache.interceptor';
 
 export interface User { userId: string; username: string; email: string; displayName: string; emailVerified: boolean; isAdmin: boolean; }
 export interface LoginResponse { accessToken: string; expiresAt: string; user: User; }
@@ -27,6 +28,9 @@ export interface Session { sessionId: string; deviceName: string; platform: stri
 export interface LoginHistoryItem { loginHistoryId: string; deviceId: string; deviceName: string; platform: string; ipAddress?: string | null; countryCode?: string | null; region?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; loginAt: string; }
 export interface LoginHistoryPage { items: LoginHistoryItem[]; page: number; pageSize: number; total: number; }
 export interface Message { message: string; }
+export function isSessionRejected(error: unknown): boolean {
+  return error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403);
+}
 export interface ClientGeoPayload {
   latitude?: number;
   longitude?: number;
@@ -191,6 +195,7 @@ export class AuthService {
   private raw = new HttpClient(inject(HttpBackend));
   private http = inject(HttpClient);
   private config = inject(RuntimeConfig);
+  private readonly readCache = inject(ReadCacheStore);
   private networkStatus = inject(NetworkStatusService);
   readonly i18n = inject(I18nService);
   readonly user = signal<User | null>(null);
@@ -212,7 +217,7 @@ export class AuthService {
       timeout({ first: 15_000 }),
       tap(() => this.networkStatus.markAvailable()),
       catchError((error: unknown) => {
-        if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0)) {
+        if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 429 || error.status >= 500))) {
           this.networkStatus.markUnavailable();
         } else if (error instanceof HttpErrorResponse && error.status > 0) {
           this.networkStatus.markAvailable();
@@ -222,14 +227,16 @@ export class AuthService {
     );
   }
   private isTransientNetworkError(error: unknown): boolean {
-    return error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0);
+    return error instanceof TimeoutError || (error instanceof HttpErrorResponse && (
+      error.status === 0 || error.status === 408 || error.status >= 500
+    ));
   }
   private post<T>(path: string, body: unknown): Observable<T> {
     return this.trackRawNetwork(
       this.raw.post<T>(this.config.apiBaseUrl + path, body, { withCredentials: true, headers: this.headers }),
     );
   }
-  clear(): void { this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
+  clear(): void { this.readCache.clear(); this.generation++; this.restored = true; this.user.set(null); this.accessToken.set(null); this.accessTokenExpiresAt = 0; }
   private accept(response: LoginResponse): void {
     this.accessTokenExpiresAt = Date.parse(response.expiresAt) || 0;
     this.accessToken.set(response.accessToken); this.user.set(response.user); this.restored = true;
@@ -292,7 +299,7 @@ export class AuthService {
         : await request()).pipe(
         tap(response => { if (generation !== this.generation) throw new Error(this.i18n.t('auth.sessionEnded')); this.accept(response); }),
         catchError(error => {
-          if (generation === this.generation && !this.isTransientNetworkError(error)) this.clear();
+          if (generation === this.generation && isSessionRejected(error)) this.clear();
           return throwError(() => error);
         }),
         finalize(() => { this.refreshFlight = undefined; }),
@@ -303,7 +310,12 @@ export class AuthService {
   }
   restore(): Observable<boolean> {
     const generation = this.generation;
-    const denied = () => { if (generation === this.generation) this.clear(); return of(false); };
+    const denied = (error: unknown) => {
+      if (generation !== this.generation) return of(false);
+      if (!isSessionRejected(error)) return throwError(() => error);
+      this.clear();
+      return of(false);
+    };
     if (this.restored && !this.accessToken()) return of(false);
     if (!this.restoreFlight) {
       const restoreAttempt = () => {
@@ -313,9 +325,10 @@ export class AuthService {
           : this.refresh().pipe(switchMap(() => this.me()), map(() => true));
       };
       this.restoreFlight = defer(restoreAttempt).pipe(
-        retry({ delay: error => this.isTransientNetworkError(error) && generation === this.generation
+        retry({ count: 2, delay: error => this.isTransientNetworkError(error) && generation === this.generation
           ? timer(5_000)
           : throwError(() => error) }),
+        timeout({ first: 30_000 }),
         catchError(denied),
         finalize(() => { this.restoreFlight = undefined; }),
         shareReplay({ bufferSize: 1, refCount: false })
@@ -380,6 +393,7 @@ export function errorMessage(error: unknown, i18n?: I18nService): string {
     'auth.tooManyRequests': 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.',
     'auth.accessDenied': 'Tài khoản không có quyền truy cập hoặc đã bị vô hiệu hóa.'
   }[key] || key);
+  if (error instanceof TimeoutError) return fallback('auth.serverUnavailable');
   if (!(error instanceof HttpErrorResponse)) return fallback('auth.requestError');
   const keys: Record<string, string> = {
     INVALID_CREDENTIALS: 'auth.invalidCredentials',

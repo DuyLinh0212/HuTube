@@ -119,6 +119,9 @@ public interface IAuthTransaction : IAsyncDisposable
 {
     Task CommitAsync(CancellationToken cancellationToken);
 }
+public sealed record SessionValidationSnapshot(Guid UserId, Guid Jti, DateTimeOffset ExpiresAt,
+    DateTimeOffset LastActiveAt, DateTimeOffset? RevokedAt, bool UserAllowed, bool AdminAllowed);
+
 public interface IAuthStore
 {
     Task<IAuthTransaction> LockUserAsync(Guid userId, CancellationToken ct);
@@ -132,6 +135,15 @@ public interface IAuthStore
         => Task.FromResult<UserSession?>(null);
     Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct);
     Task<UserSession?> FindSessionSnapshotAsync(Guid id, CancellationToken ct) => FindSessionAsync(id, ct);
+    async Task<SessionValidationSnapshot?> ReadSessionValidationAsync(Guid id, CancellationToken ct)
+    {
+        var session = await FindSessionSnapshotAsync(id, ct);
+        if (session is null) return null;
+        var user = await FindUserAsync(session.UserId, ct);
+        return new(session.UserId, session.Jti, session.ExpiresAt, session.LastActiveAt, session.RevokedAt,
+            user is not null && !user.IsBlocked && user.Status == "active" && user.EmailVerifiedAt.HasValue,
+            session.Platform != "admin" || await IsAdminAsync(session.UserId, ct));
+    }
     Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct);
     Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct);
     Task<(List<UserLoginHistory> Items, int Page, int PageSize, int Total)> GetLoginHistoryAsync(Guid userId, int page, int pageSize, CancellationToken ct);

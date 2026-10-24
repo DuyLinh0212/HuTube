@@ -52,6 +52,9 @@ export class ChannelSettingsPage {
   readonly error = signal('');
   readonly message = signal('');
   readonly linkOptions: ChannelLinkPlatform[] = ['facebook', 'instagram', 'tiktok', 'x', 'other'];
+  readonly linkOrderMessage = signal('');
+  draggedLinkIndex: number | null = null;
+  dragOverLinkIndex: number | null = null;
 
   readonly showAppealModal = signal(false);
   readonly appealSubmitting = signal(false);
@@ -146,6 +149,71 @@ export class ChannelSettingsPage {
 
   removeLink(index: number) {
     this.links.splice(index, 1);
+  }
+
+  onLinkDragStart(event: DragEvent, index: number) {
+    if (this.busy()) {
+      event.preventDefault();
+      return;
+    }
+    this.draggedLinkIndex = index;
+    this.linkOrderMessage.set('');
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  onLinkDragOver(event: DragEvent, index: number) {
+    if (this.draggedLinkIndex === null || this.busy()) return;
+    event.preventDefault();
+    this.dragOverLinkIndex = index;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  }
+
+  onLinkDragLeave(event: DragEvent, index: number) {
+    const row = event.currentTarget;
+    if (row instanceof HTMLElement && event.relatedTarget instanceof Node && row.contains(event.relatedTarget)) return;
+    if (this.dragOverLinkIndex === index) this.dragOverLinkIndex = null;
+  }
+
+  onLinkDrop(event: DragEvent, targetIndex: number) {
+    if (this.draggedLinkIndex === null || this.busy()) return;
+    event.preventDefault();
+    const rawTransferIndex = event.dataTransfer?.getData('text/plain') ?? '';
+    const transferIndex = rawTransferIndex === '' ? Number.NaN : Number(rawTransferIndex);
+    const sourceIndex = Number.isInteger(transferIndex) ? transferIndex : this.draggedLinkIndex;
+    this.moveLink(sourceIndex, targetIndex);
+    this.resetLinkDrag();
+  }
+
+  onLinkDragEnd() {
+    this.resetLinkDrag();
+  }
+
+  onLinkReorderKeydown(event: KeyboardEvent, index: number) {
+    if ((event.key !== 'ArrowUp' && event.key !== 'ArrowDown') || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    const targetIndex = index + (event.key === 'ArrowUp' ? -1 : 1);
+    if (!this.moveLink(index, targetIndex)) return;
+    setTimeout(() => {
+      document.querySelectorAll<HTMLButtonElement>('.channel-links-section .link-drag-handle')[targetIndex]?.focus();
+    });
+  }
+
+  private moveLink(sourceIndex: number, targetIndex: number): boolean {
+    if (this.busy() || sourceIndex < 0 || targetIndex < 0 || sourceIndex >= this.links.length || targetIndex >= this.links.length || sourceIndex === targetIndex) return false;
+    const reordered = [...this.links];
+    const [link] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, link);
+    this.links = reordered;
+    this.linkOrderMessage.set(this.i18n.t('channel.linkMoved', { position: targetIndex + 1 }));
+    return true;
+  }
+
+  private resetLinkDrag() {
+    this.draggedLinkIndex = null;
+    this.dragOverLinkIndex = null;
   }
 
   loadChannel(preserveActiveTab = false) {

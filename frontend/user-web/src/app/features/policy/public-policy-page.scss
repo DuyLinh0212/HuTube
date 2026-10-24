@@ -991,3 +991,25 @@
     gap: 8px;
   }
 }
+
+.policy-search {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+  input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color, #64748b);
+    border-radius: 8px;
+    color: var(--ink, #111827);
+    background: var(--canvas, #faf8f7);
+    font: inherit;
+  }
+}
+.policy-search input:focus-visible, .tab-title:focus {
+  outline: 2px solid var(--primary, #ff2b66);
+  outline-offset: 4px;
+}

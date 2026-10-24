@@ -1,11 +1,12 @@
 import { HttpClient, HttpErrorResponse, HttpEvent, HttpEventType, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, TimeoutError, concat, defer, of, range, throwError, timer } from 'rxjs';
-import { map, catchError, concatMap, filter, retry, switchMap } from 'rxjs/operators';
+import { EMPTY, Observable, TimeoutError, concat, defer, of, range, throwError, timer } from 'rxjs';
+import { map, catchError, concatMap, expand, filter, retry, switchMap, take, tap } from 'rxjs/operators';
 import { RuntimeConfig } from './runtime-config';
 import { AuthService } from './auth.service';
 
 export interface PageResult<T> { items: T[]; page: number; pageSize: number; total: number; }
+export interface DownloadRecord { videoDownloadId: string; videoId: string; title: string; quality: string; fileUrl: string | null; fileSize: number; status: string; createdAt: string; }
 export interface VideoStats { views: number; likes: number; dislikes: number; comments: number; averageRating: number | null; ratingCount: number; shares: number; watchSeconds?: number; }
 export interface VideoViewerState { reaction: 'like' | 'dislike' | null; rating: number | null; resumeAtSeconds: number; progress: number; }
 export interface VideoCardLink { videoId: string; startSeconds: number; title: string; thumbnailUrl: string | null; }
@@ -109,6 +110,7 @@ export interface AppealItem {
 
 @Injectable({ providedIn: 'root' })
 export class ContentService {
+  private recommendationRetryAt = 0;
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
   private readonly auth = inject(AuthService);
@@ -121,12 +123,15 @@ export class ContentService {
     if (tag) params = params.set('tag', tag);
     if (kind === 'home' && this.auth.user() && !categoryId && !tag) {
       const sessionVersion = this.auth.sessionVersion;
+      const fallback = () => this.http.post<PageResult<VideoCard>>(`${this.base}/feed/resolve`, { videoIds: [], page, pageSize });
+      if (Date.now() < this.recommendationRetryAt) return fallback();
       return this.http.get<PageResult<VideoCard>>(`${this.config.recommendationBaseUrl}/feed/recommended`, {
         params: { page, pageSize },
-      }).pipe(catchError(error => {
+      }).pipe(tap(() => { this.recommendationRetryAt = 0; }), catchError(error => {
         if (sessionVersion !== this.auth.sessionVersion) return throwError(() => error);
-        if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500))) {
-          return this.http.post<PageResult<VideoCard>>(`${this.base}/feed/resolve`, { videoIds: [], page, pageSize });
+        if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 429 || error.status >= 500))) {
+          this.recommendationRetryAt = Date.now() + 30_000;
+          return fallback();
         }
         return throwError(() => error);
       }));
@@ -151,9 +156,10 @@ export class ContentService {
     for (const [key, value] of Object.entries(opts)) if (value) params = params.set(key, value);
     return this.http.get<PageResult<SearchChannel>>(`${this.base}/channels/search`, { params });
   }
-  history(page = 1, pageSize = 20, before?: string | null) {
+  history(page = 1, pageSize = 20, before?: string | null, filters?: { q: string; sort: string; dateRange: string }) {
     const params: Record<string, string | number> = { page, pageSize };
     if (before) params['before'] = before;
+    if (filters) { params['q'] = filters.q; params['sort'] = filters.sort; params['dateRange'] = filters.dateRange; }
     return this.http.get<PageResult<WatchHistoryItem>>(`${this.base}/library/history`, { params });
   }
   liked(rating: number | null = null, page = 1, pageSize = 20) {
@@ -190,6 +196,10 @@ export class ContentService {
   }
   reactComment(commentId: string, type: 'like' | 'dislike' | null): Observable<{ myReaction: string | null; likes: number; dislikes: number }> { return type ? this.http.put<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/comments/${commentId}/reaction`, { type }) : this.http.delete<{ myReaction: string | null; likes: number; dislikes: number }>(`${this.base}/comments/${commentId}/reaction`); }
   hideComment(commentId: string, hidden: boolean, reason = '') { return this.http.patch<CommentItem>(`${this.base}/comments/${commentId}/visibility`, { hidden, reason }); }
+  updateComment(commentId: string, content: string) { return this.http.patch<CommentItem>(`${this.base}/comments/${commentId}`, { content }); }
+  downloads() { return this.http.get<DownloadRecord[]>(`${this.base}/downloads`); }
+  deleteDownload(id: string) { return this.http.delete<void>(`${this.base}/downloads/${id}`); }
+  deleteDownloads(ids: string[]) { return this.http.delete<void>(`${this.base}/downloads`, { body: { ids } }); }
   deleteComment(commentId: string) { return this.http.delete<void>(`${this.base}/comments/${commentId}`); }
   reportComment(commentId: string, violationTypeId: string, description: string) {
     return this.http.post(`${this.base}/reports`, { targetType: 'comment', targetId: commentId, violationTypeId, description }).pipe(
@@ -241,15 +251,16 @@ export class ContentService {
       : this.auth.ensureFreshAccessToken());
     const retryOptions = { count: 2, delay: (error: unknown, attempt: number) => {
       const status = error instanceof HttpErrorResponse ? error.status : error instanceof TimeoutError ? 0 : -1;
+      const retryAfter = error instanceof HttpErrorResponse ? Number(error.headers.get('Retry-After')) : 0;
       return [0, 429, 502, 503, 504].includes(status)
-        ? timer(status === 429 ? 60_000 : attempt * 1_500) : throwError(() => error);
+        ? timer(status === 429 ? Math.min(120, retryAfter > 0 ? retryAfter : 60) * 1_000 : attempt * 10_000) : throwError(() => error);
     } };
     const sessionRequest = {
       uploadId: idempotencyKey, channelId: data.get('ChannelId'), fileName: file.name,
       contentType: file.type || 'video/mp4', fileSize: file.size,
       duration: Number(data.get('Duration')), sourceQuality: data.get('SourceQuality'),
     };
-    return freshSession().pipe(switchMap(() => this.http.post<{ uploadId: string; chunkSize: number; nextChunk: number }>(
+    return freshSession().pipe(switchMap(() => this.http.post<{ uploadId: string; chunkSize: number; nextChunk: number; chunkProtocol?: number }>(
       `${this.base}/videos/upload-sessions`, sessionRequest).pipe(retry(retryOptions))), switchMap(session => {
       const totalChunks = Math.ceil(file.size / session.chunkSize);
       if (!Number.isInteger(session.chunkSize) || session.chunkSize <= 0 || session.chunkSize > 24 * 1024 * 1024
@@ -266,19 +277,34 @@ export class ContentService {
           const part = file.slice(offset, Math.min(offset + session.chunkSize, file.size));
           const chunk = new FormData();
           chunk.append('chunk', part, 'chunk');
+          const chunkUrl = `${this.base}/videos/upload-sessions/${session.uploadId}/chunks`
+            + (session.chunkProtocol === 2 ? '' : `/${index}`);
+          const headers = session.chunkProtocol === 2
+            ? new HttpHeaders({ 'X-Upload-Chunk-Index': String(index) }) : new HttpHeaders();
           return freshSession().pipe(
             switchMap(() => this.http.post<{ nextChunk: number }>(
-              `${this.base}/videos/upload-sessions/${session.uploadId}/chunks/${index}`, chunk,
-              { observe: 'events', reportProgress: true }).pipe(
+              chunkUrl, chunk,
+              { observe: 'events', reportProgress: true, headers }).pipe(
                 retry(retryOptions),
                 filter(event => event.type === HttpEventType.UploadProgress || event.type === HttpEventType.Response),
-                map(event => progress(offset + (event.type === HttpEventType.UploadProgress ? Math.min(event.loaded, part.size) : part.size))),
+                // Reserve the final byte for the server acknowledgement: sending
+                // the last byte does not yet mean the part was accepted.
+                map(event => progress(offset + (event.type === HttpEventType.UploadProgress
+                  ? Math.min(event.loaded, Math.max(0, part.size - 1)) : part.size))),
               )),
           );
         })),
         freshSession().pipe(switchMap(() => this.http.post<VideoDetail>(
           `${this.base}/videos/upload-sessions/${session.uploadId}/complete`, metadata,
-          { observe: 'events', reportProgress: true }).pipe(retry(retryOptions), filter(event => event.type === HttpEventType.Response)))),
+          { observe: 'response', headers: new HttpHeaders({ Prefer: 'respond-async' }) }).pipe(
+            retry(retryOptions),
+            expand(response => response.status === 202
+              ? timer(5_000).pipe(switchMap(() => freshSession()), switchMap(() => this.http.get<VideoDetail>(
+                `${this.base}/videos/upload-sessions/${session.uploadId}`, { observe: 'response' }).pipe(retry(retryOptions))))
+              : EMPTY, 1),
+            filter(response => response.status !== 202),
+            take(1),
+          ))),
       );
     }));
   }

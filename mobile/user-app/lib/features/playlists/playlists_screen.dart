@@ -96,17 +96,27 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           playlists
               .take(12)
               .map(
-                (playlist) => _service
-                    .get(playlist.id)
-                    .catchError(
-                      (_) => PlaylistDetail(
-                        id: playlist.id,
-                        name: playlist.name,
-                        visibility: playlist.visibility,
-                        items: const [],
-                        coverUrl: playlist.coverUrl,
-                      ),
-                    ),
+                (playlist) => playlist.previewItems != null
+                    ? Future.value(
+                        PlaylistDetail(
+                          id: playlist.id,
+                          name: playlist.name,
+                          visibility: playlist.visibility,
+                          items: playlist.previewItems!,
+                          coverUrl: playlist.coverUrl,
+                        ),
+                      )
+                    : _service
+                          .get(playlist.id)
+                          .catchError(
+                            (_) => PlaylistDetail(
+                              id: playlist.id,
+                              name: playlist.name,
+                              visibility: playlist.visibility,
+                              items: const [],
+                              coverUrl: playlist.coverUrl,
+                            ),
+                          ),
               ),
         );
         for (final detail in results) {

@@ -1,7 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { VideoDetail } from '../../../core/content.service';
-import { StudioDataService } from '../../../core/studio-data.service';
+import { StudioDataService, StudioVideoSummary } from '../../../core/studio-data.service';
 import { I18nService } from '../../../core/i18n.service';
 import { CompactLikeCountPipe, LocaleNumberPipe } from '../../../core/locale-number.pipe';
 import { TranslatePipe } from '../../../core/translate.pipe';
@@ -126,7 +125,7 @@ export class StudioAnalyticsPage implements OnInit {
     this.selectedVideoId.set(videoId);
   }
 
-  topVideoWidth(video: VideoDetail): number {
+  topVideoWidth(video: StudioVideoSummary): number {
     const highestViews = this.topVideos()[0]?.stats.views ?? 0;
     return highestViews ? Math.max(3, video.stats.views / highestViews * 100) : 0;
   }

@@ -25,17 +25,18 @@ export const networkInterceptor: HttpInterceptorFn = (request, next) => {
     || /\/api\/v1\/admin\/recommendations\/models\/?(?:[?#]|$)/.test(request.url)
   );
   const responseTimeoutMs = callsRecommendationService
-    ? RECOMMENDATION_RESPONSE_TIMEOUT_MS
+    ? config.ownsRecommendation(request.url) ? 8_000 : RECOMMENDATION_RESPONSE_TIMEOUT_MS
     : RESPONSE_TIMEOUT_MS;
   const response = next(request);
 
   return (isLongTransfer ? response : response.pipe(timeout({ each: responseTimeoutMs }))).pipe(
     tap(event => {
-      if (event instanceof HttpResponse) networkStatus.markAvailable();
+      if (event instanceof HttpResponse && !config.ownsRecommendation(request.url)) networkStatus.markAvailable();
     }),
     catchError((error: unknown) => {
-      if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0)) {
-        void networkStatus.checkConnection();
+      if (config.ownsRecommendation(request.url)) return throwError(() => error);
+      if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && (error.status === 0 || error.status === 429 || error.status >= 500))) {
+        networkStatus.markUnavailable();
       } else if (error instanceof HttpErrorResponse && error.status > 0) {
         networkStatus.markAvailable();
       }

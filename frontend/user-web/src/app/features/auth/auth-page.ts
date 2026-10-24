@@ -26,6 +26,7 @@ export class AuthPage implements AfterViewChecked {
   readonly message = signal('');
   readonly error = signal('');
   readonly completed = signal(false);
+  readonly connectionIssue = signal(false);
   showPassword = false;
   showConfirmPassword = false;
   readonly verificationSuggested = signal(false);
@@ -61,6 +62,9 @@ export class AuthPage implements AfterViewChecked {
       this.showPassword = false; this.showConfirmPassword = false;
       this.token = token;
       if (this.route.snapshot.queryParamMap.get('reason') === 'expired') this.message.set(this.i18n.t('auth.sessionExpired'));
+      const reason = this.route.snapshot.queryParamMap.get('reason');
+      this.connectionIssue.set(reason === 'unavailable' || reason === 'rate-limited');
+      if (this.connectionIssue()) this.error.set(this.i18n.t(reason === 'rate-limited' ? 'auth.tooManyRequests' : 'auth.serverUnavailable'));
       if (this.mode() === 'verify-email' && this.token && this.verificationAttemptedToken !== this.token) {
         this.verificationAttemptedToken = this.token;
         this.verify();
@@ -112,6 +116,12 @@ export class AuthPage implements AfterViewChecked {
     });
   }
   get hasResetToken() { return !!this.token; }
+  retryRestore() {
+    this.run(this.auth.restore(), () => {
+      this.connectionIssue.set(false);
+      if (this.auth.accessToken()) void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl')));
+    });
+  }
   get mobileResetLink() { return 'hutube://auth/reset-password?token=' + encodeURIComponent(this.token); }
   private run(request: Observable<unknown>, success: () => void) {
     this.busy.set(true); this.error.set(''); this.message.set(''); this.verificationSuggested.set(false);

@@ -3,7 +3,13 @@
 artifacts/runs/
 artifacts/latest.json
 artifacts/web-latest.json
-screenshots/20*/
+artifacts/live-latest.json
+artifacts/live-probe/
+artifacts/service-recovery/
+screenshots/
 config.local.json
+config.delta*.json
+artifacts/*.log
+daily_passes/
 __pycache__/
 **/__pycache__/

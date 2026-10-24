@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "purpose": "Delta-only E2E scope. Derived from outputs/20261016-branch-completion/master-clause-audit.json; retained evidence must not be executed again.",
+  "allowed_parents": {
+    "AUTH-EXT-01": "Manual reset-mail evidence that is not covered by retained Pickup evidence.",
+    "AUTH-EXT-02": "Invalid, expired, and replayed reset-link mailbox evidence.",
+    "AUTH-EXT-05": "Real Google provider cancel and identity-state branches.",
+    "U-CHANNEL.04": "Manual invitation-mail checkpoint only.",
+    "U-CHANNEL.05": "Channel report/appeal ownership and target-status links.",
+    "U-PLAN.02": "Provider-origin payment checkpoint only.",
+    "U-PLAN.03": "Renewal and exact quota-boundary assertions.",
+    "U-STUDIO.05": "Content collection filters, partial failure, and stale edit response.",
+    "U-WATCH.02": "Exact rendition navigation and view-session boundaries.",
+    "A-USERS.02": "Notification-mail and role/session/audit linkage.",
+    "A-VIDEOS.01": "Uncovered category, page-size, preview, and statistics branches.",
+    "A-VIDEOS.02": "Rapid edit target switching and denied edit branch.",
+    "A-TOPICS.01": "Duplicate/length and linked-record constraints.",
+    "A-POLICY.01": "Draft/version editing and pinned decision policy version.",
+    "A-MODERATION.02": "Decision email with persisted policy/reason/history links.",
+    "A-MODERATION.04": "Appeal decision mailbox proof.",
+    "A-MODERATION.05": "Natural strike expiry plus audit/notification contract.",
+    "X-MODERATION.01": "Locked/deleted channel and legacy-report rejection branches."
+  },
+  "excluded_parents": {
+    "A-CF.01": "Cloudflare Seeder excluded by user request.",
+    "A-CF.02": "Cloudflare Seeder excluded by user request.",
+    "A-RECOMMENDATION.03": "Recommendation simulation excluded by earlier scope decision."
+  },
+  "retained_parent_count": 64,
+  "rules": {
+    "allow_only_listed_parents": true,
+    "allow_retained_rerun": false,
+    "manual_provider_checkpoint_may_block": true
+  }
+}

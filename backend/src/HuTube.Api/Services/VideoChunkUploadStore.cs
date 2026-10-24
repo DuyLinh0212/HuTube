@@ -1,11 +1,12 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using HuTube.Application.Videos;
 
 namespace HuTube.Api.Services;
 
 public sealed record VideoUploadSessionRequest(Guid UploadId, Guid ChannelId, string FileName,
     string ContentType, long FileSize, int Duration, string SourceQuality);
-public sealed record VideoUploadSessionResponse(Guid UploadId, int ChunkSize, int NextChunk);
+public sealed record VideoUploadSessionResponse(Guid UploadId, int ChunkSize, int NextChunk, int ChunkProtocol = 2);
 
 // Temporary chunks are actor/channel scoped; finalization still runs the normal
 // permission, quota, media inspection and idempotency checks in ContentService.
@@ -13,14 +14,37 @@ public sealed class VideoChunkUploadStore : IDisposable
 {
     public const int ChunkSize = 8 * 1024 * 1024;
     private static readonly TimeSpan Lifetime = TimeSpan.FromHours(2);
-    private readonly string root = Path.Combine(Path.GetTempPath(), "hutube-user-video-chunks");
+    private readonly string root;
     private readonly ConcurrentDictionary<Guid, Session> sessions = new();
     private readonly object startGate = new();
     private readonly Timer janitor;
 
-    public VideoChunkUploadStore()
+    private sealed record SavedSession(Guid ActorId, VideoUploadSessionRequest Request, int NextChunk,
+        Guid? CompletedVideoId, DateTimeOffset TouchedAt);
+
+    public VideoChunkUploadStore(string? directory = null)
     {
+        root = Path.GetFullPath(directory ?? Path.Combine(Path.GetTempPath(), "hutube-user-video-chunks"));
         Directory.CreateDirectory(root);
+        foreach (var path in Directory.EnumerateFiles(root, "*.session.json"))
+        {
+            try
+            {
+                var saved = JsonSerializer.Deserialize<SavedSession>(File.ReadAllText(path));
+                if (saved == null || !Guid.TryParse(Path.GetFileName(path).Split('.')[0], out var id)
+                    || id != saved.Request.UploadId || saved.Request.FileSize <= 0
+                    || saved.NextChunk < 0 || saved.NextChunk > (saved.Request.FileSize + ChunkSize - 1) / ChunkSize) continue;
+                var source = Path.Combine(root, $"{id:N}.upload");
+                if (saved.TouchedAt < DateTimeOffset.UtcNow - Lifetime)
+                { Delete(source); Delete(path); continue; }
+                var committedBytes = Math.Min(saved.Request.FileSize, (long)saved.NextChunk * ChunkSize);
+                if (!saved.CompletedVideoId.HasValue && (!File.Exists(source) || new FileInfo(source).Length < committedBytes)) continue;
+                sessions[id] = new(saved.ActorId, saved.Request, source) {
+                    NextChunk = saved.NextChunk, CompletedVideoId = saved.CompletedVideoId, TouchedAt = saved.TouchedAt
+                };
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
+        }
         janitor = new Timer(_ => Cleanup(), null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
     }
 
@@ -31,6 +55,9 @@ public sealed class VideoChunkUploadStore : IDisposable
         public string FilePath { get; } = filePath;
         public int NextChunk { get; set; }
         public Guid? CompletedVideoId { get; set; }
+        public bool IsCompleting { get; set; }
+        public ContentException? CompletionError { get; set; }
+        public CancellationTokenSource? CompletionCancellation { get; set; }
         public DateTimeOffset TouchedAt { get; set; } = DateTimeOffset.UtcNow;
         public SemaphoreSlim Gate { get; } = new(1, 1);
     }
@@ -61,7 +88,9 @@ public sealed class VideoChunkUploadStore : IDisposable
                 throw Error(507, "UPLOAD_TEMP_STORAGE_FULL", "Máy chủ không còn đủ dung lượng tạm. Vui lòng thử lại sau.");
             var path = Path.Combine(root, $"{request.UploadId:N}.upload");
             using (File.Create(path)) { }
-            sessions[request.UploadId] = new(actorId, request, path);
+            var created = new Session(actorId, request, path);
+            Persist(created);
+            sessions[request.UploadId] = created;
             return new(request.UploadId, ChunkSize, 0);
         }
     }
@@ -107,6 +136,8 @@ public sealed class VideoChunkUploadStore : IDisposable
             await output.FlushAsync(ct);
             session.NextChunk++;
             session.TouchedAt = DateTimeOffset.UtcNow;
+            try { Persist(session); }
+            catch { session.NextChunk--; throw; }
             return session.NextChunk;
         }
         finally { session.Gate.Release(); }
@@ -116,11 +147,40 @@ public sealed class VideoChunkUploadStore : IDisposable
     {
         var session = Require(actorId, uploadId);
         await session.Gate.WaitAsync(ct);
-        try { sessions.TryRemove(uploadId, out _); Delete(session.FilePath); }
+        try
+        {
+            if (session.IsCompleting)
+            {
+                session.CompletionCancellation?.Cancel();
+                return;
+            }
+            RemoveSession(session);
+        }
         finally { session.Gate.Release(); }
     }
 
     public void RemoveSource(Session session) => Delete(session.FilePath);
+
+    public void Persist(Session session)
+    {
+        var target = Path.Combine(root, $"{session.Request.UploadId:N}.session.json");
+        var temporary = target + ".tmp";
+        File.WriteAllText(temporary, JsonSerializer.Serialize(new SavedSession(session.ActorId, session.Request,
+            session.NextChunk, session.CompletedVideoId, session.TouchedAt)));
+        File.Move(temporary, target, overwrite: true);
+    }
+
+    internal void RemoveSession(Session session)
+    {
+        // Serialize deletion with Start so reusing an ID cannot delete a new source.
+        lock (startGate)
+        {
+            if (!sessions.TryGetValue(session.Request.UploadId, out var current) || !ReferenceEquals(current, session)) return;
+            sessions.TryRemove(session.Request.UploadId, out _);
+            Delete(session.FilePath);
+            Delete(Path.Combine(root, $"{session.Request.UploadId:N}.session.json"));
+        }
+    }
 
     private void Cleanup()
     {
@@ -131,7 +191,11 @@ public sealed class VideoChunkUploadStore : IDisposable
             if (session.TouchedAt >= cutoff || !session.Gate.Wait(0)) continue;
             try
             {
-                if (session.TouchedAt < cutoff && sessions.TryRemove(pair.Key, out _)) Delete(session.FilePath);
+                if (!session.IsCompleting && session.TouchedAt < cutoff && sessions.TryRemove(pair.Key, out _))
+                {
+                    Delete(session.FilePath);
+                    Delete(Path.Combine(root, $"{pair.Key:N}.session.json"));
+                }
             }
             finally { session.Gate.Release(); }
         }

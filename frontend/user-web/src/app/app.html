@@ -1,4 +1,4 @@
-<a class="skip-link" href="#main-content">{{ 'common.skipToContent' | translate }}</a>
+<a class="skip-link" [attr.href]="skipHref()" (click)="skipToContent($event)">{{ 'common.skipToContent' | translate }}</a>
 
 @if (reloadRequired()) {
   <aside class="app-update-notice" role="alert">

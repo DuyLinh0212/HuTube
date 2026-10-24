@@ -83,17 +83,17 @@ public sealed class ChannelController(ChannelService channelService, IObjectStor
     }
 
     [Authorize, HttpPost("{id:guid}/avatar")]
-    [RequestSizeLimit(5 * 1024 * 1024)]
+    [RequestSizeLimit(5 * 1024 * 1024 + 64 * 1024)] // File limit plus multipart headers.
     public Task<ActionResult<ChannelResponse>> UploadAvatarAsync(Guid id, IFormFile? file, CancellationToken ct) =>
         UploadImageAsync(id, file, "channel-avatars", 5 * 1024 * 1024, true, ct);
 
     [Authorize, HttpPost("{id:guid}/banner")]
-    [RequestSizeLimit(10 * 1024 * 1024)]
+    [RequestSizeLimit(10 * 1024 * 1024 + 64 * 1024)]
     public Task<ActionResult<ChannelResponse>> UploadBannerAsync(Guid id, IFormFile? file, CancellationToken ct) =>
         UploadImageAsync(id, file, "channel-banners", 10 * 1024 * 1024, false, ct);
 
     [Authorize, HttpPost("{id:guid}/watermark")]
-    [RequestSizeLimit(2 * 1024 * 1024)]
+    [RequestSizeLimit(2 * 1024 * 1024 + 64 * 1024)]
     public async Task<ActionResult<ChannelResponse>> UploadWatermarkAsync(Guid id, IFormFile? file, CancellationToken ct)
     {
         await channelService.EnsureBrandingPermissionAsync(id, UserId, ct);

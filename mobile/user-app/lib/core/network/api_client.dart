@@ -9,6 +9,7 @@ import '../config/app_config.dart';
 import '../errors/app_error.dart';
 import 'network_status.dart';
 import 'upload_control.dart';
+import 'read_cache.dart';
 
 class UploadPayload {
   const UploadPayload({
@@ -39,6 +40,9 @@ class MultipartFilePayload {
 }
 
 class ApiClient {
+  static void invalidateReadCache() => ReadCache.clear();
+  static void invalidateNotificationCache() =>
+      ReadCache.invalidateNotifications();
   ApiClient({
     http.Client? client,
     String? baseUrl,
@@ -86,6 +90,7 @@ class ApiClient {
       ).timeout(const Duration(seconds: 40));
       NetworkStatus.instance.markAvailable();
       final data = _decodeResponse(response);
+      ReadCache.clear();
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
     } on AppError {
       rethrow;
@@ -141,6 +146,7 @@ class ApiClient {
       ).timeout(const Duration(minutes: 5));
       NetworkStatus.instance.markAvailable();
       final data = _decodeResponse(response);
+      ReadCache.clear();
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
     } on http.RequestAbortedException {
       throw const UploadCancelled();
@@ -192,6 +198,24 @@ class ApiClient {
   }
 
   Future<dynamic> _requestJson(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    String? accessToken,
+  }) => ReadCache.read(
+    method,
+    Uri.parse(_buildUrl(path)),
+    accessToken,
+    body,
+    () => _requestJsonUncached(
+      method,
+      path,
+      body: body,
+      accessToken: accessToken,
+    ),
+  );
+
+  Future<dynamic> _requestJsonUncached(
     String method,
     String path, {
     Map<String, dynamic>? body,

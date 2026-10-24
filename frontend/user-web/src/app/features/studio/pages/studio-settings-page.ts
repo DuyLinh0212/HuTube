@@ -27,7 +27,7 @@ export class StudioSettingsPage {
   contactEmail = '';
 
   constructor() {
-    this.data.load();
+    this.data.load(undefined, false);
     effect(() => {
       const channel = this.data.channel();
       if (channel && channel.channelId !== this.id) {
@@ -58,11 +58,15 @@ export class StudioSettingsPage {
 
   setLanguage(language: 'vi' | 'en') {
     this.i18n.setLang(language);
-    this.account.updatePreferences({ language }).subscribe();
+    this.account.updatePreferences({ language }).subscribe({
+      error: () => this.error.set(this.i18n.t('studio.saveError'))
+    });
   }
 
   setTheme(theme: 'light' | 'dark') {
-    if (this.theme.currentTheme() !== theme) this.theme.toggleTheme();
-    this.account.updatePreferences({ theme }).subscribe();
+    this.theme.setTheme(theme);
+    this.account.updatePreferences({ theme }).subscribe({
+      error: () => this.error.set(this.i18n.t('studio.saveError'))
+    });
   }
 }

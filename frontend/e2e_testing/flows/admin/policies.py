@@ -19,7 +19,9 @@ def run(suite, admin, member):
         policy.update(next((item for item in response.json() if item['code']==code),{}))
         if policy:
             page.locator('.search-wrap input').fill(code)
-            expect(page.locator('tbody tr')).to_contain_text(code)
+            # Publishing retains earlier versions, so a reused policy can
+            # legitimately have several matching rows in the history table.
+            expect(page.locator('tbody tr').filter(has_text=code).first).to_contain_text(code)
             return 'reused'
         page.locator('.header-actions .btn-primary').click()
         dialog=page.locator('.modal-dialog.modal-md')
@@ -48,10 +50,10 @@ def run(suite, admin, member):
         page.locator('.search-wrap input').fill(code)
         row=page.locator('tbody tr').filter(has_text=code)
         if policy['version']=='2.0':
-            expect(row.locator('.version-badge')).to_have_text('v2.0')
+            expect(row.first.locator('.version-badge')).to_have_text('v2.0')
             assert policy['content']==updated
             return 'reused'
-        row.locator('button').click()
+        row.first.locator('button').click()
         dialog=page.locator('.modal-dialog')
         dialog.locator('.version-update-card input').fill('2.0')
         dialog.locator('textarea').fill(updated)
@@ -61,7 +63,7 @@ def run(suite, admin, member):
         expect(dialog).to_have_count(0)
         open_policies()
         page.locator('.search-wrap input').fill(code)
-        expect(page.locator('tbody tr .version-badge')).to_have_text('v2.0')
+        expect(page.locator('tbody tr .version-badge').first).to_have_text('v2.0')
         stored=next(item for item in suite.api(admin,'get','/admin/policies').json() if item['code']==code)
         assert stored['version']=='2.0' and stored['content']==updated
     suite.case(admin,'A-POLICY-PUBLISH-01','Publish v2 và reload Admin',publish,

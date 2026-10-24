@@ -2,6 +2,7 @@ using System.Net;
 using HuTube.Application.Auth;
 using HuTube.Domain.Users;
 using HuTube.Infrastructure.Authentication;
+using HuTube.Infrastructure.Caching;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,17 +25,23 @@ public sealed class RedisSessionPlayerPreferencesStoreTests
         }).Build();
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var store = new RedisSessionPlayerPreferencesStore(
-            clients, configuration, memory, NullLogger<RedisSessionPlayerPreferencesStore>.Instance);
+            new UpstashRedisClient(clients, configuration, TimeProvider.System, NullLogger<UpstashRedisClient>.Instance),
+            memory, NullLogger<RedisSessionPlayerPreferencesStore>.Instance);
         var session = new UserSession { ExpiresAt = DateTimeOffset.UtcNow.AddHours(1) };
         var expected = new SessionPlayerPreferences(0.35m, true);
 
         // Act
         await store.SetAsync(session, expected, CancellationToken.None);
+        Assert.Equal(expected, await store.GetAsync(session, CancellationToken.None));
+        Assert.Equal(1, handler.RequestCount); // A warm read does not call Redis.
+        memory.Remove($"session-player-preferences:{session.SessionId:N}");
         var actual = await store.GetAsync(session, CancellationToken.None);
 
         // Assert
         Assert.Equal(expected, actual);
         Assert.Equal(2, handler.RequestCount);
+        Assert.Equal(expected, await store.GetAsync(session, CancellationToken.None));
+        Assert.Equal(2, handler.RequestCount); // Redis cooldown also protects fallback reads.
     }
 
     private sealed class RedisDisconnectsAfterWriteHandler : HttpMessageHandler

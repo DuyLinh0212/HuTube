@@ -2,7 +2,7 @@
 
 Ứng dụng Angular độc lập cho S4-01/S4-02. Các route: `/register`, `/verify-email?token=…`, `/login`, `/forgot-password`, `/reset-password?token=…`, `/account`.
 
-Bản User Web mặc định gọi API Render `https://hutube.onrender.com/api/v1`. Khi phát triển local, đặt `API_BASE_URL=http://localhost:5080/api/v1` trước `npm start` hoặc `npm run build`.
+Bản User Web mặc định gọi API EC2 `https://api.dalitu.app/api/v1` và Recommendation Service `https://recommendation.dalitu.app/api/v1`. Khi phát triển local, `npm start` tự dùng `http://localhost:5080/api/v1` và `http://localhost:8000/api/v1`; có thể đặt biến môi trường để ghi đè trước `npm start` hoặc `npm run build`.
 
 ```powershell
 npm ci
@@ -12,9 +12,9 @@ npm start
 
 Mặc định chạy tại `http://localhost:4200`. API phải cho phép origin này qua CORS. Theo quyết định hiện tại của chủ dự án, API dùng local; chưa có Render Staging.
 
-`public/config.json` là cấu hình runtime, được tải trước khi Angular khởi động. `npm start` và `npm run build` nhận biến môi trường `API_BASE_URL` qua `scripts/configure-api.mjs`. Nếu không có biến, giữ giá trị Render trong config. Có thể thay `dist/user-web/browser/config.json` sau build mà không biên dịch lại. Không đặt secret trong cấu hình web. Hosting phải fallback các route về `index.html` và phục vụ `config.json` với Cache-Control no-store.
+`public/config.json` là cấu hình runtime, được tải trước khi Angular khởi động. `npm start` và `npm run build` nhận `API_BASE_URL` và `RECOMMENDATION_BASE_URL` qua `scripts/configure-api.mjs`; nếu không có biến, build dùng hai URL EC2 ở trên. Có thể thay `dist/user-web/browser/config.json` sau build mà không biên dịch lại. Không đặt secret trong cấu hình web. Hosting phải fallback các route về `index.html` và phục vụ `config.json` với Cache-Control no-store. Nếu các biến này đã được đặt trong Vercel Project Settings, chúng sẽ ghi đè giá trị trong repo và cần được đổi ở đó.
 
-Feed cá nhân hóa gọi trực tiếp FastAPI qua `RECOMMENDATION_BASE_URL` (local `http://localhost:8000/api/v1`, mặc định build `https://hutube-recommendation-services.onrender.com/api/v1`). Biến này cũng được ghi vào `config.json` khi start/build. FastAPI cần cấu hình `HUTUBE_API_BASE_URL` và `CORS_ALLOWED_ORIGINS` chứa origin của web. Access token được gửi riêng đến đúng endpoint feed; refresh cookie chỉ gửi đến .NET.
+Feed cá nhân hóa gọi trực tiếp FastAPI qua `RECOMMENDATION_BASE_URL` (local `http://localhost:8000/api/v1`, mặc định build `https://recommendation.dalitu.app/api/v1`). Biến này cũng được ghi vào `config.json` khi start/build. FastAPI cần cấu hình `HUTUBE_API_BASE_URL` và `CORS_ALLOWED_ORIGINS` chứa origin của web. Access token được gửi riêng đến đúng endpoint feed; refresh cookie chỉ gửi đến .NET.
 
 ```powershell
 npm run build

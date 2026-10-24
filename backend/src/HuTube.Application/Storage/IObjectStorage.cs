@@ -26,6 +26,7 @@ public sealed class StorageOptions
 
 public sealed class R2Options
 {
+    public string? EndpointUrl { get; set; }
     public string AccountId { get; set; } = "";
     public string AccessKeyId { get; set; } = "";
     public string SecretAccessKey { get; set; } = "";

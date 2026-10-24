@@ -25,7 +25,8 @@ public sealed class RecommendationSnapshotStore(R2Options options) : IRecommenda
             throw new InvalidOperationException("Configure Storage__R2 account, keys and bucket for recommendations.");
         return new AmazonS3Client(new BasicAWSCredentials(options.AccessKeyId, options.SecretAccessKey),
             new AmazonS3Config {
-                ServiceURL = $"https://{options.AccountId}.r2.cloudflarestorage.com",
+                ServiceURL = string.IsNullOrWhiteSpace(options.EndpointUrl)
+                    ? $"https://{options.AccountId}.r2.cloudflarestorage.com" : options.EndpointUrl,
                 AuthenticationRegion = "auto", ForcePathStyle = true,
                 RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED
             });
@@ -51,7 +52,9 @@ public sealed class RecommendationSnapshotStore(R2Options options) : IRecommenda
         await Client.PutObjectAsync(new PutObjectRequest {
             BucketName = options.BucketName, Key = key, InputStream = stream,
             ContentType = contentType, AutoCloseStream = false,
-            DisablePayloadSigning = true, DisableDefaultChecksumValidation = true
+            DisablePayloadSigning = string.IsNullOrWhiteSpace(options.EndpointUrl)
+                || new Uri(options.EndpointUrl).Scheme == Uri.UriSchemeHttps,
+            DisableDefaultChecksumValidation = true
         }, ct);
     }
 

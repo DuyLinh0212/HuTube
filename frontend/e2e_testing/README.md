@@ -72,6 +72,8 @@ Account: `hutube.e2e.owner@example.test`; username `hutube_e2e_owner`; password 
 
 Muốn chỉnh cổng/binary/timeouts: copy config, giữ email cố định và gọi `--config`. Runtime config trong `.state` được ghi sau khi lấy OS lock; hai run cùng state không được chạy song song. Scope thay đổi không khớp checkpoint sẽ fail rõ.
 
+`postgres_shutdown_seconds` mặc định 120 giây (giới hạn 30–300 giây) để PostgreSQL hoàn tất ghi dữ liệu khi dừng. Runner vẫn chờ shutdown bình thường, không buộc kết thúc tiến trình CSDL khi ổ đĩa ghi chậm.
+
 ```powershell
 Copy-Item frontend/e2e_testing/config.example.json frontend/e2e_testing/config.local.json
 & frontend/e2e_testing/.venv/Scripts/python.exe frontend/e2e_testing/run_local.py --config frontend/e2e_testing/config.local.json

@@ -39,8 +39,10 @@ export class StudioTopbarComponent implements OnInit {
         next: profile => this.profile.set(profile),
         error: () => this.profile.set(null)
       });
+      const preferencesVersion = this.account.preferencesVersion;
       this.account.getPreferences().subscribe({
         next: preferences => {
+          if (preferencesVersion !== this.account.preferencesVersion) return;
           if (preferences.theme === 'light' || preferences.theme === 'dark') this.themeService.setTheme(preferences.theme);
           if (preferences.language === 'vi' || preferences.language === 'en') this.i18n.setLang(preferences.language);
         },

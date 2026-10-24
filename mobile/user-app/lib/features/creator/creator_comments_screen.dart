@@ -27,6 +27,10 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
   late final CreatorService _service = CreatorService(widget.auth);
   List<CommentItem> _comments = const [];
   bool _loading = true;
+  bool _loadingMore = false;
+  int _page = 1;
+  int _total = 0;
+  int _loadGeneration = 0;
   String? _error;
   String _status = 'visible';
   String _sort = 'newest';
@@ -38,22 +42,24 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
+    _loadingMore = false;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final page = await loadAllPages(
-        (page) => _service.managedComments(
-          widget.channel.id,
-          page: page,
-          status: _status,
-          sort: _sort,
-        ),
+      final page = await _service.managedComments(
+        widget.channel.id,
+        page: 1,
+        status: _status,
+        sort: _sort,
       );
-      if (mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _comments = page.items;
+          _page = 1;
+          _total = page.total;
           _loading = false;
         });
       }
@@ -70,6 +76,37 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
           _error = AppStrings.t('creator.noComments');
           _loading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _comments.length >= _total) return;
+    final generation = _loadGeneration;
+    final nextPage = _page + 1;
+    setState(() => _loadingMore = true);
+    try {
+      final result = await _service.managedComments(
+        widget.channel.id,
+        page: nextPage,
+        status: _status,
+        sort: _sort,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      final seen = _comments.map((item) => item.id).toSet();
+      setState(() {
+        _comments = [
+          ..._comments,
+          ...result.items.where((item) => seen.add(item.id)),
+        ];
+        _page = result.page;
+        _total = result.total;
+      });
+    } catch (_) {
+      /* Keep loaded rows and the retry button. */
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loadingMore = false);
       }
     }
   }
@@ -219,10 +256,19 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                    itemCount: _comments.length + 1,
+                    itemCount:
+                        _comments.length +
+                        1 +
+                        (_comments.length < _total ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, index) {
                       if (index == 0) return _buildControls(context);
+                      if (index == _comments.length + 1) {
+                        return TextButton(
+                          onPressed: _loadingMore ? null : _loadMore,
+                          child: Text(AppStrings.t('notifications.loadMore')),
+                        );
+                      }
                       final comment = _comments[index - 1];
                       final hidden = comment.status == 'hidden';
                       return Container(

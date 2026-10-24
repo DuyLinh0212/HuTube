@@ -148,6 +148,12 @@ void main() {
       );
       expect(
         const AppConfig(
+          apiBaseUrl: 'https://api.dalitu.app/api/v1',
+        ).recommendationBaseUrl,
+        'https://recommendation.dalitu.app/api/v1',
+      );
+      expect(
+        const AppConfig(
           recommendationBaseUrl: 'https://custom.test/api/v1',
         ).recommendationBaseUrl,
         'https://custom.test/api/v1',

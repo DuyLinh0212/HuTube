@@ -178,6 +178,7 @@ public sealed class VideoRenditionProcessor(
                 row.Status = "failed";
                 row.UpdatedAt = clock.GetUtcNow();
             }
+            if (unfinished.Count > 0 && video.Status == "processing") video.Status = "failed";
             await db.SaveChangesAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -204,6 +205,8 @@ public sealed class VideoRenditionProcessor(
                     Reason = ex.GetType().Name,
                     CreatedAt = clock.GetUtcNow()
                 });
+                var failedVideo = await db.Videos.SingleOrDefaultAsync(x => x.VideoId == job.VideoId, CancellationToken.None);
+                if (failedVideo?.Status == "processing") { failedVideo.Status = "failed"; failedVideo.UpdatedAt = clock.GetUtcNow(); }
                 await db.SaveChangesAsync(CancellationToken.None);
             }
             catch (Exception statusError)

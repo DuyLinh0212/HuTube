@@ -24,7 +24,7 @@
     <span class="notice-icon" aria-hidden="true">i</span>
     <div>
       <strong>{{ tx('Dữ liệu thật; phạm vi đo được ghi rõ', 'Live data with its collection scope stated') }}</strong>
-      <p>{{ tx('Lưu lượng API được thu thập trong bộ nhớ của instance kể từ lúc khởi động, không phải lịch sử lưu bền vững hoặc tổng hợp nhiều instance. Số liệu nghiệp vụ đọc từ database.', 'API traffic is held in this instance memory since startup; it is not persistent history or an aggregate across instances. Business counts come from the database.') }}</p>
+      <p>{{ tx('Request được đếm tại API trên EC2 kể từ lúc tiến trình khởi động; số liệu chưa lưu bền vững, chưa gộp nhiều instance và không gồm request gọi trực tiếp recommendation.dalitu.app. Số liệu nghiệp vụ đọc từ database.', 'Requests are counted by the API process on EC2 since startup; they are not persisted or aggregated across instances and exclude direct calls to recommendation.dalitu.app. Business counts come from the database.') }}</p>
     </div>
   </aside>
 
@@ -179,16 +179,22 @@
               <div>
                 <span class="panel-icon tone-orange" aria-hidden="true">▤</span>
                 <div>
-                  <h2>{{ tx('Tài nguyên process', 'Process resources') }}</h2>
-                  <p>{{ tx('Giá trị đọc trực tiếp từ tiến trình API', 'Values read from the API process') }}</p>
+                  <h2>{{ tx('Tài nguyên hệ thống', 'System resources') }}</h2>
+                  <p>{{ tx('RAM máy chủ và dung lượng các dịch vụ', 'Host memory and service storage') }}</p>
                 </div>
               </div>
             </div>
-            @if (signalOf(data, 'memory'); as memory) {
-              <div class="memory-reading">
-                <div><span>{{ tx('Bộ nhớ đang dùng', 'Memory in use') }}</span><strong>{{ signalValue(memory) }}</strong></div>
-                <div class="resource-track"><i [style.width.%]="signalPercent(memory)"></i></div>
-                <small>{{ signalThreshold(memory) }}</small>
+            @if (data.ec2Memory; as ec2Memory) {
+              <div class="provider-usage">
+                <div class="provider-usage-heading"><strong>{{ tx('AWS EC2 · RAM máy chủ', 'AWS EC2 · host memory') }}</strong><span>{{ providerStatus(ec2Memory.status) }}</span></div>
+                @if (ec2Memory.status === 'available') {
+                  <div class="memory-reading">
+                    <div><span>{{ tx('Đang sử dụng', 'In use') }}</span><strong>{{ formatBytes(ec2Memory.usedBytes) }} / {{ formatBytes(ec2Memory.totalBytes) }}</strong></div>
+                    <div class="resource-track"><i [style.width.%]="ec2Memory.usedPercent ?? 0"></i></div>
+                    <small>{{ ec2Memory.usedPercent == null ? '—' : formatNumber(ec2Memory.usedPercent, 1) + '%' }} · {{ tx('RAM khả dụng', 'Available') }} {{ formatBytes(ec2Memory.availableBytes) }}</small>
+                  </div>
+                }
+                <p>{{ ec2Memory.detail }}</p>
               </div>
             } @else {
               <div class="unavailable-list"><span>{{ tx('Chưa đo được bộ nhớ', 'Memory reading unavailable') }}</span></div>
@@ -217,16 +223,6 @@
               <div class="unavailable-list">
                 <span>{{ tx('Chưa có số đo dung lượng R2', 'R2 storage is not measured') }}</span>
                 <p>{{ tx('Hãy cập nhật backend để xem dung lượng bucket.', 'Update the backend to view bucket storage usage.') }}</p>
-              </div>
-            }
-            @if (data.renderUsage; as renderUsage) {
-              <div class="provider-usage">
-                <div class="provider-usage-heading"><strong>Render</strong><span>{{ providerStatus(renderUsage.status) }}</span></div>
-                <div class="provider-usage-grid">
-                  <div><span>{{ tx('CPU đang dùng', 'CPU in use') }}</span><strong>{{ renderUsage.cpuPercent == null ? '—' : formatNumber(renderUsage.cpuPercent, 1) + '%' }}</strong></div>
-                  <div><span>{{ tx('Bộ nhớ instance', 'Instance memory') }}</span><strong>{{ formatBytes(renderUsage.memoryBytes) }} / {{ formatBytes(renderUsage.memoryLimitBytes) }}</strong></div>
-                </div>
-                <p>{{ renderUsage.detail }}</p>
               </div>
             }
             @if (data.neonUsage; as neonUsage) {
@@ -325,8 +321,8 @@
                 <div>
                   <span class="panel-icon tone-orange" aria-hidden="true">i</span>
                   <div>
-                    <h2>{{ tx('Nguồn chưa tích hợp', 'Sources not integrated') }}</h2>
-                    <p>{{ tx('Không thay bằng số liệu ước đoán', 'No estimated values are substituted') }}</p>
+                    <h2>{{ tx('Số liệu chưa khả dụng', 'Unavailable metrics') }}</h2>
+                    <p>{{ tx('Chi tiết cấu hình, quyền truy cập hoặc giới hạn gói dịch vụ', 'Configuration, access, or service plan details') }}</p>
                   </div>
                 </div>
               </div>

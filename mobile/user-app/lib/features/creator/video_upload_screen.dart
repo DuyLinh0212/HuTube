@@ -331,8 +331,9 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
 
   Future<void> _loadRelatedVideos() async {
     try {
-      final result = await loadAllPages(
-        (page) => _creator.managedVideos(widget.channel.id, page: page),
+      final result = await _creator.videoMetrics(
+        widget.channel.id,
+        includeStats: false,
       );
       if (!mounted) return;
       setState(() {

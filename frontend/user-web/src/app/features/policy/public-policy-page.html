@@ -47,7 +47,7 @@
           </svg>
           <span class="btn-text">{{ 'policies.print' | translate }}</span>
         </button>
-        <button type="button" class="btn-action-primary" (click)="downloadPdf()" [title]="'policies.downloadPdf' | translate">
+        <button type="button" class="btn-action-primary" (click)="downloadPdf()" [disabled]="exportingPdf() || loading()" [attr.aria-busy]="exportingPdf()" [title]="'policies.downloadPdf' | translate">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
           </svg>
@@ -98,12 +98,18 @@
       <!-- Active Section Introduction Bar -->
       <div class="tab-intro-banner">
         <div class="tab-intro-text">
-          <h2 class="tab-title">{{ currentTabInfo().title }}</h2>
+          <h2 #policyHeading tabindex="-1" class="tab-title">{{ currentTabInfo().title }}</h2>
           <p class="tab-desc">{{ currentTabInfo().description }}</p>
         </div>
         <div class="tab-counter">
           <span>{{ itemCountText() }}</span>
         </div>
+      </div>
+
+      <div class="policy-search">
+        <label for="policy-search">{{ 'policies.searchLabel' | translate }}</label>
+        <input id="policy-search" type="search" [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)" [placeholder]="'policies.searchPlaceholder' | translate" />
       </div>
 
       <!-- Policy List Feed (Stand-alone individual cards, not nested inside an outer box) -->
@@ -121,7 +127,8 @@
               </div>
             </header>
 
-            <p class="policy-card-summary">{{ getItemSummary(item) }}</p>
+            <p class="policy-card-summary" style="white-space: pre-wrap; overflow-wrap: anywhere">{{ getItemSummary(item) }}</p>
+            @if (item.published; as published) { <p class="policy-version">{{ published.version }} · {{ published.effectiveAt | date:'dd/MM/yyyy' }}</p> }
 
             @if (getItemRules(item).length > 0) {
               <div class="policy-rules-section">
@@ -281,11 +288,11 @@
 
       <div class="footer-bottom">
         <div class="footer-links-row">
-          <button type="button" class="link-btn" (click)="setTab('guidelines')">{{ 'policies.guidelines' | translate }}</button>
-          <button type="button" class="link-btn" (click)="setTab('privacy')">{{ 'policies.privacy' | translate }}</button>
-          <button type="button" class="link-btn" (click)="setTab('terms')">{{ 'policies.terms' | translate }}</button>
-          <button type="button" class="link-btn" (click)="setTab('monetization')">{{ 'policies.monetization' | translate }}</button>
-          <button type="button" class="link-btn" (click)="setTab('enforcement')">{{ 'policies.enforcement' | translate }}</button>
+          <button type="button" class="link-btn" (click)="setTab('guidelines', true)">{{ 'policies.guidelines' | translate }}</button>
+          <button type="button" class="link-btn" (click)="setTab('privacy', true)">{{ 'policies.privacy' | translate }}</button>
+          <button type="button" class="link-btn" (click)="setTab('terms', true)">{{ 'policies.terms' | translate }}</button>
+          <button type="button" class="link-btn" (click)="setTab('monetization', true)">{{ 'policies.monetization' | translate }}</button>
+          <button type="button" class="link-btn" (click)="setTab('enforcement', true)">{{ 'policies.enforcement' | translate }}</button>
           <a routerLink="/home" class="link-btn">{{ 'nav.home' | translate }}</a>
         </div>
         <p class="copyright-text">{{ 'policies.footer.copyright' | translate }}</p>

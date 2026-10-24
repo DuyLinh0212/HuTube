@@ -67,7 +67,7 @@ export class UploadStateService {
           const knownTotal = event.total ?? total;
           const ratio = knownTotal > 0 ? loaded / knownTotal : 0;
           const progress = Math.max(this.state().progress, Math.min(90, Math.round(ratio * 90)));
-          this.state.update(value => ({ ...value, phase: ratio >= 0.999 ? 'processing' : 'uploading', progress: Math.max(1, progress), loaded, total: knownTotal }));
+          this.state.update(value => ({ ...value, phase: knownTotal > 0 && loaded >= knownTotal ? 'processing' : 'uploading', progress: Math.max(1, progress), loaded, total: knownTotal }));
           return;
         }
         if (event.type !== HttpEventType.Response) return;

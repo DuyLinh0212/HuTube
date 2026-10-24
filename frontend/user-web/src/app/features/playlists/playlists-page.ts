@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
@@ -23,6 +23,19 @@ export class PlaylistsPage {
   private readonly router = inject(Router);
 
   readonly lists = signal<PlaylistSummary[]>([]);
+  readonly listQuery = signal('');
+  readonly listVisibility = signal('all');
+  readonly listPage = signal(1);
+  readonly listPageSize = signal(20);
+  readonly filteredLists = computed(() => {
+    const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
+    const query = normalize(this.listQuery().trim());
+    return this.lists().filter(item => (!query || normalize(item.name).includes(query)) &&
+      (this.listVisibility() === 'all' || item.visibility === this.listVisibility()));
+  });
+  readonly listPageCount = computed(() => Math.max(1, Math.ceil(this.filteredLists().length / this.listPageSize())));
+  readonly currentListPage = computed(() => Math.min(this.listPage(), this.listPageCount()));
+  readonly visibleLists = computed(() => this.filteredLists().slice((this.currentListPage() - 1) * this.listPageSize(), this.currentListPage() * this.listPageSize()));
   readonly playlist = signal<Playlist | null>(null);
   readonly previewById = signal<Record<string, Playlist | null>>({});
   readonly loading = signal(true);
@@ -38,6 +51,13 @@ export class PlaylistsPage {
   busy = false;
 
   constructor() {
+    this.route.queryParamMap.subscribe(params => {
+      this.listQuery.set(params.get('q') ?? '');
+      this.listVisibility.set(['public', 'unlisted', 'private'].includes(params.get('visibility') ?? '') ? params.get('visibility')! : 'all');
+      this.listPageSize.set(params.get('pageSize') === '50' ? 50 : 20);
+      const page = Number(params.get('page'));
+      this.listPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
+    });
     this.route.paramMap.subscribe(params => {
       this.channelHandle = params.get('handle');
       const id = params.get('id');
@@ -45,6 +65,16 @@ export class PlaylistsPage {
       if (id) this.loadDetail(id);
       else this.loadMine();
     });
+  }
+
+  filterLists(query = this.listQuery(), visibility = this.listVisibility(), pageSize = this.listPageSize()) {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
+      queryParams: { q: query || null, visibility: visibility === 'all' ? null : visibility, page: 1, pageSize } });
+  }
+
+  changeListPage(page: number) {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
+      queryParams: { page: Math.max(1, Math.min(this.listPageCount(), page)) } });
   }
 
   loadMine() {
@@ -67,6 +97,11 @@ export class PlaylistsPage {
   }
 
   private loadPreviews(lists: PlaylistSummary[]) {
+    if (lists.every(list => Array.isArray(list.previewItems))) {
+      this.previewById.set(Object.fromEntries(lists.map(list => [list.playlistId,
+        { ...list, createdAt: list.updatedAt, items: list.previewItems! }])));
+      return;
+    }
     if (!lists.length) { this.previewById.set({}); return; }
     const requests = lists.slice(0, 12).map(list => this.service.get(list.playlistId).pipe(catchError(() => of(null))));
     forkJoin(requests).subscribe(details => {

@@ -385,7 +385,13 @@ public sealed class ReportService(
         pageSize = Math.Clamp(pageSize, 1, 100);
         var query = db.ModerationCases.AsNoTracking().Where(c => c.CaseType == "report_case");
         if (!string.IsNullOrWhiteSpace(targetType)) query = query.Where(c => c.TargetType == targetType.Trim().ToLowerInvariant());
-        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(c => c.Status == status.Trim().ToLowerInvariant());
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var state = status.Trim().ToLowerInvariant(); var now = DateTimeOffset.UtcNow;
+            query = state == "pending" ? query.Where(c => c.Status == "pending" || c.Status == "reviewing" && (c.ClaimId == null || c.ClaimExpiresAt == null || c.ClaimExpiresAt <= now))
+                : state == "reviewing" ? query.Where(c => c.Status == "reviewing" && c.ClaimId != null && c.ClaimExpiresAt > now)
+                : query.Where(c => c.Status == state);
+        }
         var total = await query.CountAsync(ct);
         var cases = await query.OrderBy(c => c.Status == "pending" ? 0 : c.Status == "reviewing" ? 1 : 2)
             .ThenByDescending(c => c.SubmittedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
@@ -520,31 +526,39 @@ public sealed class ReportService(
             users.TryGetValue(reviewerId ?? Guid.Empty, out var reviewerName);
             result.Add(new ReportCaseSummary(c.ModerationCaseId, c.TargetType ?? "unknown", targetId, title, url, thumbnail,
                 channelName, channelHandle, c.Status, caseReports.Count, caseReports.Select(r => r.UserId).Distinct().Count(),
-                caseReports.Count(r => r.Disposition == null), counts, reviewerId, reviewerName, c.SubmittedAt, c.UpdatedAt, c.ResolvedAt));
+                caseReports.Count(r => r.Disposition == null), counts, reviewerId, reviewerName, c.SubmittedAt, c.UpdatedAt, c.ResolvedAt, c.ClaimId, c.ClaimExpiresAt));
         }
         return result;
     }
 
-    public async Task<bool> ClaimReportCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default)
+    public async Task<ClaimLeaseResponse> ClaimReportCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default)
     {
-        var reportCase = await RequireReportCaseAsync(caseId, ct);
-        if (reportCase.Status == "reviewing" && reportCase.ReviewerId == actorId) return true;
-        if (reportCase.Status != "pending") throw new AuthException(409, "REPORT_CASE_ALREADY_CLAIMED", "Hồ sơ không còn ở trạng thái chờ nhận.");
-        reportCase.ReviewerId = actorId; reportCase.Status = "reviewing";
-        reportCase.ClaimedAt = DateTimeOffset.UtcNow; reportCase.UpdatedAt = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync(ct);
-        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "report.case.claim", "moderation_case", caseId, "Nhận xử lý hồ sơ báo cáo"), ct);
-        return true;
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        var item = await RequireReportCaseAsync(caseId, ct);
+        await ClaimLeasePolicy.LockAsync(db, item, ct);
+        var previous = item.ClaimId;
+        ClaimLeasePolicy.Assign(item, actorId, DateTimeOffset.UtcNow);
+        if (previous != item.ClaimId)
+        {
+            item.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            await rbac.LogAuditAsync(new AuditLogEntry(actorId, "report.case.claim", "report.case", caseId, "Nhận hồ sơ trong 15 phút"), ct);
+        }
+        if (transaction != null) await transaction.CommitAsync(ct);
+        return new(item.ClaimId, item.ClaimExpiresAt);
     }
 
-    public async Task<bool> ReleaseReportCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default)
+    public async Task<bool> ReleaseReportCaseAsync(Guid actorId, Guid caseId, CancellationToken ct = default, Guid? claimId = null)
     {
-        var reportCase = await RequireReportCaseAsync(caseId, ct);
-        if (reportCase.Status != "reviewing" || reportCase.ReviewerId != actorId)
-            throw new AuthException(409, "REPORT_CASE_NOT_OWNED", "Chỉ người đang nhận hồ sơ mới có thể trả lại hồ sơ.");
-        reportCase.ReviewerId = null; reportCase.Status = "pending"; reportCase.ClaimedAt = null; reportCase.UpdatedAt = DateTimeOffset.UtcNow;
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        var item = await RequireReportCaseAsync(caseId, ct);
+        await ClaimLeasePolicy.LockAsync(db, item, ct);
+        ClaimLeasePolicy.Ensure(item, actorId, claimId, DateTimeOffset.UtcNow);
+        ClaimLeasePolicy.Release(item);
+        item.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
-        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "report.case.release", "moderation_case", caseId, "Trả hồ sơ về hàng đợi"), ct);
+        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "report.case.release", "report.case", caseId, "Trả hồ sơ về hàng đợi"), ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
         return true;
     }
 
@@ -556,7 +570,10 @@ public sealed class ReportService(
         if (disposition is not ("accepted" or "rejected")) throw new AuthException(400, "INVALID_DISPOSITION", "Kết quả báo cáo phải là accepted hoặc rejected.");
         if (reportIds.Count == 0) throw new AuthException(400, "REPORTS_REQUIRED", "Chọn ít nhất một báo cáo.");
         if (string.IsNullOrWhiteSpace(reason)) throw new AuthException(400, "REASON_REQUIRED", "Nhập lý do phân loại báo cáo.");
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
         var reportCase = await RequireReportCaseAsync(caseId, ct);
+        await ClaimLeasePolicy.LockAsync(db, reportCase, ct);
+        ClaimLeasePolicy.Ensure(reportCase, actorId, request.ClaimId, DateTimeOffset.UtcNow);
         EnsureReportCaseReviewer(reportCase, actorId);
         var reports = await db.Reports.Where(r => r.ModerationCaseId == caseId && reportIds.Contains(r.ReportId)).ToListAsync(ct);
         if (reports.Count != reportIds.Count) throw new AuthException(400, "REPORT_NOT_IN_CASE", "Một hoặc nhiều báo cáo không thuộc hồ sơ này.");
@@ -571,6 +588,7 @@ public sealed class ReportService(
         foreach (var report in reports)
             await rbac.LogAuditAsync(new AuditLogEntry(actorId, $"report.disposition.{disposition}", "report", report.ReportId,
                 $"Phân loại báo cáo thuộc hồ sơ {caseId}: {reason}"), ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
     }
 
     public async Task<ReportResolutionResponse> ResolveReportCaseAsync(Guid actorId, Guid caseId, ResolveReportCaseRequest request, CancellationToken ct = default)
@@ -582,6 +600,8 @@ public sealed class ReportService(
 
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         var reportCase = await RequireReportCaseAsync(caseId, ct);
+        await ClaimLeasePolicy.LockAsync(db, reportCase, ct);
+        ClaimLeasePolicy.Ensure(reportCase, actorId, request.ClaimId, DateTimeOffset.UtcNow);
         EnsureReportCaseReviewer(reportCase, actorId);
         var reports = await db.Reports.Where(r => r.ModerationCaseId == caseId).ToListAsync(ct);
         if (reports.Count == 0) throw new AuthException(409, "EMPTY_REPORT_CASE", "Hồ sơ không có báo cáo để xử lý.");
@@ -743,54 +763,20 @@ public sealed class ReportService(
         _ => false
     };
 
-    public async Task<bool> ClaimReportAsync(Guid actorId, Guid reportId, CancellationToken ct = default)
+    public async Task<ClaimLeaseResponse> ClaimReportAsync(Guid actorId, Guid reportId, CancellationToken ct = default)
     {
-        var report = await db.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId, ct)
+        var report = await db.Reports.AsNoTracking().FirstOrDefaultAsync(r => r.ReportId == reportId, ct)
             ?? throw new AuthException(404, "REPORT_NOT_FOUND", "Không tìm thấy báo cáo.");
-        if (report.ModerationCaseId.HasValue) return await ClaimReportCaseAsync(actorId, report.ModerationCaseId.Value, ct);
-
-        var moderationCase = await db.ModerationCases.FirstOrDefaultAsync(m => m.ReportId == reportId, ct);
-        var now = DateTimeOffset.UtcNow;
-
-        report.Status = "reviewing";
-        report.UpdatedAt = now;
-
-        if (moderationCase != null)
-        {
-            moderationCase.ReviewerId = actorId;
-            moderationCase.Status = "reviewing";
-            moderationCase.ClaimedAt = now;
-            moderationCase.UpdatedAt = now;
-        }
-
-        await db.SaveChangesAsync(ct);
-        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "report.claim", "report", reportId, "Nhận xử lý báo cáo"), ct);
-        return true;
+        if (!report.ModerationCaseId.HasValue) throw new AuthException(409, "REPORT_CASE_WORKFLOW_REQUIRED", "Hãy mở hồ sơ báo cáo trước khi nhận.");
+        return await ClaimReportCaseAsync(actorId, report.ModerationCaseId.Value, ct);
     }
 
-    public async Task<bool> ReleaseReportAsync(Guid actorId, Guid reportId, CancellationToken ct = default)
+    public async Task<bool> ReleaseReportAsync(Guid actorId, Guid reportId, CancellationToken ct = default, Guid? claimId = null)
     {
-        var report = await db.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId, ct)
+        var report = await db.Reports.AsNoTracking().FirstOrDefaultAsync(r => r.ReportId == reportId, ct)
             ?? throw new AuthException(404, "REPORT_NOT_FOUND", "Không tìm thấy báo cáo.");
-        if (report.ModerationCaseId.HasValue) return await ReleaseReportCaseAsync(actorId, report.ModerationCaseId.Value, ct);
-
-        var moderationCase = await db.ModerationCases.FirstOrDefaultAsync(m => m.ReportId == reportId, ct);
-        var now = DateTimeOffset.UtcNow;
-
-        report.Status = "pending";
-        report.UpdatedAt = now;
-
-        if (moderationCase != null)
-        {
-            moderationCase.ReviewerId = null;
-            moderationCase.ClaimedAt = null;
-            moderationCase.Status = "pending";
-            moderationCase.UpdatedAt = now;
-        }
-
-        await db.SaveChangesAsync(ct);
-        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "report.release", "report", reportId, "Hủy nhận xử lý báo cáo"), ct);
-        return true;
+        if (!report.ModerationCaseId.HasValue) throw new AuthException(409, "REPORT_CASE_WORKFLOW_REQUIRED", "Hãy mở hồ sơ báo cáo trước khi trả lại.");
+        return await ReleaseReportCaseAsync(actorId, report.ModerationCaseId.Value, ct, claimId);
     }
 
     public async Task<ReportResolutionResponse> ResolveReportAsync(Guid actorId, Guid reportId, ResolveReportRequest request, CancellationToken ct = default)

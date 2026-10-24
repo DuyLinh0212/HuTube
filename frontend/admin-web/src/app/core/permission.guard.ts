@@ -1,9 +1,10 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router } from '@angular/router';
-import { map } from 'rxjs';
+import { catchError, map, of } from 'rxjs';
 import { AuthService } from './auth.service';
+import { restoreFailureRedirect } from './auth.guard';
 
-export const permissionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
+export const permissionGuard: CanActivateFn = (route: ActivatedRouteSnapshot, state) => {
   const router = inject(Router);
   const auth = inject(AuthService);
   const permission = route.data?.['permission'] as string | undefined;
@@ -18,6 +19,7 @@ export const permissionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) =>
         return router.createUrlTree(['/forbidden']);
       }
       return true;
-    })
+    }),
+    catchError(error => of(restoreFailureRedirect(router, state.url, error))),
   );
 };

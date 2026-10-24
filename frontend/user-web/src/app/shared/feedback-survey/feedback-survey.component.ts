@@ -7,6 +7,7 @@ import { EMPTY, Subscription, catchError, exhaustMap, filter, retry, take, timeo
 import { AuthService } from '../../core/auth.service';
 import { FeedbackSurveyService, FeedbackSurveyStatus } from '../../core/feedback-survey.service';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { NetworkStatusService } from '../../core/network/network-status.service';
 
 type SurveyPhase = 'closed' | 'invitation' | 'plea' | 'waiting' | 'thanks';
 export const SURVEY_DELAY_MS = 120_000;
@@ -24,6 +25,7 @@ export class FeedbackSurveyComponent {
   @ViewChild('dialog', { static: true }) private dialog!: ElementRef<HTMLDialogElement>;
 
   private readonly auth = inject(AuthService);
+  private readonly network = inject(NetworkStatusService);
   private readonly surveys = inject(FeedbackSurveyService);
   private readonly document = inject(DOCUMENT);
   private readonly userId = computed(() => this.auth.user()?.userId ?? null);
@@ -100,7 +102,7 @@ export class FeedbackSurveyComponent {
     this.polling = timer(10_000, 10_000).pipe(
       // Bound polling to ten minutes. Returning to Dalitu always checks again.
       take(60),
-      filter(() => this.document.visibilityState === 'visible'),
+      filter(() => this.document.visibilityState === 'visible' && !this.network.unavailable()),
       exhaustMap(() => this.surveys.getStatus().pipe(timeout(15_000), catchError(() => EMPTY))),
     ).subscribe(status => this.acceptStatus(status));
     this.visit.add(this.polling);

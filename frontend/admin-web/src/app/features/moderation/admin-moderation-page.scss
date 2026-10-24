@@ -15,3 +15,11 @@
 .moderation-page .page-heading { justify-content: flex-end; align-items: center; min-height: 40px; margin-bottom: 14px; }
 .queue-table { min-width: 1160px; }
 .queue-date { color: #5f6f85; font-size: .65rem; white-space: nowrap; }
+
+// Size against the padded dialog container, including theater mode.
+.modal-backdrop { box-sizing: border-box; }
+.review-modal { width: min(1120px, 100%); max-width: 100%; box-sizing: border-box; max-height: calc(100dvh - 36px); }
+.review-modal.is-theater { width: 100%; max-width: 100%; }
+.modal-header > div:first-child { min-width: 0; }
+.modal-header h2 { overflow-wrap: anywhere; }
+@media (max-width: 560px) { .modal-header { flex-wrap: wrap; gap: 8px; } }

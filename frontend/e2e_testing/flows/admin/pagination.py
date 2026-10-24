@@ -38,12 +38,14 @@ def run(suite, admin, owner):
         with page.expect_response(lambda response: matches(response, 1)) as pending:
             page.locator('input[type=search]').fill(prefix)
         seen = set()
+        page_items = {}
         for number in range(1, 7):
             response = pending.value
             assert response.status == 200
             data = response.json()
             assert data['total'] == 55 and data['page'] == number
             assert len(data['items']) == (10 if number < 6 else 5)
+            page_items[number] = data['items']
             expect(page.locator('.user-row')).to_have_count(len(data['items']))
             expect(page.locator('.pagination strong')).to_have_text(str(number))
             for item in data['items']:
@@ -55,10 +57,13 @@ def run(suite, admin, owner):
                     page.locator('.pagination button').last.click()
         assert seen == {item['id'] for item in fixtures}
         expect(page.locator('.pagination button').last).to_be_disabled()
-        with page.expect_response(lambda response: matches(response, 5)) as pending:
-            page.locator('.pagination button').first.click()
-        assert pending.value.status == 200
+        # Returning to a page may reuse the read cache. Validate the actual UI
+        # against its previously verified API page without requiring network IO.
+        page.locator('.pagination button').first.click()
         expect(page.locator('.pagination strong')).to_have_text('5')
+        expect(page.locator('.user-row')).to_have_count(len(page_items[5]))
+        for item in page_items[5]:
+            expect(page.locator('.user-row').filter(has_text=item['email'])).to_have_count(1)
         exact = prefix + '001@example.test'
         with page.expect_response(lambda response: urlsplit(response.url).path == '/api/v1/admin/users'
                                   and parse_qs(urlsplit(response.url).query).get('search') == [exact]) as pending:

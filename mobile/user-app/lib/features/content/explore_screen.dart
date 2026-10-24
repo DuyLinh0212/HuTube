@@ -80,22 +80,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _loadSubscriptionStates(List<FeaturedCreator> creators) async {
-    final values = await Future.wait(
-      creators.map((creator) async {
-        try {
-          final status = await _channels.getSubscriptionStatus(creator.id);
-          return MapEntry(creator.id, status?['status'] == 'active');
-        } catch (_) {
-          return MapEntry(creator.id, false);
+    try {
+      final subscriptions = await _channels.getSubscribedChannels();
+      if (!mounted) return;
+      final ids = subscriptions.map((item) => item.channelId).toSet();
+      setState(() {
+        for (final creator in creators) {
+          _subscriptions[creator.id] = ids.contains(creator.id);
         }
-      }),
-    );
-    if (!mounted) return;
-    setState(() {
-      for (final entry in values) {
-        _subscriptions[entry.key] = entry.value;
-      }
-    });
+      });
+    } catch (_) {
+      /* Keep the current UI state when subscription lookup fails. */
+    }
   }
 
   void _selectCategory(String? categoryId, String categoryName) {

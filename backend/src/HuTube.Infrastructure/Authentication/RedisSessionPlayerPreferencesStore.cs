@@ -1,17 +1,15 @@
 using System.Globalization;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Domain.Users;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using HuTube.Infrastructure.Caching;
 
 namespace HuTube.Infrastructure.Authentication;
 
 public sealed class RedisSessionPlayerPreferencesStore(
-    IHttpClientFactory clients, IConfiguration configuration, IMemoryCache memory,
+    UpstashRedisClient redis, IMemoryCache memory,
     ILogger<RedisSessionPlayerPreferencesStore> logger) : ISessionPlayerPreferencesStore
 {
     // HSET changes only audio fields; existing authentication fields remain intact.
@@ -28,11 +26,12 @@ public sealed class RedisSessionPlayerPreferencesStore(
 
     private static string Key(Guid id) => $"dalitu:auth:session:{id:N}";
     private static string MemoryKey(Guid id) => $"session-player-preferences:{id:N}";
+    private static string FallbackKey(Guid id) => MemoryKey(id) + ":fallback";
 
     public async Task<SessionPlayerPreferences?> GetAsync(UserSession session, CancellationToken ct)
     {
-        var cached = memory.Get<SessionPlayerPreferences>(MemoryKey(session.SessionId));
-        if (!Configured) return cached;
+        if (memory.TryGetValue(MemoryKey(session.SessionId), out SessionPlayerPreferences? cached)) return cached;
+        if (!redis.Configured) return memory.Get<SessionPlayerPreferences>(FallbackKey(session.SessionId));
         try
         {
             var result = await CommandAsync(["HMGET", Key(session.SessionId), "volume", "muted"], ct);
@@ -41,23 +40,26 @@ public sealed class RedisSessionPlayerPreferencesStore(
                 && volume is >= 0m and <= 1m && bool.TryParse(result[1].GetString(), out var muted))
             {
                 var preferences = new SessionPlayerPreferences(volume, muted);
-                memory.Set(MemoryKey(session.SessionId), preferences, session.ExpiresAt);
+                memory.Set(MemoryKey(session.SessionId), preferences, LocalExpiration(session));
+                memory.Set(FallbackKey(session.SessionId), preferences, session.ExpiresAt);
                 return preferences;
             }
-            memory.Remove(MemoryKey(session.SessionId));
+            memory.Set<SessionPlayerPreferences?>(MemoryKey(session.SessionId), null, TimeSpan.FromSeconds(5));
+            memory.Remove(FallbackKey(session.SessionId));
             return null;
         }
         catch (Exception ex) when (Unavailable(ex, ct))
         {
             logger.LogWarning(ex, "Could not read session player preferences from Redis; using the local session copy.");
-            return cached;
+            return memory.Get<SessionPlayerPreferences>(FallbackKey(session.SessionId));
         }
     }
 
     public async Task SetAsync(UserSession session, SessionPlayerPreferences preferences, CancellationToken ct)
     {
-        memory.Set(MemoryKey(session.SessionId), preferences, session.ExpiresAt);
-        if (!Configured) return;
+        memory.Set(MemoryKey(session.SessionId), preferences, LocalExpiration(session));
+        memory.Set(FallbackKey(session.SessionId), preferences, session.ExpiresAt);
+        if (!redis.Configured) return;
         try
         {
             await CommandAsync(["EVAL", SaveScript, "1", Key(session.SessionId),
@@ -73,7 +75,8 @@ public sealed class RedisSessionPlayerPreferencesStore(
     public async Task RemoveAsync(Guid sessionId, CancellationToken ct)
     {
         memory.Remove(MemoryKey(sessionId));
-        if (!Configured) return;
+        memory.Remove(FallbackKey(sessionId));
+        if (!redis.Configured) return;
         try { await CommandAsync(["EVAL", RemoveScript, "1", Key(sessionId)], ct); }
         catch (Exception ex) when (Unavailable(ex, ct))
         {
@@ -81,25 +84,11 @@ public sealed class RedisSessionPlayerPreferencesStore(
         }
     }
 
-    private string? Endpoint => configuration["UPSTASH_REDIS_REST_URL"] ?? configuration["SystemMonitoring:RedisRestUrl"];
-    private string? Token => configuration["UPSTASH_REDIS_REST_TOKEN"] ?? configuration["SystemMonitoring:RedisRestToken"];
-    private bool Configured => !string.IsNullOrWhiteSpace(Endpoint) && !string.IsNullOrWhiteSpace(Token);
+    private DateTimeOffset LocalExpiration(UserSession session) => !redis.Configured ? session.ExpiresAt :
+        session.ExpiresAt < DateTimeOffset.UtcNow.AddSeconds(20) ? session.ExpiresAt : DateTimeOffset.UtcNow.AddSeconds(20);
 
-    private async Task<JsonElement> CommandAsync(string[] command, CancellationToken ct)
-    {
-        if (!Uri.TryCreate(Endpoint, UriKind.Absolute, out var endpoint) || endpoint.Scheme != "https"
-            || endpoint.UserInfo.Length > 0 || endpoint.Query.Length > 0 || endpoint.Fragment.Length > 0)
-            throw new InvalidOperationException("The session Redis REST endpoint must use HTTPS.");
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = JsonContent.Create(command) };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
-        using var response = await clients.CreateClient("session-player-preferences").SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
-        using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        if (json.RootElement.TryGetProperty("error", out _) || !json.RootElement.TryGetProperty("result", out var result))
-            throw new InvalidOperationException("Redis rejected the session player preferences command.");
-        return result.Clone();
-    }
+    private Task<JsonElement> CommandAsync(string[] command, CancellationToken ct) => redis.CommandAsync(command, ct);
 
     private static bool Unavailable(Exception ex, CancellationToken ct) => !ct.IsCancellationRequested
-        && ex is HttpRequestException or OperationCanceledException or JsonException or InvalidOperationException;
+        && ex is RedisUnavailableException or HttpRequestException or OperationCanceledException or JsonException or InvalidOperationException;
 }

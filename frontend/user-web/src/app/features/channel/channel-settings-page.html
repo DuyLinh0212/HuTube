@@ -89,11 +89,25 @@
             <p class="section-desc">{{ 'channel.linksDesc' | translate }}</p>
 
             <div class="link-rows-list">
-              @for (link of links; track $index) {
-                <div class="link-row-card">
-                  <div class="link-drag-handle" [title]="'channel.reorderLink' | translate">
+              @for (link of links; track link) {
+                <div class="link-row-card"
+                     [class.is-dragging]="draggedLinkIndex === $index"
+                     [class.is-drop-target]="dragOverLinkIndex === $index"
+                     (dragstart)="onLinkDragStart($event, $index)"
+                     (dragover)="onLinkDragOver($event, $index)"
+                     (dragleave)="onLinkDragLeave($event, $index)"
+                     (drop)="onLinkDrop($event, $index)"
+                     (dragend)="onLinkDragEnd()">
+                  <button type="button" class="link-drag-handle"
+                          [attr.aria-label]="'channel.reorderLink' | translate"
+                          [attr.aria-description]="'channel.reorderLinkKeyboardHint' | translate"
+                          [attr.aria-grabbed]="draggedLinkIndex === $index"
+                          [disabled]="busy()"
+                          [draggable]="!busy()"
+                          (keydown)="onLinkReorderKeydown($event, $index)"
+                          [title]="'channel.reorderLink' | translate">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/></svg>
-                  </div>
+                  </button>
                   <div class="link-inputs-wrapper">
                     <div class="link-field-box">
                       <label class="field-label" [for]="'link-platform-' + $index">{{ 'channel.platform' | translate }}</label>
@@ -112,6 +126,7 @@
                 </div>
               }
             </div>
+            <p class="sr-only" role="status" aria-live="polite">{{ linkOrderMessage() }}</p>
 
             <button type="button" class="btn-add-link" (click)="addLink()" [disabled]="busy() || links.length >= 14">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>

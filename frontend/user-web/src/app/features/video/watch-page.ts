@@ -11,6 +11,7 @@ import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { CompactLikeCountPipe, LocaleNumberPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
+import { MyPlan, PlanService } from '../../core/plan.service';
 import { PictureInPictureService } from '../../core/picture-in-picture.service';
 import { PlayerPreferencesService } from '../../core/player-preferences.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
@@ -30,6 +31,13 @@ export class WatchPage {
   private readonly playlists = inject(PlaylistService);
   private readonly pictureInPicture = inject(PictureInPictureService);
   private readonly playerPreferences = inject(PlayerPreferencesService);
+  private readonly plans = inject(PlanService);
+  readonly pipAllowed = signal(false);
+  readonly backgroundPlayAllowed = signal(false);
+  private entitlementExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+  readonly editingCommentId = signal<string | null>(null);
+  readonly commentEditBusy = signal(false);
+  commentEditText = "";
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
 
@@ -40,6 +48,10 @@ export class WatchPage {
   readonly channel = signal<ChannelDetail | null>(null);
   readonly comments = signal<CommentItem[]>([]);
   readonly commentSort = signal<'newest' | 'top'>('newest');
+  readonly commentPage = signal(1);
+  readonly commentTotal = signal(0);
+  readonly commentsLoading = signal(false);
+  readonly commentsError = signal('');
   readonly repliesByComment = signal<Record<string, CommentItem[]>>({});
   readonly expandedReplies = signal<Record<string, boolean>>({});
   readonly repliesLoading = signal<Record<string, boolean>>({});
@@ -115,7 +127,7 @@ export class WatchPage {
   private lastPlayerTapAt = 0;
   private lastPlayerTapX = 0;
   private seekFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
-  private playlistQueue: PlaylistItem[] = [];
+  readonly playlistQueue = signal<PlaylistItem[]>([]);
   private playlistIndex = -1;
 
   @ViewChild('player') playerRef?: ElementRef<HTMLVideoElement>;
@@ -125,6 +137,7 @@ export class WatchPage {
     this.destroyRef.onDestroy(() => {
       this.clearPlayerTapTimer();
       this.clearSeekFeedbackTimer();
+      this.clearEntitlementExpiryTimer();
     });
 
     this.videoId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -142,10 +155,10 @@ export class WatchPage {
       this.playlistIndex = Number(params.get('index') ?? -1);
       if (playlistId !== this.playlistId) {
         this.playlistId = playlistId;
-        this.playlistQueue = [];
+        this.playlistQueue.set([]);
         if (playlistId) this.playlists.get(playlistId).subscribe({
-          next: playlist => { if (this.playlistId === playlistId) this.playlistQueue = playlist.items; },
-          error: () => { if (this.playlistId === playlistId) this.playlistQueue = []; }
+          next: playlist => { if (this.playlistId === playlistId) this.playlistQueue.set(playlist.items); },
+          error: () => { if (this.playlistId === playlistId) this.playlistQueue.set([]); }
         });
       }
     });
@@ -181,6 +194,10 @@ export class WatchPage {
     this.playback.set(null);
     this.activeRendition.set(null);
     this.comments.set([]);
+    this.commentPage.set(1);
+    this.commentTotal.set(0);
+    this.commentsLoading.set(false);
+    this.commentsError.set('');
     this.subscribed.set(false);
     this.currentTime.set(0);
     this.totalDuration.set(0);
@@ -198,6 +215,10 @@ export class WatchPage {
   }
 
   private loadPageData() {
+    this.editingCommentId.set(null);
+    this.pipAllowed.set(false);
+    this.backgroundPlayAllowed.set(false);
+    this.refreshPlaybackEntitlements();
     this.channels.getMyChannel().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({ next: channel => this.myChannelId.set(channel.channelId), error: () => {} });
     this.content.violationTypes().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({ next: types => this.violationTypes.set(types), error: () => {} });
 
@@ -252,25 +273,40 @@ export class WatchPage {
     this.loadComments();
   }
 
-  private loadComments() {
+  private loadComments(page = 1) {
+    if (page > 1 && (this.commentsLoading() || this.comments().length >= this.commentTotal())) return;
     const requestVideoId = this.videoId;
-    this.content.comments(requestVideoId, 1, 20, this.commentSort()).pipe(
+    const requestSort = this.commentSort();
+    this.commentsLoading.set(true);
+    this.commentsError.set('');
+    this.content.comments(requestVideoId, page, 20, requestSort).pipe(
       takeUntil(this.videoChanged),
       takeUntil(this.commentsChanged),
-      takeUntilDestroyed(this.destroyRef)
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => {
+        if (requestVideoId === this.videoId && requestSort === this.commentSort()) this.commentsLoading.set(false);
+      })
     ).subscribe({
       next: value => {
-        if (requestVideoId !== this.videoId) return;
+        if (requestVideoId !== this.videoId || requestSort !== this.commentSort()) return;
         const items = value.items ?? [];
-        this.comments.set(items);
+        this.comments.set(page === 1 ? items : [...new Map([...this.comments(), ...items].map(item => [item.commentId, item])).values()]);
+        this.commentPage.set(page);
+        this.commentTotal.set(value.total);
         // Keep existing replies visible after navigating directly to a video.
         for (const comment of items.filter(item => item.replyCount > 0)) this.loadReplies(comment, true);
       },
       error: () => {
-        if (requestVideoId === this.videoId) this.comments.set([]);
+        if (requestVideoId !== this.videoId || requestSort !== this.commentSort()) return;
+        if (page === 1) this.comments.set([]);
+        this.commentsError.set(this.i18n.t('watch.commentsLoadError'));
       }
     });
   }
+
+  loadMoreComments() { this.loadComments(this.commentPage() + 1); }
+
+  retryComments() { this.loadComments(this.comments().length ? this.commentPage() + 1 : 1); }
 
   changeQuality(value: string) {
     const player = this.playerRef?.nativeElement;
@@ -384,6 +420,70 @@ export class WatchPage {
 
   onPlaybackState(playing: boolean) {
     this.isPlaying.set(playing);
+    if (playing) this.enforceBackgroundPlayback();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange() {
+    this.enforceBackgroundPlayback();
+    this.refreshPlaybackEntitlements();
+  }
+
+  @HostListener('window:focus')
+  onWindowFocus() {
+    this.refreshPlaybackEntitlements();
+  }
+
+  private clearEntitlementExpiryTimer() {
+    if (this.entitlementExpiryTimer !== null) clearTimeout(this.entitlementExpiryTimer);
+    this.entitlementExpiryTimer = null;
+  }
+
+  private refreshPlaybackEntitlements() {
+    if (!this.auth.user()) { this.applyPlaybackEntitlements(null); return; }
+    this.plans.getMyPlan().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: plan => this.applyPlaybackEntitlements(plan),
+      error: () => this.applyPlaybackEntitlements(null)
+    });
+  }
+
+  private applyPlaybackEntitlements(plan: MyPlan | null) {
+    this.clearEntitlementExpiryTimer();
+    const endedAt = plan?.subscription?.endedAt;
+    const remaining = endedAt ? Date.parse(endedAt) - Date.now() : null;
+    const valid = remaining === null || remaining > 0;
+    this.pipAllowed.set(valid && plan?.features?.['pip'] === true);
+    this.backgroundPlayAllowed.set(valid && plan?.features?.['background_play'] === true);
+    if (!this.pipAllowed() && this.pictureInPicture.active()) {
+      void this.pictureInPicture.exit().finally(() => this.enforceBackgroundPlayback());
+    }
+    this.enforceBackgroundPlayback();
+    if (remaining !== null && remaining > 0) {
+      this.entitlementExpiryTimer = setTimeout(() => {
+        this.applyPlaybackEntitlements(null);
+        this.refreshPlaybackEntitlements();
+      }, Math.min(remaining, 2_147_483_647));
+    }
+  }
+
+  private enforceBackgroundPlayback() {
+    if (document.hidden && !this.backgroundPlayAllowed()) this.playerRef?.nativeElement.pause();
+  }
+
+  playlistTarget(direction: -1 | 1): PlaylistItem | undefined {
+    const queue = this.playlistQueue();
+    const index = queue.findIndex(item => item.videoId === this.videoId);
+    if (index < 0) return undefined;
+    if (direction === 1) return queue.slice(index + 1).find(item => item.available);
+    return queue.slice(0, index).reverse().find(item => item.available);
+  }
+
+  movePlaylist(direction: -1 | 1) {
+    const target = this.playlistTarget(direction);
+    if (!target || !this.playlistId) return;
+    void this.router.navigate(['/watch', target.videoId], { queryParams: {
+      playlist: this.playlistId, index: this.playlistQueue().findIndex(item => item.playlistVideoId === target.playlistVideoId)
+    } });
   }
 
   onEnded() {
@@ -392,10 +492,10 @@ export class WatchPage {
     // A PiP window may keep playing while the user is viewing another tab.
     // Do not silently replace the original watch page when that window ends.
     if (!this.autoplay() || this.pipActive() || document.pictureInPictureElement === this.playerRef?.nativeElement) return;
-    const currentIndex = this.playlistQueue.findIndex(item => item.videoId === this.videoId);
-    const next = this.playlistQueue.slice((currentIndex >= 0 ? currentIndex : this.playlistIndex) + 1).find(item => item.available);
+    const currentIndex = this.playlistQueue().findIndex(item => item.videoId === this.videoId);
+    const next = this.playlistQueue().slice((currentIndex >= 0 ? currentIndex : this.playlistIndex) + 1).find(item => item.available);
     if (next) {
-      const nextIndex = this.playlistQueue.findIndex(item => item.playlistVideoId === next.playlistVideoId);
+      const nextIndex = this.playlistQueue().findIndex(item => item.playlistVideoId === next.playlistVideoId);
       const tree = this.router.createUrlTree(['/watch', next.videoId], {
         queryParams: { playlist: this.route.snapshot.queryParamMap.get('playlist'), index: nextIndex }
       });
@@ -543,12 +643,16 @@ export class WatchPage {
 
   supportsPictureInPicture(): boolean {
     const player = this.playerRef?.nativeElement;
-    return this.pictureInPicture.supports(player);
+    return this.pipAllowed() && this.pictureInPicture.supports(player);
   }
 
   async togglePictureInPicture(): Promise<void> {
     const player = this.playerRef?.nativeElement;
-    if (!this.supportsPictureInPicture() || !player) {
+    if (!this.pipAllowed() && !this.pipActive()) {
+      this.actionMessage.set(this.i18n.t('watch.pipNotIncluded'));
+      return;
+    }
+    if (!this.pictureInPicture.supports(player) || !player) {
       this.actionMessage.set(this.i18n.t('watch.pictureInPictureUnsupported'));
       return;
     }
@@ -722,6 +826,9 @@ export class WatchPage {
     this.content.createComment(item.videoId, text).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: comment => {
         this.comments.update(items => [comment, ...items]);
+        this.commentTotal.update(total => total + 1);
+        this.commentsChanged.next();
+        this.loadComments();
         this.commentText = '';
         this.video.update(video => video ? { ...video, stats: { ...video.stats, comments: video.stats.comments + 1 } } : video);
       },
@@ -733,6 +840,10 @@ export class WatchPage {
     if (sort === this.commentSort()) return;
     this.commentSort.set(sort);
     this.commentsChanged.next();
+    this.comments.set([]);
+    this.commentPage.set(1);
+    this.commentTotal.set(0);
+    this.commentsLoading.set(false);
     this.repliesByComment.set({});
     this.expandedReplies.set({});
     this.repliesLoading.set({});
@@ -842,6 +953,34 @@ export class WatchPage {
     });
   }
 
+  editComment(comment: CommentItem) {
+    if (!this.isOwnComment(comment) || this.commentEditBusy()) return;
+    this.commentEditText = comment.content;
+    this.editingCommentId.set(comment.commentId);
+    this.actionMessage.set('');
+  }
+
+  cancelCommentEdit() {
+    if (this.commentEditBusy()) return;
+    this.editingCommentId.set(null);
+    this.commentEditText = '';
+  }
+
+  saveCommentEdit(comment: CommentItem) {
+    const text = this.commentEditText.trim();
+    if (!text || !this.isOwnComment(comment) || this.commentEditBusy()) return;
+    this.commentEditBusy.set(true);
+    this.content.updateComment(comment.commentId, text).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.commentEditBusy.set(false))).subscribe({
+      next: updated => {
+        this.replaceCommentInState(updated);
+        this.editingCommentId.set(null);
+        this.commentEditText = '';
+      },
+      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.commentUpdateError'))
+    });
+  }
+
   remove(comment: CommentItem) {
     if (!this.requireAuthentication(this.i18n.t('watch.loginCommentDelete'))) return;
     if (!confirm(this.i18n.t('watch.deleteCommentConfirm'))) return;
@@ -850,6 +989,9 @@ export class WatchPage {
         const wasRoot = this.comments().some(item => item.commentId === comment.commentId);
         if (wasRoot) {
           this.comments.update(items => items.filter(item => item.commentId !== comment.commentId));
+          this.commentTotal.update(total => Math.max(0, total - 1));
+          this.commentsChanged.next();
+          this.loadComments();
           this.repliesByComment.update(groups => {
             const next = { ...groups };
             delete next[comment.commentId];
@@ -1073,7 +1215,7 @@ export class WatchPage {
     if (!channel) return;
 
     if (!this.auth.user()) {
-      void this.router.navigate(['/login']);
+      void this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
       return;
     }
 
@@ -1101,6 +1243,10 @@ export class WatchPage {
         error: () => this.actionMessage.set(this.i18n.t('watch.subscribeError'))
       });
     }
+  }
+
+  loginReturnUrl() {
+    return this.router.url;
   }
 
   toggleSubscriptionNotifications() {

@@ -1,4 +1,11 @@
 <main id="main-content" class="library-page">
+  @if (!isLiked) {
+    <div class="collection-controls">
+      <label for="history-query">{{ 'collection.search' | translate }}<input id="history-query" type="search" [(ngModel)]="historyQuery" (ngModelChange)="filterHistory()" /></label>
+      <label for="history-sort">{{ 'collection.sort' | translate }}<select id="history-sort" [(ngModel)]="historySort" (ngModelChange)="filterHistory()"><option value="newest">{{ 'collection.newest' | translate }}</option><option value="oldest">{{ 'collection.oldest' | translate }}</option></select></label>
+      <label for="history-date">{{ 'collection.date' | translate }}<select id="history-date" [(ngModel)]="historyDateRange" (ngModelChange)="filterHistory()"><option value="all">{{ 'ui.all' | translate }}</option><option value="today">{{ 'collection.today' | translate }}</option><option value="week">{{ 'collection.week' | translate }}</option><option value="month">{{ 'collection.month' | translate }}</option></select></label>
+    </div>
+  }
   @if (isLiked) {
     <section class="rating-filter" [attr.aria-label]="'library.ratingFilter' | translate">
       <span class="rating-filter__label">
@@ -76,7 +83,7 @@
         }
       </div>
 
-      @if (isLiked && pageCount() > 1) {
+      @if (pageCount() > 1) {
         <nav class="library-pagination" [attr.aria-label]="'library.pagination' | translate">
           <button type="button" (click)="goToPage(page() - 1)" [disabled]="page() === 1">{{ 'library.previous' | translate }}</button>
           <span>{{ 'library.page' | translate:{ page: i18n.formatNumber(page(), { useGrouping: false }), total: i18n.formatNumber(pageCount(), { useGrouping: false }) } }}</span>
@@ -94,10 +101,5 @@
       </section>
     }
 
-    @if (!isLiked) {
-      <div #historySentinel class="library-history-sentinel" aria-hidden="true">
-        @if (historyLoadingMore()) { <span>{{ 'library.loading' | translate }}</span> }
-      </div>
-    }
   }
 </main>

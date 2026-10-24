@@ -2,10 +2,10 @@
 from playwright.sync_api import expect
 
 
-def run(suite, admin, member):
+def run(suite, admin, member, fixture_suffix=None):
     page = admin['page']
     category = {}
-    slug = 'hutube-e2e-functional-category'
+    slug = 'hutube-e2e-functional-category' + ('-'+fixture_suffix if fixture_suffix else '')
     name = 'HuTube E2E — Danh mục chức năng'
 
     def open_topics():
@@ -95,14 +95,16 @@ def run(suite, admin, member):
         page.get_by_role('tab').nth(1).click()
         tags = suite.api(admin, 'get', '/admin/tags')
         assert tags.status == 200
-        tag.update(next((item for item in tags.json() if item['name'] == 'hutube-e2e-functional'), {}))
+        tag_name='hutube-e2e-functional'+('-'+fixture_suffix if fixture_suffix else '')
+        tag.update(next((item for item in tags.json() if item['name'] == tag_name), {}))
         if tag:
             page.locator('input[type=search]').fill(tag['name'])
             expect(page.locator('tbody tr')).to_contain_text(tag['name'])
             return 'reused'
         page.locator('.heading-actions .btn-primary').click()
-        page.locator('[name=tagName]').fill('hutube-e2e-functional')
+        page.locator('[name=tagName]').fill(tag_name)
         tag.update(submit('POST', '/admin/tags').json())
+        suite.state['tag_id']=tag['tagId']; suite.save()
         page.locator('input[type=search]').fill(tag['name'])
         expect(page.locator('tbody tr')).to_contain_text(tag['name'])
     suite.case(admin, 'A-TAGS-CREATE-01', 'Tạo tag qua UI', create_tag,

@@ -235,7 +235,7 @@ public sealed class AppealService(
                 a.ModerationCaseId,
                 a.StrikeId,
                 a.CreatedAt,
-                a.ResolvedAt
+                a.ResolvedAt, a.ClaimId, a.ClaimExpiresAt
             );
         }).ToList();
     }
@@ -261,7 +261,10 @@ public sealed class AppealService(
         if (!string.IsNullOrWhiteSpace(status))
         {
             var s = status.Trim().ToLowerInvariant();
-            query = query.Where(a => a.Status == s);
+            var now = DateTimeOffset.UtcNow;
+            query = s == "pending" ? query.Where(a => a.Status == "pending" || a.Status == "reviewing" && (a.ClaimId == null || a.ClaimExpiresAt == null || a.ClaimExpiresAt <= now))
+                : s == "reviewing" ? query.Where(a => a.Status == "reviewing" && a.ClaimId != null && a.ClaimExpiresAt > now)
+                : query.Where(a => a.Status == s);
         }
 
         var appeals = await query
@@ -306,44 +309,43 @@ public sealed class AppealService(
                 a.ModerationCaseId,
                 a.StrikeId,
                 a.CreatedAt,
-                a.ResolvedAt
+                a.ResolvedAt, a.ClaimId, a.ClaimExpiresAt
             );
         }).ToList();
     }
 
-    public async Task<bool> ClaimAppealAsync(Guid actorId, Guid appealId, CancellationToken ct = default)
+    public async Task<ClaimLeaseResponse> ClaimAppealAsync(Guid actorId, Guid appealId, CancellationToken ct = default)
     {
-        var appeal = await db.Appeals.FirstOrDefaultAsync(a => a.AppealId == appealId, ct)
-            ?? throw new AuthException(404, "APPEAL_NOT_FOUND", "Không tìm thấy đơn khiếu nại.");
-
-        await EnsureSeparationOfDutiesAsync(actorId, appeal, ct);
-
-        appeal.ReviewerId = actorId;
-        appeal.Status = AppealStatuses.Reviewing;
-        appeal.UpdatedAt = DateTimeOffset.UtcNow;
-
-        await db.SaveChangesAsync(ct);
-        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "appeal.claim", "appeal", appealId, "Nhận thụ lý đơn khiếu nại"), ct);
-        return true;
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        var item = await db.Appeals.FirstOrDefaultAsync(x => x.AppealId == appealId, ct)
+            ?? throw new AuthException(404, "CASE_NOT_FOUND", "Không tìm thấy hồ sơ.");
+        await ClaimLeasePolicy.LockAsync(db, item, ct);
+        await EnsureSeparationOfDutiesAsync(actorId, item, ct);
+        var previous = item.ClaimId;
+        ClaimLeasePolicy.Assign(item, actorId, DateTimeOffset.UtcNow);
+        if (previous != item.ClaimId)
+        {
+            item.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            await rbac.LogAuditAsync(new AuditLogEntry(actorId, "appeal.claim", "appeal", appealId, "Nhận hồ sơ trong 15 phút"), ct);
+        }
+        if (transaction != null) await transaction.CommitAsync(ct);
+        return new(item.ClaimId, item.ClaimExpiresAt);
     }
 
-    public async Task<bool> ReleaseAppealAsync(Guid actorId, Guid appealId, CancellationToken ct = default)
+    public async Task<bool> ReleaseAppealAsync(Guid actorId, Guid appealId, CancellationToken ct = default, Guid? claimId = null)
     {
-        var appeal = await db.Appeals.FirstOrDefaultAsync(a => a.AppealId == appealId, ct)
-            ?? throw new AuthException(404, "APPEAL_NOT_FOUND", "Không tìm thấy đơn khiếu nại.");
-
-        if (appeal.ReviewerId == actorId && appeal.Status == AppealStatuses.Reviewing)
-        {
-            appeal.ReviewerId = null;
-            appeal.Status = AppealStatuses.Pending;
-            appeal.UpdatedAt = DateTimeOffset.UtcNow;
-
-            await db.SaveChangesAsync(ct);
-            await rbac.LogAuditAsync(new AuditLogEntry(actorId, "appeal.release", "appeal", appealId, "Trả đơn khiếu nại về hàng đợi"), ct);
-            return true;
-        }
-
-        return false;
+        await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+        var item = await db.Appeals.FirstOrDefaultAsync(x => x.AppealId == appealId, ct)
+            ?? throw new AuthException(404, "CASE_NOT_FOUND", "Không tìm thấy hồ sơ.");
+        await ClaimLeasePolicy.LockAsync(db, item, ct);
+        ClaimLeasePolicy.Ensure(item, actorId, claimId, DateTimeOffset.UtcNow);
+        ClaimLeasePolicy.Release(item);
+        item.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "appeal.release", "appeal", appealId, "Trả hồ sơ về hàng đợi"), ct);
+        if (transaction != null) await transaction.CommitAsync(ct);
+        return true;
     }
 
     public async Task<AppealResolutionResponse> ResolveAppealAsync(Guid actorId, Guid appealId, ResolveAppealRequest request, CancellationToken ct = default)
@@ -355,15 +357,20 @@ public sealed class AppealService(
         var appeal = await db.Appeals.FirstOrDefaultAsync(a => a.AppealId == appealId, ct)
             ?? throw new AuthException(404, "APPEAL_NOT_FOUND", "Không tìm thấy đơn khiếu nại.");
 
-        await using var transaction = appeal.TargetType == AppealTargetTypes.Video && db.Database.IsRelational()
+        await using var transaction = db.Database.IsRelational()
             ? await db.Database.BeginTransactionAsync(ct) : null;
         if (transaction != null)
         {
-            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"purge:" + appeal.TargetId}, 0))", ct);
+            if (appeal.TargetType == AppealTargetTypes.Video)
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"purge:" + appeal.TargetId}, 0))", ct);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT appeal_id FROM appeals WHERE appeal_id = {appealId} FOR UPDATE", ct);
             await db.Entry(appeal).ReloadAsync(ct);
         }
+        if (appeal.ResolvedAt.HasValue || appeal.Status is AppealStatuses.Approved or AppealStatuses.Rejected or AppealStatuses.Cancelled)
+            throw new AuthException(409, "APPEAL_ALREADY_PROCESSED", "Đơn khiếu nại đã được xử lý.");
         // Rule: Separation of duties check
         await EnsureSeparationOfDutiesAsync(actorId, appeal, ct);
+        ClaimLeasePolicy.Ensure(appeal, actorId, request.ClaimId, DateTimeOffset.UtcNow);
 
         var now = DateTimeOffset.UtcNow;
         appeal.ReviewerId = actorId;
@@ -403,6 +410,7 @@ public sealed class AppealService(
                     video.ModerationReason = null;
                     video.MediaRetentionUntil = null;
                     video.Status = "published";
+                    video.PublishedAt ??= now;
                     video.UpdatedAt = now;
 
                     // If moderation case exists, update it

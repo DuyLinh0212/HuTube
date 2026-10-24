@@ -83,14 +83,35 @@
       </div>
     </div>
 
+    <div class="mobile-sort-controls">
+      <label for="video-mobile-sort">{{ 'videos.sortBy' | translate }}</label>
+      <select id="video-mobile-sort" [ngModel]="sortBy()" (ngModelChange)="toggleSort($event)">
+        <option value="title">{{ 'moderation.colVideo' | translate }}</option>
+        <option value="channel">{{ 'nav.channels' | translate }}</option>
+        <option value="category">{{ 'videos.category' | translate }}</option>
+        <option value="status">{{ 'moderation.colStatus' | translate }}</option>
+        <option value="visibility">{{ 'videos.visibility' | translate }}</option>
+        <option value="views">{{ 'videos.views' | translate }}</option>
+        <option value="reports">{{ 'videos.reports' | translate }}</option>
+        <option value="createdAt">{{ 'videos.uploadDate' | translate }}</option>
+      </select>
+      <button type="button" class="mobile-sort-direction" [attr.aria-pressed]="sortDescending()" (click)="toggleSort(sortBy())">
+        {{ (sortDescending() ? 'videos.sortDescending' : 'videos.sortAscending') | translate }}
+      </button>
+    </div>
+
     <!-- Row 2: Actions -->
     <div class="filters-row-2">
-      <button type="button" class="btn-add-video" (click)="openAddVideo()">
+      @if (config.userWebBaseUrl) {
+      <a class="btn-add-video" [href]="config.userWebBaseUrl + '/studio/upload'" target="_blank" rel="noopener noreferrer">
         <svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
         </svg>
-        {{ 'videos.add' | translate }}
-      </button>
+        {{ 'videos.uploadInStudio' | translate }}
+      </a>
+      } @else {
+        <button type="button" class="btn-add-video" disabled [title]="'videos.uploadUnavailable' | translate">{{ 'videos.uploadInStudio' | translate }}</button>
+      }
 
       <button type="button" class="btn-export-data" (click)="exportData()">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -812,48 +833,4 @@
   }
 
   <!-- Add Video Modal -->
-  @if (showAddModal()) {
-    <div class="modal-backdrop" (click)="closeAddVideo()">
-      <div class="modal-dialog" (click)="$event.stopPropagation()">
-        <header class="modal-header">
-          <h3>{{ 'videos.addTitle' | translate }}</h3>
-          <button type="button" class="modal-close" (click)="closeAddVideo()">✕</button>
-        </header>
-
-        <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
-          <label class="modal-form-label">
-            <span>{{ 'videos.videoTitle' | translate }}:</span>
-            <input
-              type="text"
-              class="modal-input"
-              [placeholder]="'videos.enterTitle' | translate"
-              [ngModel]="newVideoTitle()"
-              (ngModelChange)="newVideoTitle.set($event)"
-            />
-          </label>
-
-          <label class="modal-form-label">
-            <span>{{ 'videos.privacy' | translate }}:</span>
-            <select
-              class="modal-select"
-              [ngModel]="newVideoVisibility()"
-              (ngModelChange)="newVideoVisibility.set($event)"
-            >
-              <option value="public">{{ 'videos.public' | translate }}</option>
-              <option value="unlisted">{{ 'videos.unlisted' | translate }}</option>
-              <option value="private">{{ 'videos.private' | translate }}</option>
-            </select>
-          </label>
-        </div>
-
-        <footer class="modal-footer">
-          <button type="button" class="btn-modal-cancel" (click)="closeAddVideo()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="btn-modal-confirm" (click)="submitAddVideo()" [disabled]="!newVideoTitle().trim()">
-            {{ 'videos.saveVideo' | translate }}
-          </button>
-        </footer>
-      </div>
-    </div>
-  }
 </main>

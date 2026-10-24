@@ -1,3 +1,4 @@
+import { ReviewerLeaseService } from './reviewer-lease.service';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,10 +20,12 @@ import {
   styleUrl: './admin-appeals-page.scss'
 })
 export class AdminAppealsPage implements OnInit {
+  readonly lease = inject(ReviewerLeaseService);
   private readonly moderationService = inject(AdminModerationService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
   canResolveAppeal(): boolean { return this.auth.hasPermission('appeal.resolve'); }
+  isClaimOwner(item: AppealItem): boolean { return item.reviewerId === this.auth.user()?.userId && this.lease.active(item); }
 
   openEvidence(appeal: AppealItem): void {
     if (!appeal.evidenceUrl) return;
@@ -60,8 +63,8 @@ export class AdminAppealsPage implements OnInit {
   readonly selectedDecision = signal<'approve' | 'reject' | 'escalate'>('approve');
   readonly reviewNote = signal<string>('');
 
-  readonly countPending = computed(() => this.appeals().filter(a => a.status === 'pending').length);
-  readonly countReviewing = computed(() => this.appeals().filter(a => a.status === 'reviewing').length);
+  readonly countPending = computed(() => this.appeals().filter(a => a.status === 'pending' || this.lease.expired(a)).length);
+  readonly countReviewing = computed(() => this.appeals().filter(a => this.lease.active(a)).length);
   readonly countApproved = computed(() => this.appeals().filter(a => a.status === 'approved').length);
   readonly countRejected = computed(() => this.appeals().filter(a => a.status === 'rejected').length);
   readonly countEscalated = computed(() => this.appeals().filter(a => a.status === 'escalated').length);
@@ -80,7 +83,7 @@ export class AdminAppealsPage implements OnInit {
       items = items.filter(x => x.targetType === targetType);
     }
     if (status !== 'ALL') {
-      items = items.filter(x => x.status === status);
+      items = items.filter(x => status === 'pending' ? x.status === 'pending' || this.lease.expired(x) : status === 'reviewing' ? this.lease.active(x) : x.status === status);
     }
     if (query) {
       items = items.filter(x =>
@@ -186,7 +189,7 @@ export class AdminAppealsPage implements OnInit {
 
   releaseAppeal(appeal: AppealItem): void {
     this.submitting.set(true);
-    this.moderationService.releaseAppeal(appeal.appealId).subscribe({
+    this.moderationService.releaseAppeal(appeal.appealId, appeal.claimId).subscribe({
       next: () => {
         this.submitting.set(false);
         this.successMessage.set(this.i18n.format('appeals.releaseSuccess', { id: appeal.appealId.slice(0, 8) }));
@@ -219,6 +222,7 @@ export class AdminAppealsPage implements OnInit {
     this.error.set(null);
 
     const payload: ResolveAppealRequest = {
+      claimId: appeal.claimId,
       decision: this.selectedDecision(),
       reviewNote: this.reviewNote() || undefined
     };

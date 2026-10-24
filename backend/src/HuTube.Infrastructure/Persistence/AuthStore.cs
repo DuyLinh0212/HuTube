@@ -35,6 +35,15 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
     public Task<UserSession?> FindSessionAsync(Guid id, CancellationToken ct) => db.Sessions.SingleOrDefaultAsync(x => x.SessionId == id, ct);
     public Task<UserSession?> FindSessionSnapshotAsync(Guid id, CancellationToken ct) =>
         db.Sessions.AsNoTracking().SingleOrDefaultAsync(x => x.SessionId == id, ct);
+    public Task<SessionValidationSnapshot?> ReadSessionValidationAsync(Guid id, CancellationToken ct) =>
+        (from session in db.Sessions.AsNoTracking()
+         join user in db.Users.AsNoTracking() on session.UserId equals user.UserId
+         where session.SessionId == id
+         select new SessionValidationSnapshot(session.UserId, session.Jti, session.ExpiresAt,
+             session.LastActiveAt, session.RevokedAt,
+             user.Status == "active" && user.DeletedAt == null && user.EmailVerifiedAt != null,
+             session.Platform != "admin" || db.Roles.Any(role => role.RoleId == user.RoleId
+                 && role.Code != "user" && role.Status == "active"))).SingleOrDefaultAsync(ct);
     public Task<List<UserSession>> GetSessionsAsync(Guid userId, CancellationToken ct) => db.Sessions.Where(x => x.UserId == userId).ToListAsync(ct);
     public Task<List<UserSession>> GetActiveSessionsAsync(Guid userId, DateTimeOffset now, CancellationToken ct) =>
         db.Sessions.Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now).OrderByDescending(x => x.IssuedAt).ToListAsync(ct);

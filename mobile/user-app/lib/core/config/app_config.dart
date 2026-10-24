@@ -31,7 +31,10 @@ class AppConfig {
           .replace(port: 8000, path: '/api/v1', query: null, fragment: null)
           .toString();
     }
-    return 'https://hutube-recommendation-services.onrender.com/api/v1';
+    if (api.host == 'hutube.onrender.com') {
+      return 'https://hutube-recommendation-services.onrender.com/api/v1';
+    }
+    return 'https://recommendation.dalitu.app/api/v1';
   }
 
   final String googleWebClientId;

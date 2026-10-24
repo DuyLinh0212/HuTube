@@ -561,6 +561,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> clearSession([String? message]) async {
+    ApiClient.invalidateReadCache();
     try {
       await beforeSessionCleared?.call().timeout(const Duration(seconds: 2));
     } catch (_) {}

@@ -54,3 +54,9 @@ tools/bot-simulator/
 hutube-*.dump
 hutube-*.backup
 hutube-*.sql
+
+# Test outputs, analysis cache & artifacts
+outputs/
+graphify-out/
+*.xlsx
+frontend/e2e_testing/screenshots/

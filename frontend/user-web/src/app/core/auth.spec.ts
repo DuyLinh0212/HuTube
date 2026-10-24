@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService, LoginResponse, safeReturnUrl } from './auth.service';
 import { authInterceptor } from './auth.interceptor';
 import { ADMIN_APP, RuntimeConfig, validateApiUrl } from './runtime-config';
+import { NetworkStatusService } from './network/network-status.service';
 
 describe('Authentication boundary', () => {
   const base = 'http://localhost:5080/api/v1';
@@ -13,7 +14,9 @@ describe('Authentication boundary', () => {
   const response: LoginResponse = { accessToken: 'token-one', expiresAt: '2030-01-01T00:00:00Z', user };
   let auth: AuthService; let http: HttpClient; let controller: HttpTestingController;
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting(), provideRouter([])] });
+    TestBed.configureTestingModule({ providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting(), provideRouter([]),
+      { provide: NetworkStatusService, useValue: { markAvailable() {}, markUnavailable() {} } },
+    ] });
     TestBed.inject(RuntimeConfig).apiBaseUrl = base;
     TestBed.inject(RuntimeConfig).recommendationBaseUrl = 'http://localhost:8000/api/v1';
     auth = TestBed.inject(AuthService); http = TestBed.inject(HttpClient); controller = TestBed.inject(HttpTestingController);
@@ -108,6 +111,28 @@ describe('Authentication boundary', () => {
     expect(await first).toEqual(response); expect(await second).toEqual(response);
     auth.clear(); expect(await firstValueFrom(auth.restore())).toBeFalse(); controller.expectNone(base + '/auth/refresh');
   });
+  it('stops restoring after three network failures and leaves another attempt to the user', fakeAsync(() => {
+    let failed = false;
+    auth.restore().subscribe({ error: () => { failed = true; } });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      controller.expectOne(base + '/auth/refresh').error(new ProgressEvent('error'));
+      flushMicrotasks();
+      if (attempt < 2) tick(5_000);
+    }
+    expect(failed).toBeTrue();
+    tick(60_000);
+    controller.expectNone(base + '/auth/refresh');
+  }));
+  for (const status of [429, 503]) {
+    it(`preserves the user session when refresh returns ${status}`, async () => {
+      await login();
+      const result = firstValueFrom(auth.refresh());
+      controller.expectOne(base + '/auth/refresh').flush({}, { status, statusText: 'Unavailable' });
+      await expectAsync(result).toBeRejected();
+      expect(auth.accessToken()).toBe('token-one');
+      expect(auth.user()).toEqual(user);
+    });
+  }
   it('cannot resurrect a session when logout races an in-flight refresh', async () => {
     const refreshing = firstValueFrom(auth.refresh()); const request = controller.expectOne(base + '/auth/refresh');
     const loggingOut = firstValueFrom(auth.logout()); controller.expectOne(base + '/auth/logout').flush({message:'ok'});

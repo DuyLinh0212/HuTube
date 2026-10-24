@@ -126,7 +126,7 @@ public interface IContentService
     Task<IReadOnlyList<SearchChannelResponse>> GetSearchChannelsAsync(SearchVideosQuery query, CancellationToken ct = default);
     Task<PageResult<ChannelSearchResultResponse>> SearchChannelsAsync(string? query, int page, int pageSize, CancellationToken ct = default);
     Task<PageResult<WatchHistoryResponse>> GetWatchHistoryAsync(Guid userId, int page, int pageSize,
-        DateTimeOffset? before = null, CancellationToken ct = default, string? q = null, string sort = "newest", string dateRange = "all");
+        DateTimeOffset? before = null, CancellationToken ct = default, string? q = null, string sort = "newest", string? dateRange = null);
     Task ClearWatchHistoryAsync(Guid userId, CancellationToken ct = default);
     Task DeleteWatchHistoryItemAsync(Guid userId, Guid videoId, CancellationToken ct = default);
     Task<PageResult<LibraryVideoResponse>> GetLikedVideosAsync(Guid userId, int? rating, int page, int pageSize, CancellationToken ct = default);
