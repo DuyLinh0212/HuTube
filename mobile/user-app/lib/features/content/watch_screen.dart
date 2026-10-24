@@ -25,6 +25,7 @@ import 'media_entitlements.dart';
 import 'playback_session.dart';
 import 'video_card.dart';
 import 'widgets/playlist_queue_sheet.dart';
+import 'widgets/video_description.dart';
 import '../moderation/report_dialog.dart';
 
 class WatchScreen extends StatefulWidget {
@@ -1742,12 +1743,14 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                         child: HuTubeSurface(
                           color: AppColors.surfaceAltFor(context),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               if ((video.description ?? '').isNotEmpty)
-                                Text(
-                                  video.description!,
-                                  style: const TextStyle(height: 1.5),
+                                VideoDescription(
+                                  key: ValueKey(video.id),
+                                  text: video.description!,
+                                  duration: video.duration,
+                                  onSeek: widget.playback.seekTo,
                                 ),
                               if (video.tags.isNotEmpty)
                                 Padding(

@@ -1495,6 +1495,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.replies': 'Các câu trả lời',
     'watch.replyLoading': 'Đang tải câu trả lời…',
     'watch.descriptionEmpty': 'Video này chưa có phần mô tả.',
+    'watch.descriptionMore': 'Xem thêm',
+    'watch.descriptionLess': 'Thu gọn',
 
     // Studio pages
     'studio.loading': 'Đang tải…',
@@ -3636,6 +3638,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.replies': 'Replies',
     'watch.replyLoading': 'Loading replies…',
     'watch.descriptionEmpty': 'This video has no description yet.',
+    'watch.descriptionMore': 'Show more',
+    'watch.descriptionLess': 'Show less',
 
     // Studio pages
     'studio.loading': 'Loading…',

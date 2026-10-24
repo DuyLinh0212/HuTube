@@ -251,7 +251,7 @@
         <div class="video-details-grid">
           <section class="description-panel">
             <div class="description-heading"><strong>{{ countLabel('watch.views', item.stats.views) }}</strong><span>{{ languageLabel(item.languageCode) }}</span></div>
-            <app-video-description [text]="item.description || ('watch.descriptionEmpty' | translate)" [duration]="totalDuration()" (seek)="seekTo($event)" />
+            <app-video-description [text]="item.description || ('watch.descriptionEmpty' | translate)" [resetKey]="item.videoId" [duration]="totalDuration()" (seek)="seekTo($event)" />
             @if (item.tags.length) { <div class="tag-list">@for (tag of item.tags; track tag) { <a [routerLink]="['/explore']" [queryParams]="{q: tag}">#{{ tag }}</a> }</div> }
           </section>
 

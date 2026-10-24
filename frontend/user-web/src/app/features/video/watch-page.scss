@@ -891,9 +891,9 @@
 
 .video-details-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(270px, .7fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
-  gap: 18px;
+  gap: 0;
 }
 
 .video-details-grid > .description-panel,
@@ -920,7 +920,7 @@
 
 .description-panel p,
 .description-panel app-video-description {
-  max-width: 74ch;
+  max-width: 100%;
   margin: 0;
   color: var(--text-body);
   font-size: .8rem;
