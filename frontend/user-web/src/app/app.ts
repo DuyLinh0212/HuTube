@@ -6,6 +6,7 @@ import { filter } from 'rxjs';
 import { AuthLayoutComponent } from './layouts/auth-layout/auth-layout.component';
 import { ShellLayoutComponent } from './layouts/shell-layout/shell-layout.component';
 import { StudioLayoutComponent } from './layouts/studio-layout/studio-layout.component';
+import { LoginPromptComponent } from './shared/login-prompt/login-prompt.component';
 import { UploadProgressTrayComponent } from './shared/upload-progress/upload-progress-tray.component';
 import { TranslatePipe } from './core/translate.pipe';
 import { I18nService } from './core/i18n.service';
@@ -20,6 +21,7 @@ import { UploadStateService } from './core/upload-state.service';
     ShellLayoutComponent,
     StudioLayoutComponent,
     UploadProgressTrayComponent,
+    LoginPromptComponent,
     NetworkFallbackComponent,
     FeedbackSurveyComponent,
     TranslatePipe,

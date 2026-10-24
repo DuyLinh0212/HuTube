@@ -119,8 +119,9 @@
                 <label for="videoDesc">{{ 'upload.step2.desc' | translate }}</label>
                 <span class="counter">{{ videoDesc.length }}/5000</span>
               </div>
-              <textarea id="videoDesc" rows="5" class="textarea-input" [(ngModel)]="videoDesc" name="videoDesc" maxlength="5000"></textarea>
+              <textarea id="videoDesc" rows="5" class="textarea-input" [(ngModel)]="videoDesc" name="videoDesc" maxlength="5000" aria-describedby="video-description-hint"></textarea>
               <span class="form-hint">{{ 'upload.step2.descHint' | translate }}</span>
+              <span id="video-description-hint" class="form-hint">{{ 'upload.descriptionLinksHint' | translate }}</span>
             </div>
 
             <!-- Thumbnail -->
@@ -476,36 +477,6 @@
                 <p class="vis-desc">{{ 'upload.step5.privateDesc' | translate }}</p>
               </div>
             </label>
-          </div>
-
-          <!-- Publishing Schedule Section -->
-          <div class="schedule-section-card">
-            <h3>{{ 'upload.step5.publishTime' | translate }}</h3>
-            <p class="section-sub">{{ 'upload.step5.publishTimeSub' | translate }}</p>
-
-            <div class="schedule-options">
-              <label class="radio-label">
-                <input type="radio" name="publishMode" value="now" [(ngModel)]="publishMode" />
-                <span>{{ 'upload.step5.publishNow' | translate }}</span>
-              </label>
-              <label class="radio-label">
-                <input type="radio" name="publishMode" value="schedule" disabled [(ngModel)]="publishMode" />
-                <span>{{ 'upload.step5.schedule' | translate }} ({{ 'common.notSupported' | translate }})</span>
-              </label>
-            </div>
-
-            @if (publishMode === 'schedule') {
-              <div class="schedule-picker-row">
-                <div class="picker-group">
-                  <label for="schedDate">{{ 'upload.step5.schedDate' | translate }}</label>
-                  <input id="schedDate" type="date" class="text-input" [(ngModel)]="scheduleDate" />
-                </div>
-                <div class="picker-group">
-                  <label for="schedTime">{{ 'upload.step5.schedTime' | translate }}</label>
-                  <input id="schedTime" type="time" class="text-input" [(ngModel)]="scheduleTime" />
-                </div>
-              </div>
-            }
           </div>
 
           <!-- Other Options -->

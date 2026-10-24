@@ -11,9 +11,9 @@ def run(suite, config, actors, only_failed=False):
     video = suite.fixtures['video']; vid = video['videoId']; watch = '/watch/' + vid
     channel = suite.fixtures['channel']; public_channel = '/channel/' + channel['handle']
     selectors = [
-        ('WATCH-INTERACT', watch, '.video-actions a.action-button:first-of-type', 'U-WATCH.03'),
-        ('WATCH-DOWNLOAD', watch, '.video-actions a.action-button:last-of-type', 'U-WATCH.03'),
-        ('WATCH-COMMENT', watch, '.guest-comment-box a', 'U-WATCH.03'),
+        ('WATCH-INTERACT', watch, '.reaction-group button:first-child', 'U-WATCH.03'),
+        ('WATCH-DOWNLOAD', watch, '.video-actions button[aria-controls=download-popover]', 'U-WATCH.03'),
+        ('WATCH-COMMENT', watch, '.comment-composer textarea', 'U-WATCH.03'),
         ('WATCH-SUBSCRIBE', watch, '.channel-actions .primary-button', 'U-WATCH.03'),
         ('CHANNEL-SUBSCRIBE', public_channel, '.btn-subscribe', 'U-CHANNEL.05'),
     ]
@@ -23,13 +23,16 @@ def run(suite, config, actors, only_failed=False):
             def context(entry, key=key, route=route, selector=selector):
                 suite.go(guest, route, 'app-watch-page' if route == watch else 'app-channel-page')
                 if route == watch:
-                    expect(p.locator('.reaction-group,.rating-control,.playlist-action-button')).to_have_count(0)
-                    expect(p.locator('.comment-composer')).to_have_count(0)
-                p.locator(selector).click(); p.wait_for_url('**/login**')
+                    expect(p.locator('.reaction-group,.rating-control,.playlist-action-button')).to_have_count(3)
+                    expect(p.locator('.comment-composer')).to_be_visible()
+                p.locator(selector).click()
+                expect(p.locator('.login-prompt')).to_be_visible()
+                assert urlsplit(p.url).path == route, 'Protected click must wait for explicit login confirmation'
+                p.locator('.prompt-sign-in').click(); p.wait_for_url('**/login**')
                 assert parse_qs(urlsplit(p.url).query).get('returnUrl') == [route], key + ' lost exact returnUrl'
                 expect(p.locator('#email')).to_be_visible()
                 entry['resource_ids'] = [vid, channel['channelId']]
-                entry['steps'] = ['Actual guest surface offers login instead of authenticated mutation controls', 'Click actual ' + key + ' CTA', 'Login route preserves exact source returnUrl, without creating subscription/reaction/comment/download']
+                entry['steps'] = ['Guest sees normal action controls', 'Click actual ' + key + ' control to open anchored login prompt without navigating', 'Confirm login in prompt; exact source returnUrl is preserved without creating subscription/reaction/comment/download']
             case(suite, guest, 'GUEST-' + key + '-LOGIN-CONTEXT', parent, key + ' guest CTA retains its source route', context, 'watch' if route == watch else 'channel')
         if only_failed: return
         def share(entry):

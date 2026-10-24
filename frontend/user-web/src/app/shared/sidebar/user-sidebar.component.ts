@@ -1,6 +1,8 @@
 import { Component, EventEmitter, Input, Output, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
+import { RequireLoginDirective } from '../login-prompt/require-login.directive';
+import { LoginPromptService } from '../../core/login-prompt.service';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService, SubscribedChannelResponse } from '../../core/channel.service';
 import { I18nService } from '../../core/i18n.service';
@@ -8,7 +10,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-user-sidebar',
-  imports: [RouterLink, RouterLinkActive, TranslatePipe],
+  imports: [RequireLoginDirective, RouterLink, RouterLinkActive, TranslatePipe],
   templateUrl: './user-sidebar.component.html',
   styleUrl: './user-sidebar.component.scss'
 })
@@ -16,6 +18,7 @@ export class UserSidebarComponent {
   private channelService = inject(ChannelService);
   private router = inject(Router);
   readonly auth = inject(AuthService);
+  private readonly loginPrompt = inject(LoginPromptService);
   readonly i18n = inject(I18nService);
 
   @Input() open = false;
@@ -44,6 +47,7 @@ export class UserSidebarComponent {
   closeNavigation() { this.navigationClosed.emit(); }
 
   openMyChannel() {
+    if (!this.loginPrompt.require(undefined, '/studio/overview')) return;
     this.closeNavigation();
     forkJoin({
       channels: this.channelService.getAccessibleChannels().pipe(catchError(() => of([] as ChannelDetail[]))),

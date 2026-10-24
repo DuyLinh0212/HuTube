@@ -85,7 +85,7 @@
               {{ 'channel.studio' | translate }}
             </a>
           } @else {
-            <button type="button" class="btn-subscribe" [class.is-subscribed]="isSubscribed()" (click)="toggleSubscribe()" [disabled]="subscriptionBusy() || subscriptionStatusLoading()">
+            <button type="button" class="btn-subscribe" appRequireLogin [class.is-subscribed]="isSubscribed()" (click)="toggleSubscribe()" [disabled]="subscriptionBusy() || subscriptionStatusLoading()">
               {{ (isSubscribed() ? 'channel.subscribe' : 'channel.follow') | translate }}
             </button>
             @if (isSubscribed()) {
@@ -424,13 +424,13 @@
                   <button type="button" class="report-menu-item" (click)="hideUserFromMyChannel()">
                     {{ 'channel.hideUserFromChannel' | translate }}
                   </button>
-                  <button type="button" class="report-menu-item" (click)="openChannelReportModal('banner')">
+                  <button type="button" class="report-menu-item" appRequireLogin (click)="openChannelReportModal('banner')">
                     {{ 'channel.reportChannelImage' | translate }}
                   </button>
-                  <button type="button" class="report-menu-item" (click)="openChannelReportModal('avatar')">
+                  <button type="button" class="report-menu-item" appRequireLogin (click)="openChannelReportModal('avatar')">
                     {{ 'channel.reportProfileImage' | translate }}
                   </button>
-                  <button type="button" class="report-menu-item" (click)="openChannelReportModal('user')">
+                  <button type="button" class="report-menu-item" appRequireLogin (click)="openChannelReportModal('user')">
                     {{ 'channel.report' | translate }}
                   </button>
                 </div>
