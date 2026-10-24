@@ -31,7 +31,14 @@
             } @else {
               <div class="player-empty"><span aria-hidden="true">▶</span><p>{{ 'watch.notReady' | translate }}</p></div>
             }
-            @if (activeRendition()) {
+            @if (pipActive()) {
+              <div class="player-empty player-pip-placeholder" role="status" aria-live="polite">
+                <svg width="42" height="42" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM12 12h7v5h-7z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+                <p>{{ 'watch.playingInPictureInPicture' | translate }}</p>
+                <button type="button" class="primary-button pip-return" (click)="togglePictureInPicture()">{{ 'watch.returnToPlayer' | translate }}</button>
+              </div>
+            }
+            @if (activeRendition() && !pipActive()) {
               @if (item.channelWatermarkUrl) { <img class="channel-watermark" [src]="item.channelWatermarkUrl" alt="" aria-hidden="true" /> }
               <div class="player-brand" aria-hidden="true"><span class="player-brand__mark">▶</span><span>{{ 'watch.originalBadge' | translate }}</span></div>
               <button type="button" class="player-info" [class.is-open]="videoInfoOpen()" [title]="'watch.videoInfo' | translate" [attr.aria-label]="'watch.videoInfo' | translate" [attr.aria-expanded]="videoInfoOpen()" aria-controls="video-info-panel" (click)="$event.stopPropagation(); toggleVideoInfo()">i</button>
@@ -80,7 +87,7 @@
                 </section>
               }
             }
-            @if (activeRendition()) {
+            @if (activeRendition() && !pipActive()) {
               @if (!isPlaying()) {
                 <button type="button" class="player-big-play" (click)="$event.stopPropagation(); togglePlayback()" [attr.aria-label]="'watch.play' | translate">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" fill="currentColor"/></svg>
@@ -114,7 +121,7 @@
                       <button type="button" class="player-icon-button playlist-previous" (click)="movePlaylist(-1)" [disabled]="!playlistTarget(-1)" [attr.aria-label]="'watch.playlistPrevious' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M18 5 8 12l10 7V5Z" fill="currentColor" stroke="currentColor"/></svg></button>
                       <button type="button" class="player-icon-button playlist-next" (click)="movePlaylist(1)" [disabled]="!playlistTarget(1)" [attr.aria-label]="'watch.playlistNext' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M6 5l10 7-10 7V5Z" fill="currentColor" stroke="currentColor"/></svg></button>
                     }
-                    <button type="button" class="player-icon-button player-pip-button" (click)="togglePictureInPicture()" [disabled]="!pipActive() && !supportsPictureInPicture()" [title]="(!pipAllowed() ? 'watch.pipNotIncluded' : 'watch.pictureInPicture') | translate" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
+                    <button type="button" class="player-icon-button player-pip-button" (click)="togglePictureInPicture()" [disabled]="pipEntering() || (!pipActive() && !supportsPictureInPicture())" [title]="(!pipAllowed() ? 'watch.pipNotIncluded' : 'watch.pictureInPicture') | translate" [attr.aria-pressed]="pipActive()" [attr.aria-label]="(pipActive() ? 'watch.exitPictureInPicture' : 'watch.pictureInPicture') | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5h17v13h-17zM12.5 12.5h6v4h-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
                     <button type="button" class="player-icon-button player-fullscreen-button" (click)="toggleFullscreen()" [attr.aria-label]="'watch.fullscreen' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                   </div>
                 </div>

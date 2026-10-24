@@ -31,6 +31,11 @@ export class ExplorePage implements OnInit, OnDestroy {
   private readonly searchCancelled$ = new Subject<void>();
 
   @ViewChild('trendingCarousel') trendingCarouselRef?: ElementRef<HTMLDivElement>;
+  readonly categoryDragging = signal(false);
+  private categoryPointer: number | null = null;
+  private categoryStartX = 0;
+  private categoryStartScroll = 0;
+  private categoryDragMoved = false;
 
   // Search & Filter State
   readonly videos = signal<VideoCard[]>([]);
@@ -255,7 +260,37 @@ export class ExplorePage implements OnInit, OnDestroy {
     });
   }
 
-  selectCategoryTab(tabId: string) {
+  startCategoryDrag(event: PointerEvent) {
+    this.categoryDragMoved = false;
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+    const track = event.currentTarget as HTMLElement;
+    this.categoryPointer = event.pointerId;
+    this.categoryStartX = event.clientX;
+    this.categoryStartScroll = track.scrollLeft;
+  }
+
+  moveCategoryDrag(event: PointerEvent) {
+    if (this.categoryPointer !== event.pointerId) return;
+    const delta = event.clientX - this.categoryStartX;
+    if (!this.categoryDragMoved && Math.abs(delta) < 5) return;
+    const track = event.currentTarget as HTMLElement;
+    if (!this.categoryDragMoved) track.setPointerCapture(event.pointerId);
+    this.categoryDragMoved = true;
+    this.categoryDragging.set(true);
+    track.scrollLeft = this.categoryStartScroll - delta;
+    event.preventDefault();
+  }
+
+  endCategoryDrag(event: PointerEvent) {
+    if (this.categoryPointer !== event.pointerId) return;
+    const track = event.currentTarget as HTMLElement;
+    this.categoryPointer = null;
+    this.categoryDragging.set(false);
+    if (track.hasPointerCapture(event.pointerId)) track.releasePointerCapture(event.pointerId);
+  }
+
+  selectCategoryTab(tabId: string, event?: MouseEvent) {
+    if (event?.detail && this.categoryDragMoved) { event.preventDefault(); return; }
     const tab = this.categoryTabs().find(item => item.id === tabId || item.slug === tabId);
     const resolvedTabId = tab?.id ?? tabId;
     this.activeCategoryTab.set(resolvedTabId);

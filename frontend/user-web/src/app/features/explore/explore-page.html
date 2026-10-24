@@ -175,14 +175,16 @@
 
       <!-- Category Filter Pills Bar -->
       <nav class="category-tabs-bar" [attr.aria-label]="'explore.topics' | translate">
-        <div class="category-tabs-track">
+        <div class="category-tabs-track" tabindex="0" [class.is-dragging]="categoryDragging()"
+          (pointerdown)="startCategoryDrag($event)" (pointermove)="moveCategoryDrag($event)"
+          (pointerup)="endCategoryDrag($event)" (pointercancel)="endCategoryDrag($event)" (lostpointercapture)="endCategoryDrag($event)">
           @for (tab of categoryTabs(); track tab.id) {
             <button
               type="button"
               class="category-tab-pill"
               [class.is-active]="activeCategoryTab() === tab.id"
               [class.is-bxh-tong]="tab.id === overallTabId"
-              (click)="selectCategoryTab(tab.id)"
+              (click)="selectCategoryTab(tab.id, $event)"
             >
               {{ tab.id === overallTabId ? ('explore.category.overall' | translate) : tab.name }}
             </button>
@@ -211,10 +213,6 @@
         @if (activeCategoryTab() === overallTabId) {
           <div class="category-top-header">
             <h2 class="category-top-title">{{ 'explore.overallTop12' | translate }}</h2>
-            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ sort: 'views' }">
-              <span>{{ 'profile.viewAll' | translate }}</span>
-              <span class="arrow" aria-hidden="true">→</span>
-            </a>
           </div>
 
           <div class="category-top-grid">
@@ -247,10 +245,6 @@
         @if (activeCategoryTab() !== overallTabId) {
           <div class="category-top-header">
             <h2 class="category-top-title">{{ 'explore.top12Category' | translate:{ category: selectedGroupName() } }}</h2>
-            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ categoryId: activeCategoryTab(), sort: 'views' }">
-              <span>{{ 'profile.viewAll' | translate }}</span>
-              <span class="arrow" aria-hidden="true">→</span>
-            </a>
           </div>
 
           @if (categoryLoading()) {
@@ -303,11 +297,6 @@
                 <p class="section-subtitle">{{ 'explore.featuredCreatorsSubtitle' | translate }}</p>
               </div>
             </div>
-
-            <a class="view-all-link" [routerLink]="['/subscriptions']">
-              <span>{{ 'profile.viewAll' | translate }}</span>
-              <span class="arrow" aria-hidden="true">→</span>
-            </a>
           </div>
 
           <!-- Creators Horizontal Row -->
@@ -379,11 +368,6 @@
                 <p class="section-subtitle">{{ 'explore.trendingSubtitle' | translate }}</p>
               </div>
             </div>
-
-            <a class="view-all-link" [routerLink]="['/search']" [queryParams]="{ sort: 'views' }">
-              <span>{{ 'profile.viewAll' | translate }}</span>
-              <span class="arrow" aria-hidden="true">→</span>
-            </a>
           </div>
 
           <!-- Trending Carousel with Prev & Next Arrows -->

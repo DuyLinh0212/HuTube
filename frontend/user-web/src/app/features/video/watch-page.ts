@@ -98,6 +98,7 @@ export class WatchPage {
     return Math.min(100, Math.max(0, (this.currentTime() / duration) * 100));
   });
   readonly pipActive = this.pictureInPicture.active;
+  readonly pipEntering = this.pictureInPicture.entering;
   readonly shareOpen = signal(false);
   readonly shareUrl = signal('');
   readonly downloadOptions = signal<Rendition[]>([]);
@@ -418,6 +419,7 @@ export class WatchPage {
   }
 
   togglePlayback() {
+    if (this.pipActive()) return;
     const player = this.playerRef?.nativeElement;
     if (!player) return;
     if (player.paused) {
@@ -428,6 +430,11 @@ export class WatchPage {
   }
 
   onPlaybackState(playing: boolean) {
+    if (playing && this.pipActive()) {
+      this.playerRef?.nativeElement.pause();
+      this.isPlaying.set(false);
+      return;
+    }
     this.isPlaying.set(playing);
     if (playing) this.enforceBackgroundPlayback();
   }
@@ -656,6 +663,7 @@ export class WatchPage {
   }
 
   async togglePictureInPicture(): Promise<void> {
+    if (this.pipEntering()) return;
     const player = this.playerRef?.nativeElement;
     if (!this.pipAllowed() && !this.pipActive()) {
       this.actionMessage.set(this.i18n.t('watch.pipNotIncluded'));
@@ -1197,6 +1205,7 @@ export class WatchPage {
       return;
     }
     const target = event.target as HTMLElement | null;
+    if (this.pipActive()) return;
     if (event.ctrlKey || event.metaKey || event.altKey || target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target?.tagName ?? '')) return;
     const player = this.playerRef?.nativeElement;
     if (!player) return;

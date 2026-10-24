@@ -3,10 +3,12 @@ import { Injectable, signal } from '@angular/core';
 @Injectable({ providedIn: 'root' })
 export class PictureInPictureService {
   readonly active = signal(false);
+  readonly entering = signal(false);
 
   private pipVideo: HTMLVideoElement | null = null;
   private sourcePlayer: HTMLVideoElement | null = null;
   private pendingTime = 0;
+  private requestVersion = 0;
 
   supports(player: HTMLVideoElement | null | undefined): boolean {
     return !!document.pictureInPictureEnabled
@@ -16,45 +18,54 @@ export class PictureInPictureService {
   }
 
   prepare(player: HTMLVideoElement): void {
+    if (this.active()) return;
     const source = player.currentSrc || player.src;
     if (!source) return;
     const pipVideo = this.ensureVideo();
     pipVideo.disablePictureInPicture = player.disablePictureInPicture;
-    if (pipVideo.src === source && pipVideo.readyState >= HTMLMediaElement.HAVE_METADATA) return;
+    if (pipVideo.src === source) return;
     pipVideo.src = source;
     pipVideo.load();
   }
 
   async enter(player: HTMLVideoElement): Promise<void> {
+    if (this.entering() || this.active()) return;
+    this.entering.set(true);
+    const version = ++this.requestVersion;
     const pipVideo = this.ensureVideo();
-    const source = player.currentSrc || player.src;
-    if (!source) throw new Error('Picture-in-picture source is unavailable.');
+    let resumeSource = false;
+    try {
+      if (!(player.currentSrc || player.src)) throw new Error('Picture-in-picture source is unavailable.');
+      this.prepare(player);
+      // Metadata can still be loading when the first click arrives. Complete
+      // that same request instead of making the user click again.
+      if (pipVideo.readyState < HTMLMediaElement.HAVE_METADATA) await this.waitForMetadata(pipVideo);
+      if (version !== this.requestVersion) return;
 
-    this.prepare(player);
-    if (pipVideo.readyState < HTMLMediaElement.HAVE_METADATA) throw new Error('Picture-in-picture source is not ready.');
-
-    this.sourcePlayer = player;
-    this.pendingTime = Number.isFinite(player.currentTime) ? player.currentTime : 0;
-    pipVideo.pause();
-    pipVideo.poster = player.poster;
-    pipVideo.muted = player.muted;
-    pipVideo.volume = player.volume;
-    pipVideo.playbackRate = player.playbackRate;
-
-    // Start the native PiP request before awaiting metadata so the browser
-    // keeps the click's user activation for the request.
-    const pipRequest = pipVideo.requestPictureInPicture();
-    const ready = this.waitForMetadata(pipVideo);
-    await pipRequest;
-    await ready;
-
-    this.applyPendingTime(pipVideo);
-    if (!player.paused) await pipVideo.play();
-    player.pause();
-    this.active.set(true);
+      this.sourcePlayer = player;
+      this.pendingTime = Number.isFinite(player.currentTime) ? player.currentTime : 0;
+      pipVideo.poster = player.poster;
+      pipVideo.muted = player.muted;
+      pipVideo.volume = player.volume;
+      pipVideo.playbackRate = player.playbackRate;
+      this.applyPendingTime(pipVideo);
+      resumeSource = !player.paused;
+      player.pause();
+      await pipVideo.requestPictureInPicture();
+      if (version !== this.requestVersion) { await this.exit(); return; }
+      if (resumeSource) await pipVideo.play();
+      this.active.set(true);
+    } catch (error) {
+      await this.exit();
+      if (resumeSource && player.isConnected) void player.play().catch(() => {});
+      throw error;
+    } finally {
+      this.entering.set(false);
+    }
   }
 
   async exit(): Promise<void> {
+    ++this.requestVersion;
     const pipVideo = this.pipVideo;
     if (!pipVideo) return;
     if (this.isPictureInPictureActive(pipVideo)) {
@@ -85,8 +96,8 @@ export class PictureInPictureService {
     });
     video.addEventListener('enterpictureinpicture', () => this.active.set(true));
     video.addEventListener('leavepictureinpicture', () => {
-      this.syncSource();
       this.active.set(false);
+      this.syncSource();
       this.cleanupSource();
     });
     video.addEventListener('timeupdate', () => this.syncSourceTime());
@@ -98,7 +109,18 @@ export class PictureInPictureService {
 
   private waitForMetadata(video: HTMLVideoElement): Promise<void> {
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
-    return new Promise(resolve => video.addEventListener('loadedmetadata', () => resolve(), { once: true }));
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timeout);
+        video.removeEventListener('loadedmetadata', ready);
+        video.removeEventListener('error', failed);
+      };
+      const ready = () => { cleanup(); resolve(); };
+      const failed = () => { cleanup(); reject(new Error('Picture-in-picture source could not load.')); };
+      const timeout = setTimeout(failed, 10_000);
+      video.addEventListener('loadedmetadata', ready, { once: true });
+      video.addEventListener('error', failed, { once: true });
+    });
   }
 
   private applyPendingTime(video: HTMLVideoElement) {

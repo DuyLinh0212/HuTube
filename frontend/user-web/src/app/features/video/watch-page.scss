@@ -50,6 +50,19 @@
   touch-action: manipulation;
 }
 
+.player-pip-placeholder {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  justify-items: center;
+  padding: 20px;
+  background: #090b10;
+}
+
+.pip-return {
+  min-height: 44px;
+}
+
 .player-stage:fullscreen,
 .player-stage:-webkit-full-screen {
   width: 100vw;

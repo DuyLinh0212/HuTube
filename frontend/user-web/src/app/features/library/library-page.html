@@ -68,7 +68,7 @@
                         @if (item.averageRating !== null) { <span>{{ 'library.overallRating' | translate:{ rating: ((item.averageRating | localeNumber:'1.1-2') ?? ''), count: i18n.formatNumber(item.ratingCount) } }}</span> }
                       } @else {
                         <span>{{ 'library.watched' | translate:{ progress: progressLabel(item) } }}</span>
-                        <span>{{ item.watchedSeconds | localeNumber }} {{ 'ui.seconds' | translate }}</span>
+                        <span>{{ duration(item.watchedSeconds) }}</span>
                       }
                       <span>{{ item.activityAt | localeDate:'d MMM y, HH:mm' }}</span>
                     </div>
