@@ -1,3 +1,5 @@
+import '../../core/widgets/modal_header.dart';
+import '../../core/widgets/confirmation_dialog.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -67,6 +69,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       userId.isNotEmpty && userId == '${widget.auth.user?['userId'] ?? ''}';
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -151,6 +154,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     PlaylistSummary? playlist,
     PlaylistDetail? detail,
   }) async {
+    if (_busy) return;
     final values = await showModalBottomSheet<(String, String, String)>(
       context: context,
       isScrollControlled: true,
@@ -161,7 +165,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         creating: playlist == null && detail == null,
       ),
     );
-    if (values == null || values.$1.isEmpty) return;
+    if (values == null || values.$1.isEmpty || !mounted) return;
+    setState(() => _busy = true);
     try {
       if (playlist == null && detail == null) {
         final created = await _service.create(
@@ -188,42 +193,37 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       if (mounted && widget.playlistId == null) await _load();
     } on ApiFailure catch (error) {
       _message(AppStrings.apiError(error, fallback: 'common.error'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _delete(PlaylistSummary playlist) async {
+  Future<bool> _delete(PlaylistSummary playlist) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.t('playlists.deleteTitle')),
-        content: Text(
-          AppStrings.format('playlists.deleteDescription', {
-            'name': playlist.name,
-          }),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (context) => ConfirmationDialog(
+        title: AppStrings.t('playlists.deleteTitle'),
+        message: AppStrings.format('playlists.deleteDescription', {
+          'name': playlist.name,
+        }),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
-    if (confirm != true) return;
+    if (confirm != true) return false;
     try {
       await _service.delete(playlist.id);
-      await _load();
+      if (widget.playlistId == null) await _load();
+      return true;
     } on ApiFailure catch (error) {
       _message(AppStrings.apiError(error, fallback: 'playlists.deleteError'));
+      return false;
     }
   }
 
   Future<void> _deleteDetail(PlaylistDetail detail) async {
-    await _delete(
+    final removed = await _delete(
       PlaylistSummary(
         id: detail.id,
         name: detail.name,
@@ -233,7 +233,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         coverUrl: detail.coverUrl,
       ),
     );
-    if (mounted && widget.playlistId != null) context.pop();
+    if (removed && mounted && widget.playlistId != null) context.pop();
   }
 
   Future<void> _pickCover(PlaylistDetail detail) async {
@@ -338,21 +338,51 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      if (widget.playlistId == null)
-        ContentFilters(
-          options: const {
-            'visibility': ['all', 'public', 'unlisted', 'private'],
-          },
-          onChanged: (q, values) => setState(() {
-            _query = q;
-            _filterVisibility = values['visibility'] ?? 'all';
-          }),
+  Widget build(BuildContext context) {
+    if (widget.playlistId != null) return _buildResults(context);
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
+              children: [
+                Text(
+                  AppStrings.t('playlists.title'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                if (widget.auth.authenticated)
+                  OutlinedButton.icon(
+                    key: const ValueKey('playlist-create-always'),
+                    onPressed: _busy ? null : _edit,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(AppStrings.t('common.create')),
+                  ),
+              ],
+            ),
+          ),
         ),
-      Expanded(child: _buildResults(context)),
-    ],
-  );
+        SliverToBoxAdapter(
+          child: ContentFilters(
+            options: const {
+              'visibility': ['all', 'public', 'unlisted', 'private'],
+            },
+            onChanged: (q, values) => setState(() {
+              _query = q;
+              _filterVisibility = values['visibility'] ?? 'all';
+            }),
+          ),
+        ),
+      ],
+      body: _buildResults(context),
+    );
+  }
 
   Widget _buildResults(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -376,15 +406,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           ? ListView(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
-                HuTubeSectionHeader(
-                  title: AppStrings.t('playlists.title'),
-                  subtitle: AppStrings.t('playlists.subtitle'),
-                  action: widget.auth.authenticated
-                      ? AppStrings.t('playlists.createAction')
-                      : null,
-                  onAction: _edit,
-                ),
-                const SizedBox(height: 18),
                 HuTubeStateView(
                   icon: Icons.playlist_add_rounded,
                   title: AppStrings.t(
@@ -402,11 +423,16 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             )
           : GridView.builder(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount:
+                    MediaQuery.textScalerOf(context).scale(14) > 20 ||
+                        MediaQuery.sizeOf(context).width < 360
+                    ? 1
+                    : 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: .82,
+                mainAxisExtent:
+                    260 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 5,
               ),
               itemCount: _visiblePlaylists.length,
               itemBuilder: (_, index) =>
@@ -843,13 +869,12 @@ class _PlaylistFormState extends State<_PlaylistForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              AppStrings.t(
+            ModalHeader(
+              title: AppStrings.t(
                 widget.creating ? 'playlists.create' : 'playlists.edit',
               ),
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              icon: Icons.playlist_add_rounded,
+              padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 16),
             TextFormField(

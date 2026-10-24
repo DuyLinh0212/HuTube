@@ -1,3 +1,4 @@
+import '../../core/widgets/confirmation_dialog.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/content_filters.dart';
 import 'package:image_picker/image_picker.dart';
@@ -37,6 +38,8 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   String _query = '';
   String? _status;
   int _requestGeneration = 0;
+  int _page = 0, _total = 0;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -45,25 +48,27 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     final generation = ++_requestGeneration;
     final search = _query, status = _status, visibility = _visibility;
     setState(() {
       _loading = true;
+      _loadingMore = false;
       _error = null;
     });
     try {
-      final result = await loadAllPages(
-        (page) => _service.managedVideos(
-          widget.channel.id,
-          page: page,
-          visibility: visibility,
-          search: search,
-          status: status,
-        ),
+      final result = await _service.managedVideos(
+        widget.channel.id,
+        page: 1,
+        visibility: visibility,
+        search: search,
+        status: status,
       );
       if (!mounted || generation != _requestGeneration) return;
       setState(() {
         _items = result.items;
+        _page = result.page;
+        _total = result.total;
         _loading = false;
       });
     } on ApiFailure catch (error) {
@@ -79,6 +84,39 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
           _error = AppStrings.t('creator.loadError');
           _loading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore || _items.length >= _total) return;
+    final generation = _requestGeneration;
+    setState(() => _loadingMore = true);
+    try {
+      final result = await _service.managedVideos(
+        widget.channel.id,
+        page: _page + 1,
+        visibility: _visibility,
+        search: _query,
+        status: _status,
+      );
+      if (!mounted || generation != _requestGeneration) return;
+      setState(() {
+        final seen = _items.map((item) => item.id).toSet();
+        _items = [
+          ..._items,
+          ...result.items.where((item) => seen.add(item.id)),
+        ];
+        _page = result.page;
+        _total = result.total;
+      });
+    } catch (_) {
+      if (mounted && generation == _requestGeneration) {
+        _show(AppStrings.t('creator.loadError'));
+      }
+    } finally {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _loadingMore = false);
       }
     }
   }
@@ -174,23 +212,14 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   Future<void> _cancelUpload(VideoDetail item) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.t('creator.cancelUploadTitle')),
-        content: Text(
-          AppStrings.format('creator.cancelUploadDescription', {
-            'title': item.title,
-          }),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppStrings.t('creator.cancelUpload')),
-          ),
-        ],
+      builder: (_) => ConfirmationDialog(
+        title: AppStrings.t('creator.cancelUploadTitle'),
+        message: AppStrings.format('creator.cancelUploadDescription', {
+          'title': item.title,
+        }),
+        confirmLabel: AppStrings.t('creator.cancelUpload'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
     if (confirmed != true) return;
@@ -246,26 +275,14 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
   Future<void> _delete(VideoDetail item) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('creator.deleteVideoTitle')),
-        content: Text(
-          AppStrings.format('creator.deleteVideoDescription', {
-            'title': item.title,
-          }),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (_) => ConfirmationDialog(
+        title: AppStrings.t('creator.deleteVideoTitle'),
+        message: AppStrings.format('creator.deleteVideoDescription', {
+          'title': item.title,
+        }),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
     if (confirmed != true) return;
@@ -364,7 +381,10 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
           accent: AppColors.violet,
         )
       : RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () {
+            ApiClient.invalidateReadCache();
+            return _load();
+          },
           child: _items.isEmpty
               ? ListView(
                   children: [
@@ -379,9 +399,22 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                  itemCount: _items.length,
+                  itemCount: _items.length + (_items.length < _total ? 1 : 0),
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (_, index) {
+                    if (index == _items.length) {
+                      return TextButton(
+                        key: const ValueKey('creator-content-load-more'),
+                        onPressed: _loadingMore ? null : _loadMore,
+                        child: Text(
+                          AppStrings.t(
+                            _loadingMore
+                                ? 'common.loading'
+                                : 'notifications.loadMore',
+                          ),
+                        ),
+                      );
+                    }
                     final video = _items[index];
                     return Card(
                       clipBehavior: Clip.antiAlias,
@@ -849,10 +882,7 @@ class _VideoEditorState extends State<_VideoEditor> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton.tonal(
-                    onPressed: _addTag,
-                    child: const Text('Thêm'),
-                  ),
+                  OutlinedButton(onPressed: _addTag, child: const Text('Thêm')),
                 ],
               ),
               const SizedBox(height: 16),
@@ -981,7 +1011,7 @@ class _VideoEditorState extends State<_VideoEditor> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    FilledButton.tonalIcon(
+                    OutlinedButton.icon(
                       onPressed: _selectedRelatedVideoId == null
                           ? null
                           : _addVideoCard,

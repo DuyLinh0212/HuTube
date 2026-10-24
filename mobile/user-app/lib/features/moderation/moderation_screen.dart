@@ -29,6 +29,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;

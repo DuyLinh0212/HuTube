@@ -534,7 +534,28 @@ void main() {
         expect(completions, 1);
         await tick(0);
         await tick(99900);
+        expect(
+          completions,
+          1,
+          reason: 'Native reset must not rearm completion',
+        );
+        playback.ready = true;
+        await playback.seekTo(Duration.zero);
+        await tick(0);
+        await tick(99900);
         expect(completions, 2);
+        await playback.seekTo(Duration.zero);
+        await tick(0);
+        // Native completion can arrive without a tick in the final 400ms.
+        tester.binding.channelBuffers.push(
+          'native_video_player_44001',
+          const StandardMethodCodec().encodeSuccessEnvelope({
+            'event': 'completed',
+          }),
+          (_) {},
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(completions, 3);
         await playback.dismiss();
         playback.dispose();
         auth.dispose();

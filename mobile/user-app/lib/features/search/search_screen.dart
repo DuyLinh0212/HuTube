@@ -50,9 +50,24 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    _prefs.readRecentSearches().then((list) {
+    unawaited(_loadRecentSearches());
+  }
+
+  Future<void> _loadRecentSearches() async {
+    try {
+      final list = await _prefs.readRecentSearches();
       if (mounted) setState(() => _recentSearches = list);
-    });
+    } catch (_) {
+      // Device storage is optional; searching must remain available.
+    }
+  }
+
+  Future<void> _persistRecentSearches(List<String> searches) async {
+    try {
+      await _prefs.writeRecentSearches(searches);
+    } catch (_) {
+      // Keep this session's history when device storage is unavailable.
+    }
   }
 
   @override
@@ -77,20 +92,20 @@ class _SearchScreenState extends State<SearchScreen> {
       ..._recentSearches.where((x) => x != clean),
     ].take(10).toList();
     setState(() => _recentSearches = updated);
-    await _prefs.writeRecentSearches(updated);
+    await _persistRecentSearches(updated);
   }
 
   Future<void> _removeRecentSearch(String term) async {
     HapticFeedback.lightImpact();
     final updated = _recentSearches.where((x) => x != term).toList();
     setState(() => _recentSearches = updated);
-    await _prefs.writeRecentSearches(updated);
+    await _persistRecentSearches(updated);
   }
 
   Future<void> _clearAllRecentSearches() async {
     HapticFeedback.mediumImpact();
     setState(() => _recentSearches = []);
-    await _prefs.writeRecentSearches([]);
+    await _persistRecentSearches([]);
   }
 
   Future<void> _search({bool more = false}) async {
@@ -473,36 +488,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     // Recent searches section
                     if (!_searched && _recentSearches.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.history_rounded,
-                                size: 18,
-                                color: AppColors.textMuted,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                AppStrings.t('search.recent'),
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          TextButton(
-                            onPressed: _clearAllRecentSearches,
-                            child: Text(
-                              AppStrings.t('search.clearAllRecent'),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
+                      HuTubeSectionHeader(
+                        title: AppStrings.t('search.recent'),
+                        action: AppStrings.t('search.clearAllRecent'),
+                        onAction: _clearAllRecentSearches,
+                        compact: true,
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -515,7 +505,11 @@ class _SearchScreenState extends State<SearchScreen> {
                                 Icons.history_rounded,
                                 size: 14,
                               ),
-                              label: Text(term),
+                              label: Text(
+                                term,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               shape: const StadiumBorder(),
                               onDeleted: () => _removeRecentSearch(term),
                               onPressed: () {
@@ -780,7 +774,7 @@ class _SearchChannelCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            FilledButton.tonal(
+            OutlinedButton(
               onPressed: () => context.push('/channels/${channel.handle}'),
               style: FilledButton.styleFrom(
                 shape: const StadiumBorder(),

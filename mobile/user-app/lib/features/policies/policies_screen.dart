@@ -93,7 +93,13 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
           ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 5),
-        Text(AppStrings.t('policies.description')),
+        Text(
+          AppStrings.t('policies.description'),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 1.5,
+          ),
+        ),
         Wrap(
           spacing: 8,
           children: [
@@ -142,40 +148,88 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
         else if (current.isEmpty)
           const _PolicyFallback()
         else
-          ...current.map(
-            (policy) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          ...current.map((policy) => _PolicyCard(policy: policy)),
+      ],
+    );
+  }
+}
+
+class _PolicyCard extends StatelessWidget {
+  const _PolicyCard({required this.policy});
+  final Map<String, dynamic> policy;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final effectiveAt = DateTime.tryParse('${policy['effectiveAt'] ?? ''}');
+    final version = '${policy['version'] ?? ''}'.trim();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${policy['name'] ?? policy['title'] ?? AppStrings.t('policies.title')}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${policy['description'] ?? policy['content'] ?? ''}',
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+              ),
+              if (effectiveAt != null || version.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Divider(height: 1, color: colors.outlineVariant),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(
-                      '${policy['name'] ?? policy['title'] ?? AppStrings.t('policies.title')}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 17,
+                    if (effectiveAt != null)
+                      Text(
+                        AppStrings.format('policies.effectiveDate', {
+                          'date': AppStrings.date(effectiveAt.toLocal()),
+                        }),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('${policy['description'] ?? policy['content'] ?? ''}'),
-                    if (policy['effectiveAt'] != null)
-                      Text('${policy['effectiveAt']}'),
-                    if (policy['version'] != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text(
-                          AppStrings.format('policies.version', {
-                            'version': policy['version'],
-                          }),
-                          style: Theme.of(context).textTheme.bodySmall,
+                    if (version.isNotEmpty)
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            AppStrings.format('policies.version', {
+                              'version': version,
+                            }),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
                         ),
                       ),
                   ],
                 ),
-              ),
-            ),
+              ],
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 }

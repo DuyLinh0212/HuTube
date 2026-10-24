@@ -369,19 +369,31 @@ class _FeedSkeletonHeader extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Container(width: 130, height: 11, color: AppColors.borderSubtle),
+      Container(width: 130, height: 11, color: AppColors.skeletonFor(context)),
       const SizedBox(height: 12),
-      Container(width: 190, height: 27, color: AppColors.borderSubtle),
+      Container(width: 190, height: 27, color: AppColors.skeletonFor(context)),
       const SizedBox(height: 9),
-      Container(width: 290, height: 14, color: AppColors.borderSubtle),
+      Container(width: 290, height: 14, color: AppColors.skeletonFor(context)),
       const SizedBox(height: 18),
       Row(
         children: [
-          Container(width: 72, height: 32, color: AppColors.borderSubtle),
+          Container(
+            width: 72,
+            height: 32,
+            color: AppColors.skeletonFor(context),
+          ),
           const SizedBox(width: 8),
-          Container(width: 82, height: 32, color: AppColors.borderSubtle),
+          Container(
+            width: 82,
+            height: 32,
+            color: AppColors.skeletonFor(context),
+          ),
           const SizedBox(width: 8),
-          Container(width: 75, height: 32, color: AppColors.borderSubtle),
+          Container(
+            width: 75,
+            height: 32,
+            color: AppColors.skeletonFor(context),
+          ),
         ],
       ),
     ],
@@ -399,7 +411,7 @@ class _FeedSkeletonTile extends StatelessWidget {
         aspectRatio: 16 / 9,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.borderSubtle,
+            color: AppColors.skeletonFor(context),
             borderRadius: BorderRadius.circular(14),
           ),
         ),
@@ -407,21 +419,21 @@ class _FeedSkeletonTile extends StatelessWidget {
       const SizedBox(height: 11),
       Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 18,
-            backgroundColor: AppColors.borderSubtle,
+            backgroundColor: AppColors.skeletonFor(context),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(height: 13, color: AppColors.borderSubtle),
+                Container(height: 13, color: AppColors.skeletonFor(context)),
                 const SizedBox(height: 7),
                 Container(
                   width: 150,
                   height: 11,
-                  color: AppColors.borderSubtle,
+                  color: AppColors.skeletonFor(context),
                 ),
               ],
             ),

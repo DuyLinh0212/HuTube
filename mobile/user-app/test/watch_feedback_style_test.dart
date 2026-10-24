@@ -12,6 +12,7 @@ import 'package:user_app/features/content/watch_screen.dart';
 import 'auth_test.dart' show MemoryStore, jsonResponse;
 
 void main() {
+  setUp(ApiClient.invalidateReadCache);
   for (final dark in [false, true]) {
     testWidgets('watch comments retry and themed action icons, dark=$dark', (
       tester,

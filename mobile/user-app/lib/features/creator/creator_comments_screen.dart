@@ -1,3 +1,4 @@
+import '../../core/widgets/confirmation_dialog.dart';
 import '../../core/widgets/text_entry_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -42,6 +43,7 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     final generation = ++_loadGeneration;
     _loadingMore = false;
     setState(() {
@@ -152,22 +154,12 @@ class _CreatorCommentsScreenState extends State<CreatorCommentsScreen> {
   Future<void> _delete(CommentItem comment) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('creator.commentDeleteTitle')),
-        content: Text(AppStrings.t('creator.commentDeleteDescription')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (_) => ConfirmationDialog(
+        title: AppStrings.t('creator.commentDeleteTitle'),
+        message: AppStrings.t('creator.commentDeleteDescription'),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
     if (confirmed != true) return;

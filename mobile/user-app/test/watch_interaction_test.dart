@@ -266,7 +266,16 @@ void main() {
         await tester.pumpAndSettle();
         expect(requests.any((r) => r.contains('sort=newest')), isTrue);
         final replyButton = find.widgetWithText(TextButton, 'Trả lời').first;
-        await tester.ensureVisible(replyButton);
+        await tester.scrollUntilVisible(
+          replyButton,
+          80,
+          scrollable: find
+              .descendant(
+                of: find.byKey(const ValueKey('watch-comments-list')),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
         await tester.pumpAndSettle();
         await tester.tap(replyButton);
         await tester.pumpAndSettle();

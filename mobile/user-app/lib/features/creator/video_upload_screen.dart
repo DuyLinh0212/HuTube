@@ -956,7 +956,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
+                  OutlinedButton.icon(
                     onPressed:
                         _uploading ||
                             _durationSeconds <= 0 ||

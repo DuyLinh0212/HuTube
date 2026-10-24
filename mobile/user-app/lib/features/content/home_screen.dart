@@ -73,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     final generation = ++_generation;
     final session = widget.auth.sessionGeneration;
     final authenticated = widget.auth.authenticated;
@@ -130,7 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return RefreshIndicator(
       color: AppColors.primaryPink,
-      onRefresh: _load,
+      onRefresh: () {
+        ApiClient.invalidateReadCache();
+        return _load();
+      },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -138,6 +142,17 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
             sliver: SliverMainAxisGroup(
               slivers: [
+                if (_error != null)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: HuTubeNotice(
+                        message: _error!,
+                        actionLabel: AppStrings.t('common.retry'),
+                        onAction: _loading ? null : () => unawaited(_load()),
+                      ),
+                    ),
+                  ),
                 ..._section(context, _recommendations, 'home.forYouTitle'),
                 ..._section(
                   context,
@@ -361,13 +376,16 @@ class _HomeLoading extends StatelessWidget {
     physics: const NeverScrollableScrollPhysics(),
     padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
     children: [
-      Container(width: 150, height: 22, color: AppColors.borderSubtle),
+      const Align(
+        alignment: Alignment.centerLeft,
+        child: HuTubeSkeleton(width: 150, height: 22),
+      ),
       const SizedBox(height: 14),
       for (var index = 0; index < 3; index++) ...[
         Container(
           height: 205,
           decoration: BoxDecoration(
-            color: AppColors.borderSubtle,
+            color: AppColors.skeletonFor(context),
             borderRadius: BorderRadius.circular(15),
           ),
         ),

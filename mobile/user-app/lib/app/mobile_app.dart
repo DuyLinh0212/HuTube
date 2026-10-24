@@ -19,6 +19,7 @@ import '../features/content/explore_screen.dart';
 import '../features/content/downloads_screen.dart';
 import '../features/content/library_screen.dart';
 import '../features/content/playback_session.dart';
+import '../features/content/download_coordinator.dart';
 import '../features/content/watch_screen.dart';
 import '../features/moderation/moderation_screen.dart';
 import '../channel/screens/channel_invitations_screen.dart';
@@ -49,6 +50,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
   late final UploadController _uploads;
   final _navigatorKey = GlobalKey<NavigatorState>();
   final PlaybackSession _playback = PlaybackSession();
+  late final DownloadCoordinator _downloads;
   late final NotificationCenter _notifications;
   StreamSubscription<Uri>? _linkSubscription;
   Timer? _networkRetryTimer;
@@ -58,6 +60,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
   void initState() {
     super.initState();
     _uploads = UploadController(widget.auth);
+    _downloads = DownloadCoordinator(widget.auth);
+    unawaited(_downloads.initialize());
     _notifications = NotificationCenter(widget.auth);
     _router = _buildRouter(widget.auth, _playback, _notifications);
     unawaited(_notifications.initialize(onOpenNotification: _openNotification));
@@ -214,6 +218,13 @@ class _HuTubeAppState extends State<HuTubeApp> {
               auth: auth,
               playback: playback,
               videoId: state.pathParameters['videoId']!,
+              playlistId: state.uri.queryParameters['playlist'],
+              playlistIndex: int.tryParse(
+                state.uri.queryParameters['index'] ?? '',
+              ),
+              playlistShuffle: state.uri.queryParameters['shuffle'] == 'true',
+              restartFromBeginning:
+                  state.uri.queryParameters['autoplay'] == 'true',
             ),
           ),
           GoRoute(
@@ -230,7 +241,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/downloads',
-            builder: (_, _) => DownloadsScreen(auth: auth),
+            builder: (_, _) =>
+                DownloadsScreen(auth: auth, coordinator: _downloads),
           ),
           GoRoute(
             path: '/account',
@@ -398,6 +410,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
     _linkSubscription?.cancel();
     _networkRetryTimer?.cancel();
     _uploads.dispose();
+    _downloads.dispose();
     _router.dispose();
     _playback.dispose();
     _notifications.dispose();

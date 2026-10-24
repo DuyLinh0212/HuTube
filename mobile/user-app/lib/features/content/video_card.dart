@@ -7,7 +7,7 @@ import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/widgets/hutube_widgets.dart';
-import '../playlists/playlist_service.dart';
+import '../playlists/save_playlist_sheet.dart';
 import 'content_models.dart';
 
 class VideoCardTile extends StatelessWidget {
@@ -117,19 +117,20 @@ class VideoCardTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              height: 1.25,
+                              fontSize: 15,
+                              height: 1.35,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             metadata,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: AppColors.textMutedFor(context),
-                                  fontSize: 11,
+                                  fontSize: 12,
+                                  height: 1.45,
                                 ),
                           ),
                         ],
@@ -139,9 +140,9 @@ class VideoCardTile extends StatelessWidget {
                         PopupMenuButton<String>(
                           tooltip: AppStrings.t('common.moreOptions'),
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 28,
-                            minHeight: 28,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            tapTargetSize: MaterialTapTargetSize.padded,
                           ),
                           icon: const Icon(Icons.more_vert_rounded, size: 18),
                           onSelected: (action) {
@@ -191,8 +192,17 @@ class VideoCardTile extends StatelessWidget {
     );
   }
 
-  static String _duration(int seconds) =>
-      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+  static String _duration(int seconds) {
+    final duration = Duration(seconds: seconds < 0 ? 0 : seconds);
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final remainder = duration.inSeconds
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
+    return duration.inHours > 0
+        ? '${duration.inHours}:$minutes:$remainder'
+        : '${duration.inMinutes}:$remainder';
+  }
 
   static String _dateSuffix(DateTime? date) {
     if (date == null) return '';
@@ -212,57 +222,15 @@ Future<void> showAddVideoToPlaylistSheet(
     return;
   }
 
-  final service = PlaylistService(auth);
-  try {
-    final playlists = await service.mine();
-    if (!context.mounted) return;
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              title: Text(
-                AppStrings.t('watch.savePlaylist'),
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text(AppStrings.t('playlists.subtitle')),
-            ),
-            if (playlists.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Text(AppStrings.t('playlists.emptyTitle')),
-              ),
-            for (final playlist in playlists)
-              ListTile(
-                leading: AppIcons.asset(AppIcons.playlist, size: 22),
-                title: Text(playlist.name),
-                subtitle: Text(
-                  AppStrings.format('channel.videoCount', {
-                    'count': AppStrings.number(playlist.itemCount),
-                  }),
-                ),
-                onTap: () => Navigator.pop(sheetContext, playlist.id),
-              ),
-          ],
-        ),
-      ),
+  final saved = await showSavePlaylistSheet(
+    context,
+    auth: auth,
+    videoId: videoId,
+  );
+  if (saved && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.t('watch.savedToPlaylist'))),
     );
-    if (selected == null || !context.mounted) return;
-    await service.addVideo(selected, videoId);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.t('watch.savedToPlaylist'))),
-      );
-    }
-  } on ApiFailure catch (error) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
-    }
   }
 }
 

@@ -1,3 +1,4 @@
+import '../../core/widgets/confirmation_dialog.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -197,23 +198,14 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
   Future<void> _deletePlaylist(PlaylistSummary playlist) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('playlists.deleteTitle')),
-        content: Text(
-          AppStrings.format('playlists.deleteDescription', {
-            'name': playlist.name,
-          }),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (_) => ConfirmationDialog(
+        title: AppStrings.t('playlists.deleteTitle'),
+        message: AppStrings.format('playlists.deleteDescription', {
+          'name': playlist.name,
+        }),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
     if (confirmed != true) return;

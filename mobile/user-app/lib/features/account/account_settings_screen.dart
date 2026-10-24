@@ -1,3 +1,4 @@
+import '../../core/widgets/modal_header.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../../core/widgets/scrollable_sheet.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_notifier.dart';
 import '../../core/widgets/hutube_widgets.dart';
+import '../../core/widgets/logout_confirmation_dialog.dart';
 import '../../account/models/account_models.dart';
 import '../../account/screens/change_password_screen.dart';
 import '../../account/screens/edit_profile_screen.dart';
@@ -66,43 +68,39 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   Future<void> _loadInitialData() async {
     if (!widget.auth.authenticated) return;
 
-    try {
-      final channel = await _channelService.getMyChannel();
-
-      UserProfile? profile;
+    final session = widget.auth.sessionGeneration;
+    Future<T?> optional<T>(Future<T> request) async {
       try {
-        profile = await _accountService.getProfile();
-      } catch (_) {}
-
-      int playlistCount = 0;
-      try {
-        final pls = await PlaylistService(widget.auth).mine();
-        playlistCount = pls.length;
-      } catch (_) {}
-
-      int subscribedCount = 0;
-      try {
-        final subs = await _channelService.getSubscribedChannels();
-        subscribedCount = subs.length;
-      } catch (_) {}
-
-      int likedCount = 0;
-      try {
-        final liked = await ContentService(widget.auth).liked(page: 1);
-        likedCount = liked.total > 0 ? liked.total : liked.items.length;
-      } catch (_) {}
-
-      if (mounted) {
-        setState(() {
-          _myChannel = channel;
-          _channelHandle = channel?.handle;
-          _profile = profile;
-          _playlistCount = playlistCount;
-          _subscribedCount = subscribedCount;
-          _likedCount = likedCount;
-        });
+        return await request;
+      } catch (_) {
+        return null;
       }
-    } catch (_) {}
+    }
+
+    final results = await Future.wait<Object?>([
+      optional<ChannelDetail?>(_channelService.getMyChannel()),
+      optional(_accountService.getProfile()),
+      optional(
+        PlaylistService(widget.auth).mine().then((items) => items.length),
+      ),
+      optional(
+        _channelService.getSubscribedChannels().then((items) => items.length),
+      ),
+      optional(
+        ContentService(widget.auth)
+            .liked(page: 1)
+            .then((page) => page.total > 0 ? page.total : page.items.length),
+      ),
+    ]);
+    if (!mounted || session != widget.auth.sessionGeneration) return;
+    setState(() {
+      _myChannel = results[0] as ChannelDetail?;
+      _channelHandle = _myChannel?.handle;
+      _profile = results[1] as UserProfile?;
+      _playlistCount = results[2] as int? ?? 0;
+      _subscribedCount = results[3] as int? ?? 0;
+      _likedCount = results[4] as int? ?? 0;
+    });
   }
 
   Future<void> _open(Widget page) async {
@@ -154,7 +152,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -165,19 +163,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                child: Text(
-                  AppStrings.t('settings.accountSettings'),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
+              ModalHeader(
+                title: AppStrings.t('settings.accountSettings'),
+                icon: Icons.manage_accounts_outlined,
               ),
               const Divider(),
               ListTile(
@@ -287,11 +275,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
   void _showLanguageDialog() {
     final current = AppStrings.currentLang.value;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -302,17 +289,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                child: Text(
-                  AppStrings.t('settings.selectLanguage'),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              ModalHeader(
+                title: AppStrings.t('settings.selectLanguage'),
+                icon: Icons.translate_rounded,
               ),
               const Divider(),
               ListTile(
@@ -357,24 +336,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   Future<void> _logout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppStrings.t('auth.logout')),
-        content: Text(AppStrings.t('settings.logoutConfirm')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(AppStrings.t('auth.logout')),
-          ),
-        ],
-      ),
-    );
+    final confirmed = await showLogoutConfirmation(context);
 
     if (confirmed == true && mounted) {
       await widget.auth.logout();

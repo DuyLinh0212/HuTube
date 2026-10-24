@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
-import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import 'content_models.dart';
@@ -32,6 +31,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   String _sort = 'newest';
   String _dateRange = 'all';
   int _requestGeneration = 0;
+  int _historyPage = 0, _likedPage = 0;
+  int _historyTotal = 0, _likedTotal = 0;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -42,28 +44,35 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     final generation = ++_requestGeneration;
     final query = _query, sort = _sort, dateRange = _dateRange;
+    final rating = _rating;
     setState(() {
       _loading = true;
+      _loadingMore = false;
       _error = null;
     });
     try {
-      final history = await loadAllPages(
-        (page) => _content.history(
-          page: page,
+      final pages = await Future.wait([
+        _content.history(
+          page: 1,
           query: query,
           sort: sort,
           dateRange: dateRange,
         ),
-      );
-      final liked = await loadAllPages(
-        (page) => _content.liked(page: page, rating: _rating),
-      );
+        _content.liked(page: 1, rating: rating),
+      ]);
+      final history = pages[0];
+      final liked = pages[1];
       if (mounted && generation == _requestGeneration) {
         setState(() {
           _history = history.items;
           _liked = liked.items;
+          _historyPage = history.page;
+          _likedPage = liked.page;
+          _historyTotal = history.total;
+          _likedTotal = liked.total;
           _loading = false;
         });
       }
@@ -84,12 +93,60 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore) return;
+    final generation = _requestGeneration;
+    final tab = _tab;
+    setState(() => _loadingMore = true);
+    try {
+      final result = tab == 0
+          ? await _content.history(
+              page: _historyPage + 1,
+              query: _query,
+              sort: _sort,
+              dateRange: _dateRange,
+            )
+          : await _content.liked(page: _likedPage + 1, rating: _rating);
+      if (!mounted || generation != _requestGeneration) return;
+      setState(() {
+        final items = tab == 0 ? _history : _liked;
+        final seen = items.map((item) => item.id).toSet();
+        final combined = [
+          ...items,
+          ...result.items.where((item) => seen.add(item.id)),
+        ];
+        if (tab == 0) {
+          _history = combined;
+          _historyPage = result.page;
+          _historyTotal = result.total;
+        } else {
+          _liked = combined;
+          _likedPage = result.page;
+          _likedTotal = result.total;
+        }
+      });
+    } catch (_) {
+      if (mounted && generation == _requestGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('library.loadError'))),
+        );
+      }
+    } finally {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _loadingMore = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => DefaultTabController(
     initialIndex: _tab,
     length: 2,
     child: RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () {
+        ApiClient.invalidateReadCache();
+        return _load();
+      },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -111,11 +168,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
               onTap: (value) => setState(() => _tab = value),
               tabs: [
                 Tab(
-                  icon: AppIcons.asset(AppIcons.history, size: 20),
+                  icon: const Icon(Icons.history_rounded, size: 22),
                   text: AppStrings.t('library.history'),
                 ),
                 Tab(
-                  icon: AppIcons.asset(AppIcons.favorite, size: 20),
+                  icon: const Icon(Icons.star_outline_rounded, size: 22),
                   text: AppStrings.t('library.liked'),
                 ),
               ],
@@ -151,7 +208,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         child: FilterChip(
                           avatar: score == null
                               ? null
-                              : AppIcons.asset(AppIcons.star, size: 14),
+                              : Icon(
+                                  Icons.star_rounded,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                           label: Text(
                             score == null
                                 ? AppStrings.t('library.allRatings')
@@ -207,7 +268,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               sliver: SliverList.builder(
                 itemCount: (_tab == 0 ? _history : _liked).length,
                 itemBuilder: (_, index) {
@@ -217,6 +278,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     progress: _tab == 0 ? item.progress : null,
                   );
                 },
+              ),
+            ),
+          if (!_loading &&
+              _error == null &&
+              (_tab == 0
+                  ? _history.length < _historyTotal
+                  : _liked.length < _likedTotal))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                child: TextButton(
+                  key: const ValueKey('library-load-more'),
+                  onPressed: _loadingMore ? null : _loadMore,
+                  child: Text(
+                    AppStrings.t(
+                      _loadingMore
+                          ? 'common.loading'
+                          : 'notifications.loadMore',
+                    ),
+                  ),
+                ),
               ),
             ),
         ],
