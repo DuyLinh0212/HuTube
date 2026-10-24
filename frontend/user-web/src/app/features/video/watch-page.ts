@@ -3,12 +3,15 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, Subject, switchMap, takeUntil } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { LoginPromptService } from '../../core/login-prompt.service';
+import { RequireLoginDirective } from '../../shared/login-prompt/require-login.directive';
+import { VideoDescriptionComponent } from '../../shared/video-description/video-description.component';
 import { AuthService } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { CommentItem, ContentService, Playback, Rendition, VideoCard, VideoCardLink, VideoDetail, ViolationType } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
-import { CompactLikeCountPipe, LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { CompactLikeCountPipe } from '../../core/locale-number.pipe';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { MyPlan, PlanService } from '../../core/plan.service';
@@ -19,7 +22,7 @@ import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/vid
 
 @Component({
   selector: 'app-watch-page',
-  imports: [LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })
@@ -40,6 +43,7 @@ export class WatchPage {
   commentEditText = "";
   readonly i18n = inject(I18nService);
   readonly auth = inject(AuthService);
+  private readonly loginPrompt = inject(LoginPromptService);
 
   readonly video = signal<VideoDetail | null>(null);
   readonly playback = signal<Playback | null>(null);
@@ -219,7 +223,9 @@ export class WatchPage {
     this.pipAllowed.set(false);
     this.backgroundPlayAllowed.set(false);
     this.refreshPlaybackEntitlements();
-    this.channels.getMyChannel().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({ next: channel => this.myChannelId.set(channel.channelId), error: () => {} });
+    if (this.auth.user()) {
+      this.channels.getMyChannel().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({ next: channel => this.myChannelId.set(channel.channelId), error: () => {} });
+    }
     this.content.violationTypes().pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({ next: types => this.violationTypes.set(types), error: () => {} });
 
     this.content.detail(this.videoId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -1017,10 +1023,7 @@ export class WatchPage {
   readonly reportTargetTitle = signal('');
 
   report(comment: CommentItem) {
-    if (!this.auth.user()) {
-      this.actionMessage.set(this.i18n.t('watch.loginReport'));
-      return;
-    }
+    if (!this.requireAuthentication(this.i18n.t('watch.loginReport'))) return;
     this.reportTargetType.set('comment');
     this.reportTargetId.set(comment.commentId);
     this.reportTargetTitle.set(this.i18n.format('watch.commentBy', { name: comment.displayName }));
@@ -1028,10 +1031,7 @@ export class WatchPage {
   }
 
   reportVideo() {
-    if (!this.auth.user()) {
-      this.actionMessage.set(this.i18n.t('watchPlaylist.loginReport'));
-      return;
-    }
+    if (!this.requireAuthentication(this.i18n.t('watchPlaylist.loginReport'))) return;
     const currentVideo = this.video();
     if (!currentVideo) return;
     this.reportTargetType.set('video');
@@ -1173,9 +1173,7 @@ export class WatchPage {
   }
 
   private requireAuthentication(message: string): boolean {
-    if (this.auth.user()) return true;
-    this.actionMessage.set(message);
-    return false;
+    return this.loginPrompt.require(undefined, undefined, message);
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -1214,10 +1212,7 @@ export class WatchPage {
     const channel = this.channel();
     if (!channel) return;
 
-    if (!this.auth.user()) {
-      void this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
-      return;
-    }
+    if (!this.loginPrompt.require()) return;
 
     if (this.myChannelId() === channel.channelId) {
       this.actionMessage.set(this.i18n.t('watch.cannotSubscribeSelf'));

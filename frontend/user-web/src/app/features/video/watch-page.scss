@@ -918,7 +918,8 @@
   color: var(--ink);
 }
 
-.description-panel p {
+.description-panel p,
+.description-panel app-video-description {
   max-width: 74ch;
   margin: 0;
   color: var(--text-body);

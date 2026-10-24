@@ -20,6 +20,28 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
+  deployment-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Verify EC2 deployment gates and recovery
+        run: python -m unittest discover -s scripts/deploy/tests -v
+      - name: Validate installer syntax
+        run: bash -n scripts/deploy/install-ec2-autodeploy.sh
+      - name: Verify Git owner transition with the service sandbox
+        shell: bash
+        run: |
+          sudo systemd-run --unit=dalitu-cd-check-${{ github.run_id }}-${{ github.run_attempt }} \
+            --wait --collect --pipe -p User=root -p UMask=0077 \
+            -p NoNewPrivileges=false -p PrivateTmp=true \
+            -p ProtectKernelTunables=true -p ProtectKernelModules=true -p ProtectControlGroups=true \
+            /usr/bin/python3 -c 'import subprocess,sys; subprocess.run(["runuser","-u",sys.argv[1],"--","git","-C",sys.argv[2],"rev-parse","--is-inside-work-tree"],check=True)' \
+            "$(id -un)" "$GITHUB_WORKSPACE"
+
   recommendation:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -258,7 +280,7 @@ jobs:
           retention-days: 14
 
   container:
-    needs: [recommendation, backend, web, mobile, e2e]
+    needs: [recommendation, backend, web, mobile, e2e, deployment-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -287,6 +309,15 @@ jobs:
             ${{ steps.image.outputs.name }}:develop
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Build Recommendation Service image
+        uses: docker/build-push-action@v6
+        with:
+          context: recommendation-service
+          push: false
+          build-args: HUTUBE_COMMIT_SHA=${{ github.sha }}
+          tags: dalitu-recommendation:ci-${{ github.sha }}
+          cache-from: type=gha,scope=recommendation
+          cache-to: type=gha,mode=max,scope=recommendation
 
   deploy-staging:
     if: github.event_name == 'workflow_dispatch' && inputs.deploy_staging && github.ref == 'refs/heads/develop'

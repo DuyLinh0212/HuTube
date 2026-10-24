@@ -5,6 +5,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subscription, catchError, finalize, forkJoin, of } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
+import { LoginPromptService } from '../../core/login-prompt.service';
+import { RequireLoginDirective } from '../../shared/login-prompt/require-login.directive';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { ContentService, VideoCard, VideoDetail } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
@@ -26,7 +28,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [FormsModule, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [RequireLoginDirective, FormsModule, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -37,6 +39,7 @@ export class ChannelPage {
   private contentService = inject(ContentService);
   private playlistService = inject(PlaylistService);
   private auth = inject(AuthService);
+  private readonly loginPrompt = inject(LoginPromptService);
   private networkStatus = inject(NetworkStatusService);
   readonly i18n = inject(I18nService);
 
@@ -353,7 +356,7 @@ export class ChannelPage {
     this.subscriptionMessage.set('');
 
     if (!this.auth.user()) {
-      void this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+      this.loginPrompt.require();
       return;
     }
 
@@ -425,7 +428,7 @@ export class ChannelPage {
     if (!ch) return;
 
     if (!this.auth.user()) {
-      void this.router.navigate(['/login'], { queryParams: { returnUrl: `/channel/${ch.handle}` } });
+      this.loginPrompt.require();
       return;
     }
 

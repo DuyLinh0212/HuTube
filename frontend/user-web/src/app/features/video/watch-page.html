@@ -136,41 +136,29 @@
 
         <div class="video-actions-anchor">
         <div class="video-actions" [attr.aria-label]="'watch.actions' | translate">
-          @if (auth.user()) {
           <div class="reaction-group">
-              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'like'" [attr.aria-pressed]="item.viewerState?.reaction === 'like'" (click)="react('like')" [attr.aria-label]="'watch.like' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.94-1.53l1.5-6A2 2 0 0 0 17.9 10H14l.7-3.5A2.05 2.05 0 0 0 12.7 4L7 10v10Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.likes | compactLikeCount }}</span></button>
-              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'dislike'" [attr.aria-pressed]="item.viewerState?.reaction === 'dislike'" (click)="react('dislike')" [attr.aria-label]="'watch.dislike' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3ZM17 4H7.6a2 2 0 0 0-1.94 1.53l-1.5 6A2 2 0 0 0 6.1 14H10l-.7 3.5A2.05 2.05 0 0 0 11.3 20L17 14V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
+              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'like'" [attr.aria-pressed]="item.viewerState?.reaction === 'like'" appRequireLogin (click)="react('like')" [attr.aria-label]="'watch.like' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.94-1.53l1.5-6A2 2 0 0 0 17.9 10H14l.7-3.5A2.05 2.05 0 0 0 12.7 4L7 10v10Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg><span>{{ item.stats.likes | compactLikeCount }}</span></button>
+              <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'dislike'" [attr.aria-pressed]="item.viewerState?.reaction === 'dislike'" appRequireLogin (click)="react('dislike')" [attr.aria-label]="'watch.dislike' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3ZM17 4H7.6a2 2 0 0 0-1.94 1.53l-1.5 6A2 2 0 0 0 6.1 14H10l-.7 3.5A2.05 2.05 0 0 0 11.3 20L17 14V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
           </div>
-          } @else {
-            <a class="action-button" routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }">{{ 'watch.loginInteract' | translate }}</a>
-          }
           <button type="button" class="action-button" (click)="share()" [attr.aria-expanded]="shareOpen()" aria-controls="share-popover"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5-5 5M19 10H9a4 4 0 0 0-4 4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>{{ 'watch.shareVideo' | translate }}</span></button>
-          @if (auth.user()) {
-            <button type="button" class="action-button playlist-action-button" (click)="openPlaylistPicker()" [attr.aria-expanded]="playlistPickerOpen()" aria-controls="playlist-picker-dialog"><span aria-hidden="true">＋</span> {{ 'upload.step5.addPlaylist' | translate }}</button>
-          }
-          @if (auth.user()) {
-            <button type="button" class="action-button" (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover">{{ 'watch.download' | translate }}</button>
-            <button type="button" class="action-button" (click)="reportVideo()" [attr.aria-label]="'watch.reportViolation' | translate">
+            <button type="button" class="action-button playlist-action-button" appRequireLogin (click)="openPlaylistPicker()" [attr.aria-expanded]="playlistPickerOpen()" aria-controls="playlist-picker-dialog"><span aria-hidden="true">＋</span> {{ 'upload.step5.addPlaylist' | translate }}</button>
+            <button type="button" class="action-button" appRequireLogin (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover">{{ 'watch.download' | translate }}</button>
+            <button type="button" class="action-button" appRequireLogin (click)="reportVideo()" [attr.aria-label]="'watch.reportViolation' | translate">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>{{ 'watch.report' | translate }}</span>
             </button>
-          } @else {
-            <a class="action-button" routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }">{{ 'watch.loginDownload' | translate }}</a>
-          }
-          @if (auth.user()) {
           <div class="rating-control" role="group" [attr.aria-label]="'watch.ratingGroup' | translate">
             <span class="rating-label">{{ 'watch.rating' | translate }}</span>
             <div class="rating-stars">
               @for (star of [1, 2, 3, 4, 5]; track star) {
-                <button type="button" class="rating-star" [class.is-selected]="ratingSelected(item, star)" [attr.aria-pressed]="ratingSelected(item, star)" [attr.aria-label]="ratingLabel(star)" (click)="rate(star)">★</button>
+                <button type="button" class="rating-star" [class.is-selected]="ratingSelected(item, star)" [attr.aria-pressed]="ratingSelected(item, star)" [attr.aria-label]="ratingLabel(star)" appRequireLogin (click)="rate(star)">★</button>
               }
             </div>
             @if (item.viewerState?.rating; as selectedRating) {
               <span class="rating-value">{{ selectedRating }}/5</span>
-              <button type="button" class="rating-clear" (click)="rate(null)" [attr.aria-label]="'watch.clearRating' | translate">×</button>
+              <button type="button" class="rating-clear" appRequireLogin (click)="rate(null)" [attr.aria-label]="'watch.clearRating' | translate">×</button>
             }
           </div>
-          }
         </div>
 
         @if (shareOpen()) {
@@ -252,7 +240,7 @@
                   type="button"
                   class="primary-button"
                   [class.is-subscribed]="subscribed()"
-                  (click)="toggleSubscribe()">
+                  appRequireLogin (click)="toggleSubscribe()">
                   {{ (subscribed() ? 'watch.subscribed' : 'watch.subscribe') | translate }}
                 </button>
               </div>
@@ -263,7 +251,7 @@
         <div class="video-details-grid">
           <section class="description-panel">
             <div class="description-heading"><strong>{{ countLabel('watch.views', item.stats.views) }}</strong><span>{{ languageLabel(item.languageCode) }}</span></div>
-            <p>{{ item.description || ('watch.descriptionEmpty' | translate) }}</p>
+            <app-video-description [text]="item.description || ('watch.descriptionEmpty' | translate)" [duration]="totalDuration()" (seek)="seekTo($event)" />
             @if (item.tags.length) { <div class="tag-list">@for (tag of item.tags; track tag) { <a [routerLink]="['/explore']" [queryParams]="{q: tag}">#{{ tag }}</a> }</div> }
           </section>
 
@@ -279,17 +267,10 @@
 
         <section class="comments-section">
           <header class="section-heading comments-heading"><div><h2>{{ 'watch.comments' | translate }}</h2><p>{{ countLabel('watch.commentCount', item.stats.comments) }}</p></div><label class="comments-sort"><span class="visually-hidden">{{ 'watch.commentSortLabel' | translate }}</span><select [ngModel]="commentSort()" (ngModelChange)="setCommentSort($event)"><option value="newest">{{ 'watch.newest' | translate }}</option><option value="top">{{ 'watch.topComments' | translate }}</option></select></label></header>
-          @if (auth.user()) {
-            <form class="comment-composer" (ngSubmit)="comment()">
-              <span class="comment-avatar comment-avatar--self">{{ initials(auth.user()?.displayName) }}</span>
-              <div class="composer-body"><textarea name="comment" [(ngModel)]="commentText" rows="2" [placeholder]="'watch.commentPlaceholder' | translate"></textarea><div class="composer-footer"><span>{{ 'watch.keepCivil' | translate }}</span><button type="submit" class="primary-button" [disabled]="!commentText.trim()">{{ 'watch.sendComment' | translate }}</button></div></div>
+            <form class="comment-composer" appRequireLogin (ngSubmit)="comment()">
+              <span class="comment-avatar comment-avatar--self" aria-hidden="true">@if (auth.user()) { {{ initials(auth.user()?.displayName) }} } @else { <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> }</span>
+              <div class="composer-body"><textarea [readOnly]="!auth.user()" name="comment" [(ngModel)]="commentText" rows="2" [placeholder]="'watch.commentPlaceholder' | translate"></textarea><div class="composer-footer"><span>{{ 'watch.keepCivil' | translate }}</span><button type="submit" class="primary-button" [disabled]="!!auth.user() && !commentText.trim()">{{ 'watch.sendComment' | translate }}</button></div></div>
             </form>
-          } @else {
-            <div class="guest-comment-box" style="padding: 16px; margin-bottom: 20px; border-radius: 12px; background: var(--canvas); border: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px;">
-              <span style="font-size: 0.86rem; color: var(--text-muted);">{{ 'watch.loginComment' | translate }}</span>
-              <a routerLink="/login" [queryParams]="{ returnUrl: loginReturnUrl() }" style="padding: 8px 18px; border-radius: 999px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 700; font-size: 0.8rem;">{{ 'ui.signIn' | translate }}</a>
-            </div>
-          }
           <div class="comment-list">
             @for (comment of comments(); track comment.commentId) {
               <article class="comment-row" [class.is-hidden]="comment.status === 'hidden'">
@@ -304,17 +285,16 @@
                   </form>
                 } @else { <p>{{ comment.content }}</p> }
                   <div class="comment-actions">
-                    @if (!auth.user()) { <a routerLink="/login" [queryParams]="{ returnUrl: '/watch/' + item.videoId }" class="comment-login-link">{{ 'watch.loginCommentInteraction' | translate }}</a> }
-                      <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" (click)="reactComment(comment, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ comment.likes | compactLikeCount }}</span></button>
-                      <button type="button" [disabled]="!auth.user()" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" (click)="reactComment(comment, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
-                    <button type="button" [disabled]="!auth.user()" (click)="replyTo.set(comment.commentId)">{{ 'watch.reply' | translate }}</button>
+                      <button type="button" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" appRequireLogin (click)="reactComment(comment, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ comment.likes | compactLikeCount }}</span></button>
+                      <button type="button" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" appRequireLogin (click)="reactComment(comment, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
+                    <button type="button" appRequireLogin (click)="replyTo.set(comment.commentId)">{{ 'watch.reply' | translate }}</button>
                     @if (comment.replyCount > 0) {
                       <button type="button" class="reply-toggle" [attr.aria-expanded]="isRepliesOpen(comment.commentId)" (click)="toggleReplies(comment)">
                         {{ isRepliesOpen(comment.commentId) ? ('watch.hideReplies' | translate) : repliesLabel(comment.replyCount) }}
                       </button>
                     }
                     @if (isOwner()) { <button type="button" (click)="hide(comment)">{{ commentStatusLabel(comment.status === 'hidden') }}</button> }
-                    @if (isOwnComment(comment)) { <button type="button" (click)="editComment(comment)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(comment)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(comment)">{{ 'watch.report' | translate }}</button> }
+                    @if (isOwnComment(comment)) { <button type="button" (click)="editComment(comment)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(comment)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" appRequireLogin (click)="report(comment)">{{ 'watch.report' | translate }}</button> }
                   </div>
                   @if (replyTo() === comment.commentId) {
                     <form class="reply-composer" (ngSubmit)="reply(comment)"><input name="reply" [(ngModel)]="replyText" [placeholder]="'watch.replyPlaceholder' | translate"/><button type="submit" class="primary-button">{{ 'watch.send' | translate }}</button></form>
@@ -335,10 +315,10 @@
                   </form>
                 } @else { <p>{{ replyItem.content }}</p> }
                             <div class="comment-actions">
-                              <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" (click)="reactComment(replyItem, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ replyItem.likes | compactLikeCount }}</span></button>
-                              <button type="button" [disabled]="!auth.user()" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" (click)="reactComment(replyItem, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
+                              <button type="button" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" appRequireLogin (click)="reactComment(replyItem, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ replyItem.likes | compactLikeCount }}</span></button>
+                              <button type="button" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" appRequireLogin (click)="reactComment(replyItem, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
                               @if (isOwner()) { <button type="button" (click)="hide(replyItem)">{{ commentStatusLabel(replyItem.status === 'hidden') }}</button> }
-                              @if (isOwnComment(replyItem)) { <button type="button" (click)="editComment(replyItem)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(replyItem)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" [disabled]="!auth.user()" (click)="report(replyItem)">{{ 'watch.report' | translate }}</button> }
+                              @if (isOwnComment(replyItem)) { <button type="button" (click)="editComment(replyItem)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(replyItem)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" appRequireLogin (click)="report(replyItem)">{{ 'watch.report' | translate }}</button> }
                             </div>
                           </div>
                         </article>

@@ -7,7 +7,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .upload-container.has-upload-progress { padding-bottom: calc(180px + env(safe-area-inset-bottom)); }
   .stepper-bar { padding: 8px; }
   .stepper-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; }
   .step-name { font-size: .7rem; line-height: 1.4; }
@@ -18,8 +17,7 @@
   .visibility-card .title-line .vis-title { font-size: .85rem; }
   .visibility-card .vis-icon { flex-shrink: 0; }
   .visibility-card .vis-desc { line-height: 1.6; }
-  .schedule-section-card, .other-options-card { padding: 14px 12px; }
-  .schedule-options, .schedule-picker-row { flex-direction: column; gap: 12px; }
+  .other-options-card { padding: 14px 12px; }
   .radio-label { align-items: flex-start; line-height: 1.5; }
   .radio-label input { margin-top: 4px; }
   .option-switch-item { gap: 12px; }

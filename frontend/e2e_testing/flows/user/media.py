@@ -49,7 +49,8 @@ def run(suite, owner, member):
         for step in range(3):
             page.locator('.btn-wizard-next').click()
             if hasattr(suite,'evidence'): suite.evidence(owner,'step'+str(step+3))
-        expect(page.locator('input[name=publishMode][value=schedule]')).to_be_disabled()
+        expect(page.locator('.schedule-section-card')).to_have_count(0)
+        expect(page.locator('input[name=publishMode]')).to_have_count(0)
         page.locator('input[name=visibility][value=private]').check()
         upload_sessions_path = urlsplit(suite.config['api_url']).path.rstrip('/') + '/videos/upload-sessions/'
         def is_upload_complete(response):
@@ -74,7 +75,7 @@ def run(suite, owner, member):
         assert video['videoId'] and video['visibility'] == 'private'
         assert video['title'] == suite.state.get('video_title','HuTube E2E — Mẫu hình và âm thanh kiểm thử')
         suite.state['video_id'] = video['videoId']; suite.save()
-    suite.case(owner, 'U-STUDIO-UPLOAD-01', 'Upload video thật qua wizard; required và schedule disabled', upload,
+    suite.case(owner, 'U-STUDIO-UPLOAD-01', 'Upload video thật qua wizard; required và không hiện lịch đăng chưa hỗ trợ', upload,
                expected='POST 202 nhận xử lý nền; GET 200 và UI hoàn tất trả đúng video private; checkpoint ID, không tạo lại khi retry', data='FFmpeg 10s 640x360 + sine 440Hz')
     if not video:
         suite.blocked(owner, 'U-WATCH-PLAYBACK-01', 'Playback fixture đã upload', 'Upload did not produce a video ID')

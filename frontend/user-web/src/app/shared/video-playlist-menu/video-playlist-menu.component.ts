@@ -1,8 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, Injector, Input, ViewChild, afterNextRender, afterRenderEffect, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { AuthService } from '../../core/auth.service';
+import { LoginPromptService } from '../../core/login-prompt.service';
 import { I18nService } from '../../core/i18n.service';
 import { PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -28,9 +27,8 @@ export class VideoPlaylistMenuComponent {
   readonly playlists = signal<PlaylistSummary[]>([]);
   readonly message = signal('');
 
-  private readonly auth = inject(AuthService);
+  private readonly loginPrompt = inject(LoginPromptService);
   private readonly playlistService = inject(PlaylistService);
-  private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
@@ -68,12 +66,7 @@ export class VideoPlaylistMenuComponent {
     event.preventDefault();
     event.stopPropagation();
     this.message.set('');
-    if (!this.auth.user()) {
-      void this.router.navigate(['/login'], {
-        queryParams: { returnUrl: typeof location === 'undefined' ? '/home' : location.pathname + location.search },
-      });
-      return;
-    }
+    if (!this.loginPrompt.require(this.trigger.nativeElement)) return;
     if (this.panel.nativeElement.matches(':popover-open')) {
       if (event instanceof KeyboardEvent) {
         const first = this.panel.nativeElement.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)');

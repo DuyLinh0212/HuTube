@@ -25,6 +25,8 @@ The monitor shows host RAM from Linux `/proc/meminfo` and caches Upstash usage f
 
 ## Start
 
+For automatic updates from verified `main` commits, install the [EC2 auto-deployment controller](EC2_AUTO_DEPLOY.md). It waits for all required CI jobs and both Vercel deployments, checks the new services, and restores previous images if activation fails.
+
 From the repository root on EC2:
 
 ```bash

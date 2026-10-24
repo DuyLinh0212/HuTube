@@ -118,9 +118,6 @@ export class VideoUploadWizardComponent implements OnDestroy {
   newVideoCardTime = '';
   // Visibility (Step 5)
   visibility = 'public';
-  publishMode = 'now';
-  scheduleDate = new Date().toISOString().slice(0, 10);
-  scheduleTime = '19:00';
   allowComments = true;
   selectedPlaylistId = '';
   policyAgreed = false;
