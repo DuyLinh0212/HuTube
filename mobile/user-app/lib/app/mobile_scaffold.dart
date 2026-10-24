@@ -178,12 +178,6 @@ class MobileScaffold extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                if (!isDetail)
-                  IconButton(
-                    tooltip: AppStrings.t('huai.title'),
-                    onPressed: () => context.push('/huai'),
-                    icon: AppIcons.asset(AppIcons.huAi, size: 24),
-                  ),
                 if (auth.authenticated)
                   AnimatedBuilder(
                     animation: notifications,
@@ -506,14 +500,6 @@ class _Drawer extends StatelessWidget {
                 size: 20,
                 color: iconColor,
               ),
-              textColor: textColor,
-            ),
-            _item(
-              context,
-              null,
-              AppStrings.t('huai.title'),
-              '/huai',
-              customIcon: AppIcons.asset(AppIcons.huAi, size: 20),
               textColor: textColor,
             ),
             _item(

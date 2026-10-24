@@ -7,7 +7,6 @@ class AppIcons {
   // Core & Navigation
   static const String home = '${_path}home.png';
   static const String compass = '${_path}compass.png';
-  static const String huAi = '${_path}HuAI.png';
   static const String notification = '${_path}notification.png';
   static const String user = '${_path}user.png';
   static const String channel = '${_path}channel.png';

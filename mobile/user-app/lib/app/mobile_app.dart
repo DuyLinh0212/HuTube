@@ -14,7 +14,6 @@ import '../core/widgets/app_shell.dart';
 import '../core/widgets/network_fallback_overlay.dart';
 import '../features/account/account_hub_screen.dart';
 import '../features/account/account_settings_screen.dart';
-import '../features/ai/hu_ai_screen.dart';
 import '../features/content/home_screen.dart';
 import '../features/content/explore_screen.dart';
 import '../features/content/downloads_screen.dart';
@@ -168,10 +167,6 @@ class _HuTubeAppState extends State<HuTubeApp> {
           GoRoute(
             path: '/subscriptions',
             builder: (_, _) => SubscriptionsScreen(auth: auth),
-          ),
-          GoRoute(
-            path: '/huai',
-            builder: (_, _) => HuAiScreen(auth: auth),
           ),
           GoRoute(
             path: '/search',
@@ -338,7 +333,6 @@ class _HuTubeAppState extends State<HuTubeApp> {
       '/home',
       '/explore',
       '/subscriptions',
-      '/huai',
       '/search',
       '/playlists',
       '/moderation',
@@ -391,7 +385,6 @@ class _HuTubeAppState extends State<HuTubeApp> {
         '/plans?invitationId=${Uri.encodeQueryComponent(memberId)}&invitationToken=${Uri.encodeQueryComponent(uri.queryParameters['token']!)}',
       ('plans', _) => '/plans',
       ('notifications', _) => '/notifications',
-      ('huai', _) => '/huai',
       ('search', _) => '/search',
       ('playlists', _) => '/playlists',
       ('policies', _) => '/policies',
