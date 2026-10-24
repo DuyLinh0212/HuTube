@@ -8,8 +8,16 @@ namespace HuTube.UnitTests;
 
 public sealed class EmailTemplateTests
 {
-    [Fact]
-    public async Task AuthEmailSender_WritesOneBrandedHtmlTemplateWithPlainTextFallback()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not-a-url")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("ftp://dalitu.app")]
+    [InlineData("https://user:password@dalitu.app")]
+    [InlineData("https://dalitu.app?preview=1")]
+    [InlineData("https://dalitu.app#preview")]
+    public async Task AuthEmailSender_WithoutValidWebUrl_EmbedsLogoAndPlainTextFallback(string? webBaseUrl)
     {
         var pickupDirectory = Path.Combine(Path.GetTempPath(), "hutube-email-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(pickupDirectory);
@@ -19,7 +27,8 @@ public sealed class EmailTemplateTests
             var sender = new AuthEmailSender(
                 new EmailOptions { Mode = "Pickup", PickupDirectory = pickupDirectory, From = "noreply@hutube.local" },
                 NullLogger<AuthEmailSender>.Instance,
-                new TestHttpClientFactory());
+                new TestHttpClientFactory(),
+                webBaseUrl is null ? null : new AuthOptions { WebBaseUrl = webBaseUrl });
             var template = new EmailTemplateMessage(
                 "Đặt lại mật khẩu Dalitu",
                 "BẢO MẬT TÀI KHOẢN",
@@ -50,6 +59,40 @@ public sealed class EmailTemplateTests
         finally
         {
             Directory.Delete(pickupDirectory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("https://dalitu.app/", "https://dalitu.app/assets/logo.svg")]
+    [InlineData("https://dalitu.app/a&b/", "https://dalitu.app/a&amp;b/assets/logo.svg")]
+    public async Task AuthEmailSender_WithWebUrl_UsesEncodedSvgLogo(string webBaseUrl, string expectedLogoUrl)
+    {
+        // Arrange
+        var pickupDirectory = Path.Combine(Path.GetTempPath(), "dalitu-email-" + Guid.NewGuid().ToString("N"));
+        var sender = new AuthEmailSender(
+            new EmailOptions { Mode = "Pickup", PickupDirectory = pickupDirectory, From = "noreply@dalitu.app" },
+            NullLogger<AuthEmailSender>.Instance,
+            new TestHttpClientFactory(),
+            new AuthOptions { WebBaseUrl = webBaseUrl });
+        var template = EmailTemplateMessage.FromPlainText("Dalitu", "Email content");
+
+        try
+        {
+            // Act
+            await sender.SendTemplateAsync("user@example.com", template, CancellationToken.None);
+            var message = MimeMessage.Load(Directory.GetFiles(pickupDirectory).Single());
+
+            // Assert
+            Assert.Contains($"src=\"{expectedLogoUrl}\"", message.HtmlBody);
+            Assert.Contains($"href=\"{expectedLogoUrl}\"", message.HtmlBody);
+            Assert.Contains("alt=\"Dalitu\"", message.HtmlBody);
+            Assert.DoesNotContain("cid:dalitu-email-logo", message.HtmlBody);
+            Assert.DoesNotContain(message.BodyParts.OfType<MimePart>(), part => part.ContentType.MediaType == "image");
+            Assert.Contains("Email content", message.TextBody);
+        }
+        finally
+        {
+            if (Directory.Exists(pickupDirectory)) Directory.Delete(pickupDirectory, recursive: true);
         }
     }
 

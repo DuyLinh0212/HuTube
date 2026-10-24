@@ -33,7 +33,8 @@ public sealed class GmailEmailOptions
 public sealed class AuthEmailSender(
     EmailOptions options,
     ILogger<AuthEmailSender> logger,
-    IHttpClientFactory httpClientFactory) : IAuthEmailSender
+    IHttpClientFactory httpClientFactory,
+    AuthOptions? authOptions = null) : IAuthEmailSender
 {
     private static readonly byte[] DalituEmailLogo = LoadDalituEmailLogo();
 
@@ -45,13 +46,17 @@ public sealed class AuthEmailSender(
         var message = new MimeMessage();
         message.From.Add(MailboxAddress.Parse(options.From)); message.To.Add(MailboxAddress.Parse(email));
         message.Subject = template.Subject;
+        var logoUrl = LogoUrl();
         var body = new BodyBuilder
         {
             TextBody = template.ToPlainText(),
-            HtmlBody = HuTubeEmailTemplateRenderer.RenderHtml(template)
+            HtmlBody = HuTubeEmailTemplateRenderer.RenderHtml(template, logoUrl)
         };
-        var logo = body.LinkedResources.Add("dalitu-email-logo.png", DalituEmailLogo, ContentType.Parse("image/png"));
-        logo.ContentId = "dalitu-email-logo";
+        if (logoUrl is null)
+        {
+            var logo = body.LinkedResources.Add("dalitu-email-logo.png", DalituEmailLogo, ContentType.Parse("image/png"));
+            logo.ContentId = "dalitu-email-logo";
+        }
         message.Body = body.ToMessageBody();
         try
         {
@@ -80,6 +85,15 @@ public sealed class AuthEmailSender(
             logger.LogError(ex, "SMTP email delivery failed for {Recipient}", email);
             throw new AuthException(503, "EMAIL_DELIVERY_UNAVAILABLE", "Chưa thể gửi email. Vui lòng thử lại sau.");
         }
+    }
+
+    private string? LogoUrl()
+    {
+        if (!Uri.TryCreate(authOptions?.WebBaseUrl?.Trim(), UriKind.Absolute, out var web)
+            || web.Scheme is not ("http" or "https")
+            || web.UserInfo.Length > 0 || web.Query.Length > 0 || web.Fragment.Length > 0)
+            return null;
+        return $"{web.AbsoluteUri.TrimEnd('/')}/assets/logo.svg";
     }
 
     private static byte[] LoadDalituEmailLogo()

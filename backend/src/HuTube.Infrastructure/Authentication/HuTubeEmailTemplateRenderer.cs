@@ -6,7 +6,7 @@ namespace HuTube.Infrastructure.Authentication;
 
 internal static class HuTubeEmailTemplateRenderer
 {
-    public static string RenderHtml(EmailTemplateMessage message)
+    public static string RenderHtml(EmailTemplateMessage message, string? logoUrl = null)
     {
         var html = new StringBuilder(8_000);
         var preheader = FirstNonEmpty(message.Paragraphs.FirstOrDefault(), message.Title);
@@ -31,8 +31,20 @@ internal static class HuTubeEmailTemplateRenderer
 
         html.Append("<tr><td style=\"padding:0 8px 18px;\">");
         html.Append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>");
-        html.Append("<td width=\"44\" height=\"44\" align=\"center\" valign=\"middle\" style=\"width:44px;height:44px;\"><img src=\"cid:dalitu-email-logo\" width=\"44\" height=\"44\" alt=\"Dalitu\" style=\"display:block;width:44px;height:44px;\"></td>");
-        html.Append("<td style=\"padding-left:12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:21px;font-weight:800;letter-spacing:-.6px;color:#111827;\">Dali<span style=\"color:#FF2B66;\">tu</span><div style=\"padding-top:3px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#9CA3AF;text-transform:uppercase;\">GOOD VIDEOS · BETTER PEOPLE</div></td>");
+        var safeLogoUrl = SafeActionUrl(logoUrl);
+        if (safeLogoUrl is not null)
+        {
+            html.Append("<td valign=\"middle\"><a href=\"");
+            html.Append(Html(safeLogoUrl));
+            html.Append("\" style=\"text-decoration:none;\"><img src=\"");
+            html.Append(Html(safeLogoUrl));
+            html.Append("\" width=\"152\" height=\"43\" alt=\"Dalitu\" style=\"width:152px;height:43px;max-width:152px;display:block;border:0;\"></a></td>");
+        }
+        else
+        {
+            html.Append("<td width=\"44\" height=\"44\" align=\"center\" valign=\"middle\" style=\"width:44px;height:44px;\"><img src=\"cid:dalitu-email-logo\" width=\"44\" height=\"44\" alt=\"Dalitu\" style=\"display:block;width:44px;height:44px;\"></td>");
+            html.Append("<td style=\"padding-left:12px;font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:21px;font-weight:800;letter-spacing:-.6px;color:#111827;\">Dali<span style=\"color:#FF2B66;\">tu</span><div style=\"padding-top:3px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#9CA3AF;text-transform:uppercase;\">GOOD VIDEOS · BETTER PEOPLE</div></td>");
+        }
         html.Append("</tr></table></td></tr>");
 
         html.Append("<tr><td class=\"email-card\" style=\"overflow:hidden;background:#FFFFFF;border:1px solid #E5E7EB;box-shadow:0 20px 45px -12px rgba(255,43,102,.12),0 8px 20px -4px rgba(17,24,39,.04);\">");
