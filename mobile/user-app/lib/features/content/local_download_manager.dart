@@ -18,6 +18,7 @@ class LocalDownload {
     required this.progress,
     this.filePath,
     this.error,
+    this.smart = false,
   });
 
   final String id;
@@ -30,6 +31,7 @@ class LocalDownload {
   final double progress;
   final String? filePath;
   final String? error;
+  final bool smart;
 
   bool get completed => status == 'completed';
   bool get active => status == 'downloading';
@@ -51,6 +53,7 @@ class LocalDownload {
     progress: progress ?? this.progress,
     filePath: filePath ?? this.filePath,
     error: clearError ? null : error ?? this.error,
+    smart: smart,
   );
 
   factory LocalDownload.fromJson(Map<String, dynamic> json) => LocalDownload(
@@ -64,6 +67,7 @@ class LocalDownload {
     progress: (json['progress'] as num?)?.toDouble() ?? 0,
     filePath: json['filePath'] as String?,
     error: json['error'] as String?,
+    smart: json['smart'] == true,
   );
 
   Map<String, dynamic> toJson() => {
@@ -77,6 +81,7 @@ class LocalDownload {
     'progress': progress,
     'filePath': filePath,
     'error': error,
+    'smart': smart,
   };
 }
 
@@ -87,7 +92,9 @@ class LocalDownload {
 class LocalDownloadManager extends ChangeNotifier {
   LocalDownloadManager._()
     : _rootDirectory = null,
-      _clientFactory = (() => http.Client());
+      _clientFactory = (() => http.Client()),
+      _connected = false,
+      _wifiOnly = true;
   @visibleForTesting
   LocalDownloadManager.test({
     required Future<Directory> Function() rootDirectory,
@@ -104,8 +111,66 @@ class LocalDownloadManager extends ChangeNotifier {
   Future<void>? _loading;
   Future<void> _writes = Future.value();
   Future<String?> Function(String)? _authorize;
+  bool _connected = true;
+  bool _wifi = false;
+  bool _wifiOnly = false;
+  bool _smartEnabled = false;
+  int _smartBudget = 256 * 1024 * 1024;
+  static const _waiting = {
+    'waiting_wifi',
+    'waiting_network',
+    'waiting_settings',
+    'waiting_storage',
+  };
   List<LocalDownload> get items => List.unmodifiable(_items);
   String? get ownerId => _owner;
+
+  String? _blocked(LocalDownload item) {
+    if (item.smart && !_smartEnabled) return 'waiting_settings';
+    if (!_connected) return 'waiting_network';
+    if ((_wifiOnly || item.smart) && !_wifi) return 'waiting_wifi';
+    if (item.smart &&
+        _items
+                .where((d) => d.smart && d.status != 'failed')
+                .fold<int>(0, (sum, d) => sum + d.totalBytes) >
+            _smartBudget) {
+      return 'waiting_storage';
+    }
+    return null;
+  }
+
+  Future<void> configurePolicy({
+    required bool connected,
+    required bool wifi,
+    required bool wifiOnly,
+    required bool smartEnabled,
+    required int smartBudget,
+  }) async {
+    _connected = connected;
+    _wifi = wifi;
+    _wifiOnly = wifiOnly;
+    _smartEnabled = smartEnabled;
+    _smartBudget = smartBudget;
+    final generation = _generation;
+    await ensureLoaded();
+    if (generation != _generation) return;
+    for (final item in List<LocalDownload>.of(_items)) {
+      if (item.completed ||
+          item.status == 'paused' ||
+          item.status == 'failed') {
+        continue;
+      }
+      final blocked = _blocked(item);
+      if (blocked != null) {
+        _clients.remove(item.id)?.close();
+        if (item.status != blocked) {
+          _replace(item.id, item.copyWith(status: blocked, clearError: true));
+        }
+      } else if (_waiting.contains(item.status) || item.status == 'queued') {
+        unawaited(_start(item.id));
+      }
+    }
+  }
 
   Future<void> bindUser(
     String? owner, {
@@ -211,6 +276,7 @@ class LocalDownloadManager extends ChangeNotifier {
     required String quality,
     required String url,
     required int fileSize,
+    bool smart = false,
   }) async {
     final generation = _generation;
     await ensureLoaded();
@@ -228,6 +294,7 @@ class LocalDownloadManager extends ChangeNotifier {
         totalBytes: fileSize,
         status: 'queued',
         progress: 0,
+        smart: smart,
       ),
     );
     await _persist();
@@ -259,6 +326,11 @@ class LocalDownloadManager extends ChangeNotifier {
     final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
     final item = _items[index];
+    final blocked = _blocked(item);
+    if (blocked != null) {
+      _replace(id, item.copyWith(status: blocked, clearError: true));
+      return;
+    }
     final client = _clientFactory();
     _clients[id] = client;
     IOSink? sink;
@@ -296,10 +368,20 @@ class LocalDownloadManager extends ChangeNotifier {
       sink = temporary.openWrite();
       var received = 0;
       final expected = response.contentLength ?? item.totalBytes;
+      if (item.smart && (item.totalBytes <= 0 || expected > item.totalBytes)) {
+        throw const FileSystemException(
+          'Smart download exceeds reserved storage',
+        );
+      }
       final progressClock = Stopwatch()..start();
       var lastUpdate = 0;
       await for (final chunk in response.stream) {
         if (!current()) return;
+        if (item.smart && received + chunk.length > item.totalBytes) {
+          throw const FileSystemException(
+            'Smart download exceeds reserved storage',
+          );
+        }
         sink.add(chunk);
         received += chunk.length;
         if (progressClock.elapsedMilliseconds - lastUpdate >= 200) {

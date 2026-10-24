@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
 import '../../core/storage/app_preferences.dart';
+import '../../core/media/device_conditions.dart';
+import '../../core/media/picture_in_picture.dart';
 import 'content_models.dart';
 import 'content_service.dart';
 import 'media_entitlements.dart';
@@ -12,7 +15,19 @@ import 'media_entitlements.dart';
 /// App-level owner for the one active native playback session. Keeping the
 /// controller above the router lets the same native session move from the
 /// watch page to the in-app mini-player without stopping the video.
-class PlaybackSession extends ChangeNotifier {
+class PlaybackSession extends ChangeNotifier with WidgetsBindingObserver {
+  PlaybackSession({
+    this.preferences = const AppPreferencesStore(),
+    DeviceConditions? conditions,
+  }) : conditions = conditions ?? DeviceConditions.instance;
+  final AppPreferencesStore preferences;
+  final DeviceConditions conditions;
+  String _backgroundMode = 'off';
+  bool? _backgroundOverride;
+  bool _automaticPip = false;
+  bool _observingPolicy = false;
+  AppLifecycleState? _lifecycle;
+  int _policyRequest = 0;
   static int _nextControllerId =
       DateTime.now().microsecondsSinceEpoch & 0x7fffffff;
   NativeVideoPlayerController? player;
@@ -35,6 +50,16 @@ class PlaybackSession extends ChangeNotifier {
   bool minimized = false;
   bool isPlaying = false;
   bool backgroundPlaybackEnabled = false;
+  bool get backgroundPlaybackRequested =>
+      hasVideo &&
+      _auth?.authenticated == true &&
+      _auth?.sessionGeneration == _authGeneration &&
+      entitlements.backgroundPlayback &&
+      (_backgroundOverride ?? (_backgroundMode != 'off'));
+  bool get waitingForExternalAudio =>
+      backgroundPlaybackRequested &&
+      _backgroundMode == 'headphones' &&
+      !conditions.externalAudio;
   bool _initializing = false;
   int _lastSavedSecond = 0;
   int _generation = 0;
@@ -51,6 +76,8 @@ class PlaybackSession extends ChangeNotifier {
   bool isLoop = false;
   bool isHistoryPaused = false;
   bool _advancing = false;
+  int _playbackIntentGeneration = 0;
+  int get playbackIntentGeneration => _playbackIntentGeneration;
   VoidCallback? onVideoCompleted;
 
   bool get hasVideo => player != null && videoId != null;
@@ -164,6 +191,7 @@ class PlaybackSession extends ChangeNotifier {
     required int resumeAt,
   }) async {
     if (_disposed) throw StateError('Playback session disposed');
+    final authGeneration = auth.sessionGeneration;
     final generation = ++_generation;
     _advancing = false;
     final matchedIdx = queue.indexWhere((item) => item.id == video.id);
@@ -182,16 +210,28 @@ class PlaybackSession extends ChangeNotifier {
     }
 
     await _dismiss(notify: false);
-    final prefs = const AppPreferencesStore();
-    final settings = await Future.wait([
-      prefs.readPipEnabled(),
-      prefs.readAutoplayNext(),
+    final settings = await Future.wait<Object>([
+      preferences.readPipEnabled(),
+      preferences.readAutoplayNext(),
+      preferences.readBackgroundPlaybackMode(),
     ]);
-    if (_disposed || generation != _generation) {
+    await conditions.initialize();
+    if (_disposed ||
+        generation != _generation ||
+        authGeneration != auth.sessionGeneration) {
       throw StateError('Playback request superseded');
     }
-    final allowPip = mediaEntitlements.pictureInPicture || settings[0];
-    autoplayNext = settings[1];
+    final allowPip = mediaEntitlements.pictureInPicture;
+    _automaticPip = settings[0] as bool;
+    autoplayNext = settings[1] as bool;
+    _backgroundMode = settings[2] as String;
+    _backgroundOverride = null;
+    if (!_observingPolicy) {
+      _observingPolicy = true;
+      WidgetsBinding.instance.addObserver(this);
+      conditions.addListener(_applyBackgroundPolicy);
+      AppPreferencesStore.mediaChanges.addListener(_reloadBackgroundPolicy);
+    }
 
     final controller = NativeVideoPlayerController(
       id: _nextControllerId++ & 0x7fffffff,
@@ -203,9 +243,11 @@ class PlaybackSession extends ChangeNotifier {
         artworkUrl: video.thumbnailUrl,
       ),
       allowsPictureInPicture: allowPip,
-      canStartPictureInPictureAutomatically: allowPip,
+      canStartPictureInPictureAutomatically:
+          !Platform.isAndroid && allowPip && _automaticPip,
     );
     _auth = auth;
+    auth.addListener(_identityChanged);
     _authGeneration = auth.sessionGeneration;
     _content = ContentService(auth);
     videoId = video.id;
@@ -228,12 +270,9 @@ class PlaybackSession extends ChangeNotifier {
     player = controller;
     _backgroundGuard = BackgroundPlaybackGuard(
       controller,
-      // Background playback is opt-in for each active video. The native
-      // player will still publish its MediaSession when it is playing, but
-      // this guard keeps normal video playback from continuing silently when
-      // the user leaves the app.
       pauseInBackground: true,
     );
+    _applyBackgroundPolicy();
     _positionSubscription = controller.positionStream.listen((value) {
       if (_disposed || !identical(player, controller)) return;
       position = value;
@@ -250,20 +289,12 @@ class PlaybackSession extends ChangeNotifier {
           }),
         );
       }
-      // Completion is latched until the native position leaves the end region.
-      // Repeated native end events must not navigate twice or seek in a loop.
+      // Android resets position to zero at completion. Only explicit replay or
+      // seek should release the latch, never that native reset.
       final ended =
           duration > Duration.zero &&
           position >= duration - const Duration(milliseconds: 400);
-      if (!ended) _advancing = false;
-      if (ended && !_advancing) {
-        _advancing = true;
-        if (isLoop) {
-          unawaited(_restart(controller));
-        } else if (autoplayNext) {
-          onVideoCompleted?.call();
-        }
-      }
+      if (ended) _complete(controller);
       // The native view handles frames; Flutter only needs progress at 4 Hz.
       if ((value - _lastNotifiedPosition).inMilliseconds.abs() >= 250) {
         _lastNotifiedPosition = value;
@@ -271,12 +302,13 @@ class PlaybackSession extends ChangeNotifier {
       }
     });
     _stateSubscription = controller.playerStateStream.listen((state) {
-      if (_disposed ||
-          !identical(player, controller) ||
-          isPlaying == state.isPlaying) {
-        return;
-      }
+      if (_disposed || !identical(player, controller)) return;
+      // Native tick cadence can miss the final 400ms. The completed event is
+      // authoritative even when its position has already reset to zero.
+      if (state.isCompleted) _complete(controller);
+      if (isPlaying == state.isPlaying) return;
       isPlaying = state.isPlaying;
+      _configurePip();
       notifyListeners();
     });
     _durationSubscription = controller.durationStream.listen((value) {
@@ -290,6 +322,16 @@ class PlaybackSession extends ChangeNotifier {
     return controller;
   }
 
+  void _complete(NativeVideoPlayerController controller) {
+    if (_advancing) return;
+    _advancing = true;
+    if (isLoop) {
+      unawaited(_restart(controller));
+    } else if (autoplayNext) {
+      onVideoCompleted?.call();
+    }
+  }
+
   Future<void> _saveProgress(String id, int seconds) async {
     try {
       await _content?.progress(id, seconds, saveHistory: !isHistoryPaused);
@@ -301,7 +343,10 @@ class PlaybackSession extends ChangeNotifier {
   Future<void> _restart(NativeVideoPlayerController controller) async {
     try {
       await controller.seekTo(Duration.zero);
-      if (!_disposed && identical(player, controller)) await controller.play();
+      if (!_disposed && identical(player, controller)) {
+        _advancing = false;
+        await controller.play();
+      }
     } catch (_) {
       // Native playback may already be closing during navigation.
     }
@@ -325,7 +370,11 @@ class PlaybackSession extends ChangeNotifier {
     return items.isEmpty ? null : items.last;
   }
 
-  Future<void> initialize(String url, {required int resumeAt}) async {
+  Future<void> initialize(
+    String url, {
+    required int resumeAt,
+    bool playWhenReady = true,
+  }) async {
     final controller = player;
     if (controller == null || ready || _initializing) return;
     final uri = Uri.tryParse(url);
@@ -340,8 +389,13 @@ class PlaybackSession extends ChangeNotifier {
         url: url,
         startAt: resumeAt > 0 ? Duration(seconds: resumeAt) : null,
       );
-      if (!identical(player, controller)) return;
+      if (_disposed || !identical(player, controller)) return;
+      if (playWhenReady) {
+        await controller.play();
+        if (_disposed || !identical(player, controller)) return;
+      }
       ready = true;
+      _configurePip();
       duration = controller.duration;
       position = controller.currentPosition;
       notifyListeners();
@@ -376,6 +430,9 @@ class PlaybackSession extends ChangeNotifier {
   Future<void> togglePlayback() async {
     final controller = player;
     if (controller == null || !ready) return;
+    _playbackIntentGeneration++;
+    _advancing = false;
+    notifyListeners();
     if (controller.activityState.isPlaying) {
       await controller.pause();
     } else {
@@ -391,15 +448,91 @@ class PlaybackSession extends ChangeNotifier {
     if (enabled && !entitlements.backgroundPlayback) return false;
     final guard = _backgroundGuard;
     if (guard == null || !hasVideo) return false;
-    guard.pauseInBackground = !enabled;
+    _backgroundOverride = enabled;
+    _applyBackgroundPolicy();
+    return backgroundPlaybackEnabled == enabled;
+  }
+
+  void _reloadBackgroundPolicy() {
+    final request = ++_policyRequest;
+    unawaited(() async {
+      String mode;
+      bool automaticPip;
+      try {
+        mode = await preferences.readBackgroundPlaybackMode();
+        automaticPip = await preferences.readPipEnabled();
+      } catch (_) {
+        mode = 'off';
+        automaticPip = false;
+      }
+      if (_disposed || request != _policyRequest) return;
+      if (mode != _backgroundMode) _backgroundOverride = null;
+      _backgroundMode = mode;
+      _automaticPip = automaticPip;
+      _configurePip();
+      _applyBackgroundPolicy();
+    }());
+  }
+
+  void _configurePip() {
+    if (Platform.isAndroid) {
+      unawaited(
+        AppPictureInPicture.configure(
+          automatic:
+              !_disposed &&
+              ready &&
+              isPlaying &&
+              _automaticPip &&
+              entitlements.pictureInPicture &&
+              _auth?.authenticated == true &&
+              _auth?.sessionGeneration == _authGeneration,
+        ),
+      );
+    }
+  }
+
+  void _applyBackgroundPolicy() {
+    if (_disposed || !hasVideo) return;
+    final requested = _backgroundOverride ?? (_backgroundMode != 'off');
+    final enabled =
+        requested &&
+        entitlements.backgroundPlayback &&
+        _auth?.authenticated == true &&
+        _auth?.sessionGeneration == _authGeneration &&
+        (_backgroundMode != 'headphones' || conditions.externalAudio);
+    _backgroundGuard?.pauseInBackground = !enabled;
+    final changed = backgroundPlaybackEnabled != enabled;
     backgroundPlaybackEnabled = enabled;
-    notifyListeners();
-    return true;
+    if (!enabled &&
+        changed &&
+        (_lifecycle == AppLifecycleState.paused ||
+            _lifecycle == AppLifecycleState.hidden)) {
+      final controller = player;
+      if (controller != null) unawaited(controller.pause());
+    }
+    if (changed) notifyListeners();
+  }
+
+  void _identityChanged() {
+    if (!_disposed &&
+        (_auth?.authenticated != true ||
+            _auth?.sessionGeneration != _authGeneration)) {
+      unawaited(dismiss());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycle = state;
+    if (state == AppLifecycleState.resumed) unawaited(conditions.refresh());
   }
 
   Future<void> seekBy(int seconds) async {
     final controller = player;
     if (controller == null || !ready) return;
+    _playbackIntentGeneration++;
+    _advancing = false;
+    notifyListeners();
     final target = controller.currentPosition + Duration(seconds: seconds);
     final max = controller.duration;
     await controller.seekTo(
@@ -410,6 +543,9 @@ class PlaybackSession extends ChangeNotifier {
   Future<void> seekTo(Duration target) async {
     final controller = player;
     if (controller == null || !ready) return;
+    _playbackIntentGeneration++;
+    _advancing = false;
+    notifyListeners();
     await controller.seekTo(target);
   }
 
@@ -431,6 +567,7 @@ class PlaybackSession extends ChangeNotifier {
   }
 
   Future<void> _dismiss({bool notify = true}) async {
+    _auth?.removeListener(_identityChanged);
     final oldPlayer = player;
     final finalVideoId = videoId;
     final finalSeconds = position.inSeconds;
@@ -445,6 +582,7 @@ class PlaybackSession extends ChangeNotifier {
     minimized = false;
     ready = false;
     isPlaying = false;
+    _configurePip();
     backgroundPlaybackEnabled = false;
     title = '';
     channelName = '';
@@ -480,6 +618,13 @@ class PlaybackSession extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _configurePip();
+    _auth?.removeListener(_identityChanged);
+    if (_observingPolicy) {
+      WidgetsBinding.instance.removeObserver(this);
+      conditions.removeListener(_applyBackgroundPolicy);
+      AppPreferencesStore.mediaChanges.removeListener(_reloadBackgroundPolicy);
+    }
     ++_generation;
     _backgroundGuard?.dispose();
     unawaited(_positionSubscription?.cancel());

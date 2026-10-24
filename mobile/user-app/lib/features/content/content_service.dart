@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../auth.dart';
 import 'content_models.dart';
 
@@ -9,9 +10,10 @@ class ContentService {
             client: auth.api.client,
             baseUrl: AppConfig.standard.recommendationBaseUrl,
             requestTimeout: const Duration(seconds: 105),
-            healthUrl: Uri.parse(
-              AppConfig.standard.recommendationBaseUrl,
-            ).replace(path: '/health').toString(),
+            // An inference outage is not evidence that the content API or the
+            // phone is offline. Probe the core API before showing that banner.
+            healthUrl:
+                '${auth.api.baseUrl.replaceAll(RegExp(r'/+$'), '')}/system/config',
           );
   final AuthController auth;
   final ApiClient recommendationApi;
@@ -34,6 +36,7 @@ class ContentService {
     String? categoryId,
     String? tag,
     String sort = 'newest',
+    Duration? recommendationBudget,
   }) async {
     // Send the user's access token directly to FastAPI. Token refresh continues
     // through the content API's existing session controller.
@@ -56,10 +59,22 @@ class ContentService {
     Map<String, dynamic> json;
     if (useRecommendations) {
       try {
-        json = await auth.protected(
+        final request = auth.protected(
           'GET',
           endpoint,
           apiClient: recommendationApi,
+        );
+        json = await (recommendationBudget == null
+            ? request
+            : request.timeout(recommendationBudget));
+      } on TimeoutException {
+        if (generation != auth.sessionGeneration) rethrow;
+        // Watch suggestions must not hold up the screen during inference/cold
+        // starts. Resolve the catalogue without invoking inference again.
+        json = await auth.protected(
+          'POST',
+          '/feed/resolve',
+          body: {'videoIds': <String>[], 'page': page, 'pageSize': pageSize},
         );
       } on ApiFailure catch (error) {
         if (generation != auth.sessionGeneration ||

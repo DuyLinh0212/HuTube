@@ -21,16 +21,15 @@ class PlaylistQueueSheet extends StatelessWidget {
     BuildContext context, {
     required PlaybackSession playback,
     required ValueChanged<VideoCard> onSelectVideo,
-  }) =>
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => PlaylistQueueSheet(
-          playback: playback,
-          onSelectVideo: onSelectVideo,
-        ),
-      );
+  }) => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: false,
+    backgroundColor: Colors.transparent,
+    builder: (_) =>
+        PlaylistQueueSheet(playback: playback, onSelectVideo: onSelectVideo),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -131,8 +130,9 @@ class PlaylistQueueSheet extends StatelessWidget {
                       ),
                       label: Text(AppStrings.t('queue.autoplay')),
                       selected: playback.autoplayNext,
-                      selectedColor:
-                          AppColors.primaryPink.withValues(alpha: 0.15),
+                      selectedColor: AppColors.primaryPink.withValues(
+                        alpha: 0.15,
+                      ),
                       checkmarkColor: AppColors.primaryPink,
                       onSelected: (_) {
                         HapticFeedback.selectionClick();
@@ -246,19 +246,20 @@ class PlaylistQueueSheet extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: isCurrent
                                   ? (isDark
-                                      ? AppColors.primaryPink
-                                          .withValues(alpha: 0.16)
-                                      : AppColors.primaryLight)
+                                        ? AppColors.primaryPink.withValues(
+                                            alpha: 0.16,
+                                          )
+                                        : AppColors.primaryLight)
                                   : (isDark
-                                      ? const Color(0xFF221E2C)
-                                      : AppColors.surfaceAlt),
+                                        ? const Color(0xFF221E2C)
+                                        : AppColors.surfaceAlt),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isCurrent
                                     ? AppColors.primaryPink
                                     : (isDark
-                                        ? AppColors.darkBorder
-                                        : AppColors.border),
+                                          ? AppColors.darkBorder
+                                          : AppColors.border),
                                 width: isCurrent ? 1.5 : 1.0,
                               ),
                             ),
@@ -305,14 +306,16 @@ class PlaylistQueueSheet extends StatelessWidget {
                                                 Image.network(
                                                   video.thumbnailUrl!,
                                                   fit: BoxFit.cover,
-                                                  errorBuilder:
-                                                      (_, _, _) => Container(
-                                                    color: AppColors.borderSubtle,
-                                                    child: const Icon(
-                                                      Icons.videocam_outlined,
-                                                      size: 24,
-                                                    ),
-                                                  ),
+                                                  errorBuilder: (_, _, _) =>
+                                                      Container(
+                                                        color: AppColors
+                                                            .borderSubtle,
+                                                        child: const Icon(
+                                                          Icons
+                                                              .videocam_outlined,
+                                                          size: 24,
+                                                        ),
+                                                      ),
                                                 )
                                               else
                                                 Container(
@@ -329,15 +332,15 @@ class PlaylistQueueSheet extends StatelessWidget {
                                                   child: Container(
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 1,
-                                                    ),
+                                                          horizontal: 4,
+                                                          vertical: 1,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: Colors.black87,
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                        4,
-                                                      ),
+                                                            4,
+                                                          ),
                                                     ),
                                                     child: Text(
                                                       _formatDuration(
@@ -372,21 +375,22 @@ class PlaylistQueueSheet extends StatelessWidget {
                                                 ),
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 1,
-                                                ),
+                                                      horizontal: 6,
+                                                      vertical: 1,
+                                                    ),
                                                 decoration: BoxDecoration(
                                                   color: AppColors.primaryPink,
                                                   borderRadius:
                                                       BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
-                                                  AppStrings.t('queue.nowPlaying'),
+                                                  AppStrings.t(
+                                                    'queue.nowPlaying',
+                                                  ),
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 9,
-                                                    fontWeight:
-                                                        FontWeight.w800,
+                                                    fontWeight: FontWeight.w800,
                                                   ),
                                                 ),
                                               ),
@@ -411,9 +415,9 @@ class PlaylistQueueSheet extends StatelessWidget {
                                               overflow: TextOverflow.ellipsis,
                                               style: theme.textTheme.bodySmall
                                                   ?.copyWith(
-                                                color: AppColors.textMuted,
-                                                fontSize: 11,
-                                              ),
+                                                    color: AppColors.textMuted,
+                                                    fontSize: 11,
+                                                  ),
                                             ),
                                           ],
                                         ),

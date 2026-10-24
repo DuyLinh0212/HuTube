@@ -8,6 +8,9 @@ Future<PageResult<T>> loadAllPages<T>(
     final page = await fetch(number);
     items.addAll(page.items);
     if (!page.hasMore || page.items.isEmpty) break;
+    if (page.page < number) {
+      throw StateError('Pagination did not advance to the requested page');
+    }
     number = page.page + 1;
   }
   return PageResult(
