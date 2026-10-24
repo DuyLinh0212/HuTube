@@ -32,6 +32,15 @@ jobs:
         run: python -m unittest discover -s scripts/deploy/tests -v
       - name: Validate installer syntax
         run: bash -n scripts/deploy/install-ec2-autodeploy.sh
+      - name: Verify Git owner transition with the service sandbox
+        shell: bash
+        run: |
+          sudo systemd-run --unit=dalitu-cd-check-${{ github.run_id }}-${{ github.run_attempt }} \
+            --wait --collect --pipe -p User=root -p UMask=0077 \
+            -p NoNewPrivileges=false -p PrivateTmp=true \
+            -p ProtectKernelTunables=true -p ProtectKernelModules=true -p ProtectControlGroups=true \
+            /usr/bin/python3 -c 'import subprocess,sys; subprocess.run(["runuser","-u",sys.argv[1],"--","git","-C",sys.argv[2],"rev-parse","--is-inside-work-tree"],check=True)' \
+            "$(id -un)" "$GITHUB_WORKSPACE"
 
   recommendation:
     runs-on: ubuntu-latest

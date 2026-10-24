@@ -34,6 +34,8 @@ The installer writes:
 
 Run the installer again to upgrade the installed controller. It preserves the existing host configuration and deployment state.
 
+The controller runs as root to manage Docker and switches to the checkout owner for Git. Its systemd unit permits that UID transition with `NoNewPrivileges=false`; the CI deployment job exercises this same transition under the service sandbox properties.
+
 ## Update transaction
 
 1. Lock the deployment to prevent overlapping runs. Recover an interrupted activation from its saved checkpoint.

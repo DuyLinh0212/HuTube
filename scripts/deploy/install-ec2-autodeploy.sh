@@ -61,7 +61,8 @@ ExecStart=/usr/bin/python3 /usr/local/lib/dalitu-autodeploy/ec2_autodeploy.py
 TimeoutStartSec=50min
 TimeoutStopSec=7min
 KillMode=mixed
-NoNewPrivileges=true
+# runuser must switch to the checkout owner for Git operations.
+NoNewPrivileges=false
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

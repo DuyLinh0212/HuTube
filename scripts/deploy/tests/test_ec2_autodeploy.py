@@ -174,6 +174,13 @@ class RecoveryTests(unittest.TestCase):
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_installer_allows_switching_to_the_git_checkout_owner(self):
+        installer = Path(__file__).resolve().parents[1] / "install-ec2-autodeploy.sh"
+        source = installer.read_text(encoding="utf-8")
+        self.assertIn("User=root\n", source)
+        self.assertIn("NoNewPrivileges=false\n", source)
+        self.assertNotIn("NoNewPrivileges=true\n", source)
+
     def test_deferred_checkout_uses_saved_active_compose_not_unactivated_file(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
