@@ -247,6 +247,18 @@
       <app-result-notice [tone]="saveFailed() ? 'error' : 'success'" [message]="saveMessage()" />
     }
 
+    @if (pendingDeleteRole(); as role) {
+      <app-confirm-dialog tone="danger" initialFocus="field" [title]="'rbac.deleteRole' | translate" [confirmLabel]="'rbac.deleteRole' | translate"
+        [description]="'rbac.deleteConfirm' | translate:{ name: role.name }" [busy]="deleting()"
+        [confirmDisabled]="deleteReason().trim().length < 3 || deleteReason().trim().length > 300"
+        (confirmed)="submitDeleteRole()" (cancelled)="pendingDeleteRole.set(null)">
+        <app-result-notice tone="error" [message]="deleteError()" />
+        <label><span>{{ 'rbac.deleteReasonPrompt' | translate:{ name: role.name } }}</span>
+          <textarea rows="3" maxlength="300" required [ngModel]="deleteReason()" (ngModelChange)="deleteReason.set($event)"></textarea>
+        </label>
+      </app-confirm-dialog>
+    }
+
     @if (createOpen()) {
       <div class="dialog-backdrop" (click)="closeCreate()">
         <section class="role-dialog" role="dialog" aria-modal="true" aria-labelledby="create-role-title" (click)="$event.stopPropagation()">

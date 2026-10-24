@@ -1,5 +1,5 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
-import { FeedbackService } from '@dalitu/ui/feedback.service';
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -18,12 +18,11 @@ interface PermissionGroup {
 
 @Component({
   selector: 'app-admin-rbac-page',
-  imports: [ResultNoticeComponent, FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, ConfirmDialogComponent, FormsModule, TranslatePipe],
   templateUrl: './admin-rbac-page.html',
   styleUrls: ['./admin-rbac-page.scss', './admin-rbac-dialog-overrides.scss'],
 })
 export class AdminRbacPage {
-  private readonly feedback = inject(FeedbackService);
   private readonly rbac = inject(AdminRbacService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
@@ -40,6 +39,10 @@ export class AdminRbacPage {
   readonly saveReason = signal('');
   readonly saveMessage = signal('');
   readonly saveFailed = signal(false);
+  readonly pendingDeleteRole = signal<AdminRole | null>(null);
+  readonly deleteReason = signal('');
+  readonly deleting = signal(false);
+  readonly deleteError = signal('');
   readonly draftPermissionCodes = signal<string[]>([]);
   readonly createOpen = signal(false);
   readonly creating = signal(false);
@@ -269,14 +272,25 @@ export class AdminRbacPage {
     });
   }
 
-  async deleteSelectedRole() {
+  deleteSelectedRole() {
     const role = this.selectedRole();
-    if (!role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
-    const reason = window.prompt(this.i18n.format('rbac.deleteReasonPrompt', { name: role.name }))?.trim();
+    if (this.deleting() || !role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
+    this.deleteReason.set('');
+    this.deleteError.set('');
+    this.pendingDeleteRole.set(role);
+  }
+
+  submitDeleteRole() {
+    const role = this.pendingDeleteRole();
+    if (this.deleting() || !role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
+    const reason = this.deleteReason().trim();
     if (!reason || reason.length < 3 || reason.length > 300) return;
-    if (!(await this.feedback.confirm(this.i18n.format('rbac.deleteConfirm', { name: role.name }), { tone: 'danger' }))) return;
+    this.deleting.set(true);
+    this.deleteError.set('');
     this.rbac.deleteRole(role.roleId, reason).subscribe({
       next: () => {
+        this.deleting.set(false);
+        this.pendingDeleteRole.set(null);
         const remaining = this.roles().filter(item => item.roleId !== role.roleId);
         this.roles.set(remaining);
         const nextRole = remaining.find(item => item.roleId === this.selectedRoleId()) ?? remaining[0] ?? null;
@@ -286,8 +300,8 @@ export class AdminRbacPage {
         this.saveFailed.set(false);
       },
       error: error => {
-        this.saveMessage.set(errorMessage(error, this.i18n));
-        this.saveFailed.set(true);
+        this.deleting.set(false);
+        this.deleteError.set(errorMessage(error, this.i18n));
       }
     });
   }
