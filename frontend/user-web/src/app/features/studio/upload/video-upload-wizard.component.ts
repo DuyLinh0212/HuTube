@@ -331,7 +331,11 @@ export class VideoUploadWizardComponent implements OnDestroy {
     context.drawImage(video, sourceX, sourceY, cropWidth, cropHeight, 0, 0, width, height);
     return new Promise(resolve => {
       try {
-        canvas.toBlob(blob => resolve(blob ? new File([blob], `thumbnail-${index}.jpg`, { type: 'image/jpeg' }) : this.canvasDataUrlFile(canvas, index)), 'image/jpeg', 0.88);
+        canvas.toBlob(blob => {
+          const type = blob?.type || 'image/png';
+          const extension = type === 'image/webp' ? 'webp' : type === 'image/jpeg' ? 'jpg' : 'png';
+          resolve(blob ? new File([blob], `thumbnail-${index}.${extension}`, { type }) : this.canvasDataUrlFile(canvas, index));
+        }, 'image/webp', 0.82);
       } catch {
         resolve(this.canvasDataUrlFile(canvas, index));
       }
@@ -340,13 +344,16 @@ export class VideoUploadWizardComponent implements OnDestroy {
 
   private canvasDataUrlFile(canvas: HTMLCanvasElement, index: number): File | null {
     try {
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      const dataUrl = canvas.toDataURL('image/webp', 0.82);
       const [header, data] = dataUrl.split(',');
       if (!header || !data) return null;
       const binary = atob(data);
       const bytes = new Uint8Array(binary.length);
       for (let offset = 0; offset < binary.length; offset++) bytes[offset] = binary.charCodeAt(offset);
-      return new File([bytes], `thumbnail-${index}.jpg`, { type: 'image/jpeg' });
+      const type = header.match(/^data:(image\/(?:webp|png|jpeg));base64$/)?.[1];
+      if (!type) return null;
+      const extension = type === 'image/webp' ? 'webp' : type === 'image/jpeg' ? 'jpg' : 'png';
+      return new File([bytes], `thumbnail-${index}.${extension}`, { type });
     } catch {
       return null;
     }

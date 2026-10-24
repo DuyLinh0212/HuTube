@@ -7,15 +7,15 @@
     <section class="nav-group" [attr.aria-label]="'nav.explore' | translate">
       <p class="nav-label">{{ 'nav.explore' | translate }}</p>
       <a class="nav-item" routerLink="/home" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.home' | translate">
-        <img src="/assets/icons/home.png" alt="" />
+        <img src="/assets/icons/home.webp" alt="" />
         <span>{{ 'nav.home' | translate }}</span>
       </a>
       <a class="nav-item" routerLink="/explore" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.explore' | translate">
-        <img src="/assets/icons/compass.png" alt="" />
+        <img src="/assets/icons/compass.webp" alt="" />
         <span>{{ 'nav.explore' | translate }}</span>
       </a>
       <a class="nav-item" appRequireLogin="/subscriptions" routerLink="/subscriptions" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.subscriptions' | translate">
-        <img src="/assets/icons/channel.png" alt="" />
+        <img src="/assets/icons/channel.webp" alt="" />
         <span>{{ 'nav.subscriptions' | translate }}</span>
       </a>
     </section>
@@ -23,19 +23,19 @@
       <section class="nav-group" [attr.aria-label]="'nav.library' | translate">
         <p class="nav-label">{{ 'nav.library' | translate }}</p>
         <button type="button" class="nav-item" appRequireLogin="/studio/overview" (click)="openMyChannel()" [title]="'nav.yourChannel' | translate">
-          <img src="/assets/icons/my_channel.png" alt="" />
+          <img src="/assets/icons/my_channel.webp" alt="" />
           <span>{{ 'nav.yourChannel' | translate }}</span>
         </button>
         <a class="nav-item" appRequireLogin="/history" routerLink="/history" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.history' | translate">
-          <img src="/assets/icons/history.png" alt="" />
+          <img src="/assets/icons/history.webp" alt="" />
           <span>{{ 'nav.history' | translate }}</span>
         </a>
         <a class="nav-item" appRequireLogin="/liked" routerLink="/liked" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.likedVideos' | translate">
-          <img src="/assets/icons/favorite.png" alt="" />
+          <img src="/assets/icons/favorite.webp" alt="" />
           <span>{{ 'nav.likedVideos' | translate }}</span>
         </a>
         <a class="nav-item" appRequireLogin="/playlists" routerLink="/playlists" routerLinkActive="active" (click)="closeNavigation()" [title]="'nav.playlists' | translate">
-          <img src="/assets/icons/playlist.png" alt="" />
+          <img src="/assets/icons/playlist.webp" alt="" />
           <span>{{ 'nav.playlists' | translate }}</span>
         </a>
       </section>
@@ -43,7 +43,7 @@
       <section class="nav-group" [attr.aria-label]="'nav.settings' | translate">
         <p class="nav-label">{{ 'nav.settings' | translate }}</p>
         <a class="nav-item" appRequireLogin="/account" routerLink="/account" (click)="closeNavigation()" routerLinkActive="active" [title]="'nav.settings' | translate">
-          <img src="/assets/icons/setting.png" alt="" />
+          <img src="/assets/icons/setting.webp" alt="" />
           <span>{{ 'nav.settings' | translate }}</span>
         </a>
       </section>

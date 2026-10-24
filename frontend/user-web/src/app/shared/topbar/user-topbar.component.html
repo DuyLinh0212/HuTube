@@ -10,7 +10,7 @@
     </button>
 
     <a class="topbar-brand" routerLink="/home" [attr.aria-label]="'Dalitu'">
-      <img src="/assets/logo-mark.png?v=dalitu-mark-20261020" alt="Dalitu" />
+      <img src="/assets/logo-mark.webp?v=dalitu-mark-20261020" alt="Dalitu" />
       <span class="brand-text"><strong>Dali</strong><em>tu</em></span>
       <span class="country-badge">{{ i18n.currentLang().toUpperCase() }}</span>
     </a>
@@ -33,12 +33,12 @@
     @if (auth.user()) {
       @if (myChannel(); as ch) {
         <a class="create-action" [routerLink]="['/channel', ch.handle]" [title]="'nav.yourChannel' | translate">
-          <img src="/assets/icons/my_channel.png" alt="" />
+          <img src="/assets/icons/my_channel.webp" alt="" />
           <span>{{ 'nav.yourChannel' | translate }}</span>
         </a>
       } @else if (collaborationChannel(); as ch) {
         <a class="create-action" routerLink="/studio/overview" [queryParams]="{ channelId: ch.channelId }" [title]="'ui.openCollaborationChannel' | translate">
-          <img src="/assets/icons/my_channel.png" alt="" />
+          <img src="/assets/icons/my_channel.webp" alt="" />
           <span>{{ 'ui.collaborationChannel' | translate }}</span>
         </a>
       } @else if (pendingInvitations().length > 0) {
@@ -54,7 +54,7 @@
       }
 
       <button class="icon-action notif-btn" type="button" [attr.aria-label]="'nav.notifications' | translate" (click)="toggleNotifications()">
-        <img src="/assets/icons/notification.png" alt="" />
+        <img src="/assets/icons/notification.webp" alt="" />
         @if (notifications.unread()) { <i aria-hidden="true">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</i> }
       </button>
       @if (notificationsOpen()) { <app-notification-panel (closed)="notificationsOpen.set(false)" /> }
@@ -165,12 +165,12 @@
                   </a>
                 }
                 <a class="drawer-action" routerLink="/plans" (click)="closeAccountDrawer()">
-                  <img src="/assets/icons/plan.png" alt="" />
+                  <img src="/assets/icons/plan.webp" alt="" />
                   <span><strong>{{ 'plans.catalogLabel' | translate }}</strong><small>{{ 'ui.packageDesc' | translate }}</small></span>
                   <b aria-hidden="true">›</b>
                 </a>
                 <a class="drawer-action" routerLink="/account" (click)="closeAccountDrawer()">
-                  <img src="/assets/icons/setting.png" alt="" />
+                  <img src="/assets/icons/setting.webp" alt="" />
                   <span><strong>{{ 'ui.accountSettings' | translate }}</strong><small>{{ 'ui.accountSettingsDesc' | translate }}</small></span>
                   <b aria-hidden="true">›</b>
                 </a>

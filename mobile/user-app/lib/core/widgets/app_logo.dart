@@ -14,7 +14,7 @@ class HuTubeLogo extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Image.asset(
-          'assets/logo-mark.png',
+          'assets/logo-mark.webp',
           width: size,
           height: size,
           fit: BoxFit.contain,

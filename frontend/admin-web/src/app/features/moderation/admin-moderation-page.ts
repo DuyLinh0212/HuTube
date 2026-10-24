@@ -5,7 +5,7 @@ import { Component, DestroyRef, ElementRef, OnInit, ViewChild, afterRenderEffect
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { catchError, forkJoin, map, of } from 'rxjs';
+import { catchError, forkJoin, map, of, TimeoutError } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -410,7 +410,9 @@ export class AdminModerationPage implements OnInit {
       },
       error: (err) => {
         this.submitting.set(false);
-        this.reviewError.set(err?.error?.detail || this.i18n.t('common.error'));
+        this.reviewError.set(err instanceof TimeoutError || err?.status === 0
+          ? this.i18n.t('moderationPage.decisionUnconfirmed')
+          : err?.error?.detail || this.i18n.t('common.error'));
       }
     });
   }

@@ -263,13 +263,13 @@ export class SystemNotificationsPage implements OnInit, OnDestroy {
   serviceIcon(key: string): string {
     // Use provider marks; SignalR is represented by its published .NET package icon.
     return ({
-      api: '/assets/logo-mark.png',
+      api: '/assets/logo-mark.webp',
       database: '/assets/brands/neon.svg',
-      redis: '/assets/brands/upstash.png',
+      redis: '/assets/brands/upstash.webp',
       vercel: '/assets/brands/vercel.svg',
-      storage: '/assets/brands/cloudflare.ico',
-      signalr: '/assets/brands/signalr.png',
-    } as Record<string, string>)[key.toLowerCase()] ?? '/assets/logo-mark.png';
+      storage: '/assets/brands/cloudflare.webp',
+      signalr: '/assets/brands/signalr.webp',
+    } as Record<string, string>)[key.toLowerCase()] ?? '/assets/logo-mark.webp';
   }
 
   signalTitle(item: SystemSignal): string { return this.i18n.t('operations.signal.' + this.signalKey(item) + '.title'); }

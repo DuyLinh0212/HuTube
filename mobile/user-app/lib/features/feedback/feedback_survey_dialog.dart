@@ -73,7 +73,7 @@ class FeedbackSurveyDialog extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Image.asset(
-                    'assets/feedback/pleading-cat.png',
+                    'assets/feedback/pleading-cat.webp',
                     width: 200,
                     height: 200,
                     fit: BoxFit.contain,

@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Logging;
 
 namespace HuTube.Infrastructure.Notifications;
 
@@ -77,9 +78,81 @@ public sealed class NotificationService(
     IAuthEmailSender emailSender,
     TimeProvider clock,
     AuthOptions? authOptions = null,
-    HybridCache? cache = null) : INotificationService
+    HybridCache? cache = null,
+    ILogger<NotificationService>? logger = null) : INotificationService
 {
     private static string CacheKey(Guid userId) => $"notifications:{userId:N}:recent";
+
+    public async Task<Func<CancellationToken, Task>> PrepareBatchAsync(IReadOnlyList<NotificationMessage> messages, CancellationToken ct = default)
+    {
+        var rows = new List<HuTube.Domain.Videos.Notification>();
+        var emails = new List<(string Address, NotificationMessage Message)>();
+        var unread = new Dictionary<Guid, int>();
+        // Bound SQL parameters and avoid one settings/read/save/count round trip per subscriber.
+        foreach (var userIds in messages.Select(x => x.UserId).Distinct().Order().Chunk(500))
+        {
+            var settings = await db.NotificationSettings.AsNoTracking().Where(x => userIds.Contains(x.UserId)).ToDictionaryAsync(x => x.UserId, ct);
+            var batch = messages.Where(x => userIds.Contains(x.UserId)).ToArray();
+            var emailIds = batch.Where(x => x.SendEmail).Select(x => x.UserId).Distinct().ToArray();
+            var addresses = emailIds.Length == 0 ? new Dictionary<Guid, string>()
+                : await db.Users.AsNoTracking().Where(x => emailIds.Contains(x.UserId)).ToDictionaryAsync(x => x.UserId, x => x.Email, ct);
+            foreach (var message in batch)
+            {
+                settings.TryGetValue(message.UserId, out var setting);
+                var enabled = message.Type switch
+                {
+                    "new_video" => setting?.NewVideoEnabled ?? true,
+                    "moderation" => setting?.ModerationEnabled ?? true,
+                    _ => true
+                };
+                if (!enabled) continue;
+                if (setting?.InAppEnabled ?? true)
+                    rows.Add(new HuTube.Domain.Videos.Notification {
+                        UserId = message.UserId, Type = message.Type, Title = message.Title, Content = message.Content,
+                        ActionUrl = message.ActionUrl, ResourceType = message.ResourceType, ResourceId = message.ResourceId,
+                        CreatedAt = clock.GetUtcNow()
+                    });
+                if (message.SendEmail && (setting?.EmailEnabled ?? true) && addresses.TryGetValue(message.UserId, out var address))
+                    emails.Add((address, message));
+            }
+        }
+        db.Notifications.AddRange(rows);
+        await db.SaveChangesAsync(ct);
+        foreach (var userIds in rows.Select(x => x.UserId).Distinct().Chunk(500))
+        {
+            var counts = await db.Notifications.AsNoTracking().Where(x => userIds.Contains(x.UserId) && !x.IsRead)
+                .GroupBy(x => x.UserId).Select(x => new { UserId = x.Key, Count = x.Count() }).ToListAsync(ct);
+            foreach (var count in counts) unread[count.UserId] = count.Count;
+        }
+        // Notification cache keys use the transactional SQL revision. No per-recipient
+        // Redis removal is needed, and no external service holds the moderation lock.
+        return async token =>
+        {
+            await Parallel.ForEachAsync(rows.GroupBy(x => x.UserId), new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = token }, async (group, cancellation) =>
+            {
+                try
+                {
+                    var client = hub.Clients.User(group.Key.ToString());
+                    foreach (var row in group) await client.SendAsync("NotificationReceived", ToResponse(row), cancellation);
+                    await client.SendAsync("UnreadCountChanged", unread.GetValueOrDefault(group.Key), cancellation);
+                }
+                catch (Exception ex) when (!cancellation.IsCancellationRequested)
+                { logger?.LogWarning(ex, "Realtime notification delivery failed after commit"); }
+            });
+            await Parallel.ForEachAsync(emails, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = token }, async (entry, cancellation) =>
+            {
+                var message = entry.Message;
+                var action = ResolveActionUrl(message.ActionUrl, authOptions?.WebBaseUrl);
+                try
+                {
+                    await emailSender.SendTemplateAsync(entry.Address, new(message.Title, "THÔNG BÁO TỪ DALITU", message.Title,
+                        [message.Content], action is null ? null : "Mở trên Dalitu", action), cancellation);
+                }
+                catch (Exception ex) when (!cancellation.IsCancellationRequested)
+                { logger?.LogWarning(ex, "Notification email delivery failed after commit"); }
+            });
+        };
+    }
 
     public async Task<NotificationPage> GetAsync(Guid userId, int page = 1, int pageSize = 5, CancellationToken ct = default)
     {

@@ -467,7 +467,7 @@ class _AppShellState extends State<AppShell> {
                     Row(
                       children: [
                         Image.asset(
-                          'assets/logo-mark.png',
+                          'assets/logo-mark.webp',
                           width: 30,
                           height: 30,
                         ),
@@ -649,7 +649,7 @@ class _AppShellState extends State<AppShell> {
         child: Padding(
           padding: const EdgeInsets.only(bottom: 20),
           child: Image.asset(
-            'assets/logo-mark.png',
+            'assets/logo-mark.webp',
             width: 88,
             height: 88,
             fit: BoxFit.contain,

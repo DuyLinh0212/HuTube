@@ -19,7 +19,7 @@
 
     <!-- Notification Bell -->
     <button class="icon-btn notif-btn" type="button" (click)="toggleNotifications()" [attr.aria-label]="'nav.notifications' | translate">
-      <img src="/assets/icons/notification.png" alt="" class="notif-bell-img" />
+      <img src="/assets/icons/notification.webp" alt="" class="notif-bell-img" />
       @if (notifications.unread()) { <span class="notif-badge">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</span> }
     </button>
     @if (notificationsOpen()) { <app-notification-panel (closed)="notificationsOpen.set(false)" /> }
@@ -56,20 +56,20 @@
 
           <div class="dropdown-body">
             <a class="dropdown-item" routerLink="/home" (click)="closeDropdown()">
-              <img src="/assets/icons/home.png" alt="" class="item-icon-img" />
+              <img src="/assets/icons/home.webp" alt="" class="item-icon-img" />
               <span>{{ 'studio.backToWeb' | translate }}</span>
             </a>
 
             @if (myChannel(); as ch) {
               <a class="dropdown-item" [routerLink]="['/channel', ch.handle]" (click)="closeDropdown()">
-                <img src="/assets/icons/my_channel.png" alt="" class="item-icon-img" />
+                <img src="/assets/icons/my_channel.webp" alt="" class="item-icon-img" />
                 <span>{{ ch.isOwner ? ('nav.yourChannel' | translate) : ('ui.collaborationChannel' | translate) }}</span>
               </a>
             }
 
             @if (studio.hasPermission('channel.setting.view') || studio.hasPermission('channel.setting.edit')) {
               <a class="dropdown-item" routerLink="/studio/settings" (click)="closeDropdown()">
-                <img src="/assets/icons/setting.png" alt="" class="item-icon-img" />
+                <img src="/assets/icons/setting.webp" alt="" class="item-icon-img" />
                 <span>{{ 'studio.settings' | translate }}</span>
               </a>
             }

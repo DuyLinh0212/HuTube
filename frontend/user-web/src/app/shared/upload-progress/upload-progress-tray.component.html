@@ -1,40 +1,42 @@
 @if (isVisible()) {
-  <aside class="upload-tray" [class.is-compact]="compact()" [class.is-failed]="upload.state().phase === 'failed'" [attr.aria-label]="label()">
-    @if (compact()) {
-      <div class="tray-compact-row">
-        <button type="button" class="tray-expand" (click)="expanded.set(true)" [attr.aria-label]="'upload.expandProgress' | translate">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span class="tray-copy"><strong>{{ label() }}</strong><span class="tray-file" [title]="upload.state().fileName">{{ upload.state().fileName }}</span></span>
-          <span class="tray-percent">{{ upload.state().progress | localeNumber:'1.0-0' }}%</span>
-          <span aria-hidden="true">⌄</span>
-        </button>
-        @if (!isActive()) {
-          <button type="button" class="tray-close" [attr.aria-label]="'ui.closeUpload' | translate" (click)="upload.reset()">×</button>
+  <aside class="upload-tray" [class.is-failed]="upload.state().phase === 'failed'" [class.is-completed]="upload.state().phase === 'completed'" [attr.aria-label]="label()">
+    <button type="button" class="upload-orb" [class.is-dragging]="dragging()" [attr.aria-expanded]="expanded()" [attr.aria-controls]="expanded() ? 'upload-progress-details' : null"
+      [attr.aria-label]="label() + ' ' + (progress() | localeNumber:'1.0-0') + '%. ' + ('upload.expandProgress' | translate)"
+      aria-describedby="upload-drag-hint" [title]="label() + ' — ' + upload.state().fileName"
+      (pointerdown)="pointerDown($event)" (pointermove)="pointerMove($event)" (pointerup)="pointerEnd($event)" (pointercancel)="pointerEnd($event)" (lostpointercapture)="pointerEnd($event)"
+      (click)="toggle($event)" (keydown)="moveWithKeyboard($event)">
+      <svg class="orb-ring" viewBox="0 0 68 68" aria-hidden="true">
+        <circle class="ring-track" cx="34" cy="34" r="29"/>
+        <circle class="ring-fill" cx="34" cy="34" r="29" pathLength="100" [attr.stroke-dasharray]="progress() + ' 100'"/>
+      </svg>
+      <span class="orb-content" aria-hidden="true">
+        @if (upload.state().phase === 'completed') { <span class="orb-symbol">✓</span> }
+        @else if (upload.state().phase === 'failed') { <span class="orb-symbol">!</span> }
+        @else {
+          <svg class="orb-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <strong>{{ progress() | localeNumber:'1.0-0' }}%</strong>
         }
-      </div>
-    } @else {
-      <div class="tray-heading">
-        <div class="tray-copy"><strong>{{ label() }}</strong><span class="tray-file" [title]="upload.state().fileName">{{ upload.state().fileName }}</span></div>
-        @if (!isUploadPage()) {
-          <button type="button" class="tray-close" (click)="expanded.set(false)" [attr.aria-label]="'upload.minimizeProgress' | translate">−</button>
-        }
-        @if (isActive()) {
-          <button type="button" class="tray-cancel" (click)="upload.cancel()">{{ 'common.cancel' | translate }}</button>
-        } @else {
-          <button type="button" class="tray-close" [attr.aria-label]="'ui.closeUpload' | translate" (click)="upload.reset()">×</button>
-        }
-      </div>
-    }
-    <div class="tray-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="upload.state().progress" [attr.aria-label]="label()"><span [style.width.%]="upload.state().progress"></span></div>
-    @if (!compact()) {
-      <div class="tray-meta"><span>{{ upload.state().progress | localeNumber:'1.0-0' }}%</span>
-        @if (isActive() && upload.state().total > 0) { <span>{{ bytes(upload.state().loaded) }} / {{ bytes(upload.state().total) }}</span> }
-      </div>
-      @if (upload.state().error) { <p class="tray-error">{{ upload.state().error }}</p> }
-      <div class="tray-actions">
-        @if (!isUploadPage()) { <a routerLink="/studio/upload">{{ 'upload.returnToUpload' | translate }} <span aria-hidden="true">↗</span></a> }
-        @if (upload.canRetry()) { <button class="tray-retry" type="button" (click)="upload.retry()">{{ 'common.retry' | translate }}</button> }
-      </div>
+      </span>
+    </button>
+    <span id="upload-drag-hint" class="visually-hidden">{{ 'upload.dragProgress' | translate }}</span>
+    @if (expanded()) {
+      <section id="upload-progress-details" class="tray-details" [style.left.px]="panelLeft()" [style.bottom]="opensUp() ? '80px' : null" [style.top]="opensUp() ? null : '80px'" [style.max-height.px]="panelHeight()" [attr.aria-label]="label()">
+        <div class="tray-heading">
+          <div class="tray-copy"><strong>{{ label() }}</strong><span class="tray-file" [title]="upload.state().fileName">{{ upload.state().fileName }}</span></div>
+          <button type="button" class="tray-close" (click)="minimize()" [attr.aria-label]="'upload.minimizeProgress' | translate">−</button>
+        </div>
+        <div class="tray-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="progress()" [attr.aria-label]="label()"><span [style.width.%]="progress()"></span></div>
+        <div class="tray-meta"><span>{{ progress() | localeNumber:'1.0-0' }}%</span>
+          @if (isActive() && upload.state().total > 0) { <span>{{ bytes(upload.state().loaded) }} / {{ bytes(upload.state().total) }}</span> }
+        </div>
+        @if (upload.state().error) { <p class="tray-error">{{ upload.state().error }}</p> }
+        <div class="tray-actions">
+          @if (!isUploadPage()) { <a routerLink="/studio/upload">{{ 'upload.returnToUpload' | translate }} <span aria-hidden="true">↗</span></a> }
+          @if (upload.canRetry()) { <button class="tray-retry" type="button" (click)="upload.retry()">{{ 'common.retry' | translate }}</button> }
+          @if (isActive()) { <button type="button" class="tray-cancel" (click)="upload.cancel()">{{ 'common.cancel' | translate }}</button> }
+          @else { <button type="button" class="tray-cancel" (click)="upload.reset()">{{ 'ui.closeUpload' | translate }}</button> }
+        </div>
+      </section>
     }
     <span class="visually-hidden" role="status" aria-live="polite">{{ label() }}</span>
   </aside>

@@ -199,7 +199,9 @@ builder.Services.AddScoped<RecommendationAdminService>();
 builder.Services.AddHostedService<RecommendationJobWorker>();
 builder.Services.AddSingleton<IAuthEmailSender, AuthEmailSender>();
 builder.Services.AddScoped<ReadModelCacheFilter>();
-builder.Services.AddControllers(options => options.Filters.AddService<ReadModelCacheFilter>()).ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
+builder.Services.AddControllers(options => options.Filters.AddService<ReadModelCacheFilter>())
+    .AddJsonOptions(options => options.JsonSerializerOptions.TypeInfoResolver = WebImageDelivery.CreateResolver())
+    .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = context => {
     var problem = ApiErrors.Create(context.HttpContext, 400, "VALIDATION_ERROR", "Vui lòng kiểm tra các trường dữ liệu.");
     problem.Extensions["errors"] = context.ModelState.Where(x => x.Value?.Errors.Count > 0).ToDictionary(x => x.Key, x => x.Value!.Errors.Select(_ => "Giá trị không hợp lệ.").ToArray());
     var result = new BadRequestObjectResult(problem); result.ContentTypes.Add("application/problem+json"); return result;

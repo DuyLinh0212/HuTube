@@ -65,7 +65,7 @@
           <div class="dropzone-card" [class.is-drag-active]="isFileDragActive()"
                (dragover)="onVideoDragOver($event)" (dragleave)="onVideoDragLeave($event)" (drop)="onVideoDrop($event)">
             <div class="dropzone-icon">
-              <img src="/assets/icons/upload_video.png" alt="" class="dropzone-icon-img" />
+              <img src="/assets/icons/upload_video.webp" alt="" class="dropzone-icon-img" />
             </div>
             <h2 class="dropzone-title">{{ 'upload.step1.boxTitle' | translate }}</h2>
             <p class="dropzone-desc">{{ 'upload.step1.boxDesc' | translate }}</p>
@@ -84,7 +84,7 @@
           <!-- Upload In-Progress Box -->
           @if (hasFile()) { <div class="upload-progress-card">
             <div class="progress-file-header">
-              <div class="file-icon"><img src="/assets/icons/my_video.png" alt="" class="file-icon-img" /></div>
+              <div class="file-icon"><img src="/assets/icons/my_video.webp" alt="" class="file-icon-img" /></div>
               <div class="file-info">
                 <strong class="file-name" [title]="selectedFileName()">{{ selectedFileName() }}</strong>
                 <span class="file-size">{{ fileSizeLabel() }} · {{ formatDuration(duration) }} · {{ resolutionLabel() }}</span>

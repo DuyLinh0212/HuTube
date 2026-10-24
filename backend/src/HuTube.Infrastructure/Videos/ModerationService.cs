@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using HuTube.Application.Auth;
 using HuTube.Application.Notifications;
 using HuTube.Application.Rbac;
@@ -16,7 +18,8 @@ public sealed class ModerationService(
     RbacService rbac,
     INotificationService notifications,
     IObjectStorage storage,
-    StrikePolicySettingsService strikePolicySettings)
+    StrikePolicySettingsService strikePolicySettings,
+    ILogger<ModerationService>? logger = null)
 {
     public ModerationService(HuTubeDbContext db, RbacService rbac, INotificationService notifications, IObjectStorage storage)
         : this(db, rbac, notifications, storage, new StrikePolicySettingsService(db, rbac)) { }
@@ -142,6 +145,11 @@ public sealed class ModerationService(
 
     public async Task<ModerationDecisionResponse> ResolveCaseAsync(Guid actorId, Guid caseId, ResolveModerationRequest request, CancellationToken ct = default)
     {
+        var elapsed = Stopwatch.StartNew();
+        var pendingNotifications = new List<NotificationMessage>();
+        void QueueNotification(Guid userId, string type, string title, string content, string? actionUrl,
+            string? resourceType, Guid? resourceId, CancellationToken cancellation) =>
+            pendingNotifications.Add(new(userId, type, title, content, actionUrl, resourceType, resourceId));
         var decision = request.Decision.Trim().ToLowerInvariant();
         if (decision is not ("approve" or "age_restricted" or "recommendation_restricted" or "reject" or "escalate"))
             throw new AuthException(400, "INVALID_DECISION", "Quyết định không hợp lệ. Chỉ chấp nhận approve, age_restricted, recommendation_restricted, reject, escalate.");
@@ -205,7 +213,7 @@ public sealed class ModerationService(
 
                 if (channel != null)
                 {
-                    await notifications.PublishAsync(channel.OwnerUserId, "video_approved", "Video đã được phê duyệt",
+                    QueueNotification(channel.OwnerUserId, "video_approved", "Video đã được phê duyệt",
                         $"Video '{video.Title}' đã được phê duyệt và xuất bản công khai.", $"/watch/{video.VideoId}", "video", video.VideoId, ct);
                 }
                 break;
@@ -223,7 +231,7 @@ public sealed class ModerationService(
 
                 if (channel != null)
                 {
-                    await notifications.PublishAsync(channel.OwnerUserId, "video_age_restricted", "Video gắn giới hạn độ tuổi",
+                    QueueNotification(channel.OwnerUserId, "video_age_restricted", "Video gắn giới hạn độ tuổi",
                         $"Video '{video.Title}' được duyệt nhưng bị gắn nhãn 18+ do chứa nội dung phù hợp người trưởng thành.", $"/watch/{video.VideoId}", "video", video.VideoId, ct);
                 }
                 break;
@@ -251,7 +259,7 @@ public sealed class ModerationService(
 
                 if (channel != null)
                 {
-                    await notifications.PublishAsync(channel.OwnerUserId, "video_restricted", "Video hạn chế phân phối",
+                    QueueNotification(channel.OwnerUserId, "video_restricted", "Video hạn chế phân phối",
                         $"Video '{video.Title}' đã xuất bản nhưng bị hạn chế gợi ý tại Trang chủ/Khám phá do nội dung nhạy cảm.", $"/watch/{video.VideoId}", "video", video.VideoId, ct);
                 }
                 break;
@@ -276,7 +284,7 @@ public sealed class ModerationService(
 
                 if (channel != null)
                 {
-                    await notifications.PublishAsync(channel.OwnerUserId, "video_rejected", "Video bị từ chối xuất bản",
+                    QueueNotification(channel.OwnerUserId, "video_rejected", "Video bị từ chối xuất bản",
                         $"Video '{video.Title}' bị từ chối xuất bản do vi phạm điều khoản {request.PolicyCode}. Lý do: {request.Reason}", $"/studio", "video", video.VideoId, ct);
 
                     var strikePolicy = await strikePolicySettings.GetAsync(ct);
@@ -324,7 +332,7 @@ public sealed class ModerationService(
                         var strikeNotification = shouldSuspendChannel
                             ? $"{strikeReason} Kênh đạt ngưỡng {strikePolicy.SuspensionStrikeCount} gậy đang hiệu lực và đã bị khóa."
                             : $"{strikeReason} Gậy này hạn chế quyền đăng tải video trong {restrictionDays} ngày.";
-                        await notifications.PublishAsync(
+                        QueueNotification(
                             channel.OwnerUserId,
                             "channel_strike",
                             $"Kênh nhận Gậy phạt {nextStrikeNumber}",
@@ -348,7 +356,7 @@ public sealed class ModerationService(
                                 $"Tự động khóa kênh '{channel.Name}' do đạt {nextStrikeNumber} gậy đang hiệu lực."
                             ), ct);
 
-                            await notifications.PublishAsync(
+                            QueueNotification(
                                 channel.OwnerUserId,
                                 "channel_suspended",
                                 "Kênh của bạn đã bị khóa tự động",
@@ -381,25 +389,12 @@ public sealed class ModerationService(
                 .Select(subscription => subscription.UserId)
                 .ToListAsync(ct);
 
-            foreach (var subscriberId in subscriberIds)
-            {
-                try
-                {
-                    await notifications.PublishInAppAsync(
-                        subscriberId,
-                        "new_video",
-                        $"{channelName} vừa đăng video mới",
-                        video.Title,
-                        $"/watch/{video.VideoId}",
-                        "video",
-                        video.VideoId,
-                        ct);
-                }
-                catch (Exception)
-                {
-                }
-            }
+            pendingNotifications.AddRange(subscriberIds.Distinct().Select(subscriberId => new NotificationMessage(
+                subscriberId, "new_video", $"{channelName} vừa đăng video mới", video.Title,
+                $"/watch/{video.VideoId}", "video", video.VideoId, SendEmail: false)));
         }
+
+        var deliverNotifications = await notifications.PrepareBatchAsync(pendingNotifications, ct);
 
         await rbac.LogAuditAsync(new AuditLogEntry(
             actorId,
@@ -410,6 +405,15 @@ public sealed class ModerationService(
         ), ct);
 
         if (transaction != null) await transaction.CommitAsync(ct);
+        logger?.LogInformation("Moderation decision committed in {ElapsedMs} ms; {NotificationCount} notification recipients", elapsed.ElapsedMilliseconds, pendingNotifications.Count);
+        // Persisted notifications remain available even if realtime/email is unavailable.
+        // Never roll back a decision or report a failed decision after commit.
+        using (var deliveryDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct))
+        {
+            deliveryDeadline.CancelAfter(TimeSpan.FromSeconds(8));
+            try { await deliverNotifications(deliveryDeadline.Token); }
+            catch (Exception ex) { logger?.LogWarning(ex, "Notification delivery incomplete after moderation commit; in-app notifications are persisted"); }
+        }
         return new ModerationDecisionResponse(
             moderationCase.ModerationCaseId,
             video.VideoId,

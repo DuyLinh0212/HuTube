@@ -4,11 +4,11 @@
 
   <nav class="page-tabs" role="tablist" [attr.aria-label]="'recommendations.pageTabs' | translate">
     <button id="recommendations-model-tab" type="button" role="tab" class="page-tab" [class.active]="activePageTab() === 'model'" [attr.aria-selected]="activePageTab() === 'model'" aria-controls="recommendation-model-panel" (click)="setPageTab('model')">
-      <span class="page-tab-icon"><img class="icon-img" src="/assets/icons/ai-model.png" alt="" aria-hidden="true" /></span>
+      <span class="page-tab-icon"><img class="icon-img" src="/assets/icons/ai-model.webp" alt="" aria-hidden="true" /></span>
       <span><strong>{{ 'recommendations.modelTab' | translate }}</strong><small>{{ 'recommendations.modelTabDescription' | translate }}</small></span>
     </button>
     <button id="recommendations-simulation-tab" type="button" role="tab" class="page-tab" [class.active]="activePageTab() === 'simulation'" [attr.aria-selected]="activePageTab() === 'simulation'" aria-controls="recommendation-simulation-panel" (click)="setPageTab('simulation')">
-      <span class="page-tab-icon"><img class="icon-img" src="/assets/icons/simulation.png" alt="" aria-hidden="true" /></span>
+      <span class="page-tab-icon"><img class="icon-img" src="/assets/icons/simulation.webp" alt="" aria-hidden="true" /></span>
       <span><strong>{{ 'recommendations.simulationTab' | translate }}</strong><small>{{ 'recommendations.simulationTabDescription' | translate }}</small></span>
     </button>
   </nav>
@@ -215,10 +215,10 @@
     </header>
 
     <div class="sim-stats" aria-label="{{ 'recommendations.simulatorStats' | translate }}">
-      <article class="stat-card stat-total"><span>{{ 'recommendations.metric.total' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/total-interactions.png" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().total | number }}</strong></article>
-      <article class="stat-card stat-like"><span>{{ 'recommendations.metric.likes' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/stat-like.png" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().likes | number }}</strong></article>
-      <article class="stat-card stat-comments"><span>{{ 'recommendations.metric.comments' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/stat-comment.png" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().comments | number }}</strong></article>
-      <article class="stat-card stat-rating"><span>{{ 'recommendations.metric.ratingSubs' | translate }} <b class="stat-icon stat-icon-pair"><img class="icon-img" src="/assets/icons/stat-rating.png" alt="" aria-hidden="true" /><i aria-hidden="true">/</i><img class="icon-img" src="/assets/icons/stat-subscribe.png" alt="" aria-hidden="true" /></b></span><strong><i>{{ metrics().ratings | number }}</i><small>{{ 'recommendations.metric.ratings' | translate }}</small><em>{{ metrics().subscriptions | number }}</em><small>{{ 'recommendations.metric.subs' | translate }}</small></strong></article>
+      <article class="stat-card stat-total"><span>{{ 'recommendations.metric.total' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/total-interactions.webp" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().total | number }}</strong></article>
+      <article class="stat-card stat-like"><span>{{ 'recommendations.metric.likes' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/stat-like.webp" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().likes | number }}</strong></article>
+      <article class="stat-card stat-comments"><span>{{ 'recommendations.metric.comments' | translate }} <b class="stat-icon"><img class="icon-img" src="/assets/icons/stat-comment.webp" alt="" aria-hidden="true" /></b></span><strong>{{ metrics().comments | number }}</strong></article>
+      <article class="stat-card stat-rating"><span>{{ 'recommendations.metric.ratingSubs' | translate }} <b class="stat-icon stat-icon-pair"><img class="icon-img" src="/assets/icons/stat-rating.webp" alt="" aria-hidden="true" /><i aria-hidden="true">/</i><img class="icon-img" src="/assets/icons/stat-subscribe.webp" alt="" aria-hidden="true" /></b></span><strong><i>{{ metrics().ratings | number }}</i><small>{{ 'recommendations.metric.ratings' | translate }}</small><em>{{ metrics().subscriptions | number }}</em><small>{{ 'recommendations.metric.subs' | translate }}</small></strong></article>
     </div>
 
     @if (job(); as currentJob) {
@@ -237,7 +237,7 @@
       <div class="sim-controls">
         <section class="sim-card user-card" aria-labelledby="user-picker-title">
           <div class="card-heading">
-            <div><span class="card-icon"><img class="icon-img" src="/assets/icons/target-user.png" alt="" aria-hidden="true" /></span><h3 id="user-picker-title">{{ 'recommendations.userPickerTitle' | translate }}</h3></div>
+            <div><span class="card-icon"><img class="icon-img" src="/assets/icons/target-user.webp" alt="" aria-hidden="true" /></span><h3 id="user-picker-title">{{ 'recommendations.userPickerTitle' | translate }}</h3></div>
             <div class="selection-tools">
               <button type="button" (click)="selectAllUsers()" [attr.aria-label]="'recommendations.selectAll' | translate">☑ {{ 'recommendations.selectAll' | translate }}</button>
               <button type="button" (click)="clearSelectedUsers()" [attr.aria-label]="'recommendations.clearSelection' | translate">× {{ 'recommendations.clearSelection' | translate }}</button>
@@ -267,9 +267,9 @@
 
         <section class="sim-card scenario-card" aria-labelledby="scenario-title">
           <nav class="scenario-tabs" [attr.aria-label]="'recommendations.scenarioTabs' | translate">
-            <button type="button" [class.active]="activeSimulatorTab() === 'target'" [attr.aria-pressed]="activeSimulatorTab() === 'target'" (click)="toggleSimulatorTab('target')"><img class="scenario-tab-icon icon-img" src="/assets/icons/target-user.png" alt="" aria-hidden="true" />{{ 'recommendations.targetTab' | translate }}</button>
-            <button type="button" [class.active]="activeSimulatorTab() === 'cluster'" [attr.aria-pressed]="activeSimulatorTab() === 'cluster'" (click)="toggleSimulatorTab('cluster')"><img class="scenario-tab-icon icon-img" src="/assets/icons/personal_cluster.png" alt="" aria-hidden="true" />{{ 'recommendations.clusterTab' | translate }}</button>
-            <button type="button" [class.active]="activeSimulatorTab() === 'comments'" [attr.aria-pressed]="activeSimulatorTab() === 'comments'" (click)="toggleSimulatorTab('comments')"><img class="scenario-tab-icon icon-img" src="/assets/icons/comment.png" alt="" aria-hidden="true" />{{ 'recommendations.commentPoolTab' | translate }}</button>
+            <button type="button" [class.active]="activeSimulatorTab() === 'target'" [attr.aria-pressed]="activeSimulatorTab() === 'target'" (click)="toggleSimulatorTab('target')"><img class="scenario-tab-icon icon-img" src="/assets/icons/target-user.webp" alt="" aria-hidden="true" />{{ 'recommendations.targetTab' | translate }}</button>
+            <button type="button" [class.active]="activeSimulatorTab() === 'cluster'" [attr.aria-pressed]="activeSimulatorTab() === 'cluster'" (click)="toggleSimulatorTab('cluster')"><img class="scenario-tab-icon icon-img" src="/assets/icons/personal_cluster.webp" alt="" aria-hidden="true" />{{ 'recommendations.clusterTab' | translate }}</button>
+            <button type="button" [class.active]="activeSimulatorTab() === 'comments'" [attr.aria-pressed]="activeSimulatorTab() === 'comments'" (click)="toggleSimulatorTab('comments')"><img class="scenario-tab-icon icon-img" src="/assets/icons/comment.webp" alt="" aria-hidden="true" />{{ 'recommendations.commentPoolTab' | translate }}</button>
           </nav>
 
           @if (activeSimulatorTab() !== 'comments') {
@@ -352,7 +352,7 @@
                  </div>
                </div>
               @if (hasRealUsers()) { <label class="confirmation"><input type="checkbox" [(ngModel)]="confirmRealUsers" /><span>{{ 'recommendations.confirmRealUsers' | translate }}</span></label> }
-              <button type="button" class="run-button" [disabled]="busy() || loadingVideos() || isSimulationLive()" (click)="simulate()"><img class="button-icon icon-img" src="/assets/icons/simulation.png" alt="" aria-hidden="true" />{{ 'recommendations.runTarget' | translate }}</button>
+              <button type="button" class="run-button" [disabled]="busy() || loadingVideos() || isSimulationLive()" (click)="simulate()"><img class="button-icon icon-img" src="/assets/icons/simulation.webp" alt="" aria-hidden="true" />{{ 'recommendations.runTarget' | translate }}</button>
             </div>
           }
 
@@ -384,7 +384,7 @@
                  </div>
                </div>
               <p class="persona-note">{{ 'recommendations.personaPoolNote' | translate:{ category: selectedCategoryNames(), count: videos().length, categoryPreference: 100 } }}</p>
-              <button type="button" class="run-button" [disabled]="busy() || loadingVideos() || isSimulationLive()" (click)="simulate()"><img class="button-icon icon-img" src="/assets/icons/simulation.png" alt="" aria-hidden="true" />{{ 'recommendations.runCluster' | translate }}</button>
+              <button type="button" class="run-button" [disabled]="busy() || loadingVideos() || isSimulationLive()" (click)="simulate()"><img class="button-icon icon-img" src="/assets/icons/simulation.webp" alt="" aria-hidden="true" />{{ 'recommendations.runCluster' | translate }}</button>
             </div>
           }
 

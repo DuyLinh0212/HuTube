@@ -9,14 +9,14 @@
   @if (isLiked) {
     <section class="rating-filter" [attr.aria-label]="'library.ratingFilter' | translate">
       <span class="rating-filter__label">
-        <img src="/assets/icons/utility/icon-utility-filter-sliders.png" alt="" class="filter-icon-img" />
+        <img src="/assets/icons/utility/icon-utility-filter-sliders.webp" alt="" class="filter-icon-img" />
         <span>{{ 'library.ratingLabel' | translate }}</span>
       </span>
       <div class="rating-filter__options" role="group">
         <button type="button" [class.is-active]="ratingFilter() === null" [attr.aria-pressed]="ratingFilter() === null" (click)="setRatingFilter(null)">{{ 'ui.all' | translate }}</button>
         @for (star of [1, 2, 3, 4, 5]; track star) {
           <button type="button" class="rating-filter__btn" [class.is-active]="ratingFilter() === star" [attr.aria-pressed]="ratingFilter() === star" (click)="setRatingFilter(star)">
-            <img src="/assets/icons/utility/icon-utility-star.png" alt="" class="star-icon-img" />
+            <img src="/assets/icons/utility/icon-utility-star.webp" alt="" class="star-icon-img" />
             <span>{{ star }}</span>
           </button>
         }
@@ -93,7 +93,7 @@
     } @else {
       <section class="library-empty">
         <div class="library-empty__icon-box">
-          <img [src]="isLiked ? '/assets/icons/favorite.png' : '/assets/icons/history.png'" alt="" class="empty-icon-img" />
+          <img [src]="isLiked ? '/assets/icons/favorite.webp' : '/assets/icons/history.webp'" alt="" class="empty-icon-img" />
         </div>
         <h2>{{ (isLiked && ratingFilter() !== null ? 'library.noMatching' : (isLiked ? 'library.noLiked' : 'library.noHistory')) | translate }}</h2>
         <p>{{ (isLiked && ratingFilter() !== null ? 'library.matchingHint' : (isLiked ? 'library.likedHint' : 'library.historyHint')) | translate }}</p>

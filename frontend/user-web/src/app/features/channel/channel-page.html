@@ -78,7 +78,7 @@
         <div class="channel-cta-row">
           @if (ch.isOwner) {
             <a [routerLink]="['/channel', ch.handle, 'customize']" class="btn-primary">
-              <img src="/assets/icons/setting.png" class="btn-img-icon" alt="" />
+              <img src="/assets/icons/setting.webp" class="btn-img-icon" alt="" />
               {{ 'channel.customize' | translate }}
             </a>
             <a routerLink="/studio" class="btn-secondary" [title]="'ui.openCreatorStudio' | translate">
@@ -205,7 +205,7 @@
         } @else if (!videoResultsError()) {
           <div class="empty-videos-box">
             <div class="box-icon">
-              <img src="/assets/icons/my_video.png" class="empty-state-img" alt="" />
+              <img src="/assets/icons/my_video.webp" class="empty-state-img" alt="" />
             </div>
             <h3>{{ 'channel.noVideos' | translate }}</h3>
             <p>{{ 'channel.noVideosDesc' | translate }}</p>
@@ -236,7 +236,7 @@
       </ng-template>
 
       <ng-template #emptyVideos>
-        <div class="empty-videos-box"><div class="box-icon"><img src="/assets/icons/my_video.png" class="empty-state-img" alt="" /></div><h3>{{ 'channel.noVideos' | translate }}</h3><p>{{ 'channel.noVideosDesc' | translate }}</p></div>
+        <div class="empty-videos-box"><div class="box-icon"><img src="/assets/icons/my_video.webp" class="empty-state-img" alt="" /></div><h3>{{ 'channel.noVideos' | translate }}</h3><p>{{ 'channel.noVideosDesc' | translate }}</p></div>
       </ng-template>
 
       @if (activeTab() === 'playlists') {
@@ -273,7 +273,7 @@
         } @else {
           <div class="empty-videos-box">
             <div class="box-icon">
-              <img src="/assets/icons/playlist.png" class="empty-state-img" alt="" />
+              <img src="/assets/icons/playlist.webp" class="empty-state-img" alt="" />
             </div>
             <h3>{{ 'channel.noPlaylists' | translate }}</h3>
             <p>{{ 'channel.noPlaylistsDesc' | translate }}</p>

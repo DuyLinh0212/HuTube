@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { RuntimeConfig } from '../../core/runtime-config';
-import { EMPTY, expand, reduce, Observable } from 'rxjs';
+import { EMPTY, expand, reduce, timeout, Observable } from 'rxjs';
 
 export type ModerationDecision =
   | 'approve'
@@ -239,7 +239,7 @@ export class AdminModerationService {
   }
 
   resolve(caseId: string, request: ResolveModerationRequest): Observable<ModerationDecisionResponse> {
-    return this.http.post<ModerationDecisionResponse>(`${this.config.apiBaseUrl}/admin/moderation/${caseId}/resolve`, request);
+    return this.http.post<ModerationDecisionResponse>(`${this.config.apiBaseUrl}/admin/moderation/${caseId}/resolve`, request).pipe(timeout(60_000));
   }
 
   getPolicies(): Observable<PolicyItem[]> {
