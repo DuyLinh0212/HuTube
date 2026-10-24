@@ -122,9 +122,9 @@
       }
     </h2>
     <p class="muted">@switch (mode()) { @case ('login') { {{ (admin ? 'auth.adminSubtitle' : 'auth.loginSubtitle') | translate }} } @case ('register') { {{ 'auth.registerSubtitle' | translate }} } @case ('verify-email') { {{ 'auth.verifySubtitle' | translate }} } @case ('forgot-password') { {{ 'auth.forgotSubtitle' | translate }} } @case ('reset-password') { {{ 'auth.resetSubtitle' | translate }} } }</p>
-    @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
+    @if (message()) { <app-result-notice tone="success" [message]="message()" /> }
     @if (error()) {
-      <p class="notice error" role="alert">{{ error() }}</p>
+      <app-result-notice tone="error" [message]="error()" />
       @if (mode() === 'login' && verificationSuggested()) {
         <p class="verification-help">{{ 'auth.verificationHelp' | translate }} <a routerLink="/verify-email" [queryParams]="{ email: email }">{{ 'auth.resendEmail' | translate }}</a></p>
       }

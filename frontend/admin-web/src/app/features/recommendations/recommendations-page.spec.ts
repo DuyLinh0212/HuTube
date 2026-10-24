@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { RuntimeConfig } from '../../core/runtime-config';
 import { I18nService } from '../../core/i18n.service';
 import { RecommendationsPage } from './recommendations-page';
@@ -11,7 +12,7 @@ describe('Recommendation model statistics', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [RecommendationsPage],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     TestBed.inject(RuntimeConfig).apiBaseUrl = 'http://localhost:5080/api/v1';
     TestBed.inject(I18nService).setLang('vi');

@@ -1,6 +1,6 @@
 <main id="main-content" class="playlists-page">
   @if (error()) {
-    <div class="notice notice-error" role="alert"><span aria-hidden="true">!</span>{{ error() }}</div>
+    <app-result-notice tone="error" [message]="error()" />
   }
 
   @if (loading()) {

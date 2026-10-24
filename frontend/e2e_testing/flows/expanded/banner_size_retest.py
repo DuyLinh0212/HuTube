@@ -6,7 +6,7 @@ def run(suite,config,actors):
     def oversized(entry):
         before=suite.api(owner,'get','/channels/me').json();suite.go(owner,'/channel/'+channel['handle']+'/customize','app-channel-settings-page');p.locator('.settings-tabs-nav .tab-btn').nth(1).click()
         payload={'name':'qc-oversized.png','mimeType':'image/png','buffer':b'0'*(10*1024*1024+1)}
-        p.locator('.branding-tab-pane input[type=file]').nth(1).set_input_files(payload);expect(p.locator('.alert-error')).to_be_visible()
+        p.locator('.branding-tab-pane input[type=file]').nth(1).set_input_files(payload);expect(p.locator('app-result-notice[tone=error]')).to_be_visible()
         try:suite.api(owner,'post','/channels/'+cid+'/banner',multipart={'file':payload},expected=(400,413,415,422))
         except RuntimeError as error:
             if 'ECONNRESET' not in str(error):raise

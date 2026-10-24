@@ -18,7 +18,7 @@ def run(suite,owner):
                 page.locator('.link-row-card').last.locator('input[type=url]').fill(value)
             else: page.locator('#chName' if field=='name' else '#chHandle').fill(value)
             page.locator('.basic-tab-pane .form-actions button').click()
-            expect(page.locator('.alert-error')).to_be_visible()
+            expect(page.locator('app-result-notice[tone=error]')).to_be_visible()
             unchanged()
             suite.evidence(owner,case,'validation-error')
             page.reload()
@@ -40,11 +40,11 @@ def run(suite,owner):
                     # Kestrel's request-size rejection can lack CORS headers;
                     # the browser then reports requestfailed rather than response.
                     action()
-                    expect(page.locator('.alert-error')).to_be_visible()
+                    expect(page.locator('app-result-notice[tone=error]')).to_be_visible()
                     suite.api(owner,'post',path+'/'+kind,multipart={'file':payload},expected=(400,413,415,422))
                 else:
                     suite.response(owner,path+'/'+kind,action,method='POST',status=(400,413,415,422))
-                expect(page.locator('.alert-error')).to_be_visible()
+                expect(page.locator('app-result-notice[tone=error]')).to_be_visible()
                 unchanged()
                 suite.evidence(owner,case,'branding-error')
                 page.reload(); expect(page.locator('#chName')).to_have_value(baseline['name'])

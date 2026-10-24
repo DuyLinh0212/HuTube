@@ -1,8 +1,6 @@
 <main id="main-content" class="create-channel-container">
   @if (error()) {
-    <div class="alert-banner alert-error" role="alert">
-      <span>⚠️ {{ error() }}</span>
-    </div>
+    <app-result-notice tone="error" [message]="error()" />
   }
   @if (!existingChannel() && pendingInvitations().length > 0) {
     <section class="collaboration-callout" aria-labelledby="collaboration-callout-title">

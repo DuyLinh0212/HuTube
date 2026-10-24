@@ -1,4 +1,5 @@
 """Real stale queue + competing reviewer; no network responses are mocked."""
+from support.ui_confirmation import app_confirm
 import re
 from playwright.sync_api import expect
 from flows.expanded.common import case,snapshot_module
@@ -33,8 +34,7 @@ def run(suite,config,actors):
         for v in videos:p.locator('.queue-table tbody tr').filter(has_text=v['videoId'][:8]).locator('input[type=checkbox]').check()
         # Legitimate concurrent mutation after the first reviewer's UI snapshot.
         suite.api(r2,'post','/admin/moderation/'+mids[1]+'/claim',data={})
-        p.once('dialog',lambda d:d.accept())
-        p.locator('.bulk-actions .primary').click()
+        app_confirm(p, lambda: p.locator('.bulk-actions .primary').click(), accept=True)
         p.wait_for_function('()=>!document.querySelector(".loading-state")')
         # Successful claims leave the pending tab. Inspect the actual reviewing tab.
         p.locator('.status-tabs [role=tab]').nth(1).click()
@@ -67,17 +67,17 @@ def run(suite,config,actors):
     def summary(successes,failures):
         return p.locator('section[role=status]').filter(has_text=re.compile(str(successes)+r' thành công, '+str(failures)+r' thất bại|'+str(successes)+r' succeeded, '+str(failures)+r' failed'))
     def all_success(entry):
-        select_pending();p.once('dialog',lambda d:d.dismiss())
+        select_pending()
         before=sum(e['method']=='POST' and e['path'].endswith('/claim') for e in suite.report['http_statuses'])
-        p.locator('.bulk-actions .primary').click()
+        app_confirm(p, lambda: p.locator('.bulk-actions .primary').click(), accept=False)
         assert before==sum(e['method']=='POST' and e['path'].endswith('/claim') for e in suite.report['http_statuses'])
         assert all(current(mid)['status']=='pending' for mid in mids)
-        p.once('dialog',lambda d:d.accept());p.locator('.bulk-actions .primary').click()
+        app_confirm(p, lambda: p.locator('.bulk-actions .primary').click(), accept=True)
         expect(summary(2,0)).to_be_visible()
         assert all(current(mid)['reviewerId']==r1['identity']['userId'] for mid in mids)
         p.locator('.status-tabs [role=tab]').nth(1).click()
         for v in videos:p.locator('.queue-table tbody tr').filter(has_text=v['videoId'][:8]).locator('input[type=checkbox]').check()
-        p.once('dialog',lambda d:d.accept());p.locator('.bulk-actions .subtle').click()
+        app_confirm(p, lambda: p.locator('.bulk-actions .subtle').click(), accept=True)
         expect(summary(2,0)).to_be_visible()
         for _ in range(20):
             if all(current(mid)['status']=='pending' for mid in mids):break
@@ -91,7 +91,7 @@ def run(suite,config,actors):
     def all_failure(entry):
         select_pending()
         for mid in mids:suite.api(r2,'post','/admin/moderation/'+mid+'/claim',data={})
-        p.once('dialog',lambda d:d.accept());p.locator('.bulk-actions .primary').click()
+        app_confirm(p, lambda: p.locator('.bulk-actions .primary').click(), accept=True)
         expect(summary(0,2)).to_be_visible()
         for v in videos:expect(summary(0,2)).to_contain_text(v['title'])
         assert all(current(mid)['reviewerId']==r2['identity']['userId'] for mid in mids)

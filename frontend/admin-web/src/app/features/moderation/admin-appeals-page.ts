@@ -1,3 +1,5 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { ReviewerLeaseService } from './reviewer-lease.service';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -15,7 +17,7 @@ import {
 @Component({
   selector: 'app-admin-appeals-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-appeals-page.html',
   styleUrl: './admin-appeals-page.scss'
 })

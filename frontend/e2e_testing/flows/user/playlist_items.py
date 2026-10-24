@@ -1,4 +1,5 @@
 """Use Watch playlist picker, then verify ownership and removal in Playlist UI."""
+from support.ui_confirmation import app_confirm
 from playwright.sync_api import expect
 
 
@@ -56,12 +57,10 @@ def run(suite, owner, member):
         remaining=[item['videoId'] for item in before if item['videoId']!=video_id]
         suite.go(owner,'/playlists/'+playlist_id,'app-playlists-page')
         row=page.locator('.video-row').filter(has=page.locator('a[href="/watch/'+video_id+'"]'))
-        page.once('dialog',lambda dialog:dialog.dismiss())
-        row.locator('.remove-button').click()
+        app_confirm(page, lambda: row.locator('.remove-button').click(), accept=False)
         expect(row).to_have_count(1)
-        page.once('dialog',lambda dialog:dialog.accept())
         with page.expect_response(lambda response:response.request.method=='DELETE' and response.url.endswith(path+'/videos/'+video_id)) as pending:
-            row.locator('.remove-button').click()
+            app_confirm(page, lambda: row.locator('.remove-button').click(), accept=True)
         assert pending.value.status in (200,204)
         suite.go(owner,'/playlists/'+playlist_id,'app-playlists-page')
         if remaining:

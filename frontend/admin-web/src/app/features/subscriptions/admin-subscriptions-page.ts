@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { DecimalPipe, UpperCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,11 +19,12 @@ import {
 
 @Component({
   selector: 'app-admin-subscriptions-page',
-  imports: [FormsModule, DecimalPipe, UpperCasePipe, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, DecimalPipe, UpperCasePipe, TranslatePipe],
   templateUrl: './admin-subscriptions-page.html',
   styleUrl: './admin-subscriptions-page.scss',
 })
 export class AdminSubscriptionsPage implements OnInit {
+  private readonly feedback = inject(FeedbackService);
   private readonly service = inject(AdminSubscriptionsService);
   private readonly plansService = inject(AdminPlansService);
   private readonly searchInput = new Subject<string>();
@@ -219,11 +222,11 @@ export class AdminSubscriptionsPage implements OnInit {
     this.load();
   }
 
-  extendSubscription(): void {
+  async extendSubscription(): Promise<void> {
     const selected = this.detail()?.subscription;
     if (!selected || this.action()) return;
     const message = this.i18n.format('subscriptions.extendConfirm', { days: selected.durationDays, plan: selected.planName });
-    if (!window.confirm(message)) return;
+    if (!(await this.feedback.confirm(message))) return;
     this.action.set('extend');
     this.runAction(this.service.extend(selected.planHistoryId), 'subscriptions.extended');
   }
@@ -237,11 +240,11 @@ export class AdminSubscriptionsPage implements OnInit {
 
   closeSwitchPlan(): void { this.showPlanSwitch.set(false); }
 
-  confirmSwitchPlan(): void {
+  async confirmSwitchPlan(): Promise<void> {
     const selected = this.detail()?.subscription;
     const target = this.plans().find(plan => plan.planId === this.switchPlanId && plan.status === 'active');
     if (!selected || !target || this.action()) return;
-    if (!window.confirm(this.i18n.format('subscriptions.switchConfirm', { plan: target.name }))) return;
+    if (!(await this.feedback.confirm(this.i18n.format('subscriptions.switchConfirm', { plan: target.name })))) return;
     this.action.set('switch');
     this.showPlanSwitch.set(false);
     this.runAction(this.service.switchPlan(selected.planHistoryId, target.planId), 'subscriptions.switched');

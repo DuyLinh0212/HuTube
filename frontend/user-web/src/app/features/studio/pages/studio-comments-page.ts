@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, ElementRef, OnDestroy, ViewChild, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -18,11 +20,12 @@ type CommentSort = 'newest' | 'oldest' | 'mostLiked';
 
 @Component({
   selector: 'app-studio-comments-page',
-  imports: [FormsModule, RouterLink, TranslatePipe, LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe],
+  imports: [ResultNoticeComponent, FormsModule, RouterLink, TranslatePipe, LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe],
   templateUrl: './studio-comments-page.html',
   styleUrl: './studio-comments-page.scss',
 })
 export class StudioCommentsPage implements OnDestroy {
+  private readonly feedback = inject(FeedbackService);
   private readonly content = inject(ContentService);
   readonly data = inject(StudioDataService);
   readonly i18n = inject(I18nService);
@@ -156,8 +159,8 @@ export class StudioCommentsPage implements OnDestroy {
       });
   }
 
-  remove(row: StudioComment) {
-    if (this.busyCommentId() || !window.confirm(this.i18n.t('studio.confirmDeleteComment'))) return;
+  async remove(row: StudioComment) {
+    if (this.busyCommentId() || !(await this.feedback.confirm(this.i18n.t('studio.confirmDeleteComment'), { tone: 'danger' }))) return;
     this.busyCommentId.set(row.comment.commentId);
     this.actionError.set('');
     this.content.deleteComment(row.comment.commentId).subscribe({

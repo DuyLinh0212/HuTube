@@ -1,4 +1,5 @@
 """Visibility, cancel and deletion using a separate disposable playlist."""
+from support.ui_confirmation import app_confirm
 from playwright.sync_api import expect
 
 
@@ -77,12 +78,10 @@ def run(suite, owner, member):
         target = '/playlists/' + disposable['playlistId']
         suite.go(owner, target, 'app-playlists-page')
         page.locator('.title-edit-button').click()
-        page.once('dialog', lambda dialog: dialog.dismiss())
-        page.locator('.text-danger-button').click()
+        app_confirm(page, lambda: page.locator('.text-danger-button').click(), accept=False)
         assert suite.api(owner, 'get', target).status == 200
-        page.once('dialog', lambda dialog: dialog.accept())
         with page.expect_response(lambda response: response.request.method == 'DELETE' and response.url.endswith(target)) as pending:
-            page.locator('.text-danger-button').click()
+            app_confirm(page, lambda: page.locator('.text-danger-button').click(), accept=True)
         assert pending.value.status == 204
         expect(page.locator('.create-card')).to_be_visible()
         assert suite.api(owner, 'get', target).status == 404

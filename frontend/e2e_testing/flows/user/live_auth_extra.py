@@ -68,13 +68,13 @@ def run(suite,owner,admin):
                 if page.locator('.top-avatar').get_attribute('aria-expanded')!='true':
                     page.locator('.top-avatar').click()
                 page.locator('.account-drawer__logout').click()
-                page.locator('.logout-confirm-cancel').click()
-                expect(page.locator('.logout-confirm-dialog')).to_have_count(0)
+                page.locator('app-feedback-host .confirm-cancel').click()
+                expect(page.locator('app-feedback-host app-confirm-dialog')).to_have_count(0)
                 assert suite.api(actor,'get','/auth/me').status==200
                 if page.locator('.top-avatar').get_attribute('aria-expanded')!='true':
                     page.locator('.top-avatar').click()
                 page.locator('.account-drawer__logout').click()
-                suite.response(actor,'/auth/logout',lambda:page.locator('.logout-confirm-submit').click(),method='POST')
+                suite.response(actor,'/auth/logout',lambda:page.locator('app-feedback-host .confirm-submit').click(),method='POST')
             else:
                 suite.response(actor,'/auth/logout',lambda:page.locator('app-account-page .account-content > .section-heading > button').click(),method='POST')
             page.wait_for_url('**/login**')

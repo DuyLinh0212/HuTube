@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -13,7 +14,7 @@ import { TranslatePipe } from '../../../core/translate.pipe';
 @Component({
   selector: 'app-video-edit-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './video-edit-page.html',
   styleUrl: './video-edit-page.scss'
 })

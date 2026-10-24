@@ -1,3 +1,4 @@
+from support.ui_confirmation import app_confirm
 from playwright.sync_api import expect
 from flows.expanded.common import case,snapshot_module
 from support.live_suite import PrerequisiteMissing
@@ -75,9 +76,9 @@ def run(suite,config,actors):
             entry['steps']=['Author opens actual edit UI','Cancel leaves persisted content unchanged','Empty edit cannot save','Save PATCH persists; reload shows edited content','Other Member cannot overwrite author comment','Restore original text through author UI']
         case(suite,member,'WATCH-COMMENT-AUTHOR-EDIT-UI','U-WATCH.04','Author can open comment edit UI',edit_ui,'comments')
         def delete(entry):
-            row=studio();p.once('dialog',lambda d:d.dismiss());row.locator('.action-delete').click()
+            row=studio();app_confirm(p, lambda: row.locator('.action-delete').click(), accept=False)
             assert any(c['commentId']==comment['commentId'] for c in suite.api(member,'get',base).json()['items'])
-            p.once('dialog',lambda d:d.accept());suite.response(owner,path,lambda:row.locator('.action-delete').click(),method='DELETE',status=204)
+            suite.response(owner,path,lambda:app_confirm(p, lambda: row.locator('.action-delete').click(), accept=True),method='DELETE',status=204)
             assert not any(c['commentId']==comment['commentId'] for c in suite.api(member,'get',base).json()['items'])
             p.reload();expect(p.locator('.comment-card').filter(has_text=text)).to_have_count(0)
             entry['steps']=['Cancel owner moderation delete leaves comment','Confirm deletes actual comment','Public API and Studio reload exclude deleted ID']

@@ -197,3 +197,37 @@ Toàn bộ ảnh đã được khởi tạo chuẩn tỉ lệ và lưu đồng b
 
 > [!TIP]
 > Bạn có thể mở trực tiếp file [`docs/design/logo-preview.html`](file:///f:/NgDuyLinh/Khoa_Luan_Tot_Nghiep/HuTube/docs/design/logo-preview.html) trên trình duyệt để so sánh trực quan cả 6 logo trên nền sáng/tối và thử nghiệm thanh Menu thực tế!
+
+## 5. Xác nhận thao tác và thông báo kết quả Dalitu
+
+Áp dụng chung cho User Web và Admin Web. Mã nguồn thành phần nằm tại `frontend/shared/ui/`, hai ứng dụng dùng trực tiếp cùng một nguồn.
+
+### Hộp xác nhận
+
+- Dùng `ConfirmDialogComponent` cho xác nhận có biểu mẫu; dùng `FeedbackService.confirm()` cho câu hỏi xác nhận ngắn. Không dùng `window.confirm()` hoặc `window.alert()`.
+- Bố cục: biểu tượng, tiêu đề, mô tả hậu quả, trường bổ sung nếu cần, nút Hủy và nút xác nhận. Giữ nội dung ngắn, ghi rõ đối tượng/thao tác.
+- Nút chính dùng màu thương hiệu Coral Rose; thao tác xóa, thu hồi hoặc không thể khôi phục dùng trạng thái `danger`. Nút Hủy dùng nền trung tính. Dùng token giao diện để hỗ trợ sáng/tối.
+- Hộp rộng tối đa 440 px, cách mép màn hình tối thiểu 16 px, bo góc 16 px; nội dung dài được cuộn. Nút cao tối thiểu 42 px, xuống bố cục phù hợp màn hình nhỏ.
+- Sử dụng native `dialog.showModal()` để giữ focus trong hộp, chặn tương tác với nền và hỗ trợ bàn phím. Focus ban đầu đặt ở Hủy, hoặc trường nhập đầu tiên khi cần điền thông tin. Escape, nút đóng và bấm nền đều hủy.
+- Khi đang gửi: khóa nút xác nhận, nút Hủy và thao tác đóng; nhãn chuyển sang trạng thái đang xử lý. Chỉ gửi sau khi người dùng xác nhận; đổi trang sẽ hủy câu hỏi đang chờ.
+- Lỗi của biểu mẫu phải hiển thị ngay trong hộp bằng thông báo kết quả chung; giữ dữ liệu để người dùng sửa và thử lại.
+
+### Thông báo kết quả
+
+- Dùng `ResultNoticeComponent` cho kết quả trong trang/hộp; `FeedbackService` hiển thị thông báo nổi qua cùng thành phần này. Không dùng thông báo trình duyệt.
+- Có bốn trạng thái: `success` (thành công), `error` (thất bại), `warning` (cảnh báo hoặc thành công một phần), `info` (thông tin). Mỗi trạng thái có biểu tượng, tiêu đề và màu ngữ nghĩa; không truyền đạt kết quả chỉ bằng màu.
+- Nền nhạt, viền màu ngữ nghĩa, bo góc 12 px, nội dung tự xuống dòng. Lỗi dùng `role="alert"`; trạng thái còn lại dùng `role="status"`.
+- Kết quả hàng loạt ghi số thành công/thất bại và danh sách đối tượng lỗi cùng lý do. Không báo thành công khi tất cả thất bại, không ghi “lỗi ở bên dưới” khi không có lỗi.
+- Thông báo nổi cho phép đóng và giữ tối đa ba thông báo; lỗi cần thao tác sửa đặt sát biểu mẫu, tránh bị hộp thoại che.
+
+### Thanh chọn và duyệt nhanh hồ sơ video
+
+- Thanh thao tác chọn nằm riêng dưới tiêu đề bảng, tách số đã chọn khỏi các nút bằng khoảng cách rõ ràng. Checkbox dùng màu thương hiệu, có trạng thái chọn một phần và vùng bấm tối thiểu 40 px.
+- Hồ sơ chờ: nút Nhận hồ sơ. Hồ sơ đã nhận còn quyền xử lý: nút Duyệt nhanh; chỉ mở hồ sơ đang thuộc người kiểm duyệt hiện tại.
+- Duyệt nhanh mở một không gian thẩm định có tab video, trình phát, thông tin và biểu mẫu quyết định. Ghi chú, chính sách và lựa chọn quyết định độc lập giữa từng video.
+- Chọn quyết định chưa gửi ngay. Nút xác nhận ở chân cửa sổ lưu video hiện tại rồi chuyển sang video tiếp theo khi thành công. Thất bại giữ nguyên tab và dữ liệu. Đóng tab không tự trả hồ sơ và không tự phê duyệt.
+- Trên màn hình nhỏ, thanh tab cuộn ngang, trình phát và biểu mẫu xếp dọc; nội dung cuộn trong cửa sổ, nút cuối luôn nằm trong khung nhìn.
+
+### Cấu hình phát triển cho thành phần dùng chung
+
+Hai ứng dụng ánh xạ `@dalitu/ui/*` tới `frontend/shared/ui/*` trong TypeScript và dùng Angular/RxJS từ ứng dụng hiện tại. `serve.options.prebundle` đặt `false` để tránh nạp hai bản Angular khi phục vụ mã nguồn bên ngoài thư mục ứng dụng. Build production vẫn sử dụng tối ưu hóa mặc định.

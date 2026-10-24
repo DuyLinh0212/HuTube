@@ -1,0 +1,29 @@
+:root {
+  --feedback-success-bg: #ecfdf3; --feedback-success-ink: #166534; --feedback-success-line: #bbf7d0;
+  --feedback-error-bg: #fff1f2; --feedback-error-ink: #b42318; --feedback-error-line: #fecdd3;
+  --feedback-warning-bg: #fffbeb; --feedback-warning-ink: #92400e; --feedback-warning-line: #fde68a;
+  --feedback-info-bg: #eff6ff; --feedback-info-ink: #1d4ed8; --feedback-info-line: #bfdbfe;
+}
+[data-theme='dark'], body.dark-theme {
+  --feedback-success-bg: #122b22; --feedback-success-ink: #86efac; --feedback-success-line: #27533d;
+  --feedback-error-bg: #351c24; --feedback-error-ink: #fda4af; --feedback-error-line: #71313e;
+  --feedback-warning-bg: #332b18; --feedback-warning-ink: #fde68a; --feedback-warning-line: #6b5424;
+  --feedback-info-bg: #192a43; --feedback-info-ink: #93c5fd; --feedback-info-line: #2b4f7d;
+}
+// Projected fields keep their feature bindings while using the same dialog surface.
+.dalitu-confirm-dialog .form-field, .dalitu-confirm-dialog .field { min-width: 0; }
+.dalitu-confirm-dialog input:not([type='checkbox']):not([type='radio']), .dalitu-confirm-dialog textarea, .dalitu-confirm-dialog select {
+  max-width: 100%; box-sizing: border-box;
+}
+body .dalitu-confirm-dialog .confirm-content > .modal-body { padding: 0 !important; max-height: none; overflow: visible; }
+body .dalitu-confirm-dialog .confirm-content .modal-body { display: grid; gap: 16px; }
+body .dalitu-confirm-dialog .confirm-content :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+  display: block; width: 100%; min-height: 42px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: .82rem; line-height: 1.5;
+}
+body .dalitu-confirm-dialog .confirm-content textarea { min-height: 96px; resize: vertical; }
+body .dalitu-confirm-dialog .confirm-content :is(input, textarea, select):focus-visible { outline: 2px solid var(--primary-hover); outline-offset: 2px; }
+body .dalitu-confirm-dialog .confirm-content label { color: var(--text-body); font-size: .8rem; line-height: 1.6; }
+body .dalitu-confirm-dialog .confirm-content label:has(input[type='checkbox']) { display: flex; align-items: flex-start; gap: 8px; }
+body .dalitu-confirm-dialog .confirm-content input:is([type='checkbox'], [type='radio']) { width: 18px; height: 18px; margin: 3px 0 0; flex: 0 0 18px; accent-color: var(--primary-hover); }

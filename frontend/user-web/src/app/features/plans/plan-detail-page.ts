@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, finalize, takeUntil } from 'rxjs';
@@ -11,7 +12,7 @@ import { PaymentModalComponent } from './payment-modal.component';
 
 @Component({
   selector: 'app-plan-detail-page',
-  imports: [LocaleCurrencyPipe, LocaleNumberPipe, RouterLink, TranslatePipe, PaymentModalComponent],
+  imports: [ResultNoticeComponent, LocaleCurrencyPipe, LocaleNumberPipe, RouterLink, TranslatePipe, PaymentModalComponent],
   templateUrl: './plan-detail-page.html',
   styleUrl: './plan-detail-page.scss'
 })

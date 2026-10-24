@@ -1,9 +1,6 @@
 <main class="page content-page">
   @if (toastMessage()) {
-    <div class="toast-banner" role="status" aria-live="polite">
-      <span>{{ toastMessage() }}</span>
-      <button type="button" class="toast-close" [attr.aria-label]="'common.close' | translate" (click)="toastMessage.set('')">×</button>
-    </div>
+    <app-result-notice tone="info" [message]="toastMessage()" [dismissible]="true" (dismissed)="toastMessage.set('')" />
   }
 
   <header class="content-heading">
@@ -186,21 +183,8 @@
   </div>
 
   @if (pendingDelete(); as video) {
-    <div class="confirm-backdrop" (click)="cancelDelete()">
-      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description" (click)="$event.stopPropagation()">
-        <span class="confirm-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m5 7 1 13h12l1-13M9 7V4h6v3"/></svg>
-        </span>
-        <h2 id="delete-dialog-title">{{ 'studio.confirmDeleteVideo' | translate }}</h2>
-        <p id="delete-dialog-description">{{ 'studio.confirmDeleteVideoDescription' | translate:{ title: video.title } }}</p>
-        <div class="confirm-actions">
-          <button class="confirm-cancel" type="button" [disabled]="deletingId() === video.videoId" (click)="cancelDelete()">{{ 'common.cancel' | translate }}</button>
-          <button class="confirm-delete" type="button" [disabled]="deletingId() === video.videoId" (click)="deletePendingVideo()">
-            @if (deletingId() === video.videoId) { <span class="spinner" aria-hidden="true"></span> }
-            {{ 'studio.deleteVideo' | translate }}
-          </button>
-        </div>
-      </section>
-    </div>
+    <app-confirm-dialog [title]="'studio.confirmDeleteVideo' | translate" [confirmLabel]="'studio.deleteVideo' | translate" (cancelled)="cancelDelete()" (confirmed)="deletePendingVideo()" panelClass="confirm-dialog" [busy]="deletingId() === video.videoId" [description]="'studio.confirmDeleteVideoDescription' | translate:{ title: video.title }" [tone]="'danger'">
+      <app-result-notice tone="error" [message]="deleteError()" />
+    </app-confirm-dialog>
   }
 </main>

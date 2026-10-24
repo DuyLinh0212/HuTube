@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AccountService } from '../../../core/account.service';
@@ -9,7 +10,7 @@ import { TranslatePipe } from '../../../core/translate.pipe';
 
 @Component({
   selector: 'app-studio-settings-page',
-  imports: [FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, TranslatePipe],
   templateUrl: './studio-settings-page.html',
   styleUrl: './studio-settings-page.scss',
 })

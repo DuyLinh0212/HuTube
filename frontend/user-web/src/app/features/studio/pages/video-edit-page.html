@@ -10,8 +10,8 @@
     </div>
   </header>
 
-  @if (error()) { <div class="notice notice-error" role="alert">{{ error() }}</div> }
-  @if (success()) { <div class="notice notice-success" role="status">{{ success() }}</div> }
+  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
+  @if (success()) { <app-result-notice tone="success" [message]="success()" /> }
 
   @if (loading()) {
     <section class="loading-card">{{ 'studioEdit.loadingVideo' | translate }}</section>

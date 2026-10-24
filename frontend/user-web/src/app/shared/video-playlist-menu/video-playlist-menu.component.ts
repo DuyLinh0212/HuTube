@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, Injector, Input, ViewChild, afterNextRender, afterRenderEffect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
@@ -8,7 +9,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-video-playlist-menu',
-  imports: [TranslatePipe],
+  imports: [ResultNoticeComponent, TranslatePipe],
   templateUrl: './video-playlist-menu.component.html',
   styleUrl: './video-playlist-menu.component.scss',
 })

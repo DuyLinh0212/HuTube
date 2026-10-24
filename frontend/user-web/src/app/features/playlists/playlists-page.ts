@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -10,11 +12,12 @@ import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-playlists-page',
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './playlists-page.html',
   styleUrl: './playlists-page.scss'
 })
 export class PlaylistsPage {
+  private readonly feedback = inject(FeedbackService);
   private readonly service = inject(PlaylistService);
   private readonly channels = inject(ChannelService);
   readonly auth = inject(AuthService);
@@ -159,9 +162,9 @@ export class PlaylistsPage {
     if (!this.busy) this.editOpen.set(false);
   }
 
-  deletePlaylist() {
+  async deletePlaylist() {
     const value = this.playlist();
-    if (!value || !this.canManage() || this.busy || !confirm(this.i18n.t('playlists.deleteConfirm'))) return;
+    if (!value || !this.canManage() || this.busy || !(await this.feedback.confirm(this.i18n.t('playlists.deleteConfirm'), { tone: 'danger' }))) return;
     this.busy = true;
     this.service.remove(value.playlistId).subscribe({
       next: () => void this.router.navigate(['/playlists']),
@@ -190,9 +193,9 @@ export class PlaylistsPage {
     });
   }
 
-  removeVideo(videoId: string) {
+  async removeVideo(videoId: string) {
     const value = this.playlist();
-    if (!value || !this.canManage() || this.busy || !confirm(this.i18n.t('playlists.removeVideoConfirm'))) return;
+    if (!value || !this.canManage() || this.busy || !(await this.feedback.confirm(this.i18n.t('playlists.removeVideoConfirm'), { tone: 'danger' }))) return;
     this.busy = true;
     this.service.removeVideo(value.playlistId, videoId).subscribe({
       next: () => this.loadDetail(value.playlistId),

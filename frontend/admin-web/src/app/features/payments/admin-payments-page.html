@@ -11,8 +11,8 @@
     </div>
   </header>
 
-  @if (error()) { <div class="feedback error-feedback" role="alert"><span aria-hidden="true">!</span>{{ error() }}<button type="button" (click)="error.set('')" [attr.aria-label]="'common.close' | translate">×</button></div> }
-  @if (notice()) { <div class="feedback success-feedback" role="status"><span aria-hidden="true">✓</span>{{ notice() }}<button type="button" (click)="notice.set('')" [attr.aria-label]="'common.close' | translate">×</button></div> }
+  @if (error()) { <app-result-notice tone="error" [message]="error()" [dismissible]="true" (dismissed)="error.set('')" /> }
+  @if (notice()) { <app-result-notice tone="success" [message]="notice()" [dismissible]="true" (dismissed)="notice.set('')" /> }
 
   <section class="filter-panel" [attr.aria-label]="'payments.filters' | translate">
     <label class="search-field"><span aria-hidden="true">⌕</span><input [(ngModel)]="search" (ngModelChange)="onSearchChanged()" [placeholder]="'payments.searchPlaceholder' | translate" /></label>

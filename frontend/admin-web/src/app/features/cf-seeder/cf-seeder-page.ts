@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -18,11 +20,12 @@ import { TranslatePipe } from '../../core/translate.pipe';
 @Component({
   selector: 'app-cf-seeder-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './cf-seeder-page.html',
   styleUrl: './cf-seeder-page.scss',
 })
 export class CfSeederPage implements OnInit {
+  private readonly feedback = inject(FeedbackService);
   private readonly topicsService = inject(AdminTopicsService);
   private readonly seederApi = inject(CfSeederApiService);
   readonly runner = inject(CfSeederRunnerService);
@@ -189,7 +192,7 @@ export class CfSeederPage implements OnInit {
     if (!this.canStart()) return;
     const folder = this.runner.folder();
     if (!folder) return;
-    if (!window.confirm(this.i18n.format('seeder.confirmStart', { count: Math.min(folder.files.length, this.capacity()) }))) return;
+    if (!(await this.feedback.confirm(this.i18n.format('seeder.confirmStart', { count: Math.min(folder.files.length, this.capacity()) })))) return;
     this.pageError.set('');
     const config: CfSeedRunConfig = {
       accountMode: this.accountMode,

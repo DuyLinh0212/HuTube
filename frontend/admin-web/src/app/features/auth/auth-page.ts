@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule, NgForm, NgModel } from '@angular/forms';
@@ -9,7 +10,7 @@ import { I18nService } from '../../core/i18n.service';
 import { ADMIN_APP } from '../../core/runtime-config';
 import { TranslatePipe } from '../../core/translate.pipe';
 
-@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink, TranslatePipe], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
+@Component({ selector: 'app-auth-page', imports: [ResultNoticeComponent, FormsModule, RouterLink, TranslatePipe], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
 export class AuthPage {
   readonly admin = ADMIN_APP;
   readonly auth = inject(AuthService);

@@ -95,7 +95,7 @@
             }
           }
         </div>
-        @if (subscriptionMessage()) { <p class="subscription-feedback" role="status">{{ subscriptionMessage() }}</p> }
+        @if (subscriptionMessage()) { <app-result-notice tone="info" [message]="subscriptionMessage()" /> }
       </div>
     </header>
 

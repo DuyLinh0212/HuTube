@@ -29,7 +29,7 @@ describe('Explore search filters', () => {
       { provide: ChannelService, useValue: {} },
       { provide: AuthService, useValue: { user: signal(null), restore: () => of(false) } },
       { provide: ActivatedRoute, useValue: { queryParamMap: params, snapshot } },
-      { provide: Router, useValue: { navigate } },
+      { provide: Router, useValue: { navigate, events: new Subject() } },
     ] });
     TestBed.overrideComponent(ExplorePage, { set: { template: '', imports: [] } });
   });

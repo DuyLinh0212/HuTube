@@ -1,3 +1,5 @@
+import { ConfirmDialogComponent } from "@dalitu/ui/confirm-dialog.component";
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
@@ -17,7 +19,7 @@ interface SessionGroup {
 
 @Component({
   selector: 'app-account-page',
-  imports: [DatePipe, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, DatePipe, TranslatePipe],
   templateUrl: './account-page.html',
   styleUrl: './account-page.scss'
 })

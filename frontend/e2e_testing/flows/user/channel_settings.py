@@ -46,7 +46,7 @@ def run(suite, owner, member):
         assert suite.api(owner, 'get', '/channels/me').json().get('contactEmail') == baseline.get('contactEmail')
         page.locator('#chName').fill('   ')
         page.locator('.basic-tab-pane .form-actions button').click()
-        expect(page.locator('.alert-error')).to_be_visible()
+        expect(page.locator('app-result-notice[tone=error]')).to_be_visible()
         assert suite.api(owner, 'get', '/channels/me').json()['name'] == baseline['name']
         page.locator('#chName').fill(baseline['name'])
         previous_links = page.locator('.link-row-card').count()

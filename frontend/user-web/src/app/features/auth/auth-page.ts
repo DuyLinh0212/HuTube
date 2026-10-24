@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { DOCUMENT } from '@angular/common';
 import { AfterViewChecked, Component, DestroyRef, ElementRef, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule, NgForm, NgModel } from '@angular/forms';
@@ -11,7 +12,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 
 declare global { interface Window { google?: { accounts: { id: { initialize(config: { client_id: string; callback: (response: { credential?: string }) => void; auto_select: boolean }): void; renderButton(parent: HTMLElement, options: { theme: string; size: string; width: number }): void; }; }; }; } }
 
-@Component({ selector: 'app-auth-page', imports: [FormsModule, RouterLink, TranslatePipe], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
+@Component({ selector: 'app-auth-page', imports: [ResultNoticeComponent, FormsModule, RouterLink, TranslatePipe], templateUrl: './auth-page.html', styleUrl: './auth-page.scss' })
 export class AuthPage implements AfterViewChecked {
   readonly admin = ADMIN_APP;
   readonly auth = inject(AuthService);

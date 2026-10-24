@@ -21,9 +21,9 @@ def run(suite, config, actors):
             expect(p.locator('.modal-dialog .modal-lead')).to_contain_text(channel['handle'])
             for value, valid in [('', False), (' x ', False), ('xy', False), ('xyz', True)]:
                 p.locator('.modal-textarea').fill(value)
-                expect(p.locator('.btn-modal-confirm')).to_be_enabled(enabled=valid)
+                expect(p.locator('.confirm-submit')).to_be_enabled(enabled=valid)
                 suite.evidence(admin, entry, 'trimmed-reason-length-' + str(len(value.strip())))
-            p.locator('.btn-modal-cancel').click()
+            p.locator('.confirm-cancel').click()
             expect(p.locator('.modal-dialog')).to_have_count(0)
             baseline = suite.api(admin, 'get', '/admin/channels/' + cid).json()['channel']
             suite.api(admin, 'delete', '/admin/channels/' + cid, data={'reason': ' x ', 'notifyOwner': False}, expected=400)

@@ -1,3 +1,4 @@
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -19,6 +20,7 @@ import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/vid
   styleUrl: './explore-page.scss',
 })
 export class ExplorePage implements OnInit, OnDestroy {
+  private readonly feedback = inject(FeedbackService);
   private readonly content = inject(ContentService);
   private readonly channelService = inject(ChannelService);
   private readonly auth = inject(AuthService);
@@ -301,7 +303,7 @@ export class ExplorePage implements OnInit, OnDestroy {
           // Trigger signal re-render after the server confirms the change.
           this.featuredCreators.update(list => [...list]);
         },
-        error: () => alert(this.i18n.t(subscribed ? 'watch.unsubscribeError' : 'watch.subscribeError')),
+        error: () => this.feedback.error(this.i18n.t(subscribed ? 'watch.unsubscribeError' : 'watch.subscribeError')),
       });
     };
 

@@ -22,11 +22,11 @@ def run(suite, config, actors):
             sessions = suite.api(admin, 'get', '/auth/sessions').json()['items']
             peer_id = next(item['sessionId'] for item in sessions if item['sessionId'] in {s['sessionId'] for s in suite.api(peer, 'get', '/auth/sessions').json()['items'] if s['isCurrent']})
             row = page.locator('.sessions-list').first.locator('.session-item').filter(has=page.locator('.session-revoke')).first
-            row.locator('.session-revoke').click(); expect(page.locator('.revoke-warning')).to_be_visible()
-            page.locator('.revoke-warning .secondary').click(); expect(page.locator('.revoke-warning')).to_have_count(0)
+            row.locator('.session-revoke').click(); expect(page.locator('app-confirm-dialog')).to_be_visible()
+            page.locator('app-confirm-dialog .confirm-cancel').click(); expect(page.locator('app-confirm-dialog')).to_have_count(0)
             assert suite.api(peer, 'get', '/auth/me').status == 200
             row.locator('.session-revoke').click()
-            suite.response(admin, '/auth/sessions/' + peer_id, lambda: page.locator('.revoke-warning .danger').click(), method='DELETE')
+            suite.response(admin, '/auth/sessions/' + peer_id, lambda: page.locator('app-confirm-dialog .confirm-submit').click(), method='DELETE')
             suite.api(peer, 'get', '/auth/me', expected=401)
             peer['page'].goto(peer['origin'] + '/users'); peer['page'].wait_for_url('**/login**')
             assert suite.api(admin, 'get', '/auth/me').json()['userId'] == identity['userId']
@@ -40,7 +40,7 @@ def run(suite, config, actors):
             suite.go(admin, '/account', 'app-account-page', '/auth/sessions')
             expect(page.locator('.sessions-actions button').first).to_be_enabled()
             suite.response(admin, '/auth/logout-others', lambda: page.locator('.sessions-actions button').first.click(), method='POST')
-            expect(page.locator('.notice.success')).to_be_visible()
+            expect(page.locator('app-result-notice[tone=success]')).to_be_visible()
             assert suite.api(admin, 'get', '/auth/sessions').json()['items'][0]['isCurrent']
             suite.api(peer, 'get', '/auth/me', expected=401)
             peer['page'].goto(peer['origin'] + '/users'); peer['page'].wait_for_url('**/login**')

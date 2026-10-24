@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -16,11 +18,12 @@ interface PermissionGroup {
 
 @Component({
   selector: 'app-admin-rbac-page',
-  imports: [FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, TranslatePipe],
   templateUrl: './admin-rbac-page.html',
   styleUrls: ['./admin-rbac-page.scss', './admin-rbac-dialog-overrides.scss'],
 })
 export class AdminRbacPage {
+  private readonly feedback = inject(FeedbackService);
   private readonly rbac = inject(AdminRbacService);
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
@@ -266,12 +269,12 @@ export class AdminRbacPage {
     });
   }
 
-  deleteSelectedRole() {
+  async deleteSelectedRole() {
     const role = this.selectedRole();
     if (!role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
     const reason = window.prompt(this.i18n.format('rbac.deleteReasonPrompt', { name: role.name }))?.trim();
     if (!reason || reason.length < 3 || reason.length > 300) return;
-    if (!window.confirm(this.i18n.format('rbac.deleteConfirm', { name: role.name }))) return;
+    if (!(await this.feedback.confirm(this.i18n.format('rbac.deleteConfirm', { name: role.name }), { tone: 'danger' }))) return;
     this.rbac.deleteRole(role.roleId, reason).subscribe({
       next: () => {
         const remaining = this.roles().filter(item => item.roleId !== role.roleId);

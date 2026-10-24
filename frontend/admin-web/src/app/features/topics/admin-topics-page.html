@@ -15,10 +15,10 @@
   </header>
 
   @if (success()) {
-    <div class="alert success" role="status"><span aria-hidden="true">✓</span>{{ success() }}</div>
+    <app-result-notice tone="success" [message]="success()" />
   }
   @if (error()) {
-    <div class="alert error" role="alert"><span aria-hidden="true">!</span>{{ error() }}</div>
+    <app-result-notice tone="error" [message]="error()" />
   }
 
   <section class="stats-grid" [attr.aria-label]="'topics.overview' | translate">
@@ -142,7 +142,7 @@
       <form class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="topic-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="saveTopic()">
           <header class="modal-header"><div><p class="eyebrow">{{ 'topics.categoryName' | translate }}</p><h2 id="topic-dialog-title">{{ editingTopic() ? ('topics.editCategory' | translate) : ('topics.addCategory' | translate) }}</h2></div><button type="button" class="close-button" [attr.aria-label]="'common.close' | translate" (click)="closeTopicEditor()">×</button></header>
         <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <label class="form-field"><span>{{ 'topics.categoryName' | translate }} <i>*</i></span><input name="topicName" required maxlength="100" [(ngModel)]="topicDraft.name" [placeholder]="'topics.categoryExample' | translate" /></label>
           <label class="form-field"><span>{{ 'topics.slug' | translate }}</span><input name="topicSlug" maxlength="120" [(ngModel)]="topicDraft.slug" [placeholder]="'topics.slugPlaceholder' | translate" /><small>{{ 'topics.slugHint' | translate }}</small></label>
           <label class="form-field"><span>{{ 'common.description' | translate }}</span><textarea name="topicDescription" rows="4" maxlength="1000" [(ngModel)]="topicDraft.description" [placeholder]="'topics.descriptionPlaceholder' | translate"></textarea></label>
@@ -158,7 +158,7 @@
       <form class="modal-dialog compact" role="dialog" aria-modal="true" aria-labelledby="tag-dialog-title" (click)="$event.stopPropagation()" (ngSubmit)="saveTag()">
         <header class="modal-header"><div><p class="eyebrow">{{ 'topics.type' | translate }}</p><h2 id="tag-dialog-title">{{ editingTag() ? ('topics.editTag' | translate) : ('topics.addTag' | translate) }}</h2></div><button type="button" class="close-button" [attr.aria-label]="'common.close' | translate" (click)="closeTagEditor()">×</button></header>
         <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }<label class="form-field"><span>{{ 'topics.tagName' | translate }} <i>*</i></span><input name="tagName" required maxlength="80" [(ngModel)]="tagDraft" [placeholder]="'topics.tagExample' | translate" /><small>{{ 'topics.tagHint' | translate }}</small></label></div>
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }<label class="form-field"><span>{{ 'topics.tagName' | translate }} <i>*</i></span><input name="tagName" required maxlength="80" [(ngModel)]="tagDraft" [placeholder]="'topics.tagExample' | translate" /><small>{{ 'topics.tagHint' | translate }}</small></label></div>
         <footer class="modal-footer"><button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="closeTagEditor()">{{ 'common.cancel' | translate }}</button><button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? ('common.saving' | translate) : ('topics.saveTag' | translate) }}</button></footer>
       </form>
     </div>

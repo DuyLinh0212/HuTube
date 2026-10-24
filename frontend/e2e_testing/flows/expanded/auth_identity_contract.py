@@ -24,11 +24,11 @@ def run(suite,config,actors):
             entry['resource_ids']=[uid];entry['steps']=['Reload actual protected account route','Session restores through actual backend','Account component remains and exact user ID is unchanged; no login redirect']
         case(suite,actor,'AUTH-RELOAD-IDENTITY-PROTECTED','AUTH-LOGIN-05','Reload retains the protected account and same identity',reload,'authentication')
         def logout(entry):
-            p.locator('.top-avatar').click();p.locator('.account-drawer__logout').click();p.locator('.logout-confirm-cancel').click()
+            p.locator('.top-avatar').click();p.locator('.account-drawer__logout').click();p.locator('app-feedback-host .confirm-cancel').click()
             assert suite.api(actor,'get','/auth/me').json()['userId']==uid
             if p.locator('.top-avatar').get_attribute('aria-expanded')!='true':p.locator('.top-avatar').click()
             p.locator('.account-drawer__logout').click()
-            suite.response(actor,'/auth/logout',lambda:p.locator('.logout-confirm-submit').click(),method='POST')
+            suite.response(actor,'/auth/logout',lambda:p.locator('app-feedback-host .confirm-submit').click(),method='POST')
             p.wait_for_url('**/login**')
             assert not any(c['name']=='hutube_refresh' for c in actor['context'].cookies(actor['api_url']+'/auth/refresh'))
             suite.api(actor,'get','/auth/me',expected=401)

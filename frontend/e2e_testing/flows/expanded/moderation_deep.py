@@ -28,7 +28,7 @@ def run(suite,config,actors):
         suite.response(r1,'/admin/moderation/'+mid+'/claim',lambda:row.locator('.table-action.primary').click(),method='POST')
         row=review_row(suite,r1,video,1);row.locator('.table-action:not(.subtle)').first.click();p=r1['page']
         before=sum(e['method']=='POST' and e['path'].endswith('/resolve') for e in suite.report['http_statuses'])
-        p.once('dialog',lambda d:d.accept());p.locator('.decision-button.reject').click()
+        p.locator('.decision-button.reject').click()
         assert before==sum(e['method']=='POST' and e['path'].endswith('/resolve') for e in suite.report['http_statuses'])
         options=p.locator('.decision-column select option').evaluate_all('(options)=>options.map(o=>o.value).filter(Boolean)');assert options,'Reviewer policy read permission/fixture missing'
         p.locator('.decision-column select').select_option(options[0]);p.locator('.decision-column input[type=text]').fill('QC rejected fixture — có lý do và policy')

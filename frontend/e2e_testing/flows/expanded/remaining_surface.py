@@ -1,4 +1,5 @@
 """Uncovered checklist clauses, including explicit missing-feature failures."""
+from support.ui_confirmation import app_confirm
 import re
 from playwright.sync_api import expect
 from flows.expanded.common import case,snapshot_module
@@ -31,12 +32,10 @@ def run(suite,config,actors):
             suite.go(owner,path,'app-playlists-page',path)
             p.locator('.title-edit-button').click()
             expect(p.locator('.playlist-modal--edit')).to_be_visible()
-            p.once('dialog',lambda dialog:dialog.dismiss())
-            p.locator('.text-danger-button').click()
+            app_confirm(p, lambda: p.locator('.text-danger-button').click(), accept=False)
             assert suite.api(owner,'get',path).json()['playlistId']==target
             suite.evidence(owner,entry,'delete-cancel-retains-playlist')
-            p.once('dialog',lambda dialog:dialog.accept())
-            response=suite.response(owner,path,lambda:p.locator('.text-danger-button').click(),method='DELETE',status=(200,204))
+            response=suite.response(owner,path,lambda:app_confirm(p, lambda: p.locator('.text-danger-button').click(), accept=True),method='DELETE',status=(200,204))
             assert response.status in (200,204)
             expect(p).to_have_url(re.compile(r'/playlists$'))
             suite.api(owner,'get',path,expected=404)

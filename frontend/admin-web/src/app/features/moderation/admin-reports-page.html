@@ -5,8 +5,8 @@
     </div>
   </header>
 
-  @if (error()) { <div class="alert alert-danger" role="alert">{{ error() }}</div> }
-  @if (successMessage()) { <div class="alert alert-success" role="status">{{ successMessage() }}</div> }
+  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
+  @if (successMessage()) { <app-result-notice tone="success" [message]="successMessage()" /> }
 
   <nav class="status-tabs" [attr.aria-label]="'reports.statusTabs' | translate">
     <button type="button" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">{{ 'moderation.statusPending' | translate }}</button>

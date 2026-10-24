@@ -1,3 +1,5 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -11,7 +13,7 @@ import { TranslatePipe } from '../../../core/translate.pipe';
 @Component({
   selector: 'app-studio-content-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, LocaleDatePipe, LocaleNumberPipe, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, RouterLink, LocaleDatePipe, LocaleNumberPipe, TranslatePipe],
   templateUrl: './studio-content-page.html',
   styleUrl: './studio-content-page.scss',
 })
@@ -32,6 +34,7 @@ export class StudioContentPage implements OnInit, AfterViewInit, OnDestroy {
   readonly deletingId = signal<string | null>(null);
   readonly pendingDelete = signal<VideoDetail | null>(null);
   readonly toastMessage = signal('');
+  readonly deleteError = signal('');
 
   @ViewChild('loadMoreSentinel') private loadMoreSentinel?: ElementRef<HTMLDivElement>;
 
@@ -169,6 +172,7 @@ export class StudioContentPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   requestDelete(video: VideoDetail) {
+    this.deleteError.set('');
     if (this.data.hasPermission('video.delete')) this.pendingDelete.set(video);
   }
 
@@ -185,7 +189,7 @@ export class StudioContentPage implements OnInit, AfterViewInit, OnDestroy {
       },
       error: () => {
         this.deletingId.set(null);
-        this.showToast(this.i18n.t('studio.deleteVideoError'));
+        this.deleteError.set(this.i18n.t('studio.deleteVideoError'));
       }
     });
   }

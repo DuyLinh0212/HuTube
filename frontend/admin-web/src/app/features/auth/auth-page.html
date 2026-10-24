@@ -8,8 +8,8 @@
   <section class="auth-panel" [attr.aria-busy]="busy()" aria-labelledby="auth-heading">
     <h2 id="auth-heading">{{ title }}</h2>
     <p class="muted">{{ tagline }}</p>
-    @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
-    @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
+    @if (message()) { <app-result-notice tone="success" [message]="message()" /> }
+    @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
     @if (connectionIssue()) {
       <button type="button" class="primary full" [disabled]="busy()" (click)="retryRestore()">{{ (busy() ? 'common.loading' : 'common.retry') | translate }}</button>
     }

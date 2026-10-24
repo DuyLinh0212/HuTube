@@ -1,3 +1,6 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -31,11 +34,12 @@ interface SessionGroup {
 
 @Component({
   selector: 'app-account-page',
-  imports: [LocaleCurrencyPipe, LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, LocaleCurrencyPipe, LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './account-page.html',
   styleUrl: './account-page.scss'
 })
 export class AccountPage implements OnInit {
+  private readonly feedback = inject(FeedbackService);
   readonly auth = inject(AuthService);
   readonly account = inject(AccountService);
   private readonly content = inject(ContentService);
@@ -180,8 +184,8 @@ export class AccountPage implements OnInit {
     });
   }
 
-  deleteDownload(item: DownloadRecord) {
-    if (this.busy() || !confirm(this.i18n.t('collection.confirmDelete'))) return;
+  async deleteDownload(item: DownloadRecord) {
+    if (this.busy() || !(await this.feedback.confirm(this.i18n.t('collection.confirmDelete'), { tone: 'danger' }))) return;
     this.busy.set(true); this.error.set(''); this.message.set('');
     this.content.deleteDownload(item.videoDownloadId).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => { this.downloads.update(items => items.filter(row => row.videoDownloadId !== item.videoDownloadId)); this.message.set(this.i18n.t('collection.deleted')); },
@@ -383,8 +387,8 @@ export class AccountPage implements OnInit {
     setTimeout(() => this.message.set(''), 3000);
   }
 
-  clearAllDownloads() {
-    if (this.busy() || !confirm(this.i18n.t('collection.confirmClear'))) return;
+  async clearAllDownloads() {
+    if (this.busy() || !(await this.feedback.confirm(this.i18n.t('collection.confirmClear'), { tone: 'danger' }))) return;
     this.busy.set(true);
     this.error.set('');
     this.message.set('');

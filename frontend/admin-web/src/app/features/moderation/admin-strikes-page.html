@@ -27,27 +27,12 @@
     </div>
   </header>
 
-  @if (error()) {
-    <div class="alert alert-danger">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-      <span class="alert-text">{{ error() }}</span>
-      <button type="button" class="close-btn" (click)="error.set(null)">&times;</button>
-    </div>
+  @if (error() && !isCreateModalOpen() && !isRevokeModalOpen() && !isChannelLockModalOpen()) {
+    <app-result-notice tone="error" [message]="error()" [dismissible]="true" (dismissed)="error.set(null)" />
   }
 
   @if (successMessage()) {
-    <div class="alert alert-success">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-      </svg>
-      <span class="alert-text">{{ successMessage() }}</span>
-      <button type="button" class="close-btn" (click)="successMessage.set(null)">&times;</button>
-    </div>
+    <app-result-notice tone="success" [message]="successMessage()" [dismissible]="true" (dismissed)="successMessage.set(null)" />
   }
 
   <!-- Status Tabs -->
@@ -301,16 +286,9 @@
 
   <!-- Create Strike Modal -->
   @if (isCreateModalOpen()) {
-    <div class="modal-backdrop" (click)="closeCreateModal()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
-        <div class="modal-header">
-          <h3>{{ 'strikes.createTitle' | translate }}</h3>
-          <button type="button" class="close-btn" (click)="closeCreateModal()">&times;</button>
-        </div>
-
-        <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+    <app-confirm-dialog [title]="'strikes.createTitle' | translate" [confirmLabel]="'strikes.confirmIssue' | translate" (cancelled)="closeCreateModal()" (confirmed)="submitCreateStrike()" panelClass="modal-card" [busy]="submitting()" [tone]="'danger'" initialFocus="field">
+<div class="modal-body">
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <div class="form-group">
             <label>{{ 'strikes.channelId' | translate }} <span class="required">*</span></label>
             <input type="text" [placeholder]="'strikes.channelIdPlaceholder' | translate"
@@ -352,29 +330,14 @@
               [ngModel]="createInternalNote()" (ngModelChange)="createInternalNote.set($event)" />
           </div>
         </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeCreateModal()" [disabled]="submitting()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="btn btn-primary" (click)="submitCreateStrike()" [disabled]="submitting()">
-            {{ submitting() ? ('strikes.processing' | translate) : ('strikes.confirmIssue' | translate) }}
-          </button>
-        </div>
-      </div>
-    </div>
+    </app-confirm-dialog>
   }
 
   <!-- Revoke Strike Modal -->
   @if (isRevokeModalOpen() && activeStrike()) {
-    <div class="modal-backdrop" (click)="closeRevokeModal()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
-        <div class="modal-header">
-          <h3>{{ 'strikes.revokeTitle' | translate:{number: activeStrike()!.strikeNumber} }}</h3>
-          <button type="button" class="close-btn" (click)="closeRevokeModal()">&times;</button>
-        </div>
-
-        <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+    <app-confirm-dialog [title]="'strikes.revokeTitle' | translate:{number: activeStrike()!.strikeNumber}" [confirmLabel]="'strikes.confirmRevoke' | translate" (cancelled)="closeRevokeModal()" (confirmed)="submitRevokeStrike()" panelClass="modal-card" [busy]="submitting()" initialFocus="field">
+<div class="modal-body">
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <div class="context-box">
             <div class="context-row">
               <span class="context-label">{{ 'strikes.channelApplied' | translate }}</span>
@@ -392,29 +355,14 @@
               [ngModel]="revokeReason()" (ngModelChange)="revokeReason.set($event)"></textarea>
           </div>
         </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeRevokeModal()" [disabled]="submitting()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="btn btn-primary" (click)="submitRevokeStrike()" [disabled]="submitting()">
-            {{ submitting() ? ('strikes.saving' | translate) : ('strikes.confirmRevoke' | translate) }}
-          </button>
-        </div>
-      </div>
-    </div>
+    </app-confirm-dialog>
   }
 
   <!-- Channel Lock/Unlock Modal -->
   @if (isChannelLockModalOpen()) {
-    <div class="modal-backdrop" (click)="closeChannelLockModal()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
-        <div class="modal-header">
-          <h3>{{ lockAction() === 'lock' ? ('strikes.lockTitle' | translate) : ('strikes.unlockTitle' | translate) }}</h3>
-          <button type="button" class="close-btn" (click)="closeChannelLockModal()">&times;</button>
-        </div>
-
-        <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+    <app-confirm-dialog [title]="(lockAction() === 'lock' ? 'strikes.lockTitle' : 'strikes.unlockTitle') | translate" [confirmLabel]="(lockAction() === 'lock' ? 'strikes.confirmLock' : 'strikes.confirmUnlock') | translate" (cancelled)="closeChannelLockModal()" (confirmed)="submitChannelLock()" panelClass="modal-card" [busy]="submitting()" [tone]="lockAction() === 'lock' ? 'danger' : 'primary'" initialFocus="field">
+<div class="modal-body">
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <div class="form-group">
             <label>{{ 'strikes.action' | translate }}</label>
             <select [ngModel]="lockAction()" (ngModelChange)="lockAction.set($event)">
@@ -449,14 +397,6 @@
               [ngModel]="lockReason()" (ngModelChange)="lockReason.set($event)"></textarea>
           </div>
         </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeChannelLockModal()" [disabled]="submitting()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="btn btn-primary" (click)="submitChannelLock()" [disabled]="submitting()">
-            {{ submitting() ? ('strikes.saving' | translate) : (lockAction() === 'lock' ? ('strikes.confirmLock' | translate) : ('strikes.confirmUnlock' | translate)) }}
-          </button>
-        </div>
-      </div>
-    </div>
+    </app-confirm-dialog>
   }
 </div>

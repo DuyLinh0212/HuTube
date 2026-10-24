@@ -34,7 +34,7 @@ def run(suite,config,actors):
         def clear(entry):
             assert created,'Actual download prerequisite missing'
             suite.go(owner,'/account','app-account-page');p.locator('.settings-nav-list > button').nth(2).click();p.locator('.delete-action button').click()
-            expect(p.locator('.yt-alert-success')).to_be_visible()
+            expect(p.locator('app-result-notice[tone=success]')).to_be_visible()
             assert created['videoDownloadId'] not in {d['videoDownloadId'] for d in suite.api(owner,'get','/downloads').json()},'Clear all showed success but the actual backend download record still exists'
             entry['steps']=['Actual backend download exists','Account Clear all downloads button reports success','API inventory must no longer contain the persisted download ID']
         case(suite,owner,'ACCOUNT-CLEAR-ACTUAL-DOWNLOADS','U-ACCOUNT.04','Clear all deletes actual backend download inventory',clear,'downloads')

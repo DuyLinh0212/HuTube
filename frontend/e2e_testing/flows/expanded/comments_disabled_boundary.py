@@ -39,7 +39,7 @@ def run(suite, config, actors):
                 p.locator('textarea[name=comment]').fill('QC must never persist ' + suite.run_id)
                 response = suite.response(actor, endpoint, lambda: p.locator('.comment-composer button[type=submit]').click(), method='POST', status=403)
                 assert response.json()['code'] == 'COMMENTS_DISABLED'
-                expect(p.locator('.action-message')).to_be_visible()
+                expect(p.locator('app-result-notice[tone=info]')).to_be_visible()
                 after = suite.api(actor, 'get', endpoint).json()
                 assert after['total'] == 0 and after['items'] == []
                 p.reload()

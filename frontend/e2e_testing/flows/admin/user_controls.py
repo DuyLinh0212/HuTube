@@ -20,7 +20,7 @@ def run(suite, admin, member):
         page.locator('.detail-actions .link-action.danger').click()
         expect(page.locator('.action-modal button[type=submit]')).to_be_disabled()
         page.locator('.action-modal [name=actionReason]').fill(reason)
-        page.locator('.action-modal footer .secondary-button').click()
+        page.locator('.action-modal .confirm-cancel').click()
         assert suite.api(admin,'get',base).json()['status']=='active'
         page.locator('.detail-actions .link-action.danger').click()
         page.locator('.action-modal [name=actionReason]').fill(reason)

@@ -1,4 +1,5 @@
 """Two supplied identities, channel permission denial and real threaded replies."""
+from support.ui_confirmation import app_confirm
 import json
 from playwright.sync_api import expect
 from support.live_suite import PrerequisiteMissing
@@ -73,10 +74,9 @@ def run(suite,owner,other):
             replies=suite.api(other,'get','/comments/'+parent['commentId']+'/replies').json()['items']
             assert sum(c['commentId']==reply['commentId'] for c in replies)==1
             own_reply=row.locator('.comment-row--reply').filter(has_text=reply_text)
-            page.once('dialog',lambda d:d.dismiss()); own_reply.locator('.is-danger').click()
+            app_confirm(page, lambda: own_reply.locator('.is-danger').click(), accept=False)
             assert any(c['commentId']==reply['commentId'] for c in suite.api(other,'get','/comments/'+parent['commentId']+'/replies').json()['items'])
-            page.once('dialog',lambda d:d.accept())
-            suite.response(other,'/comments/'+reply['commentId'],lambda:own_reply.locator('.is-danger').click(),method='DELETE',status=204)
+            suite.response(other,'/comments/'+reply['commentId'],lambda:app_confirm(page, lambda: own_reply.locator('.is-danger').click(), accept=True),method='DELETE',status=204)
             assert not any(c['commentId']==reply['commentId'] for c in suite.api(other,'get','/comments/'+parent['commentId']+'/replies').json()['items'])
             assert any(c['commentId']==parent['commentId'] for c in suite.api(owner,'get',base+'/comments').json()['items'])
             case['resource_ids']=[video_id,parent['commentId'],reply['commentId']]

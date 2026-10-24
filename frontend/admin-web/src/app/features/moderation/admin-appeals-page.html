@@ -10,27 +10,12 @@
     </div>
   </header>
 
-  @if (error()) {
-    <div class="alert alert-danger">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-      <span class="alert-text">{{ error() }}</span>
-      <button type="button" class="close-btn" (click)="error.set(null)">&times;</button>
-    </div>
+  @if (error() && !isResolveModalOpen()) {
+    <app-result-notice tone="error" [message]="error()" [dismissible]="true" (dismissed)="error.set(null)" />
   }
 
   @if (successMessage()) {
-    <div class="alert alert-success">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-      </svg>
-      <span class="alert-text">{{ successMessage() }}</span>
-      <button type="button" class="close-btn" (click)="successMessage.set(null)">&times;</button>
-    </div>
+    <app-result-notice tone="success" [message]="successMessage()" [dismissible]="true" (dismissed)="successMessage.set(null)" />
   }
 
   <!-- Status Tabs -->
@@ -240,16 +225,9 @@
 
   <!-- Resolution Modal -->
   @if (isResolveModalOpen() && activeAppeal()) {
-    <div class="modal-backdrop" (click)="closeResolveModal()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
-        <div class="modal-header">
-          <h3>{{ 'appeals.resolutionTitle' | translate:{ number: activeAppeal()!.appealNumber } }}</h3>
-          <button type="button" class="close-btn" (click)="closeResolveModal()">&times;</button>
-        </div>
-
-        <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+    <app-confirm-dialog [title]="'appeals.resolutionTitle' | translate:{ number: activeAppeal()!.appealNumber }" [confirmLabel]="'appeals.confirmResolution' | translate" (cancelled)="closeResolveModal()" (confirmed)="submitResolution()" panelClass="modal-card" [busy]="submitting()" initialFocus="field">
+<div class="modal-body">
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <div class="context-box">
             <div class="context-row">
               <span class="context-label">{{ 'appeals.targetLabel' | translate }}</span>
@@ -287,14 +265,6 @@
               [ngModel]="reviewNote()" (ngModelChange)="reviewNote.set($event)"></textarea>
           </div>
         </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeResolveModal()" [disabled]="submitting()">{{ 'common.cancel' | translate }}</button>
-          <button type="button" class="btn btn-primary" (click)="submitResolution()" [disabled]="submitting()">
-            {{ submitting() ? ('appeals.saving' | translate) : ('appeals.confirmResolution' | translate) }}
-          </button>
-        </div>
-      </div>
-    </div>
+    </app-confirm-dialog>
   }
 </div>

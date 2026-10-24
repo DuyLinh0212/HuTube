@@ -338,7 +338,7 @@
             <button type="button" class="action-button comments-load-more" (click)="loadMoreComments()" [disabled]="commentsLoading()" [attr.aria-busy]="commentsLoading()">{{ 'watch.loadMoreComments' | translate }}</button>
           }
         </section>
-        @if (actionMessage()) { <p class="action-message" role="status">{{ actionMessage() }}</p> }
+        @if (actionMessage()) { <app-result-notice tone="info" [message]="actionMessage()" /> }
       </section>
 
       <aside class="recommendations" [attr.aria-label]="'watch.recommendations' | translate">

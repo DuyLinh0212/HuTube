@@ -1,3 +1,5 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +21,7 @@ type UserAction = 'lock' | 'unlock' | 'role';
 @Component({
   selector: 'app-admin-users-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-users-page.html',
   styleUrl: './admin-users-page.scss',
 })

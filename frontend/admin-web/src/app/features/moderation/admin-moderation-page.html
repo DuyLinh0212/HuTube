@@ -2,23 +2,17 @@
   <header class="page-heading">
     <div class="heading-actions">
       <a class="outline-button" routerLink="/policies"><span aria-hidden="true">▣</span> {{ 'moderationPage.policies' | translate }}</a>
-      @if (canClaim()) { <button type="button" class="primary-button" (click)="claimFirstPending()" [disabled]="loading() || !stats().pending"><span aria-hidden="true">▣</span> {{ 'moderationPage.claimCases' | translate }}</button> }
+      @if (canClaim() && selectedStatus() !== 'reviewing') { <button type="button" class="primary-button" (click)="claimFirstPending()" [disabled]="loading() || !stats().pending"><span aria-hidden="true">▣</span> {{ 'moderationPage.claimCases' | translate }}</button> }
       <button type="button" class="refresh-button" (click)="loadData()" [disabled]="loading()" [attr.aria-label]="'moderationPage.refreshQueue' | translate">↻</button>
     </div>
   </header>
 
-  @if (successMessage()) { <div class="alert success" role="status"><span>✓</span>{{ successMessage() }}</div> }
-  @if (error()) { <div class="alert error" role="alert"><span>!</span>{{ error() }}</div> }
+  <app-result-notice tone="success" [message]="successMessage()" />
+  <app-result-notice tone="error" [message]="error()" />
 
   @if (bulkResult(); as result) {
-    <section class="alert" [class.error]="result.failed.length > 0" role="status" aria-live="polite">
-      <div>
-        <p>{{ 'moderationPage.bulkSummary' | translate:{ succeeded: result.succeeded, failed: result.failed.length } }}</p>
-        @if (result.failed.length) {
-          <ul>@for (item of result.failed; track item.id) { <li><strong>{{ item.title }}</strong>: {{ item.reason }}</li> }</ul>
-        }
-      </div>
-    </section>
+    <app-result-notice [tone]="bulkTone()" [message]="'moderationPage.bulkSummary' | translate:{ succeeded: result.succeeded, failed: result.failed.length }"
+      [details]="bulkDetails()" [dismissible]="true" (dismissed)="bulkResult.set(null)" />
   }
   <div class="status-tabs" role="tablist"
  [attr.aria-label]="'moderationPage.caseStatuses' | translate">
@@ -39,8 +33,18 @@
 
       <section class="table-card">
         <div class="table-heading"><div><h2>{{ 'moderationPage.queueTitle' | translate }}</h2><p>{{ 'moderationPage.matchingResults' | translate:{ count: filteredQueue().length } }}</p></div><div class="queue-count">{{ 'moderationPage.highRiskCount' | translate:{ count: stats().highRisk } }}</div>
-          @if (canClaim() && selectedCaseIds().length) { <div class="bulk-actions"><span>{{ 'moderationPage.selected' | translate:{ count: selectedCaseIds().length } }}</span><button type="button" class="table-action primary" (click)="bulkClaimSelected()" [disabled]="loading()">{{ 'moderationPage.claimPending' | translate }}</button><button type="button" class="table-action subtle" (click)="bulkReleaseSelected()" [disabled]="loading()">{{ 'moderationPage.releaseMine' | translate }}</button></div> }
         </div>
+        @if (canClaim() && visibleSelected().length) {
+          <div class="bulk-actions" role="group" [attr.aria-label]="'moderationPage.selected' | translate:{ count: visibleSelected().length }">
+            <span class="selection-count"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>{{ 'moderationPage.selected' | translate:{ count: visibleSelected().length } }}</strong></span>
+            <div class="bulk-action-buttons">
+              @if (selectedReviewable().length) { <button type="button" class="table-action primary quick-review-button" (click)="openQuickReview()" [disabled]="loading()">{{ 'moderationPage.quickReview' | translate }} <b>{{ selectedReviewable().length }}</b></button> }
+              @if (selectedStatus() !== 'reviewing' && selectedClaimable().length) { <button type="button" class="table-action primary" (click)="bulkClaimSelected()" [disabled]="loading() || !selectedClaimable().length">{{ 'moderationPage.claimPending' | translate }} <b>{{ selectedClaimable().length }}</b></button> }
+              <button type="button" class="table-action subtle" (click)="bulkReleaseSelected()" [disabled]="loading() || !selectedReleasable().length">{{ 'moderationPage.releaseMine' | translate }} <b>{{ selectedReleasable().length }}</b></button>
+              <button type="button" class="selection-clear" (click)="toggleVisibleSelection(false)" [disabled]="loading()">{{ 'moderationPage.clearSelection' | translate }}</button>
+            </div>
+          </div>
+        }
         @if (loading()) {
           <div class="loading-state"><span class="spinner"></span><p>{{ 'moderationPage.loadingQueue' | translate }}</p></div>
         } @else if (filteredQueue().length === 0) {
@@ -48,11 +52,11 @@
         } @else {
           <div class="table-scroll">
             <table class="queue-table">
-              <thead><tr><th class="check-column"><input type="checkbox" [checked]="visibleSelectionComplete()" [disabled]="!canClaim()" (change)="toggleVisibleSelection($any($event.target).checked)" [attr.aria-label]="'moderationPage.selectAvailableCases' | translate" /></th><th>{{ 'moderation.colVideo' | translate }}</th><th>{{ 'nav.channels' | translate }}</th><th>{{ 'moderationPage.category' | translate }}</th><th>{{ 'moderation.videoDuration' | translate }}</th><th>{{ 'moderationPage.queuedAt' | translate }}</th><th>{{ 'moderationPage.waiting' | translate }}</th><th>{{ 'moderationPage.risk' | translate }}</th><th>{{ 'moderationPage.reviewer' | translate }}</th><th class="actions-column">{{ 'moderation.colActions' | translate }}</th></tr></thead>
+              <thead><tr><th class="check-column"><label class="selection-control"><input type="checkbox" [checked]="visibleSelectionComplete()" [indeterminate]="visibleSelectionPartial()" [disabled]="loading() || !canClaim()" (change)="toggleVisibleSelection($any($event.target).checked)" [attr.aria-label]="'moderationPage.selectAvailableCases' | translate" /></label></th><th>{{ 'moderation.colVideo' | translate }}</th><th>{{ 'nav.channels' | translate }}</th><th>{{ 'moderationPage.category' | translate }}</th><th>{{ 'moderation.videoDuration' | translate }}</th><th>{{ 'moderationPage.queuedAt' | translate }}</th><th>{{ 'moderationPage.waiting' | translate }}</th><th>{{ 'moderationPage.risk' | translate }}</th><th>{{ 'moderationPage.reviewer' | translate }}</th><th class="actions-column">{{ 'moderation.colActions' | translate }}</th></tr></thead>
               <tbody>
                 @for (item of filteredQueue(); track item.moderationCaseId) {
                   <tr [class.is-high-risk]="item.riskLevel === 'high'">
-                    <td class="check-column"><input type="checkbox" [checked]="isSelected(item)" [disabled]="!canSelectForBatch(item)" (change)="toggleCaseSelection(item, $any($event.target).checked)" [attr.aria-label]="'moderationPage.selectCase' | translate:{ title: item.title }" /></td>
+                    <td class="check-column"><label class="selection-control"><input type="checkbox" [checked]="isSelected(item)" [disabled]="loading() || !canSelectForBatch(item)" (change)="toggleCaseSelection(item, $any($event.target).checked)" [attr.aria-label]="'moderationPage.selectCase' | translate:{ title: item.title }" /></label></td>
                     <td><div class="video-cell"><div class="thumb-wrap">@if (item.thumbnailUrl) { <img [src]="item.thumbnailUrl" alt="" class="thumb" /> } @else { <div class="thumb placeholder">▶</div> }<span class="duration-badge">{{ formatDuration(item.duration) }}</span></div><div class="video-copy"><strong>{{ item.title }}</strong><a>{{ item.videoId.substring(0, 8) }}</a></div></div></td>
                     <td><div class="channel-cell">@if (item.channelAvatarUrl) { <img [src]="item.channelAvatarUrl" alt="" class="channel-avatar" /> } @else { <span class="channel-avatar fallback">{{ item.channelName.charAt(0) }}</span> }<div><strong>{{ item.channelName }}</strong><span>{{ item.channelHandle ? '&#64;' + item.channelHandle : '—' }}</span></div></div></td>
                     <td><span class="category-text">{{ item.categoryName || ('moderationPage.noCategory' | translate) }}</span></td>
@@ -81,17 +85,94 @@
   </section>
 
   @if (isReviewModalOpen() && activeCase(); as currentCase) {
-    <div class="modal-backdrop" (click)="closeReviewModal()">
-      <div class="review-modal" [class.is-theater]="isTheaterMode()" role="dialog" aria-modal="true" aria-labelledby="review-title" (click)="$event.stopPropagation()">
-        <header class="modal-header"><div><p class="eyebrow">{{ 'moderationPage.reviewWorkspace' | translate }}</p><h2 id="review-title">{{ currentCase.title }}</h2></div><div class="modal-header-actions"><button type="button" class="expand-button" (click)="toggleTheaterMode()">{{ isTheaterMode() ? ('moderationPage.collapse' | translate) : ('moderationPage.expand' | translate) }}</button><button type="button" class="close-button" (click)="closeReviewModal()" [attr.aria-label]="'moderation.close' | translate">×</button></div></header>
-        <div class="modal-content">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }<div class="review-grid"><div class="preview-column"><div class="player-container">@if (currentCase.videoUrl) { <video [src]="currentCase.videoUrl" [poster]="currentCase.thumbnailUrl || undefined" controls class="main-player"></video> } @else if (currentCase.thumbnailUrl) { <img [src]="currentCase.thumbnailUrl" [alt]="'moderationPage.thumbnail' | translate" class="main-player-poster" /> } @else { <span class="player-placeholder">{{ 'moderationPage.noPreview' | translate }}</span> }</div><div class="info-card"><h3>{{ 'moderationPage.videoInfo' | translate }}</h3><div><span>{{ 'nav.channels' | translate }}</span><strong>{{ currentCase.channelName }}</strong></div><div><span>{{ 'moderationPage.category' | translate }}</span><strong>{{ currentCase.categoryName || ('moderationPage.noCategory' | translate) }}</strong></div><div><span>{{ 'moderationPage.sentAt' | translate }}</span><strong>{{ formatDate(currentCase.submittedAt) }}</strong></div>@if (currentCase.description) { <p>{{ currentCase.description }}</p> }</div></div><div class="decision-column"><label class="form-field"><span>{{ 'moderationPage.policy' | translate }}</span><select [ngModel]="selectedPolicyCode()" (ngModelChange)="selectedPolicyCode.set($event)"><option value="">{{ 'moderationPage.noViolation' | translate }}</option>@for (policy of policies(); track policy.policyId) { <option [value]="policy.code">{{ getPolicyName(policy) }}</option> }</select></label><label class="form-field"><span>{{ 'moderationPage.reasonNotes' | translate }}</span><input type="text" [ngModel]="actionReason()" (ngModelChange)="actionReason.set($event)" [placeholder]="'moderationPage.reasonPlaceholder' | translate" /></label><label class="form-field"><span>{{ 'moderationPage.internalNotes' | translate }}</span><textarea rows="3" [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" [placeholder]="'moderationPage.internalPlaceholder' | translate"></textarea></label><div class="decision-actions"><h3>{{ 'moderationPage.decision' | translate }}</h3>
-  @if (canApprove()) { <button type="button" class="decision-button approve" [disabled]="submitting()" (click)="submitDecision('approve')"><b>✓</b><span><strong>{{ 'moderationPage.approve' | translate }}</strong><small>{{ 'moderationPage.approveHint' | translate }}</small></span></button><button type="button" class="decision-button age" [disabled]="submitting()" (click)="submitDecision('age_restricted')"><b>18+</b><span><strong>{{ 'moderation.actionAgeRestricted' | translate }}</strong><small>{{ 'moderationPage.ageRestrictedHint' | translate }}</small></span></button><button type="button" class="decision-button recommendation" [disabled]="submitting()" (click)="submitDecision('recommendation_restricted')"><b>⊘</b><span><strong>{{ 'moderation.actionRecommendationRestricted' | translate }}</strong><small>{{ 'moderationPage.recommendationHint' | translate }}</small></span></button> }
-  @if (canReject()) { <button type="button" class="decision-button reject" [disabled]="submitting()" (click)="submitDecision('reject')"><b>×</b><span><strong>{{ 'moderationPage.reject' | translate }}</strong><small>{{ 'moderationPage.rejectHint' | translate }}</small></span></button> }
-  @if (canReview()) { <button type="button" class="decision-button escalate" [disabled]="submitting()" (click)="submitDecision('escalate')"><b>↑</b><span><strong>{{ 'moderationPage.escalate' | translate }}</strong><small>{{ 'moderationPage.escalateHint' | translate }}</small></span></button> }
-</div></div></div></div>
-        <footer class="modal-footer"><button type="button" class="outline-button" [disabled]="submitting()" (click)="closeReviewModal()">{{ 'moderation.close' | translate }}</button></footer>
-      </div>
-    </div>
+      <dialog #reviewDialog class="review-modal" [class.is-theater]="isTheaterMode()" role="dialog" aria-modal="true" aria-labelledby="review-title" (cancel)="onReviewEscape($event)" (click)="onReviewBackdrop($event)">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">{{ (quickReview() ? 'moderationPage.quickReviewTitle' : 'moderationPage.reviewWorkspace') | translate }}</p>
+            <h2 id="review-title">{{ quickReview() ? ('moderationPage.quickReviewCount' | translate:{ count: reviewTabs().length }) : currentCase.title }}</h2>
+          </div>
+          <div class="modal-header-actions">
+            <button type="button" class="expand-button" (click)="toggleTheaterMode()">{{ (isTheaterMode() ? 'moderationPage.collapse' : 'moderationPage.expand') | translate }}</button>
+            <button type="button" class="close-button" [disabled]="submitting()" (click)="closeReviewModal()" [attr.aria-label]="'moderation.close' | translate">×</button>
+          </div>
+        </header>
+        @if (quickReview()) {
+          <div class="review-tab-bar">
+            <div class="review-tabs" role="tablist" [attr.aria-label]="'moderationPage.reviewTabs' | translate">
+              @for (tab of reviewTabs(); track tab.moderationCaseId; let index = $index) {
+                <div class="review-tab-item" [class.is-current]="tab.moderationCaseId === currentCase.moderationCaseId">
+                  <button type="button" role="tab" [id]="'review-tab-' + tab.moderationCaseId" aria-controls="review-tab-panel"
+                    [attr.aria-selected]="tab.moderationCaseId === currentCase.moderationCaseId"
+                    [attr.tabindex]="tab.moderationCaseId === currentCase.moderationCaseId ? 0 : -1" [disabled]="submitting()"
+                    [title]="tab.title" (click)="switchReviewTab(tab)" (keydown)="onReviewTabKey($event, index)">
+                    @if (tab.thumbnailUrl) { <img [src]="tab.thumbnailUrl" alt="" /> } @else { <span class="review-tab-placeholder" aria-hidden="true">▶</span> }
+                    <span>{{ index + 1 }}. {{ tab.title }}</span>
+                  </button>
+                  <button type="button" class="review-tab-remove" [disabled]="submitting()" [attr.aria-label]="'moderationPage.closeReviewTab' | translate:{ title: tab.title }" (click)="removeReviewTab(tab)">×</button>
+                </div>
+              }
+            </div>
+            <div class="review-tab-navigation">
+              <button type="button" [disabled]="submitting() || activeTabIndex() === 0" (click)="moveReviewTab(-1)" [attr.aria-label]="'moderationPage.previousVideo' | translate">‹</button>
+              <button type="button" [disabled]="submitting() || activeTabIndex() >= reviewTabs().length - 1" (click)="moveReviewTab(1)" [attr.aria-label]="'moderationPage.nextVideo' | translate">›</button>
+              <span>{{ activeTabIndex() + 1 }} / {{ reviewTabs().length }}</span>
+            </div>
+          </div>
+        }
+        <div class="modal-content" id="review-tab-panel" [attr.role]="quickReview() ? 'tabpanel' : null" [attr.aria-labelledby]="quickReview() ? 'review-tab-' + currentCase.moderationCaseId : 'review-title'">
+          <app-result-notice tone="error" [message]="reviewError()" />
+          <app-result-notice tone="success" [message]="reviewMessage()" [dismissible]="true" (dismissed)="reviewMessage.set('')" />
+          @if (!canDecideActive()) { <app-result-notice tone="warning" [message]="'moderationPage.reviewLeaseRequired' | translate" /> }
+          <div class="review-grid">
+            <div class="preview-column">
+              <div class="player-container">
+                @for (playerCase of [currentCase]; track playerCase.moderationCaseId) {
+                  @if (playerCase.videoUrl) { <video #reviewPlayer [src]="playerCase.videoUrl" [poster]="playerCase.thumbnailUrl || undefined" controls playsinline preload="metadata" class="main-player"></video> }
+                  @else if (playerCase.thumbnailUrl) { <img [src]="playerCase.thumbnailUrl" [alt]="'moderationPage.thumbnail' | translate" class="main-player-poster" /> }
+                  @else { <span class="player-placeholder">{{ 'moderationPage.noPreview' | translate }}</span> }
+                }
+              </div>
+              <div class="info-card">
+                <h3>{{ 'moderationPage.videoInfo' | translate }}</h3>
+                @if (quickReview()) { <p class="review-video-title">{{ currentCase.title }}</p> }
+                <div><span>{{ 'nav.channels' | translate }}</span><strong>{{ currentCase.channelName }}</strong></div>
+                <div><span>{{ 'moderationPage.category' | translate }}</span><strong>{{ currentCase.categoryName || ('moderationPage.noCategory' | translate) }}</strong></div>
+                <div><span>{{ 'moderation.videoDuration' | translate }}</span><strong>{{ formatDuration(currentCase.duration) }}</strong></div>
+                <div><span>{{ 'moderationPage.sentAt' | translate }}</span><strong>{{ formatDate(currentCase.submittedAt) }}</strong></div>
+                @if (currentCase.description) { <p>{{ currentCase.description }}</p> }
+              </div>
+            </div>
+            <div class="decision-column">
+              <label class="form-field"><span>{{ 'moderationPage.policy' | translate }}</span>
+                <select [disabled]="submitting() || !canDecideActive()" [ngModel]="selectedPolicyCode()" (ngModelChange)="selectedPolicyCode.set($event)">
+                  <option value="">{{ 'moderationPage.noViolation' | translate }}</option>
+                  @for (policy of policies(); track policy.policyId) { <option [value]="policy.code">{{ getPolicyName(policy) }}</option> }
+                </select>
+              </label>
+              <label class="form-field"><span>{{ 'moderationPage.reasonNotes' | translate }}</span><input type="text" [disabled]="submitting() || !canDecideActive()" [ngModel]="actionReason()" (ngModelChange)="actionReason.set($event)" [placeholder]="'moderationPage.reasonPlaceholder' | translate" /></label>
+              <label class="form-field"><span>{{ 'moderationPage.internalNotes' | translate }}</span><textarea rows="3" [disabled]="submitting() || !canDecideActive()" [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" [placeholder]="'moderationPage.internalPlaceholder' | translate"></textarea></label>
+              <div class="decision-actions" [attr.role]="quickReview() ? 'group' : null" [attr.aria-label]="'moderationPage.decision' | translate">
+                <h3>{{ 'moderationPage.decision' | translate }}</h3>
+                @if (canApprove()) {
+                  <button type="button" class="decision-button approve" [class.is-selected]="quickReview() && selectedDecision() === 'approve'" [attr.aria-pressed]="quickReview() ? selectedDecision() === 'approve' : null" [disabled]="submitting() || !canDecideActive()" (click)="chooseDecision('approve')"><b>✓</b><span><strong>{{ 'moderationPage.approve' | translate }}</strong><small>{{ 'moderationPage.approveHint' | translate }}</small></span></button>
+                  <button type="button" class="decision-button age" [class.is-selected]="quickReview() && selectedDecision() === 'age_restricted'" [attr.aria-pressed]="quickReview() ? selectedDecision() === 'age_restricted' : null" [disabled]="submitting() || !canDecideActive()" (click)="chooseDecision('age_restricted')"><b>18+</b><span><strong>{{ 'moderation.actionAgeRestricted' | translate }}</strong><small>{{ 'moderationPage.ageRestrictedHint' | translate }}</small></span></button>
+                  <button type="button" class="decision-button recommendation" [class.is-selected]="quickReview() && selectedDecision() === 'recommendation_restricted'" [attr.aria-pressed]="quickReview() ? selectedDecision() === 'recommendation_restricted' : null" [disabled]="submitting() || !canDecideActive()" (click)="chooseDecision('recommendation_restricted')"><b>⊘</b><span><strong>{{ 'moderation.actionRecommendationRestricted' | translate }}</strong><small>{{ 'moderationPage.recommendationHint' | translate }}</small></span></button>
+                }
+                @if (canReject()) { <button type="button" class="decision-button reject" [class.is-selected]="quickReview() && selectedDecision() === 'reject'" [attr.aria-pressed]="quickReview() ? selectedDecision() === 'reject' : null" [disabled]="submitting() || !canDecideActive()" (click)="chooseDecision('reject')"><b>×</b><span><strong>{{ 'moderationPage.reject' | translate }}</strong><small>{{ 'moderationPage.rejectHint' | translate }}</small></span></button> }
+                @if (canReview()) { <button type="button" class="decision-button escalate" [class.is-selected]="quickReview() && selectedDecision() === 'escalate'" [attr.aria-pressed]="quickReview() ? selectedDecision() === 'escalate' : null" [disabled]="submitting() || !canDecideActive()" (click)="chooseDecision('escalate')"><b>↑</b><span><strong>{{ 'moderationPage.escalate' | translate }}</strong><small>{{ 'moderationPage.escalateHint' | translate }}</small></span></button> }
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer class="modal-footer review-footer">
+          <button type="button" class="outline-button" [disabled]="submitting()" (click)="closeReviewModal()">{{ 'moderation.close' | translate }}</button>
+          @if (quickReview()) {
+            <button type="button" class="primary-button review-next-submit" [disabled]="submitting() || !canDecideActive() || !selectedDecision()" (click)="submitQuickDecision()">
+              {{ (submitting() ? 'moderationPage.processing' : reviewTabs().length > 1 ? 'moderationPage.submitAndNext' : 'moderationPage.submitAndFinish') | translate }} <span aria-hidden="true">→</span>
+            </button>
+          }
+        </footer>
+      </dialog>
   }
+
 </main>

@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { DecimalPipe, UpperCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ import {
 
 @Component({
   selector: 'app-admin-payments-page',
-  imports: [FormsModule, DecimalPipe, UpperCasePipe, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, DecimalPipe, UpperCasePipe, TranslatePipe],
   templateUrl: './admin-payments-page.html',
   styleUrl: './admin-payments-page.scss',
 })

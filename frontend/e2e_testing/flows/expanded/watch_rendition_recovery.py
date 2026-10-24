@@ -35,13 +35,13 @@ def run(suite, config, actors):
                     return !!v && !v.currentSrc.includes(expected) && v.readyState >= 1;
                 }""", highest['url'], timeout=30000)
             else:
-                page.wait_for_function('() => !!document.querySelector(".action-message")', timeout=30000)
-            expect(page.locator('.action-message')).to_be_visible(timeout=15000)
-            expect(page.locator('.action-message')).to_contain_text('chất lượng thấp hơn' if fallback else ('tệp nguồn' if fallback_url else 'Không thể phát'))
+                page.wait_for_function('() => !!document.querySelector("app-result-notice[tone=info]")', timeout=30000)
+            expect(page.locator('app-result-notice[tone=info]')).to_be_visible(timeout=15000)
+            expect(page.locator('app-result-notice[tone=info]')).to_contain_text('chất lượng thấp hơn' if fallback else ('tệp nguồn' if fallback_url else 'Không thể phát'))
             if fallback_url:
                 assert fallback_url in page.locator('video').evaluate('(v) => v.currentSrc')
             else:
-                assert highest['url'] not in page.locator('.action-message').inner_text()
+                assert highest['url'] not in page.locator('app-result-notice[tone=info]').inner_text()
             assert failed and highest['url'] in failed
             entry['resource_ids'] = [video_id]
             entry['steps'] = ['Abort only the actual highest rendition browser request', 'Watch selects a lower real rendition/source when one is available, otherwise shows the bounded rendition error', 'No response is stubbed and the failed signed URL is not rendered into the page']
@@ -60,7 +60,7 @@ def run(suite, config, actors):
         try:
             suite.go(member, watch, 'app-watch-page')
             expect(page.locator('app-watch-page')).to_be_visible()
-            expect(page.locator('.action-message')).to_be_visible(timeout=15000)
+            expect(page.locator('app-result-notice[tone=info]')).to_be_visible(timeout=15000)
             expect(page.locator('video[src]')).to_have_count(0)
             assert failed
         finally:

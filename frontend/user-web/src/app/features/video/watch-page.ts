@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, DestroyRef, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -22,11 +24,12 @@ import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/vid
 
 @Component({
   selector: 'app-watch-page',
-  imports: [RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [ResultNoticeComponent, RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })
 export class WatchPage {
+  private readonly feedback = inject(FeedbackService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly content = inject(ContentService);
@@ -987,9 +990,9 @@ export class WatchPage {
     });
   }
 
-  remove(comment: CommentItem) {
+  async remove(comment: CommentItem) {
     if (!this.requireAuthentication(this.i18n.t('watch.loginCommentDelete'))) return;
-    if (!confirm(this.i18n.t('watch.deleteCommentConfirm'))) return;
+    if (!(await this.feedback.confirm(this.i18n.t('watch.deleteCommentConfirm'), { tone: 'danger' }))) return;
     this.content.deleteComment(comment.commentId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         const wasRoot = this.comments().some(item => item.commentId === comment.commentId);

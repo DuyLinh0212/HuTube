@@ -1,9 +1,9 @@
 <main id="main-content" class="users-page">
   @if (success()) {
-    <div class="alert success" role="status"><span aria-hidden="true">✓</span>{{ success() }}</div>
+    <app-result-notice tone="success" [message]="success()" />
   }
-  @if (error()) {
-    <div class="alert error" role="alert"><span aria-hidden="true">!</span>{{ error() }}</div>
+  @if (error() && !actionModal()) {
+    <app-result-notice tone="error" [message]="error()" />
   }
 
   <section class="users-workspace">
@@ -83,19 +83,15 @@
   </section>
 
   @if (actionModal(); as action) {
-    <div class="modal-backdrop" role="presentation" (click)="closeAction()">
-      <form class="action-modal" role="dialog" aria-modal="true" aria-labelledby="user-action-title" (click)="$event.stopPropagation()" (ngSubmit)="submitAction()">
-        <header><div><span class="modal-kicker">{{ 'users.confirmAction' | translate }}</span><h2 id="user-action-title">{{ (action === 'lock' ? 'users.confirmLock' : action === 'unlock' ? 'users.confirmUnlock' : 'users.confirmUpdateRole') | translate }}</h2></div><button type="button" class="close-button" [attr.aria-label]="'common.close' | translate" (click)="closeAction()">×</button></header>
-        <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+    <app-confirm-dialog [title]="(action === 'lock' ? 'users.confirmLock' : action === 'unlock' ? 'users.confirmUnlock' : 'users.confirmUpdateRole') | translate" [confirmLabel]="(action === 'lock' ? 'users.confirmLockAction' : action === 'unlock' ? 'users.confirmUnlockAction' : 'users.saveRole') | translate" (cancelled)="closeAction()" (confirmed)="submitAction()" panelClass="action-modal" [busy]="savingAction()" [confirmDisabled]="actionReason().trim().length < 3" [tone]="action === 'lock' ? 'danger' : 'primary'" initialFocus="field">
+<div class="modal-body">
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           @if (actionTarget(); as user) { <p class="modal-target">{{ (action === 'lock' ? 'users.lockDescription' : action === 'unlock' ? 'users.unlockDescription' : 'users.roleDescription') | translate:{ name: user.displayName } }}</p> }
           @if (action === 'role') { <label class="modal-field"><span>{{ 'users.newRole' | translate }}</span><select name="actionRole" [ngModel]="actionRole()" (ngModelChange)="actionRole.set($event)">@for (role of roles(); track role.roleId) { <option [value]="role.code">{{ roleLabel({ roleCode: role.code, roleName: role.name }) }}</option> }</select></label> }
           <label class="modal-field"><span>{{ 'users.reason' | translate }} <b>*</b></span><textarea name="actionReason" rows="4" maxlength="300" required [placeholder]="'users.reasonPlaceholder' | translate" [ngModel]="actionReason()" (ngModelChange)="actionReason.set($event)"></textarea><small>{{ actionReason().length }}/300</small></label>
           @if (action !== 'role') { <label class="check-field"><input type="checkbox" [checked]="notifyUser()" (change)="notifyUser.set($any($event.target).checked)" /> {{ 'users.notifyUser' | translate }}</label> }
         </div>
-        <footer><button type="button" class="secondary-button" [disabled]="savingAction()" (click)="closeAction()">{{ 'common.cancel' | translate }}</button><button type="submit" class="confirm-button" [class.danger]="action === 'lock'" [disabled]="savingAction() || actionReason().trim().length < 3">{{ (savingAction() ? 'users.saving' : action === 'lock' ? 'users.confirmLockAction' : action === 'unlock' ? 'users.confirmUnlockAction' : 'users.saveRole') | translate }}</button></footer>
-      </form>
-    </div>
+    </app-confirm-dialog>
   }
 
   @if (statisticsModal()) {
@@ -116,7 +112,7 @@
             <div class="range-fields"><label><span>{{ 'users.statistics.from' | translate }}</span><input type="date" name="statisticsFrom" [ngModel]="statisticsFrom()" (ngModelChange)="statisticsFrom.set($event)" /></label><span class="range-arrow" aria-hidden="true">→</span><label><span>{{ 'users.statistics.to' | translate }}</span><input type="date" name="statisticsTo" [ngModel]="statisticsTo()" (ngModelChange)="statisticsTo.set($event)" /></label><button type="submit" class="confirm-button" [disabled]="statisticsLoading()">{{ 'users.statistics.apply' | translate }}</button></div>
           </form>
 
-          @if (statisticsError()) { <div class="statistics-alert" role="alert">{{ statisticsError() }}</div> }
+          @if (statisticsError()) { <app-result-notice tone="error" [message]="statisticsError()" /> }
           @if (statisticsLoading()) {
             <div class="statistics-loading"><span class="spinner"></span><p>{{ 'users.statistics.loading' | translate }}</p></div>
           } @else if (statistics(); as report) {

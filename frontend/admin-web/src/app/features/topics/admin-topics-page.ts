@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -25,11 +27,12 @@ const emptyTopicDraft = (): TopicRequest => ({
 @Component({
   selector: 'app-admin-topics-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-topics-page.html',
   styleUrl: './admin-topics-page.scss',
 })
 export class AdminTopicsPage implements OnInit {
+  private readonly feedback = inject(FeedbackService);
   private readonly service = inject(AdminTopicsService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
@@ -151,9 +154,9 @@ export class AdminTopicsPage implements OnInit {
     });
   }
 
-  archiveTopic(topic: AdminTopic): void {
+  async archiveTopic(topic: AdminTopic): Promise<void> {
     if (!this.canEdit() || topic.status === 'inactive') return;
-    if (!confirm(this.i18n.format('topics.archiveConfirm', { name: topic.name }))) return;
+    if (!(await this.feedback.confirm(this.i18n.format('topics.archiveConfirm', { name: topic.name }), { tone: 'danger' }))) return;
     this.service.archiveTopic(topic.categoryId).subscribe({
       next: () => {
         this.showSuccess(this.i18n.t('topics.archivedCategory'));
@@ -209,9 +212,9 @@ export class AdminTopicsPage implements OnInit {
     });
   }
 
-  deleteTag(tag: AdminTag): void {
+  async deleteTag(tag: AdminTag): Promise<void> {
     if (!this.canEdit() || tag.videoCount > 0) return;
-    if (!confirm(this.i18n.format('topics.deleteConfirm', { name: tag.name }))) return;
+    if (!(await this.feedback.confirm(this.i18n.format('topics.deleteConfirm', { name: tag.name }), { tone: 'danger' }))) return;
     this.service.deleteTag(tag.tagId).subscribe({
       next: () => {
         this.showSuccess(this.i18n.t('topics.deletedTag'));

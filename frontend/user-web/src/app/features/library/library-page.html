@@ -25,7 +25,7 @@
   }
 
   @if (error()) {
-    <div class="library-alert" role="alert">{{ error() }}</div>
+    <app-result-notice tone="error" [message]="error()" />
   }
 
   @if (loading()) {

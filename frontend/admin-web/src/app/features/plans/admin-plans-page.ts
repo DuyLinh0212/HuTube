@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { AfterViewChecked, Component, ElementRef, HostListener, ViewChild, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,8 +13,9 @@ const bytesToGiB = (bytes: number) => Number((bytes / BYTES_PER_GIB).toFixed(2))
 const giBToBytes = (gib: number) => Math.round(gib * BYTES_PER_GIB);
 const emptyDraft = (): SavePlanRequest => ({ code: '', name: '', description: '', price: 0, durationDays: 30, storageLimit: 10, maxUploadSize: 1, maxVideoDuration: 720, maxVideoQuality: '720p', maxDownloadQuality: '720p', maxMembers: 1, status: 'active', features: '{"download":false,"background_play":false,"pip":false,"video_promotion":false}', displayOrder: 0, isDefaultForNewUsers: false });
 
-@Component({ selector: 'app-admin-plans-page', imports: [FormsModule, DecimalPipe, TranslatePipe], templateUrl: './admin-plans-page.html', styleUrl: './admin-plans-page.scss' })
+@Component({ selector: 'app-admin-plans-page', imports: [ResultNoticeComponent, FormsModule, DecimalPipe, TranslatePipe], templateUrl: './admin-plans-page.html', styleUrl: './admin-plans-page.scss' })
 export class AdminPlansPage implements AfterViewChecked {
+  private readonly feedback = inject(FeedbackService);
   private readonly service = inject(AdminPlansService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
@@ -68,13 +71,13 @@ export class AdminPlansPage implements AfterViewChecked {
     this.editing.set(null); this.creating.set(false);
     if (returnFocusTarget?.isConnected) requestAnimationFrame(() => returnFocusTarget.focus());
   }
-  save() {
+  async save() {
     if (this.saving()) return;
     const replacement = this.plans().find(plan => plan.isDefaultForNewUsers && plan.planId !== this.editing()?.planId);
-    if (this.draft.isDefaultForNewUsers && replacement && !confirm(this.i18n.format('plans.defaultReplaceConfirm', {
+    if (this.draft.isDefaultForNewUsers && replacement && !(await this.feedback.confirm(this.i18n.format('plans.defaultReplaceConfirm', {
       current: replacement.name,
       next: this.draft.name || this.i18n.t('plans.namePlaceholder')
-    }))) return;
+    })))) return;
     const request: SavePlanRequest = {
       ...this.draft,
       storageLimit: giBToBytes(this.draft.storageLimit),
@@ -115,5 +118,5 @@ export class AdminPlansPage implements AfterViewChecked {
       this.returnFocusTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
 
-  archive(plan: AdminPlan) { if (!confirm(this.i18n.format('plans.archiveConfirm', { name: plan.name }))) return; this.service.archivePlan(plan.planId).subscribe({ next: () => { this.message.set(this.i18n.t('plans.archivedSuccess')); this.load(); }, error: error => this.error.set(errorMessage(error, this.i18n)) }); }
+  async archive(plan: AdminPlan) { if (!(await this.feedback.confirm(this.i18n.format('plans.archiveConfirm', { name: plan.name }), { tone: 'danger' }))) return; this.service.archivePlan(plan.planId).subscribe({ next: () => { this.message.set(this.i18n.t('plans.archivedSuccess')); this.load(); }, error: error => this.error.set(errorMessage(error, this.i18n)) }); }
 }

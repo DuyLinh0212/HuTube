@@ -259,7 +259,7 @@
       </section>
 
       @if (message()) {
-        <div class="toast-message" role="status"><span>✓ {{ message() }}</span></div>
+        <app-result-notice tone="success" [message]="message()" />
       }
     } @else {
       <div class="no-plan-card">

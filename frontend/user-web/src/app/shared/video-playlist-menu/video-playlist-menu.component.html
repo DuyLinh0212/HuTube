@@ -44,6 +44,6 @@
         }
       }
 
-      @if (message()) { <p class="video-playlist-menu__message" role="status">{{ message() }}</p> }
+      @if (message()) { <app-result-notice tone="info" [message]="message()" /> }
     </div>
 </div>

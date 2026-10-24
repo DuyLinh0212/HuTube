@@ -48,7 +48,7 @@ def run(suite,config,actors):
             p.locator('.settings-tabs-nav .tab-btn').nth(1).click()
             payload={'name':'qc-oversized.png','mimeType':'image/png','buffer':b'0'*(maximum*1024*1024+1)}
             p.locator('.branding-tab-pane input[type=file]').nth(index).set_input_files(payload)
-            expect(p.locator('.alert-error')).to_be_visible()
+            expect(p.locator('app-result-notice[tone=error]')).to_be_visible()
             reject_oversized(suite,owner,'/channels/'+cid+'/'+kind,payload,entry)
             after=suite.api(owner,'get','/channels/me').json()
             fields=('name','handle','description','settings','avatarUrl','bannerUrl','watermarkUrl')

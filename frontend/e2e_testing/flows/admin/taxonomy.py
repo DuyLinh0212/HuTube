@@ -1,4 +1,5 @@
 """Taxonomy UI mutations on the isolated database, including cross-role denial."""
+from support.ui_confirmation import app_confirm
 from playwright.sync_api import expect
 
 
@@ -60,17 +61,15 @@ def run(suite, admin, member, fixture_suffix=None):
         def cancel_archive():
             open_topics()
             page.locator('input[type=search]').fill(slug)
-            page.once('dialog', lambda dialog: dialog.dismiss())
-            page.locator('tbody tr .danger').click()
+            app_confirm(page, lambda: page.locator('tbody tr .danger').click(), accept=False)
             stored = next(item for item in suite.api(admin, 'get', '/admin/topics').json() if item['categoryId'] == category['categoryId'])
             assert stored['status'] == 'active'
         suite.case(admin, 'A-TOPICS-CANCEL-01', 'Hủy lưu trữ danh mục', cancel_archive,
                    expected='Dismiss confirmation giữ status active')
 
         def archive():
-            page.once('dialog', lambda dialog: dialog.accept())
             with page.expect_response(lambda r: r.request.method == 'POST' and r.url.endswith('/' + category['categoryId'] + '/archive')) as pending:
-                page.locator('tbody tr .danger').click()
+                app_confirm(page, lambda: page.locator('tbody tr .danger').click(), accept=True)
             assert pending.value.status in (200, 204)
             open_topics()
             page.locator('input[type=search]').fill(slug)
@@ -112,12 +111,10 @@ def run(suite, admin, member, fixture_suffix=None):
 
     if tag:
         def delete_tag():
-            page.once('dialog', lambda dialog: dialog.dismiss())
-            page.locator('tbody tr .danger').click()
+            app_confirm(page, lambda: page.locator('tbody tr .danger').click(), accept=False)
             assert any(item['tagId'] == tag['tagId'] for item in suite.api(admin, 'get', '/admin/tags').json())
-            page.once('dialog', lambda dialog: dialog.accept())
             with page.expect_response(lambda r: r.request.method == 'DELETE' and r.url.endswith('/admin/tags/' + tag['tagId'])) as pending:
-                page.locator('tbody tr .danger').click()
+                app_confirm(page, lambda: page.locator('tbody tr .danger').click(), accept=True)
             assert pending.value.status in (200, 204)
             assert not any(item['tagId'] == tag['tagId'] for item in suite.api(admin, 'get', '/admin/tags').json())
             expect(page.locator('.tag-name')).to_have_count(0)

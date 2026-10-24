@@ -75,7 +75,10 @@
               "buildTarget": "user-web:build:development"
             }
           },
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "development",
+          "options": {
+            "prebundle": false
+          }
         },
         "extract-i18n": {
           "builder": "@angular/build:extract-i18n"

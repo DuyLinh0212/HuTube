@@ -45,7 +45,7 @@ def register(suite,config,key,db):
         for selector,value in [('#displayName','QC '+key),('#username',creds['username']),('#email',creds['email']),('#password',creds['password']),('#confirmPassword',creds['password'])]:page.locator(selector).fill(value)
         checkpoint['sent_at']=time.time()
         suite.response(guest,'/auth/register',lambda:page.locator('button[type=submit]').click(),method='POST',status=201)
-        expect(page.locator('.notice.success')).to_be_visible()
+        expect(page.locator('app-result-notice[tone=success]')).to_be_visible()
         assert db.account_count(creds['email'])==1
         account=db.account(creds['email']);assert account and not account['verified']
         checkpoint['user_id']=account['user_id']
@@ -66,7 +66,7 @@ def register(suite,config,key,db):
         link=pickup_link(config,creds['email'],'verify-email',checkpoint['sent_at'])
         with page.expect_response(lambda r:urlsplit(r.url).path=='/api/v1/auth/verify-email' and r.request.method=='POST') as response:page.goto(link)
         assert response.value.status==200
-        expect(page.locator('.notice.success')).to_be_visible()
+        expect(page.locator('app-result-notice[tone=success]')).to_be_visible()
         assert db.account(creds['email'])['verified']
         case['resource_ids']=[checkpoint['user_id']]
         case['steps']=['Read actual recipient-specific Pickup message','Browser opens actual verification link → POST 200','Read DB verified state; keep token out of report/storage']
@@ -132,7 +132,7 @@ def auth_deep(suite,config,actors):
         link=pickup_link(config,creds['email'],'reset-password',sent_at)
         page.goto(link);page.locator('#password').fill(new_password);page.locator('#confirmPassword').fill(new_password)
         suite.response(guest,'/auth/reset-password',lambda:page.locator('button[type=submit]').click(),method='POST')
-        expect(page.locator('.notice.success')).to_be_visible()
+        expect(page.locator('app-result-notice[tone=success]')).to_be_visible()
         # Token stays in memory; HTTP observers store path/status only.
         page.goto(link);page.locator('#password').fill(original);page.locator('#confirmPassword').fill(original)
         replay=suite.response(guest,'/auth/reset-password',lambda:page.locator('button[type=submit]').click(),method='POST',status=(400,409))

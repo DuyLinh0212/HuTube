@@ -37,7 +37,7 @@ def run(suite,config,actors):
             for email,status,code in [(owner['identity']['email'],400,'ALREADY_OWNER'),('qc.missing.'+suite.run_id+'@example.test',404,'USER_NOT_FOUND')]:
                 p.locator('#inviteEmail').fill(email)
                 response=suite.response(owner,path+'/members/invite',lambda:p.locator('.invite-form button[type=submit]').click(),method='POST',status=status)
-                assert response.json()['code']==code;expect(p.locator('.alert-error')).to_be_visible();expect(p.locator('.invite-form button[type=submit]')).to_be_enabled()
+                assert response.json()['code']==code;expect(p.locator('app-result-notice[tone=error]')).to_be_visible();expect(p.locator('.invite-form button[type=submit]')).to_be_enabled()
             response=suite.api(owner,'post',path+'/members/invite',data={'email':target['identity']['email'],'roleCode':'owner'},expected=400)
             assert response.json()['code']=='INVALID_ROLE'
             assert before=={v['channelInvitationId'] for v in suite.api(owner,'get',path+'/invitations').json()}

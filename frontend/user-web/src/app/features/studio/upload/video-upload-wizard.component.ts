@@ -1,3 +1,5 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -31,7 +33,7 @@ interface ThumbnailOption {
 
 @Component({
   selector: 'app-video-upload-wizard',
-  imports: [CommonModule, FormsModule, LocaleNumberPipe, TranslatePipe, RouterLink],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, LocaleNumberPipe, TranslatePipe, RouterLink],
   templateUrl: './video-upload-wizard.component.html',
   styleUrls: ['./video-upload-wizard.component.scss', './video-upload-wizard-responsive.scss']
 })

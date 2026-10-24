@@ -1,6 +1,6 @@
 <main class="seed-page">
   @if (pageError()) {
-    <div class="page-alert error-alert" role="alert">{{ pageError() }}</div>
+    <app-result-notice tone="error" [message]="pageError()" />
   }
 
   <section class="workspace-grid">

@@ -12,7 +12,7 @@ def run(suite, config, actors):
         size=5*1024*1024+1
         payload={'name':'qc-avatar-limit-plus-one.png','mimeType':'image/png','buffer':exact_png(size)}
         p.locator('.channel-avatar-box input[type=file]').set_input_files(payload)
-        expect(p.locator('.yt-alert-error')).to_be_visible()
+        expect(p.locator('app-result-notice[tone=error]')).to_be_visible()
         response=suite.api(owner,'post','/account/avatar',multipart={'file':payload},expected=400)
         assert response.json()['code']=='FILE_TOO_LARGE'
         assert suite.api(owner,'get','/account/profile').json()['avatarUrl']==before['avatarUrl']

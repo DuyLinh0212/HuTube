@@ -1,16 +1,8 @@
 <div class="upload-container" [class.has-upload-progress]="uploadState.state().phase !== 'idle'">
   @if (qualityLimitPrompt()) {
-    <dialog open class="quality-limit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="quality-limit-title" aria-describedby="quality-limit-message">
-      <section class="quality-limit-card">
-        <span class="quality-limit-icon" aria-hidden="true">!</span>
-        <h2 id="quality-limit-title">{{ 'upload.qualityLimit.title' | translate }}</h2>
-        <p id="quality-limit-message">{{ 'upload.qualityLimit.message' | translate: { quality: qualityLimitPrompt() } }}</p>
-        <div class="quality-limit-actions">
-          <button type="button" class="quality-limit-secondary" (click)="chooseAnotherVideo()">{{ 'upload.qualityLimit.chooseAnother' | translate }}</button>
-          <button type="button" class="quality-limit-primary" (click)="acceptQualityReduction()">{{ 'upload.qualityLimit.accept' | translate }}</button>
-        </div>
-      </section>
-    </dialog>
+    <app-confirm-dialog [title]="'upload.qualityLimit.title' | translate" [confirmLabel]="'upload.qualityLimit.accept' | translate" (cancelled)="chooseAnotherVideo()" (confirmed)="acceptQualityReduction()" panelClass="quality-limit-dialog" [description]="'upload.qualityLimit.message' | translate:{quality: qualityLimitPrompt()}" [cancelLabel]="'upload.qualityLimit.chooseAnother' | translate">
+
+    </app-confirm-dialog>
   }
   <!-- Header & Stepper -->
   <header class="wizard-header">
@@ -33,8 +25,8 @@
   <div class="wizard-layout" [class.is-single-column]="currentStep() === 1 || currentStep() === 6">
     <!-- Left Column: Step Content Panels -->
     <main id="main-content" class="wizard-main-content">
-      @if (draftMessage()) { <p class="continue-notice-box" role="status">{{ draftMessage() }}</p> }
-      @if (uploadError()) { <p class="continue-notice-box" role="alert">{{ uploadError() }}</p> }
+      @if (draftMessage()) { <app-result-notice tone="info" [message]="draftMessage()" /> }
+      @if (uploadError()) { <app-result-notice tone="error" [message]="uploadError()" /> }
 
       <!-- STEP 1: CHỌN FILE -->
       @if (currentStep() === 1) {

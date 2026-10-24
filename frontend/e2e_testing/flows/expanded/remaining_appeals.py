@@ -76,7 +76,7 @@ def run(suite, config, actors):
         try:
             row=ui(); before=len(r2['context'].pages)
             suite.response(r2,'/admin/appeals/'+aid+'/evidence',lambda:row.locator('.link-evidence').click(),status=404)
-            expect(p.locator('.alert-danger')).to_be_visible()
+            expect(p.locator('app-result-notice[tone=error]')).to_be_visible()
             p.wait_for_function('()=>!document.querySelector(".loading-state")')
             p.wait_for_timeout(300)
             assert len(r2['context'].pages)==before, 'Failed evidence popup was not closed'

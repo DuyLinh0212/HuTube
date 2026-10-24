@@ -31,17 +31,11 @@
   <!-- Right Column: Settings Content Panels -->
   <main id="main-content" class="yt-settings-main">
     <!-- Notification Alerts -->
-    @if (error()) {
-      <div class="yt-alert yt-alert-error" role="alert">
-        <span>⚠️ {{ error() }}</span>
-          <button type="button" class="alert-dismiss" (click)="error.set('')" [attr.aria-label]="'account.dismissMessage' | translate">×</button>
-      </div>
+    @if (error() && !pendingRevoke()) {
+      <app-result-notice tone="error" [message]="error()" [dismissible]="true" (dismissed)="error.set('')" />
     }
     @if (message()) {
-      <div class="yt-alert yt-alert-success" role="status">
-        <span>✓ {{ message() }}</span>
-          <button type="button" class="alert-dismiss" (click)="message.set('')" [attr.aria-label]="'account.dismissMessage' | translate">×</button>
-      </div>
+      <app-result-notice tone="success" [message]="message()" [dismissible]="true" (dismissed)="message.set('')" />
     }
 
     <!-- ============================================== -->
@@ -376,13 +370,10 @@
           <p class="sessions-device-note">{{ 'account.deviceInfoNote' | translate }}</p>
 
           @if (pendingRevoke(); as pending) {
-            <div class="revoke-warning">
-              <p>{{ 'account.confirmRevokeText' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
-              <div class="revoke-btn-group">
-                <button type="button" class="btn-danger" (click)="revoke()" [disabled]="busy()">{{ 'common.confirm' | translate }}</button>
-                <button type="button" class="btn-yt-secondary" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
-              </div>
-            </div>
+            <app-confirm-dialog [title]="'account.revoke' | translate" [confirmLabel]="'common.confirm' | translate" (cancelled)="pendingRevoke.set(null)" (confirmed)="revoke()" panelClass="revoke-warning" [busy]="busy()" [description]="('account.confirmRevokeText' | translate) + ' ' + pending.deviceName + '?'" [tone]="'danger'">
+
+    <app-result-notice tone="error" [message]="error()" />
+    </app-confirm-dialog>
           }
 
           <div class="sessions-list">

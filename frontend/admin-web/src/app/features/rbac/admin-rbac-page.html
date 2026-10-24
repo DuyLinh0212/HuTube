@@ -244,7 +244,7 @@
     }
 
     @if (saveMessage()) {
-      <p class="save-message" [class.is-error]="saveFailed()">{{ saveMessage() }}</p>
+      <app-result-notice [tone]="saveFailed() ? 'error' : 'success'" [message]="saveMessage()" />
     }
 
     @if (createOpen()) {

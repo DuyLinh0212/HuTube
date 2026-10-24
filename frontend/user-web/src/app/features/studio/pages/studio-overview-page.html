@@ -226,10 +226,10 @@
 
         <div class="modal-body">
           @if (appealError()) {
-            <div class="alert-box alert-box-danger">{{ appealError() }}</div>
+            <app-result-notice tone="error" [message]="appealError()" />
           }
           @if (appealMessage()) {
-            <div class="alert-box alert-box-success">{{ appealMessage() }}</div>
+            <app-result-notice tone="success" [message]="appealMessage()" />
           }
 
           <p class="appeal-intro">{{ 'studio.appealReviewDescription' | translate }}</p>

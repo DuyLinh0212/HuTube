@@ -99,8 +99,8 @@ def run(suite, config, actors):
             p.route(pattern, abort)
             try:
                 suite.response(owner, '/videos/' + target, lambda: p.locator('.header-actions .button-primary').click(), method='PATCH')
-                expect(p.locator('.notice-error')).to_be_visible()
-                expect(p.locator('.notice-success')).to_have_count(0)
+                expect(p.locator('app-result-notice[tone=error]')).to_be_visible()
+                expect(p.locator('app-result-notice[tone=success]')).to_have_count(0)
                 assert aborted
             finally:
                 p.unroute(pattern, abort)
@@ -124,8 +124,8 @@ def run(suite, config, actors):
             p.route(pattern, abort)
             try:
                 suite.response(owner, '/videos/' + target, lambda: p.locator('.header-actions .button-primary').click(), method='PATCH')
-                expect(p.locator('.notice-error')).to_be_visible()
-                expect(p.locator('.notice-success')).to_have_count(0)
+                expect(p.locator('app-result-notice[tone=error]')).to_be_visible()
+                expect(p.locator('app-result-notice[tone=success]')).to_have_count(0)
                 assert aborted
             finally:
                 p.unroute(pattern, abort)

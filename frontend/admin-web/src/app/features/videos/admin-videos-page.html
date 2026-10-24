@@ -1,20 +1,10 @@
 <main class="videos-view-container" id="main-content">
   <!-- Notifications -->
   @if (notice()) {
-    <div class="feedback-banner is-success" role="status">
-      <svg class="feedback-icon" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-      </svg>
-      <span>{{ notice() }}</span>
-    </div>
+    <app-result-notice tone="success" [message]="notice()" />
   }
-  @if (error()) {
-    <div class="feedback-banner is-error" role="alert">
-      <svg class="feedback-icon" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-      </svg>
-      <span>{{ error() }}</span>
-    </div>
+  @if (error() && !showActionModal() && !showEditModal() && !showStatsModal() && !showPreviewModal()) {
+    <app-result-notice tone="error" [message]="error()" />
   }
 
   <!-- Filter & Action Header Strip -->
@@ -536,7 +526,7 @@
         </header>
 
         <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           @if (detailLoading()) {
             <div class="drawer-loading">
               <div class="loader-spinner"></div>
@@ -661,7 +651,7 @@
         </header>
 
         <form class="modal-body" (ngSubmit)="saveEdit()">
-          @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+          @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <label class="modal-form-label">
             <span>{{ 'videos.videoTitle' | translate }} <strong class="text-red">*</strong>:</span>
             <input
@@ -735,15 +725,9 @@
 
   <!-- Status Action Modal -->
   @if (showActionModal()) {
-    <div class="modal-backdrop" (click)="closeAction()">
-      <div class="modal-dialog" (click)="$event.stopPropagation()">
-        <header class="modal-header">
-          <h3>{{ actionLabel(actionModalType() || '') }}</h3>
-          <button type="button" class="modal-close" (click)="closeAction()">✕</button>
-        </header>
-
-        <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+    <app-confirm-dialog [title]="actionLabel(actionModalType() || '')" [confirmLabel]="'videos.confirm' | translate" (cancelled)="closeAction()" (confirmed)="submitAction()" [tone]="actionModalType() === 'hide' || actionModalType() === 'remove' ? 'danger' : 'primary'" panelClass="modal-dialog" [busy]="busy()" [confirmDisabled]="actionModalReason().trim().length < 3" initialFocus="field">
+<div class="modal-body">
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <p class="modal-lead">
             {{ 'videos.confirmAction' | translate:{ action: actionLabel(actionModalType() || '') } }}
             <br/>
@@ -771,22 +755,7 @@
             <span>{{ 'videos.notifyChannel' | translate }}</span>
           </label>
         </div>
-
-        <footer class="modal-footer">
-          <button type="button" class="btn-modal-cancel" (click)="closeAction()" [disabled]="busy()">
-            {{ 'common.cancel' | translate }}
-          </button>
-          <button
-            type="button"
-            class="btn-modal-confirm"
-            [disabled]="busy() || actionModalReason().trim().length < 3"
-            (click)="submitAction()"
-          >
-            {{ busy() ? ('videos.processing' | translate) : ('videos.confirm' | translate) }}
-          </button>
-        </footer>
-      </div>
-    </div>
+    </app-confirm-dialog>
   }
 
   <!-- Stats Modal -->
@@ -799,7 +768,7 @@
         </header>
 
         <div class="modal-body">
- @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+ @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <div class="stats-overview-box">
             <h4>{{ statsVideo()?.title }}</h4>
             <div class="stats-metric-pills">

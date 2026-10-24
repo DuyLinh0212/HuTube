@@ -90,18 +90,6 @@
               </div>
             </header>
 
-            @if (logoutConfirmOpen()) {
-              <div class="logout-confirm-backdrop" role="presentation" (click)="cancelLogout()"></div>
-              <section class="logout-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="logout-confirm-title" aria-describedby="logout-confirm-description">
-                <h2 id="logout-confirm-title">{{ 'ui.confirmLogoutTitle' | translate }}</h2>
-                <p id="logout-confirm-description">{{ 'ui.confirmLogoutDesc' | translate }}</p>
-                <div class="logout-confirm-actions">
-                  <button type="button" class="logout-confirm-cancel" (click)="cancelLogout()">{{ 'common.cancel' | translate }}</button>
-                  <button type="button" class="logout-confirm-submit" (click)="logout()">{{ 'nav.logout' | translate }}</button>
-                </div>
-              </section>
-            }
-
             <div class="account-drawer__body">
               @if (myChannel(); as ch) {
                 <section class="account-drawer__channel-block" aria-labelledby="drawer-channel-title">

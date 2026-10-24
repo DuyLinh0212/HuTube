@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ type LibraryGroup = {
 
 @Component({
   selector: 'app-library-page',
-  imports: [FormsModule, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
   templateUrl: './library-page.html',
   styleUrl: './library-page.scss'
 })

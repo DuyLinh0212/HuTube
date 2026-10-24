@@ -1,6 +1,6 @@
 <main class="page">
-  @if (message()) { <p class="message">{{ message() }}</p> }
-  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (message()) { <app-result-notice tone="info" [message]="message()" /> }
+  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
 
   <div class="settings-grid">
     @if (data.hasPermission('channel.edit_profile')) {

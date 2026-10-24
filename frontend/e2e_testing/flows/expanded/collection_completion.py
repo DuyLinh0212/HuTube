@@ -1,4 +1,5 @@
 """Real multi-page collections, private exclusion and actual per-download mutations."""
+from support.ui_confirmation import app_confirm
 import shutil,subprocess,time
 from urllib.parse import urlsplit,parse_qs
 from playwright.sync_api import expect
@@ -131,14 +132,14 @@ def run(suite,config,actors):
             suite.go(viewer,'/account','app-account-page','/account/profile');suite.response(viewer,'/downloads',lambda:vp.locator('.settings-nav-list button').nth(2).click())
             row=vp.locator('[data-download-id="'+target+'"]');expect(row).to_be_visible();expect(vp.locator('[data-download-id="'+control+'"]')).to_be_visible()
             before=sum(x['method']=='DELETE' and x['path'].startswith('/api/v1/downloads') for x in suite.report['http_statuses'])
-            vp.once('dialog',lambda d:d.dismiss());row.locator('button').click();expect(row).to_be_visible()
+            app_confirm(vp, lambda: row.locator('button').click(), accept=False);expect(row).to_be_visible()
             assert sum(x['method']=='DELETE' and x['path'].startswith('/api/v1/downloads') for x in suite.report['http_statuses'])==before
-            vp.once('dialog',lambda d:d.accept());suite.response(viewer,'/downloads/'+target,lambda:row.locator('button').click(),method='DELETE',status=204)
+            suite.response(viewer,'/downloads/'+target,lambda:app_confirm(vp, lambda: row.locator('button').click(), accept=True),method='DELETE',status=204)
             expect(row).to_have_count(0);assert {x['videoDownloadId'] for x in suite.api(viewer,'get','/downloads').json()}=={control}
             suite.api(foreign,'delete','/downloads/'+control,expected=404)
             vp.reload();suite.response(viewer,'/downloads',lambda:vp.locator('.settings-nav-list button').nth(2).click());expect(vp.locator('[data-download-id="'+control+'"]')).to_be_visible()
-            vp.once('dialog',lambda d:d.dismiss());vp.locator('.download-delete-row button').click();assert len(suite.api(viewer,'get','/downloads').json())==1
-            vp.once('dialog',lambda d:d.accept());suite.response(viewer,'/downloads',lambda:vp.locator('.download-delete-row button').click(),method='DELETE',status=204)
+            app_confirm(vp, lambda: vp.locator('.download-delete-row button').click(), accept=False);assert len(suite.api(viewer,'get','/downloads').json())==1
+            suite.response(viewer,'/downloads',lambda:app_confirm(vp, lambda: vp.locator('.download-delete-row button').click(), accept=True),method='DELETE',status=204)
             expect(vp.locator('.download-row')).to_have_count(0);assert suite.api(viewer,'get','/downloads').json()==[]
             assert suite.api(owner,'get','/videos/'+videos[0]).json()['status']=='published'
             entry['resource_ids']=[uid,plan['planId'],target,control,*videos[:2]];entry['steps']=['Fresh viewer subscribes to actual free download-enabled fixture plan; empty inventory verified','Two real download records on distinct actually transcoded videos','Native confirmation cancel sends no DELETE; confirm removes only selected exact ID','Foreign identity cannot delete remaining record; reload preserves it','Clear-all cancel preserves record; confirm empties UI and API without deleting source video']

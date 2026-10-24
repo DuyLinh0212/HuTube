@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, ElementRef, Input, ViewChild, inject, signal } from '@angular/core';
 import { COMPOSITION_BUFFER_MODE, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -9,7 +10,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-channel-create-page',
-  imports: [FormsModule, RouterLink, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, RouterLink, TranslatePipe],
   providers: [
     { provide: COMPOSITION_BUFFER_MODE, useValue: false }
   ],

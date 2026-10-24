@@ -17,7 +17,7 @@
     </div>
   }
   @if (success()) {
-    <div class="notice notice--success" role="status"><span class="notice-icon" aria-hidden="true">✓</span>{{ success() }}</div>
+    <app-result-notice tone="success" [message]="success()" />
   }
 
   @if (loading() && invitations().length === 0 && accessibleChannels().length === 0) {

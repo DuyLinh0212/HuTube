@@ -1,6 +1,6 @@
 <main class="recommendations-page">
-  @if (error()) { <div class="message error" role="alert">{{ error() }}</div> }
-  @if (notice()) { <div class="message success" role="status">{{ notice() }}</div> }
+  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
+  @if (notice()) { <app-result-notice tone="success" [message]="notice()" /> }
 
   <nav class="page-tabs" role="tablist" [attr.aria-label]="'recommendations.pageTabs' | translate">
     <button id="recommendations-model-tab" type="button" role="tab" class="page-tab" [class.active]="activePageTab() === 'model'" [attr.aria-selected]="activePageTab() === 'model'" aria-controls="recommendation-model-panel" (click)="setPageTab('model')">
@@ -86,7 +86,7 @@
       </button>
     </div>
     @if (modelStatisticsError()) {
-      <p class="message error" role="alert">{{ modelStatisticsError() }}</p>
+      <app-result-notice tone="error" [message]="modelStatisticsError()" />
     }
     @if (loadingModelStatistics() && !modelStatistics()) {
       <div class="statistics-skeleton" role="status" [attr.aria-label]="'recommendations.statistics.loading' | translate">

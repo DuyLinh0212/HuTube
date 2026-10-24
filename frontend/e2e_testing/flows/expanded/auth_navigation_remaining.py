@@ -17,10 +17,10 @@ def run(suite,config,actors):
             # This reuses a consumed real Pickup message, never re-sends a
             # successful verification that the user asked us not to rerun.
             response=suite.response(guest,'/auth/verify-email',lambda:p.goto(link),method='POST',status=400)
-            expect(p.locator('[role=alert]')).to_be_visible();expect(p.locator('.notice.success')).to_have_count(0)
+            expect(p.locator('[role=alert]')).to_be_visible();expect(p.locator('app-result-notice[tone=success]')).to_have_count(0)
             assert database()==before and not any(c['name'] in ('hutube_refresh','hutube_admin_refresh') for c in guest['context'].cookies(config['api_url']+'/auth/refresh'))
             suite.go(guest,'/login','app-auth-page');p.go_back();expect(p.locator('[role=alert]')).to_be_visible()
-            expect(p.locator('.notice.success')).to_have_count(0);assert urlsplit(p.url).path=='/verify-email' and database()==before
+            expect(p.locator('app-result-notice[tone=success]')).to_have_count(0);assert urlsplit(p.url).path=='/verify-email' and database()==before
             p.go_forward();expect(p.locator('#email')).to_be_visible();assert urlsplit(p.url).path=='/login'
             p.go_back();expect(p.locator('[role=alert]')).to_be_visible();assert database()==before
             entry['resource_ids']=[uid];entry['steps']=['Reuse actual already-consumed recipient-specific verification mail; no new mail or successful auth rerun','Actual verify POST rejects replay 400 and preserves exact verified/used/status database values','No refresh cookie or false verification success','Real browser Back/Forward/Back keeps correct error/login routes and never consumes token again','Expired/invalid/missing tokens and unsafe return URLs are linked to their previous PASS evidence separately']

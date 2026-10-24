@@ -86,12 +86,12 @@ def run(suite, config, actors):
             row = a.locator('.channel-row').filter(has_text=channel['handle'])
             def open_delete():
                 row.locator('.btn-dots').click(); a.locator('.dropdown-menu .menu-item').last.click()
-                expect(a.locator('.modal-dialog .btn-modal-confirm')).to_be_disabled()
+                expect(a.locator('.modal-dialog .confirm-submit')).to_be_disabled()
                 a.locator('.modal-textarea').fill('QC owned fixture channel deletion')
-            open_delete(); a.locator('.btn-modal-cancel').click()
+            open_delete(); a.locator('.confirm-cancel').click()
             assert suite.api(member, 'get', '/channels/handle/' + channel['handle']).json()['channelId'] == cid
             open_delete(); a.locator('.modal-checkbox-label input').uncheck()
-            suite.response(admin, '/admin/channels/' + cid, lambda: a.locator('.btn-modal-confirm').click(), method='DELETE', status=204)
+            suite.response(admin, '/admin/channels/' + cid, lambda: a.locator('.confirm-submit').click(), method='DELETE', status=204)
             deleted = True
             blocked(entry, 'deleted-channel')
         case(suite, admin, 'ADMIN-CHANNEL-DELETE-CANCEL-REASON-PLAYBACK', 'A-CHANNELS.02', 'Only confirmed Admin channel deletion blocks the exact source', delete, 'channels')

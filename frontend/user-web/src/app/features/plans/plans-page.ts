@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -14,11 +16,12 @@ export type PlansView = 'overview' | 'catalog';
 
 @Component({
   selector: 'app-plans-page',
-  imports: [LocaleCurrencyPipe, LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
+  imports: [ResultNoticeComponent, LocaleCurrencyPipe, LocaleDatePipe, LocaleNumberPipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './plans-page.html',
   styleUrl: './plans-page.scss'
 })
 export class PlansPage {
+  private readonly feedback = inject(FeedbackService);
   private readonly plansService = inject(PlanService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
@@ -311,10 +314,10 @@ export class PlansPage {
     });
   }
 
-  leaveSharedPlan(plan: MyPlan) {
+  async leaveSharedPlan(plan: MyPlan) {
     if (this.busy() || !plan.isSharedMember) return;
     const owner = plan.sharedOwnerDisplayName || this.i18n.t('plans.sharedPlanOwnerFallback');
-    if (!window.confirm(this.i18n.t('plans.leaveSharedConfirm', { owner }))) return;
+    if (!(await this.feedback.confirm(this.i18n.t('plans.leaveSharedConfirm', { owner }), { tone: 'danger' }))) return;
     this.busy.set(true);
     this.error.set('');
     this.plansService.leaveSharedPlan().pipe(finalize(() => this.busy.set(false))).subscribe({

@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { ReviewerLeaseService } from './reviewer-lease.service';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { EMPTY, expand, reduce } from 'rxjs';
@@ -16,7 +17,7 @@ interface ViolationTypeOption { value: string; label: string; }
 @Component({
   selector: 'app-admin-reports-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-reports-page.html',
   styleUrl: './admin-reports-page.scss'
 })

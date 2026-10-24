@@ -77,7 +77,7 @@ def run(suite, admin, owner):
             expect(page.locator('.action-modal button[type=submit]')).to_be_disabled()
             page.locator('.action-modal textarea').fill('QC kiểm tra hủy, không thay đổi tài khoản')
             suite.evidence(admin,case,'cancel-'+action_name)
-            page.locator('.action-modal .secondary-button').click()
+            page.locator('.action-modal .confirm-cancel').click()
             expect(page.locator('.action-modal')).to_have_count(0)
             restored=suite.api(admin,'get',path).json()
             assert restored['status']==original['status']

@@ -35,15 +35,15 @@ def run(suite,owner,admin):
             expect(rows).to_have_count(len(ordered))
             row=rows.nth(index)
             row.locator('button').click()
-            expect(page.locator('.revoke-warning')).to_be_visible()
+            expect(page.locator('app-confirm-dialog')).to_be_visible()
             suite.evidence(controller,case,'revoke-pending')
-            warning=page.locator('.revoke-warning')
-            warning.locator('button').nth(1).click()
+            warning=page.locator('app-confirm-dialog')
+            warning.locator('.confirm-cancel').click()
             expect(warning).to_have_count(0)
             assert suite.api(target,'get','/auth/me').status==200
             row.locator('button').click()
-            suite.response(controller,'/auth/sessions/'+target_id,lambda:page.locator('.revoke-warning button').first.click(),method='DELETE')
-            expect(page.locator('.revoke-warning')).to_have_count(0)
+            suite.response(controller,'/auth/sessions/'+target_id,lambda:page.locator('app-confirm-dialog button.confirm-submit').first.click(),method='DELETE')
+            expect(page.locator('app-confirm-dialog')).to_have_count(0)
             assert target_id not in [item['sessionId'] for item in suite.api(controller,'get','/auth/sessions').json()['items']]
             suite.api(target,'get','/auth/me',expected=401)
             headers={'X-HuTube-Client':'web'}

@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
@@ -13,7 +14,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 @Component({
   selector: 'app-channel-invitations-page',
   standalone: true,
-  imports: [CommonModule, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe],
   templateUrl: './channel-invitations-page.html',
   styleUrl: './channel-invitations-page.scss'
 })

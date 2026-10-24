@@ -1,3 +1,4 @@
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -21,6 +22,7 @@ import { PlaylistService } from '../../core/playlist.service';
   styleUrl: './user-topbar.component.scss'
 })
 export class UserTopbarComponent implements OnDestroy, OnInit {
+  private readonly feedback = inject(FeedbackService);
   @Output() readonly menuOpened = new EventEmitter<void>();
   @Input() sidebarCollapsed = false;
   @ViewChild('searchInputEl') private searchInputRef?: ElementRef<HTMLInputElement>;
@@ -76,7 +78,6 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   readonly accountDrawerDragX = signal(0);
   readonly accountDrawerDragging = signal(false);
   readonly accountDrawerSettling = signal(false);
-  readonly logoutConfirmOpen = signal(false);
   readonly shortcutsDialogOpen = signal(false);
   readonly notificationsOpen = signal(false);
   readonly profile = signal<UserProfile | null>(null);
@@ -184,7 +185,6 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   closeAccountDrawer() {
     this.resetDrawerGesture();
     this.accountDrawerOpen.set(false);
-    this.logoutConfirmOpen.set(false);
     this.shortcutsDialogOpen.set(false);
     this.destroyLogoutAnimation();
     if (!this.accountDrawerMounted()) return;
@@ -275,8 +275,8 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
     this.drawerSettleTimer = null;
   }
 
-  openLogoutConfirm() {
-    this.logoutConfirmOpen.set(true);
+  async openLogoutConfirm(): Promise<void> {
+    if (await this.feedback.confirm(this.i18n.t('ui.confirmLogoutDesc'), { title: this.i18n.t('ui.confirmLogoutTitle'), confirmLabel: this.i18n.t('nav.logout'), tone: 'danger' })) this.logout();
   }
 
   openShortcutsDialog() {
@@ -304,10 +304,6 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
       event.preventDefault();
       first.focus();
     }
-  }
-
-  cancelLogout() {
-    this.logoutConfirmOpen.set(false);
   }
 
   ngOnDestroy() {
@@ -390,10 +386,6 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   onEscape() {
     if (this.shortcutsDialogOpen()) {
       this.closeShortcutsDialog();
-      return;
-    }
-    if (this.logoutConfirmOpen()) {
-      this.cancelLogout();
       return;
     }
     this.closeAccountDrawer();

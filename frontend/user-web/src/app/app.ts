@@ -1,3 +1,5 @@
+import { FeedbackHostComponent } from '@dalitu/ui/feedback-host.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { NavigationEnd, NavigationError, Router, Scroll } from '@angular/router';
@@ -16,7 +18,7 @@ import { UploadStateService } from './core/upload-state.service';
 
 @Component({
   selector: 'app-root',
-  imports: [
+  imports: [FeedbackHostComponent,
     AuthLayoutComponent,
     ShellLayoutComponent,
     StudioLayoutComponent,
@@ -30,6 +32,7 @@ import { UploadStateService } from './core/upload-state.service';
   styleUrl: './app.scss',
 })
 export class App {
+  readonly feedback = inject(FeedbackService);
   readonly skipHref = signal("#main-content");
   skipToContent(event: Event) {
     event.preventDefault();

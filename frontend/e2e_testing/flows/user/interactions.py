@@ -1,4 +1,5 @@
 """Watch reactions/comments and cross-user authorization with the uploaded fixture."""
+from support.ui_confirmation import app_confirm
 from playwright.sync_api import expect
 
 
@@ -74,12 +75,10 @@ def run(suite, owner, member):
     def delete():
         watch()
         row = page.locator('.comment-row').filter(has_text=text)
-        page.once('dialog',lambda dialog:dialog.dismiss())
-        row.locator('.is-danger').click()
+        app_confirm(page, lambda: row.locator('.is-danger').click(), accept=False)
         expect(row).to_have_count(1)
-        page.once('dialog',lambda dialog:dialog.accept())
         with page.expect_response(lambda r:r.request.method=='DELETE' and r.url.endswith('/comments/' + comment['commentId'])) as pending:
-            row.locator('.is-danger').click()
+            app_confirm(page, lambda: row.locator('.is-danger').click(), accept=True)
         assert pending.value.status in (200,204)
         watch()
         expect(row).to_have_count(0)

@@ -1,3 +1,5 @@
+import { FEEDBACK_LANGUAGE } from '@dalitu/ui/feedback-language';
+import { I18nService } from './core/i18n.service';
 import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
 import { COMPOSITION_BUFFER_MODE } from '@angular/forms';
 import { registerLocaleData } from '@angular/common';
@@ -18,6 +20,7 @@ registerLocaleData(localeVi, 'vi-VN');
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: FEEDBACK_LANGUAGE, useFactory: () => { const i18n = inject(I18nService); return () => i18n.currentLang(); } },
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),

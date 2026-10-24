@@ -244,8 +244,8 @@ def run(config):
 
                 def logout():
                     page.locator(".top-avatar").click(); page.locator(".account-drawer__logout").click()
-                    expect(page.get_by_role("alertdialog")).to_be_visible()
-                    page.locator(".logout-confirm-submit").click()
+                    expect(page.get_by_role("dialog")).to_be_visible()
+                    page.locator("app-feedback-host .confirm-submit").click()
                     expect(page).to_have_url(re.compile(re.escape(config["user_url"]) + r"/login"))
                     go(page, config["user_url"], "/account")
                     expect(page).to_have_url(re.compile(r"/login(?:\?|$)")); shot(page, "14-user-logout-guard")

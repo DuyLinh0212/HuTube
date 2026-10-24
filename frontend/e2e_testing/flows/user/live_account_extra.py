@@ -11,7 +11,7 @@ def run(suite,owner):
             action=lambda:page.locator('.channel-avatar-box input[type=file]').set_input_files({'name':name,'mimeType':mime,'buffer':buffer})
             if kind=='size': action()
             else: suite.response(owner,'/account/avatar',action,method='POST',status=(400,413,415,422))
-            expect(page.locator('.yt-alert-error')).to_be_visible()
+            expect(page.locator('app-result-notice[tone=error]')).to_be_visible()
             suite.evidence(owner,case,'invalid-file-error')
             after=suite.api(owner,'get','/account/profile').json()
             assert after['avatarUrl']==before['avatarUrl']
@@ -61,6 +61,6 @@ def run(suite,owner):
         page.locator('.btn-copy').first.click()
         copied=page.evaluate('()=>navigator.clipboard.readText()')
         assert copied==owner['identity']['userId']
-        expect(page.locator('.yt-alert-success')).to_be_visible()
+        expect(page.locator('app-result-notice[tone=success]')).to_be_visible()
         case['steps']=['Advanced tab → Copy user ID','Read actual browser clipboard','Compare exact authenticated user ID']
     suite.case(owner,'LIVE-ACCOUNT-COPY-ID','U-ACCOUNT.02','Actual clipboard user ID','Copy writes the exact authenticated identity to the real clipboard',clipboard,module='account')

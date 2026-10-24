@@ -16,8 +16,8 @@
     </div>
   </header>
 
-  @if (error() && !(creating() || editing())) { <div class="alert error" role="alert">{{ error() }}</div> }
-  @if (message()) { <div class="alert success" role="status">{{ message() }}</div> }
+  @if (error() && !(creating() || editing())) { <app-result-notice tone="error" [message]="error()" /> }
+  @if (message()) { <app-result-notice tone="success" [message]="message()" /> }
 
   @if (loading()) {
     <section class="state loading-state"><span class="spinner"></span>{{ 'plans.loading' | translate }}</section>
@@ -70,7 +70,7 @@
         <form class="editor-layout" (ngSubmit)="save()">
           <div class="editor-main">
             <div class="editor-scroll">
-              @if (error()) { <div class="alert error" role="alert">{{ error() }}</div> }
+              @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
               @if (!editing()) {
                 <section class="preset-section">
                   <div class="section-heading"><div><h3>{{ 'plans.quickCreate' | translate }}</h3><p>{{ 'plans.presetHelp' | translate }}</p></div></div>

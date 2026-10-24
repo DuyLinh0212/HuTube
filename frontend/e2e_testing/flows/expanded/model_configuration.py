@@ -36,7 +36,7 @@ def run(suite,config,actors):
         for field in p.locator('.score-weights input').all():field.fill('0')
         before=len([e for e in suite.report['http_statuses'] if e['method']=='POST' and e['path'].endswith('/model-jobs')])
         p.locator('.update-panel button.primary').click()
-        expect(p.locator('.error,.alert.error,.alert-danger').first).to_be_visible()
+        expect(p.locator('.error,.alert.error,app-result-notice[tone=error]').first).to_be_visible()
         assert before==len([e for e in suite.report['http_statuses'] if e['method']=='POST' and e['path'].endswith('/model-jobs')])
         entry['steps']=['Ordinary Member and non-super Reviewer denied by actual API','Unknown mode/algorithm/feature and negative/all-zero weights rejected with exact codes','UI all-zero weights validation prevents training POST']
     case(suite,admin,'MODEL-CONFIG-PERMISSION-VALIDATION','A-RECOMMENDATION.01','Configuration guards and weight validation',boundaries,'recommendation')

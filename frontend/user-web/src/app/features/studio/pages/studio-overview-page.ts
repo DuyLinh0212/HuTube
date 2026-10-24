@@ -1,3 +1,4 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +13,7 @@ import { TranslatePipe } from '../../../core/translate.pipe';
 @Component({
   selector: 'app-studio-overview-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, FormsModule, RouterLink, LocaleDatePipe, LocaleNumberPipe, CompactLikeCountPipe, TranslatePipe],
   templateUrl: './studio-overview-page.html',
   styleUrl: './studio-overview-page.scss',
 })

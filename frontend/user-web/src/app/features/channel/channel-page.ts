@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -28,11 +30,12 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [RequireLoginDirective, FormsModule, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [ResultNoticeComponent, RequireLoginDirective, FormsModule, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
 export class ChannelPage {
+  private readonly feedback = inject(FeedbackService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private channelService = inject(ChannelService);
@@ -361,7 +364,7 @@ export class ChannelPage {
     }
 
     if (ch.isOwner) {
-      alert(this.i18n.t('watch.cannotSubscribeSelf'));
+      this.feedback.warning(this.i18n.t('watch.cannotSubscribeSelf'));
       return;
     }
 
@@ -373,7 +376,7 @@ export class ChannelPage {
           this.subscriptionNotificationsEnabled.set(false);
           this.channel.update(c => c ? { ...c, subscriberCount: Math.max(0, c.subscriberCount - 1) } : c);
         },
-        error: () => alert(this.i18n.t('watch.unsubscribeError'))
+        error: () => this.feedback.error(this.i18n.t('watch.unsubscribeError'))
       });
     } else {
       this.subscriptionBusy.set(true);
@@ -383,7 +386,7 @@ export class ChannelPage {
           this.subscriptionNotificationsEnabled.set(status.notificationsEnabled);
           this.channel.update(c => c ? { ...c, subscriberCount: c.subscriberCount + 1 } : c);
         },
-        error: () => alert(this.i18n.t('watch.subscribeError'))
+        error: () => this.feedback.error(this.i18n.t('watch.subscribeError'))
       });
     }
   }
@@ -420,7 +423,7 @@ export class ChannelPage {
 
   hideUserFromMyChannel() {
     this.reportMenuOpen.set(false);
-    alert(this.i18n.t('channel.userHiddenFromChannel'));
+    this.feedback.info(this.i18n.t('channel.userHiddenFromChannel'));
   }
 
   openChannelReportModal(actionType: string = 'user') {

@@ -1,3 +1,5 @@
+import { FeedbackHostComponent } from '@dalitu/ui/feedback-host.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -8,11 +10,12 @@ import { TranslatePipe } from './core/translate.pipe';
 
 @Component({
   selector: 'app-root',
-  imports: [AdminAuthLayoutComponent, AdminShellLayoutComponent, TranslatePipe],
+  imports: [FeedbackHostComponent, AdminAuthLayoutComponent, AdminShellLayoutComponent, TranslatePipe],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
+  readonly feedback = inject(FeedbackService);
   readonly isAuthLayout = signal(true);
   private readonly router = inject(Router);
 

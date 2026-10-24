@@ -66,10 +66,7 @@
     </header>
 
     @if (message()) {
-      <div class="alert-success" role="status">
-        <span class="alert-icon">✓</span>
-        <span>{{ message() }}</span>
-      </div>
+      <app-result-notice tone="success" [message]="message()" />
     }
 
     <!-- CONTENT GRID -->

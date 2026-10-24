@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,11 +14,12 @@ export type AdminPolicyGroup = 'ALL' | 'guidelines' | 'privacy' | 'terms' | 'mon
 @Component({
   selector: 'app-admin-policies-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-policies-page.html',
   styleUrl: './admin-policies-page.scss'
 })
 export class AdminPoliciesPage implements OnInit {
+  private readonly feedback = inject(FeedbackService);
   private readonly policiesService = inject(AdminPoliciesService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
@@ -169,7 +172,7 @@ export class AdminPoliciesPage implements OnInit {
     if (!this.canEdit()) return;
 
     if (!this.newCode().trim() || !this.newName().trim() || !this.newContent().trim()) {
-      alert(this.i18n.t('policies.validationError'));
+      this.feedback.error(this.i18n.t('policies.validationError'));
       return;
     }
 
@@ -193,7 +196,7 @@ export class AdminPoliciesPage implements OnInit {
       },
       error: (err) => {
         this.creating.set(false);
-        alert(err?.error?.detail || this.i18n.t('common.error'));
+        this.feedback.error(err?.error?.detail || this.i18n.t('common.error'));
       }
     });
   }
@@ -219,7 +222,7 @@ export class AdminPoliciesPage implements OnInit {
     if (!policy) return;
 
     if (!this.editContent().trim()) {
-      alert(this.i18n.t('policies.contentEmptyError'));
+      this.feedback.error(this.i18n.t('policies.contentEmptyError'));
       return;
     }
 
@@ -240,7 +243,7 @@ export class AdminPoliciesPage implements OnInit {
       },
       error: (err) => {
         this.updating.set(false);
-        alert(err?.error?.detail || this.i18n.t('common.error'));
+        this.feedback.error(err?.error?.detail || this.i18n.t('common.error'));
       }
     });
   }

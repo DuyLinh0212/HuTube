@@ -1,4 +1,5 @@
 """Real admin downgrade and natural expiry worker; no payment result is seeded."""
+from support.ui_confirmation import app_confirm
 import json
 import re
 import subprocess
@@ -175,8 +176,7 @@ def run(suite,config,actors):
         stepcase(suite,admin,'PLAN-DOWNGRADE-CANCEL','U-PLAN.04','Cancel downgrade preserves current entitlement',cancel,'plan-lifecycle')
         def downgrade(entry):
             hid,dialog=open_switch()
-            ap.once('dialog',lambda confirmation:confirmation.accept())
-            suite.response(admin,'/admin/subscriptions/'+hid+'/change-plan',lambda:dialog.locator('footer .primary-button').click(),method='POST')
+            suite.response(admin,'/admin/subscriptions/'+hid+'/change-plan',lambda:app_confirm(ap, lambda: dialog.locator('footer .primary-button').click(), accept=True),method='POST')
             actual=my();assert actual['planId']==plans['low']['planId'] and actual['usedStorage']==used
             assert actual['subscription']['planHistoryId']!=hid and not any(actual['features'].get(k) for k in ['download','background_play','pip'])
             old=suite.api(admin,'get','/admin/subscriptions/'+hid).json();assert old['subscription']['status']=='expired'
@@ -204,7 +204,7 @@ def run(suite,config,actors):
             row=next(d for d in suite.api(actor,'get','/downloads').json() if d['videoDownloadId']==created_download['videoDownloadId'])
             assert row['status']=='revoked' and not row['fileUrl']
             suite.api(actor,'post','/downloads/'+created_download['videoDownloadId']+'/retry',data={},expected=403)
-            watch();p.locator('button[aria-controls=download-popover]').click();expect(p.locator('.action-message')).to_be_visible()
+            watch();p.locator('button[aria-controls=download-popover]').click();expect(p.locator('app-result-notice[tone=info]')).to_be_visible()
             entry['resource_ids']=[uid,created_download['videoDownloadId']]
             entry['steps']=['Download options and new download denied 403','Existing record is revoked with no newly issued URL',
                 'Watch UI reports denial after reload; no fake download success']

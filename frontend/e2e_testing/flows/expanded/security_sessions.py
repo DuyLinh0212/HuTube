@@ -39,9 +39,9 @@ def run(suite,config,actors):
         def web_logout(entry):
             remember_refresh(web)
             suite.go(web,'/account','app-account-page');p=web['page'];p.locator('.top-avatar').click();p.locator('.account-drawer__logout').click()
-            p.locator('.logout-confirm-cancel').click();assert suite.api(web,'get','/auth/me').status==200
+            p.locator('app-feedback-host .confirm-cancel').click();assert suite.api(web,'get','/auth/me').status==200
             p.locator('.account-drawer__logout').click()
-            suite.response(web,'/auth/logout',lambda:p.locator('.logout-confirm-submit').click(),method='POST')
+            suite.response(web,'/auth/logout',lambda:p.locator('app-feedback-host .confirm-submit').click(),method='POST')
             suite.api(web,'get','/auth/me',expected=401);refresh(suite,web,401)
             suite.api(app,'get','/admin/me');freeze(app);refresh(suite,app)
             suite.go(app,'/account','app-account-page')

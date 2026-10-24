@@ -1,3 +1,5 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,7 +23,7 @@ type StrikePolicyNumberKey = keyof Pick<StrikePolicySettings,
 @Component({
   selector: 'app-admin-strikes-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-strikes-page.html',
   styleUrl: './admin-strikes-page.scss'
 })

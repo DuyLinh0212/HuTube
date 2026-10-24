@@ -8,8 +8,8 @@
       <button type="button" class="secondary" [disabled]="busy()" (click)="logout()">{{ 'auth.logout' | translate }}</button>
     </div>
 
-    @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
-    @if (message()) { <p class="notice success" role="status">{{ message() }}</p> }
+    @if (error() && !pendingRevoke()) { <app-result-notice tone="error" [message]="error()" /> }
+    @if (message()) { <app-result-notice tone="success" [message]="message()" /> }
 
     @if (auth.user(); as user) {
       <section class="profile-summary" [attr.aria-label]="'account.profileAria' | translate">
@@ -69,13 +69,8 @@
       <p class="sessions-device-note">{{ 'account.deviceInfoNote' | translate }}</p>
 
       @if (pendingRevoke(); as pending) {
-        <div class="revoke-warning" role="group" [attr.aria-label]="'account.confirmLogoutDevice' | translate">
-          <p>{{ 'account.confirmRevokeText' | translate }} <strong>{{ pending.deviceName }}</strong>?</p>
-          <div class="revoke-btn-group">
-            <button class="danger" type="button" (click)="revoke()" [disabled]="busy()">{{ 'common.confirm' | translate }}</button>
-            <button class="secondary" type="button" (click)="pendingRevoke.set(null)" [disabled]="busy()">{{ 'common.cancel' | translate }}</button>
-          </div>
-        </div>
+        <app-confirm-dialog [title]="'account.confirmLogoutDevice' | translate" [description]="('account.confirmRevokeText' | translate) + ' ' + pending.deviceName + '?'"
+          tone="danger" [busy]="busy()" (confirmed)="revoke()" (cancelled)="pendingRevoke.set(null)"><app-result-notice tone="error" [message]="error()" /></app-confirm-dialog>
       }
 
       @if (loading()) {

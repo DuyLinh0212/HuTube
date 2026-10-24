@@ -1,4 +1,5 @@
 """Channel collaboration with two fixed users; remove member after the cycle."""
+from support.ui_confirmation import app_confirm
 from playwright.sync_api import expect
 
 
@@ -85,12 +86,10 @@ def run(suite, owner, member):
             if any(item['userId']==member['user_id'] for item in members.json()):
                 open_members()
                 page=owner['page'];row=page.locator('.member-row').filter(has_text=member['email'])
-                page.once('dialog',lambda dialog:dialog.dismiss())
-                row.locator('.btn-link-danger').click()
+                app_confirm(page, lambda: row.locator('.btn-link-danger').click(), accept=False)
                 expect(row).to_be_visible()
-                page.once('dialog',lambda dialog:dialog.accept())
                 with page.expect_response(lambda response:response.request.method=='DELETE' and response.url.endswith(base+'/members/'+member['user_id'])) as pending:
-                    row.locator('.btn-link-danger').click()
+                    app_confirm(page, lambda: row.locator('.btn-link-danger').click(), accept=True)
                 assert pending.value.status in (200,204)
                 expect(row).to_have_count(0)
             elif invitation:

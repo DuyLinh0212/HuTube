@@ -1,3 +1,4 @@
+from support.ui_confirmation import app_confirm
 import json
 import re
 import struct
@@ -116,9 +117,9 @@ def run(suite,config,actors):
     def remove(case):
         load();page.locator('.settings-tabs-nav .tab-btn').nth(2).click()
         row=page.locator('.member-row').filter(has_text=member['identity']['email'])
-        page.once('dialog',lambda d:d.dismiss());row.locator('.btn-link-danger').click()
+        app_confirm(page, lambda: row.locator('.btn-link-danger').click(), accept=False)
         assert any(m['userId']==member['identity']['userId'] for m in suite.api(owner,'get','/channels/'+cid+'/members').json())
-        page.once('dialog',lambda d:d.accept());suite.response(owner,'/channels/'+cid+'/members/'+member['identity']['userId'],lambda:row.locator('.btn-link-danger').click(),method='DELETE',status=(200,204))
+        suite.response(owner,'/channels/'+cid+'/members/'+member['identity']['userId'],lambda:app_confirm(page, lambda: row.locator('.btn-link-danger').click(), accept=True),method='DELETE',status=(200,204))
         assert not any(c['channelId']==cid for c in suite.api(member,'get','/channels/accessible').json())
         suite.api(member,'patch','/channels/'+cid,data={'description':'Removed collaborator'},expected=403)
         case['steps']=['Remove → cancel preserves membership','Confirm actual DELETE → no accessible channel','Former collaborator API edit denied']
@@ -126,10 +127,10 @@ def run(suite,config,actors):
     def delete_secondary(case):
         p=target['page'];sid=secondary['channelId'];suite.go(target,'/channel/'+secondary['handle']+'/customize','app-channel-settings-page')
         p.locator('.danger-tab').click();p.locator('.danger-box .btn-danger').click()
-        expect(p.locator('.modal-dialog')).to_be_visible();p.locator('.modal-dialog .btn-secondary').click()
+        expect(p.locator('.modal-dialog')).to_be_visible();p.locator('.modal-dialog .confirm-cancel').click()
         assert suite.api(target,'get','/channels/me').json()['channelId']==sid
         p.locator('.danger-box .btn-danger').click();p.locator('.modal-dialog input').fill(secondary['name'])
-        suite.response(target,'/channels/'+sid,lambda:p.locator('.modal-dialog .btn-danger').click(),method='DELETE',status=(200,204))
+        suite.response(target,'/channels/'+sid,lambda:p.locator('.modal-dialog .confirm-submit').click(),method='DELETE',status=(200,204))
         suite.api(target,'get','/channels/'+sid,expected=404)
         assert suite.api(owner,'get','/channels/me').json()['channelId']==cid
         case['resource_ids']=[sid,cid];case['steps']=['Secondary owner delete → cancel leaves channel','Exact name confirmation → actual delete','Deleted ID 404; main owner channel still exists']

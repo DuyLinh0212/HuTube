@@ -1,3 +1,5 @@
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
@@ -55,10 +57,11 @@ interface ConsoleEntry {
 
 @Component({
   selector: 'app-recommendations-page', standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './recommendations-page.html', styleUrl: './recommendations-page.scss',
 })
 export class RecommendationsPage implements OnInit, OnDestroy {
+  private readonly feedback = inject(FeedbackService);
   private readonly http = inject(HttpClient);
   private readonly config = inject(RuntimeConfig);
   private readonly i18n = inject(I18nService);
@@ -652,7 +655,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
     });
   }
 
-  simulate(): void {
+  async simulate(): Promise<void> {
     if (this.busy() || this.activeSimulatorTab() === 'comments') return;
     if (this.activeSimulatorTab() === 'cluster') {
       this.runPersonaCluster();
@@ -669,7 +672,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       this.error.set(this.i18n.t('recommendations.confirmRequired'));
       return;
     }
-    if (this.hasRealUsers() && !window.confirm(this.i18n.t('recommendations.confirmPrompt', { count: String(userIds.length) }))) return;
+    if (this.hasRealUsers() && !(await this.feedback.confirm(this.i18n.t('recommendations.confirmPrompt', { count: String(userIds.length) })))) return;
     this.startSimulation(userIds, videoIds, 'target');
   }
 

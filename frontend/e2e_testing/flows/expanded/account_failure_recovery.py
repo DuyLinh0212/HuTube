@@ -15,7 +15,7 @@ def run(suite,config,actors):
                 p.goto(actor['origin']+'/account');expect(p.locator('app-account-page [role=alert]')).to_be_visible()
                 assert blocked and all(method=='GET' for method in blocked),'Expected at least one actual profile GET to fail'
                 entry['failed_profile_get_count']=len(blocked)
-                assert p.locator('.yt-alert-success').count()==0
+                assert p.locator('app-result-notice[tone=success]').count()==0
                 suite.evidence(actor,entry,'profile-read-transport-error')
             finally:p.unroute(route,drop)
             actual=suite.go(actor,'/account','app-account-page','/account/profile')
@@ -37,7 +37,7 @@ def run(suite,config,actors):
                 expect(p.locator('app-account-page [role=alert]')).to_be_visible()
                 expect(p.locator('.profile-inline-form .btn-yt-primary')).to_be_enabled()
                 expect(p.locator('#dn')).to_have_value('QC lỗi mạng chưa lưu');assert len(blocked)==1
-                assert p.locator('.yt-alert-success').count()==0
+                assert p.locator('app-result-notice[tone=success]').count()==0
                 persisted=suite.api(actor,'get','/account/profile').json()
                 assert persisted==baseline
                 suite.evidence(actor,entry,'profile-save-error-retains-draft')
@@ -60,7 +60,7 @@ def run(suite,config,actors):
                 p.locator('.form-buttons .btn-yt-primary').click()
                 expect(p.locator('app-account-page [role=alert]')).to_be_visible()
                 expect(p.locator('.form-buttons .btn-yt-primary')).to_be_enabled();assert len(blocked)==1
-                assert p.locator('.yt-alert-success').count()==0
+                assert p.locator('app-result-notice[tone=success]').count()==0
                 assert suite.api(actor,'get','/account/notifications').json()==original
             finally:p.unroute(route,drop)
             suite.go(actor,'/account','app-account-page','/account/notifications');p.locator('.settings-nav-list button').nth(1).click()

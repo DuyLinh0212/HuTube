@@ -86,7 +86,7 @@ def run_checks(session):
                 page.locator('#dn').fill('   ')
                 response = submit(400)
                 assert response.json()['code'] == 'INVALID_DISPLAY_NAME'
-                expect(page.locator('.yt-alert-error')).to_be_visible()
+                expect(page.locator('app-result-notice[tone=error]')).to_be_visible()
                 unchanged()
             check('U-ACCOUNT-VALIDATION-01', page, blank_name, app)
 
@@ -95,7 +95,7 @@ def run_checks(session):
                 page.locator('#dn').fill('N' * 121)
                 response = submit(400)
                 assert response.json()['code'] == 'INVALID_DISPLAY_NAME'
-                expect(page.locator('.yt-alert-error')).to_be_visible()
+                expect(page.locator('app-result-notice[tone=error]')).to_be_visible()
                 unchanged()
             check('U-ACCOUNT-VALIDATION-02', page, long_name, app)
 
@@ -117,7 +117,7 @@ def run_checks(session):
                 assert response.json()['displayName'] == temporary_name
                 assert response.json()['bio'] == temporary_bio
                 expect(page.locator('.profile-inline-form')).to_have_count(0)
-                expect(page.locator('.yt-alert-success')).to_be_visible()
+                expect(page.locator('app-result-notice[tone=success]')).to_be_visible()
                 edit()
                 expect(page.locator('#dn')).to_have_value(temporary_name)
                 expect(page.locator('#bio')).to_have_value(temporary_bio)

@@ -1,3 +1,6 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -27,11 +30,12 @@ type SettingsTab = 'basic' | 'branding' | 'members' | 'danger';
 
 @Component({
   selector: 'app-channel-settings-page',
-  imports: [LocaleDatePipe, FormsModule, RouterLink, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, LocaleDatePipe, FormsModule, RouterLink, TranslatePipe],
   templateUrl: './channel-settings-page.html',
   styleUrl: './channel-settings-page.scss'
 })
 export class ChannelSettingsPage {
+  private readonly feedback = inject(FeedbackService);
   private route = inject(ActivatedRoute);
   private channelService = inject(ChannelService);
   private contentService = inject(ContentService);
@@ -429,10 +433,10 @@ export class ChannelSettingsPage {
       });
   }
 
-  removeMember(member: ChannelMember) {
+  async removeMember(member: ChannelMember) {
     const channel = this.channel();
     if (!channel || member.roleCode === 'owner' || !this.can('member.remove')) return;
-    if (!window.confirm(this.i18n.t('channel.removeConfirm', { member: member.displayName }))) return;
+    if (!(await this.feedback.confirm(this.i18n.t('channel.removeConfirm', { member: member.displayName }), { tone: 'danger' }))) return;
     this.busy.set(true);
     this.clearFeedback();
     this.channelService.removeMember(channel.channelId, member.userId)

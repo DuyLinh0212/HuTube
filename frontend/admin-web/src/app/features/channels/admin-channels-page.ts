@@ -1,3 +1,5 @@
+import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal, OnInit, HostListener, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +20,7 @@ import {
 @Component({
   selector: 'app-admin-channels-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
+  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
   templateUrl: './admin-channels-page.html',
   styleUrl: './admin-channels-page.scss'
 })
