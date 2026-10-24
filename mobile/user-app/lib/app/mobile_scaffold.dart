@@ -78,33 +78,45 @@ class MobileScaffold extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _CreateAction(
-                  customIcon: AppIcons.asset(AppIcons.upload, size: 22, color: AppColors.primary),
+                  customIcon: AppIcons.asset(
+                    AppIcons.upload,
+                    size: 22,
+                    color: AppColors.primary,
+                  ),
                   color: AppColors.primary,
                   title: AppStrings.t('app.create.videoTitle'),
                   description: AppStrings.t('app.create.videoDescription'),
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    context.go('/creator');
+                    context.push('/creator?upload=true');
                   },
                 ),
                 _CreateAction(
-                  customIcon: AppIcons.asset(AppIcons.playlist, size: 22, color: AppColors.violet),
+                  customIcon: AppIcons.asset(
+                    AppIcons.playlist,
+                    size: 22,
+                    color: AppColors.violet,
+                  ),
                   color: AppColors.violet,
                   title: AppStrings.t('app.create.playlistTitle'),
                   description: AppStrings.t('app.create.playlistDescription'),
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    context.go('/playlists');
+                    context.push('/playlists?create=true');
                   },
                 ),
                 _CreateAction(
-                  customIcon: AppIcons.asset(AppIcons.channel, size: 22, color: AppColors.success),
+                  customIcon: AppIcons.asset(
+                    AppIcons.channel,
+                    size: 22,
+                    color: AppColors.success,
+                  ),
                   color: AppColors.success,
                   title: AppStrings.t('app.create.channelTitle'),
                   description: AppStrings.t('app.create.channelDescription'),
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    context.go('/account');
+                    context.push('/create-channel');
                   },
                 ),
               ],
@@ -131,7 +143,8 @@ class MobileScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final isDetail = location.startsWith('/watch/');
-    final hideAppBar = isDetail || location == '/account' || location == '/settings';
+    final hideAppBar =
+        isDetail || location == '/account' || location == '/settings';
     final scaffold = Scaffold(
       appBar: hideAppBar
           ? null
@@ -148,83 +161,83 @@ class MobileScaffold extends StatelessWidget {
                 size: 25,
                 showWordmark: MediaQuery.sizeOf(context).width >= 360,
               ),
-        actions: [
-          if (!auth.authenticated && wide)
-            IconButton(
-              tooltip: AppStrings.t('common.signIn'),
-              onPressed: () => context.go('/auth'),
-              icon: const Icon(Icons.login_rounded),
-            ),
-          if (!isDetail)
-            IconButton(
-              tooltip: AppStrings.t('common.search'),
-              onPressed: () => context.push('/search'),
-              icon: AppIcons.asset(
-                AppIcons.search,
-                size: 24,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          if (!isDetail)
-            IconButton(
-              tooltip: AppStrings.t('huai.title'),
-              onPressed: () => context.push('/huai'),
-              icon: AppIcons.asset(AppIcons.huAi, size: 24),
-            ),
-          if (auth.authenticated)
-            AnimatedBuilder(
-              animation: notifications,
-              builder: (context, _) => IconButton(
-                tooltip: AppStrings.t('common.notifications'),
-                onPressed: () => context.push('/notifications'),
-                icon: Semantics(
-                  label: notifications.unreadCount == 0
-                      ? AppStrings.t('common.notifications')
-                      : '${AppStrings.t('common.notifications')}, ${AppStrings.format('notifications.unreadCount', {'count': AppStrings.number(notifications.unreadCount)})}',
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      AppIcons.asset(
-                        AppIcons.notification,
-                        size: 22,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      if (notifications.unreadCount > 0)
-                        Positioned(
-                          top: -7,
-                          right: -9,
-                          child: Container(
-                            constraints: const BoxConstraints(minWidth: 17),
-                            height: 17,
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryPink,
-                              borderRadius: BorderRadius.circular(9),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.surface,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Text(
-                              notifications.unreadCount > 99
-                                  ? '99+'
-                                  : '${notifications.unreadCount}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+              actions: [
+                if (!auth.authenticated && wide)
+                  IconButton(
+                    tooltip: AppStrings.t('common.signIn'),
+                    onPressed: () => context.go('/auth'),
+                    icon: const Icon(Icons.login_rounded),
                   ),
-                ),
-              ),
+                if (!isDetail)
+                  IconButton(
+                    tooltip: AppStrings.t('common.search'),
+                    onPressed: () => context.push('/search'),
+                    icon: AppIcons.asset(
+                      AppIcons.search,
+                      size: 24,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                if (auth.authenticated)
+                  AnimatedBuilder(
+                    animation: notifications,
+                    builder: (context, _) => IconButton(
+                      tooltip: AppStrings.t('common.notifications'),
+                      onPressed: () => context.push('/notifications'),
+                      icon: Semantics(
+                        label: notifications.unreadCount == 0
+                            ? AppStrings.t('common.notifications')
+                            : '${AppStrings.t('common.notifications')}, ${AppStrings.format('notifications.unreadCount', {'count': AppStrings.number(notifications.unreadCount)})}',
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            AppIcons.asset(
+                              AppIcons.notification,
+                              size: 22,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            if (notifications.unreadCount > 0)
+                              Positioned(
+                                top: -7,
+                                right: -9,
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 17,
+                                  ),
+                                  height: 17,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryPink,
+                                    borderRadius: BorderRadius.circular(9),
+                                    border: Border.all(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surface,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    notifications.unreadCount > 99
+                                        ? '99+'
+                                        : '${notifications.unreadCount}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
       drawer: isDetail ? null : _Drawer(auth: auth),
       body: SafeArea(
         top: false,
@@ -334,26 +347,36 @@ class _YouNavIcon extends StatelessWidget {
         auth.authenticated ? 'common.account' : 'common.signIn',
       ),
       child: Container(
-      width: 26,
-      height: 26,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: selected
-            ? Border.all(
-                color: isDark ? Colors.white : AppColors.primaryPink,
-                width: 2,
-              )
-            : Border.all(
-                color: Colors.transparent,
-                width: 2,
-              ),
-      ),
-      child: ClipOval(
-        child: avatarUrl != null && avatarUrl.isNotEmpty
-            ? Image.network(
-                avatarUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: selected
+              ? Border.all(
+                  color: isDark ? Colors.white : AppColors.primaryPink,
+                  width: 2,
+                )
+              : Border.all(color: Colors.transparent, width: 2),
+        ),
+        child: ClipOval(
+          child: avatarUrl != null && avatarUrl.isNotEmpty
+              ? Image.network(
+                  avatarUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppColors.primaryPink.withValues(alpha: 0.2),
+                    alignment: Alignment.center,
+                    child: Text(
+                      initial,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppColors.primaryPink,
+                      ),
+                    ),
+                  ),
+                )
+              : Container(
                   color: AppColors.primaryPink.withValues(alpha: 0.2),
                   alignment: Alignment.center,
                   child: Text(
@@ -365,20 +388,7 @@ class _YouNavIcon extends StatelessWidget {
                     ),
                   ),
                 ),
-              )
-            : Container(
-                color: AppColors.primaryPink.withValues(alpha: 0.2),
-                alignment: Alignment.center,
-                child: Text(
-                  initial,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : AppColors.primaryPink,
-                  ),
-                ),
-              ),
-      ),
+        ),
       ),
     );
   }
@@ -455,14 +465,17 @@ class _Drawer extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 18, 16, 12),
               child: HuTubeLogo(size: 28),
-
             ),
             _item(
               context,
               null,
               AppStrings.t('nav.home'),
               '/home',
-              customIcon: AppIcons.asset(AppIcons.home, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.home,
+                size: 20,
+                color: iconColor,
+              ),
               textColor: textColor,
             ),
             _item(
@@ -470,7 +483,11 @@ class _Drawer extends StatelessWidget {
               null,
               AppStrings.t('nav.explore'),
               '/explore',
-              customIcon: AppIcons.asset(AppIcons.compass, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.compass,
+                size: 20,
+                color: iconColor,
+              ),
               textColor: textColor,
             ),
             _item(
@@ -478,15 +495,11 @@ class _Drawer extends StatelessWidget {
               null,
               AppStrings.t('nav.subscriptions'),
               '/subscriptions',
-              customIcon: AppIcons.asset(AppIcons.channel, size: 20, color: iconColor),
-              textColor: textColor,
-            ),
-            _item(
-              context,
-              null,
-              AppStrings.t('huai.title'),
-              '/huai',
-              customIcon: AppIcons.asset(AppIcons.huAi, size: 20),
+              customIcon: AppIcons.asset(
+                AppIcons.channel,
+                size: 20,
+                color: iconColor,
+              ),
               textColor: textColor,
             ),
             _item(
@@ -494,7 +507,11 @@ class _Drawer extends StatelessWidget {
               null,
               AppStrings.t('nav.playlists'),
               '/playlists',
-              customIcon: AppIcons.asset(AppIcons.playlist, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.playlist,
+                size: 20,
+                color: iconColor,
+              ),
               protected: true,
               textColor: textColor,
             ),
@@ -504,7 +521,11 @@ class _Drawer extends StatelessWidget {
               null,
               '${AppStrings.t('library.history')} & ${AppStrings.t('library.liked')}',
               '/library',
-              customIcon: AppIcons.asset(AppIcons.history, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.history,
+                size: 20,
+                color: iconColor,
+              ),
               protected: true,
               textColor: textColor,
             ),
@@ -513,7 +534,11 @@ class _Drawer extends StatelessWidget {
               null,
               AppStrings.t('downloads.title'),
               '/downloads',
-              customIcon: AppIcons.asset(AppIcons.download, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.download,
+                size: 20,
+                color: iconColor,
+              ),
               protected: true,
               textColor: textColor,
             ),
@@ -523,7 +548,11 @@ class _Drawer extends StatelessWidget {
               null,
               AppStrings.t('plans.title'),
               '/plans',
-              customIcon: AppIcons.asset(AppIcons.plan, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.plan,
+                size: 20,
+                color: iconColor,
+              ),
               textColor: textColor,
             ),
             _item(
@@ -531,7 +560,11 @@ class _Drawer extends StatelessWidget {
               null,
               AppStrings.t('policies.title'),
               '/policies',
-              customIcon: AppIcons.asset(AppIcons.appeals, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.appeals,
+                size: 20,
+                color: iconColor,
+              ),
               textColor: textColor,
             ),
             _item(
@@ -539,7 +572,11 @@ class _Drawer extends StatelessWidget {
               null,
               AppStrings.t('moderation.navLabel'),
               '/moderation',
-              customIcon: AppIcons.asset(AppIcons.warningStrike, size: 20, color: iconColor),
+              customIcon: AppIcons.asset(
+                AppIcons.warningStrike,
+                size: 20,
+                color: iconColor,
+              ),
               protected: true,
               textColor: textColor,
             ),
@@ -549,7 +586,11 @@ class _Drawer extends StatelessWidget {
                 null,
                 AppStrings.t('creator.title'),
                 '/creator',
-                customIcon: AppIcons.asset(AppIcons.dashboard, size: 20, color: iconColor),
+                customIcon: AppIcons.asset(
+                  AppIcons.dashboard,
+                  size: 20,
+                  color: iconColor,
+                ),
                 protected: true,
                 textColor: textColor,
               ),

@@ -133,6 +133,7 @@ jobs:
       # Environment named `mobile` when either deployed service changes.
       MOBILE_API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://api.dalitu.app/api/v1' }}
       MOBILE_RECOMMENDATION_BASE_URL: ${{ vars.MOBILE_RECOMMENDATION_BASE_URL || 'https://recommendation.dalitu.app/api/v1' }}
+      MOBILE_AUTH_WEB_BASE_URL: ${{ vars.MOBILE_AUTH_WEB_BASE_URL || 'https://dalitu.app' }}
       GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || '968220896298-or85f9g8ibu45tdbf0svsbiqt54g7iml.apps.googleusercontent.com' }}
     defaults:
       run:
@@ -156,6 +157,7 @@ jobs:
         run: |
           [[ "$MOBILE_API_BASE_URL" == https://* ]] || { echo 'MOBILE_API_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
           [[ "$MOBILE_RECOMMENDATION_BASE_URL" == https://* ]] || { echo 'MOBILE_RECOMMENDATION_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
+          [[ "$MOBILE_AUTH_WEB_BASE_URL" == https://* ]] || { echo 'MOBILE_AUTH_WEB_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
           [[ "$GOOGLE_WEB_CLIENT_ID" == *.apps.googleusercontent.com ]] || { echo 'GOOGLE_WEB_CLIENT_ID is invalid.'; exit 1; }
       - name: Setup release keystore
         shell: bash
@@ -182,7 +184,7 @@ jobs:
         shell: bash
         run: |
           cat > "$RUNNER_TEMP/hutube-mobile-defines.json" <<EOF
-          {"API_BASE_URL":"$MOBILE_API_BASE_URL","RECOMMENDATION_BASE_URL":"$MOBILE_RECOMMENDATION_BASE_URL","GOOGLE_WEB_CLIENT_ID":"$GOOGLE_WEB_CLIENT_ID"}
+          {"API_BASE_URL":"$MOBILE_API_BASE_URL","RECOMMENDATION_BASE_URL":"$MOBILE_RECOMMENDATION_BASE_URL","AUTH_WEB_BASE_URL":"$MOBILE_AUTH_WEB_BASE_URL","GOOGLE_WEB_CLIENT_ID":"$GOOGLE_WEB_CLIENT_ID"}
           EOF
           flutter build apk --release --build-number=${{ github.run_number }} \
             --dart-define-from-file="$RUNNER_TEMP/hutube-mobile-defines.json"

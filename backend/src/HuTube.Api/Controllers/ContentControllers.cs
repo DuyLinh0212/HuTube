@@ -323,6 +323,14 @@ public sealed class CommentsController(IContentService content, HuTube.Infrastru
         return StatusCode(StatusCodes.Status201Created, new ReportResponse(result.ReportId, result.Status, result.CreatedAt));
     }
 
+    [Authorize, HttpPut("comments/{id:guid}/pin")]
+    public Task<CommentResponse> PinAsync(Guid id, CommentCreatorStateRequest request, CancellationToken ct) =>
+        content.SetCommentCreatorStateAsync(UserId, id, request.Enabled, pin: true, ct);
+
+    [Authorize, HttpPut("comments/{id:guid}/creator-heart")]
+    public Task<CommentResponse> CreatorHeartAsync(Guid id, CommentCreatorStateRequest request, CancellationToken ct) =>
+        content.SetCommentCreatorStateAsync(UserId, id, request.Enabled, pin: false, ct);
+
     [Authorize, HttpPatch("comments/{id:guid}/visibility")]
     public Task<CommentResponse> VisibilityAsync(Guid id, [FromBody] CommentVisibilityRequest request, CancellationToken ct) => content.SetCommentHiddenAsync(UserId, id, request.Hidden, request.Reason, ct);
 }

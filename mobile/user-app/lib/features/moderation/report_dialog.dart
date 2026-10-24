@@ -1,4 +1,5 @@
 import '../../core/widgets/scrollable_sheet.dart';
+import '../../core/widgets/modal_header.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
@@ -35,28 +36,21 @@ Future<void> showContentReportDialog(
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, refresh) => ScrollableSheet(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              MediaQuery.viewInsetsOf(context).bottom + 24,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  AppStrings.format('report.title', {
+                ModalHeader(
+                  padding: EdgeInsets.zero,
+                  title: AppStrings.format('report.title', {
                     'target': _targetLabel(targetType),
                   }),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                  subtitle: AppStrings.t('report.instruction'),
                 ),
-                const SizedBox(height: 6),
-                Text(AppStrings.t('report.instruction')),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: selected,
                   decoration: InputDecoration(
                     labelText: AppStrings.t('report.reason'),

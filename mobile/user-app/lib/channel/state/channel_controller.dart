@@ -8,6 +8,19 @@ import '../services/channel_service.dart';
 class ChannelController extends ChangeNotifier {
   ChannelController(this.service);
   final ChannelService service;
+  bool _disposed = false;
+  int _channelGeneration = 0;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   ChannelDetail? myChannel;
   ChannelDetail? viewingChannel;
@@ -47,18 +60,25 @@ class ChannelController extends ChangeNotifier {
   }
 
   Future<void> loadChannel(String handleOrId) async {
+    final generation = ++_channelGeneration;
     loadingChannel = true;
     errorMessage = null;
     notifyListeners();
     try {
-      viewingChannel = await service.getChannel(handleOrId);
+      final channel = await service.getChannel(handleOrId);
+      if (_disposed || generation != _channelGeneration) return;
+      viewingChannel = channel;
     } on AppError catch (e) {
+      if (_disposed || generation != _channelGeneration) return;
       errorMessage = _error(e, 'channel.notFound');
     } catch (_) {
+      if (_disposed || generation != _channelGeneration) return;
       errorMessage = AppStrings.t('channel.notFound');
     } finally {
-      loadingChannel = false;
-      notifyListeners();
+      if (!_disposed && generation == _channelGeneration) {
+        loadingChannel = false;
+        notifyListeners();
+      }
     }
   }
 

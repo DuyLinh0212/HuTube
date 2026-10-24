@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'core/errors/app_error.dart';
 import 'core/localization/app_strings.dart';
 import 'core/network/api_client.dart';
+import 'core/network/upload_control.dart';
 import 'core/storage/token_store.dart';
 
 export 'core/config/app_config.dart';
@@ -515,6 +516,8 @@ class AuthController extends ChangeNotifier {
     required Map<String, String> fields,
     required List<MultipartFilePayload> files,
     Map<String, String>? headers,
+    UploadControl? uploadControl,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final generation = _generation;
     final sentToken = _accessToken;
@@ -525,6 +528,8 @@ class AuthController extends ChangeNotifier {
         files: files,
         accessToken: _accessToken,
         headers: headers,
+        uploadControl: uploadControl,
+        onProgress: onProgress,
       );
     } on ApiFailure catch (error) {
       if (error.status != 401 || generation != _generation) rethrow;
@@ -543,6 +548,8 @@ class AuthController extends ChangeNotifier {
           files: files,
           accessToken: _accessToken,
           headers: headers,
+          uploadControl: uploadControl,
+          onProgress: onProgress,
         );
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {

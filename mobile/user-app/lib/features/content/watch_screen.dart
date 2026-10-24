@@ -1,5 +1,8 @@
+import '../../core/widgets/confirmation_dialog.dart';
+import '../../core/widgets/text_entry_dialog.dart';
 import '../../account/services/account_service.dart';
 import '../../core/widgets/scrollable_sheet.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -14,18 +17,23 @@ import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/storage/app_preferences.dart';
 import '../../core/theme/app_icons.dart';
+import '../../core/media/picture_in_picture.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../../channel/services/channel_service.dart';
 import '../playlists/playlist_service.dart';
+import '../playlists/save_playlist_sheet.dart';
 import 'content_models.dart';
 import 'content_service.dart';
 import 'local_download_manager.dart';
+import 'download_preferences.dart';
 import 'media_entitlements.dart';
 import 'playback_session.dart';
 import 'video_card.dart';
 import 'widgets/playlist_queue_sheet.dart';
 import 'widgets/video_description.dart';
+import 'widgets/rating_sheet.dart';
+import 'widgets/autoplay_next_notice.dart';
 import '../moderation/report_dialog.dart';
 
 class WatchScreen extends StatefulWidget {
@@ -37,6 +45,7 @@ class WatchScreen extends StatefulWidget {
     this.playlistId,
     this.playlistIndex,
     this.playlistShuffle = false,
+    this.restartFromBeginning = false,
   });
   final AuthController auth;
   final PlaybackSession playback;
@@ -44,6 +53,7 @@ class WatchScreen extends StatefulWidget {
   final String? playlistId;
   final int? playlistIndex;
   final bool playlistShuffle;
+  final bool restartFromBeginning;
 
   @override
   State<WatchScreen> createState() => _WatchScreenState();
@@ -52,17 +62,30 @@ class WatchScreen extends StatefulWidget {
 class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   late final ContentService _content;
   final _comment = TextEditingController();
+  final _commentFocus = FocusNode();
+  final _commentSheetController = DraggableScrollableController();
   final _prefs = const AppPreferencesStore();
   Timer? _metricsDebounce;
+  Timer? _autoplayTimer;
+  VideoCard? _upNext;
+  int _autoplayIntentGeneration = 0;
   VideoDetail? _video;
   List<Rendition> _renditions = const [];
   MediaEntitlements _entitlements = const MediaEntitlements.none();
   List<CommentItem> _comments = [];
-  int _commentPage = 0;
+  final _commentChanges = ValueNotifier<int>(0);
+  int _commentPage = 1;
   int _commentTotal = 0;
   int _commentRequest = 0;
-  bool _loadingComments = false;
+  bool _commentsLoading = false;
+  String? _commentsError;
+  bool _commentRetryReset = false;
   List<VideoCard> _related = [];
+  final Map<String, List<VideoCard>> _recommendationCache = {};
+  String _recommendationFilter = 'all';
+  int _recommendationGeneration = 0;
+  bool _recommendationsLoading = false;
+  String? _recommendationsError;
   int _generation = 0;
   bool _loading = true;
   bool _sendingComment = false;
@@ -72,10 +95,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   bool _controlsLocked = false;
   bool _zoomToFill = false;
   bool _pipEnabled = false;
+  bool _pipEntering = false;
   bool _backgroundPlaybackEnabled = false;
   String _commentSort = 'top';
-  String? _pinnedCommentId;
-  final Set<String> _heartedCommentIds = <String>{};
   String? _error;
   String? _actionMessage;
 
@@ -83,6 +105,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (Platform.isAndroid) AppPictureInPicture.bind(this, _prepareForPip);
+    _commentFocus.addListener(() {
+      if (_commentFocus.hasFocus && _commentSheetController.isAttached) {
+        _commentSheetController.jumpTo(1);
+      }
+    });
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
@@ -90,6 +118,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     ]);
     _content = ContentService(widget.auth);
     widget.playback.onVideoCompleted = _handleVideoCompleted;
+    widget.playback.addListener(_onPlaybackChanged);
     _prefs.readZoomToFill().then((v) {
       if (mounted) setState(() => _zoomToFill = v);
     });
@@ -119,14 +148,20 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    AppPictureInPicture.unbind(this);
     WidgetsBinding.instance.removeObserver(this);
     _metricsDebounce?.cancel();
+    _autoplayTimer?.cancel();
+    widget.playback.removeListener(_onPlaybackChanged);
     if (_isFullScreen) {
       _isFullScreen = false;
     }
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _comment.dispose();
+    _commentFocus.dispose();
+    _commentSheetController.dispose();
+    _commentChanges.dispose();
     if (widget.playback.onVideoCompleted == _handleVideoCompleted) {
       widget.playback.onVideoCompleted = null;
     }
@@ -192,40 +227,137 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     if (oldWidget.videoId != widget.videoId) _load();
   }
 
+  Future<void> _loadRecommendations(String filter) async {
+    final video = _video;
+    if (video == null) return;
+    if (_recommendationsLoading && _recommendationFilter == filter) return;
+    final generation = ++_recommendationGeneration;
+    final videoGeneration = _generation;
+    setState(() {
+      _recommendationFilter = filter;
+      _recommendationsLoading = true;
+      _recommendationsError = null;
+      _related = [];
+    });
+    try {
+      final cached = _recommendationCache[filter];
+      if (cached != null) {
+        setState(() => _related = cached);
+        return;
+      }
+      final result = filter == 'all'
+          ? await _content.feed(
+              explore: false,
+              pageSize: 20,
+              recommendationBudget: const Duration(milliseconds: 1200),
+            )
+          : await _content.searchVideos(
+              query: '',
+              pageSize: 20,
+              channelId: filter == 'channel' ? video.channelId : null,
+              categoryId: filter == 'related' ? video.categoryId : null,
+              tag: filter == 'related' && video.tags.isNotEmpty
+                  ? video.tags.first
+                  : null,
+              sort: filter == 'channel' ? 'newest' : 'popular',
+            );
+      if (!mounted ||
+          generation != _recommendationGeneration ||
+          videoGeneration != _generation) {
+        return;
+      }
+      setState(
+        () => _related = result.items
+            .where((item) => item.id != video.id)
+            .take(10)
+            .toList(),
+      );
+      _recommendationCache[filter] = _related;
+      if (widget.playlistId == null &&
+          filter == 'all' &&
+          widget.playback.videoId == video.id) {
+        for (final item in _related) {
+          widget.playback.addToQueue(item);
+        }
+      }
+    } catch (_) {
+      if (mounted &&
+          generation == _recommendationGeneration &&
+          videoGeneration == _generation) {
+        setState(
+          () => _recommendationsError = AppStrings.t('common.networkError'),
+        );
+      }
+    } finally {
+      if (mounted &&
+          generation == _recommendationGeneration &&
+          videoGeneration == _generation) {
+        setState(() => _recommendationsLoading = false);
+      }
+    }
+  }
+
   Future<void> _load() async {
+    _autoplayTimer?.cancel();
+    _upNext = null;
+    ++_recommendationGeneration;
+    _recommendationFilter = 'all';
+    _recommendationsLoading = false;
+    _recommendationsError = null;
+    _recommendationCache.clear();
     final generation = ++_generation;
     final videoId = widget.videoId;
     setState(() {
       _loading = true;
       _error = null;
       _video = null;
+      _isOwner = false;
       _comments = [];
-      _loadingComments = false;
-      _commentRequest++;
+      ++_commentRequest;
       _related = [];
       _actionMessage = null;
       _sendingComment = false;
       _backgroundPlaybackEnabled = false;
     });
     try {
-      final detail = await _content.detail(videoId);
-      final playback = await _content.playback(videoId);
-      final entitlements = await MediaEntitlements.load(widget.auth);
-      const isOwner = false;
+      // Start independent work together. Owner metadata must not gate playback
+      // or suggestions; recommendations can start as soon as detail arrives.
+      final results = await Future.wait<Object>([
+        _content.detail(videoId).then((detail) {
+          if (mounted && generation == _generation) {
+            _video = detail;
+            unawaited(_loadRecommendations('all'));
+            unawaited(_loadOwner(detail, generation));
+          }
+          return detail;
+        }),
+        _content.playback(videoId),
+        MediaEntitlements.load(widget.auth),
+        widget.auth.authenticated
+            ? AccountService(widget.auth)
+                  .getPreferences()
+                  .then((value) => value.defaultPlaybackQuality)
+                  .catchError((Object _) => 'auto')
+            : Future<String>.value('auto'),
+      ]);
+      final detail = results[0] as VideoDetail;
+      final playback = results[1] as Playback;
+      final entitlements = results[2] as MediaEntitlements;
+      final preferredQuality = results[3] as String;
       if (!mounted || generation != _generation) return;
       setState(() {
         _video = detail;
-        _isOwner = isOwner;
         _renditions = [...playback.renditions]
           ..sort((a, b) => a.height.compareTo(b.height));
         _entitlements = entitlements;
-        _comments = [];
         _commentPage = 0;
-        _commentTotal = 0;
-        _related = [];
+        _commentTotal = detail.stats.comments;
+        _commentsLoading = false;
+        _commentsError = null;
         _loading = false;
       });
 
+      unawaited(_loadCommentPage(reset: true));
       PlaylistDetail? playlist;
       if (widget.playlistId != null) {
         try {
@@ -267,7 +399,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           );
           widget.playback.isShuffle = widget.playlistShuffle;
         }
-      } else if (widget.playback.queue.isEmpty) {
+      } else if (!widget.playback.queue.any((item) => item.id == detail.id)) {
         final currentCard = VideoCard(
           id: detail.id,
           channelId: detail.channelId,
@@ -282,19 +414,11 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         );
         widget.playback.setQueue([currentCard, ..._related], initialIndex: 0);
       }
-      final resumeAt = playback.resumeAt > 0
+      final resumeAt = widget.restartFromBeginning
+          ? 0
+          : playback.resumeAt > 0
           ? playback.resumeAt
           : detail.viewerState.resumeAt;
-      var preferredQuality = 'auto';
-      if (widget.auth.authenticated) {
-        try {
-          preferredQuality = (await AccountService(
-            widget.auth,
-          ).getPreferences()).defaultPlaybackQuality;
-        } catch (_) {
-          /* Auto remains available offline. */
-        }
-      }
       if (!mounted || generation != _generation) return;
       final cap = int.tryParse(preferredQuality.replaceAll('p', ''));
       final candidates = cap == null
@@ -321,19 +445,18 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || generation != _generation) return;
           unawaited(
-            widget.playback.initialize(source, resumeAt: resumeAt).catchError((
-              _,
-            ) {
-              if (mounted && generation == _generation) {
-                setState(
-                  () => _actionMessage = AppStrings.t('watch.playerError'),
-                );
-              }
-            }),
+            widget.playback
+                .initialize(source, resumeAt: resumeAt, playWhenReady: true)
+                .catchError((_) {
+                  if (mounted && generation == _generation) {
+                    setState(
+                      () => _actionMessage = AppStrings.t('watch.playerError'),
+                    );
+                  }
+                }),
           );
         });
       }
-      unawaited(_loadExtras(generation, videoId, detail));
       if (mounted && generation == _generation) {
         setState(
           () => _backgroundPlaybackEnabled =
@@ -357,120 +480,101 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadComments() async {
-    if (_loadingComments) return;
-    final request = ++_commentRequest;
-    final generation = _generation;
-    final sort = _commentSort;
-    setState(() => _loadingComments = true);
-    try {
-      final page = await _content.comments(
-        widget.videoId,
-        page: _commentPage + 1,
-        sort: sort,
-      );
-      if (!mounted ||
-          generation != _generation ||
-          sort != _commentSort ||
-          request != _commentRequest) {
-        return;
-      }
-      setState(() {
-        final seen = _comments.map((item) => item.id).toSet();
-        _comments = [
-          ..._comments,
-          ...page.items.where((item) => seen.add(item.id)),
-        ];
-        _commentPage = page.page;
-        _commentTotal = page.total;
-      });
-    } catch (_) {
-      /* The player remains available; allow retry. */
-    } finally {
-      if (mounted &&
-          generation == _generation &&
-          sort == _commentSort &&
-          request == _commentRequest) {
-        setState(() => _loadingComments = false);
-      }
-    }
-  }
-
-  Future<void> _loadExtras(
-    int generation,
-    String videoId,
-    VideoDetail detail,
-  ) async {
-    unawaited(_loadComments());
-    unawaited(_loadOwner(generation, detail));
-    try {
-      final related = await _content.feed(
-        explore: false,
-        pageSize: 12,
-        sort: 'popular',
-      );
-      if (!mounted || generation != _generation) return;
-      setState(
-        () => _related = related.items
-            .where((item) => item.id != videoId)
-            .take(8)
-            .toList(),
-      );
-      if (widget.playlistId == null &&
-          widget.playback.videoId == videoId &&
-          widget.playback.queue.length <= 1) {
-        widget.playback.setQueue([detail, ..._related], initialIndex: 0);
-      }
-    } catch (_) {
-      /* Related results must not delay or fail playback. */
-    }
-  }
-
-  Future<void> _loadOwner(int generation, VideoDetail detail) async {
+  Future<void> _loadOwner(VideoDetail detail, int generation) async {
     if (!widget.auth.authenticated) return;
+    final session = widget.auth.sessionGeneration;
     try {
       final channel = await ChannelService(widget.auth).getMyChannel();
-      if (!mounted || generation != _generation) return;
+      if (!mounted ||
+          generation != _generation ||
+          session != widget.auth.sessionGeneration) {
+        return;
+      }
       setState(
         () => _isOwner =
             channel != null &&
             (channel.id == detail.channelId ||
-                channel.handle == detail.channelHandle),
+                channel.handle == detail.channelHandle ||
+                widget.auth.user?['userId'] == detail.channelId),
       );
-    } catch (_) {}
+    } catch (_) {
+      // A failed ownership lookup never grants creator controls.
+    }
   }
 
   void _handleVideoCompleted() {
-    if (!mounted) return;
+    if (!mounted ||
+        _upNext != null ||
+        !widget.playback.autoplayNext ||
+        widget.playback.videoId != widget.videoId ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
     final next = widget.playback.nextVideoCard;
     if (next != null && next.id != widget.videoId) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppStrings.format('watch.autoPlayingNext', {'seconds': '2'}),
-          ),
-          duration: const Duration(seconds: 2),
-          action: SnackBarAction(
-            label: AppStrings.t('common.cancel'),
-            onPressed: () {
-              widget.playback.toggleAutoplay();
-            },
-          ),
-        ),
-      );
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted && widget.playback.autoplayNext) {
+      final generation = _generation;
+      final session = widget.auth.sessionGeneration;
+      _autoplayIntentGeneration = widget.playback.playbackIntentGeneration;
+      setState(() => _upNext = next);
+      _autoplayTimer = Timer(const Duration(seconds: 2), () {
+        _cancelAutoplay();
+        if (mounted &&
+            generation == _generation &&
+            session == widget.auth.sessionGeneration &&
+            widget.playback.videoId == widget.videoId &&
+            widget.playback.autoplayNext &&
+            ModalRoute.of(context)?.isCurrent == true &&
+            widget.playback.queue.any((item) => item.id == next.id)) {
           final playlist = widget.playlistId;
           final nextIndex = widget.playback.queue.indexWhere(
             (item) => item.id == next.id,
           );
           context.pushReplacement(
-            '/watch/${next.id}${playlist == null ? '' : '?playlist=${Uri.encodeComponent(playlist)}&index=$nextIndex${widget.playback.isShuffle ? '&shuffle=true' : ''}'}',
+            Uri(
+              path: '/watch/${next.id}',
+              queryParameters: {
+                'autoplay': 'true',
+                if (playlist != null) ...{
+                  'playlist': playlist,
+                  'index': '$nextIndex',
+                  if (widget.playback.isShuffle) 'shuffle': 'true',
+                },
+              },
+            ).toString(),
           );
         }
       });
     }
+  }
+
+  void _cancelAutoplay() {
+    _autoplayTimer?.cancel();
+    _autoplayTimer = null;
+    if (mounted && _upNext != null) setState(() => _upNext = null);
+  }
+
+  void _onPlaybackChanged() {
+    if (mounted &&
+        _backgroundPlaybackEnabled !=
+            widget.playback.backgroundPlaybackEnabled) {
+      setState(
+        () => _backgroundPlaybackEnabled =
+            widget.playback.backgroundPlaybackEnabled,
+      );
+    }
+    if (_upNext == null) return;
+    final playback = widget.playback;
+    if (!playback.autoplayNext ||
+        playback.videoId != widget.videoId ||
+        !playback.queue.any((item) => item.id == _upNext!.id) ||
+        playback.playbackIntentGeneration != _autoplayIntentGeneration) {
+      _cancelAutoplay();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _cancelAutoplay();
   }
 
   void _openQueueSheet() {
@@ -486,19 +590,58 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     );
   }
 
+  Future<bool> _prepareForPip() async {
+    if (!mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        !_entitlements.pictureInPicture ||
+        !widget.playback.ready ||
+        widget.playback.videoId != widget.videoId) {
+      return false;
+    }
+    // Keep the current player mounted, and show only its surface inside PiP.
+    await _toggleFullScreen(toFullScreen: true, userInitiated: false);
+    try {
+      await WidgetsBinding.instance.endOfFrame.timeout(
+        const Duration(milliseconds: 500),
+      );
+    } on TimeoutException {
+      return false;
+    }
+    return mounted && widget.playback.videoId == widget.videoId;
+  }
+
   Future<void> _enterPictureInPicture() async {
     final player = widget.playback.player;
-    if (player == null || !widget.playback.ready) return;
-    // Android only permits PiP from fullscreen. The native player tracks that
-    // state before opening the system fullscreen surface, so this can remain a
-    // single user action on both platforms.
-    if (Platform.isAndroid && !player.isFullScreen) {
-      await player.enterFullScreen();
+    if (_pipEntering ||
+        player == null ||
+        !widget.playback.ready ||
+        !_entitlements.pictureInPicture) {
+      return;
     }
-    final started = await player.enterPictureInPicture();
+    _pipEntering = true;
+    final wasFullScreen = _isFullScreen;
+    var started = false;
+    try {
+      if (Platform.isAndroid) {
+        if (await AppPictureInPicture.available() && await _prepareForPip()) {
+          started = await AppPictureInPicture.enter();
+        }
+      } else {
+        started = await player.enterPictureInPicture();
+      }
+    } catch (_) {
+      started = false;
+    } finally {
+      _pipEntering = false;
+    }
     if (!mounted) return;
     if (!started) {
-      setState(() => _actionMessage = AppStrings.t('watch.pipUnsupported'));
+      if (!wasFullScreen && _isFullScreen) {
+        await _toggleFullScreen(toFullScreen: false, userInitiated: false);
+      }
+      if (mounted) {
+        setState(() => _actionMessage = AppStrings.t('watch.pipUnsupported'));
+      }
     }
   }
 
@@ -661,103 +804,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) {
-        int selected = currentRating ?? 0;
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Text(
-                    AppStrings.t('watch.ratingTitle'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    selected > 0
-                        ? '$selected / 5 sao'
-                        : 'Chạm vào sao để đánh giá',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: selected > 0
-                          ? Colors.amber.shade700
-                          : AppColors.textMuted,
-                      fontWeight: selected > 0
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      for (var i = 1; i <= 5; i++)
-                        GestureDetector(
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setSheetState(() => selected = i);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Icon(
-                              i <= selected
-                                  ? Icons.star_rounded
-                                  : Icons.star_outline_rounded,
-                              size: 42,
-                              color: i <= selected
-                                  ? Colors.amber.shade600
-                                  : Colors.grey.shade400,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      if (currentRating != null) ...[
-                        OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx, 0),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.redAccent,
-                          ),
-                          child: const Text('Xóa đánh giá'),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      Expanded(
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primaryPink,
-                          ),
-                          onPressed: selected > 0
-                              ? () => Navigator.pop(ctx, selected)
-                              : null,
-                          child: const Text('Gửi đánh giá'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (_) => RatingSheet(currentRating: currentRating),
     );
     if (score == null || generation != _generation) return;
     try {
@@ -910,27 +957,32 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     if (!mounted || generation != _generation) return;
     try {
       final options = await _content.downloadOptions(videoId);
+      final preference = await _prefs.readDownloadQuality();
       if (!mounted || generation != _generation) return;
-      final chosen = await showModalBottomSheet<Rendition>(
-        context: context,
-        isScrollControlled: true,
-        builder: (context) => ScrollableSheet(
-          child: SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                ListTile(title: Text(AppStrings.t('watch.downloadQuality'))),
-                for (final item in options)
-                  ListTile(
-                    title: Text(item.quality),
-                    subtitle: Text('${item.width}×${item.height}'),
-                    onTap: () => Navigator.pop(context, item),
-                  ),
-              ],
+      final chosen =
+          selectDownloadRendition(options, preference) ??
+          await showModalBottomSheet<Rendition>(
+            context: context,
+            isScrollControlled: true,
+            builder: (context) => ScrollableSheet(
+              child: SafeArea(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(
+                      title: Text(AppStrings.t('watch.downloadQuality')),
+                    ),
+                    for (final item in options)
+                      ListTile(
+                        title: Text(item.quality),
+                        subtitle: Text('${item.width}×${item.height}'),
+                        onTap: () => Navigator.pop(context, item),
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-      );
+          );
       if (chosen == null) return;
       final session = widget.auth.sessionGeneration;
       final record = await _content.createDownload(videoId, chosen.quality);
@@ -955,6 +1007,10 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       if (mounted && generation == _generation) {
         setState(() => _actionMessage = AppStrings.apiError(error));
       }
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(() => _actionMessage = AppStrings.t('downloads.error'));
+      }
     }
   }
 
@@ -972,100 +1028,13 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     final session = widget.auth.sessionGeneration;
 
     try {
-      final service = PlaylistService(widget.auth);
-      final playlists = await service.mine();
-      if (!mounted ||
-          generation != _generation ||
-          session != widget.auth.sessionGeneration) {
-        return;
-      }
-      final selected = await showModalBottomSheet<String>(
-        context: context,
-        isScrollControlled: true,
-        builder: (sheetContext) => ScrollableSheet(
-          child: SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                ListTile(
-                  title: Text(
-                    AppStrings.t('watch.saveVideo'),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                ListTile(
-                  leading: AppIcons.asset(AppIcons.bookmark, size: 22),
-                  title: Text(AppStrings.t('watch.savedVideo')),
-                  onTap: () => Navigator.pop(sheetContext, '__saved__'),
-                ),
-                for (final playlist in playlists)
-                  ListTile(
-                    leading: AppIcons.asset(AppIcons.playlist, size: 22),
-                    title: Text(playlist.name),
-                    subtitle: Text(
-                      AppStrings.format('channel.videoCount', {
-                        'count': AppStrings.number(playlist.itemCount),
-                      }),
-                    ),
-                    onTap: () => Navigator.pop(sheetContext, playlist.id),
-                  ),
-                ListTile(
-                  leading: const Icon(Icons.add_rounded),
-                  title: Text(AppStrings.t('watch.createPlaylist')),
-                  onTap: () => Navigator.pop(sheetContext, '__create__'),
-                ),
-              ],
-            ),
-          ),
-        ),
+      final saved = await showSavePlaylistSheet(
+        context,
+        auth: widget.auth,
+        videoId: videoId,
       );
-      if (selected == null ||
-          !mounted ||
-          generation != _generation ||
-          session != widget.auth.sessionGeneration) {
-        return;
-      }
-      if (selected == '__create__') {
-        final nameController = TextEditingController();
-        final created = await showDialog<String>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: Text(AppStrings.t('watch.createPlaylist')),
-            content: TextField(
-              controller: nameController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: AppStrings.t('playlists.namePlaceholder'),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(AppStrings.t('common.cancel')),
-              ),
-              FilledButton(
-                onPressed: () =>
-                    Navigator.pop(dialogContext, nameController.text.trim()),
-                child: Text(AppStrings.t('common.create')),
-              ),
-            ],
-          ),
-        );
-        nameController.dispose();
-        if (created == null || created.trim().isEmpty) return;
-        final playlist = await service.create(name: created.trim());
-        if (!mounted ||
-            generation != _generation ||
-            session != widget.auth.sessionGeneration) {
-          return;
-        }
-        await service.addVideo(playlist.id, videoId);
-      } else if (selected == '__saved__') {
-        await service.saveVideo(videoId);
-      } else {
-        await service.addVideo(selected, videoId);
-      }
-      if (mounted &&
+      if (saved &&
+          mounted &&
           generation == _generation &&
           session == widget.auth.sessionGeneration) {
         setState(() => _actionMessage = AppStrings.t('watch.savedToPlaylist'));
@@ -1305,7 +1274,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       }
       return;
     }
-    final enabled = !_backgroundPlaybackEnabled;
+    final enabled = !widget.playback.backgroundPlaybackRequested;
     final changed = await widget.playback.setBackgroundPlaybackEnabled(enabled);
     if (!mounted) return;
     setState(() {
@@ -1314,7 +1283,11 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           ? AppStrings.t(
               enabled ? 'watch.backgroundEnabled' : 'watch.backgroundDisabled',
             )
-          : AppStrings.t('watch.backgroundUnavailable');
+          : AppStrings.t(
+              widget.playback.waitingForExternalAudio
+                  ? 'watch.backgroundNeedsAudio'
+                  : 'watch.backgroundUnavailable',
+            );
     });
   }
 
@@ -1448,6 +1421,400 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _onCommentUpdated(CommentItem updated) {
+    _updateComments(() {
+      if (updated.status == 'deleted') {
+        _comments.removeWhere((item) => item.id == updated.id);
+        if (_commentTotal > 0) _commentTotal--;
+      } else {
+        _comments = _comments
+            .map((item) => item.id == updated.id ? updated : item)
+            .toList();
+      }
+    });
+  }
+
+  void _updateComments(VoidCallback update) {
+    if (!mounted) return;
+    setState(update);
+    _commentChanges.value++;
+  }
+
+  Future<void> _loadCommentPage({bool reset = false}) async {
+    if (_commentsLoading && !reset) return;
+    final request = ++_commentRequest;
+    final generation = _generation;
+    final page = reset ? 1 : _commentPage + 1;
+    _updateComments(() {
+      _commentsLoading = true;
+      _commentsError = null;
+    });
+    try {
+      final result = await _content.comments(
+        widget.videoId,
+        page: page,
+        sort: _commentSort,
+      );
+      if (!mounted || generation != _generation || request != _commentRequest) {
+        return;
+      }
+      _updateComments(() {
+        _comments = reset
+            ? result.items
+            : [
+                ..._comments,
+                ...result.items.where(
+                  (item) => !_comments.any((old) => old.id == item.id),
+                ),
+              ];
+        _commentPage = result.page;
+        _commentTotal = result.total;
+        _commentRetryReset = false;
+        _commentsLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _generation || request != _commentRequest) {
+        return;
+      }
+      _updateComments(() {
+        _commentsLoading = false;
+        _commentRetryReset = reset;
+        _commentsError = error is ApiFailure && error.status >= 500
+            ? AppStrings.t('watch.commentsServerError')
+            : error is ApiFailure
+            ? AppStrings.apiError(error)
+            : AppStrings.t('watch.commentsLoadError');
+      });
+    }
+  }
+
+  Widget _buildCommentPreview() {
+    final preview = _comments.firstOrNull;
+    return Semantics(
+      button: true,
+      child: Material(
+        color: AppColors.surfaceAltFor(context),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          key: const ValueKey('watch-comments-preview'),
+          borderRadius: BorderRadius.circular(16),
+          onTap: _openComments,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        AppStrings.format('watch.comments', {
+                          'count': AppStrings.number(_commentTotal),
+                        }),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    const Icon(Icons.unfold_more_rounded, size: 20),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    HuTubeAvatar(
+                      label: preview?.displayName ?? 'H',
+                      radius: 14,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        preview?.content ?? AppStrings.t('watch.commentHint'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openComments() async {
+    final viewport = MediaQuery.sizeOf(context);
+    final compact = viewport.height < 500;
+    final top = MediaQuery.paddingOf(context).top;
+    final playerHeight = (viewport.width * 9 / 16).clamp(
+      0.0,
+      (viewport.height - top) * .45,
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: Colors.transparent,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      showDragHandle: false,
+      enableDrag: false,
+      constraints: BoxConstraints(maxHeight: viewport.height - top),
+      builder: (sheetContext) => DraggableScrollableSheet(
+        controller: _commentSheetController,
+        expand: false,
+        initialChildSize:
+            ((viewport.height - top - playerHeight) / (viewport.height - top))
+                .clamp(.45, 1.0),
+        minChildSize: .4,
+        maxChildSize: 1,
+        builder: (context, scrollController) => AnimatedBuilder(
+          animation: Listenable.merge([_commentChanges, widget.auth]),
+          builder: (context, _) => Material(
+            key: const ValueKey('watch-comments-panel'),
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: compact ? 4 : 8),
+                      child: Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: .4),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 4, 0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              AppStrings.format('watch.comments', {
+                                'count': AppStrings.number(_commentTotal),
+                              }),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          IconButton(
+                            key: const ValueKey('watch-comments-close'),
+                            tooltip: AppStrings.t('common.close'),
+                            onPressed: () => Navigator.pop(sheetContext),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView(
+                        key: const ValueKey('watch-comments-list'),
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              for (final sort in ['top', 'newest'])
+                                ChoiceChip(
+                                  label: Text(
+                                    AppStrings.t(
+                                      sort == 'top'
+                                          ? 'creator.commentSortMostLiked'
+                                          : 'creator.commentSortNewest',
+                                    ),
+                                  ),
+                                  selected: _commentSort == sort,
+                                  onSelected: (_) {
+                                    if (_commentSort == sort) return;
+                                    _updateComments(() => _commentSort = sort);
+                                    _loadCommentPage(reset: true);
+                                  },
+                                ),
+                            ],
+                          ),
+                          if (_commentsError != null)
+                            Text(
+                              _commentsError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          if (_commentsLoading) const LinearProgressIndicator(),
+                          for (final item in _comments)
+                            _CommentTile(
+                              key: ValueKey(item.id),
+                              item: item,
+                              content: _content,
+                              signedIn: widget.auth.authenticated,
+                              auth: widget.auth,
+                              channelName: _video?.channelName ?? '',
+                              isOwner: _isOwner,
+                              isPinned: item.isPinned,
+                              isHearted: item.hasCreatorHeart,
+                              onTogglePin: () => _togglePinComment(item),
+                              onToggleHeart: () => _toggleHeartComment(item),
+                              onToggleHide: () => _toggleHideComment(item),
+                              onUpdated: _onCommentUpdated,
+                              onSignIn: () {
+                                Navigator.pop(sheetContext);
+                                _requireAuth(
+                                  action: AppStrings.t('watch.commentHint'),
+                                );
+                              },
+                            ),
+                          if (_comments.isEmpty &&
+                              !_commentsLoading &&
+                              _commentsError == null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Text(
+                                AppStrings.t('watch.noComments'),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          if (_comments.length < _commentTotal ||
+                              _commentsError != null)
+                            TextButton(
+                              key: const ValueKey('watch-comments-retry-more'),
+                              onPressed: _commentsLoading
+                                  ? null
+                                  : () => _loadCommentPage(
+                                      reset:
+                                          _commentRetryReset ||
+                                          _comments.isEmpty,
+                                    ),
+                              child: Text(
+                                AppStrings.t(
+                                  _commentsError != null
+                                      ? 'common.retry'
+                                      : 'notifications.loadMore',
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        compact ? 6 : 12,
+                        16,
+                        compact ? 6 : 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border(
+                          top: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                        ),
+                      ),
+                      child: widget.auth.authenticated
+                          ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    key: const ValueKey('watch-comment-input'),
+                                    onTap: () {
+                                      if (_commentSheetController.isAttached) {
+                                        _commentSheetController.animateTo(
+                                          1,
+                                          duration: const Duration(
+                                            milliseconds: 180,
+                                          ),
+                                          curve: Curves.easeOut,
+                                        );
+                                      }
+                                    },
+                                    controller: _comment,
+                                    focusNode: _commentFocus,
+                                    minLines: 1,
+                                    maxLines: 3,
+                                    decoration: InputDecoration(
+                                      hintText: AppStrings.t(
+                                        'watch.commentHint',
+                                      ),
+                                      filled: true,
+                                      fillColor: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerLow,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _comment,
+                                  builder: (context, value, _) =>
+                                      IconButton.filled(
+                                        tooltip: AppStrings.t('common.send'),
+                                        onPressed:
+                                            _sendingComment ||
+                                                value.text.trim().isEmpty
+                                            ? null
+                                            : _sendComment,
+                                        icon: _sendingComment
+                                            ? const SizedBox.square(
+                                                dimension: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : const Icon(
+                                                Icons.arrow_upward_rounded,
+                                              ),
+                                      ),
+                                ),
+                              ],
+                            )
+                          : TextButton.icon(
+                              onPressed: () {
+                                Navigator.pop(sheetContext);
+                                _requireAuth(
+                                  action: AppStrings.t('watch.commentHint'),
+                                );
+                              },
+                              icon: const Icon(Icons.login),
+                              label: Text(AppStrings.t('common.signIn')),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _sendComment() async {
     final generation = _generation;
     final videoId = widget.videoId;
@@ -1455,78 +1822,88 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     if (text.isEmpty || _sendingComment) return;
     if (!await _requireAuth(action: 'bình luận về video này')) return;
     HapticFeedback.lightImpact();
-    setState(() => _sendingComment = true);
+    _updateComments(() => _sendingComment = true);
     try {
       final comment = await _content.createComment(videoId, text);
       if (mounted && generation == _generation) {
-        setState(() {
+        _updateComments(() {
           _comments = [comment, ..._comments];
+          _commentTotal++;
           _comment.clear();
           _sendingComment = false;
         });
       }
-    } on ApiFailure catch (error) {
+    } catch (error) {
       if (mounted && generation == _generation) {
-        setState(() {
-          _actionMessage = AppStrings.apiError(error);
+        _updateComments(() {
+          _commentsError = error is ApiFailure
+              ? AppStrings.apiError(error)
+              : AppStrings.t('common.networkError');
           _sendingComment = false;
         });
       }
     }
   }
 
-  void _togglePinComment(CommentItem item) {
-    HapticFeedback.lightImpact();
-    setState(() {
-      if (_pinnedCommentId == item.id || item.isPinned) {
-        _pinnedCommentId = null;
-        _comments = _comments
-            .map((c) => c.id == item.id ? c.copyWith(isPinned: false) : c)
-            .toList();
-      } else {
-        _pinnedCommentId = item.id;
-        _comments = _comments
-            .map((c) => c.copyWith(isPinned: c.id == item.id))
-            .toList();
-      }
-    });
-  }
+  Future<void> _togglePinComment(CommentItem item) =>
+      _setCreatorCommentState(item, pin: true);
+  Future<void> _toggleHeartComment(CommentItem item) =>
+      _setCreatorCommentState(item, pin: false);
 
-  void _toggleHeartComment(CommentItem item) {
-    HapticFeedback.lightImpact();
-    setState(() {
-      final isHearted =
-          _heartedCommentIds.contains(item.id) || item.hasCreatorHeart;
-      if (isHearted) {
-        _heartedCommentIds.remove(item.id);
+  Future<void> _setCreatorCommentState(
+    CommentItem item, {
+    required bool pin,
+  }) async {
+    final generation = _generation;
+    final enabled = pin ? !item.isPinned : !item.hasCreatorHeart;
+    try {
+      final updated = await _content.setCommentCreatorState(
+        item.id,
+        enabled: enabled,
+        pin: pin,
+      );
+      if (!mounted || generation != _generation) return;
+      HapticFeedback.lightImpact();
+      _updateComments(() {
+        _commentsError = null;
         _comments = _comments
             .map(
-              (c) => c.id == item.id ? c.copyWith(hasCreatorHeart: false) : c,
+              (c) => c.id == updated.id
+                  ? updated
+                  : pin && updated.isPinned
+                  ? c.copyWith(isPinned: false)
+                  : c,
             )
             .toList();
-      } else {
-        _heartedCommentIds.add(item.id);
-        _comments = _comments
-            .map((c) => c.id == item.id ? c.copyWith(hasCreatorHeart: true) : c)
-            .toList();
-      }
-    });
+        if (pin && updated.isPinned) {
+          _comments = [updated, ..._comments.where((c) => c.id != updated.id)];
+        }
+      });
+    } catch (error) {
+      if (!mounted || generation != _generation) return;
+      _updateComments(
+        () => _commentsError = error is ApiFailure
+            ? AppStrings.apiError(error)
+            : AppStrings.t('common.networkError'),
+      );
+    }
   }
 
   Future<void> _toggleHideComment(CommentItem item) async {
+    final generation = _generation;
     HapticFeedback.lightImpact();
     final isHidden = item.status == 'hidden';
     try {
       final updated = await _content.setCommentVisibility(item.id, !isHidden);
-      if (mounted) {
-        setState(() {
+      if (mounted && generation == _generation) {
+        _updateComments(() {
           _comments = _comments
               .map((c) => c.id == item.id ? updated : c)
               .toList();
         });
       }
     } on ApiFailure catch (e) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(e))));
@@ -1599,382 +1976,353 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         backgroundColor: _isFullScreen
             ? Colors.black
             : Theme.of(context).scaffoldBackgroundColor,
-        body: _isFullScreen
-            ? ColoredBox(
-                color: Colors.black,
-                child: SizedBox.expand(child: videoStage),
-              )
-            : SafeArea(
-                top: true,
-                bottom: false,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
-                  children: [
-                    AspectRatio(aspectRatio: 16 / 9, child: videoStage),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                      child: Text(
-                        video.title,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -.45,
-                            ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 7, 20, 0),
-                      child: Text(
-                        AppStrings.format('watch.viewsAndChannel', {
-                          'views': AppStrings.number(video.stats.views),
-                          'channel': video.channelName,
-                        }),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            _isFullScreen
+                ? ColoredBox(
+                    color: Colors.black,
+                    child: SizedBox.expand(child: videoStage),
+                  )
+                : SafeArea(
+                    top: true,
+                    bottom: false,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => Column(
                         children: [
-                          _ActionChip(
-                            icon: Icons.thumb_up_outlined,
-                            label: AppStrings.number(video.stats.likes),
-                            active: video.viewerState.reaction == 'like',
-                            onTap: () => _react('like'),
-                          ),
-                          _ActionChip(
-                            icon: Icons.thumb_down_outlined,
-                            label: AppStrings.number(video.stats.dislikes),
-                            active: video.viewerState.reaction == 'dislike',
-                            onTap: () => _react('dislike'),
-                          ),
-                          _ActionChip(
-                            customIcon: AppIcons.asset(AppIcons.star, size: 18),
-                            label: video.viewerState.rating != null
-                                ? '${video.viewerState.rating} ★'
-                                : AppStrings.t('watch.rateAction'),
-                            active: video.viewerState.rating != null,
-                            onTap: _rate,
-                          ),
-                          _ActionChip(
-                            customIcon: AppIcons.asset(
-                              AppIcons.share,
-                              size: 18,
+                          SizedBox(
+                            key: const ValueKey('watch-player'),
+                            width: double.infinity,
+                            height: (constraints.maxWidth * 9 / 16).clamp(
+                              0.0,
+                              constraints.maxHeight * .45,
                             ),
-                            label: AppStrings.t('watch.shareAction'),
-                            onTap: _share,
+                            child: videoStage,
                           ),
-                          _ActionChip(
-                            customIcon: AppIcons.asset(
-                              AppIcons.download,
-                              size: 18,
-                            ),
-                            label: AppStrings.t('watch.downloadAction'),
-                            onTap: _download,
-                          ),
-                          _ActionChip(
-                            customIcon: AppIcons.asset(
-                              AppIcons.playlist,
-                              size: 18,
-                            ),
-                            label: AppStrings.t('watch.savePlaylist'),
-                            onTap: _saveToPlaylist,
-                          ),
-                          _ActionChip(
-                            customIcon: AppIcons.asset(
-                              AppIcons.queue,
-                              size: 18,
-                            ),
-                            label: AppStrings.t('watch.queue'),
-                            active: widget.playback.queue.isNotEmpty,
-                            onTap: _openQueueSheet,
-                          ),
-                          _ActionChip(
-                            customIcon: AppIcons.asset(
-                              AppIcons.report,
-                              size: 18,
-                            ),
-                            label: AppStrings.t('watch.report'),
-                            onTap: () => showContentReportDialog(
-                              context,
-                              auth: widget.auth,
-                              targetType: 'video',
-                              targetId: video.id,
-                            ),
-                          ),
-                          if (_entitlements.pictureInPicture)
-                            _ActionChip(
-                              icon: Icons.picture_in_picture_alt_outlined,
-                              label: AppStrings.t('watch.pipAction'),
-                              onTap: _enterPictureInPicture,
-                            ),
-                          if (_entitlements.backgroundPlayback)
-                            _ActionChip(
-                              icon: Icons.headphones_outlined,
-                              label: _backgroundPlaybackEnabled
-                                  ? AppStrings.t('watch.backgroundEnabledShort')
-                                  : AppStrings.t('watch.background'),
-                              active: _backgroundPlaybackEnabled,
-                              onTap: _toggleBackgroundPlayback,
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (_actionMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                        child: Text(
-                          _actionMessage!,
-                          style: const TextStyle(color: AppColors.primaryPink),
-                        ),
-                      ),
-                    const SizedBox(height: 18),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _ChannelSummary(video: video, auth: widget.auth),
-                    ),
-                    if ((video.description ?? '').isNotEmpty ||
-                        video.tags.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: HuTubeSurface(
-                          color: AppColors.surfaceAltFor(context),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if ((video.description ?? '').isNotEmpty)
-                                VideoDescription(
-                                  key: ValueKey(video.id),
-                                  text: video.description!,
-                                  duration: video.duration,
-                                  onSeek: widget.playback.seekTo,
-                                ),
-                              if (video.tags.isNotEmpty)
+                          Expanded(
+                            child: ListView(
+                              key: const PageStorageKey('watch-details'),
+                              padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
+                              children: [
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: Wrap(
-                                    spacing: 6,
-                                    children: video.tags
-                                        .map(
-                                          (tag) => Chip(label: Text('#$tag')),
-                                        )
-                                        .toList(),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    18,
+                                    20,
+                                    0,
+                                  ),
+                                  child: Text(
+                                    video.title,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -.45,
+                                        ),
                                   ),
                                 ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (video.chapters.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        AppStrings.t('watch.chapters'),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      ...video.chapters.map(
-                        (chapter) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(
-                            Icons.play_circle_outline_rounded,
-                          ),
-                          title: Text(chapter.title),
-                          subtitle: Text(
-                            '${chapter.startSeconds ~/ 60}:${(chapter.startSeconds % 60).toString().padLeft(2, '0')}',
-                          ),
-                          onTap: () => widget.playback.seekTo(
-                            Duration(seconds: chapter.startSeconds),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 22),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          PopupMenuButton<String>(
-                            tooltip: 'Sắp xếp bình luận',
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.sort_rounded, size: 18),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _commentSort == 'top'
-                                        ? 'Hàng đầu'
-                                        : 'Mới nhất',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    7,
+                                    20,
+                                    0,
                                   ),
-                                ],
-                              ),
-                            ),
-                            onSelected: (val) {
-                              setState(() {
-                                _commentSort = val;
-                                _commentPage = 0;
-                                _comments = [];
-                                _loadingComments = false;
-                              });
-                              _loadComments();
-                            },
-                            itemBuilder: (ctx) => const [
-                              PopupMenuItem(
-                                value: 'top',
-                                child: Text('Bình luận hàng đầu'),
-                              ),
-                              PopupMenuItem(
-                                value: 'newest',
-                                child: Text('Mới nhất trước'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: InkWell(
-                        onTap: widget.auth.authenticated
-                            ? null
-                            : () => _requireAuth(
-                                action: 'bình luận về video này',
-                              ),
-                        borderRadius: BorderRadius.circular(12),
-                        child: IgnorePointer(
-                          ignoring: !widget.auth.authenticated,
-                          child: TextField(
-                            controller: _comment,
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                              hintText: widget.auth.authenticated
-                                  ? AppStrings.t('watch.commentHint')
-                                  : 'Đăng nhập để thêm bình luận...',
-                              suffixIconConstraints: const BoxConstraints(
-                                minWidth: 60,
-                                minHeight: 60,
-                              ),
-                              suffixIcon: Padding(
-                                padding: const EdgeInsets.only(
-                                  right: 10,
-                                  bottom: 10,
+                                  child: Text(
+                                    AppStrings.format('watch.viewsAndChannel', {
+                                      'views': AppStrings.number(
+                                        video.stats.views,
+                                      ),
+                                      'channel': video.channelName,
+                                    }),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
                                 ),
-                                child: Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: Material(
-                                    color: _sendingComment
-                                        ? Theme.of(context).colorScheme.primary
-                                              .withValues(alpha: 0.45)
-                                        : Theme.of(context).colorScheme.primary,
-                                    shape: const CircleBorder(),
-                                    child: IconButton(
-                                      constraints:
-                                          const BoxConstraints.tightFor(
-                                            width: 46,
-                                            height: 46,
+                                const SizedBox(height: 14),
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _ActionChip(
+                                        icon: Icons.thumb_up_outlined,
+                                        label: AppStrings.number(
+                                          video.stats.likes,
+                                        ),
+                                        active:
+                                            video.viewerState.reaction ==
+                                            'like',
+                                        onTap: () => _react('like'),
+                                      ),
+                                      _ActionChip(
+                                        icon: Icons.thumb_down_outlined,
+                                        label: AppStrings.number(
+                                          video.stats.dislikes,
+                                        ),
+                                        active:
+                                            video.viewerState.reaction ==
+                                            'dislike',
+                                        onTap: () => _react('dislike'),
+                                      ),
+                                      _ActionChip(
+                                        icon: Icons.star_border_rounded,
+                                        label: video.viewerState.rating != null
+                                            ? '${video.viewerState.rating} ★'
+                                            : AppStrings.t('watch.rateAction'),
+                                        active:
+                                            video.viewerState.rating != null,
+                                        onTap: _rate,
+                                      ),
+                                      _ActionChip(
+                                        iconAsset: AppIcons.share,
+                                        label: AppStrings.t(
+                                          'watch.shareAction',
+                                        ),
+                                        onTap: _share,
+                                      ),
+                                      _ActionChip(
+                                        iconAsset: AppIcons.download,
+                                        label: AppStrings.t(
+                                          'watch.downloadAction',
+                                        ),
+                                        onTap: _download,
+                                      ),
+                                      _ActionChip(
+                                        iconAsset: AppIcons.playlist,
+                                        label: AppStrings.t(
+                                          'watch.savePlaylist',
+                                        ),
+                                        onTap: _saveToPlaylist,
+                                      ),
+                                      _ActionChip(
+                                        iconAsset: AppIcons.queue,
+                                        label: AppStrings.t('watch.queue'),
+                                        active:
+                                            widget.playback.queue.isNotEmpty,
+                                        onTap: _openQueueSheet,
+                                      ),
+                                      _ActionChip(
+                                        iconAsset: AppIcons.report,
+                                        label: AppStrings.t('watch.report'),
+                                        onTap: () => showContentReportDialog(
+                                          context,
+                                          auth: widget.auth,
+                                          targetType: 'video',
+                                          targetId: video.id,
+                                        ),
+                                      ),
+                                      if (_entitlements.pictureInPicture)
+                                        _ActionChip(
+                                          icon: Icons
+                                              .picture_in_picture_alt_outlined,
+                                          label: AppStrings.t(
+                                            'watch.pipAction',
                                           ),
-                                      padding: EdgeInsets.zero,
-                                      onPressed: _sendingComment
-                                          ? null
-                                          : _sendComment,
-                                      icon: AppIcons.asset(
-                                        AppIcons.send,
-                                        size: 22,
-                                        color: Colors.white,
+                                          onTap: _enterPictureInPicture,
+                                        ),
+                                      if (_entitlements.backgroundPlayback)
+                                        _ActionChip(
+                                          icon: Icons.headphones_outlined,
+                                          label:
+                                              widget
+                                                  .playback
+                                                  .waitingForExternalAudio
+                                              ? AppStrings.t(
+                                                  'watch.backgroundWaitingAudio',
+                                                )
+                                              : _backgroundPlaybackEnabled
+                                              ? AppStrings.t(
+                                                  'watch.backgroundEnabledShort',
+                                                )
+                                              : AppStrings.t(
+                                                  'watch.background',
+                                                ),
+                                          active: _backgroundPlaybackEnabled,
+                                          onTap: _toggleBackgroundPlayback,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (_actionMessage != null)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      12,
+                                      20,
+                                      0,
+                                    ),
+                                    child: Text(
+                                      _actionMessage!,
+                                      style: const TextStyle(
+                                        color: AppColors.primaryPink,
                                       ),
                                     ),
                                   ),
+                                const SizedBox(height: 18),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: _ChannelSummary(
+                                    video: video,
+                                    auth: widget.auth,
+                                  ),
                                 ),
-                              ),
+                                if ((video.description ?? '').isNotEmpty ||
+                                    video.tags.isNotEmpty) ...[
+                                  const SizedBox(height: 14),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                    ),
+                                    child: HuTubeSurface(
+                                      color: AppColors.surfaceAltFor(context),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          if ((video.description ?? '')
+                                              .isNotEmpty)
+                                            VideoDescription(
+                                              key: ValueKey(video.id),
+                                              text: video.description!,
+                                              duration: video.duration,
+                                              onSeek: widget.playback.seekTo,
+                                            ),
+                                          if (video.tags.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 10,
+                                              ),
+                                              child: Wrap(
+                                                spacing: 6,
+                                                children: video.tags
+                                                    .map(
+                                                      (tag) => Chip(
+                                                        label: Text('#$tag'),
+                                                      ),
+                                                    )
+                                                    .toList(),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (video.chapters.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    AppStrings.t('watch.chapters'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  ...video.chapters.map(
+                                    (chapter) => ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: const Icon(
+                                        Icons.play_circle_outline_rounded,
+                                      ),
+                                      title: Text(chapter.title),
+                                      subtitle: Text(
+                                        '${chapter.startSeconds ~/ 60}:${(chapter.startSeconds % 60).toString().padLeft(2, '0')}',
+                                      ),
+                                      onTap: () => widget.playback.seekTo(
+                                        Duration(seconds: chapter.startSeconds),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 16),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: _buildCommentPreview(),
+                                ),
+                                const SizedBox(height: 22),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Wrap(
+                                        alignment: WrapAlignment.start,
+                                        spacing: 8,
+                                        children: [
+                                          for (final filter in [
+                                            'all',
+                                            'related',
+                                            'channel',
+                                          ])
+                                            ChoiceChip(
+                                              label: Text(
+                                                AppStrings.t('parity.$filter'),
+                                              ),
+                                              selected:
+                                                  _recommendationFilter ==
+                                                  filter,
+                                              onSelected: (_) =>
+                                                  _loadRecommendations(filter),
+                                            ),
+                                        ],
+                                      ),
+                                      if (_recommendationsLoading)
+                                        const LinearProgressIndicator(),
+                                      if (_recommendationsError != null)
+                                        TextButton(
+                                          onPressed: () => _loadRecommendations(
+                                            _recommendationFilter,
+                                          ),
+                                          child: Text(_recommendationsError!),
+                                        ),
+                                      if (!_recommendationsLoading &&
+                                          _related.isEmpty &&
+                                          _recommendationsError == null)
+                                        Text(AppStrings.t('parity.noResults')),
+                                      ..._related.map(
+                                        (item) => VideoCardTile(
+                                          video: item,
+                                          replaceRoute: true,
+                                          auth: widget.auth,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    ...() {
-                      final pinned = _comments
-                          .where((c) => c.id == _pinnedCommentId || c.isPinned)
-                          .firstOrNull;
-                      final others = _comments
-                          .where((c) => c.id != pinned?.id)
-                          .toList();
-                      if (_commentSort == 'top') {
-                        others.sort(
-                          (a, b) => (b.likes + b.replyCount).compareTo(
-                            a.likes + a.replyCount,
-                          ),
-                        );
-                      } else {
-                        others.sort(
-                          (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
-                            a.createdAt ?? DateTime(0),
-                          ),
-                        );
-                      }
-                      final list = [?pinned, ...others];
-                      return list.map(
-                        (item) => _CommentTile(
-                          key: ValueKey(item.id),
-                          item: item,
-                          content: _content,
-                          signedIn: widget.auth.authenticated,
-                          auth: widget.auth,
-                          channelName: video.channelName,
-                          isOwner: _isOwner,
-                          isPinned:
-                              item.id == _pinnedCommentId || item.isPinned,
-                          isHearted:
-                              _heartedCommentIds.contains(item.id) ||
-                              item.hasCreatorHeart,
-                          onTogglePin: () => _togglePinComment(item),
-                          onToggleHeart: () => _toggleHeartComment(item),
-                          onToggleHide: () => _toggleHideComment(item),
-                        ),
-                      );
-                    }(),
-                    if (_loadingComments ||
-                        _commentPage == 0 ||
-                        _comments.length < _commentTotal)
-                      TextButton(
-                        onPressed: _loadingComments ? null : _loadComments,
-                        child: Text(AppStrings.t('notifications.loadMore')),
-                      ),
-                    const SizedBox(height: 22),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: _related
-                            .map(
-                              (item) => VideoCardTile(
-                                video: item,
-                                replaceRoute: true,
-                                auth: widget.auth,
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  ],
+                  ),
+            if (_upNext case final next?)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: SafeArea(
+                  top: false,
+                  child: AutoplayNextNotice(
+                    key: ValueKey('autoplay-${next.id}'),
+                    video: next,
+                    onCancel: _cancelAutoplay,
+                  ),
                 ),
               ),
+          ],
+        ),
       ),
     );
   }
@@ -1983,33 +2331,42 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 class _ActionChip extends StatelessWidget {
   const _ActionChip({
     this.icon,
-    this.customIcon,
+    this.iconAsset,
     required this.label,
     required this.onTap,
     this.active = false,
   });
   final IconData? icon;
-  final Widget? customIcon;
+  final String? iconAsset;
   final String label;
   final VoidCallback onTap;
   final bool active;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 8),
-    child: ActionChip(
-      avatar:
-          customIcon ??
-          (icon != null
-              ? Icon(
-                  icon,
-                  size: 18,
-                  color: active ? AppColors.primaryPink : null,
-                )
-              : null),
-      label: Text(label),
-      onPressed: onTap,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = active ? colors.primary : colors.onSurface;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        avatar: iconAsset != null
+            ? AppIcons.asset(iconAsset!, size: 18, color: foreground)
+            : (icon == null ? null : Icon(icon, size: 18, color: foreground)),
+        label: Text(label),
+        labelStyle: TextStyle(color: foreground, fontWeight: FontWeight.w700),
+        backgroundColor: active
+            ? colors.primary.withValues(alpha: .12)
+            : colors.surface,
+        side: BorderSide(
+          color: active
+              ? colors.primary.withValues(alpha: .5)
+              : AppColors.borderFor(context),
+        ),
+        shape: const StadiumBorder(),
+        onPressed: onTap,
+      ),
+    );
+  }
 }
 
 class _PlaybackSettingTile extends StatelessWidget {
@@ -2980,6 +3337,8 @@ class _CommentTile extends StatefulWidget {
     required this.onTogglePin,
     required this.onToggleHeart,
     required this.onToggleHide,
+    this.onUpdated,
+    this.onSignIn,
   });
   final CommentItem item;
   final ContentService content;
@@ -2992,6 +3351,8 @@ class _CommentTile extends StatefulWidget {
   final VoidCallback onTogglePin;
   final VoidCallback onToggleHeart;
   final VoidCallback onToggleHide;
+  final ValueChanged<CommentItem>? onUpdated;
+  final VoidCallback? onSignIn;
 
   @override
   State<_CommentTile> createState() => _CommentTileState();
@@ -3022,7 +3383,10 @@ class _CommentTileState extends State<_CommentTile> {
 
   Future<void> _react() async {
     final generation = _generation;
-    if (!widget.signedIn) return;
+    if (!widget.signedIn) {
+      widget.onSignIn?.call();
+      return;
+    }
     try {
       final response = await widget.content.reactComment(
         _item.id,
@@ -3042,48 +3406,37 @@ class _CommentTileState extends State<_CommentTile> {
           replyCount: _item.replyCount,
           userId: _item.userId,
           status: _item.status,
+          isPinned: _item.isPinned,
+          hasCreatorHeart: _item.hasCreatorHeart,
         );
       });
-    } on ApiFailure {
-      // The parent page already keeps the read path usable if an interaction
-      // fails; a failed reaction should not alter the rendered count.
+      widget.onUpdated?.call(_item);
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
   Future<void> _reply() async {
     final generation = _generation;
     HapticFeedback.lightImpact();
-    if (!widget.signedIn) return;
-    final controller = TextEditingController();
+    if (!widget.signedIn) {
+      widget.onSignIn?.call();
+      return;
+    }
     final text = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          AppStrings.format('watch.replyTitle', {'name': _item.displayName}),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 2,
-          maxLines: 5,
-          decoration: InputDecoration(
-            hintText: AppStrings.t('watch.replyHint'),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            icon: AppIcons.asset(AppIcons.send, size: 16, color: Colors.white),
-            label: Text(AppStrings.t('common.send')),
-          ),
-        ],
+      builder: (_) => TextEntryDialog(
+        title: AppStrings.format('watch.replyTitle', {
+          'name': _item.displayName,
+        }),
+        hint: AppStrings.t('watch.replyHint'),
+        submitLabel: AppStrings.t('common.send'),
       ),
     );
-    controller.dispose();
     if (text == null || text.trim().isEmpty) return;
     try {
       final reply = await widget.content.createComment(
@@ -3092,10 +3445,18 @@ class _CommentTileState extends State<_CommentTile> {
         parentCommentId: _item.id,
       );
       if (mounted && generation == _generation) {
-        setState(() => _replies = [...?_replies, reply]);
+        setState(() {
+          _replies = [...?_replies, reply];
+          _item = _item.copyWith(replyCount: _item.replyCount + 1);
+        });
+        widget.onUpdated?.call(_item);
       }
-    } on ApiFailure {
-      // Leave the dialog closed; the API is the source of truth for replies.
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+      }
     }
   }
 
@@ -3122,25 +3483,14 @@ class _CommentTileState extends State<_CommentTile> {
 
   Future<void> _edit() async {
     final generation = _generation;
-    final controller = TextEditingController(text: _item.content);
     final updatedText = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('watch.editComment')),
-        content: TextField(controller: controller, minLines: 2, maxLines: 5),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: Text(AppStrings.t('common.save')),
-          ),
-        ],
+      builder: (_) => TextEntryDialog(
+        title: AppStrings.t('watch.editComment'),
+        initialValue: _item.content,
+        submitLabel: AppStrings.t('common.save'),
       ),
     );
-    controller.dispose();
     if (updatedText == null ||
         updatedText.trim().isEmpty ||
         generation != _generation) {
@@ -3148,7 +3498,10 @@ class _CommentTileState extends State<_CommentTile> {
     }
     try {
       final updated = await widget.content.updateComment(_item.id, updatedText);
-      if (mounted && generation == _generation) setState(() => _item = updated);
+      if (mounted && generation == _generation) {
+        setState(() => _item = updated);
+        widget.onUpdated?.call(_item);
+      }
     } on ApiFailure catch (error) {
       if (mounted && generation == _generation) {
         ScaffoldMessenger.of(
@@ -3162,19 +3515,12 @@ class _CommentTileState extends State<_CommentTile> {
     final generation = _generation;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('watch.deleteCommentTitle')),
-        content: Text(AppStrings.t('watch.deleteCommentDescription')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (context) => ConfirmationDialog(
+        title: AppStrings.t('watch.deleteCommentTitle'),
+        message: AppStrings.t('watch.deleteCommentDescription'),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
     if (confirmed != true || generation != _generation) return;
@@ -3196,6 +3542,7 @@ class _CommentTileState extends State<_CommentTile> {
             status: 'deleted',
           ),
         );
+        widget.onUpdated?.call(_item);
       }
     } on ApiFailure catch (error) {
       if (mounted && generation == _generation) {
@@ -3208,7 +3555,7 @@ class _CommentTileState extends State<_CommentTile> {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.symmetric(vertical: 12),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3242,7 +3589,9 @@ class _CommentTileState extends State<_CommentTile> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
-              radius: 17,
+              radius: 18,
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
               child: Text(
                 _item.displayName.isEmpty
                     ? 'H'
@@ -3254,12 +3603,24 @@ class _CommentTileState extends State<_CommentTile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
                       Text(
                         _item.displayName,
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
+                      if (_item.createdAt != null)
+                        Text(
+                          AppStrings.relativeDate(_item.createdAt!),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
                       if (_item.status == 'hidden') ...[
                         const SizedBox(width: 8),
                         Container(
@@ -3287,6 +3648,7 @@ class _CommentTileState extends State<_CommentTile> {
                   Text(
                     _item.content,
                     style: TextStyle(
+                      height: 1.5,
                       color: _item.status == 'hidden'
                           ? Theme.of(
                               context,
@@ -3294,169 +3656,179 @@ class _CommentTileState extends State<_CommentTile> {
                           : null,
                     ),
                   ),
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: _react,
-                        icon: const Icon(Icons.thumb_up_outlined, size: 16),
-                        label: Text(AppStrings.number(_item.likes)),
-                      ),
-                      TextButton(
-                        onPressed: _reply,
-                        child: Text(AppStrings.t('common.reply')),
-                      ),
-                      if (widget.isHearted || _item.hasCreatorHeart)
-                        Container(
-                          margin: const EdgeInsets.only(left: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.favorite_rounded,
-                                size: 13,
-                                color: Colors.redAccent,
-                              ),
-                              const SizedBox(width: 4),
-                              CircleAvatar(
-                                radius: 8,
-                                backgroundColor: AppColors.primaryPink,
-                                child: Text(
-                                  widget.channelName.isNotEmpty
-                                      ? widget.channelName[0].toUpperCase()
-                                      : 'H',
-                                  style: const TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
+                  if (_item.status != 'deleted')
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _react,
+                          icon: const Icon(Icons.thumb_up_outlined, size: 16),
+                          label: Text(AppStrings.number(_item.likes)),
+                        ),
+                        TextButton(
+                          onPressed: _reply,
+                          child: Text(AppStrings.t('common.reply')),
+                        ),
+                        if (widget.isHearted || _item.hasCreatorHeart)
+                          Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.favorite_rounded,
+                                  size: 13,
+                                  color: Colors.redAccent,
+                                ),
+                                const SizedBox(width: 4),
+                                CircleAvatar(
+                                  radius: 8,
+                                  backgroundColor: AppColors.primaryPink,
+                                  child: Text(
+                                    widget.channelName.isNotEmpty
+                                        ? widget.channelName[0].toUpperCase()
+                                        : 'H',
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      const Spacer(),
-                      if (_item.userId == widget.auth.user?['userId'] ||
-                          widget.isOwner)
-                        PopupMenuButton<String>(
-                          tooltip: AppStrings.t('watch.commentOptions'),
-                          onSelected: (choice) {
-                            if (choice == 'pin') widget.onTogglePin();
-                            if (choice == 'heart') widget.onToggleHeart();
-                            if (choice == 'hide') widget.onToggleHide();
-                            if (choice == 'edit') _edit();
-                            if (choice == 'delete') _delete();
-                          },
-                          itemBuilder: (_) => [
-                            if (widget.isOwner) ...[
-                              PopupMenuItem(
-                                value: 'pin',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      widget.isPinned
-                                          ? Icons.push_pin_rounded
-                                          : Icons.push_pin_outlined,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      widget.isPinned
-                                          ? AppStrings.t('watch.unpinComment')
-                                          : AppStrings.t('watch.pinComment'),
-                                    ),
-                                  ],
+
+                        if (_item.userId == widget.auth.user?['userId'] ||
+                            widget.isOwner)
+                          PopupMenuButton<String>(
+                            tooltip: AppStrings.t('watch.commentOptions'),
+                            onSelected: (choice) {
+                              if (choice == 'pin') widget.onTogglePin();
+                              if (choice == 'heart') widget.onToggleHeart();
+                              if (choice == 'hide') widget.onToggleHide();
+                              if (choice == 'edit') _edit();
+                              if (choice == 'delete') _delete();
+                            },
+                            itemBuilder: (_) => [
+                              if (widget.isOwner) ...[
+                                PopupMenuItem(
+                                  value: 'pin',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        widget.isPinned
+                                            ? Icons.push_pin_rounded
+                                            : Icons.push_pin_outlined,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        widget.isPinned
+                                            ? AppStrings.t('watch.unpinComment')
+                                            : AppStrings.t('watch.pinComment'),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'heart',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      widget.isHearted
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      size: 18,
-                                      color: Colors.redAccent,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      widget.isHearted
-                                          ? AppStrings.t('watch.unheartComment')
-                                          : AppStrings.t('watch.heartComment'),
-                                    ),
-                                  ],
+                                PopupMenuItem(
+                                  value: 'heart',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        widget.isHearted
+                                            ? Icons.favorite_rounded
+                                            : Icons.favorite_border_rounded,
+                                        size: 18,
+                                        color: Colors.redAccent,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        widget.isHearted
+                                            ? AppStrings.t(
+                                                'watch.unheartComment',
+                                              )
+                                            : AppStrings.t(
+                                                'watch.heartComment',
+                                              ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'hide',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _item.status == 'hidden'
-                                          ? Icons.visibility_rounded
-                                          : Icons.visibility_off_outlined,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _item.status == 'hidden'
-                                          ? AppStrings.t('watch.unhideComment')
-                                          : AppStrings.t('watch.hideComment'),
-                                    ),
-                                  ],
+                                PopupMenuItem(
+                                  value: 'hide',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _item.status == 'hidden'
+                                            ? Icons.visibility_rounded
+                                            : Icons.visibility_off_outlined,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _item.status == 'hidden'
+                                            ? AppStrings.t(
+                                                'watch.unhideComment',
+                                              )
+                                            : AppStrings.t('watch.hideComment'),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
+                              ],
+                              if (_item.userId ==
+                                  widget.auth.user?['userId']) ...[
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.edit_outlined, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text(AppStrings.t('common.edit')),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                        color: Colors.redAccent,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(AppStrings.t('common.delete')),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
-                            if (_item.userId ==
-                                widget.auth.user?['userId']) ...[
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.edit_outlined, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(AppStrings.t('common.edit')),
-                                  ],
-                                ),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.delete_outline,
-                                      size: 18,
-                                      color: Colors.redAccent,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(AppStrings.t('common.delete')),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        )
-                      else if (widget.signedIn && _item.status != 'deleted')
-                        IconButton(
-                          tooltip: AppStrings.t('watch.reportComment'),
-                          onPressed: () => showContentReportDialog(
-                            context,
-                            auth: widget.auth,
-                            targetType: 'comment',
-                            targetId: _item.id,
+                          )
+                        else if (widget.signedIn && _item.status != 'deleted')
+                          IconButton(
+                            tooltip: AppStrings.t('watch.reportComment'),
+                            onPressed: () => showContentReportDialog(
+                              context,
+                              auth: widget.auth,
+                              targetType: 'comment',
+                              targetId: _item.id,
+                            ),
+                            icon: const Icon(Icons.flag_outlined, size: 18),
                           ),
-                          icon: const Icon(Icons.flag_outlined, size: 18),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
             ),

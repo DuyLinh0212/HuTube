@@ -7,7 +7,6 @@ class AppIcons {
   // Core & Navigation
   static const String home = '${_path}home.webp';
   static const String compass = '${_path}compass.webp';
-  static const String huAi = '${_path}HuAI.webp';
   static const String notification = '${_path}notification.webp';
   static const String user = '${_path}user.webp';
   static const String channel = '${_path}channel.webp';
@@ -26,7 +25,8 @@ class AppIcons {
   static const String favorite = '${_path}favorite.webp';
 
   // Search & Utility
-  static const String filter = '${_utilityPath}icon-utility-filter-sliders.webp';
+  static const String filter =
+      '${_utilityPath}icon-utility-filter-sliders.webp';
   static const String search = '${_utilityPath}icon-utility-search.webp';
   static const String back = '${_utilityPath}icon-utility-back.webp';
   static const String more = '${_utilityPath}icon-utility-more.webp';
@@ -58,6 +58,7 @@ class AppIcons {
     height: size,
     color: color,
     fit: fit,
-    errorBuilder: (_, _, _) => Icon(Icons.broken_image, size: size, color: color),
+    errorBuilder: (_, _, _) =>
+        Icon(Icons.broken_image, size: size, color: color),
   );
 }

@@ -1532,13 +1532,13 @@ public sealed class ContentService(
                               from replies in replyRows.DefaultIfEmpty()
                               let likeCount = (long?)likes.Count
                               let replyCount = (long?)replies.Count
-                              orderby ((likeCount ?? 0L) + (replyCount ?? 0L)) descending, comment.CreatedAt descending, comment.CommentId descending
+                              orderby comment.IsPinned descending, ((likeCount ?? 0L) + (replyCount ?? 0L)) descending, comment.CreatedAt descending, comment.CommentId descending
                               select comment)
                 .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         }
         else
         {
-            comments = await query.OrderByDescending(x => x.CreatedAt)
+            comments = await query.OrderByDescending(x => x.IsPinned).ThenByDescending(x => x.CreatedAt).ThenByDescending(x => x.CommentId)
                 .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         }
         var items = await ToCommentsAsync(comments, viewerId, ct);
@@ -1665,7 +1665,9 @@ public sealed class ContentService(
         var video = await RequireVideoAsync(comment.VideoId, ct);
         if (comment.UserId != userId && !await HasChannelPermissionAsync(video.ChannelId, userId, ChannelPermissions.CommentManage, ct))
             throw Error(403, "COMMENT_DELETE_DENIED", "Bạn không có quyền xóa bình luận này.");
-        comment.Status = "deleted"; comment.Content = "[đã xóa]"; comment.UpdatedAt = Now; await db.SaveChangesAsync(ct);
+        comment.Status = "deleted"; comment.IsPinned = false; comment.Content = "[đã xóa]"; comment.UpdatedAt = Now;
+        db.Entry(comment).Property(x => x.IsPinned).IsModified = true;
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<ReactionResponse> SetCommentReactionAsync(Guid userId, Guid commentId, string? reaction, CancellationToken ct = default)
@@ -1691,11 +1693,43 @@ public sealed class ContentService(
         return new(normalizedReaction, await db.CommentReactions.LongCountAsync(x => x.CommentId == commentId && x.Type == "like", ct), await db.CommentReactions.LongCountAsync(x => x.CommentId == commentId && x.Type == "dislike", ct));
     }
 
+    public async Task<CommentResponse> SetCommentCreatorStateAsync(Guid actorId, Guid commentId, bool enabled, bool pin, CancellationToken ct = default)
+    {
+        var comment = await RequireCommentAsync(commentId, ct);
+        var video = await RequireVideoAsync(comment.VideoId, ct);
+        await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.CommentManage, ct);
+        if (enabled && (comment.Status != "visible" || (pin && comment.ParentCommentId.HasValue)))
+            throw Error(400, "COMMENT_CREATOR_STATE_INVALID", "Chỉ ghim bình luận gốc và tương tác với bình luận đang hiển thị.");
+        if (pin)
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            // Serialize pin changes for the video so concurrent requests cannot leave two pins.
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM public.videos WHERE video_id = {comment.VideoId} FOR UPDATE", ct);
+            if (enabled)
+                await db.Comments.Where(x => x.VideoId == comment.VideoId && x.CommentId != commentId && x.IsPinned)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.IsPinned, false), ct);
+            var candidates = db.Comments.Where(x => x.CommentId == commentId && x.Status != "deleted");
+            if (enabled) candidates = candidates.Where(x => x.Status == "visible" && x.ParentCommentId == null);
+            var changed = await candidates.ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.IsPinned, enabled).SetProperty(x => x.UpdatedAt, Now), ct);
+            if (changed == 0) throw Error(400, "COMMENT_CREATOR_STATE_INVALID", "Bình luận đã thay đổi. Vui lòng tải lại.");
+            await transaction.CommitAsync(ct);
+            await db.Entry(comment).ReloadAsync(ct);
+        }
+        else
+        {
+            comment.HasCreatorHeart = enabled; comment.UpdatedAt = Now;
+            await db.SaveChangesAsync(ct);
+        }
+        return await ToCommentAsync(comment, actorId, ct);
+    }
+
     public async Task<CommentResponse> SetCommentHiddenAsync(Guid actorId, Guid commentId, bool hidden, string? reason, CancellationToken ct = default)
     {
         var comment = await RequireCommentAsync(commentId, ct); var video = await RequireVideoAsync(comment.VideoId, ct);
         await RequireChannelPermissionAsync(video.ChannelId, actorId, ChannelPermissions.CommentManage, ct);
-        comment.Status = hidden ? "hidden" : "visible"; comment.UpdatedAt = Now;
+        comment.Status = hidden ? "hidden" : "visible"; comment.IsPinned = false; comment.UpdatedAt = Now;
+        db.Entry(comment).Property(x => x.IsPinned).IsModified = true;
         db.CommentModerationActions.Add(new CommentModerationAction { CommentId = commentId, ModeratorUserId = actorId, ActionType = hidden ? "hide" : "unhide", Reason = Clean(reason), CreatedAt = Now });
         await db.SaveChangesAsync(ct); return await ToCommentAsync(comment, actorId, ct);
     }
@@ -2052,7 +2086,7 @@ public sealed class ContentService(
         var dislikes = await db.CommentReactions.LongCountAsync(x => x.CommentId == comment.CommentId && x.Type == "dislike", ct);
         var mine = viewerId.HasValue ? await db.CommentReactions.AsNoTracking().SingleOrDefaultAsync(x => x.CommentId == comment.CommentId && x.UserId == viewerId, ct) : null;
         var replies = await db.Comments.CountAsync(x => x.ParentCommentId == comment.CommentId && x.Status == "visible", ct);
-        return new(comment.CommentId, comment.VideoId, comment.UserId, user.DisplayName, comment.ParentCommentId, comment.Content, comment.Status, comment.CreatedAt, comment.UpdatedAt, likes, dislikes, mine?.Type, replies, videoTitle);
+        return new(comment.CommentId, comment.VideoId, comment.UserId, user.DisplayName, comment.ParentCommentId, comment.Content, comment.Status, comment.CreatedAt, comment.UpdatedAt, likes, dislikes, mine?.Type, replies, videoTitle, comment.IsPinned, comment.HasCreatorHeart);
     }
 
     private async Task<IReadOnlyList<CommentResponse>> ToCommentsAsync(IReadOnlyList<Comment> comments, Guid? viewerId, CancellationToken ct)
@@ -2089,7 +2123,7 @@ public sealed class ContentService(
             return new CommentResponse(comment.CommentId, comment.VideoId, comment.UserId,
                 users.GetValueOrDefault(comment.UserId, "Người dùng"), comment.ParentCommentId, comment.Content,
                 comment.Status, comment.CreatedAt, comment.UpdatedAt, stats.Likes, stats.Dislikes, myReaction,
-                replies.GetValueOrDefault(comment.CommentId), videoTitles.GetValueOrDefault(comment.VideoId));
+                replies.GetValueOrDefault(comment.CommentId), videoTitles.GetValueOrDefault(comment.VideoId), comment.IsPinned, comment.HasCreatorHeart);
         }).ToList();
     }
 

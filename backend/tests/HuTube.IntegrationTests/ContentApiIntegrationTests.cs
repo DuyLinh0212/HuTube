@@ -25,6 +25,59 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
+    public async Task CommentCreatorState_PersistsAndRequiresChannelPermission()
+    {
+        var (owner, _, channelId) = await CreateUserAndChannelAsync("creator_state_owner");
+        var (viewer, _, _) = await CreateUserAndChannelAsync("creator_state_viewer");
+        var video = await CreatePublishedVideoAsync(owner, channelId, "Creator comment state");
+        async Task<CommentResponse> Create(string text, Guid? parent = null)
+        {
+            var response = await viewer.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/comments", new { content = text, parentCommentId = parent });
+            response.EnsureSuccessStatusCode();
+            return (await response.Content.ReadFromJsonAsync<CommentResponse>(JsonOptions))!;
+        }
+        var first = await Create("First comment");
+        var second = await Create("Second comment");
+        var reply = await Create("Reply", first.CommentId);
+
+        var denied = await viewer.PutAsJsonAsync($"/api/v1/comments/{first.CommentId}/pin", new { enabled = true });
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        var deniedHeart = await viewer.PutAsJsonAsync($"/api/v1/comments/{first.CommentId}/creator-heart", new { enabled = true });
+        Assert.Equal(HttpStatusCode.Forbidden, deniedHeart.StatusCode);
+        var replyPin = await owner.PutAsJsonAsync($"/api/v1/comments/{reply.CommentId}/pin", new { enabled = true });
+        Assert.Equal(HttpStatusCode.BadRequest, replyPin.StatusCode);
+
+        (await owner.PutAsJsonAsync($"/api/v1/comments/{first.CommentId}/pin", new { enabled = true })).EnsureSuccessStatusCode();
+        (await owner.PutAsJsonAsync($"/api/v1/comments/{first.CommentId}/creator-heart", new { enabled = true })).EnsureSuccessStatusCode();
+        var read = await viewer.GetFromJsonAsync<PageResult<CommentResponse>>($"/api/v1/videos/{video.VideoId}/comments?sort=newest", JsonOptions);
+        Assert.Equal(first.CommentId, read!.Items[0].CommentId);
+        Assert.True(read.Items[0].IsPinned);
+        Assert.True(read.Items[0].HasCreatorHeart);
+
+        (await owner.PutAsJsonAsync($"/api/v1/comments/{second.CommentId}/pin", new { enabled = true })).EnsureSuccessStatusCode();
+        read = await viewer.GetFromJsonAsync<PageResult<CommentResponse>>($"/api/v1/videos/{video.VideoId}/comments?sort=top", JsonOptions);
+        Assert.Equal(second.CommentId, read!.Items[0].CommentId);
+        Assert.Single(read.Items, item => item.IsPinned);
+        Assert.True(read.Items.Single(item => item.CommentId == first.CommentId).HasCreatorHeart);
+
+        (await owner.PutAsJsonAsync($"/api/v1/comments/{first.CommentId}/creator-heart", new { enabled = false })).EnsureSuccessStatusCode();
+        (await owner.PutAsJsonAsync($"/api/v1/comments/{second.CommentId}/pin", new { enabled = false })).EnsureSuccessStatusCode();
+        read = await viewer.GetFromJsonAsync<PageResult<CommentResponse>>($"/api/v1/videos/{video.VideoId}/comments", JsonOptions);
+        Assert.DoesNotContain(read!.Items, item => item.IsPinned || item.HasCreatorHeart);
+
+        var pins = await Task.WhenAll(
+            owner.PutAsJsonAsync($"/api/v1/comments/{first.CommentId}/pin", new { enabled = true }),
+            owner.PutAsJsonAsync($"/api/v1/comments/{second.CommentId}/pin", new { enabled = true }));
+        foreach (var response in pins) response.EnsureSuccessStatusCode();
+        read = await viewer.GetFromJsonAsync<PageResult<CommentResponse>>($"/api/v1/videos/{video.VideoId}/comments", JsonOptions);
+        var pinned = Assert.Single(read!.Items, item => item.IsPinned);
+        (await owner.PatchAsJsonAsync($"/api/v1/comments/{pinned.CommentId}/visibility", new { hidden = true })).EnsureSuccessStatusCode();
+        (await owner.PatchAsJsonAsync($"/api/v1/comments/{pinned.CommentId}/visibility", new { hidden = false })).EnsureSuccessStatusCode();
+        read = await viewer.GetFromJsonAsync<PageResult<CommentResponse>>($"/api/v1/videos/{video.VideoId}/comments", JsonOptions);
+        Assert.DoesNotContain(read!.Items, item => item.IsPinned);
+    }
+
+    [Fact]
     public async Task NotificationPreferencesAndPaging_ControlReplyDelivery()
     {
         // Arrange
@@ -1125,6 +1178,48 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         Assert.Equal(HttpStatusCode.NotFound, (await owner.DeleteAsync($"/api/v1/playlists/{playlist.PlaylistId}/videos/{firstVideo.VideoId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/v1/playlists/{playlist.PlaylistId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await guest.GetAsync($"/api/v1/playlists/{playlist.PlaylistId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Library_HistoryFiltersApplyBeforePagingAndKeepActorScope()
+    {
+        var (owner, ownerId, channelId) = await CreateUserAndChannelAsync("history_filters");
+        var (other, _, _) = await CreateUserAndChannelAsync("history_filters_other");
+        var first = await CreatePublishedVideoAsync(owner, channelId, "Lessons Alpha");
+        var second = await CreatePublishedVideoAsync(owner, channelId, "Lessons Beta");
+        var old = await CreatePublishedVideoAsync(owner, channelId, "Lessons Old");
+        var now = DateTimeOffset.UtcNow;
+        await using (var db = factory.CreateDb())
+        {
+            db.ViewingHistories.AddRange(
+                new ViewingHistory { UserId = ownerId, VideoId = first.VideoId, ViewedAt = now.AddDays(-3), WatchDuration = 10 },
+                new ViewingHistory { UserId = ownerId, VideoId = first.VideoId, ViewedAt = now.AddDays(-2), WatchDuration = 20 },
+                new ViewingHistory { UserId = ownerId, VideoId = second.VideoId, ViewedAt = now.AddDays(-1), WatchDuration = 30 },
+                new ViewingHistory { UserId = ownerId, VideoId = old.VideoId, ViewedAt = now.AddDays(-15), WatchDuration = 40 });
+            await db.SaveChangesAsync();
+        }
+        var filtered = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>(
+            "/api/v1/library/history?q=LESSONS&sort=oldest&dateRange=week&pageSize=1&page=1", JsonOptions);
+        Assert.NotNull(filtered);
+        Assert.Equal(2, filtered.Total);
+        Assert.Equal(first.VideoId, Assert.Single(filtered.Items).VideoId);
+        Assert.Equal(20, filtered.Items[0].WatchedSeconds);
+        var secondPage = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>(
+            "/api/v1/library/history?q=lessons&sort=oldest&dateRange=week&pageSize=1&page=2", JsonOptions);
+        Assert.Equal(second.VideoId, Assert.Single(secondPage!.Items).VideoId);
+        var newest = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>(
+            "/api/v1/library/history?q=Lessons&dateRange=week", JsonOptions);
+        Assert.Equal(second.VideoId, newest!.Items[0].VideoId);
+        var baseline = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>("/api/v1/library/history", JsonOptions);
+        Assert.Equal(3, baseline!.Total);
+        var today = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>("/api/v1/library/history?dateRange=today", JsonOptions);
+        Assert.Empty(today!.Items);
+        var otherHistory = await other.GetFromJsonAsync<PageResult<WatchHistoryResponse>>("/api/v1/library/history?q=Lessons&dateRange=month", JsonOptions);
+        Assert.Empty(otherHistory!.Items);
+        var noMatch = await owner.GetFromJsonAsync<PageResult<WatchHistoryResponse>>("/api/v1/library/history?q=notpresent", JsonOptions);
+        Assert.Equal(0, noMatch!.Total);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync("/api/v1/library/history?sort=invalid")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync("/api/v1/library/history?dateRange=invalid")).StatusCode);
     }
 
     [Fact]

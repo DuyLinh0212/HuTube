@@ -682,8 +682,10 @@ class _PlansScreenState extends State<PlansScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 Text(
                   AppStrings.t('plans.storageUsed'),

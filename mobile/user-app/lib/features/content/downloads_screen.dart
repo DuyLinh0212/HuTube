@@ -1,4 +1,7 @@
+import '../../core/widgets/confirmation_dialog.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
@@ -9,10 +12,13 @@ import 'offline_player_screen.dart';
 import 'content_service.dart';
 import 'download_actions.dart';
 import 'content_models.dart';
+import 'download_coordinator.dart';
+import '../../core/widgets/scrollable_sheet.dart';
 
 class DownloadsScreen extends StatefulWidget {
-  const DownloadsScreen({super.key, required this.auth});
+  const DownloadsScreen({super.key, required this.auth, this.coordinator});
   final AuthController auth;
+  final DownloadCoordinator? coordinator;
   @override
   State<DownloadsScreen> createState() => _DownloadsScreenState();
 }
@@ -20,21 +26,40 @@ class DownloadsScreen extends StatefulWidget {
 class _DownloadsScreenState extends State<DownloadsScreen> {
   final _downloads = LocalDownloadManager.instance;
   late final ContentService _content = ContentService(widget.auth);
+  late final _coordinator =
+      widget.coordinator ?? DownloadCoordinator(widget.auth);
   List<Map<String, dynamic>> _remote = const [];
   bool _remoteLoading = true;
+  int _requestGeneration = 0;
+  late int _sessionGeneration;
+  late bool _authenticated;
   @override
   void initState() {
     super.initState();
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
     widget.auth.addListener(_identityChanged);
     _downloads.ensureLoaded();
+    unawaited(
+      _coordinator.initialize().then((_) {
+        if (mounted) return _coordinator.loadSuggestions();
+      }),
+    );
     _loadRemote();
   }
 
   void _identityChanged() {
+    if (_sessionGeneration == widget.auth.sessionGeneration &&
+        _authenticated == widget.auth.authenticated) {
+      return;
+    }
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    ++_requestGeneration;
     if (mounted) {
       setState(() {
         _remote = [];
-        _remoteLoading = true;
+        _remoteLoading = widget.auth.authenticated;
       });
     }
     if (widget.auth.authenticated) _loadRemote();
@@ -43,28 +68,79 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   @override
   void dispose() {
     widget.auth.removeListener(_identityChanged);
+    if (widget.coordinator == null) _coordinator.dispose();
     super.dispose();
   }
 
+  Future<void> _downloadSuggested(VideoCard video) async {
+    try {
+      await _coordinator.download(
+        video,
+        choose: (options) => showModalBottomSheet<Rendition>(
+          context: context,
+          builder: (context) => ScrollableSheet(
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(title: Text(AppStrings.t('watch.downloadQuality'))),
+                  for (final option in options)
+                    ListTile(
+                      title: Text(option.quality),
+                      subtitle: Text('${option.width}×${option.height}'),
+                      onTap: () => Navigator.pop(context, option),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      if (mounted) await _loadRemote();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is ApiFailure
+                  ? AppStrings.apiError(error)
+                  : AppStrings.t('downloads.error'),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _loadRemote() async {
+    if (!mounted) return;
+    if (!widget.auth.authenticated) {
+      setState(() => _remoteLoading = false);
+      return;
+    }
+    final request = ++_requestGeneration;
     final generation = widget.auth.sessionGeneration;
+    bool current() =>
+        mounted &&
+        request == _requestGeneration &&
+        generation == widget.auth.sessionGeneration;
     try {
       final items = await _content.downloads();
-      if (mounted && generation == widget.auth.sessionGeneration) {
+      if (current()) {
         setState(() {
           _remote = items;
           _remoteLoading = false;
         });
       }
     } on ApiFailure catch (error) {
-      if (mounted && generation == widget.auth.sessionGeneration) {
+      if (current()) {
         setState(() {
           _remoteLoading = false;
           if (error.status != 404) _remote = const [];
         });
       }
     } catch (_) {
-      if (mounted && generation == widget.auth.sessionGeneration) {
+      if (current()) {
         setState(() => _remoteLoading = false);
       }
     }
@@ -130,19 +206,12 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     if (ids.isEmpty) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.t('downloads.removeAllTitle')),
-        content: Text(AppStrings.t('downloads.removeAllDescription')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (_) => ConfirmationDialog(
+        title: AppStrings.t('downloads.removeAllTitle'),
+        message: AppStrings.t('downloads.removeAllDescription'),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
     if (confirmed != true || generation != widget.auth.sessionGeneration) {
@@ -151,6 +220,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     try {
       await _content.deleteDownloads(ids);
       for (final id in ids) {
+        if (generation != widget.auth.sessionGeneration) return;
         await _downloads.remove(id);
       }
       await _loadRemote();
@@ -165,10 +235,14 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _downloads,
+    animation: Listenable.merge([_downloads, _coordinator]),
     builder: (_, _) {
       final items = _downloads.items;
-      if (items.isEmpty && _remote.isEmpty && !_remoteLoading) {
+      if (items.isEmpty &&
+          _remote.isEmpty &&
+          !_remoteLoading &&
+          !_coordinator.preferences.recommendations &&
+          !_coordinator.settingsFailed) {
         return HuTubeStateView(
           icon: Icons.download_done_outlined,
           title: AppStrings.t('downloads.empty'),
@@ -186,6 +260,49 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
             onAction: _deleteAllRemote,
           ),
           const SizedBox(height: 14),
+          if (_coordinator.settingsFailed) ...[
+            HuTubeNotice(
+              message: AppStrings.t('prefs.loadError'),
+              actionLabel: AppStrings.t('common.retry'),
+              onAction: _coordinator.refreshSettings,
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_coordinator.preferences.wifiOnly) ...[
+            _DownloadInfo(
+              icon: Icons.wifi_rounded,
+              message: AppStrings.t('downloads.wifiPolicy'),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_coordinator.preferences.smart) ...[
+            _DownloadInfo(
+              icon: Icons.auto_awesome_rounded,
+              message: AppStrings.format('downloads.smartSummary', {
+                'limit': _coordinator.preferences.limitMb,
+              }),
+            ),
+            const SizedBox(height: 12),
+            if (_coordinator.smartStatus != null) ...[
+              _DownloadInfo(
+                icon: Icons.info_outline_rounded,
+                message: AppStrings.t(_coordinator.smartStatus!),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+          if (items.isEmpty && _remote.isEmpty && !_remoteLoading) ...[
+            Text(
+              AppStrings.t('downloads.empty'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppStrings.t('downloads.description'),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+          ],
           if (_remoteLoading)
             const LinearProgressIndicator(minHeight: 2)
           else if (_remote.isNotEmpty) ...[
@@ -292,6 +409,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${item.quality} · ${_label(item)}'),
+                      if (item.smart)
+                        Text(
+                          AppStrings.t('bgDownload.smartDownload'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       if (item.active)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
@@ -315,10 +437,16 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                   isThreeLine: item.active || item.error != null,
                   trailing: PopupMenuButton<String>(
                     onSelected: (value) {
+                      if (value == 'pause') _downloads.pause(item.id);
                       if (value == 'retry') _downloads.retry(item.id);
                       if (value == 'delete') _downloads.remove(item.id);
                     },
                     itemBuilder: (_) => [
+                      if (item.active)
+                        PopupMenuItem(
+                          value: 'pause',
+                          child: Text(AppStrings.t('downloads.pause')),
+                        ),
                       if (!item.active && !item.completed)
                         PopupMenuItem(
                           value: 'retry',
@@ -334,6 +462,79 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
               ),
             ),
           ),
+          if (_coordinator.preferences.recommendations) ...[
+            const SizedBox(height: 20),
+            HuTubeSectionHeader(
+              title: AppStrings.t('downloads.suggestedTitle'),
+              subtitle: AppStrings.t('downloads.suggestedDescription'),
+              action: AppStrings.t('common.retry'),
+              onAction: _coordinator.loading
+                  ? null
+                  : _coordinator.loadSuggestions,
+            ),
+            const SizedBox(height: 12),
+            if (_coordinator.loading) const LinearProgressIndicator(),
+            if (_coordinator.suggestionsFailed)
+              HuTubeNotice(
+                message: AppStrings.t('common.networkError'),
+                actionLabel: AppStrings.t('common.retry'),
+                onAction: _coordinator.loadSuggestions,
+              ),
+            if (!_coordinator.loading &&
+                !_coordinator.suggestionsFailed &&
+                _coordinator.suggestions.isEmpty)
+              Text(AppStrings.t('downloads.noSuggestions')),
+            for (final video in _coordinator.suggestions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: HuTubeSurface(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        width: 80,
+                        height: 50,
+                        child: video.thumbnailUrl == null
+                            ? const Icon(Icons.video_library_outlined)
+                            : Image.network(
+                                video.thumbnailUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const Icon(Icons.video_library_outlined),
+                              ),
+                      ),
+                    ),
+                    title: Text(
+                      video.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      video.channelName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => context.push('/watch/${video.id}'),
+                    trailing: _coordinator.requesting.contains(video.id)
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : IconButton(
+                            tooltip: AppStrings.t('common.download'),
+                            icon: const Icon(Icons.download_rounded),
+                            onPressed: () => _downloadSuggested(video),
+                          ),
+                  ),
+                ),
+              ),
+          ],
         ],
       );
     },
@@ -345,6 +546,10 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     }),
     'completed' => AppStrings.t('downloads.completed'),
     'paused' => AppStrings.t('downloads.paused'),
+    'waiting_wifi' => AppStrings.t('downloads.waitingWifi'),
+    'waiting_network' => AppStrings.t('downloads.waitingNetwork'),
+    'waiting_settings' => AppStrings.t('downloads.waitingSettings'),
+    'waiting_storage' => AppStrings.t('downloads.waitingStorage'),
     _ => AppStrings.t('downloads.failed'),
   };
 
@@ -375,4 +580,29 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     'canceled_by_user' => AppStrings.t('downloads.status.cancelled'),
     _ => status.isEmpty ? AppStrings.t('downloads.status.processing') : status,
   };
+}
+
+class _DownloadInfo extends StatelessWidget {
+  const _DownloadInfo({required this.icon, required this.message});
+  final IconData icon;
+  final String message;
+  @override
+  Widget build(BuildContext context) => HuTubeSurface(
+    color: Theme.of(context).colorScheme.surfaceContainerLow,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            message,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(height: 1.5),
+          ),
+        ),
+      ],
+    ),
+  );
 }

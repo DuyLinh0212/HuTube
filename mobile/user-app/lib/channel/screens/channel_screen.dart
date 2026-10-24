@@ -65,6 +65,7 @@ class _ChannelScreenState extends State<ChannelScreen>
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     final generation = ++_loadGeneration;
     _loadingMore = false;
     _trailerVideo = null;
@@ -484,16 +485,31 @@ class _ChannelScreenState extends State<ChannelScreen>
                       ? Row(
                           children: [
                             Expanded(
-                              child: FilledButton.icon(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.primaryPink
-                                      .withValues(alpha: 0.15),
-                                  foregroundColor: AppColors.primaryPink,
-                                  elevation: 0,
+                              child: ListTile(
+                                key: const ValueKey('channel-manage-action'),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
                                 ),
-                                icon: const Icon(Icons.tune_rounded, size: 18),
-                                label: Text(AppStrings.t('channel.manage')),
-                                onPressed: () async {
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color: Theme.of(context).dividerColor,
+                                  ),
+                                ),
+                                leading: const Icon(
+                                  Icons.tune_rounded,
+                                  size: 22,
+                                ),
+                                title: Text(
+                                  AppStrings.t('channel.manage'),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                trailing: const Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20,
+                                ),
+                                onTap: () async {
                                   final result = await Navigator.of(context)
                                       .push<bool>(
                                         MaterialPageRoute(
@@ -631,7 +647,7 @@ class _ChannelScreenState extends State<ChannelScreen>
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 10,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),

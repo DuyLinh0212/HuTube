@@ -36,18 +36,51 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<VideoCard> _categoryVideos = const [];
   bool _categoryLoading = false;
   bool _loading = true;
+  int _loadGeneration = 0;
+  int _categoryGeneration = 0;
   final Map<String, bool> _subscriptions = {};
   final Set<String> _subscriptionLoading = {};
+  final Map<String, int> _subscriptionVersions = {};
+  late int _sessionGeneration;
+  late bool _authenticated;
 
   @override
   void initState() {
     super.initState();
     _content = ContentService(widget.auth);
     _channels = ChannelService(widget.auth);
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    widget.auth.addListener(_identityChanged);
     unawaited(_load());
   }
 
+  void _identityChanged() {
+    if (_sessionGeneration == widget.auth.sessionGeneration &&
+        _authenticated == widget.auth.authenticated) {
+      return;
+    }
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    setState(() {
+      _subscriptions.clear();
+      _subscriptionLoading.clear();
+      _subscriptionVersions.clear();
+    });
+    if (_authenticated && _hub != null) {
+      unawaited(_loadSubscriptionStates(_hub!.creators));
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.auth.removeListener(_identityChanged);
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    if (!mounted) return;
+    final generation = ++_loadGeneration;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -56,7 +89,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
     try {
       final hub = await _content.exploreHub();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _hub = hub;
         _loading = false;
@@ -65,13 +98,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
         unawaited(_loadSubscriptionStates(hub.creators));
       }
     } on ApiFailure catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _error = AppStrings.apiError(error, fallback: 'explore.loadError');
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _error = AppStrings.t('explore.loadError');
@@ -80,22 +113,32 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _loadSubscriptionStates(List<FeaturedCreator> creators) async {
+    final session = widget.auth.sessionGeneration;
+    final generation = _loadGeneration;
+    final versions = Map<String, int>.from(_subscriptionVersions);
     try {
       final subscriptions = await _channels.getSubscribedChannels();
-      if (!mounted) return;
+      if (!mounted ||
+          session != widget.auth.sessionGeneration ||
+          generation != _loadGeneration) {
+        return;
+      }
       final ids = subscriptions.map((item) => item.channelId).toSet();
       setState(() {
         for (final creator in creators) {
-          _subscriptions[creator.id] = ids.contains(creator.id);
+          if (_subscriptionVersions[creator.id] == versions[creator.id]) {
+            _subscriptions[creator.id] = ids.contains(creator.id);
+          }
         }
       });
     } catch (_) {
-      /* Keep the current UI state when subscription lookup fails. */
+      // Keep the current state when the batch lookup fails.
     }
   }
 
   void _selectCategory(String? categoryId, String categoryName) {
     if (categoryId == _selectedCategoryId) return;
+    final generation = ++_categoryGeneration;
     setState(() {
       _selectedCategoryId = categoryId;
       _selectedCategoryName = categoryName;
@@ -115,10 +158,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 const []);
       _categoryLoading = categoryId != null;
     });
-    if (categoryId != null) unawaited(_loadCategory(categoryId));
+    if (categoryId != null) unawaited(_loadCategory(categoryId, generation));
   }
 
-  Future<void> _loadCategory(String categoryId) async {
+  Future<void> _loadCategory(String categoryId, int generation) async {
     try {
       final result = await _content.searchVideos(
         query: '',
@@ -127,13 +170,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
         page: 1,
         pageSize: 12,
       );
-      if (!mounted || _selectedCategoryId != categoryId) return;
+      if (!mounted || generation != _categoryGeneration) return;
       setState(() {
         _categoryVideos = result.items;
         _categoryLoading = false;
       });
     } catch (_) {
-      if (!mounted || _selectedCategoryId != categoryId) return;
+      if (!mounted || generation != _categoryGeneration) return;
       setState(() => _categoryLoading = false);
     }
   }
@@ -144,8 +187,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
       return;
     }
     if (_subscriptionLoading.contains(creator.id)) return;
+    final session = widget.auth.sessionGeneration;
     final subscribed = _subscriptions[creator.id] ?? false;
     setState(() {
+      _subscriptionVersions[creator.id] =
+          (_subscriptionVersions[creator.id] ?? 0) + 1;
       _subscriptionLoading.add(creator.id);
       _subscriptions[creator.id] = !subscribed;
     });
@@ -156,14 +202,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
         await _channels.subscribe(creator.id);
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && session == widget.auth.sessionGeneration) {
         setState(() => _subscriptions[creator.id] = subscribed);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppStrings.t('explore.loadError'))),
         );
       }
     } finally {
-      if (mounted) {
+      if (mounted && session == widget.auth.sessionGeneration) {
         setState(() => _subscriptionLoading.remove(creator.id));
       }
     }
@@ -193,6 +239,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
         children: [
+          if (_error != null) ...[
+            HuTubeNotice(
+              message: _error!,
+              actionLabel: AppStrings.t('common.retry'),
+              onAction: _loading ? null : () => unawaited(_load()),
+            ),
+            const SizedBox(height: 16),
+          ],
           const _ExploreHero(),
           const SizedBox(height: 14),
           _CategoryTabs(
@@ -354,14 +408,18 @@ class _CategoryChip extends StatelessWidget {
       showCheckmark: false,
       onSelected: (_) => onTap(),
       labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.textSecondaryFor(context),
+        color: selected
+            ? Theme.of(context).colorScheme.onPrimary
+            : AppColors.textSecondaryFor(context),
         fontWeight: FontWeight.w800,
         fontSize: 12,
       ),
-      selectedColor: AppColors.primaryPink,
+      selectedColor: Theme.of(context).colorScheme.primary,
       backgroundColor: AppColors.surfaceFor(context),
       side: BorderSide(
-        color: selected ? AppColors.primaryPink : AppColors.borderFor(context),
+        color: selected
+            ? Theme.of(context).colorScheme.primary
+            : AppColors.borderFor(context),
       ),
       shape: const StadiumBorder(),
       visualDensity: VisualDensity.compact,
@@ -812,7 +870,7 @@ class _ExploreLoading extends StatelessWidget {
       Container(
         height: 94,
         decoration: BoxDecoration(
-          color: AppColors.borderSubtle,
+          color: AppColors.skeletonFor(context),
           borderRadius: BorderRadius.circular(22),
         ),
       ),
@@ -824,7 +882,7 @@ class _ExploreLoading extends StatelessWidget {
               width: 80,
               height: 32,
               decoration: BoxDecoration(
-                color: AppColors.borderSubtle,
+                color: AppColors.skeletonFor(context),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
@@ -848,7 +906,7 @@ class _LoadingRankedTile extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     height: 90,
     decoration: BoxDecoration(
-      color: AppColors.borderSubtle,
+      color: AppColors.skeletonFor(context),
       borderRadius: BorderRadius.circular(16),
     ),
   );

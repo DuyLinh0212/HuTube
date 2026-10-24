@@ -15,6 +15,10 @@ import '../content/content_models.dart';
 import '../content/content_service.dart';
 import '../plans/plan_service.dart';
 import 'creator_service.dart';
+import 'video_metadata.dart';
+import 'upload_controller.dart';
+import 'upload_draft_store.dart';
+import '../playlists/playlist_selector.dart';
 
 class VideoUploadScreen extends StatefulWidget {
   const VideoUploadScreen({
@@ -57,6 +61,137 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   bool _uploading = false;
   String? _error;
   final List<Map<String, dynamic>> _chapters = [];
+  final _drafts = const UploadDraftStore();
+  String _languageCode = 'vi';
+  bool _allowComments = true;
+  VideoMetadata? _metadata;
+  String? _sourceQuality;
+  String? _draftQuality;
+  bool _preparing = false;
+  int _fileGeneration = 0;
+  Set<String> _playlistIds = {};
+  late final String _draftUser = '${widget.auth.user?['userId'] ?? ''}';
+
+  Future<void> _draftAction(String action) async {
+    if (_uploading || _draftUser.isEmpty) return;
+    try {
+      if (action == 'save') {
+        await _drafts.save(_draftUser, widget.channel.id, {
+          'title': _title.text,
+          'description': _description.text,
+          'tags': _tags.text,
+          'languageCode': _languageCode,
+          'allowComments': _allowComments,
+          'sourceQuality': _sourceQuality ?? _draftQuality,
+          'visibility': _visibility,
+          'categoryId': _categoryId,
+          'ageRestricted': _ageRestricted,
+          'promotionEnabled': _promotionEnabled,
+          'chapters': _chapters,
+          'videoCards': _videoCards,
+          'playlistIds': _playlistIds.toList(),
+        });
+      } else if (action == 'discard') {
+        await _drafts.remove(_draftUser, widget.channel.id);
+      } else {
+        final data = await _drafts.read(_draftUser, widget.channel.id);
+        if (data == null) throw const FormatException('Missing draft');
+        if (!mounted || '${widget.auth.user?['userId'] ?? ''}' != _draftUser) {
+          return;
+        }
+        ++_fileGeneration;
+        final oldPlayer = _previewPlayer;
+        setState(() {
+          _title.text = data['title'] as String;
+          _description.text = data['description'] as String;
+          _tags.text = data['tags'] as String;
+          _languageCode = data['languageCode'] as String;
+          _visibility = data['visibility'] as String;
+          _draftQuality = data['sourceQuality'] is String
+              ? data['sourceQuality'] as String
+              : null;
+          final category = data['categoryId'];
+          _categoryId = _categories.any((c) => c.id == category)
+              ? category as String?
+              : null;
+          _allowComments = data['allowComments'] != false;
+          _ageRestricted = data['ageRestricted'] == true;
+          _promotionEnabled = data['promotionEnabled'] == true;
+          _chapters
+            ..clear()
+            ..addAll(
+              (data['chapters'] as List).map(
+                (v) => Map<String, dynamic>.from(v as Map),
+              ),
+            );
+          _videoCards
+            ..clear()
+            ..addAll(
+              (data['videoCards'] as List).map(
+                (v) => Map<String, dynamic>.from(v as Map),
+              ),
+            );
+          _playlistIds = (data['playlistIds'] as List).cast<String>().toSet();
+          _video = null;
+          _thumbnail = null;
+          _metadata = null;
+          _sourceQuality = null;
+          _durationSeconds = 0;
+          _previewPlayer = null;
+          _preparing = false;
+          _policyAccepted = false;
+        });
+        unawaited(oldPlayer?.dispose());
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppStrings.t(
+                action == 'restore'
+                    ? 'parity.draftRestored'
+                    : action == 'save'
+                    ? 'parity.draftSaved'
+                    : 'parity.discardDraft',
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.t('parity.draftError'));
+    }
+  }
+
+  Future<void> _inspectVideo(XFile file) async {
+    final generation = ++_fileGeneration;
+    setState(() {
+      _preparing = true;
+      _metadata = null;
+      _sourceQuality = null;
+    });
+    try {
+      final data = await VideoMetadata.inspect(file.path);
+      if (!mounted || generation != _fileGeneration || _video != file) return;
+      setState(() {
+        _metadata = data;
+        _durationSeconds = data.durationSeconds;
+        _sourceQuality = data.selectQuality(_draftQuality);
+        _draftQuality = null;
+        _thumbnail = data.thumbnails.isEmpty
+            ? null
+            : XFile(data.thumbnails.first);
+      });
+    } catch (_) {
+      if (mounted && generation == _fileGeneration) {
+        setState(() => _error = AppStrings.t('parity.metadataError'));
+      }
+    } finally {
+      if (mounted && generation == _fileGeneration) {
+        setState(() => _preparing = false);
+      }
+    }
+  }
 
   List<VideoDetail> get _availableRelatedVideos => _relatedVideos
       .where((item) => !_videoCards.any((card) => card['videoId'] == item.id))
@@ -121,6 +256,15 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
       }
     });
     unawaited(oldPlayer?.dispose());
+    if (Platform.isAndroid) {
+      unawaited(_inspectVideo(file));
+    } else {
+      setState(() {
+        _metadata = null;
+        _sourceQuality = null;
+        _preparing = true;
+      });
+    }
     final player = NativeVideoPlayerController(
       id: DateTime.now().microsecondsSinceEpoch & 0x7fffffff,
       autoPlay: false,
@@ -148,10 +292,39 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
       if (!mounted || !identical(_previewPlayer, player) || _video != file) {
         return;
       }
-      setState(() => _durationSeconds = duration.inSeconds);
+      if (!Platform.isAndroid) {
+        final size =
+            player.videoSize ??
+            await player.videoSizeStream
+                .firstWhere((size) => size.width > 0 && size.height > 0)
+                .timeout(const Duration(seconds: 20));
+        if (!mounted || !identical(_previewPlayer, player) || _video != file) {
+          return;
+        }
+        final metadata = VideoMetadata(
+          durationSeconds: (duration.inMilliseconds / 1000).ceil(),
+          width: size.width.round(),
+          height: size.height.round(),
+        );
+        if (metadata.qualities.isEmpty) {
+          throw const FormatException('Invalid video size');
+        }
+        setState(() {
+          _metadata = metadata;
+          _sourceQuality = metadata.selectQuality(_draftQuality);
+          _draftQuality = null;
+          _durationSeconds = metadata.durationSeconds;
+          _preparing = false;
+        });
+      } else if (_metadata == null && _durationSeconds == 0) {
+        setState(() => _durationSeconds = duration.inSeconds);
+      }
     } catch (_) {
       if (mounted && identical(_previewPlayer, player)) {
-        setState(() => _error = AppStrings.t('upload.previewError'));
+        setState(() {
+          _error = AppStrings.t('upload.previewError');
+          if (!Platform.isAndroid) _preparing = false;
+        });
       }
     }
   }
@@ -245,7 +418,11 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
         _ => 'video/mp4',
       };
     }
-    return extension == 'png' ? 'image/png' : 'image/jpeg';
+    return extension == 'png'
+        ? 'image/png'
+        : extension == 'webp'
+        ? 'image/webp'
+        : 'image/jpeg';
   }
 
   Future<void> _upload() async {
@@ -259,7 +436,27 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
       setState(() => _error = AppStrings.t('upload.policyRequired'));
       return;
     }
+    if (_preparing || _sourceQuality == null || _metadata == null) {
+      setState(() => _error = AppStrings.t('parity.metadataError'));
+      return;
+    }
+    final uploader = UploadScope.of(context);
+    if (uploader.busy) {
+      setState(() => _error = AppStrings.t('parity.uploadBusy'));
+      return;
+    }
     final duration = _durationSeconds;
+    var previousChapter = -1;
+    for (final chapter in _chapters) {
+      final seconds = chapter['startSeconds'] as int;
+      if ('${chapter['title']}'.trim().isEmpty ||
+          seconds <= previousChapter ||
+          seconds >= duration) {
+        setState(() => _error = AppStrings.t('upload.chaptersInvalid'));
+        return;
+      }
+      previousChapter = seconds;
+    }
     if (duration <= 0) {
       setState(() => _error = AppStrings.t('upload.durationInvalid'));
       return;
@@ -275,13 +472,19 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
     final contentType = _typeFor(video.name, video: true);
     setState(() => _uploading = true);
     try {
+      String? draftRevision;
+      try {
+        draftRevision = await _drafts.revision(_draftUser, widget.channel.id);
+      } catch (_) {
+        /* Storage is optional for uploading. */
+      }
       final size = await video.length();
       final allowed = await _creator.preflight(
         channelId: widget.channel.id,
         fileSize: size,
         duration: duration,
         contentType: contentType,
-        quality: '720p',
+        quality: _sourceQuality!,
       );
       if (!allowed.allowed) {
         if (mounted) {
@@ -301,45 +504,71 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
           .toSet()
           .take(10)
           .toList();
-      await _creator.upload(
-        channelId: widget.channel.id,
-        title: _title.text,
-        description: _description.text,
-        categoryId: _categoryId,
-        visibility: _visibility,
-        ageRestricted: _ageRestricted,
-        duration: duration,
-        quality: '720p',
-        tags: tags,
-        chapters: _chapters,
-        videoCards: _videoCards,
-        promotionEnabled: _canPromote && _promotionEnabled,
-        video: MultipartFilePayload(
-          field: 'Video',
-          path: video.path,
-          fileName: video.name,
-          contentType: contentType,
-        ),
-        thumbnail: _thumbnail == null
-            ? null
-            : MultipartFilePayload(
-                field: 'Thumbnail',
-                path: _thumbnail!.path,
-                fileName: _thumbnail!.name,
-                contentType: _typeFor(_thumbnail!.name, video: false),
-              ),
+      if (!mounted || '${widget.auth.user?['userId'] ?? ''}' != _draftUser) {
+        return;
+      }
+      final creator = _creator;
+      final channelId = widget.channel.id;
+      final title = _title.text, description = _description.text;
+      final categoryId = _categoryId,
+          visibility = _visibility,
+          languageCode = _languageCode;
+      final quality = _sourceQuality!,
+          ageRestricted = _ageRestricted,
+          allowComments = _allowComments;
+      final chapters = _chapters
+          .map((c) => Map<String, dynamic>.of(c))
+          .toList();
+      final cards = _videoCards.map((c) => Map<String, dynamic>.of(c)).toList();
+      final promotion = _canPromote && _promotionEnabled;
+      final thumbnail = _thumbnail;
+      final videoPart = MultipartFilePayload(
+        field: 'Video',
+        path: video.path,
+        fileName: video.name,
+        contentType: contentType,
       );
-      if (!mounted) return;
-      Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _visibility == 'public'
-                ? AppStrings.t('upload.publicSuccess')
-                : AppStrings.t('upload.success'),
-          ),
+      final thumbnailPart = thumbnail == null
+          ? null
+          : MultipartFilePayload(
+              field: 'Thumbnail',
+              path: thumbnail.path,
+              fileName: thumbnail.name,
+              contentType: _typeFor(thumbnail.name, video: false),
+            );
+      final drafts = _drafts, draftUser = _draftUser;
+      final started = uploader.start(
+        name: video.name,
+        playlistIds: _playlistIds.toList(),
+        onSaved: () =>
+            drafts.removeIfUnchanged(draftUser, channelId, draftRevision),
+        task: (control, key, progress) => creator.upload(
+          channelId: channelId,
+          title: title,
+          description: description,
+          categoryId: categoryId,
+          visibility: visibility,
+          ageRestricted: ageRestricted,
+          duration: duration,
+          quality: quality,
+          languageCode: languageCode,
+          allowComments: allowComments,
+          tags: tags,
+          chapters: chapters,
+          videoCards: cards,
+          promotionEnabled: promotion,
+          video: videoPart,
+          thumbnail: thumbnailPart,
+          idempotencyKey: key,
+          uploadControl: control,
+          onProgress: progress,
         ),
       );
+      if (started && mounted) {
+        Navigator.pop(context, true);
+      } else if (mounted) {
+        setState(() => _error = AppStrings.t('parity.uploadBusy'));
+      }
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(
@@ -366,7 +595,21 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(AppStrings.t('upload.title'))),
+    appBar: AppBar(
+      title: Text(AppStrings.t('upload.title')),
+      actions: [
+        PopupMenuButton<String>(
+          onSelected: _uploading ? null : _draftAction,
+          itemBuilder: (_) => [
+            for (final action in ['save', 'restore', 'discard'])
+              PopupMenuItem(
+                value: action,
+                child: Text(AppStrings.t('parity.${action}Draft')),
+              ),
+          ],
+        ),
+      ],
+    ),
     body: SafeArea(
       child: Form(
         key: _formKey,
@@ -431,6 +674,95 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                   : AppStrings.t('upload.selectedThumbnail'),
               onTap: _uploading ? null : _pickThumbnail,
             ),
+            if (_preparing) const LinearProgressIndicator(),
+            if (_metadata != null) ...[
+              if (_metadata!.thumbnails.isNotEmpty) ...[
+                Text(AppStrings.t('parity.thumbnail')),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final path in _metadata!.thumbnails)
+                      Semantics(
+                        button: true,
+                        selected: _thumbnail?.path == path,
+                        label: AppStrings.t('parity.thumbnail'),
+                        child: InkWell(
+                          onTap: _uploading
+                              ? null
+                              : () => setState(() => _thumbnail = XFile(path)),
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                width: 3,
+                                color: _thumbnail?.path == path
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            child: Image.file(
+                              File(path),
+                              width: 86,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                key: ValueKey('quality-$_fileGeneration-$_sourceQuality'),
+                initialValue: _sourceQuality,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('parity.quality'),
+                  helperText: AppStrings.t('parity.sourceHint'),
+                  helperMaxLines: 2,
+                ),
+                items: _metadata!.qualities
+                    .map((q) => DropdownMenuItem(value: q, child: Text(q)))
+                    .toList(),
+                onChanged: _uploading
+                    ? null
+                    : (q) => setState(() => _sourceQuality = q),
+              ),
+            ],
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              key: ValueKey('language-$_languageCode'),
+              initialValue: _languageCode,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('parity.language'),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'vi', child: Text('Tiếng Việt')),
+                DropdownMenuItem(value: 'en', child: Text('English')),
+                DropdownMenuItem(value: 'ja', child: Text('日本語')),
+                DropdownMenuItem(value: 'ko', child: Text('한국어')),
+                DropdownMenuItem(value: 'zh', child: Text('中文')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+              onChanged: _uploading
+                  ? null
+                  : (value) => setState(() => _languageCode = value!),
+            ),
+            SwitchListTile(
+              value: _allowComments,
+              title: Text(AppStrings.t('parity.comments')),
+              onChanged: _uploading
+                  ? null
+                  : (v) => setState(() => _allowComments = v),
+            ),
+            PlaylistSelector(
+              auth: widget.auth,
+              selected: _playlistIds,
+              enabled: !_uploading,
+              onChanged: (values) => setState(() => _playlistIds = values),
+            ),
             const SizedBox(height: 20),
             TextFormField(
               controller: _title,
@@ -473,6 +805,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String?>(
+              key: ValueKey('upload-category-$_categoryId'),
               initialValue: _categoryId,
               isExpanded: true,
               decoration: InputDecoration(
@@ -504,8 +837,10 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 const Text(
                   'Chương video (Chapters)',
@@ -621,7 +956,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
+                  OutlinedButton.icon(
                     onPressed:
                         _uploading ||
                             _durationSeconds <= 0 ||
@@ -675,6 +1010,8 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
               ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
+              isExpanded: true,
+              key: ValueKey('upload-visibility-$_visibility'),
               initialValue: _visibility,
               decoration: InputDecoration(
                 labelText: AppStrings.t('upload.visibility'),
@@ -773,12 +1110,13 @@ class _FilePicker extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: AppColors.surfaceFor(context),
+  Widget build(BuildContext context) => Material(
+    color: AppColors.surfaceFor(context),
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.borderFor(context)),
+      side: BorderSide(color: AppColors.borderFor(context)),
     ),
+    clipBehavior: Clip.antiAlias,
     child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       onTap: onTap,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/content_filters.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
-import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import 'content_models.dart';
@@ -27,9 +27,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<LibraryVideo> _liked = [];
   late int _tab;
   int? _rating;
-  int _page = 0;
-  int _total = 0;
-  int _generation = 0;
+  String _query = '';
+  String _sort = 'newest';
+  String _dateRange = 'all';
+  int _requestGeneration = 0;
+  int _historyPage = 0, _likedPage = 0;
+  int _historyTotal = 0, _likedTotal = 0;
   bool _loadingMore = false;
 
   @override
@@ -40,183 +43,268 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _load();
   }
 
-  Future<void> _load({bool more = false}) async {
-    if (more && _loadingMore) return;
-    final generation = more ? _generation : ++_generation;
-    final tab = _tab;
-    final page = more ? _page + 1 : 1;
+  Future<void> _load() async {
+    if (!mounted) return;
+    final generation = ++_requestGeneration;
+    final query = _query, sort = _sort, dateRange = _dateRange;
+    final rating = _rating;
     setState(() {
-      if (more) {
-        _loadingMore = true;
-      } else {
-        _loading = true;
-      }
+      _loading = true;
+      _loadingMore = false;
       _error = null;
     });
     try {
-      final result = tab == 0
-          ? await _content.history(page: page)
-          : await _content.liked(page: page, rating: _rating);
-      if (!mounted || generation != _generation || tab != _tab) return;
-      setState(() {
-        if (tab == 0) {
-          _history = more ? [..._history, ...result.items] : result.items;
-        } else {
-          _liked = more ? [..._liked, ...result.items] : result.items;
-        }
-        _page = page;
-        _total = result.total;
-        _loading = false;
-        _loadingMore = false;
-      });
+      final pages = await Future.wait([
+        _content.history(
+          page: 1,
+          query: query,
+          sort: sort,
+          dateRange: dateRange,
+        ),
+        _content.liked(page: 1, rating: rating),
+      ]);
+      final history = pages[0];
+      final liked = pages[1];
+      if (mounted && generation == _requestGeneration) {
+        setState(() {
+          _history = history.items;
+          _liked = liked.items;
+          _historyPage = history.page;
+          _likedPage = liked.page;
+          _historyTotal = history.total;
+          _likedTotal = liked.total;
+          _loading = false;
+        });
+      }
+    } on ApiFailure catch (error) {
+      if (mounted && generation == _requestGeneration) {
+        setState(() {
+          _error = AppStrings.apiError(error, fallback: 'library.loadError');
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted && generation == _generation) {
+      if (mounted && generation == _requestGeneration) {
         setState(() {
           _error = AppStrings.t('library.loadError');
           _loading = false;
-          _loadingMore = false;
         });
       }
     }
   }
 
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore) return;
+    final generation = _requestGeneration;
+    final tab = _tab;
+    setState(() => _loadingMore = true);
+    try {
+      final result = tab == 0
+          ? await _content.history(
+              page: _historyPage + 1,
+              query: _query,
+              sort: _sort,
+              dateRange: _dateRange,
+            )
+          : await _content.liked(page: _likedPage + 1, rating: _rating);
+      if (!mounted || generation != _requestGeneration) return;
+      setState(() {
+        final items = tab == 0 ? _history : _liked;
+        final seen = items.map((item) => item.id).toSet();
+        final combined = [
+          ...items,
+          ...result.items.where((item) => seen.add(item.id)),
+        ];
+        if (tab == 0) {
+          _history = combined;
+          _historyPage = result.page;
+          _historyTotal = result.total;
+        } else {
+          _liked = combined;
+          _likedPage = result.page;
+          _likedTotal = result.total;
+        }
+      });
+    } catch (_) {
+      if (mounted && generation == _requestGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('library.loadError'))),
+        );
+      }
+    } finally {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _loadingMore = false);
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
-        children: const [
-          _LibrarySkeleton(),
-          SizedBox(height: 12),
-          _LibrarySkeleton(),
-          SizedBox(height: 12),
-          _LibrarySkeleton(),
-        ],
-      );
-    }
-    if (_error != null) {
-      return HuTubeStateView(
-        icon: Icons.cloud_off_rounded,
-        title: _error!,
-        message: AppStrings.t('common.networkError'),
-        actionLabel: AppStrings.t('common.retry'),
-        onAction: _load,
-      );
-    }
-    final items = _tab == 0 ? _history : _liked;
-    return DefaultTabController(
-      length: 2,
-      initialIndex: _tab,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-            child: HuTubeSectionHeader(
-              title: AppStrings.t('library.title'),
-              subtitle: AppStrings.t('library.subtitle'),
-              action: AppStrings.t('library.playlists'),
-              onAction: () => context.push('/playlists'),
+  Widget build(BuildContext context) => DefaultTabController(
+    initialIndex: _tab,
+    length: 2,
+    child: RefreshIndicator(
+      onRefresh: () {
+        ApiClient.invalidateReadCache();
+        return _load();
+      },
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: HuTubeSectionHeader(
+                title: AppStrings.t('library.title'),
+                subtitle: AppStrings.t('library.subtitle'),
+                action: AppStrings.t('library.playlists'),
+                onAction: () => context.push('/playlists'),
+              ),
             ),
           ),
-          TabBar(
-            onTap: (value) {
-              if (value != _tab) {
-                setState(() => _tab = value);
-                _load();
-              }
-            },
-            tabs: [
-              Tab(
-                icon: AppIcons.asset(AppIcons.history, size: 20),
-                text: AppStrings.t('library.history'),
-              ),
-              Tab(
-                icon: AppIcons.asset(AppIcons.favorite, size: 20),
-                text: AppStrings.t('library.liked'),
-              ),
-            ],
+          SliverToBoxAdapter(
+            child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              onTap: (value) => setState(() => _tab = value),
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.history_rounded, size: 22),
+                  text: AppStrings.t('library.history'),
+                ),
+                Tab(
+                  icon: const Icon(Icons.star_outline_rounded, size: 22),
+                  text: AppStrings.t('library.liked'),
+                ),
+              ],
+            ),
           ),
+          if (_tab == 0)
+            SliverToBoxAdapter(
+              child: ContentFilters(
+                initialQuery: _query,
+                initialValues: {'sort': _sort, 'dateRange': _dateRange},
+                options: const {
+                  'sort': ['newest', 'oldest'],
+                  'dateRange': ['all', 'today', 'week', 'month'],
+                },
+                onChanged: (query, values) {
+                  _query = query;
+                  _sort = values['sort'] ?? 'newest';
+                  _dateRange = values['dateRange'] ?? 'all';
+                  _load();
+                },
+              ),
+            ),
           if (_tab == 1)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Row(
-                children: [
-                  for (final score in <int?>[null, 1, 2, 3, 4, 5])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        avatar: score == null
-                            ? null
-                            : AppIcons.asset(AppIcons.star, size: 14),
-                        label: Text(
-                          score == null
-                              ? AppStrings.t('library.allRatings')
-                              : AppStrings.format('library.ratingStars', {
-                                  'count': AppStrings.number(score),
-                                }),
+            SliverToBoxAdapter(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Row(
+                  children: [
+                    for (final score in <int?>[null, 1, 2, 3, 4, 5])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          avatar: score == null
+                              ? null
+                              : Icon(
+                                  Icons.star_rounded,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                          label: Text(
+                            score == null
+                                ? AppStrings.t('library.allRatings')
+                                : AppStrings.format('library.ratingStars', {
+                                    'count': AppStrings.number(score),
+                                  }),
+                          ),
+                          selected: _rating == score,
+                          showCheckmark: false,
+                          onSelected: (_) {
+                            setState(() => _rating = score);
+                            _load();
+                          },
                         ),
-                        selected: _rating == score,
-                        showCheckmark: false,
-                        shape: const StadiumBorder(),
-                        onSelected: (_) {
-                          setState(() => _rating = score);
-                          _load();
-                        },
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          Expanded(
-            child: RefreshIndicator(
-              color: AppColors.primaryPink,
-              onRefresh: () {
-                ApiClient.invalidateReadCache();
-                return _load();
-              },
-              child: items.isEmpty
-                  ? ListView(
-                      children: [
-                        HuTubeStateView(
-                          icon: Icons.video_library_outlined,
-                          title: AppStrings.t('library.empty'),
-                          message: _tab == 0
-                              ? AppStrings.t('library.historyDescription')
-                              : AppStrings.t('library.likedDescription'),
-                          compact: true,
-                          accent: AppColors.violet,
-                        ),
-                      ],
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                      itemCount: items.length + (items.length < _total ? 1 : 0),
-                      itemBuilder: (_, index) {
-                        if (index == items.length) {
-                          return TextButton(
-                            onPressed: _loadingMore
-                                ? null
-                                : () => _load(more: true),
-                            child: Text(AppStrings.t('notifications.loadMore')),
-                          );
-                        }
-                        final item = items[index];
-                        return VideoCardTile(
-                          video: item,
-                          progress: _tab == 0 ? item.progress : null,
-                          trailing: _tab == 1
-                              ? const SizedBox(width: 28)
-                              : null,
-                        );
-                      },
-                    ),
+          if (_loading)
+            SliverList.list(
+              children: [
+                for (var i = 0; i < 3; i++)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: _LibrarySkeleton(),
+                  ),
+              ],
+            )
+          else if (_error != null)
+            SliverToBoxAdapter(
+              child: HuTubeStateView(
+                icon: Icons.cloud_off_rounded,
+                title: _error!,
+                message: AppStrings.t('common.networkError'),
+                actionLabel: AppStrings.t('common.retry'),
+                onAction: _load,
+              ),
+            )
+          else if ((_tab == 0 ? _history : _liked).isEmpty)
+            SliverToBoxAdapter(
+              child: HuTubeStateView(
+                icon: Icons.video_library_outlined,
+                title: AppStrings.t('library.empty'),
+                message: AppStrings.t(
+                  _tab == 0
+                      ? 'library.historyDescription'
+                      : 'library.likedDescription',
+                ),
+                compact: true,
+                accent: AppColors.violet,
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverList.builder(
+                itemCount: (_tab == 0 ? _history : _liked).length,
+                itemBuilder: (_, index) {
+                  final item = (_tab == 0 ? _history : _liked)[index];
+                  return VideoCardTile(
+                    video: item,
+                    progress: _tab == 0 ? item.progress : null,
+                  );
+                },
+              ),
             ),
-          ),
+          if (!_loading &&
+              _error == null &&
+              (_tab == 0
+                  ? _history.length < _historyTotal
+                  : _liked.length < _likedTotal))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                child: TextButton(
+                  key: const ValueKey('library-load-more'),
+                  onPressed: _loadingMore ? null : _loadMore,
+                  child: Text(
+                    AppStrings.t(
+                      _loadingMore
+                          ? 'common.loading'
+                          : 'notifications.loadMore',
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _LibrarySkeleton extends StatelessWidget {

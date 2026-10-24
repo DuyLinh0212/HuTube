@@ -7,7 +7,9 @@ import 'package:http_parser/http_parser.dart';
 
 import '../config/app_config.dart';
 import '../errors/app_error.dart';
+import '../localization/app_strings.dart';
 import 'network_status.dart';
+import 'upload_control.dart';
 import 'read_cache.dart';
 
 class UploadPayload {
@@ -112,9 +114,17 @@ class ApiClient {
     String method = 'POST',
     String? accessToken,
     Map<String, String>? headers,
+    UploadControl? uploadControl,
+    void Function(int sent, int total)? onProgress,
   }) async {
     try {
-      final request = http.MultipartRequest(method, Uri.parse(_buildUrl(path)));
+      uploadControl?.check();
+      final request = ProgressMultipartRequest(
+        method,
+        Uri.parse(_buildUrl(path)),
+        control: uploadControl,
+        onProgress: onProgress,
+      );
       request.headers.addAll({
         'Accept': 'application/json',
         'X-HuTube-Client': AppConfig.standard.clientHeader,
@@ -139,9 +149,14 @@ class ApiClient {
       final data = _decodeResponse(response);
       ReadCache.clear();
       return data is Map<String, dynamic> ? data : <String, dynamic>{};
+    } on http.RequestAbortedException {
+      throw const UploadCancelled();
+    } on UploadCancelled {
+      rethrow;
     } on AppError {
       rethrow;
     } on TimeoutException {
+      uploadControl?.cancel();
       unawaited(checkConnection());
       throw ApiFailure.timeoutError;
     } on SocketException {
@@ -290,6 +305,8 @@ class ApiClient {
           _currentBaseUrl = fallback;
           NetworkStatus.instance.markAvailable();
           return _decodeResponse(response);
+        } on AppError {
+          rethrow;
         } catch (_) {}
       }
       unawaited(checkConnection());
@@ -342,7 +359,16 @@ class ApiClient {
         data = jsonDecode(utf8.decode(response.bodyBytes));
       }
     } on FormatException {
-      // Proxies may return HTML errors.
+      // Preserve HTTP errors from proxies, but never present malformed success
+      // responses as an empty, successfully loaded collection.
+      if (response.statusCode < 400) {
+        throw ApiFailure(
+          response.statusCode,
+          'INVALID_RESPONSE',
+          AppStrings.t('common.requestError'),
+          kind: AppErrorKind.server,
+        );
+      }
     }
 
     if (response.statusCode >= 400) {

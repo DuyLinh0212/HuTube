@@ -27,6 +27,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   bool? _handleAvailable;
   String? _error;
   Timer? _debounceTimer;
+  int _handleGeneration = 0;
 
   @override
   void initState() {
@@ -45,6 +46,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
 
   void _onHandleChanged(String value) {
     _debounceTimer?.cancel();
+    final generation = ++_handleGeneration;
     final clean = value.startsWith('@')
         ? value.substring(1).trim()
         : value.trim();
@@ -64,7 +66,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
 
     _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
       final available = await _channelService.checkHandle(clean);
-      if (mounted) {
+      if (mounted && generation == _handleGeneration) {
         setState(() {
           _handleAvailable = available;
           _checkingHandle = false;

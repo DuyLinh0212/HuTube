@@ -48,9 +48,10 @@ try {
                     if ($recommendationUri.Host -in @('localhost', '127.0.0.1', '10.0.2.2', '::1')) {
                         $recommendationUri.Port = 8000
                         $recommendationUri.Uri.AbsoluteUri.TrimEnd('/')
-                    } else { 'https://hutube-recommendation-services.onrender.com/api/v1' }
+                    } else { 'https://recommendation.dalitu.app/api/v1' }
                 }
-                $arguments = @('run', "--dart-define=API_BASE_URL=$apiUrl", "--dart-define=RECOMMENDATION_BASE_URL=$recommendationUrl")
+                $authWebUrl = if ($env:MOBILE_AUTH_WEB_BASE_URL) { $env:MOBILE_AUTH_WEB_BASE_URL } elseif ($env:Auth__WebBaseUrl) { $env:Auth__WebBaseUrl } else { 'http://localhost:4200' }
+                $arguments = @('run', "--dart-define=API_BASE_URL=$apiUrl", "--dart-define=RECOMMENDATION_BASE_URL=$recommendationUrl", "--dart-define=AUTH_WEB_BASE_URL=$authWebUrl")
                 $googleWebClientId = $env:Google__ClientId
                 if (-not [string]::IsNullOrWhiteSpace($googleWebClientId) -and -not $googleWebClientId.Contains('REPLACE_WITH')) {
                     $arguments += "--dart-define=GOOGLE_WEB_CLIENT_ID=$googleWebClientId"

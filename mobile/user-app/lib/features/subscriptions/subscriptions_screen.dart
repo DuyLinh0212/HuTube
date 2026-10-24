@@ -30,10 +30,17 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   bool _hasMore = false;
   String? _error;
   int _page = 0;
+  int _generation = 0;
 
   String _selectedFilter = 'Tất cả';
   String? _selectedChannelId;
-  static const _filterOptions = ['Tất cả', 'Hôm nay', 'Video', 'Shorts', 'Trực tiếp'];
+  static const _filterOptions = [
+    'Tất cả',
+    'Hôm nay',
+    'Video',
+    'Shorts',
+    'Trực tiếp',
+  ];
 
   @override
   void initState() {
@@ -69,13 +76,22 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       return;
     }
 
-    if (_loadingMore || (more && !_hasMore)) return;
+    if (more && (_loading || _loadingMore || !_hasMore)) return;
+    if (!more) ++_generation;
+    final generation = _generation;
+    final session = widget.auth.sessionGeneration;
+    final channelId = _selectedChannelId;
+    bool current() =>
+        mounted &&
+        generation == _generation &&
+        session == widget.auth.sessionGeneration;
     final requestedPage = more ? _page + 1 : 1;
     setState(() {
       if (more) {
         _loadingMore = true;
       } else {
         _loading = true;
+        _loadingMore = false;
         _error = null;
       }
     });
@@ -83,14 +99,15 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     try {
       if (!more && _channels.isEmpty) {
         final channels = await _channelService.getSubscribedChannels();
-        if (mounted) setState(() => _channels = channels);
+        if (!current()) return;
+        setState(() => _channels = channels);
       }
 
       final PageResult<VideoCard> result;
-      if (_selectedChannelId != null) {
+      if (channelId != null) {
         result = await _content.searchVideos(
           query: '',
-          channelId: _selectedChannelId,
+          channelId: channelId,
           sort: 'newest',
           page: requestedPage,
           pageSize: 20,
@@ -99,7 +116,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         result = await _content.subscriptionsFeed(page: requestedPage);
       }
 
-      if (!mounted) return;
+      if (!current()) return;
       setState(() {
         _videos = more ? [..._videos, ...result.items] : result.items;
         _page = result.page;
@@ -108,7 +125,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         _loadingMore = false;
       });
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (current()) {
         setState(() {
           _error = AppStrings.apiError(error, fallback: 'feed.loadError');
           _loading = false;
@@ -116,7 +133,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (current()) {
         setState(() {
           _error = AppStrings.t('common.networkError');
           _loading = false;
@@ -157,7 +174,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     // Guest prompt if not logged in
     if (!widget.auth.authenticated) {
       return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0F0F0F) : AppColors.background,
+        backgroundColor: isDark
+            ? const Color(0xFF0F0F0F)
+            : AppColors.background,
         appBar: AppBar(
           backgroundColor: isDark ? const Color(0xFF0F0F0F) : AppColors.surface,
           elevation: 0,
@@ -198,7 +217,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   'Đăng nhập để xem cập nhật mới nhất từ các kênh Dalitu bạn yêu thích.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted,
+                    color: isDark
+                        ? const Color(0xFFAAAAAA)
+                        : AppColors.textMuted,
                     height: 1.4,
                   ),
                   textAlign: TextAlign.center,
@@ -209,7 +230,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primaryPink,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -242,7 +266,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             if (_channels.isNotEmpty) ...[
               const SizedBox(height: 8),
               SizedBox(
-                height: 94,
+                height: 84 + MediaQuery.textScalerOf(context).scale(24),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -267,24 +291,34 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                 height: 50,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
+                                  color: isDark
+                                      ? const Color(0xFF272727)
+                                      : AppColors.surfaceAlt,
                                   border: Border.all(
-                                    color: isDark ? const Color(0xFF3F3F3F) : AppColors.borderSubtle,
+                                    color: isDark
+                                        ? const Color(0xFF3F3F3F)
+                                        : AppColors.borderSubtle,
                                   ),
                                 ),
                                 child: Icon(
                                   Icons.grid_view_rounded,
                                   size: 22,
-                                  color: isDark ? Colors.white : AppColors.textPrimary,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 'Tất cả',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
-                                  color: isDark ? const Color(0xFF3EA6FF) : AppColors.primaryPink,
+                                  color: isDark
+                                      ? const Color(0xFF3EA6FF)
+                                      : AppColors.primaryPink,
                                 ),
                               ),
                             ],
@@ -318,7 +352,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: isSelected
-                                        ? Border.all(color: AppColors.primaryPink, width: 2)
+                                        ? Border.all(
+                                            color: AppColors.primaryPink,
+                                            width: 2,
+                                          )
                                         : null,
                                   ),
                                   child: HuTubeAvatar(
@@ -337,10 +374,16 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                                 color: isSelected
-                                    ? (isDark ? Colors.white : AppColors.textPrimary)
-                                    : (isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted),
+                                    ? (isDark
+                                          ? Colors.white
+                                          : AppColors.textPrimary)
+                                    : (isDark
+                                          ? const Color(0xFFAAAAAA)
+                                          : AppColors.textMuted),
                               ),
                             ),
                           ],
@@ -367,7 +410,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         filter,
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                          fontWeight: active
+                              ? FontWeight.bold
+                              : FontWeight.w500,
                           color: active
                               ? (isDark ? Colors.black : Colors.white)
                               : (isDark ? Colors.white : AppColors.textPrimary),
@@ -379,9 +424,14 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                       onSelected: (_) {
                         setState(() => _selectedFilter = filter);
                       },
-                      backgroundColor: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,
+                      backgroundColor: isDark
+                          ? const Color(0xFF272727)
+                          : AppColors.surfaceAlt,
                       selectedColor: isDark ? Colors.white : AppColors.ink,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                     ),
                   );
                 }).toList(),
@@ -391,23 +441,33 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             // ================= 2.1 SELECTED CHANNEL CARD =================
             if (_selectedChannelId != null) ...[
               () {
-                final selectedChannel = _channels.cast<SubscribedChannelResponse?>().firstWhere(
-                  (c) => c?.channelId == _selectedChannelId,
-                  orElse: () => null,
-                );
+                final selectedChannel = _channels
+                    .cast<SubscribedChannelResponse?>()
+                    .firstWhere(
+                      (c) => c?.channelId == _selectedChannelId,
+                      orElse: () => null,
+                    );
                 if (selectedChannel == null) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => context.push('/channels/${selectedChannel.handle}'),
+                    onTap: () =>
+                        context.push('/channels/${selectedChannel.handle}'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E1E1E) : AppColors.surfaceAlt,
+                        color: isDark
+                            ? const Color(0xFF1E1E1E)
+                            : AppColors.surfaceAlt,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isDark ? const Color(0xFF333333) : AppColors.borderSubtle,
+                          color: isDark
+                              ? const Color(0xFF333333)
+                              : AppColors.borderSubtle,
                         ),
                       ),
                       child: Row(
@@ -424,13 +484,18 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                               children: [
                                 Text(
                                   selectedChannel.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
                                 ),
                                 Text(
                                   '@${selectedChannel.handle}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isDark ? Colors.white60 : AppColors.textMuted,
+                                    color: isDark
+                                        ? Colors.white60
+                                        : AppColors.textMuted,
                                   ),
                                 ),
                               ],
@@ -439,7 +504,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           Text(
                             AppStrings.t('channel.view'),
                             style: TextStyle(
-                              color: isDark ? const Color(0xFF3EA6FF) : AppColors.primaryPink,
+                              color: isDark
+                                  ? const Color(0xFF3EA6FF)
+                                  : AppColors.primaryPink,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -447,7 +514,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           Icon(
                             Icons.chevron_right_rounded,
                             size: 18,
-                            color: isDark ? const Color(0xFF3EA6FF) : AppColors.primaryPink,
+                            color: isDark
+                                ? const Color(0xFF3EA6FF)
+                                : AppColors.primaryPink,
                           ),
                         ],
                       ),
@@ -474,7 +543,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             if (_loading)
               const Padding(
                 padding: EdgeInsets.all(48),
-                child: Center(child: CircularProgressIndicator(color: AppColors.primaryPink)),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryPink,
+                  ),
+                ),
               )
             else if (_error != null)
               HuTubeStateView(
@@ -488,7 +561,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               )
             else if (videosToDisplay.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 36,
+                ),
                 child: HuTubeStateView(
                   icon: Icons.subscriptions_outlined,
                   title: AppStrings.t('subscriptions.noVideos'),
@@ -511,7 +587,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 const Padding(
                   padding: EdgeInsets.all(18),
                   child: Center(
-                    child: CircularProgressIndicator(color: AppColors.primaryPink),
+                    child: CircularProgressIndicator(
+                      color: AppColors.primaryPink,
+                    ),
                   ),
                 ),
             ],
