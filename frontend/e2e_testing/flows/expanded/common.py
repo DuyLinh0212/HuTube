@@ -2,6 +2,18 @@ import hashlib
 from pathlib import Path
 from playwright.sync_api import expect
 
+def open_upload_progress(page):
+    orb = page.locator('app-upload-progress-tray .upload-orb')
+    expect(orb).to_be_visible()
+    if orb.get_attribute('aria-expanded') != 'true':
+        orb.click()
+    expect(page.locator('app-upload-progress-tray .tray-details')).to_be_visible()
+
+def minimize_upload_progress(page):
+    orb = page.locator('app-upload-progress-tray .upload-orb')
+    if orb.get_attribute('aria-expanded') == 'true':
+        page.locator('app-upload-progress-tray .tray-close').click()
+
 def snapshot_module(suite,file):
     source=Path(file);relative=source.relative_to(Path(__file__).resolve().parents[2])
     target=suite.run_dir/'test-sources'/relative;target.parent.mkdir(parents=True,exist_ok=True)

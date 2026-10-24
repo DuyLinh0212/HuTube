@@ -2,7 +2,7 @@
 import shutil,subprocess,time,json
 from pathlib import Path
 from playwright.sync_api import expect
-from flows.expanded.common import case,snapshot_module
+from flows.expanded.common import case,snapshot_module,open_upload_progress,minimize_upload_progress
 from support.actor_readiness import ensure_actor_pages
 from support.live_suite import PrerequisiteMissing
 
@@ -28,6 +28,7 @@ def run(suite,config,actors):
         control.write_text('Drop only next owned POST /videos after 32768 forwarded bytes',encoding='utf-8')
         with p.expect_request(lambda r:r.method=='POST' and r.url==owner['api_url']+'/videos'):
             p.locator('.btn-wizard-publish').click()
+        open_upload_progress(p)
         expect(p.locator('app-upload-progress-tray .tray-error')).to_be_visible(timeout=20000)
         expect(p.locator('.step-6')).to_have_count(0)
         expect(p.locator('.btn-wizard-publish')).to_be_enabled()
@@ -35,6 +36,7 @@ def run(suite,config,actors):
         fault=json.loads(applied.read_text(encoding='utf-8'))
         assert 0<fault['bytes_forwarded']<fault['declared_bytes']
         suite.evidence(owner,entry,'inflight-interrupted-error')
+        minimize_upload_progress(p)
         actual=suite.response(owner,'/videos',lambda:p.locator('.btn-wizard-publish').click(),method='POST',status=201).json();video.update(actual)
         expect(p.locator('.step-6')).to_be_visible()
         assert len(requests)==2 and requests[0] and requests[0]==requests[1]

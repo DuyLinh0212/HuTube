@@ -2,7 +2,7 @@
 import json,shutil,subprocess,time,uuid
 from pathlib import Path
 from playwright.sync_api import expect
-from flows.expanded.common import case,snapshot_module
+from flows.expanded.common import case,snapshot_module,open_upload_progress,minimize_upload_progress
 from support.actor_readiness import ensure_actor_pages
 from support.local_db import LocalDb
 from support.live_suite import PrerequisiteMissing
@@ -38,9 +38,11 @@ def run(suite,config,actors):
         title=prepare('probe');before=suite.api(owner,'get','/plans/my-plan').json()['usedStorage'];restart('ffprobe-failure')
         try:
             response=suite.response(owner,'/videos',lambda:p.locator('.btn-wizard-publish').click(),method='POST',status=(422,500,503))
+            open_upload_progress(p)
             expect(p.locator('app-upload-progress-tray .tray-error')).to_be_visible();expect(p.locator('.step-6')).to_have_count(0)
             assert not inventory(title) and suite.api(owner,'get','/plans/my-plan').json()['usedStorage']==before
             suite.evidence(owner,entry,'real-probe-failure')
+            minimize_upload_progress(p)
         finally:restart('normal')
         video=suite.response(owner,'/videos',lambda:p.locator('.btn-wizard-publish').click(),method='POST',status=201).json();created.append(video['videoId'])
         expect(p.locator('.step-6')).to_be_visible();assert len(inventory(title))==1
@@ -55,9 +57,11 @@ def run(suite,config,actors):
         folder.rename(backup);folder.write_bytes(b'QC temporary storage fault')
         try:
             suite.response(owner,'/videos',lambda:p.locator('.btn-wizard-publish').click(),method='POST',status=(500,502,503))
+            open_upload_progress(p)
             expect(p.locator('app-upload-progress-tray .tray-error')).to_be_visible();expect(p.locator('.step-6')).to_have_count(0)
             assert not inventory(title) and suite.api(owner,'get','/plans/my-plan').json()['usedStorage']==before
             suite.evidence(owner,entry,'actual-local-storage-failure')
+            minimize_upload_progress(p)
         finally:
             assert folder.is_file() and folder.read_bytes()==b'QC temporary storage fault'
             folder.unlink();backup.rename(folder)

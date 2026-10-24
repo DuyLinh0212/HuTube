@@ -48,7 +48,6 @@ export class App {
   readonly isStudioLayout = signal(false);
   readonly reloadRequired = signal(false);
   readonly uploadInProgress = computed(() => ['uploading', 'processing'].includes(this.upload.state().phase));
-  readonly uploadVisible = computed(() => this.upload.state().phase !== 'idle');
   private readonly upload = inject(UploadStateService);
   private failedNavigationUrl = '';
   private readonly router = inject(Router);

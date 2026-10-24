@@ -2,7 +2,7 @@
 import json,shutil,subprocess,time
 from pathlib import Path
 from playwright.sync_api import expect
-from flows.expanded.common import case,snapshot_module
+from flows.expanded.common import case,snapshot_module,open_upload_progress
 from support.actor_readiness import ensure_actor_pages
 from support.live_suite import PrerequisiteMissing
 from support import transport_proxy
@@ -30,6 +30,7 @@ def run(suite,config,actors):
         while not applied.exists() and time.monotonic()<deadline:p.wait_for_timeout(50)
         assert applied.exists(),'Actual body hold did not activate'
         fault=json.loads(applied.read_text(encoding='utf-8'));assert 0<fault['bytes_forwarded']<fault['declared_bytes']
+        open_upload_progress(p)
         expect(p.locator('app-upload-progress-tray .tray-cancel')).to_be_visible()
         suite.evidence(owner,entry,'real-upload-before-cancel')
         p.locator('app-upload-progress-tray .tray-cancel').click()
@@ -46,7 +47,7 @@ def run(suite,config,actors):
         assert suite.api(owner,'get','/plans/my-plan').json()['usedStorage']==before
         suite.evidence(owner,entry,'cancelled-without-completion')
         entry['transport_fault']=fault;entry['client_request_failure']=aborted[-1]['failure'];entry['resource_ids']=[cid]
-        entry['steps']=['Select real MP4 and publish through actual wizard','Actual upstream receives only a partial body and is held, with byte-count proof','Press actual tray Cancel; browser emits ERR_ABORTED before proxy release','Release incomplete real connection without a fabricated API response','No completion, video row or quota increase; Publish can be used again']
+        entry['steps']=['Select real MP4 and publish through actual wizard','Actual upstream receives only a partial body and is held, with byte-count proof','Open circular progress details and press actual Cancel; browser emits ERR_ABORTED before proxy release','Release incomplete real connection without a fabricated API response','No completion, video row or quota increase; Publish can be used again']
     try:case(suite,owner,'UPLOAD-INFLIGHT-UI-CANCEL-NO-RESOURCE','U-STUDIO.04','Actual in-flight Cancel aborts the client and grants no upload result',cancel,'studio')
     finally:
         release.write_text('Bounded teardown release',encoding='utf-8')

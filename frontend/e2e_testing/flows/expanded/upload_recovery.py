@@ -1,6 +1,6 @@
 import shutil,subprocess
 from playwright.sync_api import expect
-from flows.expanded.common import case,snapshot_module
+from flows.expanded.common import case,snapshot_module,open_upload_progress,minimize_upload_progress
 
 def run(suite,config,actors):
     snapshot_module(suite,__file__);owner=actors['owner'];p=owner['page'];cid=suite.fixtures['channel']['channelId'];video={}
@@ -37,18 +37,20 @@ def run(suite,config,actors):
             p.locator('.btn-wizard-publish').click();expect(p.locator('.btn-wizard-publish')).to_be_enabled(timeout=10000)
             expect(p.locator('.step-6')).to_have_count(0)
             def error_feedback(child):
+                open_upload_progress(p)
                 expect(p.locator('app-upload-progress-tray .tray-error')).to_be_visible()
                 child['steps']=['Actual browser network offline at publish','No completion step','Actual global upload tray visibly reports the failure']
             case(suite,owner,'UPLOAD-OFFLINE-VISIBLE-ERROR','U-STUDIO.04','Offline publish exposes actionable error',error_feedback,'studio')
         finally:owner['context'].set_offline(False)
         def pointer_access(child):
+            minimize_upload_progress(p)
             p.locator('.btn-wizard-publish').scroll_into_view_if_needed()
             assert p.locator('.btn-wizard-publish').evaluate('(b)=>{const r=b.getBoundingClientRect();const e=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return !!e?.closest(".btn-wizard-publish")}'),'Failed-upload tray covers the Publish/Retry button and intercepts pointer input'
             result=suite.response(owner,'/videos',lambda:p.locator('.btn-wizard-publish').click(),method='POST',status=201);video.update(result.json())
             expect(p.locator('.step-6')).to_be_visible()
             assert len(requests)>=2 and requests[0] and requests[0]==requests[-1]
             child['resource_ids']=[video['videoId']]
-            child['steps']=['Actual failed-upload tray remains visible','Publish/Retry center is unobstructed','Real mouse retry POST 201 and completion','Same idempotency key across failed request and mouse retry']
+            child['steps']=['Minimize actual failed-upload details to the visible circular indicator','Publish/Retry center is unobstructed','Real mouse retry POST 201 and completion','Same idempotency key across failed request and mouse retry']
         case(suite,owner,'UPLOAD-RETRY-POINTER-ACCESS','U-STUDIO.04','Failed upload keeps mouse retry accessible',pointer_access,'studio')
         assert video,'Actual pointer retry must create the fixture before persistence checks'
         expect(p.locator('.step-6')).to_be_visible();assert len(requests)>=2 and requests[0] and requests[0]==requests[-1],'Failed publish and retry must retain the same idempotency key'
