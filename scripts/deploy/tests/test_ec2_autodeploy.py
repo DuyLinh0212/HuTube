@@ -137,6 +137,7 @@ class RecoveryTests(unittest.TestCase):
         self.mocks["activate"].assert_not_called()
         self.mocks["rollback"].assert_not_called()
         self.assertNotIn("failed_sha", self.deployer.state)
+        self.assertEqual(self.snapshot, self.deployer.state["baseline_snapshot"])
 
     def test_changed_ci_or_vercel_checks_during_build_prevent_activation(self):
         self.mocks["eligible"].return_value = None
@@ -156,6 +157,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(SHA, self.deployer.state["sha"])
         self.assertEqual(123, self.deployer.state["run_id"])
         self.assertNotIn("pending", self.deployer.state)
+        self.assertNotIn("baseline_snapshot", self.deployer.state)
         self.mocks["rollback"].assert_not_called()
 
     def test_interrupted_activation_rolls_back_before_another_attempt(self):
@@ -169,6 +171,33 @@ class RecoveryTests(unittest.TestCase):
         self.deployer.recover_interrupted()
         self.mocks["rollback"].assert_not_called()
         self.assertEqual(SHA, self.deployer.state["failed_sha"])
+
+
+class SnapshotTests(unittest.TestCase):
+    def test_deferred_checkout_uses_saved_active_compose_not_unactivated_file(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, state = root / "repo", root / "state"
+            repo.mkdir()
+            baseline = state / "baseline"
+            baseline.mkdir(parents=True)
+            (repo / "docker-compose.ec2.yml").write_text("unactivated new config")
+            (baseline / "docker-compose.ec2.yml").write_text("active old config")
+            deployer = Deployer({"repo_dir": str(repo), "state_dir": str(state),
+                                 "repository": REPO, "api_url": "http://127.0.0.1"})
+            images = {name: "old-" + name for name in ("api", "recommendation", "caddy")}
+            deployer.state["baseline_snapshot"] = {"directory": str(baseline), "images": images}
+            def command(*args, **_kwargs):
+                self.assertNotIn("inspect", args, "Mutable checkout label must not override the saved baseline")
+                return "active caddy config" if "cat" in args else ""
+            with patch.object(deployer, "image_ids", return_value=images), \
+                    patch.object(deployer, "compose", return_value="container"), \
+                    patch.object(deployer, "run", side_effect=command), \
+                    patch("ec2_autodeploy.read_json", return_value={"commitSha": OLD}):
+                snapshot = deployer.snapshot(SHA)
+            saved = Path(snapshot["directory"])
+            self.assertEqual("active old config", (saved / "docker-compose.ec2.yml").read_text())
+            self.assertEqual("active caddy config\n", (saved / "Caddyfile").read_text())
 
 
 if __name__ == "__main__":

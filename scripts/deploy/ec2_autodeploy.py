@@ -162,10 +162,15 @@ class Deployer:
         directory.mkdir(mode=0o700, parents=True)
         # Read the configuration actually used by the running containers. After
         # a previous rollback, HEAD may be newer than the active deployment.
-        api_container = self.compose("ps", "-q", "api", capture=True)
-        source = self.run("docker", "inspect", "--format",
-                          '{{index .Config.Labels "com.docker.compose.project.config_files"}}',
-                          api_container, capture=True).split(",")[0]
+        images = self.image_ids()
+        baseline = self.state.get("baseline_snapshot")
+        if baseline and baseline["images"] == images:
+            source = str(Path(baseline["directory"]) / "docker-compose.ec2.yml")
+        else:
+            api_container = self.compose("ps", "-q", "api", capture=True)
+            source = self.run("docker", "inspect", "--format",
+                              '{{index .Config.Labels "com.docker.compose.project.config_files"}}',
+                              api_container, capture=True).split(",")[0]
         source_path = Path(source).resolve()
         if not (source_path.is_relative_to(self.repo) or source_path.is_relative_to(self.directory)):
             raise ValueError("Active Compose file is outside the managed directories")
@@ -175,7 +180,6 @@ class Deployer:
         (directory / "Caddyfile").write_text(caddy_config + "\n", encoding="utf-8")
         for name in ("docker-compose.ec2.yml", "Caddyfile"):
             (directory / name).chmod(0o600)
-        images = self.image_ids()
         old_sha = read_json(self.config["api_url"] + "/api/v1/system/info").get("commitSha")
         pinned = {}
         for service, image in images.items():
@@ -261,6 +265,7 @@ class Deployer:
             return
         if pending["phase"] == "activate":
             self.rollback(pending["snapshot"])
+        self.state["baseline_snapshot"] = pending["snapshot"]
         self.state["failed_sha"] = pending["sha"]
         self.state.pop("pending", None)
         self.save()
@@ -269,6 +274,9 @@ class Deployer:
     def deploy(self, sha, run_id):
         self.preflight()
         snapshot = self.snapshot(sha)
+        # Keep the active baseline even if Git advances but activation is later
+        # deferred. A mutable checkout path may then contain unactivated config.
+        self.state["baseline_snapshot"] = snapshot
         pending = {"sha": sha, "run_id": run_id, "phase": "build", "snapshot": snapshot}
         self.state["pending"] = pending
         self.save()
