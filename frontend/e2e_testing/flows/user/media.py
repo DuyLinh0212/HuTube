@@ -59,12 +59,23 @@ def run(suite, owner, member):
 
         with page.expect_response(is_upload_complete, timeout=120000) as response:
             page.locator('.btn-wizard-publish').click()
-        assert response.value.status == 201
-        video.update(response.value.json())
+        accepted = response.value
+        assert accepted.status == 202
+        assert accepted.json()['status'] == 'processing'
+        assert 'respond-async' in accepted.request.headers.get('prefer', '')
+        status_path = urlsplit(accepted.url).path.removesuffix('/complete')
+        # The real wizard polls its upload session. Require both its terminal
+        # HTTP response and completed UI; acceptance alone is not an upload.
+        with page.expect_response(lambda result: result.request.method == 'GET'
+                                  and urlsplit(result.url).path == status_path
+                                  and result.status == 200, timeout=120000) as completed:
+            expect(page.locator('.step-6')).to_be_visible(timeout=120000)
+        video.update(completed.value.json())
+        assert video['videoId'] and video['visibility'] == 'private'
+        assert video['title'] == suite.state.get('video_title','HuTube E2E — Mẫu hình và âm thanh kiểm thử')
         suite.state['video_id'] = video['videoId']; suite.save()
-        expect(page.locator('.step-6')).to_be_visible(timeout=120000)
     suite.case(owner, 'U-STUDIO-UPLOAD-01', 'Upload video thật qua wizard; required và schedule disabled', upload,
-               expected='Hoàn tất upload session bằng POST 201; checkpoint video ID; không tạo lại khi retry', data='FFmpeg 10s 640x360 + sine 440Hz')
+               expected='POST 202 nhận xử lý nền; GET 200 và UI hoàn tất trả đúng video private; checkpoint ID, không tạo lại khi retry', data='FFmpeg 10s 640x360 + sine 440Hz')
     if not video:
         suite.blocked(owner, 'U-WATCH-PLAYBACK-01', 'Playback fixture đã upload', 'Upload did not produce a video ID')
         return

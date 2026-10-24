@@ -20,12 +20,19 @@ def run(suite, admin, owner):
         expect(page.locator('.channel-row')).to_have_count(1)
         expect(page.locator('.channel-row')).to_contain_text(owner['email'])
         expect(page.locator('app-custom-select').nth(1).locator('button')).to_be_disabled()
-        for size in ['10', '20', '50', '8']:
+        for size in ['10', '20', '50']:
             with page.expect_response(lambda response, size=size: urlsplit(response.url).path == '/api/v1/admin/channels'
                                       and parse_qs(urlsplit(response.url).query).get('pageSize') == [size]) as pending:
                 page.locator('.page-size-select-wrap select').select_option(size)
             assert pending.value.status == 200 and pending.value.json()['total'] == 1
             expect(page.locator('.channel-row')).to_have_count(1)
+        # Size 8 was already loaded by the search. Its cached return must still
+        # render the same channel and owner even when no HTTP request is sent.
+        page.locator('.page-size-select-wrap select').select_option('8')
+        expect(page.locator('.page-size-select-wrap select')).to_have_value('8')
+        expect(page.locator('.channel-row')).to_have_count(1)
+        expect(page.locator('.channel-row')).to_contain_text(channel['name'])
+        expect(page.locator('.channel-row')).to_contain_text(owner['email'])
         page.locator('.channel-row').click()
         expect(page.locator('.drawer-card h2')).to_have_text(channel['name'])
         expect(page.locator('.drawer-card')).to_contain_text(channel['handle'])
