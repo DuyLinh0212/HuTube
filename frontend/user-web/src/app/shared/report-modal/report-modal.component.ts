@@ -1,7 +1,8 @@
+import { POLICY_CENTER_TRANSLATIONS } from '../../features/policy/policy-translations';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, ViewChild, OnChanges, OnInit, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ContentService, DEFAULT_VIOLATION_TYPES, ViolationType } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
@@ -108,7 +109,7 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
 @Component({
   selector: 'app-report-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
   template: `
     @if (isOpen) {
       <div
@@ -116,20 +117,26 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
         [class.dark-theme]="isDark()"
         [class.light-theme]="!isDark()"
         role="dialog"
-        aria-modal="true"
+        aria-modal="true" aria-labelledby="report-modal-title"
         (click)="onBackdropClick($event)">
         <div
-          class="report-modal"
+          class="report-modal" #reportDialog tabindex="-1"
           [class.dark-theme]="isDark()"
           [class.light-theme]="!isDark()"
           (click)="$event.stopPropagation()">
 
+          <div class="report-progress" aria-live="polite">
+            <span>{{ 'report.stepProgress' | translate:{ step: step() } }}</span>
+            <strong>{{ (step() === 1 ? 'report.stepReason' : 'report.stepDetails') | translate }}</strong>
+            <div class="report-progress-track" aria-hidden="true"><i></i><i [class.complete]="step() === 2"></i></div>
+          </div>
+          @if (targetTitle) { <div class="report-target"><span>{{ targetTitle }}</span></div> }
           <!-- STEP 1 (Hình 2 hoặc Hình 3) -->
           @if (step() === 1) {
             <!-- Modal Header Step 1 -->
             <header class="modal-header">
               <div class="header-title-box">
-                <h2>{{ (targetType === 'channel' ? 'report.userTitle' : 'report.title') | translate }}</h2>
+                <h2 id="report-modal-title">{{ (targetType === 'channel' ? 'report.userTitle' : 'report.title') | translate }}</h2>
               </div>
               <button type="button" class="btn-close" (click)="closeModal()" [attr.aria-label]="'common.close' | translate">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -166,10 +173,12 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                     class="option-row"
                     [class.is-selected]="selectedCode() === opt.code"
                     (click)="selectOption(opt.code)">
-                    <div class="radio-outer" [class.is-checked]="selectedCode() === opt.code">
+                    <input class="report-reason-radio" type="radio" name="report-reason" [id]="'report-reason-' + opt.code" [value]="opt.code"
+                      [checked]="selectedCode() === opt.code" (change)="selectOption(opt.code)" />
+                    <div aria-hidden="true" class="radio-outer" [class.is-checked]="selectedCode() === opt.code">
                       <div class="radio-inner" [class.is-checked]="selectedCode() === opt.code"></div>
                     </div>
-                    <span class="option-label">{{ opt.nameKey | translate }}</span>
+                    <label class="option-label" [for]="'report-reason-' + opt.code">{{ opt.nameKey | translate }}</label>
 
                     <!-- Info Icon with Tooltip (Hình 2) -->
                     @if (opt.infoTipKey) {
@@ -178,7 +187,8 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                         (click)="$event.stopPropagation(); toggleTooltip(opt.code)"
                         (mouseenter)="activeTooltipCode.set(opt.code)"
                         (mouseleave)="activeTooltipCode.set(null)">
-                        <button type="button" class="btn-info-icon" [attr.aria-label]="'report.details' | translate">
+                        <button type="button" class="btn-info-icon" [attr.aria-expanded]="activeTooltipCode() === opt.code" [attr.aria-controls]="'report-tip-' + opt.code"
+                          (focus)="activeTooltipCode.set(opt.code)" (blur)="activeTooltipCode.set(null)" [attr.aria-label]="'report.details' | translate">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
                             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
@@ -186,7 +196,7 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                           </svg>
                         </button>
                         @if (activeTooltipCode() === opt.code) {
-                          <div class="tooltip-bubble" role="tooltip">
+                          <div class="tooltip-bubble" role="tooltip" [id]="'report-tip-' + opt.code">
                             {{ opt.infoTipKey | translate }}
                           </div>
                         }
@@ -220,7 +230,7 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                     <polyline points="12 19 5 12 12 5"/>
                   </svg>
                 </button>
-                <h2>{{ 'report.title' | translate }}</h2>
+                <h2 id="report-modal-title">{{ 'report.title' | translate }}</h2>
               </div>
               <button type="button" class="btn-close" (click)="closeModal()" [attr.aria-label]="'common.close' | translate">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -246,9 +256,13 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
                 </p>
               </div>
 
+              @if (selectedOption(); as option) {
+                <div class="selected-report-reason"><span>{{ 'report.selectedReason' | translate }}</span><strong>{{ option.nameKey | translate }}</strong></div>
+              }
               <!-- Textarea for additional details -->
               <div class="textarea-container">
-                <textarea
+                <label for="report-description">{{ 'report.detailsLabel' | translate }}</label>
+                <textarea id="report-description"
                   class="report-textarea"
                   rows="6"
                   [ngModel]="description()"
@@ -286,7 +300,7 @@ export const CONTENT_REPORT_OPTIONS: ReportReasonOption[] = [
               </button>
             </footer>
           }
-
+          <a class="report-policy-link" [routerLink]="submitting() ? null : '/guidelines'" [attr.aria-disabled]="submitting()" [attr.tabindex]="submitting() ? -1 : null" (click)="closeModal()">{{ 'report.policyLink' | translate }} <span aria-hidden="true">↗</span></a>
         </div>
       </div>
     }
@@ -299,6 +313,9 @@ export class ReportModalComponent implements OnInit, OnChanges {
   private readonly router = inject(Router);
   private readonly themeService = inject(ThemeService);
   private readonly i18n = inject(I18nService);
+
+  @ViewChild('reportDialog') private reportDialog?: ElementRef<HTMLElement>;
+  private previousFocus: HTMLElement | null = null;
 
   @Input() isOpen = false;
   @Input() targetType: 'video' | 'channel' | 'comment' = 'video';
@@ -338,12 +355,19 @@ export class ReportModalComponent implements OnInit, OnChanges {
     'report.sample.dangerousConduct'
   ];
 
+  constructor() {
+    this.i18n.registerTranslations(POLICY_CENTER_TRANSLATIONS);
+  }
+
   ngOnInit(): void {
     this.loadViolationTypes();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['isOpen'] && !this.isOpen) this.restoreFocus();
     if (changes['isOpen'] && this.isOpen) {
+      this.previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setTimeout(() => this.reportDialog?.nativeElement.focus());
       this.reportIdempotencyKey = this.newReportIdempotencyKey();
       this.step.set(1);
       this.selectedCode.set('');
@@ -382,10 +406,12 @@ export class ReportModalComponent implements OnInit, OnChanges {
   goToStep2(): void {
     if (!this.selectedCode()) return;
     this.step.set(2);
+    setTimeout(() => this.reportDialog?.nativeElement.querySelector<HTMLTextAreaElement>('textarea')?.focus());
   }
 
   goBackToStep1(): void {
     this.step.set(1);
+    setTimeout(() => this.reportDialog?.nativeElement.querySelector<HTMLInputElement>('input:checked')?.focus());
     this.errorMessage.set(null);
   }
 
@@ -437,6 +463,29 @@ export class ReportModalComponent implements OnInit, OnChanges {
     return otherType ? otherType.violationTypeId : types[0].violationTypeId;
   }
 
+  @HostListener('document:keydown', ['$event'])
+  onDialogKeydown(event: KeyboardEvent): void {
+    if (!this.isOpen) return;
+    if (event.key === 'Escape') { event.preventDefault(); this.closeModal(); return; }
+    if (event.key !== 'Tab') return;
+    const dialog = this.reportDialog?.nativeElement;
+    const controls = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href]'
+    )).filter(element => element.getClientRects().length > 0) : [];
+    const first = controls[0], last = controls[controls.length - 1];
+    if (!first) { event.preventDefault(); dialog?.focus(); return; }
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+      event.preventDefault(); first.focus();
+    }
+  }
+
+  private restoreFocus(): void {
+    if (this.previousFocus?.isConnected) this.previousFocus.focus({ preventScroll: true });
+    this.previousFocus = null;
+  }
+
   onBackdropClick(event: MouseEvent): void {
     if (event.target === event.currentTarget) {
       this.closeModal();
@@ -445,6 +494,7 @@ export class ReportModalComponent implements OnInit, OnChanges {
 
   closeModal(): void {
     if (this.submitting()) return;
+    this.restoreFocus();
     this.close.emit();
   }
 
