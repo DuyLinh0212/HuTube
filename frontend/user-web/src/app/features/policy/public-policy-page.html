@@ -1,7 +1,7 @@
 <div class="policy-hub">
   <!-- Action Notification Toast -->
   @if (actionToast()) {
-    <div class="toast-banner">
+    <div class="toast-banner" role="status">
       <svg class="toast-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
       </svg>
@@ -17,107 +17,117 @@
   <!-- Top Hub Navigation Header -->
   <header class="hub-header">
     <div class="hub-header__inner">
-      <div class="hub-brand-wrap">
-        <a routerLink="/policies" class="hub-brand">
-          <span class="brand-text"><strong>Dali</strong><em>tu</em></span>
-          <span class="brand-divider"></span>
-          <span class="brand-subtitle">{{ 'policies.hubTitle' | translate }}</span>
-        </a>
+      <div class="policy-heading-wrap">
+        <nav class="hub-breadcrumb" [attr.aria-label]="'policies.breadcrumb' | translate">
+          <a routerLink="/home">{{ 'policies.breadcrumbHome' | translate }}</a>
+          <span aria-hidden="true">/</span>
+          <span>{{ 'policies.hubTitle' | translate }}</span>
+        </nav>
+        <div class="hero-heading-row">
+          <img class="policy-brand-mark" src="/assets/logo-mark.webp?v=dalitu-mark-20261020" alt="" width="28" height="28" />
+          <h1 class="hero-title">{{ 'policies.compactTitle' | translate }}</h1>
+          <span class="hero-count">{{ 'policies.itemCount' | translate:{ count: allPolicyItems().length } }}</span>
+        </div>
+        <p class="hero-mission">{{ 'policies.compactDescription' | translate }}</p>
       </div>
-
-      <!-- Navigation Tabs (No numbers, fully visible) -->
-      <nav class="hub-nav" [attr.aria-label]="'policies.categoryNav' | translate">
-        @for (t of tabs; track t.key) {
-          <button
-            type="button"
-            class="hub-nav-item"
-            [class.active]="activeTab() === t.key"
-            (click)="setTab(t.key)"
-          >
-            <span>{{ t.labelKey | translate }}</span>
-          </button>
-        }
-      </nav>
 
       <!-- Quick Actions -->
       <div class="hub-actions">
-        <button type="button" class="btn-action-icon" (click)="printDocument()" [title]="'policies.print' | translate">
+        <button type="button" class="btn-action-icon" (click)="printDocument()" [disabled]="loading() || loadError()" [title]="'policies.print' | translate">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
             <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
           </svg>
           <span class="btn-text">{{ 'policies.print' | translate }}</span>
         </button>
-        <button type="button" class="btn-action-primary" (click)="downloadPdf()" [disabled]="exportingPdf() || loading()" [attr.aria-busy]="exportingPdf()" [title]="'policies.downloadPdf' | translate">
+        <button type="button" class="btn-action-primary" (click)="downloadPdf()" [disabled]="exportingPdf() || loading() || loadError()" [attr.aria-busy]="exportingPdf()" [title]="'policies.downloadPdf' | translate">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
           </svg>
-          <span class="btn-text">{{ 'policies.downloadPdf' | translate }}</span>
+          <span class="btn-text">{{ (exportingPdf() ? 'policies.exporting' : 'policies.downloadPdf') | translate }}</span>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Ambient Backdrop -->
-  <div class="ambient-glow"></div>
-
-  <!-- Hero Section -->
-  <section class="hub-hero">
-    <div class="hub-container">
-      <!-- Breadcrumb -->
-      <nav class="hub-breadcrumb" [attr.aria-label]="'policies.breadcrumb' | translate">
-        <a routerLink="/home">{{ 'policies.breadcrumbHome' | translate }}</a>
-        <span class="chevron">›</span>
-        <a routerLink="/policies">{{ 'policies.breadcrumbLegal' | translate }}</a>
-        <span class="chevron">›</span>
-        <span class="current">{{ currentTabInfo().title }}</span>
-      </nav>
-
-      <!-- Headline Block -->
-      <div class="hero-headline-block">
-        <div class="badge-vn-standard">
-          <span class="pulsing-dot"></span>
-          <span>{{ 'policies.badgeStandard' | translate }}</span>
-        </div>
-        <h1 class="hero-title">{{ 'policies.heroTitle' | translate }}</h1>
-        <p class="hero-mission">
-          {{ 'policies.heroMission' | translate }}
-        </p>
-        <div class="hero-meta-row">
-          <span class="meta-item">{{ 'policies.heroUpdated' | translate }}</span>
-          <span class="meta-sep">•</span>
-          <span class="meta-item">{{ 'policies.heroEffective' | translate }}</span>
-        </div>
-      </div>
-    </div>
+  <section class="print-document">
+    <h1>Dalitu · {{ 'policies.tab.all.title' | translate }}</h1>
+    @for (section of policySections(); track section.key) {
+      <h2>{{ section.labelKey | translate }}</h2>
+      @for (item of section.items; track item.code) {
+        <article>
+          <h3>{{ getItemName(item) }}</h3>
+          @if (item.published; as published) { <p>{{ published.code }} · {{ published.version }} · {{ published.effectiveAt | date:'dd/MM/yyyy' }}</p> }
+          <p class="print-summary">{{ getItemSummary(item) }}</p>
+          @if (getItemRules(item).length) { <h4>{{ 'policies.mandatoryRules' | translate }}</h4><ul>@for (rule of getItemRules(item); track $index) { <li>{{ rule }}</li> }</ul> }
+          @if (getItemExceptions(item).length) { <h4>{{ 'policies.exceptionsEdsa' | translate }}</h4><ul>@for (exception of getItemExceptions(item); track $index) { <li>{{ exception }}</li> }</ul> }
+        </article>
+      }
+    }
   </section>
 
   <!-- Main Content Layout (Open, unboxed list) -->
   <main class="hub-content">
-    <div class="hub-container">
+    <div class="hub-container policy-workspace">
+      <aside class="policy-directory">
+        <p class="directory-label">{{ 'policies.directory' | translate }}</p>
+      <nav class="hub-nav policy-directory-nav" [attr.aria-label]="'policies.categoryNav' | translate">
+        @for (t of tabs; track t.key) {
+          <button
+            type="button"
+            class="hub-nav-item"
+            [class.active]="activeTab() === t.key"
+            [attr.aria-current]="activeTab() === t.key ? 'true' : null"
+            (click)="setTab(t.key)"
+          >
+            <span>{{ t.labelKey | translate }}</span><b>{{ categoryCount(t.key) }}</b>
+          </button>
+        }
+      </nav>
 
+
+        <div class="policy-mobile-category">
+          <label for="policy-category">{{ 'policies.directory' | translate }}</label>
+          <select id="policy-category" [ngModel]="activeTab()" (ngModelChange)="setTab($event)">
+            @for (tab of tabs; track tab.key) {
+              <option [value]="tab.key">{{ tab.labelKey | translate }} ({{ categoryCount(tab.key) }})</option>
+            }
+          </select>
+        </div>
+      </aside>
+      <div class="policy-content-column">
       <!-- Active Section Introduction Bar -->
       <div class="tab-intro-banner">
         <div class="tab-intro-text">
           <h2 #policyHeading tabindex="-1" class="tab-title">{{ currentTabInfo().title }}</h2>
           <p class="tab-desc">{{ currentTabInfo().description }}</p>
         </div>
-        <div class="tab-counter">
-          <span>{{ itemCountText() }}</span>
-        </div>
+
       </div>
 
+      @if (loadError()) {
+        <div class="policy-load-notice" role="alert">
+          <p>{{ 'policies.loadError' | translate }}</p>
+          <button type="button" (click)="loadBackendPolicies()">{{ 'policies.retry' | translate }}</button>
+        </div>
+      }
       <div class="policy-search">
         <label for="policy-search">{{ 'policies.searchLabel' | translate }}</label>
         <input id="policy-search" type="search" [ngModel]="searchQuery()"
           (ngModelChange)="searchQuery.set($event)" [placeholder]="'policies.searchPlaceholder' | translate" />
       </div>
 
+      <p class="search-result-count" role="status">{{ loading() ? ('policies.loading' | translate) : itemCountText() }}</p>
       <!-- Policy List Feed (Stand-alone individual cards, not nested inside an outer box) -->
       <div class="policy-cards-feed">
-        @for (item of activeList(); track item.code) {
+        @for (section of visibleSections(); track section.key) {
+          @if (activeTab() === 'all') {
+            <div class="policy-section-heading"><h2>{{ section.labelKey | translate }}</h2><span>{{ 'policies.itemCount' | translate:{ count: section.items.length } }}</span></div>
+          }
+        @for (item of section.items; track item.code) {
           <article class="policy-card" [id]="item.code">
             <header class="policy-card-head">
               <div class="title-group">
+                <span class="policy-code-label">{{ item.code }}</span>
                 <h3 class="policy-card-title">{{ getItemName(item) }}</h3>
               </div>
               <div class="badge-group">
@@ -160,6 +170,7 @@
           </article>
         }
 
+        }
         <!-- Empty state when search yields no matches -->
         @if (activeList().length === 0) {
           <div class="empty-results-box">
@@ -174,62 +185,6 @@
           </div>
         }
       </div>
-
-      <!-- ================= INTERACTIVE PRIVACY TOOLS (Only on Privacy Tab) ================= -->
-      @if (activeTab() === 'privacy') {
-        <section class="supplemental-section" id="quyen-va-lua-chon">
-          <div class="supplemental-header">
-            <h3 class="supplemental-title">{{ 'policies.tools.title' | translate }}</h3>
-            <p class="supplemental-desc">
-              {{ 'policies.tools.desc' | translate }}
-            </p>
-          </div>
-
-          <div class="tools-grid">
-            <div class="tool-card">
-              <div class="tool-head">
-                <div class="tool-tag">{{ 'policies.tools.exportTag' | translate }}</div>
-                <h4>{{ 'policies.tools.exportTitle' | translate }}</h4>
-                <p>{{ 'policies.tools.exportDesc' | translate }}</p>
-              </div>
-              <button type="button" class="btn-tool-primary" disabled [title]="'common.notSupported' | translate">
-                {{ 'policies.tools.exportBtn' | translate }}
-              </button>
-            </div>
-
-            <div class="tool-card">
-              <div class="tool-head">
-                <div class="tool-tag neutral">{{ 'policies.tools.algoTag' | translate }}</div>
-                <h4>{{ 'policies.tools.algoTitle' | translate }}</h4>
-                <p>{{ 'policies.tools.algoDesc' | translate }}</p>
-              </div>
-              <button type="button" class="btn-tool-secondary" disabled [title]="'common.notSupported' | translate">
-                {{ 'policies.tools.algoBtn' | translate }}
-              </button>
-            </div>
-
-            <div class="tool-card">
-              <div class="tool-head">
-                <div class="tool-tag neutral">{{ 'policies.tools.adsTag' | translate }}</div>
-                <h4>{{ 'policies.tools.adsTitle' | translate }}</h4>
-                <p>{{ 'policies.tools.adsDesc' | translate }}</p>
-              </div>
-              <div class="tool-switch-row">
-                <span class="switch-label">{{ 'policies.tools.adsLabel' | translate }}</span>
-                <label class="custom-switch">
-                  <input
-                    type="checkbox"
-                    disabled [title]="'common.notSupported' | translate"
-                    [checked]="adPersonalization()"
-                    (change)="toggleAdPersonalization()"
-                  />
-                  <span class="slider"></span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </section>
-      }
 
       <!-- ================= ENFORCEMENT & STRIKES BREAKDOWN (Only on Enforcement Tab) ================= -->
       @if (activeTab() === 'enforcement') {
@@ -270,6 +225,7 @@
       }
 
     </div>
+      </div>
   </main>
 
   <!-- Hub Footer -->
@@ -291,7 +247,6 @@
           <button type="button" class="link-btn" (click)="setTab('guidelines', true)">{{ 'policies.guidelines' | translate }}</button>
           <button type="button" class="link-btn" (click)="setTab('privacy', true)">{{ 'policies.privacy' | translate }}</button>
           <button type="button" class="link-btn" (click)="setTab('terms', true)">{{ 'policies.terms' | translate }}</button>
-          <button type="button" class="link-btn" (click)="setTab('monetization', true)">{{ 'policies.monetization' | translate }}</button>
           <button type="button" class="link-btn" (click)="setTab('enforcement', true)">{{ 'policies.enforcement' | translate }}</button>
           <a routerLink="/home" class="link-btn">{{ 'nav.home' | translate }}</a>
         </div>

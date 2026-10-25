@@ -111,7 +111,11 @@ def run(suite, owner, member):
     for name, route, selector in routes:
         def open_route(route=route, selector=selector):
             suite.go(owner, route, selector)
-            expect(page.locator(selector).locator('main, section').first).to_be_visible()
+            if selector == 'app-public-policy-page':
+                expect(page.locator('.hub-header h1')).to_be_visible()
+                expect(page.locator('.policy-card').first).to_be_visible()
+            else:
+                expect(page.locator(selector).locator('main, section').first).to_be_visible()
         suite.case(owner, 'U-' + name + '-SMOKE-01', 'Smoke route ' + route, open_route, expected='Component của route hiển thị', steps='Điều hướng trực tiếp; chờ component', data=route)
 
     def search_empty():

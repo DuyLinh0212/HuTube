@@ -3,8 +3,10 @@ import { authGuard } from './core/auth.guard';
 import { permissionGuard } from './core/permission.guard';
 import { superAdminGuard } from './core/super-admin.guard';
 import { ADMIN_APP } from './core/runtime-config';
+import { PageLoadError } from './core/page-load-error';
 const authPage = () => import('./features/auth/auth-page').then(m => m.AuthPage);
 export const routes: Routes = [
+  { path: 'load-error', component: PageLoadError },
   { path: 'login', loadComponent: authPage, title: 'route.title.login' },
   ...(!ADMIN_APP ? [{ path: 'register', loadComponent: authPage, title: 'route.title.register' }] : []),
   { path: 'verify-email', loadComponent: authPage, title: 'route.title.verifyEmail' },

@@ -2,6 +2,8 @@ from contextlib import ExitStack, redirect_stdout
 from copy import deepcopy
 from io import StringIO
 import json
+import os
+import stat
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -210,9 +212,19 @@ class SnapshotTests(unittest.TestCase):
 class MessagingPreparationTests(unittest.TestCase):
     def test_prepares_broker_before_migration_without_restarting_application(self):
         with TemporaryDirectory() as directory:
+            config = Path(directory) / "deploy/rabbitmq/rabbitmq.conf"
+            config.parent.mkdir(parents=True)
+            config.write_text("log.console = true\n")
+            config.chmod(0o600)
+            secret = Path(directory) / ".env.rabbitmq"
+            secret.write_text("RABBITMQ_DEFAULT_PASS=isolated-test-only\n")
+            secret.chmod(0o600)
             deployer = Deployer({"repo_dir": directory, "state_dir": str(Path(directory) / "state"), "repository": REPO})
             calls = []
             def compose(*args, **_kwargs):
+                if args[0] == "up" and os.name != "nt":
+                    self.assertEqual(0o644, stat.S_IMODE(config.stat().st_mode))
+                    self.assertEqual(0o600, stat.S_IMODE(secret.stat().st_mode))
                 calls.append(args)
                 return "api\nrabbitmq\nmigrate" if args == ("config", "--services") else ""
             with patch.object(deployer, "compose", side_effect=compose), patch.object(deployer, "run"):

@@ -1,4 +1,7 @@
-import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild } from '@angular/core';
+import { POLICY_CENTER_TRANSLATIONS } from './policy-translations';
+import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { combineLatest } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -32,7 +35,9 @@ export interface PolicyRuleItem {
   exceptionsEn?: string[];
 }
 
-export type PolicyTab = 'guidelines' | 'privacy' | 'terms' | 'monetization' | 'enforcement';
+export type PolicyCategory = 'guidelines' | 'privacy' | 'terms' | 'enforcement';
+
+export type PolicyTab = 'all' | PolicyCategory;
 
 @Component({
   selector: 'app-public-policy-page',
@@ -43,6 +48,7 @@ export type PolicyTab = 'guidelines' | 'privacy' | 'terms' | 'monetization' | 'e
 })
 export class PublicPolicyPage implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly config = inject(RuntimeConfig);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -52,14 +58,15 @@ export class PublicPolicyPage implements OnInit {
 
   readonly loading = signal(true);
   readonly policies = signal<PublicPolicy[]>([]);
-  readonly activeTab = signal<PolicyTab>('guidelines');
+  readonly loadError = signal(false);
+  readonly activeTab = signal<PolicyTab>('all');
   readonly searchQuery = signal<string>('');
 
   readonly tabs: { key: PolicyTab; labelKey: string }[] = [
+    { key: 'all', labelKey: 'policies.all' },
     { key: 'guidelines', labelKey: 'policies.guidelines' },
     { key: 'privacy', labelKey: 'policies.privacy' },
     { key: 'terms', labelKey: 'policies.terms' },
-    { key: 'monetization', labelKey: 'policies.monetization' },
     { key: 'enforcement', labelKey: 'policies.enforcement' }
   ];
 
@@ -71,8 +78,6 @@ export class PublicPolicyPage implements OnInit {
     };
   });
 
-  // Interactive Tools state
-  readonly adPersonalization = signal<boolean>(true);
   readonly actionToast = signal<string | null>(null);
   readonly exportingPdf = signal(false);
 
@@ -480,56 +485,6 @@ export class PublicPolicyPage implements OnInit {
     }
   ];
 
-  // Monetization List (3 items)
-  readonly monetizationList: PolicyRuleItem[] = [
-    {
-      code: 'PARTNER_ELIGIBILITY',
-      name: 'Điều kiện tham gia Chương trình Đối tác Dalitu',
-      summary: 'Ngưỡng điều kiện để bật tính năng kiếm tiền và nhận chia sẻ doanh thu.',
-      severity: 'high',
-      rules: [
-        'Kênh cần đạt đủ số lượng người đăng ký và giờ xem công khai hợp lệ trong 12 tháng gần nhất.',
-        'Kênh phải tuân thủ 100% Quy tắc cộng đồng và không có gậy cảnh cáo vi phạm đang còn hiệu lực.',
-        'Bắt buộc kích hoạt bảo mật xác minh 2 bước trên tài khoản quản trị kênh.'
-      ],
-      rulesEn: [
-        'Channels must meet minimum subscriber and valid public watch hour thresholds within the preceding 12 months.',
-        'Channels must maintain 100% adherence to Community Guidelines and have zero active strikes.',
-        'Mandatory two-step verification must be activated on the channel manager account.'
-      ]
-    },
-    {
-      code: 'AD_SUITABILITY_GUIDE',
-      name: 'Tiêu chuẩn nội dung thân thiện với nhà quảng cáo',
-      summary: 'Hệ thống đánh giá tính phù hợp để hiển thị quảng cáo thương hiệu.',
-      severity: 'medium',
-      rules: [
-        'Biểu tượng Xanh (Bật đầy đủ): Nội dung văn minh, phù hợp với hầu hết các thương hiệu quảng cáo.',
-        'Biểu tượng Vàng (Hạn chế): Video có ngôn từ thô tục, cảnh người lớn nhẹ hoặc chủ đề gây tranh cãi gay gắt.',
-        'Biểu tượng Đỏ (Không quảng cáo): Video vi phạm chính sách, hoàn toàn không được phân phối quảng cáo kiếm tiền.'
-      ],
-      rulesEn: [
-        'Green icon (Full monetization): Brand-safe content suitable for virtually all advertisers.',
-        'Yellow icon (Limited ads): Content featuring coarse language, mild adult themes, or sensitive debates.',
-        'Red icon (Demonetized): Content violating policy, completely ineligible for advertising revenue.'
-      ]
-    },
-    {
-      code: 'REVENUE_PAYOUTS',
-      name: 'Chia sẻ doanh thu và nghĩa vụ thuế',
-      summary: 'Quy trình quyết toán định kỳ và khấu trừ thuế theo quy định pháp luật Việt Nam.',
-      severity: 'info',
-      rules: [
-        'Doanh thu được quyết toán định kỳ hàng tháng qua tài khoản ngân hàng chính chủ.',
-        'Dalitu thực hiện khấu trừ và nộp thuế thu nhập cá nhân theo đúng biểu thuế nhà nước ban hành.'
-      ],
-      rulesEn: [
-        'Earnings are disbursed monthly to verified bank accounts matching the verified legal identity.',
-        'Dalitu withholds and submits personal income taxes in compliance with statutory tax laws.'
-      ]
-    }
-  ];
-
   // Enforcement & Appeals List (4 items)
   readonly enforcementList: PolicyRuleItem[] = [
     {
@@ -647,63 +602,71 @@ export class PublicPolicyPage implements OnInit {
 
   readonly itemCountText = computed(() => this.i18n.t('policies.itemCount', { count: this.i18n.formatNumber(this.activeList().length) }));
 
-  readonly activeList = computed(() => {
-    const tab = this.activeTab();
-    let list: PolicyRuleItem[] = [];
-
-    if (tab === 'guidelines') list = this.guidelinesList;
-    else if (tab === 'privacy') list = this.privacyList;
-    else if (tab === 'terms') list = this.termsList;
-    else if (tab === 'monetization') list = this.monetizationList;
-    else if (tab === 'enforcement') list = this.enforcementList;
-    else list = this.guidelinesList;
-
-    const published = this.policies();
-    const backendItems = published.filter(policy => this.policyTab(policy) === tab).map(policy => ({
-      code: policy.code, name: policy.name, summary: policy.content,
-      severity: policy.severity as PolicyRuleItem['severity'], rules: [], published: policy
-    }));
-    // Explanatory cards supplement published policies; never override API text.
-    list = [...backendItems, ...list.filter(item => !published.some(policy => policy.code === item.code))];
-    const q = this.searchQuery().trim().toLowerCase();
-    if (!q) return list;
-
-    return list.filter(item => {
-      const name = this.getItemName(item).toLowerCase();
-      const summary = this.getItemSummary(item).toLowerCase();
-      const rules = this.getItemRules(item).some(r => r.toLowerCase().includes(q));
-      return name.includes(q) || summary.includes(q) || rules || item.code.toLowerCase().includes(q);
+  readonly policySections = computed(() => {
+    const retiredCodes = new Set(['PARTNER_ELIGIBILITY', 'AD_SUITABILITY_GUIDE', 'REVENUE_PAYOUTS']);
+    const published = this.policies().filter(policy => policy.group.toLowerCase() !== 'monetization' && !retiredCodes.has(policy.code.toUpperCase()));
+    const fallback: Record<PolicyCategory, PolicyRuleItem[]> = {
+      guidelines: this.guidelinesList, privacy: this.privacyList, terms: this.termsList,
+      enforcement: this.enforcementList
+    };
+    return this.tabs.filter(tab => tab.key !== 'all').map(tab => {
+      const key = tab.key as PolicyCategory;
+      const items: PolicyRuleItem[] = published.filter(policy => this.policyTab(policy) === key).map(policy => ({
+        code: policy.code, name: policy.name, summary: policy.content,
+        severity: policy.severity as PolicyRuleItem['severity'], rules: [], published: policy
+      }));
+      return { key, labelKey: tab.labelKey, items: [
+        ...items, ...fallback[key].filter(item => !published.some(policy => policy.code === item.code))
+      ] };
     });
   });
 
-  private policyTab(policy: PublicPolicy): PolicyTab {
-    if (this.tabs.some(tab => tab.key === policy.group)) return policy.group as PolicyTab;
+  readonly allPolicyItems = computed(() => this.policySections().flatMap(section => section.items));
+  readonly activeList = computed(() => {
+    const items = this.activeTab() === 'all' ? this.allPolicyItems()
+      : this.policySections().find(section => section.key === this.activeTab())?.items ?? [];
+    const query = this.normalizeSearch(this.searchQuery().trim());
+    return !query ? items : items.filter(item => this.normalizeSearch([
+      this.getItemName(item), this.getItemSummary(item), item.code,
+      ...this.getItemRules(item), ...this.getItemExceptions(item)
+    ].join(' ')).includes(query));
+  });
+
+  readonly visibleSections = computed(() => {
+    const visible = new Set(this.activeList().map(item => item.code));
+    return this.policySections().map(section => ({ ...section,
+      items: section.items.filter(item => visible.has(item.code))
+    })).filter(section => section.items.length > 0);
+  });
+
+  categoryCount(tab: PolicyTab): number {
+    return tab === 'all' ? this.allPolicyItems().length
+      : this.policySections().find(section => section.key === tab)?.items.length ?? 0;
+  }
+
+  private normalizeSearch(value: string): string {
+    return value.toLocaleLowerCase(this.i18n.currentLang()).normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  }
+
+  private policyTab(policy: PublicPolicy): PolicyCategory {
+    if (policy.group !== 'all' && this.tabs.some(tab => tab.key === policy.group)) return policy.group as PolicyCategory;
     if (this.privacyList.some(item => item.code === policy.code)) return 'privacy';
     if (this.termsList.some(item => item.code === policy.code)) return 'terms';
-    if (this.monetizationList.some(item => item.code === policy.code)) return 'monetization';
     if (this.enforcementList.some(item => item.code === policy.code)) return 'enforcement';
     return policy.group === 'legal' ? 'terms' : 'guidelines';
   }
 
-  ngOnInit(): void {
-    // 1. Check path
-    this.route.url.subscribe(segments => {
-      const path = segments[0]?.path || '';
-      if (path === 'terms') {
-        this.activeTab.set('terms');
-      } else if (path === 'privacy') {
-        this.activeTab.set('privacy');
-      } else if (path === 'guidelines') {
-        this.activeTab.set('guidelines');
-      }
-    });
+  constructor() {
+    this.i18n.registerTranslations(POLICY_CENTER_TRANSLATIONS);
+  }
 
-    // 2. Check query param ?tab=...
-    this.route.queryParams.subscribe(params => {
-      const tabParam = params['tab'] as PolicyTab | undefined;
-      if (tabParam && ['guidelines', 'privacy', 'terms', 'monetization', 'enforcement'].includes(tabParam)) {
-        this.activeTab.set(tabParam);
-      }
+  ngOnInit(): void {
+    combineLatest([this.route.url, this.route.queryParams]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([segments, params]) => {
+      const path = segments[0]?.path;
+      const defaultTab: PolicyTab = path === 'terms' || path === 'privacy' || path === 'guidelines' ? path : 'all';
+      const queryTab = params['tab'] as PolicyTab | undefined;
+      this.activeTab.set(queryTab && this.tabs.some(tab => tab.key === queryTab) ? queryTab : defaultTab);
     });
 
     this.loadBackendPolicies();
@@ -711,14 +674,16 @@ export class PublicPolicyPage implements OnInit {
 
   loadBackendPolicies(): void {
     this.loading.set(true);
+    this.loadError.set(false);
     this.http.get<PublicPolicy[]>(`${this.config.apiBaseUrl}/policies`).subscribe({
       next: (data) => {
-        if (data && data.length > 0) {
-          this.policies.set(data);
-        }
+        this.policies.set(data ?? []);
         this.loading.set(false);
+        const fragment = this.route.snapshot?.fragment;
+        if (fragment) setTimeout(() => document.getElementById(fragment)?.scrollIntoView({ block: 'start' }));
       },
       error: () => {
+        this.loadError.set(true);
         this.loading.set(false);
       }
     });
@@ -736,49 +701,62 @@ export class PublicPolicyPage implements OnInit {
         heading?.focus({ preventScroll: true });
         heading?.scrollIntoView({ block: 'center', behavior: 'instant' });
       } else {
-        window.scrollTo({ top: 140, behavior: 'smooth' });
+        this.policyHeading?.nativeElement.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
       }
     });
   }
 
   printDocument(): void {
+    if (this.loading() || this.loadError()) return;
     window.print();
     this.showToast(this.i18n.t('policies.printToast'));
   }
 
   async downloadPdf(): Promise<void> {
-    if (this.exportingPdf()) return;
+    if (this.exportingPdf() || this.loading() || this.loadError()) return;
     this.exportingPdf.set(true);
     try {
       const [{ default: pdfMake }, { default: fonts }] = await Promise.all([import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts')]);
       pdfMake.addVirtualFileSystem(fonts);
-      const content: Content[] = [{ text: 'HuTube — ' + this.currentTabInfo().title, style: 'title' }];
-      for (const item of this.activeList()) {
-        content.push({ text: this.getItemName(item), style: 'heading', headlineLevel: 1 });
-        if (item.published) {
-          const effectiveDate = new Intl.DateTimeFormat(this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-GB', { timeZone: 'UTC' }).format(new Date(item.published.effectiveAt));
-          content.push({ text: `${item.published.code} · ${item.published.version} · ${effectiveDate} · ${this.getSeverityLabel(item.severity)}`, margin: [0, 0, 0, 8] });
-        }
-        content.push({ text: this.getItemSummary(item), margin: [0, 0, 0, 8] });
-        const rules = this.getItemRules(item); if (rules.length) content.push({ ul: rules });
-        const exceptions = this.getItemExceptions(item); if (exceptions.length) content.push({ ul: exceptions, margin: [0, 8, 0, 0] });
-      }
-      const document: TDocumentDefinitions = { content, defaultStyle: { font: 'Roboto', fontSize: 10 },
-        pageBreakBefore: (node, queries) => node.headlineLevel === 1 && queries.getFollowingNodesOnPage().length < 2,
-        pageMargins: [40, 40, 40, 40], styles: { title: { fontSize: 20, bold: true, margin: [0, 0, 0, 18] }, heading: { fontSize: 14, bold: true, margin: [0, 16, 0, 8] } } };
-      await pdfMake.createPdf(document).download(`HuTube-${this.activeTab()}.pdf`);
+      await pdfMake.createPdf(this.createPdfDocument()).download('Dalitu-all-policies.pdf');
       this.showToast(this.i18n.t('policies.pdfToast'));
     } catch {
       this.showToast(this.i18n.t('collection.exportError'));
     } finally { this.exportingPdf.set(false); }
   }
 
-  requestDataExport(): void {
-    this.showToast(this.i18n.t('common.notSupported'));
+  createPdfDocument(): TDocumentDefinitions {
+    // Export the complete collection, independently of the selected category and search.
+    const content: Content[] = [
+      { text: 'Dalitu — ' + this.i18n.t('policies.tab.all.title'), style: 'title' },
+      { text: this.i18n.t('policies.exportHint'), margin: [0, 0, 0, 18] }
+    ];
+    for (const section of this.policySections()) {
+      content.push({ text: this.i18n.t(section.labelKey), style: 'section', headlineLevel: 1 });
+      for (const item of section.items) {
+        content.push({ text: this.getItemName(item), style: 'heading', headlineLevel: 2 });
+        if (item.published) {
+          const effectiveDate = new Intl.DateTimeFormat(this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-GB', { timeZone: 'UTC' }).format(new Date(item.published.effectiveAt));
+          content.push({ text: `${item.published.code} · ${item.published.version} · ${effectiveDate} · ${this.getSeverityLabel(item.severity)}`, margin: [0, 0, 0, 8] });
+        }
+        content.push({ text: this.getItemSummary(item), margin: [0, 0, 0, 8] });
+        const rules = this.getItemRules(item);
+        if (rules.length) content.push({ text: this.i18n.t('policies.mandatoryRules'), bold: true }, { ul: rules });
+        const exceptions = this.getItemExceptions(item);
+        if (exceptions.length) content.push({ text: this.i18n.t('policies.exceptionsEdsa'), bold: true, margin: [0, 8, 0, 4] }, { ul: exceptions });
+      }
+    }
+    return { content, info: { title: 'Dalitu — ' + this.i18n.t('policies.tab.all.title') },
+      defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.3 },
+      footer: (page, pages) => ({ text: `Dalitu · ${page} / ${pages}`, alignment: 'center', fontSize: 9, color: '#64748b' }),
+      pageBreakBefore: (node, queries) => !!node.headlineLevel && queries.getFollowingNodesOnPage().length < 2,
+      pageMargins: [40, 40, 40, 48], styles: {
+        title: { fontSize: 22, bold: true, margin: [0, 0, 0, 12] },
+        section: { fontSize: 18, bold: true, color: '#b91c50', margin: [0, 24, 0, 12] },
+        heading: { fontSize: 13, bold: true, margin: [0, 16, 0, 8] }
+      }
+    };
   }
-
-  resetAlgorithm(): void { this.showToast(this.i18n.t('common.notSupported')); }
-  toggleAdPersonalization(): void { this.showToast(this.i18n.t('common.notSupported')); }
 
   private showToast(msg: string): void {
     this.actionToast.set(msg);

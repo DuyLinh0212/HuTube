@@ -1,20 +1,18 @@
 {
   "outputDirectory": "dist/admin-web/browser",
-  "rewrites": [
+  "routes": [
+    { "src": "/config\\.json$", "headers": { "Cache-Control": "no-store" }, "continue": true },
+    { "src": "/(?:index\\.html)?$", "headers": { "Cache-Control": "no-store" }, "continue": true },
+    { "handle": "filesystem" },
     {
-      "source": "/((?!.*\\.).*)",
-      "destination": "/index.html"
-    }
-  ],
-  "headers": [
+      "src": "/.*\\.[^/]+$",
+      "status": 404,
+      "headers": { "Cache-Control": "no-store" }
+    },
     {
-      "source": "/config.json",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
+      "src": "/.*",
+      "dest": "/index.html",
+      "headers": { "Cache-Control": "no-store" }
     }
   ]
 }

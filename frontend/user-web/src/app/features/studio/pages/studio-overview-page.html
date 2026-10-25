@@ -86,14 +86,15 @@
           <h2>{{ 'studio.complianceCenter' | translate }}</h2>
           <p class="panel-subtitle">{{ 'studio.complianceCenterDescription' | translate }}</p>
         </div>
+        <div class="panel-actions compliance-actions">
+          <a class="btn-policy-reference" routerLink="/policies">{{ 'studio.viewPolicies' | translate }} <span aria-hidden="true">↗</span></a>
         @if (isAppealEligible()) {
-          <div class="panel-actions">
             <button type="button" class="btn-appeal-header" (click)="openAppealModal()">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               {{ 'studio.sendAppeal' | translate }}
             </button>
-          </div>
         }
+        </div>
       </div>
 
       <div class="mod-grid">
@@ -131,7 +132,7 @@
                       </td>
                       <td>
                         @if (item.policyCode) {
-                          <div class="policy-code">{{ item.policyCode }}</div>
+                          <a class="policy-code" routerLink="/policies" [queryParams]="{ tab: 'all' }" [fragment]="item.policyCode">{{ item.policyCode }} ↗</a>
                         }
                         <div class="reason-text">{{ item.reason }}</div>
                       </td>

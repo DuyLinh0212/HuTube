@@ -811,12 +811,17 @@
 @keyframes playlist-picker-rise { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 .channel-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   padding: 18px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.channel-info {
+  min-width: 0;
 }
 
 .channel-watermark { position: absolute; right: 18px; bottom: 64px; z-index: 2; width: clamp(44px, 8vw, 88px); max-height: 64px; object-fit: contain; opacity: .82; pointer-events: none; }
@@ -839,7 +844,7 @@
 }
 
 .channel-identity {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   min-width: 0;
   gap: 11px;
@@ -885,8 +890,11 @@
 
 .channel-copy small,
 .subscriber-count {
+  overflow: hidden;
   color: var(--text-muted);
   font-size: .7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .subscriber-count {
@@ -1788,14 +1796,93 @@
   .playlist-picker__row { grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; }
   .playlist-picker__mark { width: 34px; height: 34px; }
 
+  .video-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .video-actions > .reaction-group,
+  .video-actions > .action-button:not(.download-action-button, .report-action-button) {
+    grid-column: span 2;
+  }
+
+  .video-actions > .action-button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 6px 10px;
+  }
+
+  .reaction-group .action-button {
+    flex: 1;
+    min-width: 0;
+    min-height: 42px;
+  }
+
+  .download-action-button .action-label,
+  .report-action-button .action-label {
+    display: none;
+  }
+
+  .rating-control {
+    grid-column: 1 / -1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .rating-stars {
+    flex: 1;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .rating-star {
+    width: clamp(32px, 8vw, 44px);
+    height: 44px;
+  }
+
+  .rating-clear {
+    width: 28px;
+    height: 44px;
+  }
+
   .channel-row {
-    align-items: flex-start;
-    flex-direction: column;
+    gap: 10px;
+    padding: 16px 0;
+  }
+
+  .channel-identity {
+    gap: 9px;
+  }
+
+  .channel-avatar {
+    width: 40px;
+    height: 40px;
   }
 
   .channel-actions {
-    width: 100%;
     margin-left: 0;
+    gap: 6px;
+  }
+
+  .channel-actions .primary-button {
+    width: auto;
+    min-width: 100px;
+    min-height: 44px;
+    padding-inline: 12px;
+  }
+
+  .channel-notification-button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .channel-notification-button > span {
+    display: none;
   }
 
   .description-panel,

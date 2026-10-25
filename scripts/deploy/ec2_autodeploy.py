@@ -217,6 +217,10 @@ class Deployer:
                  snapshot["images"]["caddy"], "validate", "--config", "/etc/caddy/Caddyfile")
         services = self.compose("config", "--services", env=env, capture=True).splitlines()
         if "rabbitmq" in services:
+            # Git checkout inherits the service's private umask (0077). This
+            # tracked file contains public broker settings and must be readable
+            # by the non-root RabbitMQ user; secret env files stay mode 0600.
+            (self.repo / "deploy/rabbitmq/rabbitmq.conf").chmod(0o644)
             log("starting_messaging")
             self.compose("up", "-d", "--no-deps", "--wait", "--wait-timeout", "120",
                          "rabbitmq", env=env, timeout=180)

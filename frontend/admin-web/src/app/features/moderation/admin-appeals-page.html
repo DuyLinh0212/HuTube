@@ -1,5 +1,7 @@
-<div class="moderation-container appeals-page">
+<div class="trust-workspace moderation-container appeals-page">
+
   <header class="page-header">
+    <div class="workspace-heading"><h1>{{ 'workspace.appeals' | translate }}</h1><p>{{ 'workspace.appealsDesc' | translate }}</p></div>
     <div class="header-actions">
       <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
@@ -20,22 +22,22 @@
 
   <!-- Status Tabs -->
   <div class="status-tabs" role="tablist" [attr.aria-label]="'appeals.statusTabs' | translate">
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'pending'" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">
       {{ 'appeals.pending' | translate }} <b>{{ countPending() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'reviewing'" (click)="setStatus('reviewing')">
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'reviewing'" [class.is-active]="selectedStatus() === 'reviewing'" (click)="setStatus('reviewing')">
       {{ 'appeals.reviewing' | translate }} <b>{{ countReviewing() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'approved'" (click)="setStatus('approved')">
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'approved'" [class.is-active]="selectedStatus() === 'approved'" (click)="setStatus('approved')">
       {{ 'appeals.approved' | translate }} <b>{{ countApproved() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'rejected'" (click)="setStatus('rejected')">
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'rejected'" [class.is-active]="selectedStatus() === 'rejected'" (click)="setStatus('rejected')">
       {{ 'appeals.rejected' | translate }} <b>{{ countRejected() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'escalated'" (click)="setStatus('escalated')">
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'escalated'" [class.is-active]="selectedStatus() === 'escalated'" (click)="setStatus('escalated')">
       {{ 'moderation.statusEscalated' | translate }} <b>{{ countEscalated() }}</b>
     </button>
-    <button type="button" role="tab" [class.is-active]="selectedStatus() === 'ALL'" (click)="setStatus('ALL')">
+    <button type="button" role="tab" [attr.aria-selected]="selectedStatus() === 'ALL'" [class.is-active]="selectedStatus() === 'ALL'" (click)="setStatus('ALL')">
       {{ 'moderation.statusAll' | translate }} <b>{{ appeals().length }}</b>
     </button>
   </div>
@@ -67,11 +69,15 @@
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
-      <input type="text" [placeholder]="'appeals.search' | translate"
+      <input type="search" [attr.aria-label]="'appeals.search' | translate" [placeholder]="'appeals.search' | translate"
         [ngModel]="searchQuery()" (ngModelChange)="setSearchQuery($event)" />
     </div>
   </section>
 
+  @if (invalidDateRange()) { <p class="date-range-error" role="alert">{{ 'appeals.invalidDateRange' | translate }}</p> }
+  <div class="workspace-filter-summary" role="status"><span>{{ 'appeals.matching' | translate:{ count: filteredAppeals().length } }}</span>
+    @if (hasFilters()) { <button type="button" (click)="resetFilters()">{{ 'appeals.clearFilters' | translate }}</button> }
+  </div>
   <!-- Appeals Table -->
   <section class="table-card">
     <div class="table-heading">
@@ -103,89 +109,34 @@
     } @else {
       <div class="table-responsive">
         <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 70px;">{{ 'appeals.index' | translate }}</th>
-              <th style="width: 100px;">{{ 'appeals.target' | translate }}</th>
-              <th style="width: 245px;">{{ 'appeals.item' | translate }}</th>
-              <th style="width: 230px;">{{ 'appeals.userReason' | translate }}</th>
-              <th style="width: 160px;">{{ 'appeals.evidence' | translate }}</th>
-              <th style="width: 125px;">{{ 'appeals.sender' | translate }}</th>
-              <th style="width: 145px;">{{ 'moderation.colStatus' | translate }}</th>
-              <th style="width: 120px;">{{ 'appeals.handler' | translate }}</th>
-              <th style="width: 155px;">{{ 'appeals.time' | translate }}</th>
-              <th class="actions-col" style="width: 180px;">{{ 'moderation.colActions' | translate }}</th>
-            </tr>
-          </thead>
+          <colgroup><col class="appeal-case-column"/><col class="appeal-reason-column"/><col class="appeal-sender-column"/><col class="appeal-status-column"/><col class="appeal-actions-column"/></colgroup>
+          <thead><tr><th>{{ 'appeals.case' | translate }}</th><th>{{ 'appeals.reasonEvidence' | translate }}</th><th>{{ 'appeals.sender' | translate }}</th><th>{{ 'moderation.colStatus' | translate }}</th><th class="actions-col">{{ 'moderation.colActions' | translate }}</th></tr></thead>
           <tbody>
             @for (item of paginatedAppeals(); track item.appealId) {
               <tr>
-                <td>
-                  <span class="appeal-index">#{{ item.appealNumber }}</span>
+                <td class="appeal-case-cell" [attr.data-label]="'appeals.case' | translate">
+                  <div class="appeal-case-meta"><span class="appeal-index">#{{ item.appealNumber }}</span><span class="badge" [class.badge-video]="item.targetType === 'video'" [class.badge-channel]="item.targetType === 'channel'" [class.badge-strike]="item.targetType === 'strike'">{{ targetTypeLabel(item.targetType) }}</span></div>
+                  <button type="button" class="appeal-title-button" (click)="openDetails(item)">{{ targetTitle(item) }}</button>
+                  <small class="appeal-row-meta">{{ 'appeals.submitted' | translate }} {{ item.createdAt | date:'dd/MM/yyyy HH:mm':undefined:dateLocale() }}</small>
                 </td>
-                <td>
-                  <span class="badge" [class.badge-video]="item.targetType === 'video'"
-                    [class.badge-channel]="item.targetType === 'channel'"
-                    [class.badge-strike]="item.targetType === 'strike'">
-                    {{ targetTypeLabel(item.targetType) }}
-                  </span>
+                <td class="appeal-reason-cell" [attr.data-label]="'appeals.reasonEvidence' | translate">
+                  <p class="appeal-reason-preview">{{ item.reason }}</p>
+                  @if (item.evidenceUrl) { <button type="button" class="link-evidence" (click)="openEvidence(item)">{{ 'appeals.viewAttachment' | translate }} <span aria-hidden="true">↗</span></button> }
+                  @else { <small class="appeal-row-meta">{{ 'appeals.noAttachment' | translate }}</small> }
                 </td>
-                <td class="target-title-col">
-                  <div class="target-info">
-                    <strong class="target-title" [title]="item.targetTitle || item.targetType">{{ item.targetTitle || item.targetType }}</strong>
-                    <span class="target-id" [title]="item.targetId">{{ item.targetId }}</span>
-                  </div>
+                <td class="appeal-sender-cell" [attr.data-label]="'appeals.sender' | translate"><span class="user-name">{{ item.userName || ('appeals.user' | translate) }}</span></td>
+                <td class="appeal-status-cell" [attr.data-label]="'moderation.colStatus' | translate">
+                  <span class="status-pill" [class.status-pending]="item.status === 'pending' || lease.expired(item)" [class.status-reviewing]="lease.active(item)" [class.status-approved]="item.status === 'approved'" [class.status-rejected]="item.status === 'rejected'">{{ statusLabel(lease.expired(item) ? 'pending' : item.status) }}</span>
+                  @if (item.reviewerName) { <small class="appeal-row-meta">{{ 'appeals.handler' | translate }}: {{ item.reviewerName }}</small> }
+                  @if (item.resolvedAt) { <small class="appeal-row-meta">{{ item.resolvedAt | date:'dd/MM/yyyy HH:mm':undefined:dateLocale() }}</small> }
                 </td>
-                <td class="description-col">
-                  <span class="reason-text">{{ item.reason }}</span>
-                </td>
-                <td>
-                  @if (item.evidenceUrl) {
-                    <button type="button" class="link-evidence" (click)="openEvidence(item)">
-                      <span>{{ 'appeals.viewAttachment' | translate }}</span>
-                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="link-icon">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <line x1="10" y1="14" x2="21" y2="3"></line>
-                      </svg>
-                    </button>
-                  } @else {
-                    <span class="text-muted">{{ 'appeals.none' | translate }}</span>
-                  }
-                </td>
-                <td>
-                  <span class="user-name">{{ item.userName || ('appeals.user' | translate) }}</span>
-                </td>
-                <td>
-                  <span class="status-pill" [class.status-pending]="item.status === 'pending'"
-                    [class.status-reviewing]="item.status === 'reviewing'"
-                    [class.status-approved]="item.status === 'approved'"
-                    [class.status-rejected]="item.status === 'rejected'">
-                    <span class="status-dot"></span>
-                    {{ statusLabel(item.status) }}
-                  </span>
-                </td>
-                <td>
-                  <span class="reviewer-name">{{ item.reviewerName || '—' }}</span>
-                </td>
-                <td class="time-col">{{ item.createdAt | date:'short':undefined:dateLocale() }}</td>
-                <td class="actions-col">
-                  <div class="action-buttons"> @if (lease.expired(item)) { <small role="status">{{ 'moderation.claimExpired' | translate }}</small> }
-                    @if (canResolveAppeal() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item))) {
-                      <button type="button" class="btn-action btn-claim" (click)="claimAppeal(item)" [disabled]="submitting()" [title]="'appeals.claimTitle' | translate">
-                        {{ 'appeals.claim' | translate }}
-                      </button>
-                    } @else if (canResolveAppeal() && isClaimOwner(item)) {
-                      <button type="button" class="btn-action btn-claim" (click)="releaseAppeal(item)" [disabled]="submitting()" [title]="'appeals.releaseTitle' | translate">
-                        {{ 'appeals.release' | translate }}
-                      </button>
-                      <button type="button" class="btn-action btn-resolve" (click)="openResolveModal(item)" [disabled]="submitting()" [title]="'appeals.openResolution' | translate">
-                        {{ 'appeals.resolve' | translate }}
-                      </button>
-                    } @else if (item.status !== 'pending' && item.status !== 'reviewing') {
-                      <span class="done-label">{{ 'appeals.processed' | translate }}</span>
-                    } @else {
-                      <span class="text-muted">{{ 'appeals.waitingAssignment' | translate }}</span>
+                <td class="actions-col" [attr.data-label]="'moderation.colActions' | translate">
+                  <div class="action-buttons">
+                    <button type="button" class="btn-action btn-detail" (click)="openDetails(item)">{{ 'appeals.viewDetails' | translate }}</button>
+                    @if (canResolveAppeal() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item))) { <button type="button" class="btn-action btn-claim" [disabled]="submitting()" (click)="startAppeal(item)">{{ 'workflow.review' | translate }}</button> }
+                    @else if (canResolveAppeal() && isClaimOwner(item)) {
+                      <button type="button" class="btn-action btn-resolve" [disabled]="submitting()" (click)="startAppeal(item)">{{ 'workflow.review' | translate }}</button>
+                      <button type="button" class="btn-action btn-release" [disabled]="submitting()" (click)="releaseAppeal(item)">{{ 'workflow.leave' | translate }}</button>
                     }
                   </div>
                 </td>
@@ -223,6 +174,21 @@
     }
   </section>
 
+  @if (detailAppeal(); as appeal) {
+    <dialog #detailDialog class="appeal-detail-dialog" aria-labelledby="appeal-detail-title" (cancel)="$event.preventDefault(); closeDetails()" (click)="onDetailBackdrop($event)">
+      <header class="appeal-detail-header"><div><span class="appeal-detail-kicker">{{ targetTypeLabel(appeal.targetType) }}</span><h2 id="appeal-detail-title">{{ 'appeals.detailsTitle' | translate:{ number: appeal.appealNumber } }}</h2></div><button type="button" class="detail-close" (click)="closeDetails()" [attr.aria-label]="'common.close' | translate">×</button></header>
+      <div class="appeal-detail-body">
+        <section class="appeal-detail-context"><h3>{{ targetTitle(appeal) }}</h3><span class="status-pill" [class.status-approved]="appeal.status === 'approved'" [class.status-rejected]="appeal.status === 'rejected'">{{ statusLabel(lease.expired(appeal) ? 'pending' : appeal.status) }}</span></section>
+        <dl class="appeal-detail-meta"><div><dt>{{ 'appeals.sender' | translate }}</dt><dd>{{ appeal.userName || ('appeals.user' | translate) }}</dd></div><div><dt>{{ 'appeals.submitted' | translate }}</dt><dd>{{ appeal.createdAt | date:'dd/MM/yyyy HH:mm':undefined:dateLocale() }}</dd></div><div><dt>{{ 'appeals.handler' | translate }}</dt><dd>{{ appeal.reviewerName || ('appeals.notAssigned' | translate) }}</dd></div><div><dt>{{ 'appeals.resolved' | translate }}</dt><dd>{{ appeal.resolvedAt ? (appeal.resolvedAt | date:'dd/MM/yyyy HH:mm':undefined:dateLocale()) : '—' }}</dd></div></dl>
+        <section class="appeal-detail-section"><h3>{{ 'appeals.explanation' | translate }}</h3><p>{{ appeal.reason }}</p></section>
+        <section class="appeal-detail-section"><h3>{{ 'appeals.evidence' | translate }}</h3>@if (appeal.evidenceNote) { <p>{{ appeal.evidenceNote }}</p> }@if (appeal.evidenceUrl) { <button type="button" class="link-evidence" (click)="openEvidence(appeal)">{{ 'appeals.openEvidence' | translate }} ↗</button> } @else { <p class="muted-copy">{{ 'appeals.noAttachment' | translate }}</p> }</section>
+        <section class="appeal-detail-section"><h3>{{ 'appeals.outcomeNote' | translate }}</h3><p>{{ appeal.reviewNote || ('appeals.noReviewNote' | translate) }}</p></section>
+        <details class="appeal-references"><summary>{{ 'appeals.referenceCodes' | translate }}</summary><dl><dt>{{ 'appeals.caseId' | translate }}</dt><dd>{{ appeal.appealId }}</dd><dt>{{ 'appeals.targetId' | translate }}</dt><dd>{{ appeal.targetId }}</dd>@if (appeal.moderationCaseId) { <dt>{{ 'appeals.moderationId' | translate }}</dt><dd>{{ appeal.moderationCaseId }}</dd> }@if (appeal.strikeId) { <dt>{{ 'appeals.strike' | translate }}</dt><dd>{{ appeal.strikeId }}</dd> }</dl></details>
+      </div>
+      <footer class="appeal-detail-footer"><button type="button" class="btn btn-secondary" (click)="closeDetails()">{{ 'common.close' | translate }}</button>@if (canResolveAppeal() && isClaimOwner(appeal)) { <button type="button" class="btn btn-primary" (click)="reviewFromDetails()">{{ 'appeals.resolve' | translate }}</button> }</footer>
+    </dialog>
+  }
+
   <!-- Resolution Modal -->
   @if (isResolveModalOpen() && activeAppeal()) {
     <app-confirm-dialog [title]="'appeals.resolutionTitle' | translate:{ number: activeAppeal()!.appealNumber }" [confirmLabel]="'appeals.confirmResolution' | translate" (cancelled)="closeResolveModal()" (confirmed)="submitResolution()" panelClass="modal-card" [busy]="submitting()" initialFocus="field">
@@ -236,7 +202,7 @@
                 [class.badge-strike]="activeAppeal()!.targetType === 'strike'">
                 {{ targetTypeLabel(activeAppeal()!.targetType) }}
               </span>
-              <strong style="margin-left: 0.35rem;">{{ activeAppeal()!.targetTitle }}</strong>
+              <strong style="margin-left: 0.35rem;">{{ targetTitle(activeAppeal()!) }}</strong>
             </div>
             <div class="context-row">
               <span class="context-label">{{ 'appeals.explanation' | translate }}</span>

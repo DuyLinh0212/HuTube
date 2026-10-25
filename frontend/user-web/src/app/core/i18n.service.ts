@@ -257,19 +257,20 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.terms': 'Điều khoản',
     'nav.privacy': 'Quyền riêng tư',
     'nav.guidelines': 'Quy tắc cộng đồng',
-    'nav.policyHub': 'Chính sách & An toàn',
+    'nav.policyHub': 'Chính sách',
     'nav.navigation': 'Điều hướng chính',
     'nav.guestPrompt': 'Đăng nhập để bắt đầu xem, lưu và tương tác với video.',
 
     // Policy Hub Page
-    'policies.hubTitle': 'Chính sách & An toàn',
+    'policies.hubTitle': 'Chính sách',
+
     'policies.guidelines': 'Quy tắc cộng đồng',
     'policies.privacy': 'Quyền riêng tư & Bảo mật',
     'policies.terms': 'Điều khoản dịch vụ',
     'policies.monetization': 'Kiếm tiền & Đối tác',
     'policies.enforcement': 'Thực thi & Khiếu nại',
-    'policies.print': 'In tài liệu',
-    'policies.downloadPdf': 'Tải PDF',
+    'policies.print': 'In toàn bộ',
+    'policies.downloadPdf': 'Tải toàn bộ PDF',
     'policies.printToast': 'Đã gửi lệnh in tài liệu chính sách thành công.',
     'policies.pdfToast': 'Đã tải bản sao lưu PDF chính sách thành công.',
     'policies.closeToast': 'Đóng thông báo',
@@ -279,8 +280,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.breadcrumbHome': 'Trang chủ',
     'policies.breadcrumbLegal': 'Chính sách & Pháp lý',
     'policies.badgeStandard': 'Tiêu chuẩn Dalitu · Tham chiếu Chuẩn Quốc tế & Nghị định 13/2023/NĐ-CP',
-    'policies.heroTitle': 'Các chính sách của chúng tôi',
-    'policies.heroMission': 'Sứ mệnh của Dalitu là trao cho mọi người tiếng nói và cho họ thấy thế giới. Sự cởi mở và quyền tự do biểu đạt đóng vai trò cốt lõi trong sứ mệnh này. Trên nền tảng của chúng tôi, các quan điểm đa chiều đều được khuyến khích, đồng thời luôn duy trì không gian an toàn, lành mạnh cho cộng đồng.',
+    'policies.heroTitle': 'Hiểu chính sách. An tâm sáng tạo.',
+    'policies.heroMission': 'Tra cứu quy tắc cộng đồng, quyền riêng tư và điều khoản sử dụng tại một nơi. Hiểu quyền lợi, trách nhiệm và cách gửi kháng nghị khi cần.',
     'policies.heroUpdated': 'Cập nhật: Năm 2026',
     'policies.heroEffective': 'Hiệu lực: Toàn bộ nền tảng Dalitu, ứng dụng di động & dịch vụ trực tuyến',
 
@@ -2410,19 +2411,20 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.terms': 'Terms',
     'nav.privacy': 'Privacy',
     'nav.guidelines': 'Community Guidelines',
-    'nav.policyHub': 'Policy & Safety',
+    'nav.policyHub': 'Policies',
     'nav.navigation': 'Primary navigation',
     'nav.guestPrompt': 'Sign in to start watching, saving, and interacting with videos.',
 
     // Policy Hub Page
-    'policies.hubTitle': 'Policy & Safety',
+    'policies.hubTitle': 'Policies',
+
     'policies.guidelines': 'Community Guidelines',
     'policies.privacy': 'Privacy & Security',
     'policies.terms': 'Terms of Service',
     'policies.monetization': 'Monetization & Partner',
     'policies.enforcement': 'Enforcement & Appeals',
-    'policies.print': 'Print Document',
-    'policies.downloadPdf': 'Download PDF',
+    'policies.print': 'Print all',
+    'policies.downloadPdf': 'Download all policies',
     'policies.printToast': 'Successfully sent print command for policy document.',
     'policies.pdfToast': 'Successfully exported PDF copy of policy document.',
     'policies.closeToast': 'Dismiss notification',
@@ -2432,8 +2434,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'policies.breadcrumbHome': 'Home',
     'policies.breadcrumbLegal': 'Policy & Legal',
     'policies.badgeStandard': 'Dalitu Standards · International Best Practices & Decree 13/2023/ND-CP',
-    'policies.heroTitle': 'Our Platform Policies',
-    'policies.heroMission': 'Dalitu’s mission is to give everyone a voice and show them the world. Openness and freedom of expression are central to this mission. Diverse viewpoints are encouraged while maintaining a safe, healthy environment for our community.',
+    'policies.heroTitle': 'Know the rules. Create with confidence.',
+    'policies.heroMission': 'Find community guidelines, privacy rules and terms in one place. Understand your rights, responsibilities and how to appeal a decision.',
     'policies.heroUpdated': 'Updated: 2026',
     'policies.heroEffective': 'Scope: Entire Dalitu platform, mobile apps & web services',
 
@@ -4399,6 +4401,11 @@ export class I18nService {
     }).format(count / divisor);
 
     return `${compactValue}${suffix}`;
+  }
+
+  registerTranslations(translations: Record<AppLang, Record<string, string>>): void {
+    Object.assign(DICTIONARY.vi, translations.vi);
+    Object.assign(DICTIONARY.en, translations.en);
   }
 
   t(key: string, params?: TranslationParams): string {

@@ -1,5 +1,7 @@
-<main class="moderation-container report-cases-page">
+<main class="trust-workspace moderation-container report-cases-page">
+
   <header class="page-header">
+    <div class="workspace-heading"><h1>{{ 'workspace.reports' | translate }}</h1><p>{{ 'workspace.reportsDesc' | translate }}</p></div>
     <div class="header-actions">
       <button type="button" class="btn btn-secondary" (click)="loadData()" [disabled]="loading()">{{ 'moderation.refresh' | translate }}</button>
     </div>
@@ -9,11 +11,11 @@
   @if (successMessage()) { <app-result-notice tone="success" [message]="successMessage()" /> }
 
   <nav class="status-tabs" [attr.aria-label]="'reports.statusTabs' | translate">
-    <button type="button" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">{{ 'moderation.statusPending' | translate }}</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'reviewing'" (click)="setStatus('reviewing')">{{ 'reports.processing' | translate }}</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'resolved'" (click)="setStatus('resolved')">{{ 'reports.closed' | translate }}</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'escalated'" (click)="setStatus('escalated')">{{ 'reports.escalated' | translate }}</button>
-    <button type="button" [class.is-active]="selectedStatus() === 'ALL'" (click)="setStatus('ALL')">{{ 'moderation.statusAll' | translate }}</button>
+    <button type="button" [attr.aria-pressed]="selectedStatus() === 'pending'" [class.is-active]="selectedStatus() === 'pending'" (click)="setStatus('pending')">{{ 'moderation.statusPending' | translate }}</button>
+    <button type="button" [attr.aria-pressed]="selectedStatus() === 'reviewing'" [class.is-active]="selectedStatus() === 'reviewing'" (click)="setStatus('reviewing')">{{ 'reports.processing' | translate }}</button>
+    <button type="button" [attr.aria-pressed]="selectedStatus() === 'resolved'" [class.is-active]="selectedStatus() === 'resolved'" (click)="setStatus('resolved')">{{ 'reports.closed' | translate }}</button>
+    <button type="button" [attr.aria-pressed]="selectedStatus() === 'escalated'" [class.is-active]="selectedStatus() === 'escalated'" (click)="setStatus('escalated')">{{ 'reports.escalated' | translate }}</button>
+    <button type="button" [attr.aria-pressed]="selectedStatus() === 'ALL'" [class.is-active]="selectedStatus() === 'ALL'" (click)="setStatus('ALL')">{{ 'moderation.statusAll' | translate }}</button>
   </nav>
 
   <section class="toolbar report-case-toolbar">
@@ -62,6 +64,9 @@
     }
   </section>
 
+  <div class="workspace-filter-summary" role="status"><span>{{ 'workspace.results' | translate:{ count: filteredCases().length } }}</span>
+    @if (searchQuery() || selectedTargetType() !== 'ALL' || allStatusFilter() !== 'ALL' || selectedViolationType() !== 'ALL' || processedFrom() || processedTo()) { <button type="button" (click)="resetFilters()">{{ 'workspace.resetFilters' | translate }}</button> }
+  </div>
   <section class="table-card">
     <div class="table-heading"><div><h2>{{ 'reports.casesTitle' | translate }}</h2><p>{{ 'reports.caseCount' | translate:{ total: total(), visible: filteredCases().length } }}</p></div></div>
     @if (loading()) {
@@ -92,8 +97,7 @@
                 <td>{{ (item.resolvedAt || item.submittedAt) | date:'short':undefined:dateLocale() }}</td>
                 <td class="actions-col">
                   <div class="action-buttons">
-                    <button type="button" class="btn-action btn-resolve" (click)="openCase(item)">{{ 'reports.details' | translate }}</button>
-                    @if (canClaim() && (item.status === 'pending' || lease.expired(item))) { <button type="button" class="btn-action btn-claim" [disabled]="submitting()" (click)="claim(item)">{{ 'reports.claim' | translate }}</button> }
+                    <button type="button" class="btn-action btn-resolve" [disabled]="submitting() || detailLoading()" (click)="startCase(item)">{{ (canResolve() && (item.reviewerId === auth.user()?.userId && lease.active(item) || canClaim() && (item.status === 'pending' || lease.expired(item))) ? 'workflow.review' : 'reports.details') | translate }}</button>
                     @if (canClaim() && item.status === 'reviewing' && item.reviewerId === auth.user()?.userId) { <button type="button" class="btn-action btn-release" [disabled]="submitting()" (click)="release(item)">{{ 'reports.return' | translate }}</button> }
                   </div>
                 </td>
@@ -114,76 +118,59 @@
   </section>
 
   @if (activeCase(); as detail) {
-    <div class="modal-backdrop" (click)="closeCase()">
-      <section class="modal-card report-case-dialog" role="dialog" aria-modal="true" aria-labelledby="case-title" (click)="$event.stopPropagation()">
-        <header class="modal-header">
-          <div><p class="eyebrow">{{ 'reports.caseHeading' | translate:{ id: detail.case.caseId.slice(0, 8) } }}</p><h2 id="case-title">{{ detail.case.targetTitle || ('reports.targetUnavailable' | translate) }}</h2></div>
-          <button type="button" class="close-btn" [attr.aria-label]="'moderation.close' | translate" (click)="closeCase()">×</button>
-        </header>
-
-        <div class="case-summary-line">
-          <span>{{ 'reports.reportCount' | translate:{ count: detail.case.reportCount } }}</span><span>{{ 'reports.reporterCount' | translate:{ count: detail.case.reporterCount } }}</span>
-          <span>{{ 'reports.unclassifiedCount' | translate:{ count: unclassifiedCount() } }}</span>
-          <span class="case-status" [class.is-reviewing]="detail.case.status === 'reviewing'">{{ statusLabel(detail.case.status) }}</span>
-        </div>
-
-        @if (detail.case.status === 'pending' && canClaim()) {
-          <div class="case-owner-toolbar case-owner-toolbar--pending"><div><strong>{{ 'reports.pendingOwnerTitle' | translate }}</strong><span>{{ 'reports.pendingOwnerHint' | translate }}</span></div><button type="button" class="btn btn-primary" [disabled]="submitting()" (click)="claim(detail.case)">{{ 'reports.claimCase' | translate }}</button></div>
-        }
-        @if (detail.case.status === 'reviewing' && canClaim() && isCaseOwner()) {
-          <div class="case-owner-toolbar"><div><strong>{{ 'reports.workingTitle' | translate }}</strong><span>{{ 'reports.workingHint' | translate }}</span></div><button type="button" class="btn btn-secondary" [disabled]="submitting()" (click)="release(detail.case)">{{ 'reports.returnCase' | translate }}</button></div>
-        }
-
-        @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') {
-          <div class="case-workflow" [attr.aria-label]="'reports.workflow' | translate">
-            <div class="workflow-step is-active"><span class="workflow-step__number">1</span><div><strong>{{ 'reports.classify' | translate }}</strong><small>{{ 'reports.reviewEach' | translate }}</small></div></div>
-            <span class="workflow-connector" aria-hidden="true"></span>
-            <div class="workflow-step" [class.is-active]="allClassified()" [class.is-locked]="!allClassified()"><span class="workflow-step__number">2</span><div><strong>{{ 'reports.decideTarget' | translate }}</strong><small>{{ allClassified() ? ('reports.readyToResolve' | translate) : ('reports.unlockAfterClassify' | translate) }}</small></div></div>
-          </div>
-        }
-
-        <section class="case-stage case-stage--classification">
-          <header class="case-stage__header">
-            <div><span class="stage-kicker">{{ 'reports.stepOne' | translate }}</span><h3>{{ 'reports.classifyTitle' | translate }}</h3><p>{{ 'reports.classifyHint' | translate }}</p></div>
-            <span class="stage-progress">{{ 'reports.classifiedProgress' | translate:{ done: classifiedCount(), total: detail.reports.length } }}</span>
-          </header>
-          @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') {
-            <div class="batch-classification">
-              <label><span>{{ 'reports.groupReason' | translate }}</span><textarea rows="2" [ngModel]="dispositionReason()" (ngModelChange)="dispositionReason.set($event)" [placeholder]="'reports.groupReasonPlaceholder' | translate"></textarea></label>
-              <div class="classification-actions"><span class="selection-count">{{ 'reports.selectedReports' | translate:{ count: selectedReportIds().length } }}</span><button type="button" class="btn-action btn-claim" [disabled]="submitting() || !selectedReportIds().length || dispositionReason().trim().length < 3" (click)="classify('accepted')">{{ 'reports.acceptSelected' | translate }}</button><button type="button" class="btn-action btn-release" [disabled]="submitting() || !selectedReportIds().length || dispositionReason().trim().length < 3" (click)="classify('rejected')">{{ 'reports.rejectSelected' | translate }}</button></div>
-            </div>
-          }
-          <div class="case-report-list">
-            @for (report of detail.reports; track trackReport($index, report)) {
-              <article class="case-report-row" [class.is-selected]="selectedReports()[report.reportId]">
-                @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') { <input type="checkbox" [checked]="selectedReports()[report.reportId] || false" (change)="toggleReport(report.reportId, $any($event.target).checked)" [attr.aria-label]="'reports.selectReporterReport' | translate:{ name: report.reporterName || ('reports.user' | translate) }" /> }
-                <div class="case-report-content"><header><strong>{{ report.violationTypeName || report.violationTypeCode || ('reports.other' | translate) }}</strong><span>{{ report.reporterName || ('reports.anonymous' | translate) }}</span><time>{{ report.createdAt | date:'short':undefined:dateLocale() }}</time></header><p>{{ report.description }}</p>
-                  <div class="report-result" [class.result-accepted]="report.disposition === 'accepted'" [class.result-rejected]="report.disposition === 'rejected'">{{ report.disposition === 'accepted' ? ('reports.acceptedResult' | translate) : report.disposition === 'rejected' ? ('reports.rejectedResult' | translate) : ('reports.unclassifiedResult' | translate) }} @if (report.abuseFlag) { <b>{{ 'reports.abuseFlag' | translate }}</b> }</div>
-                  @if (report.dispositionReason) { <small>{{ report.dispositionReason }}</small> }
-                </div>
+    <dialog #caseDialog class="report-workspace" aria-labelledby="case-title" [attr.aria-busy]="submitting() || detailLoading()" (cancel)="$event.preventDefault(); closeCase()" (click)="onCaseBackdrop($event)">
+      <header class="report-workspace-header">
+        <div class="report-heading-copy"><span class="review-eyebrow">{{ targetTypeLabel(detail.case.targetType) }} · {{ 'reports.caseHeading' | translate:{ id: detail.case.caseId.slice(0, 8) } }}</span><h2 id="case-title">{{ detail.case.targetTitle || ('reports.targetUnavailable' | translate) }}</h2></div>
+        <button type="button" class="review-close" [disabled]="submitting()" [attr.aria-label]="'common.close' | translate" (click)="closeCase()">×</button>
+      </header>
+      <div class="review-summary"><span>{{ 'reports.reportCount' | translate:{ count: detail.reports.length } }}</span><span class="review-state">{{ statusLabel(detail.case.status) }}</span>@if (targetHref(detail.case); as href) { <a [href]="href" target="_blank" rel="noopener">{{ 'reports.openTarget' | translate }} ↗</a> }</div>
+      @if (canEditCase()) {
+        <nav class="wizard-steps" [attr.aria-label]="'reports.workflow' | translate">
+          <button type="button" [attr.aria-current]="reviewStage() === 'classification' ? 'step' : null" [disabled]="submitting() || detailLoading()" (click)="showReport(focusedReportId())"><span class="wizard-step-number">{{ allClassified() ? '✓' : '1' }}</span>{{ 'reportWizard.assess' | translate }}<small>{{ classifiedCount() }}/{{ detail.reports.length }}</small></button>
+          <span class="wizard-step-line" aria-hidden="true"></span>
+          <button type="button" [attr.aria-current]="reviewStage() === 'resolution' ? 'step' : null" [disabled]="!allClassified() || submitting() || detailLoading()" (click)="showResolution()"><span class="wizard-step-number">2</span>{{ 'reportWizard.action' | translate }}</button>
+        </nav>
+      }
+      <div class="report-workspace-body">
+        @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
+        @if (detailLoading()) { <p class="review-loading" role="status">{{ 'reportReview.refreshing' | translate }}</p> }
+        @if (canEditCase() && reviewStage() === 'classification') {
+          @if (focusedReport(); as report) {
+            <section class="wizard-assessment" aria-labelledby="report-assessment-title">
+              <div class="wizard-section-heading"><h3 #reviewHeading id="report-assessment-title" tabindex="-1">{{ 'reportWizard.assessTitle' | translate }}</h3><span>{{ 'reportWizard.reportPosition' | translate:{ current: focusedReportNumber(), total: detail.reports.length } }}</span></div>
+              <article class="wizard-evidence">
+                <div class="wizard-report-meta"><strong>{{ report.violationTypeName || ('reports.other' | translate) }}</strong><time>{{ report.createdAt | date:'dd/MM/yyyy HH:mm':undefined:dateLocale() }}</time></div>
+                <p class="wizard-reporter">{{ 'reportWizard.reportedBy' | translate:{ name: report.reporterName || ('reports.anonymous' | translate) } }}</p>
+                <p class="wizard-report-description">{{ report.description || ('reportWizard.noDescription' | translate) }}</p>
+                @if (report.abuseFlag) { <span class="wizard-abuse">{{ 'reports.abuseFlag' | translate }}</span> }
               </article>
-            }
-          </div>
-        </section>
-
-        @if (canResolve() && isCaseOwner() && detail.case.status === 'reviewing') {
-          <section class="case-stage case-resolution case-resolution-stage" [class.is-ready]="allClassified()" [class.is-locked]="!allClassified()">
-            @if (!allClassified()) {
-              <div class="stage-locked"><span class="stage-locked__number">2</span><div><span class="stage-kicker">{{ 'reports.stepTwo' | translate }}</span><h3>{{ 'reports.decideTarget' | translate }}</h3><p>{{ 'reports.unclassifiedWarning' | translate:{ count: unclassifiedCount() } }}</p></div></div>
-            } @else {
-              <header class="case-stage__header"><div><span class="stage-kicker">{{ 'reports.stepTwo' | translate }}</span><h3>{{ 'reports.decideTarget' | translate }}</h3><p>{{ 'reports.allClassified' | translate }}</p></div><span class="stage-progress is-ready">{{ 'reports.readyToClose' | translate }}</span></header>
-              <div class="case-resolution-grid">
-                <label>{{ 'reports.decision' | translate }}<select [ngModel]="decision()" (ngModelChange)="decision.set($event)">@for (option of availableDecisions(); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select><small class="decision-hint">{{ selectedDecisionHint() }}</small></label>
-                @if (decision() === 'upload_restriction') { <label>{{ 'reports.days' | translate }}<input type="number" min="1" max="30" [ngModel]="restrictionDays()" (ngModelChange)="restrictionDays.set($event)" /></label> }
-                <label>{{ 'reports.policy' | translate }}<input [ngModel]="policyCode()" (ngModelChange)="policyCode.set($event)" [placeholder]="'reports.policyPlaceholder' | translate" /></label>
-                <label class="case-resolution-wide">{{ 'reports.reason' | translate }}<textarea rows="2" [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)" [placeholder]="'reports.reasonPlaceholder' | translate"></textarea></label>
-                <label class="case-resolution-wide">{{ 'reports.internalNote' | translate }}<input [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" [placeholder]="'reports.internalNotePlaceholder' | translate" /></label>
-              </div>
-              <div class="modal-footer"><button type="button" class="btn btn-primary" [disabled]="submitting() || decisionReason().trim().length < 3 || !selectedDecisionAvailable()" (click)="resolveCase()">{{ submitting() ? ('reports.saving' | translate) : ('reports.closeCase' | translate) }}</button></div>
-            }
+              <fieldset class="wizard-verdict" [disabled]="submitting() || detailLoading()"><legend>{{ 'reportWizard.verdict' | translate }}</legend>
+                <label [class.is-selected]="reportDisposition() === 'accepted'"><input type="radio" name="report-verdict" value="accepted" [ngModel]="reportDisposition()" (ngModelChange)="reportDisposition.set($event)"/><span>{{ 'reportReview.acceptReport' | translate }}</span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg></label>
+                <label [class.is-selected]="reportDisposition() === 'rejected'"><input type="radio" name="report-verdict" value="rejected" [ngModel]="reportDisposition()" (ngModelChange)="reportDisposition.set($event)"/><span>{{ 'reportReview.rejectReport' | translate }}</span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 6 12 12M6 18 18 6"/></svg></label>
+              </fieldset>
+              <div class="wizard-field"><label for="report-classification-reason">{{ 'reportWizard.rationale' | translate }} <span aria-hidden="true">*</span></label><textarea id="report-classification-reason" rows="3" [disabled]="submitting() || detailLoading()" [ngModel]="dispositionReason()" (ngModelChange)="dispositionReason.set($event)" [placeholder]="'reportWizard.rationalePlaceholder' | translate"></textarea><small>{{ 'reportReview.reasonHint' | translate }}</small></div>
+            </section>
+          }
+        } @else if (canEditCase() && reviewStage() === 'resolution') {
+          <section class="wizard-resolution" aria-labelledby="report-action-title">
+            <div class="wizard-section-heading"><h3 #reviewHeading id="report-action-title" tabindex="-1">{{ 'reportWizard.actionTitle' | translate }}</h3><span class="wizard-complete">{{ 'reportWizard.assessedCount' | translate:{ count: classifiedCount() } }}</span></div>
+            <details class="wizard-conclusions"><summary>{{ 'reportWizard.reviewConclusions' | translate }}</summary><div class="wizard-conclusion-list">@for (report of detail.reports; track report.reportId) { <article><div><strong>{{ report.violationTypeName || ('reports.other' | translate) }}</strong><span [class.accepted]="report.disposition === 'accepted'">{{ (report.disposition === 'accepted' ? 'reportReview.acceptReport' : 'reportReview.rejectReport') | translate }}</span><p>{{ report.dispositionReason }}</p></div><button type="button" class="wizard-text-button" [disabled]="submitting()" (click)="showReport(report.reportId)">{{ 'reportWizard.editConclusion' | translate }}</button></article> }</div></details>
+            <div class="wizard-field"><label for="report-decision">{{ 'reportWizard.action' | translate }} <span aria-hidden="true">*</span></label><select #decisionField id="report-decision" [disabled]="submitting() || detailLoading()" [ngModel]="decision()" (ngModelChange)="decision.set($event)"><option value="" disabled>{{ 'reportReview.chooseDecision' | translate }}</option>@for (option of availableDecisions(); track option.value) { <option [value]="option.value">{{ option.label }}</option> }</select>@if (selectedDecisionHint()) { <small>{{ selectedDecisionHint() }}</small> }</div>
+            @if (decision() === 'upload_restriction') { <div class="wizard-field"><label for="report-restriction-days">{{ 'reports.days' | translate }}</label><input id="report-restriction-days" type="number" min="1" max="30" step="1" [disabled]="submitting()" [ngModel]="restrictionDays()" (ngModelChange)="restrictionDays.set($event)" /></div> }
+            <div class="wizard-field"><label for="report-decision-reason">{{ 'reportReview.resolutionReason' | translate }} <span aria-hidden="true">*</span></label><textarea id="report-decision-reason" rows="3" [disabled]="submitting()" [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)" [placeholder]="'reports.reasonPlaceholder' | translate"></textarea><small>{{ 'reportReview.reasonHint' | translate }}</small></div>
+            <details class="wizard-optional"><summary>{{ 'reportWizard.optional' | translate }}</summary><div class="wizard-field"><label for="report-policy">{{ 'reportReview.referencePolicy' | translate }}</label><select id="report-policy" [disabled]="policiesLoading() || policiesError() || submitting()" [ngModel]="policyCode()" (ngModelChange)="policyCode.set($event)"><option value="">{{ (policiesLoading() ? 'reportReview.policiesLoading' : 'reportReview.noPolicy') | translate }}</option>@for (policy of policyOptions(); track policy.policyId) { <option [value]="policy.code">{{ policy.name }}</option> }</select>@if (policiesError()) { <div class="review-policy-error" role="alert"><span>{{ 'reportReview.policiesError' | translate }}</span><button type="button" class="wizard-text-button" (click)="loadCasePolicies()">{{ 'channelPicker.retry' | translate }}</button></div> }</div><div class="wizard-field"><label for="report-internal-note">{{ 'reports.internalNote' | translate }}</label><textarea id="report-internal-note" rows="2" [disabled]="submitting()" [ngModel]="internalNote()" (ngModelChange)="internalNote.set($event)" [placeholder]="'reports.internalNotePlaceholder' | translate"></textarea></div></details>
           </section>
+        } @else {
+          <div class="wizard-readonly">@for (report of detail.reports; track report.reportId) { <article class="wizard-evidence"><div class="wizard-report-meta"><strong>{{ report.violationTypeName || ('reports.other' | translate) }}</strong><time>{{ report.createdAt | date:'dd/MM/yyyy HH:mm':undefined:dateLocale() }}</time></div><p class="wizard-reporter">{{ report.reporterName || ('reports.anonymous' | translate) }}</p><p class="wizard-report-description">{{ report.description }}</p><span>{{ (report.disposition === 'accepted' ? 'reports.acceptedResult' : report.disposition === 'rejected' ? 'reports.rejectedResult' : 'reports.unclassifiedResult') | translate }}</span>@if (report.dispositionReason) { <p>{{ report.dispositionReason }}</p> }</article> }</div>
         }
-      </section>
-    </div>
+      </div>
+      <footer class="report-workspace-footer">
+        <div class="wizard-footer-secondary"><button type="button" class="workflow-action secondary" [disabled]="submitting()" (click)="closeCase()">{{ 'common.close' | translate }}</button>@if (canEditCase() && reviewStage() === 'resolution') { <button type="button" class="wizard-text-button" [disabled]="submitting() || detailLoading()" (click)="showReport(focusedReportId())">{{ 'reportWizard.back' | translate }}</button> }</div>
+        @if (canEditCase()) {
+          @if (reviewStage() === 'classification') { <button type="button" class="workflow-action primary save-report-button" [disabled]="!canSaveCurrentReport()" (click)="saveCurrentReport()">{{ (submitting() || detailLoading() ? 'reports.saving' : unclassifiedCount() > 1 ? 'reportWizard.saveNext' : 'reportWizard.saveContinue') | translate }} <span aria-hidden="true">→</span></button> }
+          @else { <button type="button" class="workflow-action primary resolve-case-button" [disabled]="!canCloseCase()" (click)="resolveCase()">{{ (submitting() ? 'reports.saving' : 'reportReview.applyDecision') | translate }}</button> }
+        }
+      </footer>
+    </dialog>
   }
 </main>

@@ -58,6 +58,10 @@ export class AdminPoliciesPage implements OnInit {
     { key: 'enforcement', labelKey: 'policies.enforcement' }
   ];
 
+  readonly criticalCount = computed(() => this.policies().filter(policy => policy.severity === 'critical').length);
+
+  resetFilters(): void { this.selectedGroup.set('ALL'); this.searchQuery.set(''); }
+
   readonly filteredPolicies = computed(() => {
     let items = this.policies();
     const group = this.selectedGroup();
@@ -86,14 +90,14 @@ export class AdminPoliciesPage implements OnInit {
     if (!policy) return '';
     const key = `policy.${policy.code}.name`;
     const val = this.i18n.t(key);
-    return val !== key ? val : (policy.name || policy.code);
+    return policy.name || (val !== key ? val : policy.code);
   }
 
   getPolicyContent(policy: { code: string; content?: string } | null | undefined): string {
     if (!policy) return '';
     const key = `policy.${policy.code}.content`;
     const val = this.i18n.t(key);
-    return val !== key ? val : (policy.content || '');
+    return policy.content || (val !== key ? val : '');
   }
 
   getGroupLabel(group: string): string {
@@ -165,6 +169,7 @@ export class AdminPoliciesPage implements OnInit {
   }
 
   closeCreateModal(): void {
+    if (this.creating()) return;
     this.isCreateModalOpen.set(false);
   }
 
@@ -211,6 +216,7 @@ export class AdminPoliciesPage implements OnInit {
   }
 
   closeDetailModal(): void {
+    if (this.updating()) return;
     this.isDetailModalOpen.set(false);
     this.selectedPolicy.set(null);
   }
