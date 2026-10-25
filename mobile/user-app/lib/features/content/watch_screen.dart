@@ -245,29 +245,31 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         setState(() => _related = cached);
         return;
       }
-      final result = filter == 'all'
-          ? await _content.feed(
-              explore: false,
-              pageSize: 20,
-              recommendationBudget: const Duration(milliseconds: 1200),
-            )
-          : await _content.searchVideos(
-              query: '',
-              pageSize: 20,
-              channelId: filter == 'channel' ? video.channelId : null,
-              categoryId: filter == 'related' ? video.categoryId : null,
-              tag: filter == 'related' && video.tags.isNotEmpty
-                  ? video.tags.first
-                  : null,
-              sort: filter == 'channel' ? 'newest' : 'popular',
-            );
+      final List<VideoCard> items;
+      if (filter == 'related') {
+        items = await _content.relatedVideos(video);
+      } else {
+        final result = filter == 'all'
+            ? await _content.feed(
+                explore: false,
+                pageSize: 20,
+                recommendationBudget: const Duration(milliseconds: 1200),
+              )
+            : await _content.searchVideos(
+                query: '',
+                pageSize: 20,
+                channelId: video.channelId,
+                sort: 'newest',
+              );
+        items = result.items;
+      }
       if (!mounted ||
           generation != _recommendationGeneration ||
           videoGeneration != _generation) {
         return;
       }
       setState(
-        () => _related = result.items
+        () => _related = items
             .where((item) => item.id != video.id)
             .take(10)
             .toList(),

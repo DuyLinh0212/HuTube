@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import '../../auth.dart';
 import 'content_models.dart';
 
@@ -102,6 +103,48 @@ class ContentService {
           : asInt(json['pageSize']),
       total: asInt(json['total']),
     );
+  }
+
+  Future<List<VideoCard>> relatedVideos(VideoDetail video) async {
+    List<VideoCard> unique(Iterable<VideoCard> items) {
+      final seen = <String>{video.id};
+      return items.where((item) => seen.add(item.id)).take(10).toList();
+    }
+
+    final tag = video.tags.isEmpty ? null : video.tags.first;
+    if (video.categoryId == null && tag == null) {
+      return unique(
+        (await feed(
+          explore: false,
+          pageSize: 20,
+          recommendationBudget: const Duration(milliseconds: 1200),
+        )).items,
+      );
+    }
+    final tagged = unique(
+      (await searchVideos(
+        query: '',
+        categoryId: video.categoryId,
+        tag: tag,
+        sort: 'popular',
+        pageSize: 20,
+      )).items,
+    );
+    if (tag == null || video.categoryId == null || tagged.length >= 10) {
+      return tagged;
+    }
+    try {
+      final category = await searchVideos(
+        query: '',
+        categoryId: video.categoryId,
+        sort: 'popular',
+        pageSize: 20,
+      );
+      return unique([...tagged, ...category.items]);
+    } catch (_) {
+      if (tagged.isEmpty) rethrow;
+      return tagged;
+    }
   }
 
   Future<PageResult<VideoCard>> searchVideos({
