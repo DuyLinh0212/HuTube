@@ -5,7 +5,7 @@ import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, DestroyRef, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, Subject, switchMap, takeUntil } from 'rxjs';
+import { catchError, finalize, map, of, Subject, switchMap, takeUntil, throwError } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoginPromptService } from '../../core/login-prompt.service';
 import { RequireLoginDirective } from '../../shared/login-prompt/require-login.directive';
@@ -55,6 +55,8 @@ export class WatchPage {
   readonly playback = signal<Playback | null>(null);
   readonly activeRendition = signal<Rendition | null>(null);
   readonly relatedVideos = signal<VideoCard[]>([]);
+  readonly recommendationsLoading = signal(false);
+  readonly recommendationsError = signal(false);
   readonly channel = signal<ChannelDetail | null>(null);
   readonly comments = signal<CommentItem[]>([]);
   readonly commentSort = signal<'newest' | 'top'>('newest');
@@ -132,6 +134,7 @@ export class WatchPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly videoChanged = new Subject<void>();
   private readonly commentsChanged = new Subject<void>();
+  private readonly recommendationsChanged = new Subject<void>();
   private playlistId: string | null = null;
   private videoId = '';
   private lastSaved = 0;
@@ -1185,33 +1188,50 @@ export class WatchPage {
   }
 
   private loadRecommendations() {
+    this.recommendationsChanged.next();
+    this.relatedVideos.set([]);
+    this.recommendationsLoading.set(true);
+    this.recommendationsError.set(false);
     const filter = this.recommendationFilter();
     const current = this.video();
+    const unique = (items: VideoCard[]) => [...new Map(items
+      .filter(item => item.videoId !== this.videoId)
+      .map(item => [item.videoId, item])).values()].slice(0, 10);
+    // Create only the selected request: channel recommendations must stay in that channel.
+    let videos;
     if (filter === 'channel' && current) {
-      this.content.search({
+      videos = this.content.search({
         channelId: current.channelId,
         sort: 'newest', page: 1, pageSize: 20
-      }).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
-        error: () => this.relatedVideos.set([])
-      });
-      return;
-    }
-    if (filter === 'related' && current) {
+      }).pipe(map(value => unique(value.items ?? [])));
+    } else if (filter === 'related' && current && (current.categoryId || current.tags?.length)) {
       const tag = current.tags && current.tags.length > 0 ? current.tags[0] : undefined;
-      this.content.search({
+      const options = {
         categoryId: current.categoryId ?? undefined,
-        tag: tag,
+        tag,
         sort: 'popular', page: 1, pageSize: 20
-      }).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
-        error: () => this.relatedVideos.set([])
-      });
-      return;
+      };
+      videos = this.content.search(options).pipe(
+        map(value => unique(value.items ?? [])),
+        switchMap(tagged => {
+          if (!tag || !current.categoryId || tagged.length >= 10) return of(tagged);
+          // A rare first tag may match only the current video. Fill from the same
+          // category, keeping the stronger tag matches first and removing duplicates.
+          return this.content.search({ ...options, tag: undefined }).pipe(
+            map(value => unique([...tagged, ...(value.items ?? [])])),
+            catchError(error => tagged.length ? of(tagged) : throwError(() => error))
+          );
+        })
+      );
+    } else {
+      videos = this.content.feed('home', 1, 20).pipe(map(value => unique(value.items ?? [])));
     }
-    this.content.feed('home', 1, 20).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: value => this.relatedVideos.set((value.items ?? []).filter(item => item.videoId !== this.videoId).slice(0, 10)),
-      error: () => this.relatedVideos.set([])
+    videos.pipe(
+      takeUntil(this.recommendationsChanged), takeUntil(this.videoChanged),
+      takeUntilDestroyed(this.destroyRef), finalize(() => this.recommendationsLoading.set(false))
+    ).subscribe({
+      next: value => this.relatedVideos.set(value),
+      error: () => this.recommendationsError.set(true)
     });
   }
 

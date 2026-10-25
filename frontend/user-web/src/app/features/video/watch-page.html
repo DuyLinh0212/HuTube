@@ -350,7 +350,11 @@
           <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'channel'" [class.is-active]="recommendationFilter() === 'channel'" (click)="setRecommendationFilter('channel')">{{ 'watch.sameChannel' | translate }}</button>
         </div>
         <div class="recommendations-header"><div><h2>{{ 'watch.recommendedTitle' | translate }}</h2><p>{{ 'watch.recommendedDesc' | translate }}</p></div><button type="button" class="autoplay-toggle" [class.is-on]="autoplay()" [attr.aria-pressed]="autoplay()" (click)="toggleAutoplay()"><span class="autoplay-toggle__dot"></span><span>{{ 'watch.autoplay' | translate }}</span></button></div>
-        @if (visibleRelatedVideos().length) {
+        @if (recommendationsLoading()) {
+          <p role="status">{{ 'common.loading' | translate }}</p>
+        } @else if (recommendationsError()) {
+          <div role="alert"><p>{{ 'home.error' | translate }}</p><button type="button" class="secondary-button" (click)="setRecommendationFilter(recommendationFilter())">{{ 'common.retry' | translate }}</button></div>
+        } @else if (visibleRelatedVideos().length) {
           <div class="recommendation-list">
             @for (recommended of visibleRelatedVideos(); track recommended.videoId) {
               <a class="recommendation-card" [routerLink]="['/watch', recommended.videoId]">
