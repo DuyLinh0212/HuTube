@@ -187,10 +187,10 @@
 
       @if (activeTab() === 'videos') {
         @if (activeTab() === 'videos') {
-          <div class="collection-controls">
-            <label for="channel-video-query">{{ 'collection.search' | translate }}<input id="channel-video-query" type="search" [(ngModel)]="videoQuery" (ngModelChange)="filterVideos()" /></label>
-            <label for="channel-video-sort">{{ 'collection.sort' | translate }}<select id="channel-video-sort" [ngModel]="videoSort()" (ngModelChange)="videoSort.set($event); filterVideos()"><option value="newest">{{ 'collection.newest' | translate }}</option><option value="views">{{ 'collection.views' | translate }}</option><option value="engagement">{{ 'collection.engagement' | translate }}</option></select></label>
-            <label for="channel-video-page-size">{{ 'collection.pageSize' | translate }}<select id="channel-video-page-size" [ngModel]="videoPageSize()" (ngModelChange)="filterVideos(+$event)"><option [ngValue]="20">20</option><option [ngValue]="50">50</option></select></label>
+          <div class="channel-video-sort" role="group" [attr.aria-label]="'collection.sort' | translate">
+            <button type="button" [class.active]="videoSort() === 'newest'" [attr.aria-pressed]="videoSort() === 'newest'" (click)="setVideoSort('newest')">{{ 'collection.newest' | translate }}</button>
+            <button type="button" [class.active]="videoSort() === 'oldest'" [attr.aria-pressed]="videoSort() === 'oldest'" (click)="setVideoSort('oldest')">{{ 'collection.oldest' | translate }}</button>
+            <button type="button" [class.active]="videoSort() === 'views'" [attr.aria-pressed]="videoSort() === 'views'" (click)="setVideoSort('views')">{{ 'collection.views' | translate }}</button>
           </div>
           <p role="status">{{ videoTotal() }} {{ 'channel.videos' | translate }}</p>
         }
