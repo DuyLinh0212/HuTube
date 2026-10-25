@@ -76,7 +76,7 @@
                     <td class="actions-column"><div class="row-actions">
                       @if (isProcessed(item)) { <span class="processed-label">{{ getStatusLabel(item.status) }}</span> }
                       @else {
-                        <button type="button" class="table-action" [class.primary]="canReview() && (isClaimedByMe(item) || canClaim() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item)))" [disabled]="loading() || submitting()" (click)="openReviewModal(item)">{{ (canReview() && (isClaimedByMe(item) || canClaim() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item))) ? 'workflow.review' : 'moderationPage.details') | translate }}</button>
+                        <button type="button" class="table-action" data-testid="moderation-review" [class.primary]="canReview() && (isClaimedByMe(item) || canClaim() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item)))" [disabled]="loading() || submitting()" (click)="openReviewModal(item)">{{ (canReview() && (isClaimedByMe(item) || canClaim() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item))) ? 'workflow.review' : 'moderationPage.details') | translate }}</button>
                         @if (isClaimedByMe(item) && canClaim()) { <button type="button" class="table-action subtle" [disabled]="loading()" (click)="releaseCase(item)">{{ 'workflow.leave' | translate }}</button> }
                       }
                     </div></td>

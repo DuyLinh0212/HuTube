@@ -41,7 +41,7 @@ ACTION_CONTROLS = [
     ('system.edit_setting', 'policy.view', '/policies', '.header-actions .btn-primary'),
     ('taxonomy.manage', 'system.view_setting', '/topics', '.heading-actions .btn-primary'),
     ('strike.manage', 'strike.view', '/moderation/strikes', '.header-actions .btn-primary'),
-    ('channel.lock', 'strike.view', '/moderation/strikes', '.header-actions .btn-secondary:not(.btn-icon-only)'),
+    ('channel.lock', 'strike.view', '/moderation/strikes', '[data-testid=channel-lock-management]'),
     ('channel.export', 'channel.view', '/channels', '[data-testid=channel-export]'),
     ('video.export', 'video.view', '/videos', '[data-testid=video-export]'),
 ]

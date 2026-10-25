@@ -50,10 +50,10 @@ def run(suite, admin, member):
         page.locator('.search-wrap input').fill(code)
         row=page.locator('tbody tr').filter(has_text=code)
         if policy['version']=='2.0':
-            expect(row.first.locator('.version-badge')).to_have_text('v2.0')
+            expect(row.first.locator('.catalog-version')).to_have_text('v2.0')
             assert policy['content']==updated
             return 'reused'
-        row.first.locator('button').click()
+        row.first.locator('.catalog-open').click()
         dialog=page.locator('.modal-dialog')
         dialog.locator('.version-update-card input').fill('2.0')
         dialog.locator('textarea').fill(updated)
@@ -63,7 +63,7 @@ def run(suite, admin, member):
         expect(dialog).to_have_count(0)
         open_policies()
         page.locator('.search-wrap input').fill(code)
-        expect(page.locator('tbody tr .version-badge').first).to_have_text('v2.0')
+        expect(page.locator('tbody tr .catalog-version').first).to_have_text('v2.0')
         stored=next(item for item in suite.api(admin,'get','/admin/policies').json() if item['code']==code)
         assert stored['version']=='2.0' and stored['content']==updated
     suite.case(admin,'A-POLICY-PUBLISH-01','Publish v2 và reload Admin',publish,

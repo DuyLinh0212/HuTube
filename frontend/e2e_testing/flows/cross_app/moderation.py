@@ -61,11 +61,13 @@ def run(suite, owner, member, admin):
                 if moderation['status']=='pending':
                     row=page.locator('tbody tr').filter(has_text=video_id[:8])
                     with page.expect_response(lambda response:response.request.method=='POST' and response.url.endswith('/'+moderation['moderationCaseId']+'/claim')) as pending:
-                        row.locator('.table-action.primary').click()
+                        row.locator('[data-testid=moderation-review]').click()
                     assert pending.value.status==200
-                page.locator('.status-tabs [role=tab]').nth(1).click()
-                row=page.locator('tbody tr').filter(has_text=video_id[:8])
-                row.locator('.table-action:not(.subtle)').first.click()
+                else:
+                    page.locator('.status-tabs [role=tab]').nth(1).click()
+                    row=page.locator('tbody tr').filter(has_text=video_id[:8])
+                    row.locator('[data-testid=moderation-review]').click()
+                expect(page.locator('.review-modal')).to_be_visible()
                 page.locator('.decision-column input[type=text]').fill('Video fixture kỹ thuật E2E đáp ứng chính sách.')
                 with page.expect_response(lambda response:response.request.method=='POST' and response.url.endswith('/'+moderation['moderationCaseId']+'/resolve')) as pending:
                     page.locator('.decision-button.approve').click()
@@ -74,7 +76,7 @@ def run(suite, owner, member, admin):
                 assert current.status==200 and current.json()['moderationStatus']=='approved'
                 page.locator('.status-tabs [role=tab]').nth(2).click()
                 expect(page.locator('tbody tr').filter(has_text=video_id[:8])).to_be_visible()
-            suite.case(admin,'A-MODERATION-APPROVE-01','Claim và approve video User qua UI',claim_approve,
+            suite.case(admin,'A-MODERATION-APPROVE-01','Mở xem xét và duyệt video User qua UI',claim_approve,
                        expected='Decision approve persist đúng video ID; row chuyển sang processed')
 
         def member_playback():
