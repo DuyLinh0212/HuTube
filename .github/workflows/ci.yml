@@ -288,6 +288,9 @@ jobs:
       - name: Verify Admin permission matrix and browser evidence
         if: ${{ !cancelled() }}
         run: python frontend/e2e_testing/coverage/verify_rbac_evidence.py
+      - name: Verify Admin recovery from missing lazy modules
+        if: ${{ !cancelled() }}
+        run: python scripts/ui-regression/admin-chunk-recovery.py --root frontend/admin-web/dist/admin-web/browser --artifacts frontend/e2e_testing/artifacts/chunk-recovery
       - name: Export User and Admin Excel report
         if: ${{ !cancelled() }}
         run: python frontend/e2e_testing/coverage/export_ci_report.py
@@ -305,6 +308,7 @@ jobs:
             frontend/e2e_testing/artifacts/web-latest.json
             frontend/e2e_testing/artifacts/rbac-latest.json
             frontend/e2e_testing/artifacts/runs/*/rbac-coverage.json
+            frontend/e2e_testing/artifacts/chunk-recovery/**
             frontend/e2e_testing/screenshots/20*/**
           if-no-files-found: warn
           retention-days: 14

@@ -36,6 +36,8 @@ function interpolate(message: string, params?: TranslationParams): string {
 
 const DICTIONARY: Record<AppLang, Record<string, string>> = {
   vi: {
+    'pageLoad.title': 'Chưa thể mở trang',
+    'pageLoad.message': 'Trang chưa tải được đầy đủ. Hãy kiểm tra kết nối rồi thử tải lại.',
     ...ADMIN_PAGE_TRANSLATIONS.vi,
     ...RECOMMENDATION_TRANSLATIONS.vi,
     ...CF_SEEDER_TRANSLATIONS.vi,
@@ -455,6 +457,8 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
   },
 
   en: {
+    'pageLoad.title': 'Unable to open this page',
+    'pageLoad.message': 'The page could not finish loading. Check your connection and try again.',
     ...ADMIN_PAGE_TRANSLATIONS.en,
     ...RECOMMENDATION_TRANSLATIONS.en,
     ...CF_SEEDER_TRANSLATIONS.en,

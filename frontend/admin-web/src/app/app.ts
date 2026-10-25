@@ -31,7 +31,7 @@ export class App {
 
   private syncLayout(url: string) {
     this.isAuthLayout.set(
-      ['/login', '/verify-email', '/forgot-password', '/reset-password'].some((route) =>
+      ['/login', '/verify-email', '/forgot-password', '/reset-password', '/load-error'].some((route) =>
         url.startsWith(route),
       ),
     );
