@@ -33,28 +33,34 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   int _requestGeneration = 0;
   late int _sessionGeneration;
   late bool _authenticated;
+  late bool _offlineSession;
   @override
   void initState() {
     super.initState();
     _sessionGeneration = widget.auth.sessionGeneration;
     _authenticated = widget.auth.authenticated;
+    _offlineSession = widget.auth.offlineSession;
     widget.auth.addListener(_identityChanged);
     _downloads.ensureLoaded();
     unawaited(
       _coordinator.initialize().then((_) {
-        if (mounted) return _coordinator.loadSuggestions();
+        if (mounted) {
+          unawaited(_loadRemote());
+          return _coordinator.loadSuggestions();
+        }
       }),
     );
-    _loadRemote();
   }
 
   void _identityChanged() {
     if (_sessionGeneration == widget.auth.sessionGeneration &&
-        _authenticated == widget.auth.authenticated) {
+        _authenticated == widget.auth.authenticated &&
+        _offlineSession == widget.auth.offlineSession) {
       return;
     }
     _sessionGeneration = widget.auth.sessionGeneration;
     _authenticated = widget.auth.authenticated;
+    _offlineSession = widget.auth.offlineSession;
     ++_requestGeneration;
     if (mounted) {
       setState(() {
@@ -114,7 +120,9 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
 
   Future<void> _loadRemote() async {
     if (!mounted) return;
-    if (!widget.auth.authenticated) {
+    if (!widget.auth.authenticated ||
+        widget.auth.offlineSession ||
+        !_coordinator.conditions.connected) {
       setState(() => _remoteLoading = false);
       return;
     }
@@ -275,22 +283,6 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
             ),
             const SizedBox(height: 12),
           ],
-          if (_coordinator.preferences.smart) ...[
-            _DownloadInfo(
-              icon: Icons.auto_awesome_rounded,
-              message: AppStrings.format('downloads.smartSummary', {
-                'limit': _coordinator.preferences.limitMb,
-              }),
-            ),
-            const SizedBox(height: 12),
-            if (_coordinator.smartStatus != null) ...[
-              _DownloadInfo(
-                icon: Icons.info_outline_rounded,
-                message: AppStrings.t(_coordinator.smartStatus!),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ],
           if (items.isEmpty && _remote.isEmpty && !_remoteLoading) ...[
             Text(
               AppStrings.t('downloads.empty'),
@@ -384,6 +376,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                             builder: (_) => OfflinePlayerScreen(
                               auth: widget.auth,
                               download: item,
+                              manager: _downloads,
                             ),
                           ),
                         )
@@ -409,11 +402,6 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${item.quality} · ${_label(item)}'),
-                      if (item.smart)
-                        Text(
-                          AppStrings.t('bgDownload.smartDownload'),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
                       if (item.active)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
@@ -548,8 +536,6 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     'paused' => AppStrings.t('downloads.paused'),
     'waiting_wifi' => AppStrings.t('downloads.waitingWifi'),
     'waiting_network' => AppStrings.t('downloads.waitingNetwork'),
-    'waiting_settings' => AppStrings.t('downloads.waitingSettings'),
-    'waiting_storage' => AppStrings.t('downloads.waitingStorage'),
     _ => AppStrings.t('downloads.failed'),
   };
 

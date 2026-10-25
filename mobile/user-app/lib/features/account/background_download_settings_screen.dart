@@ -23,11 +23,9 @@ class _BackgroundDownloadSettingsScreenState
   AppPreferencesStore get _prefs => widget.preferences;
 
   String _bgMode = 'off';
-  bool _smartDownload = false;
   String _downloadQuality = 'ask';
   bool _wifiOnly = false;
   bool _recommendations = true;
-  int _smartLimitMb = 256;
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -62,20 +60,16 @@ class _BackgroundDownloadSettingsScreenState
     });
     try {
       final bgMode = await _prefs.readBackgroundPlaybackMode();
-      final smart = await _prefs.readSmartDownload();
       final quality = await _prefs.readDownloadQuality();
       final wifi = await _prefs.readDownloadWifiOnly();
       final rec = await _prefs.readDownloadRecommendations();
-      final limit = await _prefs.readSmartDownloadLimitMb();
 
       if (mounted) {
         setState(() {
           _bgMode = bgMode;
-          _smartDownload = smart;
           _downloadQuality = quality;
           _wifiOnly = wifi;
           _recommendations = rec;
-          _smartLimitMb = limit;
           _loading = false;
         });
       }
@@ -263,63 +257,6 @@ class _BackgroundDownloadSettingsScreenState
     }
   }
 
-  Future<void> _selectSmartStorage() async {
-    final selected = await showModalBottomSheet<int>(
-      context: context,
-      builder: (ctx) => ScrollableSheet(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppStrings.t('bgDownload.adjustStorage'),
-                        style: Theme.of(ctx).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppStrings.t('bgDownload.adjustStorageDesc'),
-                        style: Theme.of(ctx).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                for (final limit in [128, 256, 512, 1024])
-                  ListTile(
-                    leading: Icon(
-                      limit == _smartLimitMb
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_off,
-                      color: Theme.of(ctx).colorScheme.primary,
-                    ),
-                    title: Text(
-                      AppStrings.format('bgDownload.storageLimitValue', {
-                        'limit': limit,
-                      }),
-                    ),
-                    onTap: () => Navigator.pop(ctx, limit),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (selected != null && mounted) {
-      await _save(
-        () => _prefs.writeSmartDownloadLimitMb(selected),
-        () => _smartLimitMb = selected,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
@@ -416,72 +353,6 @@ class _BackgroundDownloadSettingsScreenState
                                 color: mutedColor,
                               ),
                             ),
-                          ),
-                          SwitchListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            activeTrackColor: activeToggleColor,
-                            activeThumbColor: Theme.of(
-                              context,
-                            ).colorScheme.onPrimary,
-                            title: Text(
-                              AppStrings.t('bgDownload.smartDownload'),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                AppStrings.t('bgDownload.smartDownloadDesc'),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: mutedColor,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
-                            value: _smartDownload,
-                            onChanged: _saving
-                                ? null
-                                : (val) => _save(
-                                    () => _prefs.writeSmartDownload(val),
-                                    () => _smartDownload = val,
-                                  ),
-                          ),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            title: Text(
-                              AppStrings.t('bgDownload.adjustStorage'),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                AppStrings.format(
-                                  'bgDownload.storageLimitValue',
-                                  {'limit': _smartLimitMb},
-                                ),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: mutedColor,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
-                            onTap: _saving ? null : _selectSmartStorage,
-                            trailing: const Icon(Icons.chevron_right_rounded),
                           ),
                           ListTile(
                             contentPadding: const EdgeInsets.symmetric(

@@ -26,6 +26,7 @@ public sealed class ChannelTests
         public List<ChannelInvitation> Invitations { get; } = [];
         public List<User> Users { get; } = [];
         public List<Subscription> Subscriptions { get; } = [];
+        public int HandleLookups { get; set; }
 
         public Task<Subscription?> FindSubscriptionAsync(Guid userId, Guid channelId, CancellationToken ct) =>
             Task.FromResult(Subscriptions.SingleOrDefault(s => s.UserId == userId && s.ChannelId == channelId));
@@ -48,8 +49,11 @@ public sealed class ChannelTests
         public Task<Channel?> FindChannelAsync(Guid channelId, CancellationToken ct) =>
             Task.FromResult(Channels.SingleOrDefault(c => c.ChannelId == channelId));
 
-        public Task<Channel?> FindChannelByHandleAsync(string handle, CancellationToken ct) =>
-            Task.FromResult(Channels.SingleOrDefault(c => c.Handle == handle));
+        public Task<Channel?> FindChannelByHandleAsync(string handle, CancellationToken ct)
+        {
+            HandleLookups++;
+            return Task.FromResult(Channels.SingleOrDefault(c => c.Handle == handle));
+        }
 
         public Task<int> CountChannelsByOwnerAsync(Guid ownerUserId, CancellationToken ct) =>
             Task.FromResult(Channels.Count(c => c.OwnerUserId == ownerUserId && c.Status != "deleted"));
@@ -137,6 +141,34 @@ public sealed class ChannelTests
 
         Assert.Equal(409, ex.Status);
         Assert.Equal("HANDLE_ALREADY_EXISTS", ex.Code);
+    }
+
+    [Fact]
+    public async Task UpdateChannel_UnchangedHandle_DoesNotCheckForDuplicates()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("Channel", "lynwa", null));
+        store.HandleLookups = 0;
+        var updated = await service.UpdateChannelAsync(channel.ChannelId, ownerId,
+            new("Kí sự Jura", null, null, null, Handle: "@LYNWA"));
+        Assert.Equal("Kí sự Jura", updated.Name);
+        Assert.Equal("lynwa", updated.Handle);
+        Assert.Equal(0, store.HandleLookups);
+    }
+
+    [Fact]
+    public async Task UpdateChannel_ChangedHandle_RejectsAnotherChannelsHandle()
+    {
+        var store = new FakeChannelStore();
+        var service = new ChannelService(store);
+        var ownerId = Guid.NewGuid();
+        var channel = await service.CreateChannelAsync(ownerId, new("Channel", "lynwa", null));
+        await service.CreateChannelAsync(Guid.NewGuid(), new("Other", "taken", null));
+        var error = await Assert.ThrowsAsync<ChannelException>(() => service.UpdateChannelAsync(
+            channel.ChannelId, ownerId, new(null, null, null, null, Handle: "taken")));
+        Assert.Equal("HANDLE_ALREADY_EXISTS", error.Code);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
+import '../channel_handle.dart';
 
 typedef ChannelImagePicker = Future<XFile?> Function(bool avatar);
 
@@ -28,6 +30,7 @@ class ChannelSettingsScreen extends StatefulWidget {
 
 class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   late final TextEditingController _nameController;
+  late final TextEditingController _handleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _inviteEmailController;
   late final ChannelService _channelService;
@@ -45,6 +48,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   bool _uploadingWatermark = false;
   bool _loadingChannelSettings = true;
   String? _error;
+  Timer? _handleTimer;
+  int _handleGeneration = 0;
+  bool _checkingHandle = false;
+  bool? _handleAvailable;
+  String? _handleError;
 
   @override
   void initState() {
@@ -52,6 +60,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     _channel = widget.channel;
     _channelService = ChannelService(widget.auth);
     _nameController = TextEditingController(text: _channel.name);
+    _handleController = TextEditingController(text: _channel.handle);
     _descriptionController = TextEditingController(
       text: _channel.description ?? '',
     );
@@ -68,6 +77,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       setState(() {
         _channel = current;
         _nameController.text = current.name;
+        _handleController.text = current.handle;
         _descriptionController.text = current.description ?? '';
         _parseSettings();
         _loadingChannelSettings = false;
@@ -141,7 +151,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
 
   @override
   void dispose() {
+    _handleTimer?.cancel();
     _nameController.dispose();
+    _handleController.dispose();
     _descriptionController.dispose();
     _inviteEmailController.dispose();
     super.dispose();
@@ -395,8 +407,56 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     }
   }
 
+  void _onHandleChanged(String value) {
+    _handleTimer?.cancel();
+    final generation = ++_handleGeneration;
+    final clean = normalizeChannelHandle(value);
+    setState(() {
+      _checkingHandle = false;
+      _handleAvailable = null;
+      _handleError = null;
+    });
+    if (clean == _channel.handle.toLowerCase()) return;
+    if (!isValidChannelHandle(clean)) {
+      setState(() {
+        _handleAvailable = false;
+        _handleError = AppStrings.t('channel.handleInvalid');
+      });
+      return;
+    }
+    setState(() => _checkingHandle = true);
+    _handleTimer = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        final available = await _channelService.checkHandle(
+          clean,
+          currentChannelId: _channel.id,
+        );
+        if (!mounted || generation != _handleGeneration) return;
+        setState(() {
+          _checkingHandle = false;
+          _handleAvailable = available;
+          _handleError = available ? null : AppStrings.t('channel.handleTaken');
+        });
+      } catch (_) {
+        if (!mounted || generation != _handleGeneration) return;
+        setState(() {
+          _checkingHandle = false;
+          _handleError = AppStrings.t('channel.handleCheckError');
+        });
+      }
+    });
+  }
+
   Future<void> _save() async {
     final name = _nameController.text.trim();
+    final handle = normalizeChannelHandle(_handleController.text);
+    if (_checkingHandle) return;
+    if (!isValidChannelHandle(handle) || _handleAvailable == false) {
+      setState(
+        () => _error = _handleError ?? AppStrings.t('channel.handleInvalid'),
+      );
+      return;
+    }
     if (name.isEmpty) {
       setState(() => _error = AppStrings.t('channel.nameEmpty'));
       return;
@@ -446,6 +506,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       await _channelService.updateChannel(
         _channel.id,
         name: name,
+        handle: handle == _channel.handle.toLowerCase() ? null : handle,
         description: _descriptionController.text.trim(),
         settings: settingsJson,
       );
@@ -932,12 +993,18 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               ),
               const SizedBox(height: 6),
               TextFormField(
-                initialValue: '@${_channel.handle}',
-                readOnly: true,
-                enabled: false,
+                key: const ValueKey('channel-settings-handle'),
+                controller: _handleController,
+                onChanged: _onHandleChanged,
+                enabled: !_busy && !_loadingChannelSettings,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.alternate_email),
-                  helperText: AppStrings.t('channel.handleImmutable'),
+                  prefixIcon: const Icon(Icons.alternate_email),
+                  helperText: _checkingHandle
+                      ? AppStrings.t('channel.handleChecking')
+                      : _handleAvailable == true
+                      ? AppStrings.t('channel.handleAvailable')
+                      : AppStrings.t('channel.handleDescription'),
+                  errorText: _handleError,
                 ),
               ),
               const SizedBox(height: 16),
@@ -959,7 +1026,13 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               const SizedBox(height: 24),
 
               FilledButton(
-                onPressed: _busy || _loadingChannelSettings ? null : _save,
+                onPressed:
+                    _busy ||
+                        _loadingChannelSettings ||
+                        _checkingHandle ||
+                        _handleAvailable == false
+                    ? null
+                    : _save,
                 child: _busy || _loadingChannelSettings
                     ? const SizedBox(
                         height: 20,

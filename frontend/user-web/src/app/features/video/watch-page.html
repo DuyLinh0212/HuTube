@@ -276,68 +276,63 @@
           <header class="section-heading comments-heading"><div><h2>{{ 'watch.comments' | translate }}</h2><p>{{ countLabel('watch.commentCount', item.stats.comments) }}</p></div><label class="comments-sort"><span class="visually-hidden">{{ 'watch.commentSortLabel' | translate }}</span><select [ngModel]="commentSort()" (ngModelChange)="setCommentSort($event)"><option value="newest">{{ 'watch.newest' | translate }}</option><option value="top">{{ 'watch.topComments' | translate }}</option></select></label></header>
             <form class="comment-composer" appRequireLogin (ngSubmit)="comment()">
               <span class="comment-avatar comment-avatar--self" aria-hidden="true">@if (auth.user()) { {{ initials(auth.user()?.displayName) }} } @else { <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> }</span>
-              <div class="composer-body"><textarea [readOnly]="!auth.user()" name="comment" [(ngModel)]="commentText" rows="2" [placeholder]="'watch.commentPlaceholder' | translate"></textarea><div class="composer-footer"><span>{{ 'watch.keepCivil' | translate }}</span><button type="submit" class="primary-button" [disabled]="!!auth.user() && !commentText.trim()">{{ 'watch.sendComment' | translate }}</button></div></div>
+              <div class="composer-body"><textarea [readOnly]="!auth.user()" name="comment" [(ngModel)]="commentText" rows="2" maxlength="5000" [placeholder]="'watch.commentPlaceholder' | translate"></textarea><div class="composer-footer"><span>{{ 'watch.keepCivil' | translate }}</span><button type="submit" class="primary-button" [disabled]="!!auth.user() && !commentText.trim()">{{ 'watch.sendComment' | translate }}</button></div></div>
             </form>
-          <div class="comment-list">
-            @for (comment of comments(); track comment.commentId) {
-              <article class="comment-row" [class.is-hidden]="comment.status === 'hidden'">
-                <span class="comment-avatar">{{ initials(comment.displayName) }}</span>
+          <div class="comment-list" role="list">
+            @for (rootComment of comments(); track rootComment.commentId) {
+              <ng-container [ngTemplateOutlet]="commentNode" [ngTemplateOutletContext]="{ $implicit: rootComment, depth: 0 }" />
+            } @empty { @if (!commentsLoading() && !commentsError()) { <div class="empty-comments"><span aria-hidden="true">✦</span><strong>{{ 'watch.emptyCommentsTitle' | translate }}</strong><p>{{ 'watch.emptyCommentsDesc' | translate }}</p></div> } }
+          </div>
+          <ng-template #commentNode let-node let-depth="depth">
+              <article class="comment-row" role="listitem" [attr.data-comment-id]="node.commentId" [class.comment-row--reply]="depth > 0" [class.comment-row--deep]="depth > 1" [class.is-hidden]="node.status === 'hidden'">
+                <span class="comment-avatar" aria-hidden="true">{{ initials(node.displayName) }}</span>
                 <div class="comment-body">
-                  <div class="comment-author"><strong>{{ comment.displayName }}</strong><time>{{ comment.createdAt | localeDate:'d MMM y' }}</time></div>
-                  @if (editingCommentId() === comment.commentId) {
-                  <form class="comment-edit-form" style="display:flex;flex-wrap:wrap;gap:8px" (ngSubmit)="saveCommentEdit(comment)">
+                  <div class="comment-author"><strong>{{ node.displayName }}</strong><time>{{ node.createdAt | localeDate:'d MMM y' }}</time></div>
+                  @if (editingCommentId() === node.commentId) {
+                  <form class="comment-edit-form" (ngSubmit)="saveCommentEdit(node)">
                     <textarea name="commentEdit" [(ngModel)]="commentEditText" [attr.aria-label]="'common.edit' | translate" [disabled]="commentEditBusy()" required maxlength="5000"></textarea>
                     <button type="submit" class="primary-button" [disabled]="commentEditBusy() || !commentEditText.trim()">{{ 'common.save' | translate }}</button>
                     <button type="button" class="action-button" (click)="cancelCommentEdit()" [disabled]="commentEditBusy()">{{ 'common.cancel' | translate }}</button>
                   </form>
-                } @else { <p>{{ comment.content }}</p> }
+                } @else { <p>{{ node.content }}</p> }
                   <div class="comment-actions">
-                      <button type="button" [class.is-active]="comment.myReaction === 'like'" [attr.aria-pressed]="comment.myReaction === 'like'" appRequireLogin (click)="reactComment(comment, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ comment.likes | compactLikeCount }}</span></button>
-                      <button type="button" [class.is-active]="comment.myReaction === 'dislike'" [attr.aria-pressed]="comment.myReaction === 'dislike'" appRequireLogin (click)="reactComment(comment, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
-                    <button type="button" appRequireLogin (click)="replyTo.set(comment.commentId)">{{ 'watch.reply' | translate }}</button>
-                    @if (comment.replyCount > 0) {
-                      <button type="button" class="reply-toggle" [attr.aria-expanded]="isRepliesOpen(comment.commentId)" (click)="toggleReplies(comment)">
-                        {{ isRepliesOpen(comment.commentId) ? ('watch.hideReplies' | translate) : repliesLabel(comment.replyCount) }}
+                      <button type="button" class="comment-reaction" [class.is-active]="node.myReaction === 'like'" [attr.aria-pressed]="node.myReaction === 'like'" [attr.aria-label]="'watch.likeComment' | translate" [title]="'watch.likeComment' | translate" appRequireLogin (click)="reactComment(node, 'like')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.94-1.53l1.5-6A2 2 0 0 0 17.9 10H14l.7-3.5A2.05 2.05 0 0 0 12.7 4L7 10v10Z"/></svg><span>{{ node.likes | compactLikeCount }}</span></button>
+                      <button type="button" class="comment-reaction comment-reaction--dislike" [class.is-active]="node.myReaction === 'dislike'" [attr.aria-pressed]="node.myReaction === 'dislike'" [attr.aria-label]="'watch.dislikeComment' | translate" [title]="'watch.dislikeComment' | translate" appRequireLogin (click)="reactComment(node, 'dislike')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h3Zm0 10h9.4a2 2 0 0 0 1.94-1.53l1.5-6A2 2 0 0 0 17.9 10H14l.7-3.5A2.05 2.05 0 0 0 12.7 4L7 10v10Z"/></svg></button>
+                    <button type="button" appRequireLogin (click)="startReply(node)" [disabled]="!!replyBusy()">{{ 'watch.reply' | translate }}</button>
+                    @if (node.replyCount > 0) {
+                      <button type="button" class="reply-toggle" [attr.aria-expanded]="isRepliesOpen(node.commentId)" (click)="toggleReplies(node)">
+                        {{ isRepliesOpen(node.commentId) ? ('watch.hideReplies' | translate) : repliesLabel(node.replyCount) }}
                       </button>
                     }
-                    @if (isOwner()) { <button type="button" (click)="hide(comment)">{{ commentStatusLabel(comment.status === 'hidden') }}</button> }
-                    @if (isOwnComment(comment)) { <button type="button" (click)="editComment(comment)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(comment)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" appRequireLogin (click)="report(comment)">{{ 'watch.report' | translate }}</button> }
+                    @if (isOwner()) { <button type="button" (click)="hide(node)">{{ commentStatusLabel(node.status === 'hidden') }}</button> }
+                    @if (isOwnComment(node)) { <button type="button" (click)="editComment(node)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(node)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" appRequireLogin (click)="report(node)">{{ 'watch.report' | translate }}</button> }
                   </div>
-                  @if (replyTo() === comment.commentId) {
-                    <form class="reply-composer" (ngSubmit)="reply(comment)"><input name="reply" [(ngModel)]="replyText" [placeholder]="'watch.replyPlaceholder' | translate"/><button type="submit" class="primary-button">{{ 'watch.send' | translate }}</button></form>
+                  @if (replyTo() === node.commentId) {
+                    <form class="reply-composer" appRequireLogin (ngSubmit)="reply(node)" [attr.aria-busy]="replyBusy() === node.commentId">
+                      <input name="replyText" [(ngModel)]="replyText" [placeholder]="'watch.replyPlaceholder' | translate" [attr.aria-label]="'watch.replyPlaceholder' | translate" [attr.aria-invalid]="!!replyError()" [attr.aria-describedby]="replyError() ? 'reply-error-' + node.commentId : null" [disabled]="replyBusy() === node.commentId" maxlength="5000" required />
+                      <button type="submit" class="primary-button" [disabled]="replyBusy() === node.commentId || !replyText.trim()">{{ 'watch.send' | translate }}</button>
+                      <button type="button" class="reply-cancel" (click)="cancelReply()" [disabled]="!!replyBusy()">{{ 'common.cancel' | translate }}</button>
+                    </form>
+                    @if (replyError()) { <p class="reply-error" role="alert" [id]="'reply-error-' + node.commentId">{{ replyError() }}</p> }
                   }
-                  @if (isRepliesOpen(comment.commentId)) {
-                    <div class="replies-list" [attr.aria-label]="'watch.replies' | translate">
-                      @if (isRepliesLoading(comment.commentId)) { <p class="replies-status">{{ 'watch.replyLoading' | translate }}</p> }
-                      @for (replyItem of repliesFor(comment.commentId); track replyItem.commentId) {
-                        <article class="comment-row comment-row--reply" [class.is-hidden]="replyItem.status === 'hidden'">
-                          <span class="comment-avatar">{{ initials(replyItem.displayName) }}</span>
-                          <div class="comment-body">
-                            <div class="comment-author"><strong>{{ replyItem.displayName }}</strong><time>{{ replyItem.createdAt | localeDate:'d MMM y' }}</time></div>
-                            @if (editingCommentId() === replyItem.commentId) {
-                  <form class="comment-edit-form" style="display:flex;flex-wrap:wrap;gap:8px" (ngSubmit)="saveCommentEdit(replyItem)">
-                    <textarea name="commentEdit" [(ngModel)]="commentEditText" [attr.aria-label]="'common.edit' | translate" [disabled]="commentEditBusy()" required maxlength="5000"></textarea>
-                    <button type="submit" class="primary-button" [disabled]="commentEditBusy() || !commentEditText.trim()">{{ 'common.save' | translate }}</button>
-                    <button type="button" class="action-button" (click)="cancelCommentEdit()" [disabled]="commentEditBusy()">{{ 'common.cancel' | translate }}</button>
-                  </form>
-                } @else { <p>{{ replyItem.content }}</p> }
-                            <div class="comment-actions">
-                              <button type="button" [class.is-active]="replyItem.myReaction === 'like'" [attr.aria-pressed]="replyItem.myReaction === 'like'" appRequireLogin (click)="reactComment(replyItem, 'like')">{{ 'watch.likeComment' | translate }} <span>{{ replyItem.likes | compactLikeCount }}</span></button>
-                              <button type="button" [class.is-active]="replyItem.myReaction === 'dislike'" [attr.aria-pressed]="replyItem.myReaction === 'dislike'" appRequireLogin (click)="reactComment(replyItem, 'dislike')">{{ 'watch.dislikeComment' | translate }}</button>
-                              @if (isOwner()) { <button type="button" (click)="hide(replyItem)">{{ commentStatusLabel(replyItem.status === 'hidden') }}</button> }
-                              @if (isOwnComment(replyItem)) { <button type="button" (click)="editComment(replyItem)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(replyItem)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" appRequireLogin (click)="report(replyItem)">{{ 'watch.report' | translate }}</button> }
-                            </div>
-                          </div>
-                        </article>
+                  @if (isRepliesOpen(node.commentId)) {
+                    <div class="replies-list" role="list" [attr.aria-label]="'watch.replies' | translate">
+                      @for (child of visibleRepliesFor(node.commentId); track child.commentId) {
+                        <ng-container [ngTemplateOutlet]="commentNode" [ngTemplateOutletContext]="{ $implicit: child, depth: depth + 1 }" />
                       } @empty {
-                        @if (!isRepliesLoading(comment.commentId)) { <p class="replies-status">{{ 'watch.repliesEmpty' | translate }}</p> }
+                        @if (!isRepliesLoading(node.commentId) && !repliesError()[node.commentId]) { <p class="replies-status">{{ 'watch.repliesEmpty' | translate }}</p> }
+                      }
+                      @if (isRepliesLoading(node.commentId)) { <p class="replies-status" role="status">{{ 'watch.replyLoading' | translate }}</p> }
+                      @if (repliesError()[node.commentId]) {
+                        <div class="reply-error" role="alert"><p>{{ repliesError()[node.commentId] }}</p><button type="button" class="reply-more" (click)="loadReplies(node)">{{ 'common.retry' | translate }}</button></div>
+                      } @else if (remainingReplies(node) > 0) {
+                        <button type="button" class="reply-more" (click)="loadMoreReplies(node)" [disabled]="isRepliesLoading(node.commentId)">{{ moreRepliesLabel(node) }}</button>
                       }
                     </div>
                   }
                 </div>
               </article>
-            } @empty { @if (!commentsLoading() && !commentsError()) { <div class="empty-comments"><span aria-hidden="true">✦</span><strong>{{ 'watch.emptyCommentsTitle' | translate }}</strong><p>{{ 'watch.emptyCommentsDesc' | translate }}</p></div> } }
-          </div>
+          </ng-template>
           @if (commentsLoading()) { <p role="status" aria-live="polite">{{ 'watch.commentsLoading' | translate }}</p> }
           @if (commentsError()) {
             <div role="alert"><p>{{ commentsError() }}</p><button type="button" class="action-button comments-retry" (click)="retryComments()" [disabled]="commentsLoading()">{{ 'common.retry' | translate }}</button></div>

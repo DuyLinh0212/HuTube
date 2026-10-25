@@ -43,6 +43,10 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<CommentReaction> CommentReactions => Set<CommentReaction>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<ModerationOutboxEvent> ModerationOutboxEvents => Set<ModerationOutboxEvent>();
+    public DbSet<NotificationInboxEvent> NotificationInboxEvents => Set<NotificationInboxEvent>();
+    public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
     public DbSet<ViolationType> ViolationTypes => Set<ViolationType>();
     public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<Report> Reports => Set<Report>();
@@ -147,6 +151,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.Settings).HasColumnType("jsonb");
             b.HasIndex(x => x.OwnerUserId).IsUnique().HasDatabaseName("ux_channels_owner_user_id");
             b.HasIndex(x => x.Handle).IsUnique().HasDatabaseName("ux_channels_handle_ci");
+            b.HasIndex(x => x.SuspendedUntil).HasFilter("status = 'suspended'")
+                .HasDatabaseName("ix_channels_suspended_until");
         });
         model.Entity<ChannelQuota>(b => {
             b.ToTable("channel_quotas"); b.HasKey(x => x.ChannelQuotaId);
@@ -232,6 +238,25 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
         model.Entity<Comment>(b => { b.ToTable("comments"); b.HasKey(x => x.CommentId); });
         model.Entity<CommentReaction>(b => { b.ToTable("comment_reactions"); b.HasKey(x => x.CommentReactionId); b.HasIndex(x => new { x.UserId, x.CommentId }).IsUnique(); });
         model.Entity<Notification>(b => { b.ToTable("notifications"); b.HasKey(x => x.NotificationId); });
+        model.Entity<ModerationOutboxEvent>(b => {
+            b.ToTable("moderation_outbox_events"); b.HasKey(x => x.EventId);
+            b.Property(x => x.Payload).HasColumnType("jsonb");
+            b.HasIndex(x => x.AvailableAt).HasFilter("published_at IS NULL");
+        });
+        model.Entity<NotificationInboxEvent>(b => { b.ToTable("notification_inbox_events"); b.HasKey(x => x.EventId); });
+        model.Entity<NotificationDelivery>(b => {
+            b.ToTable("notification_deliveries"); b.HasKey(x => x.DeliveryId);
+            b.Property(x => x.Payload).HasColumnType("jsonb");
+            b.HasIndex(x => new { x.EventId, x.UserId, x.Type }).IsUnique();
+            b.HasIndex(x => x.AvailableAt).HasFilter("completed_at IS NULL");
+        });
+        model.Entity<PushDevice>(b => {
+            b.ToTable("push_devices"); b.HasKey(x => x.PushDeviceId);
+            b.HasIndex(x => x.TokenHash).IsUnique(); b.HasIndex(x => x.UserId);
+            b.Property(x => x.TokenHash).HasMaxLength(64); b.Property(x => x.Token).HasMaxLength(4096);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<UserSession>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
+        });
         model.Entity<ViolationType>(b => { b.ToTable("violation_types"); b.HasKey(x => x.ViolationTypeId); });
         model.Entity<Policy>(b => {
             b.ToTable("policies");

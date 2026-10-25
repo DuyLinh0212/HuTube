@@ -18,7 +18,6 @@ class LocalDownload {
     required this.progress,
     this.filePath,
     this.error,
-    this.smart = false,
   });
 
   final String id;
@@ -31,7 +30,6 @@ class LocalDownload {
   final double progress;
   final String? filePath;
   final String? error;
-  final bool smart;
 
   bool get completed => status == 'completed';
   bool get active => status == 'downloading';
@@ -53,7 +51,6 @@ class LocalDownload {
     progress: progress ?? this.progress,
     filePath: filePath ?? this.filePath,
     error: clearError ? null : error ?? this.error,
-    smart: smart,
   );
 
   factory LocalDownload.fromJson(Map<String, dynamic> json) => LocalDownload(
@@ -67,7 +64,6 @@ class LocalDownload {
     progress: (json['progress'] as num?)?.toDouble() ?? 0,
     filePath: json['filePath'] as String?,
     error: json['error'] as String?,
-    smart: json['smart'] == true,
   );
 
   Map<String, dynamic> toJson() => {
@@ -81,7 +77,6 @@ class LocalDownload {
     'progress': progress,
     'filePath': filePath,
     'error': error,
-    'smart': smart,
   };
 }
 
@@ -114,28 +109,13 @@ class LocalDownloadManager extends ChangeNotifier {
   bool _connected = true;
   bool _wifi = false;
   bool _wifiOnly = false;
-  bool _smartEnabled = false;
-  int _smartBudget = 256 * 1024 * 1024;
-  static const _waiting = {
-    'waiting_wifi',
-    'waiting_network',
-    'waiting_settings',
-    'waiting_storage',
-  };
+  static const _waiting = {'waiting_wifi', 'waiting_network'};
   List<LocalDownload> get items => List.unmodifiable(_items);
   String? get ownerId => _owner;
 
   String? _blocked(LocalDownload item) {
-    if (item.smart && !_smartEnabled) return 'waiting_settings';
     if (!_connected) return 'waiting_network';
-    if ((_wifiOnly || item.smart) && !_wifi) return 'waiting_wifi';
-    if (item.smart &&
-        _items
-                .where((d) => d.smart && d.status != 'failed')
-                .fold<int>(0, (sum, d) => sum + d.totalBytes) >
-            _smartBudget) {
-      return 'waiting_storage';
-    }
+    if (_wifiOnly && !_wifi) return 'waiting_wifi';
     return null;
   }
 
@@ -143,14 +123,10 @@ class LocalDownloadManager extends ChangeNotifier {
     required bool connected,
     required bool wifi,
     required bool wifiOnly,
-    required bool smartEnabled,
-    required int smartBudget,
   }) async {
     _connected = connected;
     _wifi = wifi;
     _wifiOnly = wifiOnly;
-    _smartEnabled = smartEnabled;
-    _smartBudget = smartBudget;
     final generation = _generation;
     await ensureLoaded();
     if (generation != _generation) return;
@@ -222,7 +198,11 @@ class LocalDownloadManager extends ChangeNotifier {
               status: 'failed',
               error: 'downloads.localMissing',
             );
-          } else if (item.active || item.status == 'queued') {
+          } else if (item.active ||
+              item.status == 'queued' ||
+              entry['smart'] == true ||
+              item.status == 'waiting_settings' ||
+              item.status == 'waiting_storage') {
             item = item.copyWith(
               status: 'paused',
               error: 'downloads.interrupted',
@@ -276,7 +256,6 @@ class LocalDownloadManager extends ChangeNotifier {
     required String quality,
     required String url,
     required int fileSize,
-    bool smart = false,
   }) async {
     final generation = _generation;
     await ensureLoaded();
@@ -294,7 +273,6 @@ class LocalDownloadManager extends ChangeNotifier {
         totalBytes: fileSize,
         status: 'queued',
         progress: 0,
-        smart: smart,
       ),
     );
     await _persist();
@@ -368,20 +346,10 @@ class LocalDownloadManager extends ChangeNotifier {
       sink = temporary.openWrite();
       var received = 0;
       final expected = response.contentLength ?? item.totalBytes;
-      if (item.smart && (item.totalBytes <= 0 || expected > item.totalBytes)) {
-        throw const FileSystemException(
-          'Smart download exceeds reserved storage',
-        );
-      }
       final progressClock = Stopwatch()..start();
       var lastUpdate = 0;
       await for (final chunk in response.stream) {
         if (!current()) return;
-        if (item.smart && received + chunk.length > item.totalBytes) {
-          throw const FileSystemException(
-            'Smart download exceeds reserved storage',
-          );
-        }
         sink.add(chunk);
         received += chunk.length;
         if (progressClock.elapsedMilliseconds - lastUpdate >= 200) {

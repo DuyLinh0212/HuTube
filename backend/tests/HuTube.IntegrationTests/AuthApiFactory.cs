@@ -137,6 +137,8 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Auth:AllowedOrigins:1", "");
         builder.UseSetting("Features:ModerationEnabled", "true");
         builder.UseSetting("Features:PlanEnforcementEnabled", "true");
+        builder.UseSetting("RabbitMq:Enabled", "false");
+        builder.UseSetting("Fcm:Enabled", "false");
         builder.ConfigureServices(services => { services.RemoveAll<IAuthEmailSender>(); services.RemoveAll<IGoogleTokenVerifier>(); services.RemoveAll<IObjectStorage>(); services.RemoveAll<IVideoTranscoder>(); services.RemoveAll<IRecommendationSnapshotStore>(); services.AddSingleton<IAuthEmailSender>(Emails); services.AddSingleton<IGoogleTokenVerifier, TestGoogleTokenVerifier>(); services.AddSingleton<IObjectStorage>(Storage); services.AddSingleton<IVideoTranscoder, TestVideoTranscoder>(); services.AddSingleton<IRecommendationSnapshotStore>(Snapshots); });
     }
     async Task IAsyncLifetime.DisposeAsync()

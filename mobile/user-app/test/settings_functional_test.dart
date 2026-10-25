@@ -66,7 +66,7 @@ void main() {
         ? const BackgroundDownloadSettingsScreen()
         : const PlaybackSettingsScreen();
     final title = AppStrings.t(
-      background ? 'bgDownload.smartDownload' : 'playback.autoplayNext',
+      background ? 'bgDownload.wifiOnly' : 'playback.autoplayNext',
     );
     for (final dark in [false, true]) {
       Widget app() => MaterialApp(
@@ -189,8 +189,8 @@ class FailingPreferences extends AppPreferencesStore {
   }
 
   @override
-  Future<void> writeSmartDownload(bool value) async {
+  Future<void> writeDownloadWifiOnly(bool value) async {
     if (failWrite) throw PlatformException(code: 'DISK_FULL');
-    await super.writeSmartDownload(value);
+    await super.writeDownloadWifiOnly(value);
   }
 }

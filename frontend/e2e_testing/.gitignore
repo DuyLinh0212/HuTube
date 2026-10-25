@@ -3,6 +3,7 @@
 artifacts/runs/
 artifacts/latest.json
 artifacts/web-latest.json
+artifacts/rbac-latest.json
 artifacts/live-latest.json
 artifacts/live-probe/
 artifacts/service-recovery/

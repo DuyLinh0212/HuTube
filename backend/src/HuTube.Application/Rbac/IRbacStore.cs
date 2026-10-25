@@ -12,6 +12,7 @@ public interface IRbacStore
     Task<List<RoleWithPermissions>> GetAllRolesWithPermissionsAsync(CancellationToken ct);
     Task<Role?> FindRoleAsync(Guid roleId, CancellationToken ct);
     Task<int> CountUsersForRoleAsync(Guid roleId, CancellationToken ct) => Task.FromResult(0);
+    Task SoftDeleteRoleAsync(Role role, AuditLog audit, CancellationToken ct);
     Task<bool> RoleCodeExistsAsync(string code, CancellationToken ct);
     Task<List<Permission>> GetActivePermissionsByCodesAsync(IReadOnlyCollection<string> codes, CancellationToken ct);
     void AddRole(Role role);

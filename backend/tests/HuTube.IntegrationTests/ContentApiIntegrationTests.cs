@@ -16,6 +16,7 @@ using HuTube.Application.Channels;
 using HuTube.Application.Videos;
 using HuTube.Application.Notifications;
 using HuTube.Domain.Videos;
+using HuTube.Domain.Plans;
 using Microsoft.EntityFrameworkCore;
 
 namespace HuTube.IntegrationTests;
@@ -23,6 +24,144 @@ namespace HuTube.IntegrationTests;
 public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassFixture<AuthApiFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ArchivePlan_StopsNewPurchasesAndKeepsExistingBenefitsUntilExpiry(bool sharedMember)
+    {
+        // Arrange
+        var (owner, ownerId, ownerChannelId) = await CreateUserAndChannelAsync("archive_owner");
+        var (member, memberId, memberChannelId) = await CreateUserAndChannelAsync("archive_member");
+        var (outsider, outsiderId, _) = await CreateUserAndChannelAsync("archive_outsider");
+        var (_, adminId, _) = await CreateUserAndChannelAsync("archive_admin");
+        string adminEmail;
+        string outsiderEmail;
+        await using (var db = factory.CreateDb())
+        {
+            var adminUser = await db.Users.SingleAsync(u => u.UserId == adminId);
+            adminUser.RoleId = HuTube.Domain.Rbac.SystemRoles.SuperAdmin;
+            adminEmail = adminUser.Email;
+            outsiderEmail = await db.Users.Where(u => u.UserId == outsiderId).Select(u => u.Email).SingleAsync();
+            await db.SaveChangesAsync();
+        }
+        var admin = factory.CreateClient();
+        admin.DefaultRequestHeaders.Add("X-HuTube-Client", "web");
+        admin.DefaultRequestHeaders.Add("X-HuTube-App", "admin");
+        var login = await admin.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(adminEmail, "Password123!", "admin", "Archive test"));
+        login.EnsureSuccessStatusCode();
+        admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            (await login.Content.ReadFromJsonAsync<LoginResponse>(JsonOptions))!.AccessToken);
+        var actor = sharedMember ? member : owner;
+        var actorChannelId = sharedMember ? memberChannelId : ownerChannelId;
+        var video = await CreatePublishedVideoAsync(actor, actorChannelId, "Archived subscription benefits");
+        const long mb = 1024 * 1024;
+        var created = await admin.PostAsJsonAsync("/api/v1/admin/plans", new CreatePlanRequest(
+            $"archive-{Guid.NewGuid():N}", "Archive fixture", null, 100000, 30, 100 * mb, 10 * mb, 600,
+            "1080p", 4, "{\"download\":true,\"pip\":true,\"background_play\":true,\"video_promotion\":true}", MaxDownloadQuality: "1080p"));
+        created.EnsureSuccessStatusCode();
+        var paid = (await created.Content.ReadFromJsonAsync<PlanResponse>(JsonOptions))!;
+        var expires = DateTimeOffset.UtcNow.AddDays(2);
+        Guid historyId;
+        await using (var db = factory.CreateDb())
+        {
+            await db.PlanHistories.Where(h => h.UserId == ownerId && h.Status == "active")
+                .ExecuteUpdateAsync(update => update.SetProperty(h => h.Status, "expired"));
+            (await db.Users.SingleAsync(u => u.UserId == ownerId)).PlanId = paid.PlanId;
+            var history = new PlanHistory { UserId = ownerId, OwnerUserId = ownerId, PlanId = paid.PlanId,
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-1), EndedAt = expires, OwnerAllocatedStorage = 40 * mb };
+            historyId = history.PlanHistoryId;
+            db.PlanHistories.Add(history);
+            if (sharedMember)
+            {
+                var user = await db.Users.SingleAsync(u => u.UserId == memberId);
+                user.PlanId = paid.PlanId;
+                db.PlanMembers.Add(new PlanMember { PlanHistoryId = historyId, OwnerUserId = ownerId,
+                    MemberUserId = memberId, MemberEmail = user.Email, Status = "accepted",
+                    AcceptedAt = DateTimeOffset.UtcNow, AllocatedStorage = 50 * mb });
+            }
+            await db.ChannelQuotas.Where(q => q.ChannelId == ownerChannelId)
+                .ExecuteUpdateAsync(update => update.SetProperty(q => q.StorageLimit, 40 * mb));
+            if (sharedMember) await db.ChannelQuotas.Where(q => q.ChannelId == memberChannelId)
+                .ExecuteUpdateAsync(update => update.SetProperty(q => q.StorageLimit, 50 * mb));
+            await db.SaveChangesAsync();
+        }
+        var before = (await actor.GetFromJsonAsync<PlanDetailResponse>("/api/v1/plans/my-plan", JsonOptions))!;
+
+        // Act
+        var forbiddenArchive = await outsider.PostAsync($"/api/v1/admin/plans/{paid.PlanId}/archive", null);
+        var archived = await admin.PostAsync($"/api/v1/admin/plans/{paid.PlanId}/archive", null);
+        var current = (await actor.GetFromJsonAsync<PlanDetailResponse>("/api/v1/plans/my-plan", JsonOptions))!;
+        var preflight = await actor.PostAsJsonAsync("/api/v1/videos/upload-preflight",
+            new { channelId = actorChannelId, fileSize = 1024, duration = 60, contentType = "video/mp4", sourceQuality = "1080p" });
+        using var download = await actor.PostAsJsonAsync($"/api/v1/videos/{video.VideoId}/download-file", new { quality = "720p" });
+        var promotion = await actor.PatchAsJsonAsync($"/api/v1/videos/{video.VideoId}", new { promotionEnabled = true });
+
+        // Assert: archive is a catalogue change, not cancellation of the purchased term.
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenArchive.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, archived.StatusCode);
+        Assert.Equal(paid.PlanId, current.PlanId);
+        Assert.Equal("archived", current.Status);
+        Assert.Equal(sharedMember, current.IsSharedMember);
+        Assert.Equal(before.Subscription!.EndedAt, current.Subscription!.EndedAt);
+        Assert.Equal(before.StorageLimit, current.StorageLimit);
+        Assert.Equal(before.MaxUploadSize, current.MaxUploadSize);
+        Assert.Equal("1080p", current.MaxVideoQuality);
+        Assert.Equal("1080p", current.MaxDownloadQuality);
+        foreach (var feature in new[] { "pip", "background_play", "download", "video_promotion" }) Assert.True(current.Features![feature]);
+        preflight.EnsureSuccessStatusCode();
+        download.EnsureSuccessStatusCode();
+        promotion.EnsureSuccessStatusCode();
+        Assert.True((await promotion.Content.ReadFromJsonAsync<VideoResponse>(JsonOptions))!.PromotionEnabled);
+        var home = await factory.CreateClient().GetFromJsonAsync<PageResult<VideoCardResponse>>("/api/v1/feed/home?pageSize=100", JsonOptions);
+        Assert.Contains(home!.Items, item => item.VideoId == video.VideoId && item.IsPromoted);
+        Assert.DoesNotContain((await factory.CreateClient().GetFromJsonAsync<List<PlanResponse>>("/api/v1/plans", JsonOptions))!, p => p.PlanId == paid.PlanId);
+        Assert.Contains((await admin.GetFromJsonAsync<List<PlanResponse>>("/api/v1/admin/plans", JsonOptions))!, p => p.PlanId == paid.PlanId && p.Status == "archived");
+        Assert.Equal(HttpStatusCode.NotFound, (await outsider.PostAsJsonAsync($"/api/v1/plans/{paid.PlanId}/subscribe", new { autoRenew = false })).StatusCode);
+        await using (var paymentDb = factory.CreateDb())
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var payments = new PaymentService(paymentDb, scope.ServiceProvider.GetRequiredService<IPlanService>(), PaymentOptions(), TimeProvider.System);
+            var rejectedPurchase = await Assert.ThrowsAsync<PaymentException>(() => payments.InitiateAsync(outsiderId, new CreatePaymentRequest(paid.PlanId)));
+            Assert.Equal(404, rejectedPurchase.Status);
+            Assert.Equal("PLAN_NOT_FOUND", rejectedPurchase.Code);
+        }
+        await using (var db = factory.CreateDb())
+        {
+            var history = await db.PlanHistories.SingleAsync(h => h.PlanHistoryId == historyId);
+            Assert.Equal("active", history.Status);
+            Assert.Equal(expires.ToUnixTimeSeconds(), history.EndedAt!.Value.ToUnixTimeSeconds());
+            Assert.False(await db.Payments.AnyAsync(p => p.UserId == outsiderId && p.PlanId == paid.PlanId));
+        }
+        if (sharedMember)
+        {
+            // Inviting a member is a benefit of the existing purchased term.
+            var invited = await owner.PostAsJsonAsync("/api/v1/plans/members/invite", new { email = outsiderEmail, allocatedStorage = 10 * mb });
+            invited.EnsureSuccessStatusCode();
+            var invitation = (await invited.Content.ReadFromJsonAsync<PlanMemberResponse>(JsonOptions))!;
+            string token;
+            await using (var db = factory.CreateDb()) token = await db.PlanInvitationTokens.Where(t => t.PlanMemberId == invitation.PlanMemberId).Select(t => t.Token).SingleAsync();
+            (await outsider.PostAsJsonAsync($"/api/v1/plans/members/{invitation.PlanMemberId}/accept", new { token })).EnsureSuccessStatusCode();
+            Assert.Equal(paid.PlanId, (await outsider.GetFromJsonAsync<PlanDetailResponse>("/api/v1/plans/my-plan", JsonOptions))!.PlanId);
+        }
+
+        // At expiry, reads and protected operations must stop granting rights even before the worker runs.
+        await using (var db = factory.CreateDb()) await db.PlanHistories.Where(h => h.PlanHistoryId == historyId)
+            .ExecuteUpdateAsync(update => update.SetProperty(h => h.EndedAt, DateTimeOffset.UtcNow.AddMinutes(-1)));
+        var expired = (await actor.GetFromJsonAsync<PlanDetailResponse>("/api/v1/plans/my-plan", JsonOptions))!;
+        Assert.Equal("free", expired.Code);
+        Assert.False(expired.Features!["download"]);
+        Assert.False(expired.Features["pip"]);
+        Assert.False(expired.Features["background_play"]);
+        // A pre-existing Free history may still be active on older shared accounts.
+        Assert.NotEqual<Guid?>(historyId, expired.Subscription?.PlanHistoryId);
+        Assert.False(expired.IsSharedMember);
+        Assert.Equal(HttpStatusCode.Forbidden, (await actor.GetAsync($"/api/v1/videos/{video.VideoId}/download-options")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await actor.PostAsJsonAsync("/api/v1/videos/upload-preflight",
+            new { channelId = actorChannelId, fileSize = 1024, duration = 60, contentType = "video/mp4", sourceQuality = "1080p" })).StatusCode);
+        var afterExpiryHome = await factory.CreateClient().GetFromJsonAsync<PageResult<VideoCardResponse>>("/api/v1/feed/home?pageSize=100", JsonOptions);
+        Assert.DoesNotContain(afterExpiryHome!.Items, item => item.VideoId == video.VideoId && item.IsPromoted);
+    }
 
     [Fact]
     public async Task CommentCreatorState_PersistsAndRequiresChannelPermission()
@@ -473,6 +612,7 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
         Assert.Equal("en", persisted.PreferredLanguage); Assert.Equal("dark", persisted.Theme);
         Assert.Contains(options!, x => x.Quality == "720p");
         Assert.All(webOptions!, x => Assert.Equal("", x.Url));
+        Assert.All(webOptions!, x => Assert.Equal(".mp4", x.FileExtension));
         Assert.Equal(HttpStatusCode.OK, file.StatusCode);
         Assert.Equal("video/mp4", file.Content.Headers.ContentType!.MediaType);
         Assert.Equal("attachment", file.Content.Headers.ContentDisposition!.DispositionType);
@@ -1341,7 +1481,7 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
     }
 
     [Fact]
-    public async Task Comments_RejectCrossVideoParentsAndNestedReplies()
+    public async Task Comments_RejectCrossVideoParentsAndSupportNestedShortReplies()
     {
         var (owner, _, ownerChannelId) = await CreateUserAndChannelAsync("comment_parent_owner");
         var (viewer, _, viewerChannelId) = await CreateUserAndChannelAsync("comment_parent_viewer");
@@ -1368,9 +1508,37 @@ public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassF
 
         var nested = await viewer.PostAsJsonAsync(
             $"/api/v1/videos/{firstVideo.VideoId}/comments",
-            new { content = "Second level reply", parentCommentId = reply.CommentId });
-        Assert.Equal(HttpStatusCode.BadRequest, nested.StatusCode);
-        Assert.Contains("REPLY_DEPTH_EXCEEDED", await nested.Content.ReadAsStringAsync());
+            new { content = "s", parentCommentId = reply.CommentId });
+        Assert.Equal(HttpStatusCode.Created, nested.StatusCode);
+        var child = (await nested.Content.ReadFromJsonAsync<CommentResponse>(JsonOptions))!;
+        Assert.Equal(reply.CommentId, child.ParentCommentId);
+        Assert.Equal("s", child.Content);
+        for (var i = 0; i < 4; i++)
+        {
+            (await viewer.PostAsJsonAsync($"/api/v1/videos/{firstVideo.VideoId}/comments",
+                new { content = $"Another nested reply {i}", parentCommentId = reply.CommentId })).EnsureSuccessStatusCode();
+        }
+        // Equal timestamps must still produce stable pages with no lost/duplicate replies.
+        await using (var db = factory.CreateDb())
+        {
+            await db.Comments.Where(x => x.ParentCommentId == reply.CommentId)
+                .ExecuteUpdateAsync(x => x.SetProperty(row => row.CreatedAt, DateTimeOffset.Parse("2026-01-01T00:00:00Z")));
+        }
+        var guest = factory.CreateClient();
+        var firstPage = await guest.GetFromJsonAsync<PageResult<CommentResponse>>(
+            $"/api/v1/comments/{reply.CommentId}/replies?page=1&pageSize=3", JsonOptions);
+        var secondPage = await guest.GetFromJsonAsync<PageResult<CommentResponse>>(
+            $"/api/v1/comments/{reply.CommentId}/replies?page=2&pageSize=3", JsonOptions);
+        Assert.Equal(5, firstPage!.Total);
+        Assert.Equal(3, firstPage.Items.Count);
+        Assert.Equal(2, secondPage!.Items.Count);
+        Assert.Equal(5, firstPage.Items.Concat(secondPage.Items).Select(x => x.CommentId).Distinct().Count());
+        var parentReplies = await guest.GetFromJsonAsync<PageResult<CommentResponse>>(
+            $"/api/v1/comments/{parent.CommentId}/replies", JsonOptions);
+        Assert.Equal(5, Assert.Single(parentReplies!.Items).ReplyCount);
+        var empty = await viewer.PostAsJsonAsync($"/api/v1/videos/{firstVideo.VideoId}/comments",
+            new { content = "  ", parentCommentId = reply.CommentId });
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
     }
 
     private async Task WaitForReadyRenditionsAsync(Guid videoId, int expectedReadyCount)

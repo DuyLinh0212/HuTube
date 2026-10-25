@@ -108,6 +108,7 @@ export class AdminRbacPage {
     this.error.set('');
     forkJoin({ roles: this.rbac.roles(), permissions: this.rbac.permissions() }).subscribe({
       next: ({ roles, permissions }) => {
+        roles = roles.filter(role => role.code !== 'user' || this.auth.user()?.role === 'super_admin');
         this.roles.set(roles);
         this.permissions.set(permissions.filter((permission) => permission.status === 'active'));
         const current = this.selectedRoleId();
@@ -274,7 +275,7 @@ export class AdminRbacPage {
 
   deleteSelectedRole() {
     const role = this.selectedRole();
-    if (this.deleting() || !role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
+    if (this.deleting() || !role || !this.canDelete() || role.isSystemRole || role.status === 'deleted') return;
     this.deleteReason.set('');
     this.deleteError.set('');
     this.pendingDeleteRole.set(role);
@@ -282,7 +283,7 @@ export class AdminRbacPage {
 
   submitDeleteRole() {
     const role = this.pendingDeleteRole();
-    if (this.deleting() || !role || !this.canDelete() || role.isSystemRole || role.status === 'deleted' || role.assignedUserCount > 0) return;
+    if (this.deleting() || !role || !this.canDelete() || role.isSystemRole || role.status === 'deleted') return;
     const reason = this.deleteReason().trim();
     if (!reason || reason.length < 3 || reason.length > 300) return;
     this.deleting.set(true);

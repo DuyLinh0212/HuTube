@@ -70,7 +70,7 @@ export class AdminUsersPage implements OnInit {
     return this.users().filter(user => {
       const matchesQuery = !query || [user.displayName, user.username, user.email, user.userId]
         .some(value => value.toLowerCase().includes(query));
-      const matchesRole = role === 'ALL' || user.roleCode === role;
+      const matchesRole = role === 'ALL' || (role === '__unassigned' ? !user.roleCode : user.roleCode === role);
       const matchesStatus = status === 'ALL' || user.status === status;
       return matchesQuery && matchesRole && matchesStatus;
     });
@@ -79,14 +79,14 @@ export class AdminUsersPage implements OnInit {
   ngOnInit(): void {
     this.load(1);
     this.service.getRoles().subscribe({
-      next: roles => this.roles.set(roles),
+      next: roles => this.roles.set(roles.filter(role => role.code !== 'user' || this.auth.user()?.role === 'super_admin')),
       error: () => this.roles.set([
         { roleId: 'user', code: 'user', name: this.i18n.t('users.role.user') },
         { roleId: 'creator', code: 'creator', name: this.i18n.t('users.role.creator') },
         { roleId: 'moderator', code: 'moderator', name: this.i18n.t('users.role.moderator') },
         { roleId: 'admin', code: 'admin', name: this.i18n.t('users.role.admin') },
         { roleId: 'super-admin', code: 'super_admin', name: this.i18n.t('users.role.super_admin') },
-      ]),
+      ].filter(role => role.code !== 'user' || this.auth.user()?.role === 'super_admin')),
     });
   }
 
@@ -179,7 +179,7 @@ export class AdminUsersPage implements OnInit {
     this.actionModal.set(action);
     this.actionReason.set('');
     this.notifyUser.set(true);
-    this.actionRole.set(user.roleCode);
+    this.actionRole.set(this.roles().some(role => role.code === user.roleCode) ? user.roleCode! : '');
   }
 
   closeAction(): void {
@@ -295,6 +295,7 @@ export class AdminUsersPage implements OnInit {
     const action = this.actionModal();
     const reason = this.actionReason().trim();
     if (!user || !action || reason.length < 3 || this.savingAction()) return;
+    if (action === 'role' && !this.roles().some(role => role.code === this.actionRole())) return;
 
     this.savingAction.set(true);
     this.error.set('');
@@ -327,6 +328,7 @@ export class AdminUsersPage implements OnInit {
   }
 
   roleLabel(user: Pick<AdminUserItem, 'roleCode' | 'roleName'>): string {
+    if (!user.roleCode) return this.i18n.t('users.role.none');
     const key = `users.role.${user.roleCode}`;
     const translated = this.i18n.t(key);
     return translated === key ? user.roleName || user.roleCode : translated;

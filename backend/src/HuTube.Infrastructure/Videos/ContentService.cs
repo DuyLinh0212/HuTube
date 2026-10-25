@@ -251,7 +251,7 @@ public sealed class ContentService(
                             && member.Status == "accepted"
                             && member.AcceptedAt <= now))
                     && db.Plans.AsNoTracking().Any(plan => plan.PlanId == history.PlanId
-                        && plan.Status == "active"
+                        && (plan.Status == "active" || plan.Status == "archived")
                         && EF.Functions.JsonContains(plan.Features, VideoPromotionFeatureJson))));
             if (hideViewed)
                 promotedVideosQuery = promotedVideosQuery.Where(video =>
@@ -1550,7 +1550,7 @@ public sealed class ContentService(
         var parent = await RequireCommentAsync(commentId, ct); var video = await RequireVideoAsync(parent.VideoId, ct);
         await EnsureCanViewAsync(video, viewerId, ct); (page, pageSize) = Page(page, pageSize);
         var query = db.Comments.AsNoTracking().Where(x => x.ParentCommentId == commentId && x.Status == "visible");
-        var total = await query.CountAsync(ct); var replies = await query.OrderBy(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var total = await query.CountAsync(ct); var replies = await query.OrderBy(x => x.CreatedAt).ThenBy(x => x.CommentId).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         var items = await ToCommentsAsync(replies, viewerId, ct);
         return new(items, page, pageSize, total);
     }
@@ -1628,7 +1628,6 @@ public sealed class ContentService(
         {
             parent = await db.Comments.SingleOrDefaultAsync(x => x.CommentId == request.ParentCommentId && x.VideoId == videoId && x.Status != "deleted", ct)
                 ?? throw Error(404, "PARENT_COMMENT_NOT_FOUND", "Không tìm thấy bình luận cha.");
-            if (parent.ParentCommentId.HasValue) throw Error(400, "REPLY_DEPTH_EXCEEDED", "Chỉ hỗ trợ một cấp trả lời.");
         }
         var comment = new Comment { UserId = userId, VideoId = videoId, ParentCommentId = parent?.CommentId, Content = content, Status = "visible", CreatedAt = Now, UpdatedAt = Now };
         if (await db.Comments.AnyAsync(x => x.UserId == userId && x.VideoId == videoId && x.Content == content && x.CreatedAt > Now.AddSeconds(-10), ct))
@@ -1741,7 +1740,7 @@ public sealed class ContentService(
         var maxHeight = await MaxDownloadHeightAsync(userId, ct);
         var rows = await db.VideoRenditions.AsNoTracking().Where(x => x.VideoId == videoId && x.Status == "ready" && x.Height <= maxHeight).OrderBy(x => x.Height).ToListAsync(ct);
         var result = new List<RenditionResponse>();
-        foreach (var row in rows) result.Add(new(row.QualityLabel, row.Width, row.Height, row.FileSize, await ReadUrlAsync(row.FileUrl, ct)));
+        foreach (var row in rows) result.Add(new(row.QualityLabel, row.Width, row.Height, row.FileSize, await ReadUrlAsync(row.FileUrl, ct), DownloadExtension(row.FileUrl)));
         return result;
     }
 
@@ -1951,7 +1950,7 @@ public sealed class ContentService(
                 && member.Status == "accepted"
                 && member.AcceptedAt <= now))
             && db.Plans.AsNoTracking().Any(plan => plan.PlanId == history.PlanId
-                && plan.Status == "active"
+                && (plan.Status == "active" || plan.Status == "archived")
                 && EF.Functions.JsonContains(plan.Features, VideoPromotionFeatureJson)), ct);
     }
 
@@ -2219,7 +2218,8 @@ public sealed class ContentService(
                                 join history in db.PlanHistories.AsNoTracking() on member.PlanHistoryId equals history.PlanHistoryId
                                 join plan in db.Plans.AsNoTracking() on history.PlanId equals plan.PlanId
                                 where member.MemberUserId == userId && member.Status == "accepted"
-                                      && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now) && plan.Status == "active"
+                                      && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now)
+                                      && (plan.Status == "active" || plan.Status == "archived")
                                 orderby member.AcceptedAt descending
                                 select plan).FirstOrDefaultAsync(ct);
         if (sharedPlan != null && (selected == null || selected.Price == 0 || user.PlanId == sharedPlan.PlanId)) return sharedPlan;
@@ -2263,7 +2263,8 @@ public sealed class ContentService(
 
     private async Task<Plan?> GetEffectivePlanAsync(Guid userId, Guid planId, CancellationToken ct)
     {
-        var plan = await db.Plans.AsNoTracking().SingleOrDefaultAsync(x => x.PlanId == planId && x.Status == "active", ct);
+        // An archived offer still serves subscribers whose history has not expired.
+        var plan = await db.Plans.AsNoTracking().SingleOrDefaultAsync(x => x.PlanId == planId && (x.Status == "active" || x.Status == "archived"), ct);
         if (plan == null) return null;
         var now = Now;
         var hasSubscription = await db.PlanHistories.AsNoTracking().AnyAsync(x =>

@@ -9,6 +9,10 @@ if (-not $EnvironmentFile) {
     $EnvironmentFile = Join-Path $script:RepositoryRoot '.env.local'
 }
 Import-LocalEnvironment -Path $EnvironmentFile
+if ($Component -eq 'api' -and (Test-Path (Join-Path $script:RepositoryRoot '.env.messaging.local'))) {
+    & (Join-Path $PSScriptRoot 'setup-rabbitmq.ps1')
+    Import-LocalEnvironment -Path (Join-Path $script:RepositoryRoot '.env.messaging.local')
+}
 Push-Location $script:RepositoryRoot
 try {
     switch ($Component) {
@@ -57,6 +61,10 @@ try {
                     $arguments += "--dart-define=GOOGLE_WEB_CLIENT_ID=$googleWebClientId"
                 }
                 if ($Device) { $arguments += @('-d', $Device) }
+                foreach ($firebaseKey in @('FIREBASE_API_KEY', 'FIREBASE_APP_ID', 'FIREBASE_PROJECT_ID', 'FIREBASE_MESSAGING_SENDER_ID', 'FIREBASE_IOS_BUNDLE_ID')) {
+                    $firebaseValue = [Environment]::GetEnvironmentVariable($firebaseKey, 'Process')
+                    if ($firebaseValue) { $arguments += "--dart-define=$firebaseKey=$firebaseValue" }
+                }
                 Invoke-CheckedCommand flutter $arguments
             } finally { Pop-Location }
         }

@@ -1,4 +1,5 @@
 import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { AdminTargetActionsComponent } from '../../shared/components/admin-target-actions.component';
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal, OnInit, HostListener, DestroyRef } from '@angular/core';
@@ -10,6 +11,7 @@ import {
   AdminChannel,
   AdminChannelDetail,
   AdminChannelsService,
+  AdminContentAction,
   ChannelCounts
 } from './admin-channels.service';
 import {
@@ -20,7 +22,7 @@ import {
 @Component({
   selector: 'app-admin-channels-page',
   standalone: true,
-  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
+  imports: [AdminTargetActionsComponent, ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
   templateUrl: './admin-channels-page.html',
   styleUrl: './admin-channels-page.scss'
 })
@@ -90,6 +92,9 @@ export class AdminChannelsPage implements OnInit {
   readonly actionModalChannel = signal<AdminChannel | null>(null);
   readonly actionModalReason = signal('');
   readonly notifyOwner = signal(true);
+  readonly suspensionDuration = signal('7');
+  readonly suspensionCustomUntil = signal('');
+  readonly suspensionMinDate = signal('');
 
   // Permissions
   readonly canSuspend = computed(() => this.auth.hasPermission('channel.suspend'));
@@ -312,15 +317,30 @@ export class AdminChannelsPage implements OnInit {
     this.actionModalType.set(action);
     this.actionModalChannel.set(channel);
     this.actionModalReason.set('');
+    this.error.set('');
+    this.suspensionDuration.set('7');
+    this.suspensionCustomUntil.set('');
+    const minDate = new Date(Date.now() + 60_000);
+    this.suspensionMinDate.set(new Date(minDate.getTime() - minDate.getTimezoneOffset() * 60_000).toISOString().slice(0, 16));
     this.notifyOwner.set(true);
     this.showActionModal.set(true);
   }
 
   closeActionModal(): void {
+    if (this.busy()) return;
     this.showActionModal.set(false);
     this.actionModalType.set(null);
     this.actionModalChannel.set(null);
     this.actionModalReason.set('');
+    this.suspensionCustomUntil.set('');
+    this.error.set('');
+  }
+
+  suspensionInvalid(): boolean {
+    if (this.actionModalType() !== 'suspend') return false;
+    if (['1', '3', '7', '30', 'indefinite'].includes(this.suspensionDuration())) return false;
+    const time = new Date(this.suspensionCustomUntil()).getTime();
+    return this.suspensionDuration() !== 'custom' || !Number.isFinite(time) || time <= Date.now();
   }
 
   submitAction(): void {
@@ -329,11 +349,20 @@ export class AdminChannelsPage implements OnInit {
     const reason = this.actionModalReason().trim();
 
     if (!action || !channel || reason.length < 3 || this.busy() || !this.allowedAction(action)) return;
+    if (this.suspensionInvalid()) {
+      this.error.set(this.i18n.t('channels.suspensionInvalid'));
+      return;
+    }
 
     this.busy.set(true);
     this.error.set('');
 
-    const request = { reason, notifyOwner: this.notifyOwner() };
+    const request: AdminContentAction = { reason, notifyOwner: this.notifyOwner() };
+    if (action === 'suspend') {
+      request.suspendedUntil = this.suspensionDuration() === 'indefinite' ? null
+        : this.suspensionDuration() === 'custom' ? new Date(this.suspensionCustomUntil()).toISOString()
+        : new Date(Date.now() + Number(this.suspensionDuration()) * 86_400_000).toISOString();
+    }
 
     let call$;
     if (action === 'delete') {
@@ -354,6 +383,7 @@ export class AdminChannelsPage implements OnInit {
         setTimeout(() => this.notice.set(''), 4000);
         this.load();
         this.loadCounts();
+        if (this.showDetailDrawer()) this.openDetail(channel);
       },
       error: err => {
         this.busy.set(false);
@@ -363,9 +393,17 @@ export class AdminChannelsPage implements OnInit {
   }
 
   exportData(): void {
-    const list = this.channels();
-    if (!list.length) return;
-    this.service.exportCsv(list);
+    if (!this.auth.hasPermission('channel.export') || this.busy()) return;
+    let status = this.statusFilter();
+    if (this.activeTab() === 'active') status = 'active';
+    else if (this.activeTab() === 'restricted') status = 'suspended';
+    else if (this.activeTab() === 'banned') status = 'banned';
+    this.busy.set(true);
+    this.service.getChannels({search: this.searchTerm(), status, sortBy: this.sortColumn(),
+      sortDescending: this.sortDirection() === 'desc'}, true).subscribe({
+      next: result => { this.service.exportCsv(result.items); this.busy.set(false); },
+      error: () => { this.busy.set(false); this.error.set(this.i18n.t('channels.actionError')); }
+    });
   }
 
   setPage(p: number | string): void {
@@ -411,6 +449,7 @@ export class AdminChannelsPage implements OnInit {
   }
 
   auditActionLabel(action: string): string {
+    if (action === 'channel.suspension_expired') return this.i18n.t('channels.suspensionExpired');
     const status = action.startsWith('admin.channel.') ? action.slice('admin.channel.'.length) : '';
     const key = status ? `channels.audit.status.${status}` : '';
     const translated = key ? this.i18n.t(key) : key;

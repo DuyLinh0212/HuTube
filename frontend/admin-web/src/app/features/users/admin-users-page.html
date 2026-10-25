@@ -25,6 +25,7 @@
         </select></label>
         <label class="filter-field"><span>{{ 'users.colRole' | translate }}</span><select [ngModel]="selectedRole()" (ngModelChange)="onRoleChanged($event)">
           <option value="ALL">{{ 'common.all' | translate }}</option>
+          <option value="__unassigned">{{ 'users.role.none' | translate }}</option>
           @for (role of roles(); track role.roleId) { <option [value]="role.code">{{ roleLabel({ roleCode: role.code, roleName: role.name }) }}</option> }
         </select></label>
         <button type="button" class="refresh-button" (click)="refresh()" [disabled]="loading()" [attr.aria-busy]="loading()" [attr.aria-label]="'users.refreshList' | translate" [title]="'users.refreshList' | translate">
@@ -83,11 +84,11 @@
   </section>
 
   @if (actionModal(); as action) {
-    <app-confirm-dialog [title]="(action === 'lock' ? 'users.confirmLock' : action === 'unlock' ? 'users.confirmUnlock' : 'users.confirmUpdateRole') | translate" [confirmLabel]="(action === 'lock' ? 'users.confirmLockAction' : action === 'unlock' ? 'users.confirmUnlockAction' : 'users.saveRole') | translate" (cancelled)="closeAction()" (confirmed)="submitAction()" panelClass="action-modal" [busy]="savingAction()" [confirmDisabled]="actionReason().trim().length < 3" [tone]="action === 'lock' ? 'danger' : 'primary'" initialFocus="field">
+    <app-confirm-dialog [title]="(action === 'lock' ? 'users.confirmLock' : action === 'unlock' ? 'users.confirmUnlock' : 'users.confirmUpdateRole') | translate" [confirmLabel]="(action === 'lock' ? 'users.confirmLockAction' : action === 'unlock' ? 'users.confirmUnlockAction' : 'users.saveRole') | translate" (cancelled)="closeAction()" (confirmed)="submitAction()" panelClass="action-modal" [busy]="savingAction()" [confirmDisabled]="actionReason().trim().length < 3 || (action === 'role' && !actionRole())" [tone]="action === 'lock' ? 'danger' : 'primary'" initialFocus="field">
 <div class="modal-body">
  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           @if (actionTarget(); as user) { <p class="modal-target">{{ (action === 'lock' ? 'users.lockDescription' : action === 'unlock' ? 'users.unlockDescription' : 'users.roleDescription') | translate:{ name: user.displayName } }}</p> }
-          @if (action === 'role') { <label class="modal-field"><span>{{ 'users.newRole' | translate }}</span><select name="actionRole" [ngModel]="actionRole()" (ngModelChange)="actionRole.set($event)">@for (role of roles(); track role.roleId) { <option [value]="role.code">{{ roleLabel({ roleCode: role.code, roleName: role.name }) }}</option> }</select></label> }
+          @if (action === 'role') { <label class="modal-field"><span>{{ 'users.newRole' | translate }}</span><select name="actionRole" [ngModel]="actionRole()" (ngModelChange)="actionRole.set($event)"><option value="" disabled>{{ 'users.chooseRole' | translate }}</option>@for (role of roles(); track role.roleId) { <option [value]="role.code">{{ roleLabel({ roleCode: role.code, roleName: role.name }) }}</option> }</select></label> }
           <label class="modal-field"><span>{{ 'users.reason' | translate }} <b>*</b></span><textarea name="actionReason" rows="4" maxlength="300" required [placeholder]="'users.reasonPlaceholder' | translate" [ngModel]="actionReason()" (ngModelChange)="actionReason.set($event)"></textarea><small>{{ actionReason().length }}/300</small></label>
           @if (action !== 'role') { <label class="check-field"><input type="checkbox" [checked]="notifyUser()" (change)="notifyUser.set($any($event.target).checked)" /> {{ 'users.notifyUser' | translate }}</label> }
         </div>

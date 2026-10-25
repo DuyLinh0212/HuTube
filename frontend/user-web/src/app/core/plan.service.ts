@@ -43,6 +43,14 @@ export interface PlanSubscriptionInfo {
   isExpired: boolean;
 }
 
+export interface PlanStorageUsage {
+  userId: string | null;
+  displayName: string | null;
+  storageUsed: number;
+  isOwner: boolean;
+  isFormerMember?: boolean;
+}
+
 export interface MyPlan extends Plan {
   usedStorage: number;
   remainingStorage: number;
@@ -53,6 +61,7 @@ export interface MyPlan extends Plan {
   ownerAllocatedStorage?: number | null;
   ownerOwnStorageUsed?: number | null;
   sharedOwnerDisplayName?: string | null;
+  storageUsageBreakdown?: PlanStorageUsage[] | null;
 }
 
 export interface PlanShare {

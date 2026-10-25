@@ -1,10 +1,10 @@
 import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
+import { AdminTargetActionsComponent } from '../../shared/components/admin-target-actions.component';
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal, OnInit, HostListener, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
-import { RuntimeConfig } from '../../core/runtime-config';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import {
@@ -21,14 +21,13 @@ import {
 @Component({
   selector: 'app-admin-videos-page',
   standalone: true,
-  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
+  imports: [AdminTargetActionsComponent, ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, DatePipe, DecimalPipe, CustomSelectComponent, TranslatePipe],
   templateUrl: './admin-videos-page.html',
   styleUrl: './admin-videos-page.scss'
 })
 export class AdminVideosPage implements OnInit {
   private readonly service = inject(AdminVideosService);
   readonly auth = inject(AuthService);
-  readonly config = inject(RuntimeConfig);
   readonly i18n = inject(I18nService);
 
   // Data signals
@@ -449,9 +448,15 @@ export class AdminVideosPage implements OnInit {
   }
 
   exportData(): void {
-    const list = this.videos();
-    if (!list.length) return;
-    this.service.exportCsv(list);
+    if (!this.auth.hasPermission('video.export') || this.busy()) return;
+    this.busy.set(true);
+    this.service.getVideos({search: this.searchTerm(), status: this.statusFilter(), visibility: this.visibilityFilter(),
+      categoryId: this.categoryFilter() !== 'all' ? this.categoryFilter() : undefined,
+      timeRange: this.timeFilter() !== 'all' ? this.timeFilter() : undefined,
+      sortBy: this.sortBy(), sortDescending: this.sortDescending()}, true).subscribe({
+      next: result => { this.service.exportCsv(result.items); this.busy.set(false); },
+      error: () => { this.busy.set(false); this.error.set(this.i18n.t('videos.actionError')); }
+    });
   }
 
   // Pagination navigation

@@ -222,9 +222,10 @@ class ContentService {
   Future<PageResult<CommentItem>> replies(
     String commentId, {
     int page = 1,
+    int pageSize = 3,
   }) async {
     final endpoint =
-        '/comments/${Uri.encodeComponent(commentId)}/replies?page=$page&pageSize=50';
+        '/comments/${Uri.encodeComponent(commentId)}/replies?page=$page&pageSize=$pageSize';
     final json = auth.authenticated
         ? await auth.protected('GET', endpoint)
         : await auth.api.request('GET', endpoint);
@@ -235,8 +236,10 @@ class ContentService {
             (value) => CommentItem.fromJson(Map<String, dynamic>.from(value)),
           )
           .toList(),
-      page: asInt(json['page']) == 0 ? 1 : asInt(json['page']),
-      pageSize: asInt(json['pageSize']) == 0 ? 50 : asInt(json['pageSize']),
+      page: asInt(json['page']) == 0 ? page : asInt(json['page']),
+      pageSize: asInt(json['pageSize']) == 0
+          ? pageSize
+          : asInt(json['pageSize']),
       total: asInt(json['total']),
     );
   }

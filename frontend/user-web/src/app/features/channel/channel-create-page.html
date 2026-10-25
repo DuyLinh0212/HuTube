@@ -75,7 +75,7 @@
         <!-- Inputs -->
         <div class="form-group">
           <label for="channelName" class="input-label">{{ 'channel.nameRequired' | translate }}</label>
-          <input id="channelName" type="text" class="text-input" [(ngModel)]="name" name="name" [placeholder]="'channel.namePlaceholder' | translate" [disabled]="busy()" required />
+          <input id="channelName" type="text" class="text-input" [(ngModel)]="name" (ngModelChange)="onNameInput($event)" name="name" [placeholder]="'channel.namePlaceholder' | translate" [disabled]="busy()" required />
         </div>
 
         <div class="form-group">
@@ -88,9 +88,7 @@
               class="text-input handle-field"
               [(ngModel)]="handle"
               name="handle"
-              (input)="onHandleInput($event)"
               (ngModelChange)="onHandleInput($event)"
-              (compositionend)="onHandleInput($event)"
               (blur)="onHandleBlur($event)"
               [placeholder]="'channel.handlePlaceholder' | translate"
               [disabled]="busy()"

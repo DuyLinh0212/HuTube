@@ -215,6 +215,11 @@ class Deployer:
         mount = "type=bind,src=" + str(self.repo / "Caddyfile") + ",dst=/etc/caddy/Caddyfile,readonly"
         self.run("docker", "run", "--rm", "--entrypoint", "caddy", "--mount", mount,
                  snapshot["images"]["caddy"], "validate", "--config", "/etc/caddy/Caddyfile")
+        services = self.compose("config", "--services", env=env, capture=True).splitlines()
+        if "rabbitmq" in services:
+            log("starting_messaging")
+            self.compose("up", "-d", "--no-deps", "--wait", "--wait-timeout", "120",
+                         "rabbitmq", env=env, timeout=180)
         log("migrating")
         self.compose("run", "--rm", "--no-deps", "migrate", env=env, timeout=600)
 

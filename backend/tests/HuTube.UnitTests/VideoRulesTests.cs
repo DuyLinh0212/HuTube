@@ -93,13 +93,27 @@ public sealed class VideoRulesTests
     }
 
     [Theory]
-    [InlineData("ok")]
     [InlineData("")]
     [InlineData("   ")]
     public void ValidateComment_WithInvalidContent_Throws(string content)
     {
         // Arrange / Act / Assert
         Assert.Throws<VideoValidationException>(() => VideoRules.ValidateComment(content));
+    }
+
+    [Theory]
+    [InlineData(" s ", "s")]
+    [InlineData("ok", "ok")]
+    [InlineData("👍", "👍")]
+    public void ValidateComment_AcceptsShortReplies(string content, string expected)
+    {
+        Assert.Equal(expected, VideoRules.ValidateComment(content));
+    }
+
+    [Fact]
+    public void ValidateComment_RejectsContentOverLimit()
+    {
+        Assert.Throws<VideoValidationException>(() => VideoRules.ValidateComment(new string('a', 5001)));
     }
 
     [Fact]

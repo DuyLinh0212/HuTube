@@ -220,8 +220,7 @@ class AppStrings {
       'settings.playback': 'Phát',
       'settings.playbackDesc': 'Tự động phát, nhấn đúp để tua, hình trong hình',
       'settings.bgAndDownloads': 'Phát trong nền và nội dung tải xuống',
-      'settings.bgAndDownloadsDesc':
-          'Phát trong nền, tải xuống thông minh, chất lượng',
+      'settings.bgAndDownloadsDesc': 'Phát trong nền, tải xuống, chất lượng',
       'settings.accountSettings': 'Cài đặt tài khoản',
       'settings.accountSettingsDesc': 'Bảo mật, thông báo và tùy chọn',
       'settings.language': 'Ngôn ngữ',
@@ -269,14 +268,6 @@ class AppStrings {
       'bgDownload.headphonesOnly': 'Chỉ tai nghe hoặc loa ngoài',
       'bgDownload.off': 'Tắt',
       'bgDownload.sectionDownload': 'Tải xuống',
-      'bgDownload.smartDownload': 'Tải xuống thông minh',
-      'bgDownload.smartDownloadDesc':
-          'Tự tải tối đa 3 video đề xuất qua Wi-Fi, trong giới hạn bộ nhớ đã chọn.',
-      'bgDownload.adjustStorage':
-          'Điều chỉnh bộ nhớ cho nội dung Tải xuống thông minh',
-      'bgDownload.adjustStorageDesc':
-          'Chỉ tính video tải thông minh. Không tự xóa video bạn đã tải. Nếu chọn Hỏi mỗi lần, tải thông minh dùng tối đa 480p.',
-      'bgDownload.storageLimitValue': 'Tối đa {limit} MB',
       'bgDownload.backgroundRequirements':
           'Áp dụng khi gói của bạn có quyền phát nền.',
       'bgDownload.quality': 'Chất lượng tải xuống',
@@ -504,19 +495,13 @@ class AppStrings {
       'downloads.paused': 'Đã tạm dừng',
       'downloads.waitingWifi': 'Đang chờ Wi-Fi',
       'downloads.waitingNetwork': 'Đang chờ kết nối mạng',
-      'downloads.waitingSettings': 'Tải thông minh đang tắt',
-      'downloads.waitingStorage': 'Chờ dung lượng tải thông minh',
       'downloads.wifiPolicy':
           'Chỉ tải qua Wi-Fi. Khi đổi sang dữ liệu di động, tải sẽ tạm chờ và tự tiếp tục khi có Wi-Fi.',
-      'downloads.smartSummary':
-          'Tải thông minh: tối đa 3 video qua Wi-Fi, trong {limit} MB. Video bạn tải thủ công được giữ nguyên.',
       'downloads.suggestedTitle': 'Gợi ý để xem offline',
       'downloads.planRequired':
           'Gói hiện tại chưa có quyền tải video. Chọn gói có hỗ trợ tải xuống để sử dụng tính năng này.',
       'downloads.qualityDenied':
           'Gói hiện tại chưa hỗ trợ chất lượng này. Hãy chọn chất lượng thấp hơn.',
-      'downloads.smartUnavailable':
-          'Chưa có video đủ quyền và dung lượng để tải thông minh.',
       'downloads.suggestedDescription':
           'Chọn video muốn lưu để xem khi không có mạng.',
       'downloads.noSuggestions': 'Chưa có video mới để đề xuất tải.',
@@ -575,6 +560,13 @@ class AppStrings {
       'watch.replyHint': 'Viết phản hồi của bạn',
       'watch.replies': '{count} câu trả lời',
       'watch.repliesLoading': 'Đang tải...',
+      'watch.moreReplies': 'Xem thêm {count} câu trả lời',
+      'watch.hideReplies': 'Ẩn câu trả lời',
+      'watch.replyLoadError': 'Không tải được câu trả lời. Vui lòng thử lại.',
+      'watch.replySent': 'Đã gửi câu trả lời.',
+      'watch.likeComment': 'Thích bình luận',
+      'watch.dislikeComment': 'Không thích bình luận',
+      'watch.dislike': 'Không thích',
       'watch.pinnedBy': 'Đã ghim bởi {channel}',
       'watch.pinComment': 'Ghim bình luận',
       'watch.unpinComment': 'Bỏ ghim bình luận',
@@ -849,7 +841,6 @@ class AppStrings {
       'channel.changeAvatar': 'Đổi ảnh đại diện',
       'channel.basicInfo': 'Thông tin cơ bản',
       'channel.nameHint': 'Nhập tên kênh',
-      'channel.handleImmutable': 'Handle không thể thay đổi sau khi tạo',
       'channel.descriptionHintEdit': 'Giới thiệu về kênh của bạn...',
       'channel.inviteHeading': 'Mời cộng tác viên',
       'channel.inviteDescription':
@@ -889,6 +880,9 @@ class AppStrings {
       'channel.handleTaken':
           'Handle này đã được sử dụng. Hãy chọn handle khác.',
       'channel.handleAvailable': 'Handle khả dụng.',
+      'channel.handleCheckError':
+          'Chưa kiểm tra được handle. Vui lòng thử lại.',
+      'channel.handleChecking': 'Đang kiểm tra handle…',
       'channel.handleUnavailable': 'Handle chưa khả dụng.',
       'channel.handleDescription':
           'Handle sẽ tạo địa chỉ duy nhất cho kênh của bạn.',
@@ -1131,6 +1125,12 @@ class AppStrings {
       'plans.inviteError': 'Không thể gửi lời mời.',
       'plans.currentTitle': 'Gói hiện tại: {name}',
       'plans.storageUsed': 'Dung lượng đã dùng',
+      'plans.familyStorageTitle': 'Dung lượng gói gia đình / nhóm',
+      'plans.storageOwner': 'Bạn (chủ gói)',
+      'plans.storageMember': 'Thành viên',
+      'plans.storageFormerMember': '{name} (đã rời nhóm)',
+      'plans.storageOther': 'Dung lượng khác trong gói',
+      'plans.storageFree': 'Còn trống',
       'plans.remaining': 'Còn lại {size}',
       'plans.expires': 'Hết hạn: {date}',
       'plans.maxMembers': '{count} thành viên tối đa',
@@ -1701,8 +1701,7 @@ class AppStrings {
       'settings.playbackDesc':
           'Autoplay, double tap to seek, picture-in-picture',
       'settings.bgAndDownloads': 'Background play & downloads',
-      'settings.bgAndDownloadsDesc':
-          'Background play, smart downloads, quality',
+      'settings.bgAndDownloadsDesc': 'Background play, downloads, quality',
       'settings.accountSettings': 'Account settings',
       'settings.accountSettingsDesc': 'Security, notifications and options',
       'settings.language': 'Language',
@@ -1749,13 +1748,6 @@ class AppStrings {
       'bgDownload.headphonesOnly': 'Headphones or external speakers only',
       'bgDownload.off': 'Off',
       'bgDownload.sectionDownload': 'Downloads',
-      'bgDownload.smartDownload': 'Smart downloads',
-      'bgDownload.smartDownloadDesc':
-          'Automatically download up to 3 recommended videos over Wi-Fi, within your storage limit.',
-      'bgDownload.adjustStorage': 'Adjust storage for Smart Downloads',
-      'bgDownload.adjustStorageDesc':
-          'Applies only to smart downloads. Your manual downloads are kept. Ask each time uses up to 480p for smart downloads.',
-      'bgDownload.storageLimitValue': 'Up to {limit} MB',
       'bgDownload.backgroundRequirements':
           'Requires background playback in your plan.',
       'bgDownload.quality': 'Download quality',
@@ -1988,19 +1980,13 @@ class AppStrings {
       'downloads.paused': 'Paused',
       'downloads.waitingWifi': 'Waiting for Wi-Fi',
       'downloads.waitingNetwork': 'Waiting for a connection',
-      'downloads.waitingSettings': 'Smart downloads are off',
-      'downloads.waitingStorage': 'Waiting for smart download storage',
       'downloads.wifiPolicy':
           'Wi-Fi only. Downloads wait on mobile data and resume when Wi-Fi returns.',
-      'downloads.smartSummary':
-          'Smart downloads: up to 3 videos over Wi-Fi, within {limit} MB. Manual downloads are kept.',
       'downloads.suggestedTitle': 'Suggested for offline viewing',
       'downloads.planRequired':
           'Your plan does not include video downloads. Choose a plan with downloads to use this feature.',
       'downloads.qualityDenied':
           'Your plan does not support this quality. Choose a lower quality.',
-      'downloads.smartUnavailable':
-          'No videos currently fit your download permissions and storage limit.',
       'downloads.suggestedDescription':
           'Choose videos to save and watch without a connection.',
       'downloads.noSuggestions': 'No new download suggestions yet.',
@@ -2060,6 +2046,13 @@ class AppStrings {
       'watch.replyHint': 'Write your reply',
       'watch.replies': '{count} replies',
       'watch.repliesLoading': 'Loading...',
+      'watch.moreReplies': 'View {count} more replies',
+      'watch.hideReplies': 'Hide replies',
+      'watch.replyLoadError': 'Could not load replies. Please try again.',
+      'watch.replySent': 'Reply sent.',
+      'watch.likeComment': 'Like comment',
+      'watch.dislikeComment': 'Dislike comment',
+      'watch.dislike': 'Dislike',
       'watch.pinnedBy': 'Pinned by {channel}',
       'watch.pinComment': 'Pin comment',
       'watch.unpinComment': 'Unpin comment',
@@ -2338,7 +2331,6 @@ class AppStrings {
       'channel.changeAvatar': 'Change avatar',
       'channel.basicInfo': 'Basic information',
       'channel.nameHint': 'Enter channel name',
-      'channel.handleImmutable': 'The handle cannot be changed after creation',
       'channel.descriptionHintEdit': 'Introduce your channel...',
       'channel.inviteHeading': 'Invite a collaborator',
       'channel.inviteDescription':
@@ -2380,6 +2372,9 @@ class AppStrings {
       'channel.handleTaken':
           'This handle is already in use. Choose another one.',
       'channel.handleAvailable': 'Handle is available.',
+      'channel.handleCheckError':
+          'Could not check this handle. Please try again.',
+      'channel.handleChecking': 'Checking handle…',
       'channel.handleUnavailable': 'Handle is not available.',
       'channel.handleDescription':
           'The handle creates a unique address for your channel.',
@@ -2629,6 +2624,12 @@ class AppStrings {
       'plans.inviteError': 'Unable to send the invitation.',
       'plans.currentTitle': 'Current plan: {name}',
       'plans.storageUsed': 'Storage used',
+      'plans.familyStorageTitle': 'Family / group storage',
+      'plans.storageOwner': 'You (plan owner)',
+      'plans.storageMember': 'Member',
+      'plans.storageFormerMember': '{name} (left the group)',
+      'plans.storageOther': 'Other plan storage',
+      'plans.storageFree': 'Free space',
       'plans.remaining': 'Remaining {size}',
       'plans.expires': 'Expires: {date}',
       'plans.maxMembers': '{count} members maximum',
@@ -3033,6 +3034,28 @@ class AppStrings {
     return result;
   }
 
+  static String compactLikeCount(num value) {
+    final count = value.isFinite && value > 0 ? value : 0;
+    if (count < 1000) return number(count);
+    var divisor = count >= 1000000000
+        ? 1000000000
+        : count >= 1000000
+        ? 1000000
+        : 1000;
+    if (divisor < 1000000000 && count / divisor >= 999.95) {
+      divisor *= 1000;
+    }
+    final rounded = (count / divisor).toStringAsFixed(1);
+    final amount = rounded.replaceFirst(RegExp(r'\.0$'), '');
+    final vi = currentLang.value == 'vi';
+    final suffix = divisor == 1000000000
+        ? (vi ? 'T' : 'B')
+        : divisor == 1000000
+        ? (vi ? 'Tr' : 'M')
+        : (vi ? 'N' : 'K');
+    return '${vi ? amount.replaceAll('.', ',') : amount}$suffix';
+  }
+
   static String number(num value) {
     final raw = value is int || value == value.roundToDouble()
         ? value.round().toString()
@@ -3097,6 +3120,8 @@ class AppStrings {
       'STORAGE_UPLOAD_FAILED': 'common.imageUploadError',
       'ONE_CHANNEL_LIMIT_EXCEEDED': 'common.oneChannelLimit',
       'CHANNEL_HANDLE_ALREADY_EXISTS': 'common.handleTaken',
+      'HANDLE_ALREADY_EXISTS': 'channel.handleTaken',
+      'INVALID_HANDLE': 'channel.handleInvalid',
       'REQUEST_FAILED': 'common.requestError',
       'EMAIL_ALREADY_EXISTS': 'auth.emailTaken',
       'USERNAME_ALREADY_EXISTS': 'auth.usernameTaken',

@@ -40,12 +40,8 @@ void main() {
         url: 'https://file.test/$height',
       ),
   ];
-  test('default quality respects ceiling and smart ask uses 480p', () {
+  test('default quality respects ceiling and asks when configured', () {
     expect(selectDownloadRendition(qualities, 'ask'), isNull);
-    expect(
-      selectDownloadRendition(qualities, 'ask', automatic: true)!.quality,
-      '480p',
-    );
     expect(selectDownloadRendition(qualities, '1080p')!.quality, '720p');
     expect(selectDownloadRendition(qualities, '360p')!.quality, '360p');
     expect(selectDownloadRendition([qualities.last], '360p'), isNull);
@@ -151,13 +147,8 @@ void main() {
           return calls == 1 ? pending.future : http.Response('video', 200);
         }),
       );
-      Future<void> network(bool wifi) => manager.configurePolicy(
-        connected: true,
-        wifi: wifi,
-        wifiOnly: true,
-        smartEnabled: false,
-        smartBudget: 128 * 1024 * 1024,
-      );
+      Future<void> network(bool wifi) =>
+          manager.configurePolicy(connected: true, wifi: wifi, wifiOnly: true);
       try {
         await manager.bindUser(
           'owner',
@@ -200,112 +191,6 @@ void main() {
       }
     },
   );
-  for (final oversized in [false, true]) {
-    test(
-      'smart downloads respect Wi-Fi, permissions, cap and storage; oversized=$oversized',
-      () async {
-        FlutterSecureStorage.setMockInitialValues({
-          AppPreferencesStore.downloadSmartKey: 'true',
-          AppPreferencesStore.downloadRecommendationsKey: 'false',
-          AppPreferencesStore.downloadSmartLimitKey: '128',
-        });
-        final root = await Directory.systemTemp.createTemp('hutube_smart_');
-        final conditions = TestConditions()
-          ..setState(connected: true, wifi: false);
-        final created = <String>[];
-        final client = MockClient((request) async {
-          final path = request.url.path;
-          if (path.endsWith('/auth/refresh')) return jsonResponse(session());
-          if (path.endsWith('/downloads') && request.method == 'GET') {
-            return array([]);
-          }
-          if (path.endsWith('/feed/recommended')) {
-            return jsonResponse({
-              'items': [
-                for (var i = 0; i < 6; i++)
-                  {'videoId': 'v$i', 'title': 'Video $i'},
-              ],
-            });
-          }
-          if (path.endsWith('/download-options')) {
-            if (path.contains('/v0/')) {
-              return jsonResponse({'code': 'FORBIDDEN'}, 403);
-            }
-            return array([
-              {
-                'quality': '480p',
-                'height': 480,
-                'fileSize': oversized ? 200 * 1024 * 1024 : 8,
-              },
-            ]);
-          }
-          if (path.endsWith('/downloads') && request.method == 'POST') {
-            final id = path.split('/').reversed.skip(1).first;
-            created.add(id);
-            expect((jsonDecode(request.body) as Map)['quality'], '480p');
-            return jsonResponse({
-              'videoDownloadId': id,
-              'videoId': id,
-              'title': id,
-              'quality': '480p',
-              'fileSize': 8,
-            });
-          }
-          return jsonResponse({});
-        });
-        final auth = AuthController(
-          ApiClient(client: client),
-          MemoryStore('refresh'),
-        );
-        await auth.restore();
-        final manager = LocalDownloadManager.test(
-          rootDirectory: () async => root,
-          clientFactory: () =>
-              MockClient((_) async => http.Response('12345678', 200)),
-        );
-        await manager.bindUser(
-          'user-1',
-          authorize: (_) async => 'https://file.test/a',
-        );
-        final coordinator = DownloadCoordinator(
-          auth,
-          manager: manager,
-          conditions: conditions,
-        );
-        try {
-          await coordinator.initialize();
-          await coordinator.smartIdle;
-          expect(created, isEmpty);
-          conditions.setState(connected: true, wifi: true);
-          await coordinator.smartIdle;
-          expect(created.length, oversized ? 0 : 3);
-          expect(created, isNot(contains('v0')));
-          expect(
-            coordinator.suggestions,
-            isEmpty,
-            reason: 'Display preference does not enable/disable automatic jobs',
-          );
-          if (!oversized) {
-            await waitFor(() => manager.items.every((d) => d.completed));
-            expect(manager.items.every((d) => d.smart), isTrue);
-            conditions.setState(connected: true, wifi: false);
-            conditions.setState(connected: true, wifi: true);
-            await coordinator.smartIdle;
-            expect(created.length, 3);
-          }
-        } finally {
-          coordinator.dispose();
-          conditions.dispose();
-          await manager.bindUser(null);
-          await manager.flush();
-          manager.dispose();
-          auth.dispose();
-          client.close();
-          await root.delete(recursive: true);
-        }
-      },
-    );
-  }
   test('disabled recommendations perform no ranking request', () async {
     FlutterSecureStorage.setMockInitialValues({
       AppPreferencesStore.downloadRecommendationsKey: 'false',

@@ -93,6 +93,7 @@ public sealed class Channel
     public string? ContactEmail { get; set; }
     public string? WatermarkUrl { get; set; }
     public string? StatusReason { get; set; }
+    public DateTimeOffset? SuspendedUntil { get; set; }
     public string Settings { get; set; } = "{}";
     public string Status { get; set; } = "active";
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
@@ -117,6 +118,7 @@ public sealed class Channel
     public void SoftDelete(DateTimeOffset now)
     {
         Status = "deleted";
+        SuspendedUntil = null;
         UpdatedAt = now;
     }
 }

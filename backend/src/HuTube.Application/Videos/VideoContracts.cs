@@ -21,7 +21,7 @@ public sealed record ChannelSearchResultResponse(Guid ChannelId, string Name, st
 public sealed record ChapterRequest(int StartSeconds, string Title);
 public sealed record VideoCardRequest(int StartSeconds, Guid VideoId);
 public sealed record VideoCardLinkResponse(Guid VideoId, int StartSeconds, string Title, string? ThumbnailUrl);
-public sealed record RenditionResponse(string Quality, int Width, int Height, long FileSize, string Url);
+public sealed record RenditionResponse(string Quality, int Width, int Height, long FileSize, string Url, string? FileExtension = null);
 public sealed record VideoStatsResponse(long Views, long Likes, long Dislikes, int Comments, decimal? AverageRating, int RatingCount, long Shares, long WatchSeconds = 0);
 public sealed record VideoViewerStateResponse(string? Reaction, int? Rating, int ResumeAtSeconds, decimal Progress);
 public sealed record VideoCardResponse(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle, string Title,

@@ -5,6 +5,7 @@ import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../services/channel_service.dart';
+import '../channel_handle.dart';
 import 'channel_screen.dart';
 
 class CreateChannelScreen extends StatefulWidget {
@@ -28,11 +29,24 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   String? _error;
   Timer? _debounceTimer;
   int _handleGeneration = 0;
+  final _handleSuffix = newHandleSuffix();
+  String _suggestedHandle = '';
+  bool _handleEdited = false;
+  String? _handleError;
 
   @override
   void initState() {
     super.initState();
     _channelService = ChannelService(widget.auth);
+    _nameController.text =
+        '${widget.auth.user?['displayName'] ?? widget.auth.user?['username'] ?? ''}';
+    _onNameChanged(_nameController.text);
+  }
+
+  void _onNameChanged(String name) {
+    if (_handleEdited) return;
+    _suggestedHandle = suggestChannelHandle(name, _handleSuffix);
+    _handleController.text = _suggestedHandle;
   }
 
   @override
@@ -47,13 +61,21 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   void _onHandleChanged(String value) {
     _debounceTimer?.cancel();
     final generation = ++_handleGeneration;
-    final clean = value.startsWith('@')
-        ? value.substring(1).trim()
-        : value.trim();
-
-    if (clean.length < 3) {
+    final clean = normalizeChannelHandle(value);
+    _handleError = null;
+    if (clean.toLowerCase() == _suggestedHandle) {
       setState(() {
         _handleAvailable = null;
+        _checkingHandle = false;
+      });
+      return;
+    }
+    _handleEdited = true;
+
+    if (!isValidChannelHandle(clean)) {
+      setState(() {
+        _handleAvailable = false;
+        _handleError = AppStrings.t('channel.handleInvalid');
         _checkingHandle = false;
       });
       return;
@@ -65,26 +87,35 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
     });
 
     _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
-      final available = await _channelService.checkHandle(clean);
-      if (mounted && generation == _handleGeneration) {
-        setState(() {
-          _handleAvailable = available;
-          _checkingHandle = false;
-        });
+      try {
+        final available = await _channelService.checkHandle(clean);
+        if (mounted && generation == _handleGeneration) {
+          setState(() {
+            _handleAvailable = available;
+            _checkingHandle = false;
+          });
+        }
+      } catch (_) {
+        if (mounted && generation == _handleGeneration) {
+          setState(() {
+            _checkingHandle = false;
+            _handleError = AppStrings.t('channel.handleCheckError');
+          });
+        }
       }
     });
   }
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
-    var handle = _handleController.text.trim();
-    if (handle.startsWith('@')) handle = handle.substring(1);
+    final handle = normalizeChannelHandle(_handleController.text);
+    if (_busy || _checkingHandle) return;
 
     if (name.isEmpty) {
       setState(() => _error = AppStrings.t('channel.nameRequired'));
       return;
     }
-    if (handle.length < 3 || handle.length > 50) {
+    if (!isValidChannelHandle(handle)) {
       setState(() => _error = AppStrings.t('channel.handleInvalid'));
       return;
     }
@@ -214,6 +245,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               const SizedBox(height: 6),
               TextFormField(
                 controller: _nameController,
+                onChanged: _onNameChanged,
                 enabled: !_busy,
                 decoration: InputDecoration(
                   hintText: AppStrings.t('channel.createNameHint'),
@@ -228,6 +260,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               ),
               const SizedBox(height: 6),
               TextFormField(
+                key: const ValueKey('channel-create-handle'),
                 controller: _handleController,
                 enabled: !_busy,
                 onChanged: _onHandleChanged,
@@ -256,11 +289,12 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 4, left: 4),
                 child: Text(
-                  _handleAvailable == true
-                      ? AppStrings.t('channel.handleAvailable')
-                      : _handleAvailable == false
-                      ? AppStrings.t('channel.handleUnavailable')
-                      : AppStrings.t('channel.handleDescription'),
+                  _handleError ??
+                      (_handleAvailable == true
+                          ? AppStrings.t('channel.handleAvailable')
+                          : _handleAvailable == false
+                          ? AppStrings.t('channel.handleUnavailable')
+                          : AppStrings.t('channel.handleDescription')),
                   style: TextStyle(
                     fontSize: 12,
                     color: _handleAvailable == true
@@ -289,7 +323,9 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               const SizedBox(height: 32),
 
               FilledButton(
-                onPressed: _busy ? null : _submit,
+                onPressed: _busy || _checkingHandle || _handleAvailable == false
+                    ? null
+                    : _submit,
                 child: _busy
                     ? const SizedBox(
                         height: 20,

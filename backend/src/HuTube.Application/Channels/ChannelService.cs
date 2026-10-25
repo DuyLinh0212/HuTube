@@ -143,10 +143,13 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
             if (!Channel.IsValidHandle(request.Handle))
                 throw new ChannelException(400, "INVALID_HANDLE", "Handle cần 3–50 ký tự, chỉ gồm chữ, số, dấu gạch dưới, gạch ngang hoặc dấu chấm.");
             var normalized = Channel.NormalizeHandle(request.Handle);
-            var existing = await store.FindChannelByHandleAsync(normalized, ct);
-            if (existing != null && existing.ChannelId != channelId)
-                throw new ChannelException(409, "HANDLE_ALREADY_EXISTS", "Handle này đã có người sử dụng. Vui lòng chọn handle khác.");
-            channel.Handle = normalized;
+            if (normalized != channel.Handle)
+            {
+                var existing = await store.FindChannelByHandleAsync(normalized, ct);
+                if (existing != null && existing.ChannelId != channelId)
+                    throw new ChannelException(409, "HANDLE_ALREADY_EXISTS", "Handle này đã có người sử dụng. Vui lòng chọn handle khác.");
+                channel.Handle = normalized;
+            }
         }
 
         if (request.Description != null) channel.Description = NormalizeOptional(request.Description);

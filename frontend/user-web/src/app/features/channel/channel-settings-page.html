@@ -58,9 +58,10 @@
             <label for="chHandle" class="input-label">{{ 'channel.handleChannel' | translate }}</label>
             <div class="handle-input-wrap">
               <span class="handle-prefix">&#64;</span>
-              <input id="chHandle" type="text" class="text-input handle-field" [(ngModel)]="handle" [disabled]="busy()" />
+              <input id="chHandle" type="text" class="text-input handle-field" [(ngModel)]="handle" (ngModelChange)="onHandleChanged($event)" [disabled]="busy()" />
             </div>
             <p class="field-help">{{ 'channel.address' | translate:{ handle: handle } }}</p>
+            @if (handleFeedback()) { <p class="field-help" role="status" [attr.aria-busy]="handleChecking()">{{ handleFeedback() }}</p> }
           </div>
 
           <div class="form-group">
@@ -125,7 +126,7 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy()">
+            <button type="button" class="btn-primary" (click)="onSaveBasicInfo()" [disabled]="busy() || handleChecking() || handleValid() === false">
               {{ 'channel.save' | translate }}
             </button>
           </div>

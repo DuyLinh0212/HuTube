@@ -136,7 +136,7 @@ export class AdminVideosService {
     sortDescending?: boolean;
     page?: number;
     pageSize?: number;
-  }): Observable<AdminPage<AdminVideo>> {
+  }, exportAll = false): Observable<AdminPage<AdminVideo>> {
     let params = new HttpParams()
       .set('page', options.page ?? 1)
       .set('pageSize', options.pageSize ?? 6);
@@ -172,7 +172,7 @@ export class AdminVideosService {
       params = params.set('sortDescending', options.sortDescending.toString());
     }
 
-    return this.http.get<AdminPage<AdminVideo>>(`${this.base}/videos`, { params });
+    return this.http.get<AdminPage<AdminVideo>>(`${this.base}/videos${exportAll ? '/export' : ''}`, { params });
   }
 
   getVideo(id: string): Observable<AdminVideoDetail> {

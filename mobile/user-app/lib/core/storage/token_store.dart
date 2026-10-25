@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 abstract interface class TokenStore {
@@ -13,7 +14,15 @@ abstract interface class DeviceIdStore {
   Future<void> writeDeviceId(String id);
 }
 
-class SecureTokenStore implements TokenStore, DeviceIdStore {
+/// A cached identity only unlocks this account's local files while offline.
+/// It is bound to the stored refresh token, never used as an API credential.
+abstract interface class OfflineIdentityStore {
+  Future<Map<String, dynamic>?> readOfflineUser(String refreshToken);
+  Future<void> writeOfflineUser(String refreshToken, Map<String, dynamic> user);
+}
+
+class SecureTokenStore
+    implements TokenStore, DeviceIdStore, OfflineIdentityStore {
   const SecureTokenStore([
     this._storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(
@@ -33,6 +42,7 @@ class SecureTokenStore implements TokenStore, DeviceIdStore {
   final FlutterSecureStorage _storage;
   static const _key = 'hutube.refreshToken';
   static const _deviceIdKey = 'hutube.deviceId';
+  static const _offlineUserKey = 'hutube.offlineUser';
 
   @override
   Future<String?> read() => _storage.read(key: _key);
@@ -41,7 +51,41 @@ class SecureTokenStore implements TokenStore, DeviceIdStore {
   Future<void> write(String token) => _storage.write(key: _key, value: token);
 
   @override
-  Future<void> clear() => _storage.delete(key: _key);
+  Future<void> clear() async {
+    await Future.wait([
+      _storage.delete(key: _key),
+      _storage.delete(key: _offlineUserKey),
+    ]);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> readOfflineUser(String refreshToken) async {
+    final value = await _storage.read(key: _offlineUserKey);
+    if (value == null) return null;
+    try {
+      final cached = jsonDecode(value);
+      if (cached is! Map ||
+          cached['session'] != refreshToken ||
+          cached['user'] is! Map) {
+        return null;
+      }
+      final user = Map<String, dynamic>.from(cached['user'] as Map);
+      return user['userId'] is String && (user['userId'] as String).isNotEmpty
+          ? user
+          : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> writeOfflineUser(
+    String refreshToken,
+    Map<String, dynamic> user,
+  ) => _storage.write(
+    key: _offlineUserKey,
+    value: jsonEncode({'session': refreshToken, 'user': user}),
+  );
 
   @override
   Future<String?> readDeviceId() => _storage.read(key: _deviceIdKey);

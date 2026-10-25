@@ -1,4 +1,5 @@
 using HuTube.Application.Rbac;
+using HuTube.Application.Serialization;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +75,25 @@ public sealed class RbacStore(HuTubeDbContext db) : IRbacStore
 
     public Task<int> CountUsersForRoleAsync(Guid roleId, CancellationToken ct) =>
         db.Users.IgnoreQueryFilters().CountAsync(user => user.RoleId == roleId, ct);
+
+    public async Task SoftDeleteRoleAsync(Role role, AuditLog audit, CancellationToken ct)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        // Role assignment takes the same row lock before checking the role status.
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT role_id FROM public.roles WHERE role_id = {role.RoleId} FOR UPDATE", ct);
+        await db.Entry(role).ReloadAsync(ct);
+        if (role.Status == "deleted") return;
+
+        var removedUserCount = await db.Users.IgnoreQueryFilters().Where(user => user.RoleId == role.RoleId)
+            .ExecuteUpdateAsync(update => update
+                .SetProperty(user => user.RoleId, (Guid?)null)
+                .SetProperty(user => user.UpdatedAt, audit.CreatedAt), ct);
+        role.Status = "deleted";
+        audit.NewValues = PersistenceJson.Serialize(new { role.Code, role.Name, role.Status, removedUserCount });
+        db.AuditLogs.Add(audit);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
 
     public Task<bool> RoleCodeExistsAsync(string code, CancellationToken ct) =>
         db.Roles.AnyAsync(role => role.Code == code, ct);

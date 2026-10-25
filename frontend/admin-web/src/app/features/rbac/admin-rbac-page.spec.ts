@@ -7,6 +7,7 @@ import { AdminRbacPage } from './admin-rbac-page';
 import { AuthService } from '../../core/auth.service';
 import { authInterceptor } from '../../core/auth.interceptor';
 import { RuntimeConfig } from '../../core/runtime-config';
+import { I18nService } from '../../core/i18n.service';
 
 describe('Admin RBAC page', () => {
   const base = 'http://localhost:5080/api/v1';
@@ -29,6 +30,7 @@ describe('Admin RBAC page', () => {
       providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting(), provideRouter([])],
     });
     TestBed.inject(RuntimeConfig).apiBaseUrl = base;
+    TestBed.inject(I18nService).currentLang.set('vi');
     const auth = TestBed.inject(AuthService);
     auth.accessToken.set('access-token');
     spyOn(auth, 'ensureFreshAccessToken').and.returnValue(of('access-token'));
@@ -47,9 +49,9 @@ describe('Admin RBAC page', () => {
 
   afterEach(() => http.verify());
 
-  function setup() {
+  function setup(roles = [role]) {
     const fixture = TestBed.createComponent(AdminRbacPage);
-    http.expectOne(base + '/admin/roles').flush([role]);
+    http.expectOne(base + '/admin/roles').flush(roles);
     http.expectOne(base + '/admin/permissions').flush(permissions);
     fixture.detectChanges();
     return fixture;
@@ -115,5 +117,52 @@ describe('Admin RBAC page', () => {
 
     expect(page.createOpen()).toBeFalse();
     expect(page.selectedRole()?.code).toBe('content_reviewer');
+  });
+
+  it('confirms removal of assigned users before deleting and preserves the dialog for retry', () => {
+    const custom = { ...role, roleId: 'custom-role', code: 'custom_role', name: 'Review team',
+      isSystemRole: false, assignedUserCount: 2, status: 'active' };
+    const fixture = setup([custom]);
+    const page = fixture.componentInstance;
+    const button = fixture.nativeElement.querySelector('.danger-action') as HTMLButtonElement;
+    expect(button.disabled).toBeFalse();
+    button.click();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('app-confirm-dialog');
+    expect(dialog.textContent).toContain('2 người dùng');
+    expect(dialog.textContent).toContain('không còn thuộc role nào');
+    expect(dialog.textContent).toContain('Tài khoản của họ vẫn được giữ');
+    http.expectNone(base + '/admin/roles/custom-role');
+    page.deleteReason.set('Remove the review team');
+    page.submitDeleteRole();
+    page.submitDeleteRole();
+    const request = http.expectOne(req => req.url === base + '/admin/roles/custom-role');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.params.get('reason')).toBe('Remove the review team');
+    request.flush({ message: 'Retry deletion' }, { status: 503, statusText: 'Unavailable' });
+    expect(page.pendingDeleteRole()?.assignedUserCount).toBe(2);
+    expect(page.deleteReason()).toBe('Remove the review team');
+    page.submitDeleteRole();
+    http.expectOne(req => req.url === base + '/admin/roles/custom-role').flush(null);
+    expect(page.pendingDeleteRole()).toBeNull();
+    expect(page.roles()).toEqual([]);
+  });
+
+  it('hides the User role from administrators even if an old API returns it', () => {
+    const auth = TestBed.inject(AuthService);
+    auth.user.update(user => ({ ...user!, role: 'admin' }));
+    const userRole = { ...role, roleId: 'user-role', code: 'user', name: 'User', isSystemRole: true };
+    const fixture = setup([userRole, role]);
+    expect(fixture.componentInstance.roles().map(item => item.code)).toEqual(['admin']);
+    expect(fixture.nativeElement.querySelector('.role-list').textContent).not.toContain('User');
+  });
+
+  it('shows the User role to Super Admin without allowing deletion', () => {
+    const userRole = { ...role, roleId: 'user-role', code: 'user', name: 'User', isSystemRole: true };
+    const fixture = setup([userRole]);
+    expect(fixture.componentInstance.roles().map(item => item.code)).toEqual(['user']);
+    expect(fixture.nativeElement.querySelector('.danger-action')).toBeNull();
+    fixture.componentInstance.deleteSelectedRole();
+    expect(fixture.componentInstance.pendingDeleteRole()).toBeNull();
   });
 });

@@ -1,9 +1,11 @@
 namespace HuTube.Application.Videos;
 
-public sealed record AdminContentActionRequest(string Reason, bool NotifyOwner = true);
+public sealed record AdminContentActionRequest(string Reason, bool NotifyOwner = true, DateTimeOffset? SuspendedUntil = null);
+public sealed record UpdateAdminChannelRequest(string Name, string? Description, string? ContactEmail, string Reason);
+public sealed record CreateTargetStrikeRequest(string Severity, string Reason, string? PolicyCode = null, string? InternalNote = null);
 public sealed record AdminChannelListItem(Guid ChannelId, string Name, string Handle, Guid OwnerUserId, string OwnerName,
     string OwnerEmail, string Status, DateTimeOffset CreatedAt, int VideoCount, int SubscriberCount, int ActiveStrikeCount,
-    long ViewCount = 0, string? StatusReason = null);
+    long ViewCount = 0, string? StatusReason = null, DateTimeOffset? SuspendedUntil = null);
 public sealed record AdminAuditItem(Guid AuditLogId, string Action, string? Reason, string? ActorName, DateTimeOffset CreatedAt);
 public sealed record AdminChannelDetailResponse(AdminChannelListItem Channel, string? Description, string? ContactEmail,
     string? AvatarUrl, string? BannerUrl, string? WatermarkUrl, IReadOnlyList<AdminVideoListItem> Videos,

@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'core/widgets/hutube_widgets.dart';
 import 'features/payments/payment_service.dart';
 import 'features/plans/plan_service.dart';
+import 'features/plans/family_storage_usage.dart';
 
 String _localizedPlanStatus(Object? rawStatus) {
   final raw = '${rawStatus ?? ''}'.trim();
@@ -226,7 +227,8 @@ class _PlansScreenState extends State<PlansScreen> {
         builder: (context, setDialogState) {
           final quotaText = quotaController.text.trim();
           final quotaGb = double.tryParse(quotaText);
-          final quotaError = quotaText.isNotEmpty &&
+          final quotaError =
+              quotaText.isNotEmpty &&
                   (quotaGb == null || quotaGb < 0 || quotaGb > maxGb)
               ? AppStrings.format('plans.quotaExceedsAvailable', {
                   'available': _formatBytes(availableBytes),
@@ -249,8 +251,12 @@ class _PlansScreenState extends State<PlansScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: quotaController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  ],
                   decoration: InputDecoration(
                     labelText: AppStrings.t('plans.memberStorageTitle'),
                     hintText: AppStrings.t('plans.storageGBPlaceholder'),
@@ -272,11 +278,11 @@ class _PlansScreenState extends State<PlansScreen> {
                 onPressed: quotaError != null
                     ? null
                     : () => Navigator.of(dialogContext).pop({
-                          'email': emailController.text,
-                          'allocatedStorage': quotaGb == null
-                              ? null
-                              : (quotaGb * 1024 * 1024 * 1024).round(),
-                        }),
+                        'email': emailController.text,
+                        'allocatedStorage': quotaGb == null
+                            ? null
+                            : (quotaGb * 1024 * 1024 * 1024).round(),
+                      }),
                 child: Text(AppStrings.t('common.send')),
               ),
             ],
@@ -384,12 +390,15 @@ class _PlansScreenState extends State<PlansScreen> {
   }
 
   Future<void> _leaveSharedPlan() async {
-    final owner = '${_myPlan?['sharedOwnerDisplayName'] ?? AppStrings.t('plans.sharedPlanOwnerFallback')}';
+    final owner =
+        '${_myPlan?['sharedOwnerDisplayName'] ?? AppStrings.t('plans.sharedPlanOwnerFallback')}';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(AppStrings.t('plans.leaveSharedPlan')),
-        content: Text(AppStrings.format('plans.leaveSharedConfirm', {'owner': owner})),
+        content: Text(
+          AppStrings.format('plans.leaveSharedConfirm', {'owner': owner}),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -414,7 +423,11 @@ class _PlansScreenState extends State<PlansScreen> {
     } on ApiFailure catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.apiError(error, fallback: 'plans.leaveSharedError'))),
+          SnackBar(
+            content: Text(
+              AppStrings.apiError(error, fallback: 'plans.leaveSharedError'),
+            ),
+          ),
         );
       }
     }
@@ -589,7 +602,8 @@ class _PlansScreenState extends State<PlansScreen> {
                     onShare: () => _sharePlan(_plans[index]),
                     onDetails: () =>
                         _showPlanDetails('${_plans[index]['planId']}'),
-                    onSubscribe: widget.auth.authenticated &&
+                    onSubscribe:
+                        widget.auth.authenticated &&
                             _myPlan?['isSharedMember'] != true
                         ? () => _subscribe(_plans[index]['planId'] as String)
                         : null,
@@ -643,6 +657,7 @@ class _PlansScreenState extends State<PlansScreen> {
     final used = _number(plan['usedStorage']);
     final remaining = _number(plan['remainingStorage']);
     final ownerAllocated = _number(plan['ownerAllocatedStorage']);
+    final familyStorage = showFamilyStorageUsage(plan);
     final progress = total <= 0
         ? 0.0
         : (used / total).clamp(0.0, 1.0).toDouble();
@@ -688,7 +703,11 @@ class _PlansScreenState extends State<PlansScreen> {
               runSpacing: 8,
               children: [
                 Text(
-                  AppStrings.t('plans.storageUsed'),
+                  AppStrings.t(
+                    familyStorage
+                        ? 'plans.familyStorageTitle'
+                        : 'plans.storageUsed',
+                  ),
                   style: TextStyle(color: Colors.white.withValues(alpha: .75)),
                 ),
                 Text(
@@ -701,11 +720,21 @@ class _PlansScreenState extends State<PlansScreen> {
               ],
             ),
             const SizedBox(height: 7),
-            LinearProgressIndicator(
-              value: progress,
-              color: AppColors.primary,
-              backgroundColor: Colors.white.withValues(alpha: .14),
-            ),
+            if (familyStorage)
+              FamilyStorageUsage(
+                usage: (plan['storageUsageBreakdown'] as List)
+                    .whereType<Map>()
+                    .toList(),
+                totalBytes: total,
+                usedBytes: used,
+                onDark: true,
+              )
+            else
+              LinearProgressIndicator(
+                value: progress,
+                color: AppColors.primary,
+                backgroundColor: Colors.white.withValues(alpha: .14),
+              ),
             const SizedBox(height: 7),
             Text(
               AppStrings.format('plans.remaining', {
@@ -734,12 +763,18 @@ class _PlansScreenState extends State<PlansScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(Icons.groups_rounded, color: Colors.white70, size: 18),
+                  const Icon(
+                    Icons.groups_rounded,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       AppStrings.format('plans.sharedWithOwner', {
-                        'owner': plan['sharedOwnerDisplayName'] ?? AppStrings.t('plans.sharedPlanOwnerFallback'),
+                        'owner':
+                            plan['sharedOwnerDisplayName'] ??
+                            AppStrings.t('plans.sharedPlanOwnerFallback'),
                       }),
                       style: const TextStyle(color: Colors.white70),
                     ),
@@ -752,31 +787,33 @@ class _PlansScreenState extends State<PlansScreen> {
                 icon: const Icon(Icons.logout_rounded),
                 label: Text(AppStrings.t('plans.leaveSharedPlan')),
               ),
-            ] else ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.storage_rounded,
-                    size: 18,
-                    color: Colors.white.withValues(alpha: .75),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      plan['ownerAllocatedStorage'] is num
-                          ? AppStrings.format('plans.ownerQuotaValue', {
-                              'size': _formatBytes(ownerAllocated),
-                            })
-                          : AppStrings.t('plans.sharedQuota'),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: .82),
-                        fontWeight: FontWeight.w700,
+            ] else if ((plan['maxMembers'] as num? ?? 1) > 1) ...[
+              if (showPlanStorageAllocation(plan)) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.storage_rounded,
+                      size: 18,
+                      color: Colors.white.withValues(alpha: .75),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        plan['ownerAllocatedStorage'] is num
+                            ? AppStrings.format('plans.ownerQuotaValue', {
+                                'size': _formatBytes(ownerAllocated),
+                              })
+                            : AppStrings.t('plans.sharedQuota'),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: .82),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _inviteMember,

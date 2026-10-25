@@ -100,6 +100,7 @@ public sealed class PlanService(
     {
         var plan = await db.Plans.SingleOrDefaultAsync(x => x.PlanId == planId, ct)
             ?? throw new PlanException(404, "PLAN_NOT_FOUND", "Gói dịch vụ không tồn tại.");
+        // Archiving removes the offer from sale; existing subscription histories keep their expiry and benefits.
         plan.Status = "archived"; plan.IsDefaultForNewUsers = false; plan.UpdatedAt = Now;
         await db.SaveChangesAsync(ct);
         await audit.LogAuditAsync(new AuditLogEntry(actorUserId, "plan.archived", "plan", plan.PlanId, "Admin lưu trữ gói dịch vụ"), ct);
@@ -185,13 +186,17 @@ public sealed class PlanService(
                 .Select(x => x.StorageUsed)
                 .SingleOrDefaultAsync(ct);
 
-        var usedStorage = isSharedMember
-            ? channelUsedStorage
-            : activeHistory == null ? channelUsedStorage : await GetBilledStorageAsync(userId, ct);
+        var storageUsage = !isSharedMember && activeHistory != null
+            ? await GetBilledStorageUsageAsync(userId, ct) : null;
+        // Total and individual slices come from the same query, including media
+        // still billed to this owner after a member leaves or a channel is suspended.
+        var usedStorage = storageUsage?.Sum(item => item.StorageUsed) ?? channelUsedStorage;
+        var usageByUser = storageUsage?.Where(item => item.UserId.HasValue)
+            .ToDictionary(item => item.UserId!.Value, item => item.StorageUsed) ?? [];
         var storageLimit = isSharedMember
             ? await GetSharedMemberStorageLimitAsync(sharedPlan!.Value.History, sharedPlan.Value.Member, sharedPlan.Value.Plan, ct)
             : plan.StorageLimit;
-        var remainingStorage = Math.Max(0, (isSharedMember ? storageLimit : activeHistory?.OwnerAllocatedStorage ?? storageLimit) - usedStorage);
+        var remainingStorage = Math.Max(0, storageLimit - usedStorage);
         var sharedOwnerDisplayName = isSharedMember
             ? await db.Users.AsNoTracking().Where(x => x.UserId == sharedPlan!.Value.Member.OwnerUserId).Select(x => x.DisplayName).SingleOrDefaultAsync(ct)
             : null;
@@ -215,11 +220,6 @@ public sealed class PlanService(
                 .OrderBy(x => x.InvitedAt)
                 .ToListAsync(ct);
 
-            var memberUserIds = rawMembers.Where(m => m.MemberUserId.HasValue).Select(m => m.MemberUserId!.Value).Distinct().ToList();
-            var memberQuotas = new Dictionary<Guid, long>();
-            foreach (var memberUserId in memberUserIds)
-                memberQuotas[memberUserId] = await GetUsedStorageAsync(memberUserId, ct);
-
             members = rawMembers.Select(x => new PlanMemberResponse(
                 x.PlanMemberId,
                 plan.PlanId,
@@ -231,8 +231,29 @@ public sealed class PlanService(
                 x.AcceptedAt,
                 x.RevokedAt,
                 x.AllocatedStorage,
-                x.MemberUserId.HasValue && memberQuotas.TryGetValue(x.MemberUserId.Value, out var used) ? used : 0L
+                x.Status == "accepted" && x.MemberUserId.HasValue ? usageByUser.GetValueOrDefault(x.MemberUserId.Value) : 0L
             )).ToList();
+        }
+
+        if (storageUsage != null)
+        {
+            var activeMemberIds = members.Where(member => member.Status == "accepted" && member.MemberUserId.HasValue)
+                .Select(member => member.MemberUserId!.Value).Distinct().ToList();
+            foreach (var id in activeMemberIds.Prepend(userId))
+                if (storageUsage.All(item => item.UserId != id))
+                    storageUsage.Add(new PlanStorageUsageResponse(id, null, 0, id == userId));
+            var ids = storageUsage.Where(item => item.UserId.HasValue).Select(item => item.UserId!.Value).ToList();
+            var names = await db.Users.IgnoreQueryFilters().AsNoTracking().Where(user => ids.Contains(user.UserId))
+                .ToDictionaryAsync(user => user.UserId, user => user.DisplayName, ct);
+            storageUsage = storageUsage.Select(item => item with
+                {
+                    DisplayName = item.UserId.HasValue ? names.GetValueOrDefault(item.UserId.Value) : null,
+                    IsFormerMember = !item.IsOwner && item.UserId.HasValue && !activeMemberIds.Contains(item.UserId.Value)
+                })
+                .OrderByDescending(item => item.IsOwner)
+                .ThenBy(item => item.IsFormerMember)
+                .ThenBy(item => item.UserId)
+                .ToList();
         }
 
         var subscriptionInfo = activeHistory != null
@@ -274,7 +295,8 @@ public sealed class PlanService(
             plan.MaxDownloadQuality,
             isSharedMember ? null : activeHistory?.OwnerAllocatedStorage,
             sharedOwnerDisplayName,
-            isSharedMember ? null : channelUsedStorage);
+            isSharedMember ? null : storageUsage == null ? channelUsedStorage : usageByUser.GetValueOrDefault(userId),
+            storageUsage);
     }
 
     public async Task<PlanResponse> SubscribeAsync(Guid userId, Guid planId, PlanSubscriptionRequest request, CancellationToken ct = default)
@@ -555,7 +577,7 @@ public sealed class PlanService(
                 && x.Status == "active" && (!x.EndedAt.HasValue || x.EndedAt > Now), ct)
             ?? throw new PlanException(410, "PLAN_EXPIRED", "Gói của chủ sở hữu đã hết hạn.");
         var sharedPlan = await db.Plans.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.PlanId == activeHistory.PlanId && x.Status == "active", ct)
+            .SingleOrDefaultAsync(x => x.PlanId == activeHistory.PlanId && (x.Status == "active" || x.Status == "archived"), ct)
             ?? throw new PlanException(410, "PLAN_EXPIRED", "Gói của chủ sở hữu không còn hoạt động.");
 
         if (await GetActiveSharedPlanAsync(userId, ct) != null)
@@ -701,7 +723,8 @@ public sealed class PlanService(
 
     private async Task<Plan?> GetEffectivePlanAsync(Guid userId, Guid planId, CancellationToken ct)
     {
-        var plan = await db.Plans.AsNoTracking().SingleOrDefaultAsync(x => x.PlanId == planId && x.Status == "active", ct);
+        // Catalogue availability and an existing subscriber's entitlement are separate.
+        var plan = await db.Plans.AsNoTracking().SingleOrDefaultAsync(x => x.PlanId == planId && (x.Status == "active" || x.Status == "archived"), ct);
         if (plan == null) return null;
         var now = Now;
         var hasSubscription = await db.PlanHistories.AsNoTracking().AnyAsync(x =>
@@ -721,7 +744,7 @@ public sealed class PlanService(
                              join plan in db.Plans.AsNoTracking() on history.PlanId equals plan.PlanId
                              where member.MemberUserId == userId && member.Status == "accepted"
                                    && history.Status == "active" && (!history.EndedAt.HasValue || history.EndedAt > Now)
-                                   && plan.Status == "active"
+                                   && (plan.Status == "active" || plan.Status == "archived")
                              orderby member.AcceptedAt descending
                              select new { Plan = plan, History = history, Member = member }).FirstOrDefaultAsync(ct);
         return result == null ? null : (result.Plan, result.History, result.Member);
@@ -778,11 +801,19 @@ public sealed class PlanService(
             .SingleOrDefaultAsync(ct);
     }
 
-    private async Task<long> GetBilledStorageAsync(Guid billingOwnerUserId, CancellationToken ct) =>
-        await db.Videos.AsNoTracking()
-            .Where(video => video.StorageBillingOwnerUserId == billingOwnerUserId
-                && video.Status != "deleted" && video.MediaPurgedAt == null)
-            .SumAsync(video => (long?)video.FileSize, ct) ?? 0L;
+    private async Task<List<PlanStorageUsageResponse>> GetBilledStorageUsageAsync(Guid billingOwnerUserId, CancellationToken ct)
+    {
+        var rows = await (from video in db.Videos.AsNoTracking()
+                          join channel in db.Channels.IgnoreQueryFilters().AsNoTracking()
+                              on video.ChannelId equals channel.ChannelId into channels
+                          from channel in channels.DefaultIfEmpty()
+                          where video.StorageBillingOwnerUserId == billingOwnerUserId
+                              && video.Status != "deleted" && video.MediaPurgedAt == null
+                          group video by channel == null ? (Guid?)null : channel.OwnerUserId into usage
+                          select new { UserId = usage.Key, StorageUsed = usage.Sum(video => video.FileSize) })
+            .ToListAsync(ct);
+        return rows.Select(row => new PlanStorageUsageResponse(row.UserId, null, row.StorageUsed, row.UserId == billingOwnerUserId)).ToList();
+    }
 
     private async Task<long> GetChannelActiveVideoStorageAsync(Guid channelId, CancellationToken ct) =>
         await db.Videos.AsNoTracking()

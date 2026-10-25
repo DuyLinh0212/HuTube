@@ -207,5 +207,29 @@ class SnapshotTests(unittest.TestCase):
             self.assertEqual("active caddy config\n", (saved / "Caddyfile").read_text())
 
 
+class MessagingPreparationTests(unittest.TestCase):
+    def test_prepares_broker_before_migration_without_restarting_application(self):
+        with TemporaryDirectory() as directory:
+            deployer = Deployer({"repo_dir": directory, "state_dir": str(Path(directory) / "state"), "repository": REPO})
+            calls = []
+            def compose(*args, **_kwargs):
+                calls.append(args)
+                return "api\nrabbitmq\nmigrate" if args == ("config", "--services") else ""
+            with patch.object(deployer, "compose", side_effect=compose), patch.object(deployer, "run"):
+                deployer.prepare({}, {"images": {"caddy": "caddy:2"}})
+            self.assertEqual(("config", "--services"), calls[0])
+            self.assertEqual("rabbitmq", calls[1][-1])
+            self.assertIn("--wait", calls[1])
+            self.assertEqual("migrate", calls[2][-1])
+            self.assertEqual(3, len(calls))
+
+    def test_older_compose_without_broker_still_prepares_normally(self):
+        with TemporaryDirectory() as directory:
+            deployer = Deployer({"repo_dir": directory, "state_dir": str(Path(directory) / "state"), "repository": REPO})
+            with patch.object(deployer, "compose", return_value="api\nmigrate") as compose, patch.object(deployer, "run"):
+                deployer.prepare({}, {"images": {"caddy": "caddy:2"}})
+            self.assertEqual(2, compose.call_count)
+
+
 if __name__ == "__main__":
     unittest.main()

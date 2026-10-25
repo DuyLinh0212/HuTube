@@ -1,5 +1,7 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
-import { Component, ElementRef, Input, ViewChild, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, Input, ViewChild, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { suggestChannelHandle } from '../../core/channel-handle';
 import { COMPOSITION_BUFFER_MODE, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -23,6 +25,11 @@ export class ChannelCreatePage {
   private auth = inject(AuthService);
   private router = inject(Router);
   private readonly i18n = inject(I18nService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly handleSuffix = crypto.randomUUID().slice(0, 8);
+  private suggestedHandle = '';
+  private handleEdited = false;
+  private handleGeneration = 0;
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
   @ViewChild('bannerInput') bannerInput?: ElementRef<HTMLInputElement>;
@@ -47,7 +54,19 @@ export class ChannelCreatePage {
   private debounceTimer?: any;
 
   constructor() {
+    this.name = this.auth.user()?.displayName || this.auth.user()?.username || '';
+    this.onNameInput(this.name);
+    this.destroyRef.onDestroy(() => clearTimeout(this.debounceTimer));
     this.checkExisting();
+  }
+
+  onNameInput(name: string) {
+    this.name = name;
+    if (this.handleEdited) return;
+    this.suggestedHandle = suggestChannelHandle(name, this.handleSuffix);
+    this.handle = this.suggestedHandle;
+    this.handleFeedback.set('');
+    this.handleValid.set(null);
   }
 
   checkExisting() {
@@ -74,8 +93,15 @@ export class ChannelCreatePage {
 
     this.handle = raw;
     clearTimeout(this.debounceTimer);
+    const generation = ++this.handleGeneration;
 
     const clean = raw.trim().replace(/^@+/, '').trim();
+    if (clean.toLowerCase() === this.suggestedHandle) {
+      this.handleFeedback.set('');
+      this.handleValid.set(null);
+      return;
+    }
+    this.handleEdited = true;
     if (!clean) {
       this.handleFeedback.set('');
       this.handleValid.set(null);
@@ -111,17 +137,17 @@ export class ChannelCreatePage {
     this.handleValid.set(null);
 
     this.debounceTimer = setTimeout(() => {
-      this.channelService.checkHandle(clean).subscribe({
+      this.channelService.checkHandle(clean).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: res => {
           const currentClean = (this.handle || '').trim().replace(/^@+/, '').trim();
-          if (currentClean === clean) {
+          if (generation === this.handleGeneration && currentClean === clean) {
             this.handleFeedback.set(this.i18n.t(res.isAvailable ? 'channel.handleAvailable' : 'channel.handleTaken'));
             this.handleValid.set(res.isAvailable);
           }
         },
         error: () => {
           const currentClean = (this.handle || '').trim().replace(/^@+/, '').trim();
-          if (currentClean === clean) {
+          if (generation === this.handleGeneration && currentClean === clean) {
             this.handleFeedback.set(this.i18n.t('channel.handleCheckError'));
             this.handleValid.set(false);
           }
@@ -131,7 +157,6 @@ export class ChannelCreatePage {
   }
 
   onHandleBlur(event?: Event) {
-    this.onHandleInput(event);
     const clean = (this.handle || '').trim().replace(/^@+/, '').trim();
     if (this.handle !== clean) {
       this.handle = clean;

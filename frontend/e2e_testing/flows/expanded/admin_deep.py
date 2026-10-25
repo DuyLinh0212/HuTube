@@ -57,16 +57,18 @@ def run(suite,config,actors):
         suite.api(fresh,'get','/admin/topics')
         suite.api(fresh,'get','/admin/roles',expected=403)
         suite.api(member,'put','/admin/users/'+member['identity']['userId']+'/role',data={'roleCode':'super_admin','reason':'QC self elevation must fail'},expected=403)
-        suite.api(admin,'delete','/admin/roles/'+custom['roleId'],params={'reason':'QC in-use constraint'},expected=(400,409))
+        suite.api(admin,'delete','/admin/roles/'+custom['roleId'],params={'reason':'QC delete assigned custom role'},expected=204)
+        removed=suite.api(admin,'get','/admin/users/'+uid).json()
+        assert removed['roleCode'] is None and removed['permissions']==[]
+        suite.api(fresh,'get','/admin/topics',expected=(401,403))
         suite.api(admin,'post','/admin/roles',data={'code':code,'name':'Duplicate','permissionCodes':[],'reason':'QC duplicate'},expected=409)
-        suite.go(admin,'/roles','app-admin-rbac-page','/admin/roles');page.locator('.role-browser input[type=search]').fill(code);expect(page.locator('.role-card')).to_have_count(1)
+        suite.go(admin,'/roles','app-admin-rbac-page','/admin/roles');page.locator('.role-browser input[type=search]').fill(code);expect(page.locator('.role-card')).to_have_count(0)
         old_headers=dict(fresh['headers']);fresh['page'].goto('about:blank')
         suite.api(admin,'put','/admin/users/'+uid+'/role',data={'roleCode':'user','reason':'QC restore role fixture'})
         fresh['headers']=old_headers
         suite.api(fresh,'get','/admin/topics',expected=(401,403))
-        suite.api(admin,'delete','/admin/roles/'+custom['roleId'],params={'reason':'QC remove unused fixture'},expected=204)
         suite.release_actor(fresh);suite.release_actor(target);actors['target']=suite.actor('target-role-restored','user','target')
-        entry['resource_ids']=[uid,custom['roleId']];entry['steps']=['Create one custom role via real API','Admin UI assigns it; current identity reflects updated role','Re-login: taxonomy allowed, RBAC denied','Ordinary Member cannot self-elevate','In-use/duplicate constraints reject','Restore user role; previous custom-role token immediately loses taxonomy permission','Delete unused fixture']
+        entry['resource_ids']=[uid,custom['roleId']];entry['steps']=['Create one custom role via real API','Admin UI assigns it; current identity reflects updated role','Re-login: taxonomy allowed, RBAC denied','Ordinary Member cannot self-elevate','Delete assigned role: member has no role/permissions and old session loses access','Deleted code cannot be recreated; deleted role absent from picker','Super Admin can assign User role again']
     case(suite,admin,'RBAC-ASSIGN-RELOGIN-CONSTRAINTS','A-RBAC.01','Assigned permissions take effect after re-login',role_assignment,'rbac')
     def system_role(entry):
         roles=suite.api(admin,'get','/admin/roles').json();system=next(r for r in roles if r['code']=='super_admin')

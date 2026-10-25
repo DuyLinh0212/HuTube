@@ -45,12 +45,14 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
         return list.Select(p => new PermissionResponse(p.PermissionId, p.Code, p.Name, p.Description, p.Status)).ToList();
     }
 
-    public async Task<List<RoleResponse>> GetAllRolesAsync(CancellationToken ct = default)
+    public async Task<List<RoleResponse>> GetAllRolesAsync(Guid actorUserId, CancellationToken ct = default)
     {
         var list = await rbacStore.GetAllRolesWithPermissionsAsync(ct);
+        var (actorRole, _) = await rbacStore.GetUserRoleAsync(actorUserId, ct);
         var result = new List<RoleResponse>(list.Count);
         foreach (var role in list)
         {
+            if (role.Code == "user" && actorRole != "super_admin") continue;
             result.Add(new RoleResponse(role.RoleId, role.Code, role.Name, role.Description, role.Permissions,
                 role.Status, IsSystemRoleCode(role.Code), await rbacStore.CountUsersForRoleAsync(role.RoleId, ct)));
         }
@@ -101,20 +103,15 @@ public sealed class RbacService(IRbacStore rbacStore, IAuthStore authStore)
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 300)
             throw new RbacException(400, "INVALID_AUDIT_REASON", "Lý do xóa phải có từ 3 đến 300 ký tự.");
         await EnsureRoleCanBeManagedAsync(actorUserId, role.Code, ct);
-        var assignedUsers = await rbacStore.CountUsersForRoleAsync(roleId, ct);
-        if (assignedUsers > 0)
-            throw new RbacException(409, "ROLE_IN_USE", $"Không thể xóa vai trò đang được gán cho {assignedUsers} người dùng. Hãy chuyển họ sang vai trò khác trước.");
         if (role.Status == "deleted") return;
 
         var oldValues = PersistenceJson.Serialize(new { role.Code, role.Name, role.Status });
-        role.Status = "deleted";
-        rbacStore.AddAuditLog(new AuditLog
+        await rbacStore.SoftDeleteRoleAsync(role, new AuditLog
         {
             AuditLogId = Guid.NewGuid(), ActorUserId = actorUserId, Action = "rbac.role_deleted", ResourceType = "role",
             ResourceId = roleId, Reason = reason.Trim(), OldValues = oldValues,
-            NewValues = PersistenceJson.Serialize(new { role.Code, role.Name, role.Status }), CreatedAt = DateTimeOffset.UtcNow
-        });
-        await rbacStore.SaveAsync(ct);
+            CreatedAt = DateTimeOffset.UtcNow
+        }, ct);
     }
 
     public async Task<RoleResponse> UpdateRoleAsync(Guid actorUserId, Guid roleId, UpdateRoleRequest request, CancellationToken ct = default)

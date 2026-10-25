@@ -1633,6 +1633,37 @@ body.dark-theme {
   }
 }
 
+.suspension-summary {
+  padding: 12px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 8px;
+  color: var(--ink, #111827);
+}
+
+.suspension-help {
+  margin: -6px 0 0;
+  color: var(--muted, #6b7280);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.modal-form-label .modal-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--ink, #111827);
+  font: inherit;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary, #ff2b66);
+    outline-offset: 2px;
+  }
+}
+
 .drawer-backdrop, .modal-backdrop { z-index: 2000; } .detail-drawer, .channel-drawer { z-index: 2001; }
 
 .modal-backdrop { padding: 16px; overflow-y: auto; box-sizing: border-box; z-index: 2000; }

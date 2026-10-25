@@ -492,29 +492,6 @@
 
         <div class="pane-divider"></div>
 
-        <!-- Section 2: Tải xuống thông minh -->
-        <section class="pane-section">
-          <div class="channel-row">
-            <div class="row-label">{{ 'account.smartDownloadsHeading' | translate }}</div>
-            <div class="row-body">
-              <div class="privacy-toggle-group">
-                <div class="toggle-row">
-                  <label class="yt-switch">
-                    <input type="checkbox" [checked]="smartDownloads()" (change)="onToggleSmartDownloads($any($event.target).checked)" />
-                    <span class="yt-slider"></span>
-                  </label>
-                  <span class="toggle-headline">{{ 'account.smartDownloadsToggle' | translate }}</span>
-                </div>
-                <p class="toggle-explanation">
-                  {{ 'account.smartDownloadsDesc' | translate }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div class="pane-divider"></div>
-
         <!-- Section 3: Xóa tất cả video tải xuống -->
         <section class="pane-section">
           <div class="download-delete-row">

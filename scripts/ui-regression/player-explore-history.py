@@ -1,4 +1,4 @@
-"""Browser regression for PiP, Explore dragging and history time labels.
+"""Browser regression for channel handles, file saving, PiP and Explore/history.
 
 Run against a local development server. All API calls use isolated fixtures.
 Requires Playwright, Chromium (or --browser-path) and ffmpeg.
@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -42,8 +42,14 @@ def main():
     history = [{**card, 'videoId': f'history-{seconds}', 'title': f'Watched {seconds}',
                 'watchedSeconds': seconds, 'progress': 20, 'activityAt': datetime.now(timezone.utc).isoformat()}
                for seconds in [59, 60, 61, 3599, 3600, 3660]]
+    channel_detail = {**channel, 'ownerUserId': 'user-one', 'name': 'Kí sự Jura', 'handle': 'lynwa',
+                      'description': '', 'contactEmail': None, 'settings': '{}', 'status': 'active',
+                      'permissions': ['channel.edit_profile', 'channel.setting_edit'], 'isOwner': True}
+    channel_created = False
+    handle_checks, channel_updates = [], []
 
     def api(route):
+        nonlocal channel_created
         cors = {'Access-Control-Allow-Origin': args.base_url, 'Access-Control-Allow-Credentials': 'true',
                 'Access-Control-Allow-Headers': route.request.headers.get('access-control-request-headers', '*'),
                 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS'}
@@ -63,6 +69,8 @@ def main():
         data = {'items': [], 'page': 1, 'pageSize': 20, 'total': 0}
         if path == '/auth/refresh':
             data = session
+        elif path == '/auth/me':
+            data = session['user']
         elif path == '/plans/my-plan':
             data = {'features': {'pip': True, 'background_play': True}, 'subscription': None}
         elif path == '/categories':
@@ -77,13 +85,40 @@ def main():
                     'languageCode': 'vi', 'ageRestricted': False, 'createdAt': expires,
                     'tags': [], 'chapters': [], 'stats': {'views': 12, 'likes': 0, 'dislikes': 0,
                     'comments': 0, 'averageRating': None, 'ratingCount': 0, 'shares': 0}, 'viewerState': None}
+        elif path == f'/videos/{video_id}/download-options':
+            data = [{'quality': '720p', 'width': 640, 'height': 360, 'fileSize': len(media_bytes), 'url': '', 'fileExtension': '.mp4'}]
+        elif path == f'/videos/{video_id}/download-file':
+            assert route.request.method == 'POST'
+            assert json.loads(route.request.post_data)['quality'] == '720p'
+            route.fulfill(status=200, content_type='video/mp4', headers={**cors, 'Content-Disposition': 'attachment; filename="regression-720p.mp4"'}, body=media_bytes)
+            return
         elif path == f'/videos/{video_id}/playback':
             data = {'videoId': video_id, 'title': card['title'], 'visibility': 'public', 'duration': 15,
                     'resumeAtSeconds': 0, 'progress': 0, 'renditions': [{'quality': '720p', 'width': 640,
                     'height': 360, 'fileSize': len(media_bytes), 'url': 'https://api.dalitu.app/api/v1/test-media.mp4'}]}
+        elif path == '/channels/me' and not channel_created:
+            route.fulfill(status=404, content_type='application/json', headers=cors, body='{}')
+            return
+        elif path == '/channels/check-handle':
+            query = parse_qs(urlparse(route.request.url).query)
+            handle_checks.append(query)
+            data = {'isAvailable': query['handle'][0] != 'taken', 'handle': query['handle'][0], 'message': ''}
+        elif path in ['/channels/roles', '/channels/invitations/me']:
+            data = []
+        elif path == '/channels' and route.request.method == 'POST':
+            channel_created = True
+            channel_detail.update(json.loads(route.request.post_data))
+            data = channel_detail
+        elif path == '/channels/channel-one' and route.request.method == 'PATCH':
+            update = json.loads(route.request.post_data)
+            channel_updates.append(update)
+            channel_detail.update(update)
+            data = channel_detail
+        elif path == '/channels/me' or path.startswith('/channels/handle/'):
+            data = channel_detail
         elif path.startswith('/channels/'):
             data = {'status': 'inactive', 'notificationsEnabled': False} if path.endswith('/subscribe-status') else channel
-        elif path in ['/violation-types', '/notifications', '/subscriptions']:
+        elif path in ['/violation-types', '/notifications', '/subscriptions', '/downloads']:
             data = []
         route.fulfill(status=200, content_type='application/json', headers=cors, body=json.dumps(data))
 
@@ -93,6 +128,44 @@ def main():
         context = browser.new_context(viewport={'width': 1440, 'height': 1000}, locale='vi-VN')
         context.route('**/api/v1/**', api)
         page = context.new_page()
+        page.goto(args.base_url + '/channel/create')
+        page.wait_for_load_state('networkidle')
+        expect(page.locator('#channelHandle')).to_have_value(re.compile(r'^regression-user-[a-f0-9]{8}$'))
+        page.locator('#channelHandle').focus()
+        page.locator('#channelName').click()
+        page.wait_for_timeout(350)
+        assert handle_checks == []
+        page.locator('#channelName').fill('Kí sự Jura')
+        expect(page.locator('#channelHandle')).to_have_value(re.compile(r'^ki-su-jura-[a-f0-9]{8}$'))
+        page.locator('#channelHandle').fill('taken')
+        expect(page.locator('.feedback-text')).to_have_class(re.compile('is-invalid'))
+        page.locator('#channelHandle').fill('jura-manual')
+        expect(page.locator('.feedback-text')).to_have_class(re.compile('is-valid'))
+        page.locator('button[type=submit]').click()
+        page.wait_for_url('**/channel/jura-manual')
+        assert channel_created
+        page.goto(args.base_url + '/channel/jura-manual/customize')
+        page.wait_for_load_state('networkidle')
+        before_checks = len(handle_checks)
+        page.locator('#chName').fill('Kí sự Jura mới')
+        page.locator('.form-actions button').first.click()
+        page.wait_for_function('document.querySelector("#chName").disabled === false')
+        assert 'handle' not in channel_updates[-1]
+        assert len(handle_checks) == before_checks
+        page.locator('#chHandle').fill('jura-renamed')
+        expect(page.locator('.field-help[role=status]')).to_have_attribute('aria-busy', 'false')
+        assert handle_checks[-1].get('currentChannelId') == ['channel-one'], handle_checks
+        page.locator('.form-actions button').first.click()
+        page.wait_for_url('**/channel/jura-renamed/customize')
+        expect(page.locator('#chHandle')).to_have_value('jura-renamed')
+        page.screenshot(path=str(args.artifacts / 'channel-handle.png'))
+
+        page.goto(args.base_url + '/account')
+        page.wait_for_load_state('networkidle')
+        page.locator('.yt-settings-sidebar').get_by_role('button', name='Nội dung tải xuống', exact=True).click()
+        expect(page.locator('input[name=downloadQuality]')).to_have_count(5)
+        expect(page.get_by_text('Tải xuống thông minh', exact=True)).to_have_count(0)
+        page.screenshot(path=str(args.artifacts / 'download-settings.png'))
         page.goto(args.base_url + '/explore')
         page.wait_for_load_state('networkidle')
         track = page.locator('.category-tabs-track')
@@ -138,6 +211,31 @@ def main():
         expect(page.locator('.player-pip-placeholder')).to_have_count(0)
         page.wait_for_function('!document.querySelector("video.video-player").paused')
         assert page.evaluate('document.pictureInPictureElement === null')
+        assert page.evaluate("typeof window.showSaveFilePicker === 'function'")
+        page.evaluate('''() => {
+          window.__videoBytes = []; window.__videoSaved = false;
+          window.showSaveFilePicker = async options => {
+            window.__saveOptions = options;
+            return { createWritable: async () => new WritableStream({
+              write(chunk) { window.__videoBytes.push(...chunk); },
+              close() { window.__videoSaved = true; }
+            }) };
+          };
+        }''')
+        page.get_by_role('button', name='Tải xuống', exact=True).click()
+        page.locator('#download-popover .primary-button').first.click()
+        page.wait_for_function('window.__videoSaved === true')
+        assert bytes(page.evaluate('window.__videoBytes')) == media_bytes
+        assert page.evaluate('window.__saveOptions.suggestedName') == 'Regression video-720p.mp4'
+        page.evaluate("Object.defineProperty(window, 'showSaveFilePicker', {configurable: true, value: undefined})")
+        page.get_by_role('button', name='Tải xuống', exact=True).click()
+        with page.expect_download() as saving:
+            page.locator('#download-popover .primary-button').first.click()
+        target = args.artifacts / saving.value.suggested_filename
+        saving.value.save_as(target)
+        assert target.read_bytes() == media_bytes
+        assert page.url.endswith('/watch/' + video_id)
+        assert len(context.pages) == 1
         page.set_viewport_size({'width': 375, 'height': 812})
         page.goto(args.base_url + '/explore')
         page.wait_for_load_state('networkidle')
@@ -145,7 +243,7 @@ def main():
         page.screenshot(path=str(args.artifacts / 'explore-narrow.png'))
         context.close()
         browser.close()
-    print('PASS: native PiP on first click, exclusive playback/return, category drag/click, history duration and narrow layout')
+    print('PASS: handle suggestions/edit checks, no smart downloads, file saving without navigation, native PiP, category drag, history time and narrow layout')
 
 
 if __name__ == '__main__':

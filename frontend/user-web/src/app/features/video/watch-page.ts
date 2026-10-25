@@ -1,4 +1,6 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { NgTemplateOutlet } from '@angular/common';
+import { VideoDownloadService } from '../../core/video-download.service';
 import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, DestroyRef, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -8,7 +10,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoginPromptService } from '../../core/login-prompt.service';
 import { RequireLoginDirective } from '../../shared/login-prompt/require-login.directive';
 import { VideoDescriptionComponent } from '../../shared/video-description/video-description.component';
-import { AuthService } from '../../core/auth.service';
+import { AuthService, errorMessage } from '../../core/auth.service';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { CommentItem, ContentService, Playback, Rendition, VideoCard, VideoCardLink, VideoDetail, ViolationType } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
@@ -24,11 +26,12 @@ import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/vid
 
 @Component({
   selector: 'app-watch-page',
-  imports: [ResultNoticeComponent, RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [NgTemplateOutlet, ResultNoticeComponent, RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })
 export class WatchPage {
+  private readonly videoDownload = inject(VideoDownloadService);
   private readonly feedback = inject(FeedbackService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -62,6 +65,13 @@ export class WatchPage {
   readonly repliesByComment = signal<Record<string, CommentItem[]>>({});
   readonly expandedReplies = signal<Record<string, boolean>>({});
   readonly repliesLoading = signal<Record<string, boolean>>({});
+  readonly repliesError = signal<Record<string, string>>({});
+  readonly replyPages = signal<Record<string, number>>({});
+  readonly replyTotals = signal<Record<string, number>>({});
+  readonly visibleReplyCounts = signal<Record<string, number>>({});
+  readonly replyBusy = signal<string | null>(null);
+  readonly replyError = signal('');
+  private readonly repliesPageSize = 3;
   readonly quality = signal('');
   readonly speed = signal(1);
   readonly error = signal('');
@@ -191,6 +201,7 @@ export class WatchPage {
     this.repliesByComment.set({});
     this.expandedReplies.set({});
     this.repliesLoading.set({});
+    this.resetReplyState();
     this.relatedVideos.set([]);
     this.channel.set(null);
     this.loading.set(true);
@@ -304,7 +315,8 @@ export class WatchPage {
         this.commentPage.set(page);
         this.commentTotal.set(value.total);
         // Keep existing replies visible after navigating directly to a video.
-        for (const comment of items.filter(item => item.replyCount > 0)) this.loadReplies(comment, true);
+        for (const comment of items.filter(item => item.replyCount > 0
+          && !Object.prototype.hasOwnProperty.call(this.repliesByComment(), item.commentId))) this.loadReplies(comment, true);
       },
       error: () => {
         if (requestVideoId !== this.videoId || requestSort !== this.commentSort()) return;
@@ -864,11 +876,43 @@ export class WatchPage {
     this.repliesByComment.set({});
     this.expandedReplies.set({});
     this.repliesLoading.set({});
+    this.resetReplyState();
     this.loadComments();
+  }
+
+  private resetReplyState() {
+    this.repliesError.set({});
+    this.replyPages.set({});
+    this.replyTotals.set({});
+    this.visibleReplyCounts.set({});
+    this.replyTo.set(null);
+    this.replyText = '';
+    this.replyError.set('');
   }
 
   repliesFor(commentId: string): CommentItem[] {
     return this.repliesByComment()[commentId] ?? [];
+  }
+
+  visibleRepliesFor(commentId: string): CommentItem[] {
+    return this.repliesFor(commentId).slice(0, this.visibleReplyCounts()[commentId] ?? this.repliesPageSize);
+  }
+
+  remainingReplies(comment: CommentItem): number {
+    return Math.max(0, (this.replyTotals()[comment.commentId] ?? comment.replyCount) - this.visibleRepliesFor(comment.commentId).length);
+  }
+
+  moreRepliesLabel(comment: CommentItem): string {
+    return this.i18n.t('watch.moreReplies', { count: this.i18n.formatNumber(this.remainingReplies(comment)) });
+  }
+
+  loadMoreReplies(comment: CommentItem) {
+    if (this.isRepliesLoading(comment.commentId)) return;
+    const limit = (this.visibleReplyCounts()[comment.commentId] ?? this.repliesPageSize) + this.repliesPageSize;
+    this.visibleReplyCounts.update(state => ({ ...state, [comment.commentId]: limit }));
+    if (this.repliesFor(comment.commentId).length < Math.min(limit, this.replyTotals()[comment.commentId] ?? comment.replyCount)) {
+      this.loadReplies(comment, true);
+    }
   }
 
   isRepliesOpen(commentId: string): boolean {
@@ -882,6 +926,7 @@ export class WatchPage {
   toggleReplies(comment: CommentItem) {
     if (this.isRepliesOpen(comment.commentId)) {
       this.expandedReplies.update(state => ({ ...state, [comment.commentId]: false }));
+      this.visibleReplyCounts.update(state => ({ ...state, [comment.commentId]: this.repliesPageSize }));
       return;
     }
     if (Object.prototype.hasOwnProperty.call(this.repliesByComment(), comment.commentId)) {
@@ -893,44 +938,70 @@ export class WatchPage {
 
   loadReplies(comment: CommentItem, expand = true) {
     if (this.isRepliesLoading(comment.commentId)) return;
+    const page = (this.replyPages()[comment.commentId] ?? 0) + 1;
     this.repliesLoading.update(state => ({ ...state, [comment.commentId]: true }));
+    this.repliesError.update(state => ({ ...state, [comment.commentId]: '' }));
     if (expand) this.expandedReplies.update(state => ({ ...state, [comment.commentId]: true }));
-    this.content.replies(comment.commentId).pipe(
+    this.content.replies(comment.commentId, page, this.repliesPageSize).pipe(
       takeUntil(this.videoChanged),
       takeUntil(this.commentsChanged),
-      takeUntilDestroyed(this.destroyRef)
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.repliesLoading.update(state => ({ ...state, [comment.commentId]: false })))
     ).subscribe({
       next: value => {
-        this.repliesByComment.update(groups => ({ ...groups, [comment.commentId]: value.items ?? [] }));
-        this.repliesLoading.update(state => ({ ...state, [comment.commentId]: false }));
+        this.repliesByComment.update(groups => ({ ...groups, [comment.commentId]:
+          [...new Map([...(groups[comment.commentId] ?? []), ...(value.items ?? [])].map(item => [item.commentId, item])).values()]
+        }));
+        this.replyPages.update(state => ({ ...state, [comment.commentId]: page }));
+        this.replyTotals.update(state => ({ ...state, [comment.commentId]: value.total }));
       },
-      error: error => {
-        this.repliesLoading.update(state => ({ ...state, [comment.commentId]: false }));
-        this.actionMessage.set(this.readError(error) || this.i18n.t('watch.noReplies'));
-      }
+      error: () => this.repliesError.update(state => ({ ...state, [comment.commentId]: this.i18n.t('watch.replyLoadError') }))
     });
   }
 
+  startReply(comment: CommentItem) {
+    if (this.replyBusy() || !this.requireAuthentication(this.i18n.t('watch.loginReply'))) return;
+    if (this.replyTo() !== comment.commentId) this.replyText = '';
+    this.replyError.set('');
+    this.replyTo.set(comment.commentId);
+  }
+
+  cancelReply() {
+    if (this.replyBusy()) return;
+    this.replyTo.set(null);
+    this.replyText = '';
+    this.replyError.set('');
+  }
+
   reply(comment: CommentItem) {
-    if (!this.requireAuthentication(this.i18n.t('watch.loginReply'))) return;
+    if (this.replyBusy() || !this.requireAuthentication(this.i18n.t('watch.loginReply'))) return;
     const text = this.replyText.trim();
-    if (!text) return;
-    this.content.createComment(comment.videoId, text, comment.commentId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
+    if (!text || text.length > 5000) {
+      this.replyError.set(this.i18n.t('watch.replyInvalid'));
+      return;
+    }
+    this.replyBusy.set(comment.commentId);
+    this.replyError.set('');
+    this.content.createComment(this.video()?.videoId ?? comment.videoId, text, comment.commentId).pipe(
+      takeUntil(this.videoChanged), takeUntil(this.commentsChanged), takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.replyBusy.set(null))
+    ).subscribe({
       next: reply => {
         this.repliesByComment.update(groups => ({
           ...groups,
-          [comment.commentId]: [...(groups[comment.commentId] ?? []), reply]
+          [comment.commentId]: [reply, ...(groups[comment.commentId] ?? [])]
         }));
         this.expandedReplies.update(state => ({ ...state, [comment.commentId]: true }));
-        this.comments.update(items => items.map(item => item.commentId === comment.commentId
-          ? { ...item, replyCount: item.replyCount + 1 }
-          : item));
+        const parent = this.currentComment(comment);
+        this.replaceCommentInState({ ...parent, replyCount: parent.replyCount + 1 });
+        this.replyTotals.update(state => ({ ...state, [comment.commentId]: (state[comment.commentId] ?? comment.replyCount) + 1 }));
         this.video.update(video => video ? { ...video, stats: { ...video.stats, comments: video.stats.comments + 1 } } : video);
         this.replyText = '';
         this.replyTo.set(null);
         this.actionMessage.set(this.i18n.t('watch.replySaved'));
       },
-      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.replyError'))
+      error: error => this.replyError.set(error?.error?.code === 'INVALID_COMMENT'
+        ? this.i18n.t('watch.replyInvalid') : errorMessage(error, this.i18n))
     });
   }
 
@@ -940,7 +1011,7 @@ export class WatchPage {
     this.content.reactComment(comment.commentId, next).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: result => {
         const updated = {
-          ...comment,
+          ...this.currentComment(comment),
           myReaction: result.myReaction as 'like' | 'dislike' | null,
           likes: result.likes,
           dislikes: result.dislikes
@@ -949,6 +1020,12 @@ export class WatchPage {
       },
       error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.loginCommentInteraction'))
     });
+  }
+
+  private currentComment(comment: CommentItem): CommentItem {
+    return this.comments().find(item => item.commentId === comment.commentId)
+      ?? Object.values(this.repliesByComment()).flat().find(item => item.commentId === comment.commentId)
+      ?? comment;
   }
 
   private replaceCommentInState(updated: CommentItem) {
@@ -1015,12 +1092,23 @@ export class WatchPage {
             return next;
           });
         } else {
+          const parentId = Object.entries(this.repliesByComment())
+            .find(([, items]) => items.some(item => item.commentId === comment.commentId))?.[0];
+          const parent = [...this.comments(), ...Object.values(this.repliesByComment()).flat()]
+            .find(item => item.commentId === parentId);
           this.repliesByComment.update(groups => Object.fromEntries(
             Object.entries(groups).map(([parentId, items]) => [parentId, items.filter(item => item.commentId !== comment.commentId)])
           ));
-          this.comments.update(items => items.map(item => item.replyCount > 0 && this.repliesFor(item.commentId).some(reply => reply.commentId === comment.commentId)
-            ? { ...item, replyCount: Math.max(0, item.replyCount - 1) }
-            : item));
+          if (parent) {
+            const updated = { ...parent, replyCount: Math.max(0, parent.replyCount - 1) };
+            this.replaceCommentInState(updated);
+            // Deletion shifts server offsets: restart this branch before paging again.
+            this.repliesByComment.update(groups => ({ ...groups, [parent.commentId]: [] }));
+            this.replyPages.update(state => ({ ...state, [parent.commentId]: 0 }));
+            this.replyTotals.update(state => ({ ...state, [parent.commentId]: updated.replyCount }));
+            this.visibleReplyCounts.update(state => ({ ...state, [parent.commentId]: this.repliesPageSize }));
+            this.loadReplies(updated);
+          }
         }
         this.video.update(video => video ? { ...video, stats: { ...video.stats, comments: Math.max(0, video.stats.comments - 1) } } : video);
       },
@@ -1074,17 +1162,21 @@ export class WatchPage {
     });
   }
 
-  download(quality: string) {
-    if (!this.requireAuthentication(this.i18n.t('watch.loginDownload'))) return;
+  async download(quality: string) {
+    if (this.downloadBusy() || !this.requireAuthentication(this.i18n.t('watch.loginDownload'))) return;
     this.downloadBusy.set(true);
-    this.content.createDownload(this.videoId, quality).pipe(finalize(() => this.downloadBusy.set(false))).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: result => {
+    try {
+      const extension = this.downloadOptions().find(option => option.quality === quality)?.fileExtension ?? '.mp4';
+      const saved = await this.videoDownload.save(this.videoId, quality, this.video()?.title ?? 'Dalitu', extension);
+      if (saved) {
         this.downloadOpen.set(false);
-        this.actionMessage.set(result.fileUrl ? this.i18n.t('watch.downloadCreatedWithLink') : this.i18n.t('watch.downloadCreated'));
-        if (result.fileUrl) window.location.assign(result.fileUrl);
-      },
-      error: error => this.actionMessage.set(this.readError(error) || this.i18n.t('watch.downloadError'))
-    });
+        this.actionMessage.set(this.i18n.t(saved === 'saved' ? 'watch.downloadSaved' : 'watch.downloadStarted'));
+      }
+    } catch (error) {
+      this.actionMessage.set(this.readError(error) || this.i18n.t('watch.downloadError'));
+    } finally {
+      this.downloadBusy.set(false);
+    }
   }
 
   setRecommendationFilter(filter: 'all' | 'related' | 'channel') {

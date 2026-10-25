@@ -80,7 +80,7 @@ def stop_process(process):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "config.example.json")
-    parser.add_argument("--suite", choices=("auth", "web", "full"), default="auth", help="Run auth, legacy web or expanded functional suites.")
+    parser.add_argument("--suite", choices=("auth", "web", "full", "rbac"), default="auth", help="Run auth, web, expanded functional or the 50-permission RBAC matrix.")
     parser.add_argument("--groups",default="auth-deep",help="Groups for the expanded full suite.")
     parser.add_argument("--delta-only",action="store_true",help="Run only reviewed scenario gaps; fail before executing retained or excluded parent scenarios.")
     parser.add_argument("--resume-run",help="Resume synthetic fixtures from an interrupted expanded run ID; no prior case is counted as newly executed.")
@@ -167,6 +167,7 @@ def main():
                        Auth__WebBaseUrl=config["user_url"], Auth__AdminBaseUrl=config["admin_url"],
                        Google__ClientId="", Recommendation__Enabled="false", Storage__Provider="Local",
                        Storage__R2__CredentialsFile=str(state / "unused-r2-credentials"),
+                       RabbitMq__Enabled="false", Fcm__Enabled="false",
                        VideoProcessing__Enabled="true" if args.suite in ("web","full") else "false", CfSeedUpload__Directory=str(state / "chunks"),
                        Storage__LocalRoot=str(state / "storage"))
             if config.get('payment_contract_sandbox'):
@@ -220,7 +221,7 @@ def main():
                     wait_health('http://127.0.0.1:53494/health',model_proxy,30)
                     env['Recommendation__ServiceUrl']='http://127.0.0.1:53494'
                 atomic_json(runtime,config)
-            if args.suite in ("web","full"):
+            if args.suite in ("web","full","rbac"):
                 # The functional Web suite deliberately reloads many pages and uses
                 # several synthetic actors behind the same loopback IP. Keep the
                 # resource rate-limit behavior covered by backend integration tests
@@ -287,7 +288,7 @@ def main():
                 web = server([sys.executable, str(ROOT / "support/serve.py"), "--root", str(web_root), "--port", str(urlsplit(config[app + '_url']).port), "--api-url", browser_api_url, "--user-url", config["user_url"]], f"{app}-server.log")
                 wait_health(config[app + "_url"] + "/login", web, config["startup_seconds"])
                 event(app + '-spa-ready')
-            script = ROOT / ("tests/auth.py" if args.suite == "auth" else "tests/full_functional.py" if args.suite=="full" else "tests/web_all.py")
+            script = ROOT / ("tests/auth.py" if args.suite == "auth" else "tests/rbac_matrix.py" if args.suite == "rbac" else "tests/full_functional.py" if args.suite=="full" else "tests/web_all.py")
             child_args=[sys.executable,"-u",str(script),"--config",str(runtime)]
             if args.suite=="full":child_args+=['--groups',args.groups]
             if args.suite=="full" and args.delta_only:child_args+=['--delta-only']
@@ -320,10 +321,10 @@ def main():
             print(f"PASS: {report['passed']} cases; {report.get('reused', 0)} prerequisites reused; account_count={report.get('account_count', 'n/a')}", flush=True)
         except Exception as error:
             event('runner-error', error_type=type(error).__name__)
-            if args.suite in ('web','full'):
+            if args.suite in ('web','full','rbac'):
                 report_path = run / 'report.json'
                 report = json.loads(report_path.read_text(encoding='utf-8')) if report_path.exists() else {
-                    'suite': 'web', 'run_id': run.name, 'cases': [], 'page_errors': [],
+                    'suite': 'rbac' if args.suite == 'rbac' else 'web', 'run_id': run.name, 'cases': [], 'page_errors': [],
                     'setup': [{'status': 'failed', 'phase': 'runner', 'error_type': type(error).__name__}]}
                 for status in ('passed', 'failed', 'blocked', 'reused'):
                     report[status] = sum(case['status'] == status for case in report['cases'])
@@ -334,7 +335,8 @@ def main():
                     atomic_json(run / (application + '-report.json'), {
                         'suite': application + '-web', 'run_id': run.name,
                         'cases': [case for case in report['cases'] if case['application'] == application]})
-                atomic_json(ROOT / 'artifacts/web-latest.json', {'run_dir': str(run),
+                latest = 'rbac-latest.json' if args.suite == 'rbac' else 'web-latest.json'
+                atomic_json(ROOT / 'artifacts' / latest, {'run_dir': str(run),
                     **{key: report[key] for key in ('passed', 'failed', 'blocked', 'reused')},
                     'run_error': report.get('run_error')})
             raise

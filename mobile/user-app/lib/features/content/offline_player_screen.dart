@@ -5,6 +5,7 @@ import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth.dart';
+import '../../core/media/device_conditions.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import 'local_download_manager.dart';
@@ -15,14 +16,20 @@ class OfflinePlayerScreen extends StatefulWidget {
     super.key,
     required this.auth,
     required this.download,
+    this.manager,
+    this.playerFactory,
   });
   final AuthController auth;
   final LocalDownload download;
+  final LocalDownloadManager? manager;
+  final NativeVideoPlayerController Function()? playerFactory;
   @override
   State<OfflinePlayerScreen> createState() => _OfflinePlayerScreenState();
 }
 
 class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
+  LocalDownloadManager get _downloads =>
+      widget.manager ?? LocalDownloadManager.instance;
   NativeVideoPlayerController? _player;
   BackgroundPlaybackGuard? _backgroundPlaybackGuard;
   MediaEntitlements _entitlements = const MediaEntitlements.none();
@@ -37,7 +44,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
   }
 
   void _identityChanged() {
-    if (LocalDownloadManager.instance.ownerId != widget.auth.user?['userId'] ||
+    if (_downloads.ownerId != widget.auth.user?['userId'] ||
         !widget.auth.authenticated) {
       _backgroundPlaybackGuard?.dispose();
       _backgroundPlaybackGuard = null;
@@ -51,10 +58,8 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
     final owner = widget.auth.user?['userId'];
     final session = widget.auth.sessionGeneration;
     if (owner == null ||
-        LocalDownloadManager.instance.ownerId != owner ||
-        !LocalDownloadManager.instance.items.any(
-          (item) => item.id == widget.download.id,
-        )) {
+        _downloads.ownerId != owner ||
+        !_downloads.items.any((item) => item.id == widget.download.id)) {
       setState(() => _error = AppStrings.t('common.loginAgain'));
       return;
     }
@@ -65,19 +70,24 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
       }
       return;
     }
-    final entitlements = await MediaEntitlements.load(widget.auth);
+    final entitlements =
+        widget.auth.offlineSession || !DeviceConditions.instance.connected
+        ? const MediaEntitlements.none()
+        : await MediaEntitlements.load(widget.auth);
     if (!mounted ||
         session != widget.auth.sessionGeneration ||
         widget.auth.user?['userId'] != owner) {
       return;
     }
-    final player = NativeVideoPlayerController(
-      id: widget.download.id.hashCode & 0x7fffffff,
-      autoPlay: false,
-      showNativeControls: true,
-      allowsPictureInPicture: entitlements.pictureInPicture,
-      canStartPictureInPictureAutomatically: entitlements.pictureInPicture,
-    );
+    final player =
+        widget.playerFactory?.call() ??
+        NativeVideoPlayerController(
+          id: widget.download.id.hashCode & 0x7fffffff,
+          autoPlay: false,
+          showNativeControls: true,
+          allowsPictureInPicture: entitlements.pictureInPicture,
+          canStartPictureInPictureAutomatically: entitlements.pictureInPicture,
+        );
     final guard = BackgroundPlaybackGuard(
       player,
       // Background playback is opt-in for each offline video as well.

@@ -2051,7 +2051,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                                     children: [
                                       _ActionChip(
                                         icon: Icons.thumb_up_outlined,
-                                        label: AppStrings.number(
+                                        label: AppStrings.compactLikeCount(
                                           video.stats.likes,
                                         ),
                                         active:
@@ -2059,15 +2059,25 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                                             'like',
                                         onTap: () => _react('like'),
                                       ),
-                                      _ActionChip(
-                                        icon: Icons.thumb_down_outlined,
-                                        label: AppStrings.number(
-                                          video.stats.dislikes,
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
                                         ),
-                                        active:
-                                            video.viewerState.reaction ==
-                                            'dislike',
-                                        onTap: () => _react('dislike'),
+                                        child: IconButton.outlined(
+                                          tooltip: AppStrings.t(
+                                            'watch.dislike',
+                                          ),
+                                          isSelected:
+                                              video.viewerState.reaction ==
+                                              'dislike',
+                                          icon: const Icon(
+                                            Icons.thumb_down_outlined,
+                                          ),
+                                          selectedIcon: const Icon(
+                                            Icons.thumb_down_rounded,
+                                          ),
+                                          onPressed: () => _react('dislike'),
+                                        ),
                                       ),
                                       _ActionChip(
                                         icon: Icons.star_border_rounded,
@@ -3339,6 +3349,7 @@ class _CommentTile extends StatefulWidget {
     required this.onToggleHide,
     this.onUpdated,
     this.onSignIn,
+    this.depth = 0,
   });
   final CommentItem item;
   final ContentService content;
@@ -3353,6 +3364,7 @@ class _CommentTile extends StatefulWidget {
   final VoidCallback onToggleHide;
   final ValueChanged<CommentItem>? onUpdated;
   final VoidCallback? onSignIn;
+  final int depth;
 
   @override
   State<_CommentTile> createState() => _CommentTileState();
@@ -3367,6 +3379,12 @@ class _CommentTileState extends State<_CommentTile> {
       ++_generation;
       _replies = null;
       _loading = false;
+      _repliesPage = 0;
+      _visibleReplyCount = 3;
+      _expandedReplies = false;
+      _repliesError = null;
+      _replyDraft = '';
+      _sendingReply = _reacting = false;
     }
     if (!identical(oldWidget.item, widget.item)) _item = widget.item;
   }
@@ -3374,6 +3392,13 @@ class _CommentTileState extends State<_CommentTile> {
   late CommentItem _item;
   List<CommentItem>? _replies;
   bool _loading = false;
+  int _repliesPage = 0;
+  int _visibleReplyCount = 3;
+  bool _expandedReplies = false;
+  String? _repliesError;
+  String _replyDraft = '';
+  bool _sendingReply = false;
+  bool _reacting = false;
 
   @override
   void initState() {
@@ -3381,52 +3406,58 @@ class _CommentTileState extends State<_CommentTile> {
     _item = widget.item;
   }
 
-  Future<void> _react() async {
-    final generation = _generation;
+  Future<void> _react(String type) async {
+    if (_reacting) return;
     if (!widget.signedIn) {
       widget.onSignIn?.call();
       return;
     }
+    final generation = _generation;
+    setState(() => _reacting = true);
     try {
       final response = await widget.content.reactComment(
         _item.id,
-        _item.myReaction == 'like' ? null : 'like',
+        _item.myReaction == type ? null : type,
       );
       if (!mounted || generation != _generation) return;
       setState(() {
-        _item = CommentItem(
-          id: _item.id,
-          videoId: _item.videoId,
-          displayName: _item.displayName,
-          content: _item.content,
-          createdAt: _item.createdAt,
+        _item = _item.copyWith(
           likes: asInt(response['likes']),
           dislikes: asInt(response['dislikes']),
           myReaction: response['myReaction'] as String?,
-          replyCount: _item.replyCount,
-          userId: _item.userId,
-          status: _item.status,
-          isPinned: _item.isPinned,
-          hasCreatorHeart: _item.hasCreatorHeart,
+          clearReaction: response['myReaction'] == null,
         );
       });
       widget.onUpdated?.call(_item);
-    } on ApiFailure catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    } catch (error) {
+      if (mounted && generation == _generation) _showError(error);
+    } finally {
+      if (mounted && generation == _generation) {
+        setState(() => _reacting = false);
       }
     }
   }
 
+  void _showError(Object error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error is ApiFailure
+              ? AppStrings.apiError(error)
+              : AppStrings.t('common.networkError'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _reply() async {
-    final generation = _generation;
-    HapticFeedback.lightImpact();
+    if (_sendingReply) return;
     if (!widget.signedIn) {
       widget.onSignIn?.call();
       return;
     }
+    final generation = _generation;
+    HapticFeedback.lightImpact();
     final text = await showDialog<String>(
       context: context,
       builder: (_) => TextEntryDialog(
@@ -3434,50 +3465,146 @@ class _CommentTileState extends State<_CommentTile> {
           'name': _item.displayName,
         }),
         hint: AppStrings.t('watch.replyHint'),
+        initialValue: _replyDraft,
         submitLabel: AppStrings.t('common.send'),
       ),
     );
-    if (text == null || text.trim().isEmpty) return;
+    if (text == null ||
+        text.trim().isEmpty ||
+        !mounted ||
+        generation != _generation) {
+      return;
+    }
+    setState(() {
+      _replyDraft = text.trim();
+      _sendingReply = true;
+    });
     try {
       final reply = await widget.content.createComment(
         _item.videoId,
-        text.trim(),
+        _replyDraft,
         parentCommentId: _item.id,
       );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _replies = [...?_replies, reply];
+        _item = _item.copyWith(replyCount: _item.replyCount + 1);
+        _expandedReplies = true;
+        _replyDraft = '';
+      });
+      widget.onUpdated?.call(_item);
+      if (_repliesPage == 0 && _item.replyCount > 1) await _loadReplies();
       if (mounted && generation == _generation) {
-        setState(() {
-          _replies = [...?_replies, reply];
-          _item = _item.copyWith(replyCount: _item.replyCount + 1);
-        });
-        widget.onUpdated?.call(_item);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('watch.replySent'))),
+        );
       }
-    } on ApiFailure catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
+    } catch (error) {
+      if (mounted && generation == _generation) _showError(error);
+    } finally {
+      if (mounted && generation == _generation) {
+        setState(() => _sendingReply = false);
       }
     }
   }
 
-  Future<void> _loadReplies() async {
-    final generation = _generation;
+  Future<void> _loadReplies({bool reset = false}) async {
     if (_loading) return;
-    setState(() => _loading = true);
+    final generation = _generation;
+    setState(() {
+      _loading = true;
+      _expandedReplies = true;
+      _repliesError = null;
+    });
     try {
-      final replies = await loadAllPages(
-        (page) => widget.content.replies(_item.id, page: page),
+      final page = reset ? 1 : _repliesPage + 1;
+      final result = await widget.content.replies(
+        _item.id,
+        page: page,
+        pageSize: 3,
       );
-      if (mounted && generation == _generation) {
-        setState(() {
-          _replies = replies.items;
-          _loading = false;
-        });
-      }
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _replies =
+            {
+              if (!reset)
+                for (final item in _replies ?? <CommentItem>[]) item.id: item,
+              for (final item in result.items) item.id: item,
+            }.values.toList()..sort((a, b) {
+              final date = (a.createdAt ?? DateTime(0)).compareTo(
+                b.createdAt ?? DateTime(0),
+              );
+              return date == 0 ? a.id.compareTo(b.id) : date;
+            });
+        _repliesPage = page;
+        _item = _item.copyWith(replyCount: result.total);
+      });
     } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(() => _repliesError = AppStrings.t('watch.replyLoadError'));
+      }
+    } finally {
       if (mounted && generation == _generation) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  void _toggleReplies() {
+    setState(() {
+      _expandedReplies = !_expandedReplies;
+      if (!_expandedReplies) _visibleReplyCount = 3;
+    });
+    if (_expandedReplies && _repliesPage == 0 && _replies == null) {
+      _loadReplies();
+    }
+  }
+
+  void _moreReplies() {
+    if (_loading) return;
+    setState(() => _visibleReplyCount += 3);
+    if ((_replies?.length ?? 0) < _visibleReplyCount &&
+        (_replies?.length ?? 0) < _item.replyCount) {
+      _loadReplies();
+    }
+  }
+
+  void _onReplyUpdated(CommentItem updated) {
+    setState(() {
+      if (updated.status == 'deleted') {
+        _replies?.removeWhere((item) => item.id == updated.id);
+        _item = _item.copyWith(
+          replyCount: (_item.replyCount - 1).clamp(0, 1 << 31),
+        );
+        _visibleReplyCount = 3;
+      } else {
+        _replies = _replies
+            ?.map((item) => item.id == updated.id ? updated : item)
+            .toList();
+      }
+    });
+    widget.onUpdated?.call(_item);
+    if (updated.status == 'deleted' && _repliesPage > 0) {
+      _loadReplies(reset: true);
+    }
+  }
+
+  Future<void> _changeReplyState(CommentItem item, {bool hide = false}) async {
+    final generation = _generation;
+    try {
+      final updated = hide
+          ? await widget.content.setCommentVisibility(
+              item.id,
+              item.status != 'hidden',
+            )
+          : await widget.content.setCommentCreatorState(
+              item.id,
+              enabled: !item.hasCreatorHeart,
+              pin: false,
+            );
+      if (mounted && generation == _generation) _onReplyUpdated(updated);
+    } catch (error) {
+      if (mounted && generation == _generation) _showError(error);
     }
   }
 
@@ -3663,12 +3790,41 @@ class _CommentTileState extends State<_CommentTile> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         TextButton.icon(
-                          onPressed: _react,
-                          icon: const Icon(Icons.thumb_up_outlined, size: 16),
-                          label: Text(AppStrings.number(_item.likes)),
+                          key: ValueKey('comment-like-${_item.id}'),
+                          onPressed: _reacting ? null : () => _react('like'),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            foregroundColor: _item.myReaction == 'like'
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                          ),
+                          icon: Icon(
+                            _item.myReaction == 'like'
+                                ? Icons.thumb_up_rounded
+                                : Icons.thumb_up_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            AppStrings.compactLikeCount(_item.likes),
+                            semanticsLabel:
+                                '${AppStrings.t('watch.likeComment')}: ${AppStrings.number(_item.likes)}',
+                          ),
+                        ),
+                        IconButton(
+                          key: ValueKey('comment-dislike-${_item.id}'),
+                          tooltip: AppStrings.t('watch.dislikeComment'),
+                          isSelected: _item.myReaction == 'dislike',
+                          icon: const Icon(Icons.thumb_down_outlined, size: 18),
+                          selectedIcon: const Icon(
+                            Icons.thumb_down_rounded,
+                            size: 18,
+                          ),
+                          onPressed: _reacting ? null : () => _react('dislike'),
                         ),
                         TextButton(
-                          onPressed: _reply,
+                          onPressed: _sendingReply ? null : _reply,
                           child: Text(AppStrings.t('common.reply')),
                         ),
                         if (widget.isHearted || _item.hasCreatorHeart)
@@ -3722,25 +3878,30 @@ class _CommentTileState extends State<_CommentTile> {
                             },
                             itemBuilder: (_) => [
                               if (widget.isOwner) ...[
-                                PopupMenuItem(
-                                  value: 'pin',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        widget.isPinned
-                                            ? Icons.push_pin_rounded
-                                            : Icons.push_pin_outlined,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        widget.isPinned
-                                            ? AppStrings.t('watch.unpinComment')
-                                            : AppStrings.t('watch.pinComment'),
-                                      ),
-                                    ],
+                                if (widget.depth == 0)
+                                  PopupMenuItem(
+                                    value: 'pin',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          widget.isPinned
+                                              ? Icons.push_pin_rounded
+                                              : Icons.push_pin_outlined,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          widget.isPinned
+                                              ? AppStrings.t(
+                                                  'watch.unpinComment',
+                                                )
+                                              : AppStrings.t(
+                                                  'watch.pinComment',
+                                                ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
                                 PopupMenuItem(
                                   value: 'heart',
                                   child: Row(
@@ -3836,32 +3997,83 @@ class _CommentTileState extends State<_CommentTile> {
         ),
         if (_item.replyCount > 0)
           TextButton(
-            onPressed: _loadReplies,
+            key: ValueKey('comment-replies-${_item.id}'),
+            onPressed: _toggleReplies,
             child: Text(
-              _loading
-                  ? AppStrings.t('watch.repliesLoading')
+              _expandedReplies
+                  ? AppStrings.t('watch.hideReplies')
                   : AppStrings.format('watch.replies', {
                       'count': AppStrings.number(_item.replyCount),
                     }),
             ),
           ),
-        if (_replies != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 42),
+        if (_expandedReplies)
+          Container(
+            key: ValueKey('comment-thread-${_item.id}'),
+            margin: EdgeInsets.only(left: widget.depth < 3 ? 16 : 0),
+            padding: EdgeInsets.only(left: widget.depth < 3 ? 8 : 0),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+            ),
             child: Column(
-              children: _replies!
-                  .map(
-                    (reply) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(
-                        reply.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: Text(reply.content),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final reply in (_replies ?? <CommentItem>[]).take(
+                  _visibleReplyCount,
+                ))
+                  _CommentTile(
+                    key: ValueKey(reply.id),
+                    item: reply,
+                    content: widget.content,
+                    signedIn: widget.signedIn,
+                    auth: widget.auth,
+                    channelName: widget.channelName,
+                    isOwner: widget.isOwner,
+                    isPinned: false,
+                    isHearted: reply.hasCreatorHeart,
+                    depth: widget.depth + 1,
+                    onUpdated: _onReplyUpdated,
+                    onSignIn: widget.onSignIn,
+                    onTogglePin: () {},
+                    onToggleHeart: () => _changeReplyState(reply),
+                    onToggleHide: () => _changeReplyState(reply, hide: true),
+                  ),
+                if (_loading)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(AppStrings.t('watch.repliesLoading')),
+                  ),
+                if (_repliesError != null) ...[
+                  Text(
+                    _repliesError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
                     ),
-                  )
-                  .toList(),
+                  ),
+                  TextButton(
+                    onPressed: _loading ? null : _loadReplies,
+                    child: Text(AppStrings.t('common.retry')),
+                  ),
+                ] else if (!_loading &&
+                    _item.replyCount >
+                        (_replies?.take(_visibleReplyCount).length ?? 0))
+                  TextButton(
+                    key: ValueKey('comment-more-${_item.id}'),
+                    onPressed: _moreReplies,
+                    child: Text(
+                      AppStrings.format('watch.moreReplies', {
+                        'count': AppStrings.number(
+                          _item.replyCount -
+                              (_replies?.take(_visibleReplyCount).length ?? 0),
+                        ),
+                      }),
+                    ),
+                  ),
+              ],
             ),
           ),
       ],

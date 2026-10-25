@@ -33,9 +33,7 @@ class DownloadCoordinator extends ChangeNotifier {
   bool loading = false;
   bool suggestionsFailed = false;
   bool settingsFailed = false;
-  String? smartStatus;
   final Set<String> requesting = {};
-  final Set<String> _attempted = {};
   int _generation = 0;
   int _session = -1;
   String? _owner;
@@ -43,7 +41,6 @@ class DownloadCoordinator extends ChangeNotifier {
   bool _disposed = false;
   Future<void>? _initialization;
   bool _suggestionsRequested = false;
-  Future<void> _smartWork = Future.value();
 
   Future<void> initialize() => _initialization ??= _initialize();
   Future<void> _initialize() async {
@@ -68,8 +65,6 @@ class DownloadCoordinator extends ChangeNotifier {
     _suggestions = [];
     loading = false;
     requesting.clear();
-    smartStatus = null;
-    _attempted.clear();
     if (!_disposed) notifyListeners();
     unawaited(refreshSettings());
   }
@@ -77,7 +72,16 @@ class DownloadCoordinator extends ChangeNotifier {
   void _settingsChanged() => unawaited(refreshSettings());
   void _conditionsChanged() {
     unawaited(_applyPolicy());
-    _queueSmart();
+    if (conditions.connected && auth.offlineSession) {
+      unawaited(
+        auth
+            .refresh()
+            .then((_) async {
+              if (_suggestionsRequested) await loadSuggestions();
+            })
+            .catchError((Object _) {}),
+      );
+    }
   }
 
   bool _current(int generation, int session) =>
@@ -112,20 +116,19 @@ class DownloadCoordinator extends ChangeNotifier {
     if (_suggestionsRequested && preferences.recommendations) {
       unawaited(loadSuggestions());
     }
-    _queueSmart();
   }
 
   Future<void> _applyPolicy() => manager.configurePolicy(
     connected: conditions.connected,
     wifi: conditions.wifi,
     wifiOnly: preferences.wifiOnly,
-    smartEnabled: preferences.smart,
-    smartBudget: preferences.limitBytes,
   );
 
   Future<void> loadSuggestions() async {
     _suggestionsRequested = true;
     if (_disposed ||
+        !conditions.connected ||
+        auth.offlineSession ||
         !auth.authenticated ||
         !preferences.recommendations ||
         loading) {
@@ -150,72 +153,6 @@ class DownloadCoordinator extends ChangeNotifier {
         loading = false;
         notifyListeners();
       }
-    }
-  }
-
-  void _queueSmart() {
-    if (_disposed) return;
-    _smartWork = _smartWork.then((_) => _runSmart()).catchError((Object _) {});
-  }
-
-  @visibleForTesting
-  Future<void> get smartIdle => _smartWork;
-
-  Future<void> _runSmart() async {
-    final generation = _generation, session = auth.sessionGeneration;
-    bool current() =>
-        _current(generation, session) && preferences.smart && conditions.wifi;
-    if (!current()) return;
-    smartStatus = null;
-    await manager.ensureLoaded();
-    if (!current() || manager.ownerId != auth.user?['userId']) return;
-    final existing = await content.downloads();
-    if (!current()) return;
-    final page = await content.feed(
-      explore: false,
-      pageSize: 12,
-      recommendationBudget: const Duration(milliseconds: 1200),
-    );
-    if (!current()) return;
-    for (final video in page.items.take(12)) {
-      if (!current()) return;
-      final smart = manager.items
-          .where((d) => d.smart && d.status != 'failed')
-          .toList();
-      final used = smart.fold<int>(0, (sum, d) => sum + d.totalBytes);
-      if (smart.length >= 3 || used >= preferences.limitBytes) return;
-      if (existing.any((d) => d['videoId'] == video.id) ||
-          manager.items.any((d) => d.videoId == video.id) ||
-          !_attempted.add(video.id)) {
-        continue;
-      }
-      try {
-        final options = await content.downloadOptions(video.id);
-        if (!current()) return;
-        final chosen = selectDownloadRendition(
-          options,
-          preferences.quality,
-          automatic: true,
-        );
-        if (chosen == null ||
-            chosen.fileSize <= 0 ||
-            chosen.fileSize > preferences.limitBytes - used) {
-          continue;
-        }
-        await _create(video, chosen, generation, session, smart: true);
-      } on ApiFailure catch (error) {
-        if (current() && error.code == 'DOWNLOAD_NOT_INCLUDED') {
-          smartStatus = 'downloads.planRequired';
-          notifyListeners();
-          return;
-        }
-      } catch (_) {
-        // A video with no download permission is skipped, never bypassed.
-      }
-    }
-    if (current() && !manager.items.any((d) => d.smart)) {
-      smartStatus = 'downloads.smartUnavailable';
-      notifyListeners();
     }
   }
 
@@ -246,18 +183,15 @@ class DownloadCoordinator extends ChangeNotifier {
     VideoCard video,
     Rendition chosen,
     int generation,
-    int session, {
-    bool smart = false,
-  }) async {
+    int session,
+  ) async {
     if (!_current(generation, session)) return false;
     final record = await content.createDownload(video.id, chosen.quality);
     if (!_current(generation, session) ||
         manager.ownerId != auth.user?['userId']) {
       return false;
     }
-    if (smart && (!preferences.smart || !conditions.wifi)) return false;
     final size = asInt(record['fileSize']);
-    if (smart && (size <= 0 || size > chosen.fileSize)) return false;
     await manager.enqueue(
       id: '${record['videoDownloadId'] ?? ''}',
       videoId: video.id,
@@ -265,7 +199,6 @@ class DownloadCoordinator extends ChangeNotifier {
       quality: '${record['quality'] ?? chosen.quality}',
       url: '${record['fileUrl'] ?? ''}',
       fileSize: size,
-      smart: smart,
     );
     return true;
   }

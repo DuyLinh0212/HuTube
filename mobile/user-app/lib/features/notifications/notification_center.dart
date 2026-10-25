@@ -8,11 +8,16 @@ import 'package:signalr_netcore/signalr_client.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
+import 'firebase_push.dart';
 
 class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
   NotificationCenter(this.auth);
 
   final AuthController auth;
+  final FirebasePush _push = FirebasePush();
+  final NotificationEventTracker _events = NotificationEventTracker();
+  final List<StreamSubscription<dynamic>> _pushSubscriptions = [];
+  String? _registeredPushToken;
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
   final StreamController<Map<String, dynamic>> _newNotifications =
@@ -20,6 +25,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
   HubConnection? _hub;
   void Function(Map<String, dynamic>)? _openNotification;
   String? _activeUserId;
+  String? _activeSessionId;
   Timer? _hubRetryTimer;
   int _unreadCount = 0;
   bool _localReady = false;
@@ -44,7 +50,18 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     await _initializeLocalNotifications();
     await refreshLocalPermission();
+    if (await _push.initialize()) {
+      _pushSubscriptions.add(
+        _push.tokenChanges.listen((_) => unawaited(_syncPushToken())),
+      );
+      _pushSubscriptions.add(_push.messages.listen(_receiveNotification));
+      _pushSubscriptions.add(_push.opened.listen(_openPushNotification));
+    }
     await _syncAuthSession();
+    if (_push.ready) {
+      final initial = await _push.initialMessage();
+      if (initial != null) _openPushNotification(initial);
+    }
     if (_localReady) {
       try {
         final launch = await _local.getNotificationAppLaunchDetails();
@@ -102,6 +119,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _foreground = true;
       unawaited(refreshLocalPermission());
+      unawaited(_syncPushToken());
       if (auth.authenticated) {
         unawaited(_connectHub());
         unawaited(refreshUnreadCount());
@@ -119,6 +137,9 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
     if (!auth.authenticated) {
       if (_activeUserId != null) {
         _activeUserId = null;
+        _activeSessionId = null;
+        _registeredPushToken = null;
+        _events.clear();
         setUnreadCount(0);
         await _disconnectHub();
       }
@@ -127,9 +148,15 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
 
     final identity =
         '${auth.user?['userId'] ?? auth.user?['id'] ?? 'signed-in'}';
-    if (_activeUserId == identity) return;
+    final session = notificationSessionId(auth.accessToken);
+    if (_activeUserId == identity && _activeSessionId == session) return;
+    final changedUser = _activeUserId != identity;
     if (_activeUserId != null) await _disconnectHub();
     _activeUserId = identity;
+    _activeSessionId = session;
+    if (changedUser) _events.clear();
+    _registeredPushToken = null;
+    await _syncPushToken();
     setUnreadCount(0);
     await _connectHub();
     await refreshUnreadCount();
@@ -154,10 +181,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
       if (arguments == null || arguments.isEmpty || arguments.first is! Map) {
         return;
       }
-      final item = Map<String, dynamic>.from(arguments.first as Map);
-      ApiClient.invalidateNotificationCache();
-      _newNotifications.add(item);
-      if (_localAlertsEnabled) unawaited(_showLocalNotification(item));
+      _receiveNotification(Map<String, dynamic>.from(arguments.first as Map));
     });
     connection.on('UnreadCountChanged', (arguments) {
       if (arguments == null || arguments.isEmpty) return;
@@ -252,6 +276,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
       _localAlertsEnabled = false;
     }
     _notify();
+    await _syncPushToken();
   }
 
   Future<bool> requestLocalNotificationsPermission() async {
@@ -278,6 +303,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
       _localAlertsEnabled = false;
     }
     _notify();
+    await _syncPushToken();
     return _localAlertsEnabled;
   }
 
@@ -320,7 +346,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
         : id.hashCode & 0x7fffffff;
     try {
       await _local.show(
-        id: notificationId,
+        id: _isAndroid && id.isNotEmpty ? 0 : notificationId,
         title: title.isEmpty ? AppStrings.t('notifications.appName') : title,
         body: body,
         notificationDetails: NotificationDetails(
@@ -330,6 +356,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
             channelDescription: AppStrings.t('notifications.appDescription'),
             importance: Importance.high,
             priority: Priority.high,
+            tag: id.isEmpty ? null : id,
           ),
           iOS: DarwinNotificationDetails(
             presentAlert: true,
@@ -337,7 +364,7 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
             presentSound: true,
           ),
         ),
-        payload: jsonEncode(item),
+        payload: jsonEncode({...item, 'recipientId': _activeUserId}),
       );
     } catch (_) {}
   }
@@ -345,11 +372,81 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
   void _handleLocalPayload(String payload) {
     try {
       final decoded = jsonDecode(payload);
-      if (decoded is Map) openNotification(Map<String, dynamic>.from(decoded));
+      if (decoded is Map) {
+        _openPushNotification(Map<String, dynamic>.from(decoded));
+      }
     } catch (_) {}
   }
 
-  Future<void> _beforeSessionCleared() => _disconnectHub();
+  void _receiveNotification(Map<String, dynamic> item) {
+    if (_disposed ||
+        !auth.authenticated ||
+        !_events.accept(item, _activeUserId)) {
+      return;
+    }
+    ApiClient.invalidateNotificationCache();
+    _newNotifications.add(item);
+    unawaited(refreshUnreadCount());
+    if (_localAlertsEnabled) unawaited(_showLocalNotification(item));
+  }
+
+  void _openPushNotification(Map<String, dynamic> item) {
+    final recipient = '${item['recipientId'] ?? ''}';
+    if (!auth.authenticated ||
+        (recipient.isNotEmpty && recipient != _activeUserId)) {
+      return;
+    }
+    openNotification(item);
+  }
+
+  Future<void> _syncPushToken() async {
+    if (!_push.ready || _disposed || !auth.authenticated) return;
+    try {
+      if (!_localAlertsEnabled) {
+        await _removePushToken();
+        return;
+      }
+      final user = _activeUserId;
+      final session = _activeSessionId;
+      final token = await _push.token();
+      if (token == null ||
+          token == _registeredPushToken ||
+          user != _activeUserId ||
+          session != _activeSessionId ||
+          !auth.authenticated) {
+        return;
+      }
+      if (_registeredPushToken != null) await _removePushToken();
+      await auth.protected(
+        'PUT',
+        '/notifications/devices',
+        body: {'token': token, 'platform': _isIOS ? 'ios' : 'android'},
+      );
+      if (user == _activeUserId && session == _activeSessionId) {
+        _registeredPushToken = token;
+      }
+    } catch (_) {
+      /* Registration retries on resume and token refresh. */
+    }
+  }
+
+  Future<void> _removePushToken() async {
+    final token = _registeredPushToken;
+    if (token == null) return;
+    await auth.protected(
+      'DELETE',
+      '/notifications/devices',
+      body: {'token': token},
+    );
+    _registeredPushToken = null;
+  }
+
+  Future<void> _beforeSessionCleared() async {
+    try {
+      await _removePushToken();
+    } catch (_) {}
+    await _disconnectHub();
+  }
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -359,6 +456,9 @@ class NotificationCenter extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     _disposed = true;
     _hubRetryTimer?.cancel();
+    for (final subscription in _pushSubscriptions) {
+      unawaited(subscription.cancel());
+    }
     WidgetsBinding.instance.removeObserver(this);
     auth.removeListener(_authChanged);
     auth.beforeSessionCleared = null;

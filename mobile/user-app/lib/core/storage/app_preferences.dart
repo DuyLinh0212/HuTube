@@ -19,12 +19,10 @@ class AppPreferencesStore {
   static const playbackZoomToFillKey = 'hutube.playback_zoom_to_fill';
   static const playbackPipKey = 'hutube.playback_pip';
   static const backgroundPlaybackModeKey = 'hutube.bg_playback_mode';
-  static const downloadSmartKey = 'hutube.download_smart';
   static const downloadQualityKey = 'hutube.download_quality';
   static const downloadWifiOnlyKey = 'hutube.download_wifi_only';
   static const downloadRecommendationsKey = 'hutube.download_recommendations';
   static const downloadUseSdKey = 'hutube.download_use_sd';
-  static const downloadSmartLimitKey = 'hutube.download_smart_limit_mb';
   static final mediaChanges = ValueNotifier<int>(0);
 
   Future<void> _writeMedia(String key, String value) async {
@@ -77,12 +75,6 @@ class AppPreferencesStore {
   Future<void> writeBackgroundPlaybackMode(String mode) =>
       _writeMedia(backgroundPlaybackModeKey, mode);
 
-  Future<bool> readSmartDownload() async =>
-      (await _storage.read(key: downloadSmartKey)) == 'true';
-
-  Future<void> writeSmartDownload(bool value) =>
-      _writeMedia(downloadSmartKey, '$value');
-
   Future<String> readDownloadQuality() async {
     final value = await _storage.read(key: downloadQualityKey);
     return switch (value) {
@@ -108,16 +100,6 @@ class AppPreferencesStore {
 
   Future<void> writeDownloadRecommendations(bool value) =>
       _writeMedia(downloadRecommendationsKey, '$value');
-
-  Future<int> readSmartDownloadLimitMb() async {
-    final value = int.tryParse(
-      await _storage.read(key: downloadSmartLimitKey) ?? '',
-    );
-    return const [128, 256, 512, 1024].contains(value) ? value! : 256;
-  }
-
-  Future<void> writeSmartDownloadLimitMb(int value) =>
-      _writeMedia(downloadSmartLimitKey, '$value');
 
   Future<bool> readDownloadUseSd() async =>
       (await _storage.read(key: downloadUseSdKey)) != 'false';

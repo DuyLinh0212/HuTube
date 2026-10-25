@@ -34,7 +34,8 @@ public sealed class AdminUserService(
         var normalizedStatus = NormalizeFilter(status);
 
         var query = from user in db.Users.AsNoTracking()
-                    join roleRow in db.Roles.AsNoTracking() on user.RoleId equals roleRow.RoleId
+                    join roleRow in db.Roles.AsNoTracking().Where(role => role.Status == "active") on user.RoleId equals roleRow.RoleId into roleRows
+                    from roleRow in roleRows.DefaultIfEmpty()
                     join planRow in db.Plans.AsNoTracking() on user.PlanId equals planRow.PlanId into planRows
                     from planRow in planRows.DefaultIfEmpty()
                     select new { user, roleRow, planRow };
@@ -44,7 +45,8 @@ public sealed class AdminUserService(
                 || EF.Functions.ILike(row.user.Username, $"%{normalizedSearch}%")
                 || EF.Functions.ILike(row.user.Email, $"%{normalizedSearch}%"));
         if (normalizedRole != null && normalizedRole != "all")
-            query = query.Where(row => row.roleRow.Code == normalizedRole);
+            query = normalizedRole == "__unassigned" ? query.Where(row => row.roleRow == null)
+                : query.Where(row => row.roleRow != null && row.roleRow.Code == normalizedRole);
         if (normalizedStatus != null && normalizedStatus != "all")
             query = query.Where(row => row.user.Status == normalizedStatus);
 
@@ -61,8 +63,8 @@ public sealed class AdminUserService(
                 row.user.Username,
                 row.user.Email,
                 row.user.AvatarUrl,
-                RoleCode = row.roleRow.Code,
-                RoleName = row.roleRow.Name,
+                RoleCode = row.roleRow == null ? null : row.roleRow.Code,
+                RoleName = row.roleRow == null ? null : row.roleRow.Name,
                 PlanCode = row.planRow == null ? null : row.planRow.Code,
                 PlanName = row.planRow == null ? null : row.planRow.Name,
                 row.user.LastLoginAt,
@@ -129,14 +131,15 @@ public sealed class AdminUserService(
     public async Task<AdminUserDetailResponse> GetUserAsync(Guid userId, CancellationToken ct = default)
     {
         var row = await (from user in db.Users.AsNoTracking()
-                         join role in db.Roles.AsNoTracking() on user.RoleId equals role.RoleId
+                         join role in db.Roles.AsNoTracking().Where(role => role.Status == "active") on user.RoleId equals role.RoleId into roleRows
+                         from role in roleRows.DefaultIfEmpty()
                          join planRow in db.Plans.AsNoTracking() on user.PlanId equals planRow.PlanId into planRows
                          from planRow in planRows.DefaultIfEmpty()
                          where user.UserId == userId
                          select new { user, role, planRow }).SingleOrDefaultAsync(ct)
             ?? throw new AuthException(404, "USER_NOT_FOUND", "Không tìm thấy tài khoản.");
 
-        var permissions = await db.RolePermissions.AsNoTracking()
+        var permissions = row.role == null ? [] : await db.RolePermissions.AsNoTracking()
             .Where(item => item.RoleId == row.role.RoleId)
             .Join(db.Permissions.AsNoTracking().Where(item => item.Status == "active"), item => item.PermissionId, permission => permission.PermissionId,
                 (_, permission) => permission.Code)
@@ -189,8 +192,8 @@ public sealed class AdminUserService(
             row.user.Username,
             row.user.Email,
             row.user.AvatarUrl,
-            row.role.Code,
-            row.role.Name,
+            row.role?.Code,
+            row.role?.Name,
             row.planRow?.Code,
             row.planRow?.Name,
             row.user.Status,
@@ -406,20 +409,25 @@ public sealed class AdminUserService(
         var actorRole = await GetRoleCodeAsync(actorUserId, ct);
         var target = await db.Users.SingleOrDefaultAsync(user => user.UserId == targetUserId, ct)
             ?? throw new AuthException(404, "USER_NOT_FOUND", "Không tìm thấy tài khoản.");
-        var currentRole = await db.Roles.SingleAsync(role => role.RoleId == target.RoleId, ct);
+        var currentRole = await db.Roles.SingleOrDefaultAsync(role => role.RoleId == target.RoleId, ct);
         var newRoleCode = request.RoleCode.Trim().ToLowerInvariant();
-        var newRole = await db.Roles.SingleOrDefaultAsync(role => role.Code == newRoleCode && role.Status == "active", ct)
+        if (newRoleCode == "user" && actorRole != "super_admin")
+            throw new AuthException(403, "ROLE_PROTECTED", "Chỉ Super Administrator có thể gán vai trò User.");
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var newRole = await db.Roles.FromSqlInterpolated($"SELECT * FROM public.roles WHERE code = {newRoleCode} FOR UPDATE")
+            .SingleOrDefaultAsync(role => role.Status == "active", ct)
             ?? throw new AuthException(404, "ROLE_NOT_FOUND", "Không tìm thấy vai trò đang hoạt động.");
 
-        EnsureRoleCanBeManaged(actorRole, currentRole.Code);
+        if (currentRole != null) EnsureRoleCanBeManaged(actorRole, currentRole.Code);
         EnsureRoleCanBeManaged(actorRole, newRole.Code);
-        if (currentRole.RoleId == newRole.RoleId) return await GetUserAsync(targetUserId, ct);
+        if (currentRole?.RoleId == newRole.RoleId) return await GetUserAsync(targetUserId, ct);
 
         target.RoleId = newRole.RoleId;
         target.UpdatedAt = Now;
         AddAudit(actorUserId, targetUserId, "admin.user_role_updated", request.Reason.Trim(),
-            new { oldRole = currentRole.Code, newRole = newRole.Code });
+            new { oldRole = currentRole?.Code, newRole = newRole.Code });
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         return await GetUserAsync(targetUserId, ct);
     }
 
@@ -439,8 +447,8 @@ public sealed class AdminUserService(
         var actorRole = await GetRoleCodeAsync(actorUserId, ct);
         var target = await db.Users.SingleOrDefaultAsync(user => user.UserId == targetUserId, ct)
             ?? throw new AuthException(404, "USER_NOT_FOUND", "Không tìm thấy tài khoản.");
-        var targetRole = await db.Roles.SingleAsync(role => role.RoleId == target.RoleId, ct);
-        EnsureRoleCanBeManaged(actorRole, targetRole.Code);
+        var targetRole = await db.Roles.SingleOrDefaultAsync(role => role.RoleId == target.RoleId, ct);
+        if (targetRole != null) EnsureRoleCanBeManaged(actorRole, targetRole.Code);
 
         var now = Now;
         var oldStatus = target.Status;
