@@ -148,11 +148,11 @@
               <button type="button" class="action-button" [class.is-active]="item.viewerState?.reaction === 'dislike'" [attr.aria-pressed]="item.viewerState?.reaction === 'dislike'" appRequireLogin (click)="react('dislike')" [attr.aria-label]="'watch.dislike' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3ZM17 4H7.6a2 2 0 0 0-1.94 1.53l-1.5 6A2 2 0 0 0 6.1 14H10l-.7 3.5A2.05 2.05 0 0 0 11.3 20L17 14V4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
           </div>
           <button type="button" class="action-button" (click)="share()" [attr.aria-expanded]="shareOpen()" aria-controls="share-popover"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5-5 5M19 10H9a4 4 0 0 0-4 4v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>{{ 'watch.shareVideo' | translate }}</span></button>
-            <button type="button" class="action-button playlist-action-button" appRequireLogin (click)="openPlaylistPicker()" [attr.aria-expanded]="playlistPickerOpen()" aria-controls="playlist-picker-dialog"><span aria-hidden="true">＋</span> {{ 'upload.step5.addPlaylist' | translate }}</button>
-            <button type="button" class="action-button" appRequireLogin (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover">{{ 'watch.download' | translate }}</button>
-            <button type="button" class="action-button" appRequireLogin (click)="reportVideo()" [attr.aria-label]="'watch.reportViolation' | translate">
+            <button type="button" class="action-button playlist-action-button" appRequireLogin (click)="openPlaylistPicker()" [attr.aria-expanded]="playlistPickerOpen()" aria-controls="playlist-picker-dialog"><span aria-hidden="true">＋</span><span>{{ 'upload.step5.addPlaylist' | translate }}</span></button>
+            <button type="button" class="action-button download-action-button" appRequireLogin (click)="openDownloads()" [attr.aria-expanded]="downloadOpen()" aria-controls="download-popover" [attr.aria-label]="'watch.download' | translate" [title]="'watch.download' | translate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="action-label">{{ 'watch.download' | translate }}</span></button>
+            <button type="button" class="action-button report-action-button" appRequireLogin (click)="reportVideo()" [attr.aria-label]="'watch.reportViolation' | translate" [title]="'watch.reportViolation' | translate">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>{{ 'watch.report' | translate }}</span>
+              <span class="action-label">{{ 'watch.report' | translate }}</span>
             </button>
           <div class="rating-control" role="group" [attr.aria-label]="'watch.ratingGroup' | translate">
             <span class="rating-label">{{ 'watch.rating' | translate }}</span>
@@ -240,7 +240,7 @@
                     [title]="(subscriptionNotificationsEnabled() ? 'watch.notifications.disable' : 'watch.notifications.enable') | translate"
                     (click)="toggleSubscriptionNotifications()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-                    {{ (subscriptionNotificationsEnabled() ? 'watch.notifications.enabled' : 'watch.notifications.disabled') | translate }}
+                    <span>{{ (subscriptionNotificationsEnabled() ? 'watch.notifications.enabled' : 'watch.notifications.disabled') | translate }}</span>
                   </button>
                 }
                 <button
