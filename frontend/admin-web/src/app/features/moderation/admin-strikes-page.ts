@@ -1,15 +1,16 @@
+import { ChannelPickerComponent } from './channel-picker.component';
 import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import {
   AdminModerationService,
   CreateStrikeRequest,
+  ModerationChannelOption,
   PolicyItem,
   RevokeStrikeRequest,
   StrikeItem,
@@ -23,7 +24,7 @@ type StrikePolicyNumberKey = keyof Pick<StrikePolicySettings,
 @Component({
   selector: 'app-admin-strikes-page',
   standalone: true,
-  imports: [ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
+  imports: [ChannelPickerComponent, ConfirmDialogComponent, ResultNoticeComponent, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './admin-strikes-page.html',
   styleUrl: './admin-strikes-page.scss'
 })
@@ -52,6 +53,7 @@ export class AdminStrikesPage implements OnInit {
 
   readonly selectedStatus = signal<'ALL' | 'active' | 'expired' | 'revoked'>('ALL');
   readonly searchQuery = signal('');
+  readonly showOverview = signal(false);
 
   // Modals
   readonly isCreateModalOpen = signal(false);
@@ -62,6 +64,7 @@ export class AdminStrikesPage implements OnInit {
 
   // Create Strike form
   readonly createChannelId = signal('');
+  readonly createChannel = signal<ModerationChannelOption | null>(null);
   readonly createPolicyCode = signal('');
   readonly createSeverity = signal('high');
   readonly createReason = signal('');
@@ -72,6 +75,7 @@ export class AdminStrikesPage implements OnInit {
 
   // Channel Lock form
   readonly lockChannelId = signal('');
+  readonly lockChannel = signal<ModerationChannelOption | null>(null);
   readonly lockAction = signal<'lock' | 'unlock'>('lock');
   readonly lockReason = signal('');
 
@@ -80,6 +84,27 @@ export class AdminStrikesPage implements OnInit {
   // actions that would be rejected by the API.
   readonly canManageStrikes = computed(() => this.auth.hasPermission('strike.manage'));
   readonly canLockChannels = computed(() => this.auth.hasPermission('channel.lock'));
+
+  readonly selectedChannelId = signal('');
+  readonly affectedChannels = computed(() => {
+    const grouped = new Map<string, { channelId: string; userId: string; name: string; handle: string | null; count: number }>();
+    for (const strike of this.strikes()) {
+      if (strike.status !== 'active' || strike.strikeNumber <= 0) continue;
+      const current = grouped.get(strike.channelId);
+      if (current) current.count++;
+      else grouped.set(strike.channelId, { channelId: strike.channelId, userId: strike.userId,
+        name: strike.channelName || this.i18n.t('strikes.channel'), handle: strike.channelHandle ?? null, count: 1 });
+    }
+    return [...grouped.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, this.i18n.currentLang()));
+  });
+  readonly affectedUserCount = computed(() => new Set(this.affectedChannels().map(channel => channel.userId)).size);
+  readonly lockedChannelCount = computed(() => new Set(this.strikes().filter(strike => strike.channelStatus === 'suspended').map(strike => strike.channelId)).size);
+  readonly activeWarningCount = computed(() => this.strikes().filter(strike => strike.status === 'active' && strike.strikeNumber === 0).length);
+  readonly selectedChannelName = computed(() => this.knownChannels().find(channel => channel.channelId === this.selectedChannelId())?.name ?? '');
+  focusChannel(channelId: string): void {
+    this.selectedChannelId.set(this.selectedChannelId() === channelId ? '' : channelId);
+    this.searchQuery.set(''); this.selectedStatus.set('active');
+  }
 
   readonly countActive = computed(() => this.strikes().filter(s => s.status === 'active').length);
   readonly countExpired = computed(() => this.strikes().filter(s => s.status === 'expired').length);
@@ -143,8 +168,14 @@ export class AdminStrikesPage implements OnInit {
     return Array.from(map.values());
   });
 
+  policyName(code: string | null): string {
+    if (!code) return this.i18n.t('strikes.generalPolicy');
+    return this.policies().find(policy => policy.code === code)?.name || this.i18n.t('strikes.unavailablePolicy');
+  }
+
   readonly filteredStrikes = computed(() => {
     let items = this.strikes();
+    if (this.selectedChannelId()) items = items.filter(item => item.channelId === this.selectedChannelId());
     const status = this.selectedStatus();
     const query = this.searchQuery().trim().toLowerCase();
 
@@ -155,6 +186,7 @@ export class AdminStrikesPage implements OnInit {
       items = items.filter(x =>
         (x.channelName && x.channelName.toLowerCase().includes(query)) ||
         (x.reason && x.reason.toLowerCase().includes(query)) ||
+        this.policyName(x.policyCode).toLowerCase().includes(query) ||
         (x.policyCode && x.policyCode.toLowerCase().includes(query)) ||
         (x.channelHandle && x.channelHandle.toLowerCase().includes(query))
       );
@@ -239,7 +271,8 @@ export class AdminStrikesPage implements OnInit {
   openCreateModal(): void {
     if (!this.canManageStrikes()) return;
 
-    this.createChannelId.set('');
+    this.selectCreateChannel(null);
+    this.error.set(null);
     this.createPolicyCode.set('');
     this.createSeverity.set('high');
     this.createReason.set('');
@@ -254,7 +287,7 @@ export class AdminStrikesPage implements OnInit {
   submitCreateStrike(): void {
     if (!this.canManageStrikes()) return;
 
-    if (!this.createChannelId() || !this.createReason()) {
+    if (!this.createChannelId().trim() || !this.createReason().trim()) {
       this.error.set(this.i18n.t('strikes.channelReasonRequired'));
       return;
     }
@@ -327,20 +360,21 @@ export class AdminStrikesPage implements OnInit {
     if (!this.canLockChannels()) return;
 
     this.lockChannelId.set(channelId || '');
+    const channel = this.knownChannels().find(item => item.channelId === channelId);
+    this.lockChannel.set(channel ? { ...channel, handle: channel.handle || '', status: channel.status || '' } : null);
+    this.error.set(null);
     this.lockAction.set(action);
     this.lockReason.set('');
     this.isChannelLockModalOpen.set(true);
   }
 
-  onSelectChannelForLock(channelId: string): void {
-    if (!channelId) return;
-    this.lockChannelId.set(channelId);
-    const found = this.knownChannels().find(c => c.channelId === channelId);
-    if (found?.status === 'suspended') {
-      this.lockAction.set('unlock');
-    } else if (found?.status === 'active') {
-      this.lockAction.set('lock');
-    }
+  selectCreateChannel(channel: ModerationChannelOption | null): void {
+    this.createChannel.set(channel); this.createChannelId.set(channel?.channelId ?? '');
+  }
+  selectLockChannel(channel: ModerationChannelOption | null): void {
+    this.lockChannel.set(channel); this.lockChannelId.set(channel?.channelId ?? '');
+    if (channel?.status === 'suspended') this.lockAction.set('unlock');
+    else if (channel?.status === 'active') this.lockAction.set('lock');
   }
 
   closeChannelLockModal(): void {
@@ -350,7 +384,7 @@ export class AdminStrikesPage implements OnInit {
   submitChannelLock(): void {
     if (!this.canLockChannels()) return;
 
-    if (!this.lockChannelId() || !this.lockReason()) {
+    if (!this.lockChannelId().trim() || !this.lockReason().trim()) {
       this.error.set(this.i18n.t('strikes.lockReasonRequired'));
       return;
     }

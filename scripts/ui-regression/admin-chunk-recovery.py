@@ -52,15 +52,27 @@ def main():
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--artifacts', type=Path, required=True)
     parser.add_argument('--browser-path')
+    parser.add_argument('--routes', type=Path, default=Path('frontend/admin-web/src/app/app.routes.ts'))
     args = parser.parse_args()
     root = args.root.resolve()
     args.artifacts.mkdir(parents=True, exist_ok=True)
     # Support both development and production Angular output names.
-    chunks = [file for file in root.glob('*.js') if 'app-admin-moderation-page' in file.read_text(encoding='utf-8')]
+    build_sources = {file.name: file.read_text(encoding='utf-8') for file in root.glob('*.js')}
+    chunks = [name for name, source in build_sources.items() if 'app-admin-moderation-page' in source]
     assert len(chunks) == 1, 'Expected one moderation lazy module'
-    chunk = chunks[0].name
+    chunk = chunks[0]
+    route_source = args.routes.read_text(encoding='utf-8')
+    pages = []
+    for path, module in re.findall(r"\{ path: '([^']+)'[^\n]+?loadComponent: \(\) => import\('([^']+)'\)", route_source):
+        source = (args.routes.parent / (module + '.ts')).read_text(encoding='utf-8')
+        selector = re.search(r"selector:\s*'([^']+)'", source).group(1)
+        modules = [name for name, built_source in build_sources.items() if selector in built_source]
+        assert len(modules) == 1, f'Expected one lazy module for {path}: {modules}'
+        pages.append((path, selector, modules[0]))
+    assert len(pages) >= 20, 'Admin route discovery unexpectedly lost pages'
     user = dict(userId='isolated-admin', username='reviewer', displayName='Reviewer', email='reviewer@example.test',
-                isAdmin=True, emailVerified=True, role='admin', permissions=['role.view', 'moderation.view_queue', 'policy.view'])
+                isAdmin=True, emailVerified=True, role='super_admin',
+                permissions=sorted(set(re.findall(r"'([a-z_]+\.[a-z_]+)'", route_source))))
     errors, results = [], []
 
     def api(route):
@@ -72,14 +84,17 @@ def main():
         if request.method == 'OPTIONS':
             route.fulfill(status=204, headers=headers)
             return
-        data = dict(items=[], total=0, page=1, pageSize=100)
+        # Recovery must also work when the destination's business API is down.
+        # Unused data sources fail explicitly instead of returning a wrong shape.
+        data, status = dict(code='ISOLATED_DATA_SOURCE_OFFLINE'), 503
         if path == '/auth/refresh':
             data = dict(accessToken='isolated-chunk-test', expiresAt=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), user=user)
+            status = 200
         elif path in ['/auth/me', '/admin/me']:
-            data = user
+            data, status = user, 200
         elif path in ['/admin/roles', '/admin/permissions', '/policies', '/admin/moderation/queue']:
-            data = []
-        route.fulfill(status=200, headers=headers, content_type='application/json', body=json.dumps(data))
+            data, status = [], 200
+        route.fulfill(status=status, headers=headers, content_type='application/json', body=json.dumps(data))
 
     with serve(root) as base, sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True, executable_path=args.browser_path)
@@ -128,6 +143,54 @@ def main():
             results.append({'scenario': mode, 'lazy_requests': failures['count'], 'documents': len(documents), 'passed': True})
             expect(page.locator('app-admin-moderation-page [role="alert"]')).to_have_count(0)
             page.screenshot(path=str(args.artifacts / (mode + '-restored.png')), full_page=True)
+            context.close()
+        # Independently break every page's actual module, including pages whose
+        # link is inside the account menu and the role page used as the entry.
+        # A new context avoids a previous navigation masking a failed import.
+        for path, selector, module in pages:
+            print('Checking lazy recovery: /' + path, flush=True)
+            context = browser.new_context(viewport={'width': 1440, 'height': 956})
+            context.route('**/api/v1/**', api)
+            failures = {'count': 0}
+
+            def fail_once(route):
+                failures['count'] += 1
+                if failures['count'] == 1:
+                    route.fulfill(status=200, content_type='text/html', body='<!doctype html><title>Old deployment</title>')
+                else:
+                    route.continue_()
+
+            context.route('**/' + module, fail_once)
+            page = context.new_page()
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            documents = []
+            page.on('request', lambda request: documents.append(request.url) if request.is_navigation_request() and request.frame == page.main_frame else None)
+            target = base + '/' + path + '?chunk-test=1#restored'
+            if path != 'roles':
+                page.goto(base + '/roles')
+                page.wait_for_load_state('networkidle')
+                links = page.locator('a[href="/' + path + '"]:visible')
+            else:
+                links = page.locator('a[data-unused-chunk-test]')
+            via_link = bool(links.count())
+            if via_link:
+                # Keep real router-link navigation so a full-document request
+                # cannot accidentally hide a failure to handle router errors.
+                links.first.click()
+                target = base + '/' + path
+            else:
+                page.goto(target)
+            try:
+                expect(page.locator(selector)).to_be_visible(timeout=20000)
+            except AssertionError:
+                print(json.dumps({'path': path, 'module': module, 'failures': failures, 'documents': documents, 'url': page.url, 'page_errors': errors}), flush=True)
+                page.screenshot(path=str(args.artifacts / (path.replace('/', '-') + '-failed.png')), full_page=True)
+                raise
+            expect(page).to_have_url(target)
+            assert failures['count'] == 2, (path, failures)
+            assert len(documents) == (2 if path == 'roles' or via_link else 3), (path, documents)
+            expect(page.locator('app-page-load-error')).to_have_count(0)
+            results.append({'scenario': 'all-admin-pages', 'path': path, 'lazy_requests': failures['count'], 'documents': len(documents), 'passed': True})
             context.close()
         browser.close()
     assert not errors, errors

@@ -1,8 +1,14 @@
-<div class="moderation-container">
+<div class="trust-workspace moderation-container">
+
   <header class="page-header">
+    <div class="workspace-heading"><h1>{{ 'workspace.strikes' | translate }}</h1><p>{{ 'workspace.strikesDesc' | translate }}</p></div>
     <div class="header-actions">
+      <button type="button" class="btn btn-secondary strike-overview-toggle" [class.is-open]="showOverview()" [attr.aria-expanded]="showOverview()" [attr.aria-controls]="showOverview() ? 'strike-overview' : null" (click)="showOverview.set(!showOverview())">
+        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19h16M7 15V9m5 6V5m5 10v-4"/></svg>
+        {{ 'strikes.toggleOverview' | translate }}
+      </button>
       @if (canLockChannels()) {
-        <button type="button" class="btn btn-secondary" (click)="openChannelLockModal()" [disabled]="loading()">
+        <button type="button" class="btn btn-secondary" data-testid="channel-lock-management" (click)="openChannelLockModal()" [disabled]="loading()">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -35,6 +41,30 @@
     <app-result-notice tone="success" [message]="successMessage()" [dismissible]="true" (dismissed)="successMessage.set(null)" />
   }
 
+  @if (showOverview()) {
+  <section id="strike-overview" class="strike-overview" [attr.aria-label]="'strikes.overview' | translate" [attr.aria-busy]="loading()">
+    <dl class="strike-overview-metrics">
+      <div><dt>{{ 'strikes.affectedUsers' | translate }}</dt><dd><strong>{{ loading() || error() ? '—' : affectedUserCount() }}</strong></dd></div>
+      <div><dt>{{ 'strikes.affectedChannels' | translate }}</dt><dd><strong>{{ loading() || error() ? '—' : affectedChannels().length }}</strong></dd></div>
+      <div><dt>{{ 'strikes.activeWarnings' | translate }}</dt><dd><strong>{{ loading() || error() ? '—' : activeWarningCount() }}</strong></dd></div>
+      <div [title]="'strikes.lockedScope' | translate"><dt>{{ 'strikes.lockedInList' | translate }}</dt><dd><strong>{{ loading() || error() ? '—' : lockedChannelCount() }}</strong></dd></div>
+    </dl>
+    @if (!loading() && !error()) {
+      @if (affectedChannels().length) {
+        <div class="strike-affected-list"><span class="strike-overview-label">{{ 'strikes.attentionChannels' | translate }}</span>
+          @for (channel of affectedChannels().slice(0, 4); track channel.channelId) {
+            <button type="button" class="strike-channel-chip" [class.selected]="selectedChannelId() === channel.channelId" [attr.aria-pressed]="selectedChannelId() === channel.channelId" (click)="focusChannel(channel.channelId)" [title]="channel.name">
+              <span class="strike-channel-avatar" aria-hidden="true">{{ channel.name.charAt(0).toUpperCase() }}</span><span class="strike-channel-copy"><span class="strike-channel-name">{{ channel.name }}</span>@if (channel.handle) { <small>{{ '@' + channel.handle }}</small> }</span><b>{{ 'strikes.channelStrikeCount' | translate:{ count: channel.count } }}</b><svg class="strike-channel-arrow" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 5 7 7-7 7"/></svg>
+            </button>
+          }
+          @if (affectedChannels().length > 4) { <small class="strike-overview-more">{{ 'strikes.moreChannels' | translate:{ count: affectedChannels().length - 4 } }}</small> }
+        </div>
+      } @else { <p class="strike-overview-empty">{{ 'strikes.noAffectedChannels' | translate }}</p> }
+    }
+  </section>
+
+  }
+
   <!-- Status Tabs -->
   <div class="status-tabs" role="tablist" [attr.aria-label]="'strikes.statusTabs' | translate">
     <button type="button" role="tab" [class.is-active]="selectedStatus() === 'active'" (click)="selectedStatus.set('active')">
@@ -51,6 +81,8 @@
     </button>
   </div>
 
+  <details class="policy-settings-fold">
+    <summary><strong>{{ 'strikes.policyTitle' | translate }}</strong><span class="settings-preview">@if (!policyLoading()) { {{ 'strikes.settingsSummary' | translate:{ videos: policy().rejectedVideosPerStrike, strikes: policy().suspensionStrikeCount } }} }</span><span class="settings-toggle">{{ 'strikes.settingsToggle' | translate }}</span></summary>
   <!-- Strike policy configuration -->
   <section class="policy-settings" aria-labelledby="strike-policy-title">
     <div class="policy-settings-heading">
@@ -147,6 +179,8 @@
     }
   </section>
 
+  </details>
+
   <!-- Filters Toolbar -->
   <section class="toolbar">
     <div class="search-box">
@@ -158,6 +192,8 @@
         [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
     </div>
   </section>
+
+  @if (selectedChannelId()) { <div class="strike-channel-filter" role="status"><span>{{ 'strikes.filterChannel' | translate:{ name: selectedChannelName() } }}</span><button type="button" (click)="selectedChannelId.set('')">{{ 'strikes.clearChannel' | translate }} ×</button></div> }
 
   <!-- Strikes Table -->
   <section class="table-card">
@@ -187,93 +223,22 @@
       </div>
     } @else {
       <div class="table-responsive">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 105px;">{{ 'strikes.level' | translate }}</th>
-              <th style="width: 100px;">{{ 'strikes.severity' | translate }}</th>
-              <th style="min-width: 220px;">{{ 'strikes.offendingChannel' | translate }}</th>
-              <th style="width: 160px;">{{ 'strikes.policy' | translate }}</th>
-              <th>{{ 'strikes.reason' | translate }}</th>
-              <th style="width: 130px;">{{ 'moderation.colStatus' | translate }}</th>
-              <th style="width: 105px;">{{ 'strikes.issuedAt' | translate }}</th>
-              <th style="width: 105px;">{{ 'strikes.expiresAt' | translate }}</th>
-              <th class="actions-col" style="width: 180px;">{{ 'moderation.colActions' | translate }}</th>
-            </tr>
-          </thead>
+        <table class="data-table strike-records">
+          <colgroup><col class="strike-channel-col"/><col class="strike-violation-col"/><col class="strike-penalty-col"/><col class="strike-status-col"/><col class="strike-dates-col"/><col class="strike-actions-col"/></colgroup>
+          <thead><tr><th scope="col">{{ 'strikes.channel' | translate }}</th><th scope="col">{{ 'strikes.violationDetails' | translate }}</th><th scope="col">{{ 'strikes.penalty' | translate }}</th><th scope="col">{{ 'moderation.colStatus' | translate }}</th><th scope="col">{{ 'strikes.period' | translate }}</th><th scope="col">{{ 'moderation.colActions' | translate }}</th></tr></thead>
           <tbody>
             @for (item of filteredStrikes(); track item.strikeId) {
               <tr>
-                <td>
-                  <span class="strike-number" [class.strike-high]="item.strikeNumber === 2" [class.strike-max]="item.strikeNumber >= 3">
-                    {{ 'strikes.firstStrike' | translate }} #{{ item.strikeNumber }}
-                  </span>
-                </td>
-                <td>
-                  <span class="badge" [class.badge-low]="item.severity === 'low'"
-                    [class.badge-high]="item.severity === 'high'"
-                    [class.badge-critical]="item.severity === 'critical'">
-                    {{ ('strikes.severity.' + item.severity) | translate }}
-                  </span>
-                </td>
-                <td class="target-title-col">
-                  <div class="channel-info">
-                    <div class="channel-name-row">
-                      <strong class="channel-name">{{ item.channelName || ('strikes.channel' | translate) }}</strong>
-                      @if (item.channelStatus === 'suspended') {
-                        <span class="channel-status-badge suspended">{{ 'strikes.locked' | translate }}</span>
-                      } @else {
-                        <span class="channel-status-badge active">{{ 'common.active' | translate }}</span>
-                      }
-                    </div>
-                    @if (item.channelHandle) {
-                      <span class="channel-handle">&#64;{{ item.channelHandle }}</span>
-                    }
-                    <span class="channel-id" [title]="item.channelId">{{ item.channelId }}</span>
-                  </div>
-                </td>
-                <td>
-                  <span class="badge-tag">{{ item.policyCode || ('strikes.generalPolicy' | translate) }}</span>
-                </td>
-                <td class="description-col">
-                  <span class="reason-text">{{ item.reason }}</span>
-                  @if (item.revocationReason) {
-                    <div class="revocation-note">
-                    <span class="note-label">{{ 'strikes.revokedReason' | translate }}</span> {{ item.revocationReason }}
-                    </div>
-                  }
-                </td>
-                <td>
-                  <span class="status-pill" [class.status-active]="item.status === 'active'"
-                    [class.status-expired]="item.status === 'expired'"
-                    [class.status-revoked]="item.status === 'revoked'">
-                    <span class="status-dot"></span>
-                    {{ item.status === 'active' ? ('strikes.active' | translate) : item.status === 'expired' ? ('strikes.expired' | translate) : ('strikes.revoked' | translate) }}
-                  </span>
-                </td>
-                <td class="time-col">{{ item.createdAt ? (item.createdAt | date:'shortDate':undefined:dateLocale()) : ('strikes.dateUnavailable' | translate) }}</td>
-                <td class="time-col">{{ item.expiresAt ? (item.expiresAt | date:'shortDate':undefined:dateLocale()) : ('strikes.dateUnavailable' | translate) }}</td>
-                <td class="actions-col">
-                  <div class="action-buttons">
-                    @if (canManageStrikes() && item.status === 'active') {
-                      <button type="button" class="btn-action btn-revoke" (click)="openRevokeModal(item)" [title]="'strikes.revoke' | translate">
-                        {{ 'strikes.revoke' | translate }}
-                      </button>
-                    }
-                    @if (canLockChannels()) {
-                      @if (item.channelStatus === 'suspended') {
-                        <button type="button" class="btn-action btn-unlock" (click)="openChannelLockModal(item.channelId, 'unlock')" [title]="'strikes.unlockTitle' | translate">
-                          {{ 'strikes.unlock' | translate }}
-                        </button>
-                      } @else {
-                        <button type="button" class="btn-action btn-lock" (click)="openChannelLockModal(item.channelId, 'lock')" [title]="'strikes.lockTitle' | translate">
-                          {{ 'strikes.lockChannel' | translate }}
-                        </button>
-                      }
-                    }
-                    @if (!canManageStrikes() && !canLockChannels()) {
-                      <span class="no-action" [attr.aria-label]="'strikes.noPermission' | translate">—</span>
-                    }
+                <td class="strike-record-channel" [attr.data-label]="'strikes.channel' | translate"><strong>{{ item.channelName || ('strikes.channel' | translate) }}</strong>@if (item.channelHandle) { <span class="strike-record-handle">{{ '@' + item.channelHandle }}</span> }@if (item.channelStatus === 'suspended') { <small class="strike-channel-locked">{{ 'strikes.locked' | translate }}</small> } @else { <small>{{ 'common.active' | translate }}</small> }</td>
+                <td class="strike-record-violation" [attr.data-label]="'strikes.violationDetails' | translate"><strong>{{ policyName(item.policyCode) }}</strong><p>{{ item.reason }}</p></td>
+                <td class="strike-record-penalty" [attr.data-label]="'strikes.penalty' | translate"><span class="strike-record-level">{{ (item.strikeNumber > 0 ? 'strikes.strikeLevel' : 'strikes.warningLevel') | translate:{ number: item.strikeNumber } }}</span><small [attr.data-severity]="item.severity">{{ ('strikes.shortSeverity.' + item.severity) | translate }}</small></td>
+                <td class="strike-record-status" [attr.data-label]="'moderation.colStatus' | translate"><span class="strike-record-state" [attr.data-status]="item.status"><i aria-hidden="true"></i>{{ (item.status === 'active' ? 'strikes.active' : item.status === 'expired' ? 'strikes.expired' : 'strikes.revoked') | translate }}</span>@if (item.revocationReason) { <p>{{ 'strikes.revokedReason' | translate }} {{ item.revocationReason }}</p> }</td>
+                <td class="strike-record-dates" [attr.data-label]="'strikes.period' | translate"><span>{{ 'strikes.issuedAt' | translate }}</span><time>{{ item.createdAt ? (item.createdAt | date:'dd/MM/yyyy') : ('strikes.dateUnavailable' | translate) }}</time><span>{{ 'strikes.expiresAt' | translate }}</span><time>{{ item.expiresAt ? (item.expiresAt | date:'dd/MM/yyyy') : ('strikes.dateUnavailable' | translate) }}</time></td>
+                <td class="strike-record-actions" [attr.data-label]="'moderation.colActions' | translate">
+                  <div class="strike-record-buttons">
+                    @if (item.status === 'active' && canManageStrikes()) { <button type="button" class="btn-action btn-revoke" [disabled]="submitting()" (click)="openRevokeModal(item)">{{ 'strikes.revoke' | translate }}</button> }
+                    @if (canLockChannels()) { @if (item.channelStatus === 'suspended') { <button type="button" class="btn-action btn-unlock" [disabled]="submitting()" (click)="openChannelLockModal(item.channelId, 'unlock')">{{ 'strikes.unlock' | translate }}</button> } @else { <button type="button" class="btn-action btn-lock" [disabled]="submitting()" (click)="openChannelLockModal(item.channelId, 'lock')">{{ 'strikes.lockChannel' | translate }}</button> } }
+                    @if (!canManageStrikes() && !canLockChannels()) { <span class="no-action" [attr.aria-label]="'strikes.noPermission' | translate">—</span> }
                   </div>
                 </td>
               </tr>
@@ -286,14 +251,10 @@
 
   <!-- Create Strike Modal -->
   @if (isCreateModalOpen()) {
-    <app-confirm-dialog [title]="'strikes.createTitle' | translate" [confirmLabel]="'strikes.confirmIssue' | translate" (cancelled)="closeCreateModal()" (confirmed)="submitCreateStrike()" panelClass="modal-card" [busy]="submitting()" [tone]="'danger'" initialFocus="field">
+    <app-confirm-dialog [title]="'strikes.createTitle' | translate" [confirmLabel]="'strikes.confirmIssue' | translate" (cancelled)="closeCreateModal()" (confirmed)="submitCreateStrike()" [confirmDisabled]="!createChannelId() || !createReason().trim()" panelClass="modal-card" [busy]="submitting()" [tone]="'danger'" initialFocus="field">
 <div class="modal-body">
  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
-          <div class="form-group">
-            <label>{{ 'strikes.channelId' | translate }} <span class="required">*</span></label>
-            <input type="text" [placeholder]="'strikes.channelIdPlaceholder' | translate"
-              [ngModel]="createChannelId()" (ngModelChange)="createChannelId.set($event)" />
-          </div>
+          <app-channel-picker [channel]="createChannel()" [disabled]="submitting()" (picked)="selectCreateChannel($event)" />
 
           <div class="form-group">
             <label>{{ 'policies.colSeverity' | translate }} <span class="required">*</span></label>
@@ -311,7 +272,7 @@
               @for (grp of policyGroups(); track grp.label) {
                 <optgroup [label]="grp.label">
                   @for (p of grp.items; track p.policyId) {
-                    <option [value]="p.code">{{ p.name }} ({{ p.code }})</option>
+                    <option [value]="p.code">{{ p.name }}</option>
                   }
                 </optgroup>
               }
@@ -360,7 +321,7 @@
 
   <!-- Channel Lock/Unlock Modal -->
   @if (isChannelLockModalOpen()) {
-    <app-confirm-dialog [title]="(lockAction() === 'lock' ? 'strikes.lockTitle' : 'strikes.unlockTitle') | translate" [confirmLabel]="(lockAction() === 'lock' ? 'strikes.confirmLock' : 'strikes.confirmUnlock') | translate" (cancelled)="closeChannelLockModal()" (confirmed)="submitChannelLock()" panelClass="modal-card" [busy]="submitting()" [tone]="lockAction() === 'lock' ? 'danger' : 'primary'" initialFocus="field">
+    <app-confirm-dialog [title]="(lockAction() === 'lock' ? 'strikes.lockTitle' : 'strikes.unlockTitle') | translate" [confirmLabel]="(lockAction() === 'lock' ? 'strikes.confirmLock' : 'strikes.confirmUnlock') | translate" (cancelled)="closeChannelLockModal()" (confirmed)="submitChannelLock()" [confirmDisabled]="!lockChannelId() || !lockReason().trim()" panelClass="modal-card" [busy]="submitting()" [tone]="lockAction() === 'lock' ? 'danger' : 'primary'" initialFocus="field">
 <div class="modal-body">
  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <div class="form-group">
@@ -371,25 +332,7 @@
             </select>
           </div>
 
-          @if (knownChannels().length > 0) {
-            <div class="form-group">
-              <label>{{ 'strikes.quickSelect' | translate }}</label>
-              <select (change)="onSelectChannelForLock($any($event.target).value)">
-                <option value="">{{ 'strikes.selectChannel' | translate }}</option>
-                @for (c of knownChannels(); track c.channelId) {
-                  <option [value]="c.channelId" [selected]="lockChannelId() === c.channelId">
-                    {{ c.name }} (&#64;{{ c.handle || ('strikes.handleUnset' | translate) }}) &mdash; {{ c.status === 'suspended' ? ('strikes.locked' | translate) : ('common.active' | translate) }}
-                  </option>
-                }
-              </select>
-            </div>
-          }
-
-          <div class="form-group">
-            <label>{{ 'strikes.channelIdShort' | translate }} <span class="required">*</span></label>
-            <input type="text" [placeholder]="'strikes.lockChannelPlaceholder' | translate"
-              [ngModel]="lockChannelId()" (ngModelChange)="lockChannelId.set($event)" />
-          </div>
+          <app-channel-picker [channel]="lockChannel()" [disabled]="submitting()" (picked)="selectLockChannel($event)" />
 
           <div class="form-group">
             <label>{{ 'strikes.actionReason' | translate }} <span class="required">*</span></label>

@@ -85,6 +85,47 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         _db.Dispose();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AppealLists_ReturnActualTargetNames_InsteadOfTypeAndUuid(bool admin)
+    {
+        var user = new User { Username = "appeal-owner", DisplayName = "Chủ kênh", Email = "appeal-owner@test.local" };
+        var channel = new Channel { OwnerUserId = user.UserId, Name = "Kênh kiểm thử", Handle = "kenh-kiem-thu" };
+        var video = new Video { ChannelId = channel.ChannelId, Title = "Video cần xem xét" };
+        var comment = new Comment { UserId = user.UserId, VideoId = video.VideoId, Content = "Bình luận được khiếu nại" };
+        var strike = new ChannelStrike { ChannelId = channel.ChannelId, UserId = user.UserId, StrikeNumber = 2 };
+        _db.Users.Add(user); _db.Channels.Add(channel); _db.Videos.Add(video); _db.Comments.Add(comment); _db.ChannelStrikes.Add(strike);
+        foreach (var target in new[] { ("channel", channel.ChannelId), ("video", video.VideoId), ("comment", comment.CommentId), ("strike", strike.StrikeId) })
+            _db.Appeals.Add(new Appeal { UserId = user.UserId, TargetType = target.Item1, TargetId = target.Item2, Reason = "Xin xem xét lại" });
+        var missing = new Appeal { UserId = user.UserId, TargetType = "channel", TargetId = Guid.NewGuid(), Reason = "Đối tượng không còn tồn tại" };
+        _db.Appeals.Add(missing); await _db.SaveChangesAsync();
+        var result = admin ? await _appealService.GetAdminAppealsAsync() : await _appealService.GetMyAppealsAsync(user.UserId);
+        Assert.Equal("Kênh kiểm thử (@kenh-kiem-thu)", result.Single(x => x.TargetId == channel.ChannelId).TargetTitle);
+        Assert.Equal(video.Title, result.Single(x => x.TargetId == video.VideoId).TargetTitle);
+        Assert.Equal(comment.Content, result.Single(x => x.TargetId == comment.CommentId).TargetTitle);
+        Assert.Contains("#2", result.Single(x => x.TargetId == strike.StrikeId).TargetTitle);
+        Assert.Contains(channel.Name, result.Single(x => x.TargetId == strike.StrikeId).TargetTitle);
+        Assert.Null(result.Single(x => x.AppealId == missing.AppealId).TargetTitle);
+    }
+
+    [Fact]
+    public async Task LookupModerationChannels_FindsHandlesAndSuspendedChannels_WithoutDeletedChannels()
+    {
+        var store = new RbacStore(_db);
+        var rbac = new RbacService(store, new AuthStore(_db));
+        var content = new AdminContentService(_db, rbac, _notifications, new FakeEmailSender(), new FakeObjectStorage(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AdminContentService>.Instance);
+        var exact = new Channel { Name = "Kênh bị khóa", Handle = "creator", Status = "suspended" };
+        _db.Channels.AddRange(exact, new Channel { Name = "Kênh khác", Handle = "creator-two", Status = "active" },
+            new Channel { Name = "Đã xóa", Handle = "creator-deleted", Status = "deleted" });
+        await _db.SaveChangesAsync();
+        var result = await content.LookupModerationChannelsAsync(" @CREATOR ", default);
+        Assert.Equal(2, result.Count); Assert.Equal(exact.ChannelId, result[0].ChannelId); Assert.Equal("suspended", result[0].Status);
+        Assert.DoesNotContain(result, x => x.Status == "deleted");
+        Assert.Empty(await content.LookupModerationChannelsAsync("@c", default));
+    }
+
     [Fact]
     public async Task Decision_PinsPublishedPolicyVersion_AfterNewPublication()
     {

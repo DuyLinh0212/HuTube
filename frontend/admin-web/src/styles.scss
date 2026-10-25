@@ -1,5 +1,7 @@
 @use '../../shared/ui/feedback-tokens';
 @use './admin-responsive';
+@use './policy-moderation';
+@use './moderation-tables';
 
 :root {
   --primary: #ff2b66;

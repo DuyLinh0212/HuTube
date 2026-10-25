@@ -1,3 +1,4 @@
+import { POLICY_CENTER_TRANSLATIONS } from '../../policy/policy-translations';
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { Component, OnInit, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -45,6 +46,7 @@ export class StudioOverviewPage implements OnInit {
   private readonly appealEvidenceExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.pdf']);
 
   constructor() {
+    this.i18n.registerTranslations(POLICY_CENTER_TRANSLATIONS);
     effect(() => {
       const ch = this.data.channel();
       if (ch?.channelId) {

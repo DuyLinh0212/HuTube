@@ -203,6 +203,7 @@ public sealed class AppealService(
             .ToListAsync(ct);
 
         if (appeals.Count == 0) return [];
+        var targetTitles = await LoadTargetTitlesAsync(appeals, ct);
 
         var reviewerIds = appeals.Where(a => a.ReviewerId.HasValue).Select(a => a.ReviewerId!.Value).Distinct().ToList();
         var reviewers = await db.Users.AsNoTracking()
@@ -223,7 +224,7 @@ public sealed class AppealService(
                 userName,
                 a.TargetType,
                 a.TargetId,
-                $"{a.TargetType.ToUpperInvariant()} ({a.TargetId})",
+                targetTitles.GetValueOrDefault((a.TargetType, a.TargetId)),
                 a.AppealNumber,
                 a.ReviewerId,
                 reviewerName,
@@ -275,6 +276,7 @@ public sealed class AppealService(
             .ToListAsync(ct);
 
         if (appeals.Count == 0) return [];
+        var targetTitles = await LoadTargetTitlesAsync(appeals, ct);
 
         var userIds = appeals.Select(a => a.UserId).Distinct().ToList();
         var users = await db.Users.AsNoTracking()
@@ -297,7 +299,7 @@ public sealed class AppealService(
                 users.GetValueOrDefault(a.UserId, "Người dùng"),
                 a.TargetType,
                 a.TargetId,
-                $"{a.TargetType.ToUpperInvariant()} ({a.TargetId})",
+                targetTitles.GetValueOrDefault((a.TargetType, a.TargetId)),
                 a.AppealNumber,
                 a.ReviewerId,
                 reviewerName,
@@ -312,6 +314,39 @@ public sealed class AppealService(
                 a.ResolvedAt, a.ClaimId, a.ClaimExpiresAt
             );
         }).ToList();
+    }
+
+    private async Task<Dictionary<(string Type, Guid Id), string>> LoadTargetTitlesAsync(List<Appeal> appeals, CancellationToken ct)
+    {
+        var titles = new Dictionary<(string, Guid), string>();
+        var videoIds = appeals.Where(a => a.TargetType == "video").Select(a => a.TargetId).Distinct().ToArray();
+        if (videoIds.Length > 0)
+            foreach (var video in await db.Videos.AsNoTracking().Where(v => videoIds.Contains(v.VideoId))
+                .Select(v => new { v.VideoId, v.Title }).ToListAsync(ct))
+                titles[("video", video.VideoId)] = video.Title;
+
+        var strikeIds = appeals.Where(a => a.TargetType == "strike").Select(a => a.TargetId).Distinct().ToArray();
+        List<ChannelStrike> strikes = strikeIds.Length == 0 ? [] : await db.ChannelStrikes.AsNoTracking().Where(s => strikeIds.Contains(s.StrikeId)).ToListAsync(ct);
+        var channelIds = appeals.Where(a => a.TargetType == "channel").Select(a => a.TargetId)
+            .Concat(strikes.Select(s => s.ChannelId)).Distinct().ToArray();
+        var channelNames = new Dictionary<Guid, string>();
+        if (channelIds.Length > 0)
+            foreach (var channel in await db.Channels.AsNoTracking().Where(c => channelIds.Contains(c.ChannelId))
+                .Select(c => new { c.ChannelId, c.Name, c.Handle }).ToListAsync(ct))
+            {
+                var name = string.IsNullOrWhiteSpace(channel.Handle) ? channel.Name : $"{channel.Name} (@{channel.Handle.TrimStart('@')})";
+                channelNames[channel.ChannelId] = name;
+                titles[("channel", channel.ChannelId)] = name;
+            }
+        foreach (var strike in strikes)
+            titles[("strike", strike.StrikeId)] = $"Cảnh cáo #{strike.StrikeNumber} · {channelNames.GetValueOrDefault(strike.ChannelId, "Kênh không còn khả dụng")}";
+
+        var commentIds = appeals.Where(a => a.TargetType == "comment").Select(a => a.TargetId).Distinct().ToArray();
+        if (commentIds.Length > 0)
+            foreach (var comment in await db.Comments.AsNoTracking().Where(c => commentIds.Contains(c.CommentId))
+                .Select(c => new { c.CommentId, c.Content }).ToListAsync(ct))
+                titles[("comment", comment.CommentId)] = comment.Content.Length > 160 ? comment.Content[..160] + "…" : comment.Content;
+        return titles;
     }
 
     public async Task<ClaimLeaseResponse> ClaimAppealAsync(Guid actorId, Guid appealId, CancellationToken ct = default)

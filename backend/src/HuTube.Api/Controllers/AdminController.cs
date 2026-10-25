@@ -494,6 +494,10 @@ public sealed class AdminController(
 
     // ================= SPRINT 6: STRIKES =================
 
+    [HttpGet("moderation/channels"), RequirePermission(AdminPermissions.StrikeManage, AdminPermissions.ChannelLock)]
+    public Task<List<ModerationChannelOption>> LookupModerationChannelsAsync([FromQuery] string? search, CancellationToken ct) =>
+        adminContent.LookupModerationChannelsAsync(search, ct);
+
     [HttpGet("strikes/policy"), RequirePermission(AdminPermissions.StrikeView)]
     public Task<StrikePolicySettingsDto> GetStrikePolicySettingsAsync(CancellationToken ct) =>
         strikePolicySettings.GetAsync(ct);

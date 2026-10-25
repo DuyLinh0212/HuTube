@@ -7,13 +7,14 @@ import { PageLoadError } from './page-load-error';
 describe('lazy page recovery', () => {
   const missingChunk = new TypeError('Failed to fetch dynamically imported module: /chunk-old.js');
   let values: Map<string, string>;
-  let browser: { location: { origin: string; replace: jasmine.Spy }; navigator: { onLine: boolean }; sessionStorage: { getItem: jasmine.Spy; setItem: jasmine.Spy } };
+  let browser: { location: { origin: string; pathname: string; search: string; replace: jasmine.Spy; reload: jasmine.Spy }; history: { state: unknown; replaceState: jasmine.Spy }; navigator: { onLine: boolean }; sessionStorage: { getItem: jasmine.Spy; setItem: jasmine.Spy } };
   let recovery: ChunkLoadRecovery;
 
   beforeEach(() => {
     values = new Map();
     browser = {
-      location: { origin: 'https://admin.example.test', replace: jasmine.createSpy('replace') },
+      location: { origin: 'https://admin.example.test', pathname: '/roles', search: '', replace: jasmine.createSpy('replace'), reload: jasmine.createSpy('reload') },
+      history: { state: { navigationId: 1 }, replaceState: jasmine.createSpy('replaceState') },
       navigator: { onLine: true },
       sessionStorage: {
         getItem: jasmine.createSpy('getItem').and.callFake((key: string) => values.get(key) ?? null),
@@ -36,6 +37,17 @@ describe('lazy page recovery', () => {
     const second = TestBed.runInInjectionContext(() => new ChunkLoadRecovery());
     second.recover(missingChunk, '/moderation/videos');
     expect(browser.location.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it('forces a document reload when a direct URL already has the requested path and fragment', () => {
+    browser.location.pathname = '/moderation/videos';
+    browser.location.search = '?tab=active';
+    recovery.recover(missingChunk, '/moderation/videos?tab=active#queue');
+    expect(browser.history.replaceState).toHaveBeenCalledOnceWith(browser.history.state, '', '/moderation/videos?tab=active#queue');
+    expect(browser.location.reload).toHaveBeenCalledOnceWith();
+    expect(browser.location.replace).not.toHaveBeenCalled();
+    recovery.recover(missingChunk, '/moderation/videos?tab=active#queue');
+    expect(browser.location.reload).toHaveBeenCalledTimes(1);
   });
 
   it('allows a later recovery after the cooldown', () => {

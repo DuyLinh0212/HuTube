@@ -36,7 +36,16 @@ export class ChunkLoadRecovery {
         const now = Date.now();
         if (!last || now - last >= RETRY_WINDOW_MS) {
           browser.sessionStorage.setItem(CHUNK_RETRY_KEY, String(now));
-          browser.location.replace(target);
+          const destination = new URL(target, browser.location.origin);
+          if (destination.pathname === browser.location.pathname && destination.search === browser.location.search) {
+            // replace() at the current URL with a fragment is a same-document
+            // navigation. Reload explicitly so a direct/deep link clears the
+            // failed module cache as well as an in-app route change does.
+            browser.history.replaceState(browser.history.state, '', target);
+            browser.location.reload();
+          } else {
+            browser.location.replace(target);
+          }
         }
       } catch {
         // Storage can be blocked. Offer a manual retry instead of risking a loop.

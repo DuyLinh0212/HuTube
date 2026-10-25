@@ -43,40 +43,32 @@ def run(suite,config,actors):
             expect(p.locator('.tab-title')).to_be_focused()
             suite.evidence(guest,entry,'policy-visible-keyboard-destination')
         case(suite,guest,'POLICY-FOOTER-KEYBOARD-FOCUS-VISIBLE','U-POLICY.02','Keyboard policy navigation leaves a visible focus destination',keyboard,'policy')
-        def disabled(entry):
+        def removed_tools(entry):
             suite.go(guest,'/privacy','app-public-policy-page','/policies')
-            controls=p.locator('.tools-grid button,.tools-grid input[type=checkbox]')
-            assert controls.count()==3
-            states=[]
-            for control in controls.all():
-                expect(control).to_be_disabled();explanation=control.get_attribute('title')
-                assert explanation and explanation!='common.notSupported'
-                states.append({'tag':control.evaluate('(e)=>e.tagName'),'explanation':explanation})
-            assert p.locator('.toast-banner').count()==0
+            expect(p.locator('#quyen-va-lua-chon,.tools-grid,.custom-switch')).to_have_count(0)
             expect(p.locator('.footer-links-row a[href="/home"]')).to_be_visible()
-            entry['disabled_controls']=states
-            entry['steps']=['Privacy route loads real published API','Both unsupported buttons and ad toggle are disabled with translated explanations','No fake success toast; footer Home navigation has a real route']
-        case(suite,guest,'POLICY-PRIVACY-DISABLED-CONTROLS-EXPLANATION','U-POLICY.02','Unsupported privacy operations are explained and cannot report fake saves',disabled,'policy')
+            entry['steps']=['Privacy policies load','Removed tools do not render','Home navigation remains available']
+        case(suite,guest,'POLICY-REMOVED-PRIVACY-TOOLS','U-POLICY.02','Removed privacy tools stay absent',removed_tools,'policy')
         def routes(entry):
-            for route,tab in [('/terms','terms'),('/privacy','privacy'),('/guidelines','guidelines'),('/policies?tab=enforcement','enforcement'),('/policies?tab=monetization','monetization')]:
+            for route,tab in [('/terms','terms'),('/privacy','privacy'),('/guidelines','guidelines'),('/policies?tab=enforcement','enforcement'),('/policies?tab=monetization','all')]:
                 suite.go(guest,route,'app-public-policy-page','/policies')
                 expect(p.locator('.hub-nav button.active')).to_have_count(1)
-                index=['guidelines','privacy','terms','monetization','enforcement'].index(tab)
+                index=['all','guidelines','privacy','terms','enforcement'].index(tab)
                 expect(p.locator('.hub-nav button').nth(index)).to_have_class('hub-nav-item active')
                 expect(p.locator('.tab-title')).not_to_be_empty()
                 assert p.locator('.policy-card').count()>0
-            entry['steps']=['Load each of five real policy routes/groups independently','Rendered selected group/title and nonempty policy content must agree','No fabricated published-version fixture in the test']
+            entry['steps']=['Load each of four real policy routes/groups independently','Rendered selected group/title and nonempty policy content must agree','No fabricated published-version fixture in the test']
         case(suite,guest,'POLICY-ALL-PUBLIC-ROUTES-GROUPS','U-POLICY.01','Every public policy route and group renders content',routes,'policy')
         member=actors['member'];mp=member['page']
         def published(entry):
             guest_data=suite.api(guest,'get','/policies').json()
             member_data=suite.api(member,'get','/policies').json()
             assert sorted(guest_data,key=lambda x:x['policyId'])==sorted(member_data,key=lambda x:x['policyId'])
-            fixtures=[x for x in member_data if x['code'].startswith('QC_POLICY_')]
+            fixtures=[x for x in member_data if x['code'].startswith('QC_POLICY_') and x['group'].lower()!='monetization' and x['code'].upper() not in {'PARTNER_ELIGIBILITY','AD_SUITABILITY_GUIDE','REVENUE_PAYOUTS'}]
             assert fixtures,'Require existing actually published QC version fixtures'
             checked=[]
-            for tab in ['guidelines','privacy','terms','monetization','enforcement']:
-                items=[x for x in fixtures if (x['group'] if x['group'] in ['guidelines','privacy','terms','monetization','enforcement'] else ('terms' if x['group']=='legal' else 'guidelines'))==tab]
+            for tab in ['guidelines','privacy','terms','enforcement']:
+                items=[x for x in fixtures if (x['group'] if x['group'] in ['guidelines','privacy','terms','enforcement'] else ('terms' if x['group']=='legal' else 'guidelines'))==tab]
                 if not items:continue
                 suite.go(member,'/policies?tab='+tab,'app-public-policy-page','/policies')
                 query=mp.locator('#policy-search')
@@ -98,16 +90,16 @@ def run(suite,config,actors):
         def footer(entry):
             suite.go(member,'/policies?tab=privacy','app-public-policy-page','/policies')
             checked=[]
-            for index,tab in enumerate(['guidelines','privacy','terms','monetization','enforcement']):
+            for index,tab in enumerate(['guidelines','privacy','terms','enforcement']):
                 button=mp.locator('.footer-links-row button').nth(index);button.focus();mp.keyboard.press('Enter')
                 mp.wait_for_function('(tab)=>new URLSearchParams(location.search).get("tab")===tab',arg=tab)
                 expect(mp.locator('.tab-title')).to_be_focused()
                 rect=mp.locator('.tab-title').bounding_box();assert rect and rect['y']>=0 and rect['y']<mp.evaluate('innerHeight')
-                expect(mp.locator('.hub-nav button').nth(index)).to_have_class('hub-nav-item active')
+                expect(mp.locator('.hub-nav button').nth(index + 1)).to_have_class('hub-nav-item active')
                 checked.append(tab);suite.evidence(member,entry,'keyboard-footer-'+tab)
             link=mp.locator('.footer-links-row a[href="/home"]');link.focus();mp.keyboard.press('Enter');mp.wait_for_url('**/home')
             expect(mp.locator('app-public-policy-page')).to_have_count(0)
             entry['keyboard_targets']=checked+['/home']
-            entry['steps']=['Actual Member keyboard Enter activates each of five footer legal groups','Each exact query/selected navigation agrees and actual content heading owns visible focus','Real keyboard Home link leaves policy route; no click/evaluate handler substitution']
+            entry['steps']=['Actual Member keyboard Enter activates each of four footer legal groups','Each exact query/selected navigation agrees and actual content heading owns visible focus','Real keyboard Home link leaves policy route; no click/evaluate handler substitution']
         case(suite,member,'POLICY-ALL-FOOTER-KEYBOARD-TARGETS','U-POLICY.02','Every footer legal navigation target preserves visible keyboard focus',footer,'policy')
     finally:suite.release_actor(guest)

@@ -7,6 +7,7 @@ import { RuntimeConfig } from '../../core/runtime-config';
 import { authInterceptor } from '../../core/auth.interceptor';
 import { NetworkStatusService } from '../../core/network/network-status.service';
 import { AuthPage } from './auth-page';
+import { I18nService } from '../../core/i18n.service';
 
 describe('Vietnamese auth forms', () => {
   const base='http://localhost:5080/api/v1';
@@ -14,6 +15,8 @@ describe('Vietnamese auth forms', () => {
   let controller: HttpTestingController;
   beforeEach(() => {
     TestBed.configureTestingModule({providers:[provideRouter(['login','register','forgot-password','reset-password','verify-email'].map(path=>({path,component:AuthPage}))),provideHttpClient(withInterceptors([authInterceptor])),provideHttpClientTesting(),{provide:NetworkStatusService,useValue:networkStatusMock}]});
+    // These assertions deliberately exercise Vietnamese, regardless of a saved preference.
+    TestBed.inject(I18nService).currentLang.set('vi');
     TestBed.inject(RuntimeConfig).apiBaseUrl=base; controller=TestBed.inject(HttpTestingController);
   });
   afterEach(()=>controller.verify());

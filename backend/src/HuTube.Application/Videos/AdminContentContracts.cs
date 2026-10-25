@@ -1,5 +1,7 @@
 namespace HuTube.Application.Videos;
 
+public sealed record ModerationChannelOption(Guid ChannelId, string Name, string Handle, string Status);
+
 public sealed record AdminContentActionRequest(string Reason, bool NotifyOwner = true, DateTimeOffset? SuspendedUntil = null);
 public sealed record UpdateAdminChannelRequest(string Name, string? Description, string? ContactEmail, string Reason);
 public sealed record CreateTargetStrikeRequest(string Severity, string Reason, string? PolicyCode = null, string? InternalNote = null);

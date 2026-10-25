@@ -15,6 +15,16 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
     IAuthEmailSender emailSender, IObjectStorage storage, ILogger<AdminContentService> logger,
     AuthOptions? authOptions = null, TimeProvider? clock = null)
 {
+    public async Task<List<ModerationChannelOption>> LookupModerationChannelsAsync(string? search, CancellationToken ct)
+    {
+        var term = search?.Trim().TrimStart('@').ToLowerInvariant() ?? "";
+        if (term.Length < 2 || term.Length > 80) return [];
+        return await db.Channels.AsNoTracking()
+            .Where(c => c.Status != "deleted" && (c.Handle.ToLower().Contains(term) || c.Name.ToLower().Contains(term)))
+            .OrderByDescending(c => c.Handle.ToLower() == term).ThenBy(c => c.Handle)
+            .Take(10).Select(c => new ModerationChannelOption(c.ChannelId, c.Name, c.Handle, c.Status)).ToListAsync(ct);
+    }
+
     public async Task UpdateChannelAsync(Guid actorId, Guid channelId, UpdateAdminChannelRequest request, CancellationToken ct)
     {
         ValidateReason(request.Reason);
