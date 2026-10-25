@@ -1,5 +1,5 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
-import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
+import { AfterViewInit, Component, computed, ElementRef, inject, OnDestroy, signal, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
@@ -23,7 +23,7 @@ type LibraryGroup = {
   templateUrl: './library-page.html',
   styleUrl: './library-page.scss'
 })
-export class LibraryPage implements OnDestroy {
+export class LibraryPage implements AfterViewInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly content = inject(ContentService);
@@ -33,6 +33,8 @@ export class LibraryPage implements OnDestroy {
   readonly items = signal<Array<LibraryVideo | WatchHistoryItem>>([]);
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly loadMoreError = signal(false);
+  readonly loadingMore = signal(false);
   readonly page = signal(1);
   readonly pageSize = 20;
   readonly total = signal(0);
@@ -41,7 +43,12 @@ export class LibraryPage implements OnDestroy {
   historySort = 'newest';
   historyDateRange = 'all';
   private requestVersion = 0;
+  private observer?: IntersectionObserver;
+  private loadMoreSentinel?: HTMLElement;
+  private historySearchTimer?: ReturnType<typeof setTimeout>;
+  private loadingMoreInFlight = false;
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize)));
+  readonly hasMoreHistory = computed(() => !this.isLiked && this.page() * this.pageSize < this.total());
   readonly groups = computed<LibraryGroup[]>(() => {
     const items = this.items();
     if (this.isLiked) return items.length ? [{ key: 'liked', label: '', items }] : [];
@@ -63,22 +70,46 @@ export class LibraryPage implements OnDestroy {
       items: dayItems
     }));
   });
+
+  @ViewChild('historyLoadSentinel')
+  set historyLoadSentinelRef(value: ElementRef<HTMLElement> | undefined) {
+    this.loadMoreSentinel = value?.nativeElement;
+    this.observeHistorySentinel();
+  }
+
   constructor() {
     if (this.isLiked) this.load();
     else this.route.queryParamMap.subscribe(params => {
       this.historyQuery = params.get('q') ?? '';
       this.historySort = params.get('sort') === 'oldest' ? 'oldest' : 'newest';
       this.historyDateRange = ['today', 'week', 'month'].includes(params.get('dateRange') ?? '') ? params.get('dateRange')! : 'all';
-      const page = Number(params.get('page'));
-      this.page.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
+      this.page.set(1);
       this.load();
     });
   }
 
-  ngOnDestroy() { this.requestVersion++; }
+  ngAfterViewInit() {
+    if (typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+    this.observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) void this.loadMoreHistory();
+    }, { rootMargin: '560px 0px' });
+    this.observeHistorySentinel();
+  }
+
+  ngOnDestroy() {
+    this.requestVersion++;
+    if (this.historySearchTimer) clearTimeout(this.historySearchTimer);
+    this.observer?.disconnect();
+  }
 
   get isLiked() {
     return this.mode === 'liked';
+  }
+
+  get supportsIntersectionObserver() {
+    return typeof IntersectionObserver !== 'undefined';
   }
 
   get title() {
@@ -87,6 +118,9 @@ export class LibraryPage implements OnDestroy {
 
   load() {
     const version = ++this.requestVersion;
+    this.loadingMoreInFlight = false;
+    this.loadingMore.set(false);
+    this.loadMoreError.set(false);
     this.loading.set(true);
     this.error.set('');
     const request = this.isLiked
@@ -107,9 +141,51 @@ export class LibraryPage implements OnDestroy {
     });
   }
 
-  filterHistory() {
-    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
-      queryParams: { q: this.historyQuery || null, sort: this.historySort, dateRange: this.historyDateRange, page: 1 } });
+  filterHistory(debounce = false) {
+    if (this.historySearchTimer) clearTimeout(this.historySearchTimer);
+    const navigate = () => void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
+      queryParams: { q: this.historyQuery.trim() || null, sort: this.historySort, dateRange: this.historyDateRange, page: null } });
+    if (debounce) this.historySearchTimer = setTimeout(navigate, 300);
+    else navigate();
+  }
+
+  loadMoreHistory() {
+    if (this.isLiked || this.loading() || this.loadingMoreInFlight || !this.hasMoreHistory()) return;
+    const version = this.requestVersion;
+    const nextPage = this.page() + 1;
+    this.loadingMoreInFlight = true;
+    this.loadMoreError.set(false);
+    this.loadingMore.set(true);
+    if (this.loadMoreSentinel) this.observer?.unobserve(this.loadMoreSentinel);
+
+    this.content.history(nextPage, this.pageSize, null, {
+      q: this.historyQuery, sort: this.historySort, dateRange: this.historyDateRange
+    }).pipe(finalize(() => {
+      if (version !== this.requestVersion) return;
+      this.loadingMore.set(false);
+      this.loadingMoreInFlight = false;
+      this.observeHistorySentinel();
+    })).subscribe({
+      next: result => {
+        if (version !== this.requestVersion) return;
+        const current = this.items();
+        const knownIds = new Set(current.map(item => item.videoId));
+        const additions = (result.items ?? []).filter(item => !knownIds.has(item.videoId));
+        this.items.set([...current, ...additions]);
+        this.page.set(nextPage);
+        this.total.set(result.items?.length ? (result.total ?? this.total()) : current.length);
+      },
+      error: () => {
+        if (version !== this.requestVersion) return;
+        this.loadMoreError.set(true);
+      }
+    });
+  }
+
+  private observeHistorySentinel() {
+    if (this.observer && this.loadMoreSentinel && !this.loadingMore() && !this.loadMoreError() && this.hasMoreHistory()) {
+      this.observer.observe(this.loadMoreSentinel);
+    }
   }
 
   setRatingFilter(value: number | null) {

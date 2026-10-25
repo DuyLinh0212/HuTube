@@ -8,6 +8,50 @@
   padding: 34px clamp(16px, 3.4vw, 48px) 70px;
 }
 
+.history-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px -24px rgba(17, 24, 39, .65);
+}
+
+.history-controls label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--text-body);
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.history-controls input,
+.history-controls select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: .82rem;
+}
+
+.history-controls input:focus-visible,
+.history-controls select:focus-visible {
+  border-color: var(--primary);
+  outline: 2px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  outline-offset: 1px;
+}
+
 .rating-filter {
   display: flex;
   align-items: center;
@@ -132,11 +176,32 @@
 }
 
 .library-history-sentinel {
-  min-height: 32px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
   color: var(--text-muted);
   font-size: .85rem;
+}
+
+.library-history-sentinel button {
+  min-height: 38px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-body);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.library-history-sentinel button:hover,
+.library-history-sentinel button:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .library-card {
@@ -381,6 +446,29 @@
 @media (max-width: 650px) {
   .library-page {
     padding: 24px 14px 48px;
+  }
+
+  .history-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    margin-bottom: 14px;
+    padding: 10px;
+  }
+
+  .history-controls__search {
+    grid-column: 1 / -1;
+  }
+
+  .history-controls label {
+    gap: 4px;
+    font-size: .68rem;
+  }
+
+  .history-controls input,
+  .history-controls select {
+    min-height: 40px;
+    padding-inline: 9px;
+    font-size: .78rem;
   }
 
   .library-card {

@@ -4,7 +4,6 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 import { Subscription, catchError, finalize, forkJoin, of } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { LoginPromptService } from '../../core/login-prompt.service';
@@ -30,7 +29,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [ResultNoticeComponent, RequireLoginDirective, FormsModule, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [ResultNoticeComponent, RequireLoginDirective, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -65,10 +64,9 @@ export class ChannelPage {
   readonly playlistsError = signal(false);
   readonly featuredDescription = signal('');
   readonly videoSort = signal('newest');
-  videoQuery = '';
   readonly videoPage = signal(1);
-  readonly videoPageSize = signal(20);
-  readonly videoPageCount = computed(() => Math.max(1, Math.ceil(this.videoTotal() / this.videoPageSize())));
+  readonly videoPageSize = 20;
+  readonly videoPageCount = computed(() => Math.max(1, Math.ceil(this.videoTotal() / this.videoPageSize)));
   readonly videoResults = signal<VideoCard[]>([]);
   readonly videoResultsLoading = signal(false);
   readonly videoResultsError = signal(false);
@@ -107,9 +105,8 @@ export class ChannelPage {
   constructor() {
     this.destroyRef.onDestroy(() => this.channelRequests.unsubscribe());
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
-      this.videoQuery = params.get('q') ?? '';
-      this.videoSort.set(['newest', 'views', 'engagement', 'relevance'].includes(params.get('sort') ?? '') ? params.get('sort')! : 'newest');
-      this.videoPageSize.set(params.get('pageSize') === '50' ? 50 : 20);
+      const sort = params.get('sort') ?? '';
+      this.videoSort.set(['newest', 'oldest', 'views'].includes(sort) ? sort : 'newest');
       const page = Number(params.get('page'));
       this.videoPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
       const tab = params.get('tab');
@@ -253,8 +250,8 @@ export class ChannelPage {
     if (!channel) return;
     const version = ++this.videoRequestVersion;
     this.videoResultsLoading.set(true); this.videoResultsError.set(false);
-    this.channelRequests.add(this.contentService.search({ channelId: channel.channelId, q: this.videoQuery, sort: this.videoSort(),
-      page: this.videoPage(), pageSize: this.videoPageSize() }).pipe(finalize(() => {
+    this.channelRequests.add(this.contentService.search({ channelId: channel.channelId, sort: this.videoSort(),
+      page: this.videoPage(), pageSize: this.videoPageSize }).pipe(finalize(() => {
         if (version === this.videoRequestVersion) this.videoResultsLoading.set(false);
       })).subscribe({
         next: result => { if (version === this.videoRequestVersion) { this.videoResults.set(result.items); this.videoTotal.set(result.total); } },
@@ -262,9 +259,10 @@ export class ChannelPage {
       }));
   }
 
-  filterVideos(pageSize = this.videoPageSize()) {
+  setVideoSort(sort: 'newest' | 'oldest' | 'views') {
+    this.videoSort.set(sort);
     void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: {
-      tab: 'videos', q: this.videoQuery || null, sort: this.videoSort(), page: 1, pageSize } });
+      tab: 'videos', q: null, sort, page: 1, pageSize: null } });
   }
 
   changeVideoPage(page: number) {
