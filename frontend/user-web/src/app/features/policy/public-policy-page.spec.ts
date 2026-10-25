@@ -6,7 +6,25 @@ import { BehaviorSubject } from 'rxjs';
 import { I18nService } from '../../core/i18n.service';
 import { PublicPolicy, PublicPolicyPage } from './public-policy-page';
 
+function isolateLanguagePreference(): void {
+  const keys = ['hutube_lang', 'hutube_admin_lang'];
+  let saved: (string | null)[];
+  beforeEach(() => {
+    saved = keys.map(key => localStorage.getItem(key));
+    keys.forEach(key => localStorage.setItem(key, 'vi'));
+  });
+  afterEach(() => {
+    // setLang persists both preferences; never leak a test's language to another suite.
+    keys.forEach((key, index) => {
+      const value = saved[index];
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    });
+  });
+}
+
 describe('Public policy collection and complete exports', () => {
+  isolateLanguagePreference();
   let page: PublicPolicyPage;
   let http: HttpTestingController;
   let query: BehaviorSubject<Record<string, string>>;
@@ -109,6 +127,7 @@ describe('Public policy collection and complete exports', () => {
 });
 
 describe('Compact policy page removes retired UI', () => {
+  isolateLanguagePreference();
   beforeEach(() => TestBed.configureTestingModule({
     imports: [PublicPolicyPage],
     providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
