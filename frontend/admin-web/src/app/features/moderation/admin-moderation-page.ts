@@ -59,7 +59,7 @@ export class AdminModerationPage implements OnInit {
     const item = this.activeCase();
     return !!item && this.isClaimedByMe(item);
   });
-  readonly selectedReviewable = computed(() => this.visibleSelected().filter(item => this.isClaimedByMe(item)));
+  readonly selectedReviewable = computed(() => this.visibleSelected().filter(item => this.canReview() && this.canSelectForBatch(item)));
   @ViewChild('reviewPlayer') private reviewPlayer?: ElementRef<HTMLVideoElement>;
   private readonly reviewDrafts = new Map<string, { policy: string; note: string; reason: string; decision: ModerationDecision | null }>();
   private reviewReturnFocus: HTMLElement | null = null;
@@ -69,6 +69,11 @@ export class AdminModerationPage implements OnInit {
   readonly selectedPolicyCode = signal<string>('');
   readonly internalNote = signal<string>('');
   readonly actionReason = signal<string>('');
+
+  resetFilters(): void {
+    this.searchQuery.set(''); this.selectedRisk.set('ALL');
+    this.selectedCategory.set('ALL'); this.selectedDuration.set('ALL');
+  }
 
   readonly filteredQueue = computed(() => {
     let items = this.queue();
@@ -167,11 +172,13 @@ export class AdminModerationPage implements OnInit {
   }
 
   claimCase(item: ModerationQueueItem): void {
+    if (this.loading() || this.submitting() || !this.canClaim() || !this.canReview()) return;
     this.loading.set(true);
     this.moderationService.claim(item.moderationCaseId).subscribe({
       next: (res) => {
-        this.showMessage(res.message || this.i18n.t('moderation.claimSuccess'));
-        this.loadData();
+        const updated = { ...item, ...res, status: 'reviewing' as const, reviewerId: this.auth.user()!.userId, reviewerName: this.auth.user()!.displayName };
+        this.queue.update(items => items.map(value => value.moderationCaseId === item.moderationCaseId ? updated : value));
+        this.loading.set(false); this.openReviewModal(updated);
       },
       error: (err) => {
         this.error.set(err?.error?.detail || this.i18n.t('common.error'));
@@ -258,6 +265,10 @@ export class AdminModerationPage implements OnInit {
   }
 
   openReviewModal(item: ModerationQueueItem): void {
+    if (this.loading() || this.submitting()) return;
+    if (this.canClaim() && this.canReview() && (item.status === 'pending' || item.status === 'escalated' || this.lease.expired(item))) {
+      this.claimCase(item); return;
+    }
     this.quickReview.set(false);
     this.reviewTabs.set([item]);
     this.openReviewSession(item);
@@ -267,9 +278,21 @@ export class AdminModerationPage implements OnInit {
     if (this.loading() || this.submitting()) return;
     const items = this.selectedReviewable();
     if (!items.length) return;
-    this.quickReview.set(true);
-    this.reviewTabs.set(items);
-    this.openReviewSession(items[0]);
+    this.loading.set(true); this.bulkResult.set(null);
+    forkJoin(items.map(item => this.isClaimedByMe(item) ? of({ item, success: true, reason: '' })
+      : this.moderationService.claim(item.moderationCaseId).pipe(
+        map(lease => ({ item: { ...item, ...lease, status: 'reviewing' as const, reviewerId: this.auth.user()!.userId, reviewerName: this.auth.user()!.displayName }, success: true, reason: '' })),
+        catchError(err => of({ item, success: false, reason: err?.error?.detail || this.i18n.t('workflow.unavailable') }))
+      ))).subscribe(results => {
+      this.loading.set(false);
+      const available = results.filter(result => result.success).map(result => result.item);
+      const failed = results.filter(result => !result.success).map(result => ({ id: result.item.moderationCaseId, title: result.item.title, reason: result.reason }));
+      if (failed.length) this.bulkResult.set({ succeeded: available.length, failed });
+      if (!available.length) return;
+      const byId = new Map(available.map(item => [item.moderationCaseId, item]));
+      this.queue.update(queue => queue.map(item => byId.get(item.moderationCaseId) ?? item));
+      this.quickReview.set(true); this.reviewTabs.set(available); this.openReviewSession(available[0]);
+    });
   }
 
   private openReviewSession(item: ModerationQueueItem): void {
@@ -493,7 +516,7 @@ export class AdminModerationPage implements OnInit {
 
   claimFirstPending(): void {
     const item = this.queue().find(candidate => candidate.status === 'pending' || this.lease.expired(candidate));
-    if (item) this.claimCase(item);
+    if (item) this.openReviewModal(item);
   }
 
   private showMessage(msg: string): void {

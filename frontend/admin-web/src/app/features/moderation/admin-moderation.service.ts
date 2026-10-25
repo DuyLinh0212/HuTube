@@ -10,6 +10,8 @@ export type ModerationDecision =
   | 'reject'
   | 'escalate';
 
+export interface ModerationChannelOption { channelId: string; name: string; handle: string; status: string; }
+
 export interface ClaimLease { claimId?: string | null; claimExpiresAt?: string | null; message?: string; }
 
 export interface ModerationQueueItem {
@@ -213,6 +215,12 @@ export class AdminModerationService {
       expand(items => items.length === pageSize ? fetchPage(++nextPage) : EMPTY),
       reduce((all, items) => [...all, ...items], [] as T[])
     );
+  }
+
+  lookupChannels(search: string): Observable<ModerationChannelOption[]> {
+    return this.http.get<ModerationChannelOption[]>(`${this.config.apiBaseUrl}/admin/moderation/channels`, {
+      params: { search: search.trim().replace(/^@/, '') }
+    });
   }
 
   getQueue(status?: string, riskLevel?: string, page = 1, pageSize = 50): Observable<ModerationQueueItem[]> {

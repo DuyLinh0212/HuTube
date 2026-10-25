@@ -1,13 +1,13 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { ReviewerLeaseService } from './reviewer-lease.service';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, afterRenderEffect, computed, inject, signal, viewChild } from '@angular/core';
 import { EMPTY, expand, reduce } from 'rxjs';
 import { RuntimeConfig } from '../../core/runtime-config';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
-import { AdminModerationService, ReportCaseDetail, ReportCaseReportDetail, ReportCaseSummary } from './admin-moderation.service';
+import { AdminModerationService, ReportCaseDetail, ReportCaseReportDetail, ReportCaseSummary, PolicyItem } from './admin-moderation.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 
 type QueueStatus = 'ALL' | 'pending' | 'reviewing' | 'resolved' | 'escalated';
@@ -46,7 +46,7 @@ export class AdminReportsPage implements OnInit {
   readonly activeCase = signal<ReportCaseDetail | null>(null);
   readonly selectedReports = signal<Record<string, boolean>>({});
   readonly dispositionReason = signal('');
-  readonly decision = signal<ReportDecision>('dismiss');
+  readonly decision = signal<ReportDecision | ''>('');
   readonly decisionReason = signal('');
   readonly internalNote = signal('');
   readonly policyCode = signal('');
@@ -84,7 +84,7 @@ export class AdminReportsPage implements OnInit {
   });
   readonly selectedDecisionHint = computed(() => this.availableDecisions().find(option => option.value === this.decision())?.hint ?? '');
   readonly selectedDecisionAvailable = computed(() => this.availableDecisions().some(option => option.value === this.decision()));
-  readonly selectedReportIds = computed(() => Object.keys(this.selectedReports()).filter(id => this.selectedReports()[id]));
+  readonly selectedReportIds = computed(() => (this.activeCase()?.reports ?? []).filter(report => this.selectedReports()[report.reportId]).map(report => report.reportId));
   readonly violationTypes = computed<ViolationTypeOption[]>(() => {
     const options = new Map<string, string>();
     for (const item of this.cases()) {
@@ -150,6 +150,100 @@ export class AdminReportsPage implements OnInit {
   readonly unclassifiedCount = computed(() => Math.max(0, (this.activeCase()?.reports.length ?? 0) - this.classifiedCount()));
   readonly isCaseOwner = computed(() => !!this.activeCase() && this.activeCase()!.case.reviewerId === this.auth.user()?.userId && this.lease.active(this.activeCase()!.case));
 
+  private readonly caseDialog = viewChild<ElementRef<HTMLDialogElement>>('caseDialog');
+  private readonly decisionField = viewChild<ElementRef<HTMLSelectElement>>('decisionField');
+  private previousOverflow: string | null = null;
+  private caseGeneration = 0;
+  private policiesLoaded = false;
+  readonly detailLoading = signal(false);
+  readonly policyOptions = signal<PolicyItem[]>([]);
+  readonly policiesLoading = signal(false);
+  readonly policiesError = signal(false);
+  readonly canEditCase = computed(() => this.canResolve() && this.isCaseOwner() && this.activeCase()?.case.status === 'reviewing');
+  readonly canClassify = computed(() => this.canEditCase() && !this.submitting() && !this.detailLoading()
+    && this.selectedReportIds().length > 0 && this.dispositionReason().trim().length >= 3);
+  readonly canCloseCase = computed(() => this.canEditCase() && !this.submitting() && !this.detailLoading()
+    && this.allClassified() && this.selectedDecisionAvailable() && this.decisionReason().trim().length >= 3
+    && (this.decision() !== 'upload_restriction' || Number.isInteger(this.restrictionDays()) && this.restrictionDays() >= 1 && this.restrictionDays() <= 30));
+  readonly reviewStage = signal<'classification' | 'resolution'>('classification');
+  readonly focusedReportId = signal('');
+  readonly reportDisposition = signal<'accepted' | 'rejected' | ''>('');
+  readonly focusedReport = computed(() => this.activeCase()?.reports.find(report => report.reportId === this.focusedReportId()) ?? null);
+  readonly focusedReportNumber = computed(() => (this.activeCase()?.reports.findIndex(report => report.reportId === this.focusedReportId()) ?? -1) + 1);
+  readonly canSaveCurrentReport = computed(() => this.canEditCase() && !this.submitting() && !this.detailLoading()
+    && this.reviewStage() === 'classification' && !!this.focusedReport() && !!this.reportDisposition() && this.dispositionReason().trim().length >= 3);
+  private readonly reviewHeading = viewChild<ElementRef<HTMLElement>>('reviewHeading');
+  showReport(reportId: string): void {
+    if (this.submitting() || this.detailLoading()) return;
+    const report = this.activeCase()?.reports.find(item => item.reportId === reportId);
+    if (!report) return;
+    this.focusedReportId.set(reportId);
+    this.reportDisposition.set(report.disposition === 'accepted' || report.disposition === 'rejected' ? report.disposition : '');
+    this.dispositionReason.set(report.dispositionReason ?? '');
+    this.reviewStage.set('classification');
+  }
+  showResolution(): void {
+    if (!this.allClassified() || this.submitting() || this.detailLoading()) return;
+    this.reviewStage.set('resolution');
+  }
+  saveCurrentReport(): void {
+    const report = this.focusedReport(); const disposition = this.reportDisposition();
+    if (!report || !disposition || !this.canSaveCurrentReport()) return;
+    this.selectedReports.set({ [report.reportId]: true });
+    this.classify(disposition);
+  }
+
+  readonly selectedDecisionLabel = computed(() => this.availableDecisions().find(option => option.value === this.decision())?.label ?? '');
+
+  constructor() {
+    afterRenderEffect(() => {
+      this.reviewStage(); this.focusedReportId();
+      const dialog = this.caseDialog()?.nativeElement;
+      const heading = this.reviewHeading()?.nativeElement;
+      if (dialog && !dialog.open) {
+        this.previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden'; dialog.showModal();
+      }
+      if (heading && dialog?.open) {
+        const body = dialog.querySelector<HTMLElement>('.report-workspace-body');
+        if (body) body.scrollTop = 0;
+        heading.focus({ preventScroll: true });
+      }
+    });
+    inject(DestroyRef).onDestroy(() => { this.caseGeneration++; this.restoreCaseScroll(); });
+  }
+  private restoreCaseScroll(): void {
+    if (this.previousOverflow === null) return;
+    document.body.style.overflow = this.previousOverflow; this.previousOverflow = null;
+  }
+  onCaseBackdrop(event: MouseEvent): void {
+    const dialog = this.caseDialog()?.nativeElement;
+    if (!dialog || event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) this.closeCase();
+  }
+  scrollToStage(stage: 'classification' | 'resolution'): void {
+    const dialog = this.caseDialog()?.nativeElement;
+    const body = dialog?.querySelector<HTMLElement>('.report-workspace-body');
+    const element = dialog?.querySelector<HTMLElement>('#report-' + stage + '-stage');
+    if (!body || !element) return;
+    const top = Math.max(0, body.scrollTop + element.getBoundingClientRect().top - body.getBoundingClientRect().top - 16);
+    body.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+  }
+  selectUnclassified(): void {
+    if (!this.canEditCase() || this.submitting() || this.detailLoading()) return;
+    this.selectedReports.set(Object.fromEntries((this.activeCase()?.reports ?? [])
+      .filter(report => report.disposition !== 'accepted' && report.disposition !== 'rejected').map(report => [report.reportId, true])));
+  }
+  loadCasePolicies(): void {
+    if (this.policiesLoading()) return;
+    this.policiesLoading.set(true); this.policiesError.set(false);
+    this.moderation.getPolicies().subscribe({
+      next: policies => { this.policyOptions.set(policies); this.policiesLoaded = true; this.policiesLoading.set(false); },
+      error: () => { this.policiesLoading.set(false); this.policiesError.set(true); }
+    });
+  }
+
   private readonly config = inject(RuntimeConfig);
   private loadGeneration = 0;
 
@@ -167,6 +261,14 @@ export class AdminReportsPage implements OnInit {
       next: result => { if (generation !== this.loadGeneration) return; this.cases.set(result.items ?? []); this.total.set(result.total ?? 0); this.loading.set(false); },
       error: err => { if (generation !== this.loadGeneration) return; this.error.set(err?.error?.message || this.i18n.t('reports.loadError')); this.loading.set(false); }
     });
+  }
+
+  resetFilters(): void {
+    const reload = this.selectedTargetType() !== 'ALL';
+    this.searchQuery.set(''); this.selectedTargetType.set('ALL'); this.allStatusFilter.set('ALL');
+    this.selectedViolationType.set('ALL'); this.violationTypeSearch.set(''); this.violationTypePage.set(1);
+    this.processedFrom.set(''); this.processedTo.set(''); this.currentPage.set(1);
+    if (reload) this.loadData();
   }
 
   setStatus(status: QueueStatus): void {
@@ -200,30 +302,49 @@ export class AdminReportsPage implements OnInit {
   }
   trackReport(_: number, report: ReportCaseReportDetail): string { return report.reportId; }
 
-  openCase(item: ReportCaseSummary): void {
-    this.error.set(null);
+  openCase(item: ReportCaseSummary, preserveDraft = false): void {
+    const generation = ++this.caseGeneration;
+    this.error.set(null); this.detailLoading.set(true);
+    if (!preserveDraft) this.successMessage.set(null);
+    if (!this.policiesLoaded) this.loadCasePolicies();
     this.moderation.getReportCase(item.caseId).subscribe({
       next: value => {
-        this.activeCase.set(value);
-        this.selectedReports.set({});
+        if (generation !== this.caseGeneration) return;
+        this.activeCase.set(value); this.detailLoading.set(false);
+        const pending = value.reports.filter(report => report.disposition !== 'accepted' && report.disposition !== 'rejected');
+        this.selectedReports.set(pending.length === 1 ? { [pending[0].reportId]: true } : {});
         this.dispositionReason.set('');
-        this.decision.set('dismiss');
-        this.decisionReason.set('');
-        this.policyCode.set(value.reports.find(report => report.violationTypeCode)?.violationTypeCode ?? '');
+        const nextReport = pending[0] ?? value.reports[0];
+        if (nextReport) this.showReport(nextReport.reportId);
+        this.reviewStage.set(pending.length ? 'classification' : 'resolution');
+        if (!preserveDraft) {
+          this.decision.set(''); this.decisionReason.set(''); this.policyCode.set('');
+          this.internalNote.set(''); this.restrictionDays.set(7);
+        }
+
       },
-      error: err => this.error.set(err?.error?.message || this.i18n.t('reports.detailError'))
+      error: err => {
+        if (generation !== this.caseGeneration) return;
+        this.detailLoading.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.detailError'));
+      }
     });
   }
 
-  closeCase(): void { if (!this.submitting()) this.activeCase.set(null); }
+  closeCase(): void {
+    if (this.submitting()) return;
+    this.caseGeneration++; this.detailLoading.set(false); this.activeCase.set(null); this.restoreCaseScroll();
+  }
   toggleReport(reportId: string, checked: boolean): void { this.selectedReports.update(current => ({ ...current, [reportId]: checked })); }
 
-  claim(item: ReportCaseSummary): void {
-    if (!this.canClaim()) return;
-    this.submitting.set(true);
+  startCase(item: ReportCaseSummary): void {
+    if (this.submitting() || this.detailLoading()) return;
+    if (!this.canClaim() || !this.canResolve() || !(item.status === 'pending' || this.lease.expired(item))) {
+      this.openCase(item); return;
+    }
+    this.submitting.set(true); this.error.set(null);
     this.moderation.claimReportCase(item.caseId).subscribe({
-      next: () => { this.submitting.set(false); this.successMessage.set(this.i18n.t('reports.claimSuccess')); this.loadData(); if (this.activeCase()?.case.caseId === item.caseId) this.openCase(item); },
-      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.claimError')); }
+      next: () => { this.submitting.set(false); this.openCase(item); this.loadData(); },
+      error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('workflow.unavailable')); }
     });
   }
 
@@ -239,13 +360,13 @@ export class AdminReportsPage implements OnInit {
   classify(disposition: 'accepted' | 'rejected'): void {
     const current = this.activeCase();
     const reportIds = this.selectedReportIds();
-    if (!current || !this.canResolve() || !this.isCaseOwner() || !reportIds.length || this.dispositionReason().trim().length < 3) return;
+    if (!current || !this.canClassify()) return;
     this.submitting.set(true);
     this.moderation.updateReportDispositions(current.case.caseId, { claimId: current.case.claimId, reportIds, disposition, reason: this.dispositionReason().trim() }).subscribe({
       next: () => {
         this.submitting.set(false);
         this.successMessage.set(this.i18n.format('reports.classifySuccess', { count: reportIds.length }));
-        this.openCase(current.case);
+        this.openCase(current.case, true);
         this.loadData();
       },
       error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.classifyError')); }
@@ -254,7 +375,7 @@ export class AdminReportsPage implements OnInit {
 
   resolveCase(): void {
     const current = this.activeCase();
-    if (!current || !this.canResolve() || !this.isCaseOwner() || !this.allClassified() || this.decisionReason().trim().length < 3) return;
+    if (!current || !this.canCloseCase()) return;
     if (!this.availableDecisions().some(option => option.value === this.decision())) return;
     this.submitting.set(true);
     this.moderation.resolveReportCase(current.case.caseId, {
@@ -266,7 +387,7 @@ export class AdminReportsPage implements OnInit {
       next: result => {
         this.submitting.set(false);
         this.successMessage.set(result.message || this.i18n.t('reports.closedSuccess'));
-        this.activeCase.set(null);
+        this.closeCase();
         this.loadData();
       },
       error: err => { this.submitting.set(false); this.error.set(err?.error?.message || this.i18n.t('reports.closeError')); }

@@ -1,10 +1,9 @@
-<div class="policies-page">
+<div class="trust-workspace policies-page">
+
   <!-- Page Header -->
   <header class="page-header">
     <div class="header-content">
-      <div class="title-wrap">
-        <h1>{{ 'policies.title' | translate }}</h1>
-      </div>
+      <div class="workspace-heading"><h1>{{ 'workspace.policies' | translate }}</h1><p>{{ 'workspace.policiesDesc' | translate }}</p></div>
       <div class="header-actions">
         <button class="btn btn-secondary" (click)="loadPolicies()" [disabled]="loading()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="margin-right: 6px;">
@@ -32,6 +31,11 @@
     }
   </header>
 
+  <div class="workspace-stats" [attr.aria-busy]="loading()">
+    <div><span>{{ 'workspace.totalPolicies' | translate }}</span><strong>{{ loading() ? '—' : policies().length }}</strong></div>
+    <div><span>{{ 'workspace.policyGroups' | translate }}</span><strong>5</strong></div>
+    <div><span>{{ 'workspace.criticalPolicies' | translate }}</span><strong>{{ loading() ? '—' : criticalCount() }}</strong></div>
+  </div>
   <!-- Filters Toolbar -->
   <div class="toolbar">
     <div class="filter-group">
@@ -50,8 +54,9 @@
     </div>
 
     <div class="search-wrap">
-      <input
-        type="text"
+      <label for="admin-policy-search">{{ 'workspace.searchPolicies' | translate }}</label>
+      <input id="admin-policy-search"
+        type="search"
         [placeholder]="'policies.searchPlaceholder' | translate"
         [ngModel]="searchQuery()"
         (ngModelChange)="searchQuery.set($event)"
@@ -59,6 +64,9 @@
     </div>
   </div>
 
+  <div class="workspace-filter-summary" role="status"><span>{{ 'workspace.results' | translate:{ count: filteredPolicies().length } }}</span>
+    @if (selectedGroup() !== 'ALL' || searchQuery()) { <button type="button" (click)="resetFilters()">{{ 'workspace.resetFilters' | translate }}</button> }
+  </div>
   <!-- Policies Grid / Table -->
   <div class="table-container">
     @if (loading()) {
@@ -72,61 +80,24 @@
         <p>{{ 'policies.emptyDesc' | translate }}</p>
       </div>
     } @else {
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="width: 220px;">{{ 'policies.colCode' | translate }}</th>
-            <th>{{ 'policies.colName' | translate }}</th>
-            <th>{{ 'policies.colGroup' | translate }}</th>
-            <th>{{ 'policies.colSeverity' | translate }}</th>
-            <th>{{ 'policies.colVersion' | translate }}</th>
-            <th>{{ 'policies.colEffectiveDate' | translate }}</th>
-            <th>{{ 'policies.colStatus' | translate }}</th>
-            <th style="text-align: right;">{{ 'policies.colActions' | translate }}</th>
-          </tr>
-        </thead>
+      <table class="data-table policy-catalog">
+        <colgroup><col class="catalog-main-col"/><col class="catalog-classification-col"/><col class="catalog-version-col"/><col class="catalog-status-col"/><col class="catalog-action-col"/></colgroup>
+        <thead><tr><th scope="col">{{ 'policies.catalogPolicy' | translate }}</th><th scope="col">{{ 'policies.catalogClassification' | translate }}</th><th scope="col">{{ 'policies.catalogRevision' | translate }}</th><th scope="col">{{ 'policies.colStatus' | translate }}</th><th scope="col" class="catalog-actions">{{ 'policies.colActions' | translate }}</th></tr></thead>
         <tbody>
           @for (policy of filteredPolicies(); track policy.policyId) {
             <tr>
-              <td>
-                <span class="code-badge">{{ policy.code }}</span>
+              <td class="catalog-main" [attr.data-label]="'policies.catalogPolicy' | translate">
+                <button type="button" class="catalog-title" (click)="openDetailModal(policy)">{{ getPolicyName(policy) }}</button>
+                <span class="catalog-description">{{ getPolicyContent(policy) }}</span>
+                <code class="catalog-code">{{ policy.code }}</code>
               </td>
-              <td>
-                <div class="name-cell">
-                  <strong>{{ getPolicyName(policy) }}</strong>
-                  <span class="content-preview">{{ getPolicyContent(policy) | slice:0:80 }}...</span>
-                </div>
+              <td class="catalog-classification" [attr.data-label]="'policies.catalogClassification' | translate">
+                <span class="catalog-group">{{ getGroupLabel(policy.group) }}</span>
+                <span class="catalog-severity" [attr.data-severity]="policy.severity"><i aria-hidden="true"></i>{{ getSeverityLabel(policy.severity) }}</span>
               </td>
-              <td>
-                <span class="group-tag" [class]="'group-' + policy.group">
-                  {{ getGroupLabel(policy.group) }}
-                </span>
-              </td>
-              <td>
-                <span
-                  class="badge"
-                  [class.badge-critical]="policy.severity === 'critical'"
-                  [class.badge-high]="policy.severity === 'high'"
-                  [class.badge-medium]="policy.severity === 'medium'"
-                  [class.badge-info]="policy.severity === 'info' || policy.severity === 'low'"
-                >
-                  {{ getSeverityLabel(policy.severity) }}
-                </span>
-              </td>
-              <td>
-                <span class="version-badge">v{{ policy.version }}</span>
-              </td>
-              <td>
-                <span class="date-text">{{ policy.effectiveAt | date:'dd/MM/yyyy' }}</span>
-              </td>
-              <td>
-                <span class="status-published">{{ 'policies.status.published' | translate }}</span>
-              </td>
-              <td style="text-align: right;">
-                <button class="btn btn-sm btn-secondary" (click)="openDetailModal(policy)">
-                  {{ canEdit() ? ('policies.detailUpdate' | translate) : ('policies.viewDetails' | translate) }}
-                </button>
-              </td>
+              <td class="catalog-revision" [attr.data-label]="'policies.catalogRevision' | translate"><span class="catalog-version">v{{ policy.version }}</span><time class="catalog-date">{{ policy.effectiveAt | date:'dd/MM/yyyy' }}</time></td>
+              <td class="catalog-status" [attr.data-label]="'policies.colStatus' | translate"><span class="catalog-state" [class.is-published]="policy.status === 'published'"><i aria-hidden="true"></i>{{ policy.status === 'published' ? ('policies.status.published' | translate) : policy.status }}</span></td>
+              <td class="catalog-actions"><button type="button" class="catalog-open" (click)="openDetailModal(policy)" [attr.aria-label]="('policies.catalogOpen' | translate) + ': ' + getPolicyName(policy)"><span>{{ 'policies.catalogOpen' | translate }}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 5 7 7-7 7"/></svg></button></td>
             </tr>
           }
         </tbody>
@@ -137,11 +108,11 @@
   <!-- Create Policy Modal -->
   @if (isCreateModalOpen()) {
     <div class="modal-backdrop" (click)="closeCreateModal()">
-      <div class="modal-dialog modal-md" (click)="$event.stopPropagation()">
+      <div class="modal-dialog modal-md" role="dialog" aria-modal="true" aria-labelledby="create-policy-title" (keydown.escape)="closeCreateModal()" (click)="$event.stopPropagation()">
         <header class="modal-header">
           <div>
             <span class="eyebrow">{{ 'policies.createEyebrow' | translate }}</span>
-            <h2>{{ 'policies.createTitle' | translate }}</h2>
+            <h2 id="create-policy-title">{{ 'policies.createTitle' | translate }}</h2>
           </div>
           <button type="button" class="close-btn" (click)="closeCreateModal()" [attr.aria-label]="'common.close' | translate">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -214,11 +185,11 @@
   <!-- View / Edit & Publish New Version Modal -->
   @if (isDetailModalOpen() && selectedPolicy(); as policy) {
     <div class="modal-backdrop" (click)="closeDetailModal()">
-      <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-policy-title" (keydown.escape)="closeDetailModal()" (click)="$event.stopPropagation()">
         <header class="modal-header">
           <div>
             <span class="eyebrow">{{ 'policies.detailEyebrow' | translate }}</span>
-            <h2>[{{ policy.code }}] {{ getPolicyName(policy) }}</h2>
+            <h2 id="detail-policy-title">[{{ policy.code }}] {{ getPolicyName(policy) }}</h2>
           </div>
           <button type="button" class="close-btn" (click)="closeDetailModal()" [attr.aria-label]="'common.close' | translate">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">

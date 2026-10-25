@@ -1,12 +1,18 @@
-<main id="main-content" class="moderation-page">
+<main id="main-content" class="trust-workspace moderation-page">
+
   <header class="page-heading">
+    <div class="workspace-heading"><h1>{{ 'moderationPage.title' | translate }}</h1><p>{{ 'moderationPage.subtitle' | translate }}</p></div>
     <div class="heading-actions">
       <a class="outline-button" routerLink="/policies"><span aria-hidden="true">▣</span> {{ 'moderationPage.policies' | translate }}</a>
-      @if (canClaim() && selectedStatus() !== 'reviewing') { <button type="button" class="primary-button" (click)="claimFirstPending()" [disabled]="loading() || !stats().pending"><span aria-hidden="true">▣</span> {{ 'moderationPage.claimCases' | translate }}</button> }
       <button type="button" class="refresh-button" (click)="loadData()" [disabled]="loading()" [attr.aria-label]="'moderationPage.refreshQueue' | translate">↻</button>
     </div>
   </header>
 
+  <div class="workspace-stats" [attr.aria-busy]="loading()">
+    <div><span>{{ 'moderationPage.pendingReview' | translate }}</span><strong>{{ loading() ? '—' : stats().pending }}</strong></div>
+    <div><span>{{ 'moderationPage.underReview' | translate }}</span><strong>{{ loading() ? '—' : stats().reviewing }}</strong></div>
+    <div><span>{{ 'workspace.highRisk' | translate }}</span><strong>{{ loading() ? '—' : stats().highRisk }}</strong></div>
+  </div>
   <app-result-notice tone="success" [message]="successMessage()" />
   <app-result-notice tone="error" [message]="error()" />
 
@@ -25,12 +31,15 @@
   <section class="moderation-layout">
     <div class="queue-column">
       <section class="filter-panel" [attr.aria-label]="'moderation.filterStatus' | translate">
-        <label class="search-field"><span class="search-glyph" aria-hidden="true"></span><input type="search" [placeholder]="'moderationPage.search' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" /></label>
+        <label class="search-field"><span class="search-glyph" aria-hidden="true"></span><input type="search" [attr.aria-label]="'moderationPage.search' | translate" [placeholder]="'moderationPage.search' | translate" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" /></label>
         <label class="filter-field"><span>{{ 'moderationPage.category' | translate }}</span><select [ngModel]="selectedCategory()" (ngModelChange)="selectedCategory.set($event)"><option value="ALL">{{ 'moderation.statusAll' | translate }}</option>@for (category of categories(); track category) { <option [value]="category">{{ category }}</option> }</select></label>
         <label class="filter-field"><span>{{ 'moderation.videoDuration' | translate }}</span><select [ngModel]="selectedDuration()" (ngModelChange)="selectedDuration.set($event)"><option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="short">{{ 'moderationPage.durationShort' | translate }}</option><option value="medium">{{ 'moderationPage.durationMedium' | translate }}</option><option value="long">{{ 'moderationPage.durationLong' | translate }}</option></select></label>
         <label class="filter-field"><span>{{ 'moderationPage.riskSignal' | translate }}</span><select [ngModel]="selectedRisk()" (ngModelChange)="selectedRisk.set($event)"><option value="ALL">{{ 'moderation.statusAll' | translate }}</option><option value="low">{{ 'moderationPage.low' | translate }}</option><option value="high">{{ 'moderationPage.high' | translate }}</option></select></label>
       </section>
 
+      <div class="workspace-filter-summary" role="status"><span>{{ 'workspace.results' | translate:{ count: filteredQueue().length } }}</span>
+        @if (searchQuery() || selectedRisk() !== 'ALL' || selectedCategory() !== 'ALL' || selectedDuration() !== 'ALL') { <button type="button" (click)="resetFilters()">{{ 'workspace.resetFilters' | translate }}</button> }
+      </div>
       <section class="table-card">
         <div class="table-heading"><div><h2>{{ 'moderationPage.queueTitle' | translate }}</h2><p>{{ 'moderationPage.matchingResults' | translate:{ count: filteredQueue().length } }}</p></div><div class="queue-count">{{ 'moderationPage.highRiskCount' | translate:{ count: stats().highRisk } }}</div>
         </div>
@@ -39,7 +48,6 @@
             <span class="selection-count"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>{{ 'moderationPage.selected' | translate:{ count: visibleSelected().length } }}</strong></span>
             <div class="bulk-action-buttons">
               @if (selectedReviewable().length) { <button type="button" class="table-action primary quick-review-button" (click)="openQuickReview()" [disabled]="loading()">{{ 'moderationPage.quickReview' | translate }} <b>{{ selectedReviewable().length }}</b></button> }
-              @if (selectedStatus() !== 'reviewing' && selectedClaimable().length) { <button type="button" class="table-action primary" (click)="bulkClaimSelected()" [disabled]="loading() || !selectedClaimable().length">{{ 'moderationPage.claimPending' | translate }} <b>{{ selectedClaimable().length }}</b></button> }
               <button type="button" class="table-action subtle" (click)="bulkReleaseSelected()" [disabled]="loading() || !selectedReleasable().length">{{ 'moderationPage.releaseMine' | translate }} <b>{{ selectedReleasable().length }}</b></button>
               <button type="button" class="selection-clear" (click)="toggleVisibleSelection(false)" [disabled]="loading()">{{ 'moderationPage.clearSelection' | translate }}</button>
             </div>
@@ -67,10 +75,10 @@
                     <td><span class="reviewer-text">{{ item.reviewerName || '—' }}</span>@if (lease.expired(item)) { <small role="status">{{ 'moderation.claimExpired' | translate }}</small> }</td>
                     <td class="actions-column"><div class="row-actions">
                       @if (isProcessed(item)) { <span class="processed-label">{{ getStatusLabel(item.status) }}</span> }
-                      @else if ((item.status === 'pending' || item.status === 'escalated' || lease.expired(item)) && canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> }
-                      @else if ((item.status === 'pending' || lease.expired(item))) { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ 'moderationPage.details' | translate }}</button>@if (canClaim()) { <button type="button" class="table-action primary" (click)="claimCase(item)">{{ 'moderationPage.claim' | translate }}</button> } }
-                      @else if (item.status === 'reviewing' || item.status === 'escalated') { <button type="button" class="table-action" (click)="openReviewModal(item)">{{ canReview() || isClaimedByMe(item) ? ('moderationPage.open' | translate) : ('moderationPage.details' | translate) }}</button>@if (isClaimedByMe(item) && canClaim()) { <button type="button" class="table-action subtle" (click)="releaseCase(item)">{{ 'moderationPage.release' | translate }}</button> } }
-                      @else { <span class="locked-label">{{ 'moderationPage.processing' | translate }}</span> }
+                      @else {
+                        <button type="button" class="table-action" [class.primary]="canReview() && (isClaimedByMe(item) || canClaim() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item)))" [disabled]="loading() || submitting()" (click)="openReviewModal(item)">{{ (canReview() && (isClaimedByMe(item) || canClaim() && (item.status === 'pending' || item.status === 'escalated' || lease.expired(item))) ? 'workflow.review' : 'moderationPage.details') | translate }}</button>
+                        @if (isClaimedByMe(item) && canClaim()) { <button type="button" class="table-action subtle" [disabled]="loading()" (click)="releaseCase(item)">{{ 'workflow.leave' | translate }}</button> }
+                      }
                     </div></td>
                   </tr>
                 }

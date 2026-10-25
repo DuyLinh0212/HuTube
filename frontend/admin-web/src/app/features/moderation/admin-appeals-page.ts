@@ -1,10 +1,9 @@
 import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { ReviewerLeaseService } from './reviewer-lease.service';
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, afterRenderEffect, inject, signal, computed, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -22,10 +21,52 @@ import {
   styleUrl: './admin-appeals-page.scss'
 })
 export class AdminAppealsPage implements OnInit {
+  private readonly detailDialog = viewChild<ElementRef<HTMLDialogElement>>('detailDialog');
+  private previousOverflow: string | null = null;
+  readonly detailAppeal = signal<AppealItem | null>(null);
   readonly lease = inject(ReviewerLeaseService);
   private readonly moderationService = inject(AdminModerationService);
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
+  constructor() {
+    afterRenderEffect(() => {
+      const dialog = this.detailDialog()?.nativeElement;
+      if (dialog && !dialog.open) {
+        this.previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        dialog.showModal();
+      }
+    });
+    inject(DestroyRef).onDestroy(() => this.restoreDetailScroll());
+  }
+  openDetails(appeal: AppealItem): void { this.detailAppeal.set(appeal); }
+  closeDetails(): void { this.detailAppeal.set(null); this.restoreDetailScroll(); }
+  private restoreDetailScroll(): void {
+    if (this.previousOverflow === null) return;
+    document.body.style.overflow = this.previousOverflow; this.previousOverflow = null;
+  }
+  onDetailBackdrop(event: MouseEvent): void {
+    const dialog = this.detailDialog()?.nativeElement;
+    if (event.target !== dialog || !dialog) return;
+    const bounds = dialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) this.closeDetails();
+  }
+  reviewFromDetails(): void {
+    const appeal = this.detailAppeal();
+    if (!appeal || !this.canResolveAppeal() || !this.isClaimOwner(appeal)) return;
+    this.closeDetails(); this.openResolveModal(appeal);
+  }
+  targetTitle(appeal: AppealItem): string {
+    const value = appeal.targetTitle?.trim();
+    return value && !/^(?:video|channel|comment|strike)\s*\([0-9a-f-]+\)$/i.test(value)
+      && value.toLowerCase() !== appeal.targetId.toLowerCase() ? value : this.targetTypeLabel(appeal.targetType);
+  }
+  resetFilters(): void {
+    this.selectedTargetType.set('ALL'); this.searchQuery.set(''); this.submittedFrom.set(''); this.submittedTo.set(''); this.currentPage.set(1);
+  }
+  readonly hasFilters = computed(() => this.selectedTargetType() !== 'ALL' || !!this.searchQuery() || !!this.submittedFrom() || !!this.submittedTo());
+  readonly invalidDateRange = computed(() => !!this.submittedFrom() && !!this.submittedTo() && this.submittedFrom() > this.submittedTo());
+
   canResolveAppeal(): boolean { return this.auth.hasPermission('appeal.resolve'); }
   isClaimOwner(item: AppealItem): boolean { return item.reviewerId === this.auth.user()?.userId && this.lease.active(item); }
 
@@ -91,7 +132,10 @@ export class AdminAppealsPage implements OnInit {
       items = items.filter(x =>
         (x.targetTitle && x.targetTitle.toLowerCase().includes(query)) ||
         (x.reason && x.reason.toLowerCase().includes(query)) ||
-        (x.userName && x.userName.toLowerCase().includes(query))
+        (x.userName && x.userName.toLowerCase().includes(query)) ||
+        x.appealId.toLowerCase().includes(query) || x.targetId.toLowerCase().includes(query) ||
+        (x.reviewerName && x.reviewerName.toLowerCase().includes(query)) ||
+        String(x.appealNumber) === query.replace(/^#/, '')
       );
     }
     if (from !== null || toExclusive !== null) {
@@ -145,7 +189,8 @@ export class AdminAppealsPage implements OnInit {
   }
 
   setPageSize(size: number | string): void {
-    this.pageSize.set(Number(size));
+    const value = Number(size);
+    this.pageSize.set([10, 20, 50].includes(value) ? value : 20);
     this.currentPage.set(1);
   }
 
@@ -174,13 +219,17 @@ export class AdminAppealsPage implements OnInit {
     });
   }
 
-  claimAppeal(appeal: AppealItem): void {
+  startAppeal(appeal: AppealItem): void {
+    if (this.submitting() || !this.canResolveAppeal()) return;
+    if (this.isClaimOwner(appeal)) { this.openResolveModal(appeal); return; }
+    if (!(appeal.status === 'pending' || appeal.status === 'escalated' || this.lease.expired(appeal))) { this.openDetails(appeal); return; }
     this.submitting.set(true);
     this.moderationService.claimAppeal(appeal.appealId).subscribe({
-      next: () => {
+      next: lease => {
         this.submitting.set(false);
-        this.successMessage.set(this.i18n.format('appeals.claimSuccess', { id: appeal.appealId.slice(0, 8) }));
-        this.loadData();
+        const updated = { ...appeal, ...lease, status: 'reviewing', reviewerId: this.auth.user()!.userId };
+        this.appeals.update(items => items.map(item => item.appealId === appeal.appealId ? updated : item));
+        this.closeDetails(); this.openResolveModal(updated);
       },
       error: (err) => {
         this.submitting.set(false);
@@ -205,6 +254,7 @@ export class AdminAppealsPage implements OnInit {
   }
 
   openResolveModal(appeal: AppealItem): void {
+    if (!this.canResolveAppeal() || !this.isClaimOwner(appeal)) return;
     this.activeAppeal.set(appeal);
     this.selectedDecision.set('approve');
     this.reviewNote.set('');
@@ -218,7 +268,7 @@ export class AdminAppealsPage implements OnInit {
 
   submitResolution(): void {
     const appeal = this.activeAppeal();
-    if (!appeal) return;
+    if (!appeal || !this.canResolveAppeal() || !this.isClaimOwner(appeal) || this.submitting()) return;
 
     this.submitting.set(true);
     this.error.set(null);
@@ -256,6 +306,7 @@ export class AdminAppealsPage implements OnInit {
       pending: 'appeals.pending',
       reviewing: 'appeals.reviewing',
       approved: 'appeals.approved',
+      cancelled: 'appeals.cancelled',
       rejected: 'appeals.rejected',
       escalated: 'moderation.statusEscalated',
     };

@@ -985,3 +985,10 @@
   .page-header .header-actions { width: 100%; min-width: 0; flex-shrink: 1; flex-wrap: wrap; }
   .header-actions .btn { min-height: 44px; max-width: 100%; white-space: normal; }
 }
+
+/* Compact projected forms in the shared confirmation dialog. */
+.modal-body { display: grid; gap: 14px; padding: 0; }
+.modal-body .form-group { display: grid; gap: 6px; margin: 0; }
+.modal-body .form-group label { margin: 0; }
+.modal-body .form-group :is(input, select) { min-height: 42px; }
+.modal-body .form-group textarea { min-height: 76px; }
