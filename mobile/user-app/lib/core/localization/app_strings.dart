@@ -40,6 +40,72 @@ class AppStrings {
 
   static const Map<String, Map<String, String>> _localizedValues = {
     'vi': {
+      'parity.blocked': 'Bị chặn',
+      'upload.chaptersInvalid':
+          'Mốc chương phải tăng dần, nằm trong video và có tiêu đề hợp lệ.',
+      'parity.playlistNameRequired': 'Vui lòng nhập tên danh sách phát.',
+      'parity.libraryRecent': 'Gần đây',
+      'parity.libraryName': 'Tên A–Z',
+      'parity.libraryVideos': 'Số video',
+      'parity.search': 'Tìm kiếm',
+      'parity.reset': 'Xóa tìm kiếm',
+      'parity.sort': 'Sắp xếp',
+      'parity.dateRange': 'Thời gian',
+      'parity.status': 'Trạng thái',
+      'parity.visibility': 'Hiển thị',
+      'parity.all': 'Tất cả',
+      'parity.today': 'Hôm nay',
+      'parity.week': '7 ngày qua',
+      'parity.month': '30 ngày qua',
+      'parity.newest': 'Mới nhất',
+      'parity.oldest': 'Cũ nhất',
+      'parity.public': 'Công khai',
+      'parity.private': 'Riêng tư',
+      'parity.unlisted': 'Không công khai',
+      'parity.draft': 'Bản nháp',
+      'parity.processing': 'Đang xử lý',
+      'parity.published': 'Đã xuất bản',
+      'parity.failed': 'Thất bại',
+      'parity.pending': 'Chờ duyệt',
+      'parity.rejected': 'Bị từ chối',
+      'parity.noResults': 'Không có kết quả phù hợp',
+      'parity.related': 'Liên quan',
+      'parity.channel': 'Cùng kênh',
+      'parity.reply': 'Trả lời',
+      'parity.moveUp': 'Di chuyển lên',
+      'parity.moveDown': 'Di chuyển xuống',
+      'parity.language': 'Ngôn ngữ video',
+      'parity.quality': 'Chất lượng nguồn',
+      'parity.comments': 'Cho phép bình luận',
+      'parity.saveDraft': 'Lưu bản nháp',
+      'parity.restoreDraft': 'Khôi phục bản nháp',
+      'parity.discardDraft': 'Bỏ bản nháp',
+      'parity.draftSaved':
+          'Đã lưu bản nháp. Khi khôi phục hãy chọn lại file video.',
+      'parity.draftRestored':
+          'Đã khôi phục. Hãy chọn lại video để kiểm tra mốc thời gian.',
+      'parity.draftError': 'Không thể đọc hoặc lưu bản nháp. Hãy thử lại.',
+      'parity.playlist': 'Thêm vào danh sách phát',
+      'parity.playlistPartial':
+          'Video đã lưu, nhưng chưa thêm được vào một số danh sách phát.',
+      'parity.uploadBusy': 'Một video đang được tải lên. Xem khay tiến trình.',
+      'parity.cancel': 'Hủy tải lên',
+      'parity.cancelled': 'Đã hủy truyền file',
+      'parity.uploadDone': 'Video đã được lưu',
+      'parity.processingUpload': 'Đã truyền file, đang xử lý…',
+      'parity.close': 'Đóng',
+      'parity.retry': 'Thử lại',
+      'parity.thumbnail': 'Chọn khung hình làm ảnh thu nhỏ',
+      'parity.metadataError':
+          'Không đọc được thông tin video. Hãy chọn file khác.',
+      'parity.pdf': 'Xuất / chia sẻ PDF',
+      'parity.print': 'In chính sách',
+      'parity.exportError': 'Không thể xuất chính sách. Hãy thử lại.',
+      'parity.exportUnavailable': 'Chức năng này hiện hỗ trợ Android.',
+      'parity.uploadFailed':
+          'Tải lên thất bại. Có thể thử lại từ khay tiến trình.',
+      'parity.sourceHint':
+          'Chất lượng phải không vượt video nguồn và hạn mức gói.',
       'survey.close': 'Đóng lời mời khảo sát',
       'survey.invitationTitle': 'Bạn ơi, giúp Dalitu một chút nhé!',
       'survey.invitationDescription':
@@ -88,7 +154,6 @@ class AppStrings {
       'nav.upload': 'Đăng video',
       'nav.profile': 'Hồ sơ',
       'nav.playlists': 'Playlist',
-      'huai.title': 'HuAI',
       'prefs.quality1080': '1080p (FHD)',
       'prefs.quality720': '720p (HD)',
       'prefs.quality480': '480p (SD)',
@@ -155,8 +220,7 @@ class AppStrings {
       'settings.playback': 'Phát',
       'settings.playbackDesc': 'Tự động phát, nhấn đúp để tua, hình trong hình',
       'settings.bgAndDownloads': 'Phát trong nền và nội dung tải xuống',
-      'settings.bgAndDownloadsDesc':
-          'Phát trong nền, tải xuống thông minh, chất lượng',
+      'settings.bgAndDownloadsDesc': 'Phát trong nền, tải xuống, chất lượng',
       'settings.accountSettings': 'Cài đặt tài khoản',
       'settings.accountSettingsDesc': 'Bảo mật, thông báo và tùy chọn',
       'settings.language': 'Ngôn ngữ',
@@ -204,13 +268,8 @@ class AppStrings {
       'bgDownload.headphonesOnly': 'Chỉ tai nghe hoặc loa ngoài',
       'bgDownload.off': 'Tắt',
       'bgDownload.sectionDownload': 'Tải xuống',
-      'bgDownload.smartDownload': 'Tải xuống thông minh',
-      'bgDownload.smartDownloadDesc':
-          'Tự động tải video đề xuất xuống qua Wi-Fi',
-      'bgDownload.adjustStorage':
-          'Điều chỉnh bộ nhớ cho nội dung Tải xuống thông minh',
-      'bgDownload.adjustStorageDesc':
-          'Điều chỉnh mức sử dụng bộ nhớ và chất lượng của video tải xuống thông minh',
+      'bgDownload.backgroundRequirements':
+          'Áp dụng khi gói của bạn có quyền phát nền.',
       'bgDownload.quality': 'Chất lượng tải xuống',
       'bgDownload.qualityAsk': 'Hỏi mỗi lần',
       'bgDownload.qualityHigh': 'Chất lượng cao (1080p)',
@@ -397,7 +456,7 @@ class AppStrings {
       // Watch & Queue
       'watch.queue': 'Hàng đợi',
       'watch.nextVideo': 'Video tiếp theo',
-      'watch.autoPlayingNext': 'Tự động phát tiếp sau {seconds}s',
+      'watch.autoPlayingNext': 'Phát tiếp sau {seconds} giây',
       'queue.title': 'Hàng đợi phát',
       'queue.count': '{count} video',
       'queue.autoplay': 'Tự động phát',
@@ -412,6 +471,7 @@ class AppStrings {
       // Search & Filters
       'search.recent': 'Tìm kiếm gần đây',
       'search.clearAllRecent': 'Xóa tất cả',
+      'search.filters': 'Bộ lọc',
       'search.filterTitle': 'Bộ lọc tìm kiếm nâng cao',
       'search.duration': 'Thời lượng video',
       'search.durationAll': 'Tất cả thời lượng',
@@ -433,6 +493,18 @@ class AppStrings {
       'downloads.downloading': 'Đang tải {percent}%',
       'downloads.completed': 'Đã lưu trên thiết bị',
       'downloads.paused': 'Đã tạm dừng',
+      'downloads.waitingWifi': 'Đang chờ Wi-Fi',
+      'downloads.waitingNetwork': 'Đang chờ kết nối mạng',
+      'downloads.wifiPolicy':
+          'Chỉ tải qua Wi-Fi. Khi đổi sang dữ liệu di động, tải sẽ tạm chờ và tự tiếp tục khi có Wi-Fi.',
+      'downloads.suggestedTitle': 'Gợi ý để xem offline',
+      'downloads.planRequired':
+          'Gói hiện tại chưa có quyền tải video. Chọn gói có hỗ trợ tải xuống để sử dụng tính năng này.',
+      'downloads.qualityDenied':
+          'Gói hiện tại chưa hỗ trợ chất lượng này. Hãy chọn chất lượng thấp hơn.',
+      'downloads.suggestedDescription':
+          'Chọn video muốn lưu để xem khi không có mạng.',
+      'downloads.noSuggestions': 'Chưa có video mới để đề xuất tải.',
       'downloads.failed': 'Tải thất bại',
       'downloads.remove': 'Xóa khỏi thiết bị',
       'downloads.error': 'Không thể tải video xuống.',
@@ -447,6 +519,8 @@ class AppStrings {
           'Thiết bị hiện không hỗ trợ PiP cho nguồn video này.',
       'watch.loginInteract': 'Đăng nhập để tương tác với video.',
       'watch.loginRate': 'Đăng nhập để đánh giá video.',
+      'watch.ratingHint': 'Chọn số sao thể hiện cảm nhận của bạn về video.',
+      'watch.removeRating': 'Xóa đánh giá',
       'watch.ratingTitle': 'Đánh giá video',
       'watch.ratingStars': '{count} sao',
       'watch.ratingSaved': 'Đã cập nhật đánh giá của bạn.',
@@ -462,6 +536,9 @@ class AppStrings {
       'watch.fullscreen': 'Toàn màn hình',
       'watch.exitFullscreen': 'Thoát toàn màn hình',
       'watch.background': 'Phát nền',
+      'watch.backgroundNeedsAudio':
+          'Hãy kết nối tai nghe/loa ngoài hoặc chọn Luôn bật trong cài đặt phát nền.',
+      'watch.backgroundWaitingAudio': 'Chờ tai nghe',
       'watch.backgroundEnabled': 'Đã bật phát nền cho video này.',
       'watch.backgroundDisabled': 'Đã tắt phát nền cho video này.',
       'watch.backgroundUnavailable': 'Gói hiện tại chưa hỗ trợ phát nền.',
@@ -470,6 +547,10 @@ class AppStrings {
       'watch.descriptionMore': 'Xem thêm',
       'watch.descriptionLess': 'Thu gọn',
       'watch.comments': 'Bình luận ({count})',
+      'watch.commentsServerError':
+          'Máy chủ chưa tải được bình luận. Vui lòng thử lại.',
+      'watch.commentsLoadError': 'Không tải được bình luận. Vui lòng thử lại.',
+      'watch.noComments': 'Chưa có bình luận. Hãy là người đầu tiên bình luận.',
       'watch.commentHint': 'Viết bình luận...',
       'watch.loginCommentHint': 'Đăng nhập để bình luận',
       'watch.sending': 'Đang gửi...',
@@ -479,6 +560,13 @@ class AppStrings {
       'watch.replyHint': 'Viết phản hồi của bạn',
       'watch.replies': '{count} câu trả lời',
       'watch.repliesLoading': 'Đang tải...',
+      'watch.moreReplies': 'Xem thêm {count} câu trả lời',
+      'watch.hideReplies': 'Ẩn câu trả lời',
+      'watch.replyLoadError': 'Không tải được câu trả lời. Vui lòng thử lại.',
+      'watch.replySent': 'Đã gửi câu trả lời.',
+      'watch.likeComment': 'Thích bình luận',
+      'watch.dislikeComment': 'Không thích bình luận',
+      'watch.dislike': 'Không thích',
       'watch.pinnedBy': 'Đã ghim bởi {channel}',
       'watch.pinComment': 'Ghim bình luận',
       'watch.unpinComment': 'Bỏ ghim bình luận',
@@ -633,6 +721,27 @@ class AppStrings {
       'auth.saveNewPassword': 'Lưu mật khẩu mới',
       'auth.sendEmail': 'Gửi email',
       'auth.createAccount': 'Tạo tài khoản',
+      'auth.backHome': 'Về trang chủ',
+      'common.validationError':
+          'Thông tin chưa hợp lệ. Kiểm tra dữ liệu và thử lại.',
+      'auth.checkEmailTitle': 'Kiểm tra hộp thư của bạn',
+      'auth.checkEmailDescription':
+          'Tài khoản đã được tạo. Mở email gửi đến {email} và nhấn liên kết xác minh. Nhớ kiểm tra cả thư rác.',
+      'auth.pasteVerificationHelp':
+          'Bạn cũng có thể sao chép liên kết trong email và dán vào đây để xác minh ngay trong ứng dụng.',
+      'auth.verificationLinkField': 'Liên kết xác minh',
+      'auth.invalidVerificationInput':
+          'Hãy dán đầy đủ liên kết xác minh từ email Dalitu.',
+      'auth.emailTaken':
+          'Email này đã có tài khoản. Hãy đăng nhập hoặc gửi lại email xác minh.',
+      'auth.usernameTaken':
+          'Tên người dùng đã được sử dụng. Hãy chọn tên khác.',
+      'auth.emailDeliveryUnavailable':
+          'Chưa gửi được email xác minh. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.',
+      'auth.invalidVerificationLink':
+          'Liên kết không hợp lệ, đã sử dụng hoặc đã hết hạn. Hãy yêu cầu email xác minh mới.',
+      'auth.invalidRegistration':
+          'Thông tin chưa hợp lệ. Kiểm tra tên người dùng, email và yêu cầu mật khẩu.',
       'auth.resendVerification': 'Gửi lại email xác minh',
       'auth.restoreAgain': 'Thử khôi phục phiên lần nữa',
       'auth.requestNewLink': 'Yêu cầu liên kết mới',
@@ -732,7 +841,6 @@ class AppStrings {
       'channel.changeAvatar': 'Đổi ảnh đại diện',
       'channel.basicInfo': 'Thông tin cơ bản',
       'channel.nameHint': 'Nhập tên kênh',
-      'channel.handleImmutable': 'Handle không thể thay đổi sau khi tạo',
       'channel.descriptionHintEdit': 'Giới thiệu về kênh của bạn...',
       'channel.inviteHeading': 'Mời cộng tác viên',
       'channel.inviteDescription':
@@ -772,6 +880,9 @@ class AppStrings {
       'channel.handleTaken':
           'Handle này đã được sử dụng. Hãy chọn handle khác.',
       'channel.handleAvailable': 'Handle khả dụng.',
+      'channel.handleCheckError':
+          'Chưa kiểm tra được handle. Vui lòng thử lại.',
+      'channel.handleChecking': 'Đang kiểm tra handle…',
       'channel.handleUnavailable': 'Handle chưa khả dụng.',
       'channel.handleDescription':
           'Handle sẽ tạo địa chỉ duy nhất cho kênh của bạn.',
@@ -1014,6 +1125,12 @@ class AppStrings {
       'plans.inviteError': 'Không thể gửi lời mời.',
       'plans.currentTitle': 'Gói hiện tại: {name}',
       'plans.storageUsed': 'Dung lượng đã dùng',
+      'plans.familyStorageTitle': 'Dung lượng gói gia đình / nhóm',
+      'plans.storageOwner': 'Bạn (chủ gói)',
+      'plans.storageMember': 'Thành viên',
+      'plans.storageFormerMember': '{name} (đã rời nhóm)',
+      'plans.storageOther': 'Dung lượng khác trong gói',
+      'plans.storageFree': 'Còn trống',
       'plans.remaining': 'Còn lại {size}',
       'plans.expires': 'Hết hạn: {date}',
       'plans.maxMembers': '{count} thành viên tối đa',
@@ -1035,7 +1152,8 @@ class AppStrings {
       'plans.storageGBPlaceholder': 'Dung lượng (GB, để trống = dùng chung)',
       'plans.invalidQuota': 'Nhập dung lượng GB hợp lệ.',
       'plans.inviteQuotaMax': 'Còn chưa phân bổ: {size}',
-      'plans.quotaExceedsAvailable': 'Quota vượt phần chưa phân bổ ({available}).',
+      'plans.quotaExceedsAvailable':
+          'Quota vượt phần chưa phân bổ ({available}).',
       'plans.quotaBelowUsed': 'Dung lượng không được nhỏ hơn mức đã dùng.',
       'plans.storageUpdated': 'Đã cập nhật dung lượng thành công.',
       'plans.storageUpdateError': 'Không thể cập nhật dung lượng.',
@@ -1044,7 +1162,8 @@ class AppStrings {
       'plans.sharedWithOwner': 'Bạn đang được dùng chung gói với {owner}.',
       'plans.sharedPlanOwnerFallback': 'chủ gói',
       'plans.leaveSharedPlan': 'Rời gói dùng chung',
-      'plans.leaveSharedConfirm': 'Bạn muốn rời gói dùng chung với {owner}? Tài khoản sẽ trở về gói mặc định.',
+      'plans.leaveSharedConfirm':
+          'Bạn muốn rời gói dùng chung với {owner}? Tài khoản sẽ trở về gói mặc định.',
       'plans.leftSharedPlan': 'Bạn đã rời gói dùng chung.',
       'plans.leaveSharedError': 'Không thể rời gói dùng chung.',
       'plans.paidJoinTitle': 'Xác nhận đổi sang gói dùng chung',
@@ -1103,12 +1222,14 @@ class AppStrings {
       'policies.fallbackText':
           'Không đăng nội dung gây hại, vi phạm bản quyền, lừa đảo hoặc xâm phạm quyền riêng tư. Dalitu có thể kiểm tra nội dung trước khi xuất bản.',
       'policies.version': 'Phiên bản {version}',
+      'policies.effectiveDate': 'Hiệu lực từ {date}',
       // Search and channel feeds
       'search.title': 'Tìm video',
       'search.subtitle': 'Tìm kiếm video theo tên, chủ đề hoặc từ khóa.',
       'search.queryHint': 'Bạn muốn xem gì hôm nay?',
       'search.clear': 'Xóa từ khóa',
       'search.submit': 'Tìm kiếm video',
+      'search.sort.title': 'Sắp xếp theo',
       'search.sort.relevance': 'Phù hợp nhất',
       'search.sort.newest': 'Mới nhất',
       'search.sort.popular': 'Nhiều lượt xem',
@@ -1138,6 +1259,9 @@ class AppStrings {
       'library.likedDescription':
           'Hãy thả tim video để tìm lại chúng nhanh hơn.',
       // Playlists
+      'playlists.chooseHint':
+          'Chọn danh sách để lưu video hoặc tạo danh sách mới.',
+      'playlists.videoAlreadySaved': 'Video đã có trong danh sách phát này.',
       'playlists.title': 'Playlist của bạn',
       'playlists.subtitle': 'Lưu và sắp xếp video để xem lại bất cứ lúc nào.',
       'playlists.create': 'Tạo playlist',
@@ -1321,20 +1445,6 @@ class AppStrings {
       'downloads.invalidUrl': 'Máy chủ không trả về URL tải xuống HTTP hợp lệ.',
       'downloads.serverError': 'Máy chủ trả về lỗi {status}.',
       'downloads.interrupted': 'Tải xuống bị gián đoạn khi ứng dụng đóng.',
-      'huai.subtitle':
-          'Trợ lý thông minh cho hành trình xem và sáng tạo của bạn.',
-      'huai.promptTitle': 'Bạn có thể hỏi HuAI',
-      'huai.promptDescription':
-          'Các gợi ý sẽ sẵn sàng khi dịch vụ được kết nối.',
-      'huai.suggestion.personalized': 'Gợi ý nội dung phù hợp với tôi',
-      'huai.suggestion.howTo': 'Giải thích cách dùng Dalitu',
-      'huai.suggestion.videoIdeas': 'Gợi ý ý tưởng cho video mới',
-      'huai.preparing': 'HuAI đang được chuẩn bị',
-      'huai.signIn': 'Đăng nhập để dùng HuAI',
-      'huai.unavailable':
-          'Tính năng hội thoại chưa có API trong phiên bản mobile hiện tại.',
-      'huai.messageHint': 'Nhắn tin với HuAI',
-      'huai.apiNotice': 'HuAI sẽ hoạt động khi API hội thoại được kết nối.',
       'watch.loginPlaylist': 'Đăng nhập để lưu video vào playlist.',
       'watch.saveVideo': 'Lưu video',
       'watch.savedVideo': 'Video đã lưu',
@@ -1411,6 +1521,71 @@ class AppStrings {
     },
 
     'en': {
+      'parity.blocked': 'Blocked',
+      'upload.chaptersInvalid':
+          'Chapters must have a title and increasing timestamps within the video.',
+      'parity.playlistNameRequired': 'Enter a playlist name.',
+      'parity.libraryRecent': 'Recently updated',
+      'parity.libraryName': 'Name A–Z',
+      'parity.libraryVideos': 'Video count',
+      'parity.search': 'Search',
+      'parity.reset': 'Clear search',
+      'parity.sort': 'Sort',
+      'parity.dateRange': 'Date range',
+      'parity.status': 'Status',
+      'parity.visibility': 'Visibility',
+      'parity.all': 'All',
+      'parity.today': 'Today',
+      'parity.week': 'Last 7 days',
+      'parity.month': 'Last 30 days',
+      'parity.newest': 'Newest',
+      'parity.oldest': 'Oldest',
+      'parity.public': 'Public',
+      'parity.private': 'Private',
+      'parity.unlisted': 'Unlisted',
+      'parity.draft': 'Draft',
+      'parity.processing': 'Processing',
+      'parity.published': 'Published',
+      'parity.failed': 'Failed',
+      'parity.pending': 'Pending',
+      'parity.rejected': 'Rejected',
+      'parity.noResults': 'No matching results',
+      'parity.related': 'Related',
+      'parity.channel': 'Same channel',
+      'parity.reply': 'Reply',
+      'parity.moveUp': 'Move up',
+      'parity.moveDown': 'Move down',
+      'parity.language': 'Video language',
+      'parity.quality': 'Source quality',
+      'parity.comments': 'Allow comments',
+      'parity.saveDraft': 'Save draft',
+      'parity.restoreDraft': 'Restore draft',
+      'parity.discardDraft': 'Discard draft',
+      'parity.draftSaved':
+          'Draft saved. Select your video file again after restoring.',
+      'parity.draftRestored':
+          'Draft restored. Select the video again to validate timestamps.',
+      'parity.draftError': 'Could not read or save draft. Please retry.',
+      'parity.playlist': 'Add to playlists',
+      'parity.playlistPartial':
+          'Video saved, but some playlist additions failed.',
+      'parity.uploadBusy':
+          'A video is already uploading. Check the upload tray.',
+      'parity.cancel': 'Cancel upload',
+      'parity.cancelled': 'File transfer cancelled',
+      'parity.uploadDone': 'Video saved',
+      'parity.processingUpload': 'File sent, processing…',
+      'parity.close': 'Close',
+      'parity.retry': 'Retry',
+      'parity.thumbnail': 'Choose a frame for the thumbnail',
+      'parity.metadataError':
+          'Cannot read video metadata. Choose another file.',
+      'parity.pdf': 'Export / share PDF',
+      'parity.print': 'Print policies',
+      'parity.exportError': 'Could not export policies. Please retry.',
+      'parity.exportUnavailable': 'This feature currently supports Android.',
+      'parity.uploadFailed': 'Upload failed. Retry from the upload tray.',
+      'parity.sourceHint': 'Quality must fit the source and plan limits.',
       'survey.close': 'Close survey invitation',
       'survey.invitationTitle': 'Could you give Dalitu a hand?',
       'survey.invitationDescription':
@@ -1459,7 +1634,6 @@ class AppStrings {
       'nav.upload': 'Upload Video',
       'nav.profile': 'Profile',
       'nav.playlists': 'Playlists',
-      'huai.title': 'HuAI',
       'prefs.quality1080': '1080p (FHD)',
       'prefs.quality720': '720p (HD)',
       'prefs.quality480': '480p (SD)',
@@ -1527,8 +1701,7 @@ class AppStrings {
       'settings.playbackDesc':
           'Autoplay, double tap to seek, picture-in-picture',
       'settings.bgAndDownloads': 'Background play & downloads',
-      'settings.bgAndDownloadsDesc':
-          'Background play, smart downloads, quality',
+      'settings.bgAndDownloadsDesc': 'Background play, downloads, quality',
       'settings.accountSettings': 'Account settings',
       'settings.accountSettingsDesc': 'Security, notifications and options',
       'settings.language': 'Language',
@@ -1575,12 +1748,8 @@ class AppStrings {
       'bgDownload.headphonesOnly': 'Headphones or external speakers only',
       'bgDownload.off': 'Off',
       'bgDownload.sectionDownload': 'Downloads',
-      'bgDownload.smartDownload': 'Smart downloads',
-      'bgDownload.smartDownloadDesc':
-          'Automatically download recommended videos over Wi-Fi',
-      'bgDownload.adjustStorage': 'Adjust storage for Smart Downloads',
-      'bgDownload.adjustStorageDesc':
-          'Adjust storage usage and quality for smart downloads',
+      'bgDownload.backgroundRequirements':
+          'Requires background playback in your plan.',
       'bgDownload.quality': 'Download quality',
       'bgDownload.qualityAsk': 'Ask each time',
       'bgDownload.qualityHigh': 'High (1080p)',
@@ -1772,7 +1941,7 @@ class AppStrings {
       // Watch & Queue
       'watch.queue': 'Queue',
       'watch.nextVideo': 'Next video',
-      'watch.autoPlayingNext': 'Playing next in {seconds}s',
+      'watch.autoPlayingNext': 'Playing next in {seconds} seconds',
       'queue.title': 'Playing Queue',
       'queue.count': '{count} videos',
       'queue.autoplay': 'Autoplay',
@@ -1787,6 +1956,7 @@ class AppStrings {
       // Search & Filters
       'search.recent': 'Recent searches',
       'search.clearAllRecent': 'Clear all',
+      'search.filters': 'Filters',
       'search.filterTitle': 'Advanced Search Filters',
       'search.duration': 'Video duration',
       'search.durationAll': 'Any duration',
@@ -1808,6 +1978,18 @@ class AppStrings {
       'downloads.downloading': 'Downloading {percent}%',
       'downloads.completed': 'Saved on this device',
       'downloads.paused': 'Paused',
+      'downloads.waitingWifi': 'Waiting for Wi-Fi',
+      'downloads.waitingNetwork': 'Waiting for a connection',
+      'downloads.wifiPolicy':
+          'Wi-Fi only. Downloads wait on mobile data and resume when Wi-Fi returns.',
+      'downloads.suggestedTitle': 'Suggested for offline viewing',
+      'downloads.planRequired':
+          'Your plan does not include video downloads. Choose a plan with downloads to use this feature.',
+      'downloads.qualityDenied':
+          'Your plan does not support this quality. Choose a lower quality.',
+      'downloads.suggestedDescription':
+          'Choose videos to save and watch without a connection.',
+      'downloads.noSuggestions': 'No new download suggestions yet.',
       'downloads.failed': 'Download failed',
       'downloads.remove': 'Remove from device',
       'downloads.error': 'Unable to download this video.',
@@ -1822,6 +2004,8 @@ class AppStrings {
           'Picture-in-picture is not supported for this video source.',
       'watch.loginInteract': 'Sign in to interact with this video.',
       'watch.loginRate': 'Sign in to rate this video.',
+      'watch.ratingHint': 'Choose a star rating for this video.',
+      'watch.removeRating': 'Remove rating',
       'watch.ratingTitle': 'Rate this video',
       'watch.ratingStars': '{count} stars',
       'watch.ratingSaved': 'Your rating was updated.',
@@ -1837,6 +2021,9 @@ class AppStrings {
       'watch.fullscreen': 'Fullscreen',
       'watch.exitFullscreen': 'Exit fullscreen',
       'watch.background': 'Background play',
+      'watch.backgroundNeedsAudio':
+          'Connect headphones or an external speaker, or select Always on in background settings.',
+      'watch.backgroundWaitingAudio': 'Waiting for audio',
       'watch.backgroundEnabled': 'Background play is enabled for this video.',
       'watch.backgroundDisabled': 'Background play is disabled for this video.',
       'watch.backgroundUnavailable':
@@ -1846,6 +2033,10 @@ class AppStrings {
       'watch.descriptionMore': 'Show more',
       'watch.descriptionLess': 'Show less',
       'watch.comments': 'Comments ({count})',
+      'watch.commentsServerError':
+          'The server could not load comments. Please try again.',
+      'watch.commentsLoadError': 'Could not load comments. Please try again.',
+      'watch.noComments': 'No comments yet. Be the first to comment.',
       'watch.commentHint': 'Write a comment...',
       'watch.loginCommentHint': 'Sign in to comment',
       'watch.sending': 'Sending...',
@@ -1855,6 +2046,13 @@ class AppStrings {
       'watch.replyHint': 'Write your reply',
       'watch.replies': '{count} replies',
       'watch.repliesLoading': 'Loading...',
+      'watch.moreReplies': 'View {count} more replies',
+      'watch.hideReplies': 'Hide replies',
+      'watch.replyLoadError': 'Could not load replies. Please try again.',
+      'watch.replySent': 'Reply sent.',
+      'watch.likeComment': 'Like comment',
+      'watch.dislikeComment': 'Dislike comment',
+      'watch.dislike': 'Dislike',
       'watch.pinnedBy': 'Pinned by {channel}',
       'watch.pinComment': 'Pin comment',
       'watch.unpinComment': 'Unpin comment',
@@ -2014,6 +2212,27 @@ class AppStrings {
       'auth.saveNewPassword': 'Save new password',
       'auth.sendEmail': 'Send email',
       'auth.createAccount': 'Create account',
+      'auth.backHome': 'Back to home',
+      'common.validationError':
+          'Some information is invalid. Check the data and try again.',
+      'auth.checkEmailTitle': 'Check your inbox',
+      'auth.checkEmailDescription':
+          'Your account has been created. Open the email sent to {email} and follow the verification link. Check spam too.',
+      'auth.pasteVerificationHelp':
+          'You can also copy the link from the email and paste it here to verify in the app.',
+      'auth.verificationLinkField': 'Verification link',
+      'auth.invalidVerificationInput':
+          'Paste the complete verification link from your Dalitu email.',
+      'auth.emailTaken':
+          'This email already has an account. Sign in or resend the verification email.',
+      'auth.usernameTaken':
+          'This username is already in use. Choose another one.',
+      'auth.emailDeliveryUnavailable':
+          'Unable to send the verification email. Try again later or contact support.',
+      'auth.invalidVerificationLink':
+          'This link is invalid, used or expired. Request a new verification email.',
+      'auth.invalidRegistration':
+          'Check your username, email and password requirements.',
       'auth.resendVerification': 'Resend verification email',
       'auth.restoreAgain': 'Try restoring the session again',
       'auth.requestNewLink': 'Request a new link',
@@ -2112,7 +2331,6 @@ class AppStrings {
       'channel.changeAvatar': 'Change avatar',
       'channel.basicInfo': 'Basic information',
       'channel.nameHint': 'Enter channel name',
-      'channel.handleImmutable': 'The handle cannot be changed after creation',
       'channel.descriptionHintEdit': 'Introduce your channel...',
       'channel.inviteHeading': 'Invite a collaborator',
       'channel.inviteDescription':
@@ -2154,6 +2372,9 @@ class AppStrings {
       'channel.handleTaken':
           'This handle is already in use. Choose another one.',
       'channel.handleAvailable': 'Handle is available.',
+      'channel.handleCheckError':
+          'Could not check this handle. Please try again.',
+      'channel.handleChecking': 'Checking handle…',
       'channel.handleUnavailable': 'Handle is not available.',
       'channel.handleDescription':
           'The handle creates a unique address for your channel.',
@@ -2403,6 +2624,12 @@ class AppStrings {
       'plans.inviteError': 'Unable to send the invitation.',
       'plans.currentTitle': 'Current plan: {name}',
       'plans.storageUsed': 'Storage used',
+      'plans.familyStorageTitle': 'Family / group storage',
+      'plans.storageOwner': 'You (plan owner)',
+      'plans.storageMember': 'Member',
+      'plans.storageFormerMember': '{name} (left the group)',
+      'plans.storageOther': 'Other plan storage',
+      'plans.storageFree': 'Free space',
       'plans.remaining': 'Remaining {size}',
       'plans.expires': 'Expires: {date}',
       'plans.maxMembers': '{count} members maximum',
@@ -2424,7 +2651,8 @@ class AppStrings {
       'plans.storageGBPlaceholder': 'Storage (GB, empty = shared quota)',
       'plans.invalidQuota': 'Enter a valid storage amount in GB.',
       'plans.inviteQuotaMax': 'Unallocated storage: {size}',
-      'plans.quotaExceedsAvailable': 'Quota exceeds the unallocated storage ({available}).',
+      'plans.quotaExceedsAvailable':
+          'Quota exceeds the unallocated storage ({available}).',
       'plans.quotaBelowUsed': 'Storage cannot be lower than used storage.',
       'plans.storageUpdated': 'Storage updated successfully.',
       'plans.storageUpdateError': 'Unable to update storage.',
@@ -2433,7 +2661,8 @@ class AppStrings {
       'plans.sharedWithOwner': 'You are sharing a plan with {owner}.',
       'plans.sharedPlanOwnerFallback': 'the plan owner',
       'plans.leaveSharedPlan': 'Leave shared plan',
-      'plans.leaveSharedConfirm': 'Leave the shared plan with {owner}? Your account will return to the default plan.',
+      'plans.leaveSharedConfirm':
+          'Leave the shared plan with {owner}? Your account will return to the default plan.',
       'plans.leftSharedPlan': 'You left the shared plan.',
       'plans.leaveSharedError': 'Unable to leave the shared plan.',
       'plans.paidJoinTitle': 'Confirm shared plan change',
@@ -2493,12 +2722,14 @@ class AppStrings {
       'policies.fallbackText':
           'Do not post harmful, infringing, fraudulent or privacy-invasive content. Dalitu may review content before publication.',
       'policies.version': 'Version {version}',
+      'policies.effectiveDate': 'Effective {date}',
       // Search and channel feeds
       'search.title': 'Search videos',
       'search.subtitle': 'Search by video title, topic, or keyword.',
       'search.queryHint': 'What would you like to watch today?',
       'search.clear': 'Clear keyword',
       'search.submit': 'Search videos',
+      'search.sort.title': 'Sort by',
       'search.sort.relevance': 'Most relevant',
       'search.sort.newest': 'Newest',
       'search.sort.popular': 'Most viewed',
@@ -2526,6 +2757,8 @@ class AppStrings {
       'library.historyDescription': 'Videos you watched will appear here.',
       'library.likedDescription': 'Like videos to find them again more easily.',
       // Playlists
+      'playlists.chooseHint': 'Choose a playlist or create a new one.',
+      'playlists.videoAlreadySaved': 'This video is already in the playlist.',
       'playlists.title': 'Your playlists',
       'playlists.subtitle': 'Save and organize videos to revisit anytime.',
       'playlists.create': 'Create playlist',
@@ -2712,20 +2945,6 @@ class AppStrings {
       'downloads.serverError': 'The server returned error {status}.',
       'downloads.interrupted':
           'The download was interrupted when the app closed.',
-      'huai.subtitle': 'An intelligent companion for watching and creating.',
-      'huai.promptTitle': 'Ask HuAI',
-      'huai.promptDescription':
-          'Suggestions will be available when the service is connected.',
-      'huai.suggestion.personalized': 'Recommend videos for me',
-      'huai.suggestion.howTo': 'Explain how to use Dalitu',
-      'huai.suggestion.videoIdeas': 'Suggest ideas for a new video',
-      'huai.preparing': 'HuAI is being prepared',
-      'huai.signIn': 'Sign in to use HuAI',
-      'huai.unavailable':
-          'Chat is not available in the current mobile version.',
-      'huai.messageHint': 'Message HuAI',
-      'huai.apiNotice':
-          'HuAI will be available when the chat API is connected.',
       'watch.loginPlaylist': 'Sign in to save videos to a playlist.',
       'watch.saveVideo': 'Save video',
       'watch.savedVideo': 'Saved video',
@@ -2815,6 +3034,28 @@ class AppStrings {
     return result;
   }
 
+  static String compactLikeCount(num value) {
+    final count = value.isFinite && value > 0 ? value : 0;
+    if (count < 1000) return number(count);
+    var divisor = count >= 1000000000
+        ? 1000000000
+        : count >= 1000000
+        ? 1000000
+        : 1000;
+    if (divisor < 1000000000 && count / divisor >= 999.95) {
+      divisor *= 1000;
+    }
+    final rounded = (count / divisor).toStringAsFixed(1);
+    final amount = rounded.replaceFirst(RegExp(r'\.0$'), '');
+    final vi = currentLang.value == 'vi';
+    final suffix = divisor == 1000000000
+        ? (vi ? 'T' : 'B')
+        : divisor == 1000000
+        ? (vi ? 'Tr' : 'M')
+        : (vi ? 'N' : 'K');
+    return '${vi ? amount.replaceAll('.', ',') : amount}$suffix';
+  }
+
   static String number(num value) {
     final raw = value is int || value == value.roundToDouble()
         ? value.round().toString()
@@ -2879,7 +3120,16 @@ class AppStrings {
       'STORAGE_UPLOAD_FAILED': 'common.imageUploadError',
       'ONE_CHANNEL_LIMIT_EXCEEDED': 'common.oneChannelLimit',
       'CHANNEL_HANDLE_ALREADY_EXISTS': 'common.handleTaken',
+      'HANDLE_ALREADY_EXISTS': 'channel.handleTaken',
+      'INVALID_HANDLE': 'channel.handleInvalid',
       'REQUEST_FAILED': 'common.requestError',
+      'EMAIL_ALREADY_EXISTS': 'auth.emailTaken',
+      'USERNAME_ALREADY_EXISTS': 'auth.usernameTaken',
+      'EMAIL_DELIVERY_UNAVAILABLE': 'auth.emailDeliveryUnavailable',
+      'DOWNLOAD_NOT_INCLUDED': 'downloads.planRequired',
+      'DOWNLOAD_QUALITY_DENIED': 'downloads.qualityDenied',
+      'INVALID_OR_EXPIRED_TOKEN': 'auth.invalidVerificationLink',
+      'VALIDATION_ERROR': 'common.validationError',
     };
     return t(codes[error.code] ?? fallback);
   }

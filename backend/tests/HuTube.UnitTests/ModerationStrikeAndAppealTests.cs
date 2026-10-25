@@ -11,6 +11,7 @@ using HuTube.Infrastructure.Persistence;
 using HuTube.Infrastructure.Videos;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using System.Text.Json;
 
 namespace HuTube.UnitTests;
 
@@ -22,6 +23,8 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
     private readonly ReportService _reportService;
     private readonly AppealService _appealService;
     private readonly FakeNotificationService _notifications = new();
+    private IEnumerable<NotificationMessage> QueuedModerationNotifications => _db.ModerationOutboxEvents.AsEnumerable()
+        .SelectMany(row => JsonSerializer.Deserialize<VideoModerationEvent>(row.Payload)!.OwnerNotifications);
 
     private sealed class FakeObjectStorage : IObjectStorage
     {
@@ -74,7 +77,7 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         _strikeService = new StrikeService(_db, rbacService, _notifications);
         _reportService = new ReportService(_db, rbacService, _notifications, _strikeService, new FakeEmailSender(), Microsoft.Extensions.Logging.Abstractions.NullLogger<ReportService>.Instance);
         _appealService = new AppealService(_db, rbacService, _notifications, new FakeObjectStorage(), new Microsoft.AspNetCore.Http.HttpContextAccessor());
-        _moderationService = new ModerationService(_db, rbacService, _notifications, new FakeObjectStorage());
+        _moderationService = new ModerationService(_db, rbacService, new FakeObjectStorage());
     }
 
     public void Dispose()
@@ -146,7 +149,9 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         var request = new ResolveModerationRequest("approve", "Safe", null, null, lease.ClaimId);
         await _moderationService.ResolveCaseAsync(reviewerId, item.ModerationCaseId, request);
         var resolvedAt = item.ResolvedAt;
-        var noticeCount = _notifications.Notifications.Count;
+        Assert.Empty(_notifications.Notifications);
+        var noticeCount = _db.ModerationOutboxEvents.Count();
+        Assert.Equal(1, noticeCount);
         Assert.Equal(1, noticeCount);
 
         var error = await Assert.ThrowsAsync<AuthException>(() => _moderationService.ResolveCaseAsync(Guid.NewGuid(), item.ModerationCaseId, request));
@@ -157,7 +162,7 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         Assert.Equal("approved", item.Status);
         Assert.Equal(reviewerId, item.ReviewerId);
         Assert.Equal(resolvedAt, item.ResolvedAt);
-        Assert.Equal(noticeCount, _notifications.Notifications.Count);
+        Assert.Equal(noticeCount, _db.ModerationOutboxEvents.Count());
     }
 
     [Fact]
@@ -180,7 +185,8 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         var lease = await _moderationService.ClaimCaseAsync(claimant, item.ModerationCaseId);
         await _moderationService.ResolveCaseAsync(claimant, item.ModerationCaseId, new ResolveModerationRequest("approve", "Claim owner", null, null, lease.ClaimId));
         Assert.Equal("published", video.Status);
-        Assert.Single(_notifications.Notifications);
+        Assert.Single(QueuedModerationNotifications);
+        Assert.Empty(_notifications.Notifications);
     }
 
     [Theory]
@@ -303,11 +309,11 @@ public sealed class ModerationStrikeAndAppealTests : IDisposable
         Assert.InRange(strike.UploadRestrictedUntil.Value, beforeRejection.AddDays(restrictionDays), DateTimeOffset.UtcNow.AddDays(restrictionDays));
         Assert.InRange(strike.ExpiresAt, beforeRejection.AddDays(90), DateTimeOffset.UtcNow.AddDays(90));
 
-        Assert.Contains(_notifications.Notifications, n => n.Type == "channel_strike" && n.RecipientId == ownerId);
+        Assert.Contains(QueuedModerationNotifications, n => n.Type == "channel_strike" && n.UserId == ownerId);
         if (suspended)
-            Assert.Contains(_notifications.Notifications, n => n.Type == "channel_suspended" && n.RecipientId == ownerId);
+            Assert.Contains(QueuedModerationNotifications, n => n.Type == "channel_suspended" && n.UserId == ownerId);
         else
-            Assert.DoesNotContain(_notifications.Notifications, n => n.Type == "channel_suspended");
+            Assert.DoesNotContain(QueuedModerationNotifications, n => n.Type == "channel_suspended");
     }
 
     [Fact]

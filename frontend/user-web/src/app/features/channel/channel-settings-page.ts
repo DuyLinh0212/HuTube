@@ -1,7 +1,8 @@
 import { ConfirmDialogComponent } from '@dalitu/ui/confirm-dialog.component';
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { FeedbackService } from '@dalitu/ui/feedback.service';
-import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -41,6 +42,12 @@ export class ChannelSettingsPage {
   private contentService = inject(ContentService);
   private router = inject(Router);
   readonly i18n = inject(I18nService);
+  private readonly destroyRef = inject(DestroyRef);
+  private handleTimer?: ReturnType<typeof setTimeout>;
+  private handleGeneration = 0;
+  readonly handleFeedback = signal('');
+  readonly handleValid = signal<boolean | null>(null);
+  readonly handleChecking = signal(false);
 
   @ViewChild('avatarInput') avatarInput?: ElementRef<HTMLInputElement>;
   @ViewChild('bannerInput') bannerInput?: ElementRef<HTMLInputElement>;
@@ -77,7 +84,42 @@ export class ChannelSettingsPage {
   showDeleteModal = signal(false);
 
   constructor() {
+    this.destroyRef.onDestroy(() => clearTimeout(this.handleTimer));
     this.loadChannel();
+  }
+
+  onHandleChanged(value: string) {
+    this.handle = value;
+    clearTimeout(this.handleTimer);
+    const generation = ++this.handleGeneration;
+    const clean = value.trim().replace(/^@+/, '').toLowerCase();
+    this.handleFeedback.set('');
+    this.handleValid.set(null);
+    this.handleChecking.set(false);
+    if (clean === this.channel()?.handle.toLowerCase()) return;
+    if (!/^[a-z0-9_.-]{3,50}$/.test(clean)) {
+      this.handleFeedback.set(this.i18n.t('channel.handleCharsError'));
+      this.handleValid.set(false);
+      return;
+    }
+    this.handleChecking.set(true);
+    this.handleFeedback.set(this.i18n.t('channel.handleChecking'));
+    this.handleTimer = setTimeout(() => {
+      this.channelService.checkHandle(clean, this.channel()?.channelId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: result => {
+          if (generation !== this.handleGeneration) return;
+          this.handleChecking.set(false);
+          this.handleValid.set(result.isAvailable);
+          this.handleFeedback.set(this.i18n.t(result.isAvailable ? 'channel.handleAvailable' : 'channel.handleTaken'));
+        },
+        error: () => {
+          if (generation !== this.handleGeneration) return;
+          this.handleChecking.set(false);
+          this.handleFeedback.set(this.i18n.t('channel.handleCheckError'));
+          this.handleValid.set(false);
+        }
+      });
+    }, 250);
   }
 
   openAppealModal() {
@@ -234,6 +276,7 @@ export class ChannelSettingsPage {
         this.channel.set(channel);
         this.name = channel.name;
         this.handle = channel.handle;
+        this.onHandleChanged(channel.handle);
         this.description = channel.description ?? '';
         this.contactEmail = channel.contactEmail ?? '';
         this.parseLinks(channel);
@@ -306,6 +349,8 @@ export class ChannelSettingsPage {
     if (!this.name.trim()) return this.error.set(this.i18n.t('channel.nameEmpty'));
     const cleanHandle = this.handle.trim().replace(/^@/, '');
     if (cleanHandle.length < 3) return this.error.set(this.i18n.t('channel.handleLength'));
+    const handleChanged = cleanHandle.toLowerCase() !== channel.handle.toLowerCase();
+    if (handleChanged && (this.handleChecking() || this.handleValid() === false)) return this.error.set(this.handleFeedback());
 
     for (const link of this.links) {
       if (link.url.trim() && !this.isValidLinkUrl(link.url)) {
@@ -330,7 +375,7 @@ export class ChannelSettingsPage {
     this.runAction(
       this.channelService.updateChannel(channel.channelId, {
         name: this.name.trim(),
-        handle: cleanHandle,
+        ...(handleChanged ? { handle: cleanHandle } : {}),
         description: this.description.trim(),
         contactEmail: this.contactEmail.trim(),
         settings: JSON.stringify(currentSettings)
@@ -500,9 +545,11 @@ export class ChannelSettingsPage {
     this.busy.set(true);
     this.clearFeedback();
     request.pipe(finalize(() => this.busy.set(false))).subscribe({
-      next: () => {
+      next: updated => {
         this.message.set(successMessage);
-        this.loadChannel(true);
+        if (updated.handle !== this.channel()?.handle) {
+          void this.router.navigate(['/channel', updated.handle, 'customize']).then(() => this.loadChannel(true));
+        } else this.loadChannel(true);
       },
       error: err => this.error.set(errorMessage(err, this.i18n))
     });

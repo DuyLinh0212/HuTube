@@ -79,7 +79,6 @@ export class AccountPage implements OnInit {
 
   // Downloads settings matching screenshot
   readonly downloadQuality = signal<'ask' | '1080p' | '720p' | '480p' | '144p'>('480p');
-  readonly smartDownloads = signal(false);
   readonly downloads = signal<DownloadRecord[]>([]);
   readonly downloadsLoading = signal(false);
   readonly downloadsError = signal('');
@@ -157,7 +156,6 @@ export class AccountPage implements OnInit {
     if (savedQuality) {
       this.downloadQuality.set(savedQuality);
     }
-    this.smartDownloads.set(localStorage.getItem('hutube.downloads.smart') === 'true');
     this.loadAll();
     this.auth.info().subscribe({
       next: () => this.apiState.set(this.i18n.t('account.apiConnected')),
@@ -377,13 +375,6 @@ export class AccountPage implements OnInit {
     this.downloadQuality.set(quality);
     localStorage.setItem('hutube.downloads.quality', quality);
     this.message.set(this.i18n.t('account.downloadQualitySaved'));
-    setTimeout(() => this.message.set(''), 3000);
-  }
-
-  onToggleSmartDownloads(val: boolean) {
-    this.smartDownloads.set(val);
-    localStorage.setItem('hutube.downloads.smart', String(val));
-    this.message.set(this.i18n.t('account.smartDownloadsSaved'));
     setTimeout(() => this.message.set(''), 3000);
   }
 

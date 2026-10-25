@@ -16,13 +16,12 @@ namespace HuTube.Infrastructure.Videos;
 public sealed class ModerationService(
     HuTubeDbContext db,
     RbacService rbac,
-    INotificationService notifications,
     IObjectStorage storage,
     StrikePolicySettingsService strikePolicySettings,
     ILogger<ModerationService>? logger = null)
 {
-    public ModerationService(HuTubeDbContext db, RbacService rbac, INotificationService notifications, IObjectStorage storage)
-        : this(db, rbac, notifications, storage, new StrikePolicySettingsService(db, rbac)) { }
+    public ModerationService(HuTubeDbContext db, RbacService rbac, IObjectStorage storage)
+        : this(db, rbac, storage, new StrikePolicySettingsService(db, rbac)) { }
 
     public async Task<List<ModerationQueueItemResponse>> GetQueueAsync(string? status = null, string? riskLevel = null, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
@@ -345,6 +344,9 @@ public sealed class ModerationService(
                         if (shouldSuspendChannel)
                         {
                             channel.Status = "suspended";
+                            channel.SuspendedUntil = null;
+                            db.Entry(channel).Property(c => c.Status).IsModified = true;
+                            db.Entry(channel).Property(c => c.SuspendedUntil).IsModified = true;
                             channel.StatusReason = $"Kênh đạt {nextStrikeNumber} gậy đang hiệu lực.";
                             channel.UpdatedAt = now;
 
@@ -377,24 +379,15 @@ public sealed class ModerationService(
                 break;
         }
 
+        var notificationEvent = new VideoModerationEvent(Guid.NewGuid(), caseId, video.VideoId, channel!.ChannelId,
+            channel.Name, video.Title, decision,
+            !wasPublished && (decision is "approve" or "age_restricted" or "recommendation_restricted") && video.Visibility == "public",
+            now, pendingNotifications);
+        db.ModerationOutboxEvents.Add(new ModerationOutboxEvent {
+            EventId = notificationEvent.EventId, EventType = notificationEvent.EventType,
+            Payload = PersistenceJson.Serialize(notificationEvent), OccurredAt = now, AvailableAt = now
+        });
         await db.SaveChangesAsync(ct);
-
-        if (!wasPublished && (decision is "approve" or "age_restricted" or "recommendation_restricted") && video.Visibility == "public" && channel != null)
-        {
-            var channelName = channel.Name;
-            var subscriberIds = await db.Subscriptions.AsNoTracking()
-                .Where(subscription => subscription.ChannelId == video.ChannelId
-                    && subscription.Status == "active"
-                    && subscription.NotificationsEnabled)
-                .Select(subscription => subscription.UserId)
-                .ToListAsync(ct);
-
-            pendingNotifications.AddRange(subscriberIds.Distinct().Select(subscriberId => new NotificationMessage(
-                subscriberId, "new_video", $"{channelName} vừa đăng video mới", video.Title,
-                $"/watch/{video.VideoId}", "video", video.VideoId, SendEmail: false)));
-        }
-
-        var deliverNotifications = await notifications.PrepareBatchAsync(pendingNotifications, ct);
 
         await rbac.LogAuditAsync(new AuditLogEntry(
             actorId,
@@ -405,15 +398,7 @@ public sealed class ModerationService(
         ), ct);
 
         if (transaction != null) await transaction.CommitAsync(ct);
-        logger?.LogInformation("Moderation decision committed in {ElapsedMs} ms; {NotificationCount} notification recipients", elapsed.ElapsedMilliseconds, pendingNotifications.Count);
-        // Persisted notifications remain available even if realtime/email is unavailable.
-        // Never roll back a decision or report a failed decision after commit.
-        using (var deliveryDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct))
-        {
-            deliveryDeadline.CancelAfter(TimeSpan.FromSeconds(8));
-            try { await deliverNotifications(deliveryDeadline.Token); }
-            catch (Exception ex) { logger?.LogWarning(ex, "Notification delivery incomplete after moderation commit; in-app notifications are persisted"); }
-        }
+        logger?.LogInformation("Moderation decision and outbox {EventId} committed in {ElapsedMs} ms", notificationEvent.EventId, elapsed.ElapsedMilliseconds);
         return new ModerationDecisionResponse(
             moderationCase.ModerationCaseId,
             video.VideoId,

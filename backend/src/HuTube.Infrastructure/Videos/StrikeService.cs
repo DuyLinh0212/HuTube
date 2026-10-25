@@ -177,6 +177,8 @@ public sealed class StrikeService(
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new AuthException(400, "REASON_REQUIRED", "Bắt buộc nhập lý do áp dụng gậy/cảnh cáo.");
+        if (request.Severity?.Trim().ToLowerInvariant() is not ("low" or "medium" or "high" or "critical"))
+            throw new AuthException(400, "INVALID_SEVERITY", "Mức độ vi phạm không hợp lệ.");
 
         var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == request.ChannelId, ct)
             ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh cần xử lý.");
@@ -209,6 +211,9 @@ public sealed class StrikeService(
         if (nextStrikeNumber >= policy.SuspensionStrikeCount)
         {
             channel.Status = "suspended";
+            channel.SuspendedUntil = null;
+            db.Entry(channel).Property(c => c.Status).IsModified = true;
+            db.Entry(channel).Property(c => c.SuspendedUntil).IsModified = true;
             channel.StatusReason = request.Reason.Trim();
             channel.UpdatedAt = now;
         }
@@ -253,6 +258,25 @@ public sealed class StrikeService(
             channel.Handle,
             channel.Status
         );
+    }
+
+    public async Task<ChannelStrikeDto> CreateVideoStrikeAsync(Guid actorId, Guid videoId, CreateTargetStrikeRequest request, CancellationToken ct)
+    {
+        var video = await db.Videos.AsNoTracking().FirstOrDefaultAsync(v => v.VideoId == videoId, ct)
+            ?? throw new AuthException(404, "VIDEO_NOT_FOUND", "Không tìm thấy video.");
+        var result = await CreateManualStrikeAsync(actorId,
+            new CreateStrikeRequest(video.ChannelId, request.PolicyCode, request.Severity, request.Reason,
+                $"Video: {video.VideoId}. {request.InternalNote}"), ct);
+        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "admin.video.strike", "video", videoId,
+            request.Reason, NewValues: HuTube.Application.Serialization.PersistenceJson.Serialize(new { result.StrikeId, result.ChannelId })), ct);
+        return result;
+    }
+
+    public async Task<ChannelStrikeDto> RevokeChannelStrikeAsync(Guid actorId, Guid channelId, Guid strikeId, RevokeStrikeRequest request, CancellationToken ct)
+    {
+        if (!await db.ChannelStrikes.AnyAsync(s => s.StrikeId == strikeId && s.ChannelId == channelId, ct))
+            throw new AuthException(404, "STRIKE_NOT_FOUND", "Không tìm thấy cảnh cáo của kênh này.");
+        return await RevokeStrikeAsync(actorId, strikeId, request, ct);
     }
 
     public async Task CreateUploadRestrictionAsync(Guid actorId, Guid channelId, int durationDays, string reason, CancellationToken ct = default)

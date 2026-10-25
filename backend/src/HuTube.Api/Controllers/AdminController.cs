@@ -154,7 +154,7 @@ public sealed class AdminController(
 
     [HttpGet("roles"), RequirePermission(AdminPermissions.RoleView)]
     public Task<List<RoleResponse>> GetRolesAsync(CancellationToken ct) =>
-        rbac.GetAllRolesAsync(ct);
+        rbac.GetAllRolesAsync(UserId, ct);
 
     [HttpPost("roles"), RequirePermission(AdminPermissions.RoleEdit)]
     public async Task<ActionResult<RoleResponse>> CreateRoleAsync([FromBody] CreateRoleRequest request, CancellationToken ct)

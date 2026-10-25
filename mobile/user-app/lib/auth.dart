@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'core/errors/app_error.dart';
 import 'core/localization/app_strings.dart';
 import 'core/network/api_client.dart';
+import 'core/network/upload_control.dart';
 import 'core/storage/token_store.dart';
 
 export 'core/config/app_config.dart';
@@ -45,6 +46,8 @@ class AuthController extends ChangeNotifier {
   bool get authenticated => user != null;
   bool _hasStoredSession = false;
   bool get hasStoredSession => _hasStoredSession;
+  bool _offlineSession = false;
+  bool get offlineSession => _offlineSession;
   String? get accessToken => _accessToken;
   int get sessionGeneration => _generation;
 
@@ -88,7 +91,26 @@ class AuthController extends ChangeNotifier {
       if (generation != _generation) return;
       _refreshToken = token;
       _hasStoredSession = token != null && token.trim().isNotEmpty;
-      if (_hasStoredSession) await _restoreWithRetry(generation);
+      if (_hasStoredSession) {
+        final cache = store;
+        if (cache is OfflineIdentityStore && _refreshToken != null) {
+          try {
+            final cached = await (cache as OfflineIdentityStore)
+                .readOfflineUser(_refreshToken!);
+            if (generation == _generation && cached != null) {
+              user = cached;
+              _offlineSession = true;
+              // Local videos become available while network refresh is pending.
+              restoring = false;
+              _changed();
+            }
+          } catch (_) {
+            /* A failed cache read cannot grant local access. */
+          }
+        }
+        if (generation != _generation) return;
+        await _restoreWithRetry(generation);
+      }
     } on ApiFailure catch (error) {
       notice = error.status == 401
           ? AppStrings.t('auth.sessionExpired')
@@ -128,7 +150,20 @@ class AuthController extends ChangeNotifier {
       return;
     }
     try {
-      await _storage(() => store.write(refreshToken));
+      await _storage(() async {
+        await store.write(refreshToken);
+        final cache = store;
+        if (cache is OfflineIdentityStore) {
+          try {
+            await (cache as OfflineIdentityStore).writeOfflineUser(
+              refreshToken,
+              response['user'] as Map<String, dynamic>,
+            );
+          } catch (_) {
+            /* Online sign-in still works if the optional cache is unavailable. */
+          }
+        }
+      });
     } catch (_) {
       await api.request(
         'POST',
@@ -148,6 +183,7 @@ class AuthController extends ChangeNotifier {
     _refreshToken = refreshToken;
     _accessToken = response['accessToken'] as String;
     _hasStoredSession = true;
+    _offlineSession = false;
     user = response['user'] as Map<String, dynamic>;
     notice = null;
     _changed();
@@ -515,6 +551,8 @@ class AuthController extends ChangeNotifier {
     required Map<String, String> fields,
     required List<MultipartFilePayload> files,
     Map<String, String>? headers,
+    UploadControl? uploadControl,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final generation = _generation;
     final sentToken = _accessToken;
@@ -525,6 +563,8 @@ class AuthController extends ChangeNotifier {
         files: files,
         accessToken: _accessToken,
         headers: headers,
+        uploadControl: uploadControl,
+        onProgress: onProgress,
       );
     } on ApiFailure catch (error) {
       if (error.status != 401 || generation != _generation) rethrow;
@@ -543,6 +583,8 @@ class AuthController extends ChangeNotifier {
           files: files,
           accessToken: _accessToken,
           headers: headers,
+          uploadControl: uploadControl,
+          onProgress: onProgress,
         );
       } on ApiFailure catch (retryError) {
         if (retryError.status == 401) {
@@ -562,6 +604,7 @@ class AuthController extends ChangeNotifier {
     _accessToken = null;
     _refreshToken = null;
     _hasStoredSession = false;
+    _offlineSession = false;
     user = null;
     notice = message;
     _changed();

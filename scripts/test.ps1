@@ -2,7 +2,14 @@
 param([string]$EnvironmentFile = (Join-Path (Split-Path -Parent $PSScriptRoot) '.env.local'))
 . (Join-Path $PSScriptRoot 'common.ps1')
 Import-LocalEnvironment -Path $EnvironmentFile
+if (Test-Path (Join-Path $script:RepositoryRoot '.env.messaging.local')) {
+    & (Join-Path $PSScriptRoot 'setup-rabbitmq.ps1')
+    Import-LocalEnvironment -Path (Join-Path $script:RepositoryRoot '.env.messaging.local')
+    $env:TEST_RABBITMQ_PASSWORD = $env:RabbitMq__Password
+    $env:TEST_RABBITMQ_HOST = $env:RabbitMq__HostName
+}
 Assert-EnvironmentValue 'TEST_DATABASE_CONNECTION'
+Assert-EnvironmentValue 'TEST_RABBITMQ_PASSWORD'
 if (-not $env:CHROME_BIN) {
     $edgePath = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
     $chromePath = 'C:\Program Files\Google\Chrome\Application\chrome.exe'

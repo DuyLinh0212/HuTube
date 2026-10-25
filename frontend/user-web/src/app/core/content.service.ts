@@ -24,7 +24,7 @@ export interface LibraryVideo extends VideoCard {
 }
 export interface WatchHistoryItem extends Partial<LibraryVideo> { videoId: string; channelId: string; channelName: string; channelHandle: string; title: string; thumbnailUrl: string | null; duration: number; watchedSeconds: number; progress: number; activityAt: string; }
 export interface VideoDetail extends VideoCard { categoryId: string | null; description: string | null; videoUrl: string; fileSize: number; status: string; moderationStatus: string; moderationReason?: string | null; channelWatermarkUrl?: string | null; promotionEnabled?: boolean; languageCode: string | null; ageRestricted: boolean; createdAt: string; tags: string[]; chapters: { startSeconds: number; title: string }[]; videoCards?: VideoCardLink[] | null; stats: VideoStats; viewerState: VideoViewerState | null; }
-export interface Rendition { quality: string; width: number; height: number; fileSize: number; url: string; }
+export interface Rendition { quality: string; width: number; height: number; fileSize: number; url: string; fileExtension?: string | null; }
 export interface Playback { videoId: string; title: string; visibility: string; duration: number; renditions: Rendition[]; resumeAtSeconds: number; progress: number; }
 export interface CommentItem { commentId: string; videoId: string; userId: string; displayName: string; parentCommentId: string | null; content: string; status: string; createdAt: string; updatedAt: string; likes: number; dislikes: number; myReaction: 'like' | 'dislike' | null; replyCount: number; videoTitle?: string | null; }
 export interface Category { categoryId: string; name: string; slug: string; description: string | null; }

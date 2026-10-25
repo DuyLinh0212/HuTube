@@ -2,6 +2,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../models/channel_models.dart';
+import '../channel_handle.dart';
 
 class ChannelService {
   ChannelService(this.auth);
@@ -49,17 +50,15 @@ class ChannelService {
     return ChannelDetail.fromJson(res);
   }
 
-  Future<bool> checkHandle(String handle) async {
-    final clean = handle.startsWith('@') ? handle.substring(1) : handle;
-    try {
-      final res = await auth.api.request(
-        'GET',
-        '/channels/check-handle?handle=${Uri.encodeQueryComponent(clean)}',
-      );
-      return res['isAvailable'] as bool? ?? false;
-    } catch (_) {
-      return false;
-    }
+  Future<bool> checkHandle(String handle, {String? currentChannelId}) async {
+    final query = Uri(
+      queryParameters: {
+        'handle': normalizeChannelHandle(handle),
+        'currentChannelId': ?currentChannelId,
+      },
+    ).query;
+    final res = await auth.api.request('GET', '/channels/check-handle?$query');
+    return res['isAvailable'] as bool? ?? false;
   }
 
   Future<ChannelDetail> createChannel({
@@ -83,6 +82,7 @@ class ChannelService {
   Future<ChannelDetail> updateChannel(
     String id, {
     required String name,
+    String? handle,
     String? description,
     String? settings,
   }) async {
@@ -91,6 +91,7 @@ class ChannelService {
       '/channels/${Uri.encodeComponent(id)}',
       body: {
         'name': name.trim(),
+        if (handle != null) 'handle': normalizeChannelHandle(handle),
         'description': description?.trim(),
         // ignore: use_null_aware_elements
         if (settings != null) 'settings': settings,

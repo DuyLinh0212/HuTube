@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../account/screens/profile_screen.dart';
 import '../../plans_screen.dart';
@@ -9,6 +10,7 @@ import '../../auth.dart';
 import '../../features/notifications/notification_center.dart';
 import '../localization/app_strings.dart';
 import '../theme/app_theme.dart';
+import '../theme/theme_notifier.dart';
 import 'app_logo.dart';
 import 'google_logo_icon.dart';
 
@@ -41,6 +43,7 @@ class _AppShellState extends State<AppShell> {
   final _confirm = TextEditingController();
   final _username = TextEditingController();
   final _displayName = TextEditingController();
+  final _verificationLink = TextEditingController();
   StreamSubscription<Uri>? _subscription;
   late String _page;
   String? _token;
@@ -132,10 +135,26 @@ class _AppShellState extends State<AppShell> {
       _verificationSuggested = false;
       _password.clear();
       _confirm.clear();
+      _verificationLink.clear();
       _hidden = true;
     });
     if (_page == '/account') {
       unawaited(_loadSessions());
+    }
+  }
+
+  void _authBack() {
+    if (_page != '/login') {
+      _navigate('/login');
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    ++_operation;
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.go('/home');
+    } else if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -154,13 +173,16 @@ class _AppShellState extends State<AppShell> {
     } on ApiFailure catch (error) {
       if (mounted && operation == _operation) {
         setState(() {
-          _message = (error.message.isNotEmpty && error.message != error.code)
+          _message = error.code == 'VALIDATION_ERROR' && _page == '/register'
+              ? AppStrings.t('auth.invalidRegistration')
+              : (error.message.isNotEmpty && error.message != error.code)
               ? error.message
               : AppStrings.apiError(error);
           _error = true;
           _verificationSuggested =
               error.code == 'EMAIL_NOT_VERIFIED' ||
-              error.code == 'EMAIL_UNVERIFIED';
+              error.code == 'EMAIL_UNVERIFIED' ||
+              error.code == 'EMAIL_ALREADY_EXISTS';
         });
       }
     } catch (_) {
@@ -215,11 +237,32 @@ class _AppShellState extends State<AppShell> {
         if (page == '/verify-email' ||
             page == '/reset-password' ||
             page == '/register') {
-          _page = '/login';
+          _page = page == '/register' ? '/check-email' : '/login';
+          if (page == '/register') _message = null;
           _token = null;
           _password.clear();
           _confirm.clear();
         }
+      });
+    });
+  }
+
+  Future<void> _verifyPastedLink() async {
+    final link = AuthLink.parseVerificationInput(_verificationLink.text);
+    if (link == null) {
+      setState(() {
+        _message = AppStrings.t('auth.invalidVerificationInput');
+        _error = true;
+      });
+      return;
+    }
+    await _run(() async {
+      await auth.verifyEmail(link.token!);
+      if (!mounted || _page != '/check-email') return;
+      setState(() {
+        _page = '/login';
+        _message = AppStrings.t('auth.verifySuccess');
+        _verificationLink.clear();
       });
     });
   }
@@ -298,7 +341,14 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     auth.removeListener(_authChanged);
     _subscription?.cancel();
-    for (final c in [_email, _password, _confirm, _username, _displayName]) {
+    for (final c in [
+      _email,
+      _password,
+      _confirm,
+      _username,
+      _displayName,
+      _verificationLink,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -442,116 +492,108 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildAuthLayout(String? message, ColorScheme scheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final compact = MediaQuery.sizeOf(context).height < 700;
-    return Scaffold(
-      backgroundColor: AppColors.ink,
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
-          ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _authBack();
+      },
+      child: Scaffold(
+        backgroundColor: isDark
+            ? AppColors.darkBackground
+            : AppColors.background,
+        body: SafeArea(
           child: Column(
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  compact ? 16 : 28,
-                  24,
-                  compact ? 20 : 42,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Image.asset(
-                          'assets/logo-mark.webp',
-                          width: 30,
-                          height: 30,
-                        ),
-                        const SizedBox(width: 9),
-                        RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -.6,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: 'Dali',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                              TextSpan(
-                                text: 'tu',
-                                style: TextStyle(color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.textPrimary,
+                      ),
+                      tooltip: AppStrings.t(
+                        _page == '/login' ? 'auth.backHome' : 'common.back',
+                      ),
+                      onPressed: _authBack,
                     ),
-                    SizedBox(height: compact ? 18 : 38),
-                    Text(
-                      AppStrings.t('app.guest.heroEyebrow'),
-                      style: TextStyle(
-                        color: AppColors.primaryHover,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
+                    const HuTubeLogo(size: 26, showWordmark: true),
+                    IconButton(
+                      icon: Icon(
+                        isDark
+                            ? Icons.light_mode_outlined
+                            : Icons.dark_mode_outlined,
+                        size: 22,
+                        color: isDark
+                            ? AppColors.darkTextMuted
+                            : AppColors.textMuted,
                       ),
+                      tooltip: isDark
+                          ? 'Chuyển sang giao diện sáng'
+                          : 'Chuyển sang giao diện tối',
+                      onPressed: () {
+                        ThemeNotifier.setTheme(isDark ? 'light' : 'dark');
+                      },
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      AppStrings.t(
-                        compact
-                            ? 'app.guest.storyPrimary'
-                            : 'app.guest.storySecondary',
-                      ),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: compact ? 25 : 30,
-                        height: 1.12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -.8,
-                      ),
-                    ),
-                    if (!compact) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        AppStrings.t('app.guest.description'),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: .68),
-                          height: 1.45,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                padding: EdgeInsets.fromLTRB(24, compact ? 20 : 28, 24, 34),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (message != null) ...[
-                        _messageBanner(message, scheme),
-                        const SizedBox(height: 18),
-                      ],
-                      ..._authForm(),
-                    ],
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      compact ? 8 : 16,
+                      16,
+                      compact ? 16 : 24,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurface : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.borderSubtle,
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.25 : 0.04,
+                              ),
+                              blurRadius: 20,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        padding: EdgeInsets.all(compact ? 20 : 28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (message != null) ...[
+                              _messageBanner(message, scheme),
+                              const SizedBox(height: 18),
+                            ],
+                            ..._authForm(),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -577,7 +619,9 @@ class _AppShellState extends State<AppShell> {
           border: Border.all(
             color: isError
                 ? (isDark ? const Color(0xFF5C202E) : const Color(0xFFFFCCD3))
-                : (isDark ? const Color(0xFF1E4632) : AppColors.primary.withValues(alpha: 0.3)),
+                : (isDark
+                      ? const Color(0xFF1E4632)
+                      : AppColors.primary.withValues(alpha: 0.3)),
             width: 1,
           ),
         ),
@@ -585,7 +629,9 @@ class _AppShellState extends State<AppShell> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(
-              isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
               size: 20,
               color: isError
                   ? (isDark ? const Color(0xFFFF6B81) : const Color(0xFFDC2626))
@@ -597,8 +643,12 @@ class _AppShellState extends State<AppShell> {
                 message,
                 style: TextStyle(
                   color: isError
-                      ? (isDark ? const Color(0xFFFFD1D8) : const Color(0xFF991B1B))
-                      : (isDark ? const Color(0xFFD1FAE5) : AppColors.primaryDark),
+                      ? (isDark
+                            ? const Color(0xFFFFD1D8)
+                            : const Color(0xFF991B1B))
+                      : (isDark
+                            ? const Color(0xFFD1FAE5)
+                            : AppColors.primaryDark),
                   height: 1.4,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
@@ -612,6 +662,77 @@ class _AppShellState extends State<AppShell> {
   }
 
   List<Widget> _authForm() {
+    if (_page == '/check-email') {
+      return [
+        Icon(
+          Icons.mark_email_unread_outlined,
+          size: 64,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(height: 20),
+        Text(
+          AppStrings.t('auth.checkEmailTitle'),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          AppStrings.format('auth.checkEmailDescription', {
+            'email': _email.text.trim(),
+          }),
+          textAlign: TextAlign.center,
+          style: const TextStyle(height: 1.6),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          AppStrings.t('auth.pasteVerificationHelp'),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('verification-link'),
+          controller: _verificationLink,
+          enabled: !_busy,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: TextInputType.url,
+          decoration: InputDecoration(
+            labelText: AppStrings.t('auth.verificationLinkField'),
+            prefixIcon: const Icon(Icons.link_rounded),
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _busy ? null : _verifyPastedLink,
+          child: _busy
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(AppStrings.t('auth.verifyTitle')),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: _busy
+              ? null
+              : () => _run(() async {
+                  await auth.resendVerification(_email.text);
+                  if (mounted && _page == '/check-email') {
+                    setState(
+                      () => _message = AppStrings.t('auth.resendSuccess'),
+                    );
+                  }
+                }),
+          child: Text(AppStrings.t('auth.resendVerification')),
+        ),
+        TextButton(
+          onPressed: _busy ? null : () => _navigate('/login'),
+          child: Text(AppStrings.t('auth.loginTitle')),
+        ),
+      ];
+    }
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final register = _page == '/register';
     final login = _page == '/login';
@@ -698,7 +819,8 @@ class _AppShellState extends State<AppShell> {
                   AppStrings.t('auth.usernameField'),
                   icon: Icons.alternate_email_rounded,
                   validator: (v) =>
-                      RegExp(r'^[A-Za-z0-9_.-]{3,50}$').hasMatch(v ?? '')
+                      RegExp(r'^[A-Za-z0-9_.-]{3,50}$')
+                          .hasMatch((v ?? '').trim())
                       ? null
                       : AppStrings.t('auth.usernameInvalid'),
                 ),
@@ -710,9 +832,8 @@ class _AppShellState extends State<AppShell> {
                   icon: Icons.mail_outline_rounded,
                   email: true,
                   validator: (v) =>
-                      RegExp(
-                        r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                      ).hasMatch((v ?? '').trim())
+                      RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                          .hasMatch((v ?? '').trim())
                       ? null
                       : AppStrings.t('auth.emailInvalid'),
                 ),
@@ -736,7 +857,9 @@ class _AppShellState extends State<AppShell> {
                     child: Text(
                       AppStrings.t('auth.passwordRequirement'),
                       style: TextStyle(
-                        color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                        color: isDark
+                            ? AppColors.darkTextMuted
+                            : AppColors.textMuted,
                         fontSize: 12.5,
                       ),
                     ),
@@ -763,7 +886,10 @@ class _AppShellState extends State<AppShell> {
                           : () => _navigate('/forgot-password'),
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -823,7 +949,9 @@ class _AppShellState extends State<AppShell> {
                     children: [
                       Expanded(
                         child: Divider(
-                          color: isDark ? AppColors.darkBorder : AppColors.border,
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.border,
                           thickness: 1,
                         ),
                       ),
@@ -833,14 +961,18 @@ class _AppShellState extends State<AppShell> {
                           AppStrings.t('auth.or'),
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                            color: isDark
+                                ? AppColors.darkTextMuted
+                                : AppColors.textMuted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Divider(
-                          color: isDark ? AppColors.darkBorder : AppColors.border,
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.border,
                           thickness: 1,
                         ),
                       ),
@@ -854,7 +986,9 @@ class _AppShellState extends State<AppShell> {
                     backgroundColor: isDark
                         ? AppColors.darkBackgroundCard
                         : Colors.white,
-                    foregroundColor: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                    foregroundColor: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
                     side: BorderSide(
                       color: isDark ? AppColors.darkBorder : AppColors.border,
                       width: 1.2,
@@ -878,7 +1012,9 @@ class _AppShellState extends State<AppShell> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -904,7 +1040,9 @@ class _AppShellState extends State<AppShell> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontFamily: 'Plus Jakarta Sans',
-                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.textMuted,
                     ),
                     children: [
                       TextSpan(text: AppStrings.t('auth.noAccountPrefix')),
@@ -927,11 +1065,15 @@ class _AppShellState extends State<AppShell> {
             padding: const EdgeInsets.only(top: 4),
             child: Center(
               child: TextButton(
-                onPressed: _busy ? null : () => _navigate('/resend-verification'),
+                onPressed: _busy
+                    ? null
+                    : () => _navigate('/resend-verification'),
                 child: Text(
                   AppStrings.t('auth.resendVerification'),
                   style: TextStyle(
-                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    color: isDark
+                        ? AppColors.darkTextMuted
+                        : AppColors.textMuted,
                     fontSize: 13,
                   ),
                 ),
@@ -965,7 +1107,9 @@ class _AppShellState extends State<AppShell> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontFamily: 'Plus Jakarta Sans',
-                      color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.textMuted,
                     ),
                     children: [
                       TextSpan(
@@ -994,8 +1138,9 @@ class _AppShellState extends State<AppShell> {
             padding: const EdgeInsets.only(top: 4),
             child: Center(
               child: TextButton(
-                onPressed: () =>
-                    _navigate(reset ? '/forgot-password' : '/resend-verification'),
+                onPressed: () => _navigate(
+                  reset ? '/forgot-password' : '/resend-verification',
+                ),
                 child: Text(AppStrings.t('auth.requestNewLink')),
               ),
             ),
@@ -1051,7 +1196,10 @@ class _AppShellState extends State<AppShell> {
               ? AppColors.darkBackgroundCard
               : AppColors.surfaceAlt,
           prefixIcon: Icon(
-            icon ?? (secret ? Icons.lock_outline_rounded : Icons.mail_outline_rounded),
+            icon ??
+                (secret
+                    ? Icons.lock_outline_rounded
+                    : Icons.mail_outline_rounded),
             size: 20,
             color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
           ),
@@ -1066,11 +1214,16 @@ class _AppShellState extends State<AppShell> {
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
                     size: 20,
-                    color: isDark ? AppColors.darkTextMuted : AppColors.textMuted,
+                    color: isDark
+                        ? AppColors.darkTextMuted
+                        : AppColors.textMuted,
                   ),
                 )
               : null,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
@@ -1080,10 +1233,7 @@ class _AppShellState extends State<AppShell> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
-              color: AppColors.primary,
-              width: 1.5,
-            ),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),

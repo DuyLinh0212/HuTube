@@ -50,6 +50,19 @@
   touch-action: manipulation;
 }
 
+.player-pip-placeholder {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  justify-items: center;
+  padding: 20px;
+  background: #090b10;
+}
+
+.pip-return {
+  min-height: 44px;
+}
+
 .player-stage:fullscreen,
 .player-stage:-webkit-full-screen {
   width: 100vw;
@@ -1167,10 +1180,20 @@
 }
 
 .comment-row--reply {
-  margin-top: 12px;
-  padding: 12px 0 0 18px;
-  border-top: 1px solid var(--line);
+  position: relative;
+  padding: 12px 0 0 14px;
   border-bottom: 0;
+}
+
+.comment-row--reply::before {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 11px;
+  height: 26px;
+  border-bottom: 1px solid var(--line);
+  border-bottom-left-radius: 8px;
+  content: '';
 }
 
 .comment-row--reply .comment-avatar {
@@ -1180,9 +1203,19 @@
 }
 
 .replies-list {
-  margin-top: 12px;
-  padding-left: 6px;
-  border-left: 2px solid color-mix(in srgb, var(--primary) 22%, var(--line));
+  margin: 10px 0 0 -29px;
+  border-left: 1px solid var(--line);
+}
+
+// Keep deep conversations readable on narrow screens without losing the branch.
+.comment-row--deep {
+  gap: 8px;
+  padding-left: 10px;
+}
+
+.comment-row--deep > .comment-avatar {
+  width: 24px;
+  height: 24px;
 }
 
 .reply-toggle {
@@ -1223,6 +1256,7 @@
   font-size: .78rem;
   line-height: 1.55;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .comment-actions {
@@ -1233,12 +1267,47 @@
 }
 
 .comment-actions button {
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 3px;
   border: 0;
   color: var(--text-muted);
   background: transparent;
   font-size: .67rem;
   font-weight: 700;
+}
+
+.comment-reaction svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+
+.comment-reaction.is-active svg {
+  fill: var(--primary-soft);
+}
+
+.comment-reaction--dislike svg {
+  transform: rotate(180deg);
+}
+
+.comment-actions button:focus-visible,
+.reply-more:focus-visible,
+.reply-cancel:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.comment-actions button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
 
 .comment-actions button:hover,
@@ -1252,13 +1321,56 @@
 
 .reply-composer {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }
 
 .reply-composer input {
+  flex: 1 1 120px;
+  min-width: 0;
+  width: auto;
   min-height: 34px;
   padding: 7px 10px;
+}
+
+.reply-more,
+.reply-cancel {
+  min-height: 34px;
+  border: 0;
+  color: var(--primary);
+  background: transparent;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reply-more {
+  margin: 6px 0 0 14px;
+}
+
+.comment-body .reply-error {
+  color: var(--danger);
+  font-size: .74rem;
+}
+
+.comment-edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.comment-edit-form textarea {
+  width: 100%;
+  min-height: 70px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--canvas);
+  font: inherit;
+  resize: vertical;
 }
 
 .empty-comments,

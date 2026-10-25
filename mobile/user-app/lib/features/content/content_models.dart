@@ -8,6 +8,9 @@ Future<PageResult<T>> loadAllPages<T>(
     final page = await fetch(number);
     items.addAll(page.items);
     if (!page.hasMore || page.items.isEmpty) break;
+    if (page.page < number) {
+      throw StateError('Pagination did not advance to the requested page');
+    }
     number = page.page + 1;
   }
   return PageResult(
@@ -416,6 +419,7 @@ class CommentItem {
     int? likes,
     int? dislikes,
     String? myReaction,
+    bool clearReaction = false,
     int? replyCount,
     String? userId,
     String? status,
@@ -431,7 +435,7 @@ class CommentItem {
       createdAt: createdAt ?? this.createdAt,
       likes: likes ?? this.likes,
       dislikes: dislikes ?? this.dislikes,
-      myReaction: myReaction ?? this.myReaction,
+      myReaction: clearReaction ? null : myReaction ?? this.myReaction,
       replyCount: replyCount ?? this.replyCount,
       userId: userId ?? this.userId,
       status: status ?? this.status,

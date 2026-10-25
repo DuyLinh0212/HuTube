@@ -52,8 +52,8 @@ public static class VideoRules
     public static string ValidateComment(string? content)
     {
         var value = content?.Trim() ?? "";
-        if (value.Length is < 3 or > 5000)
-            throw new VideoValidationException("INVALID_COMMENT", "Bình luận cần từ 3 đến 5.000 ký tự.");
+        if (value.Length is < 1 or > 5000)
+            throw new VideoValidationException("INVALID_COMMENT", "Bình luận cần từ 1 đến 5.000 ký tự.");
         return value;
     }
 
@@ -184,6 +184,7 @@ public sealed class Comment
 {
     public Guid CommentId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid VideoId { get; set; }
     public Guid? ParentCommentId { get; set; } public string Content { get; set; } = ""; public string Status { get; set; } = "visible";
+    public bool IsPinned { get; set; } public bool HasCreatorHeart { get; set; }
     public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; }
 }
 public sealed class CommentReaction { public Guid CommentReactionId { get; set; } = Guid.NewGuid(); public Guid UserId { get; set; } public Guid CommentId { get; set; } public string Type { get; set; } = "like"; public DateTimeOffset CreatedAt { get; set; } public DateTimeOffset UpdatedAt { get; set; } }

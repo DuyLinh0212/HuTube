@@ -57,6 +57,12 @@ public sealed class RbacTests
         public Task<List<AuditLog>> GetAuditLogsAsync(int limit, CancellationToken ct) =>
             Task.FromResult(AuditLogs.OrderByDescending(a => a.CreatedAt).Take(limit).ToList());
         public Task SaveAsync(CancellationToken ct) => Task.CompletedTask;
+        public Task SoftDeleteRoleAsync(Role role, AuditLog audit, CancellationToken ct)
+        {
+            role.Status = "deleted";
+            AuditLogs.Add(audit);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeAuthStore : IAuthStore

@@ -93,4 +93,37 @@ describe('Explore search filters', () => {
     expect(content.search).toHaveBeenCalledWith(jasmine.objectContaining({ sort: 'views' }));
     fixture.destroy();
   });
+
+  it('drags the category rail without accidentally selecting a category', () => {
+    const fixture = render();
+    const component = fixture.componentInstance;
+    const track = document.createElement('div');
+    track.style.cssText = 'width: 100px; overflow-x: auto';
+    const content = document.createElement('div');
+    content.style.cssText = 'width: 1000px; height: 1px';
+    track.appendChild(content);
+    fixture.nativeElement.appendChild(track);
+    document.body.appendChild(fixture.nativeElement);
+    spyOn(track, 'setPointerCapture');
+    spyOn(track, 'hasPointerCapture').and.returnValue(true);
+    spyOn(track, 'releasePointerCapture');
+    const pointer = (x: number) => ({
+      pointerType: 'mouse', button: 0, pointerId: 1, clientX: x,
+      currentTarget: track, preventDefault: jasmine.createSpy('preventDefault'),
+    }) as unknown as PointerEvent;
+    component.startCategoryDrag(pointer(300));
+    component.moveCategoryDrag(pointer(100));
+    expect(track.scrollLeft).toBe(200);
+    expect(component.categoryDragging()).toBeTrue();
+    component.endCategoryDrag(pointer(100));
+    component.selectCategoryTab('category-one', new MouseEvent('click', { detail: 1 }));
+    expect(component.activeCategoryTab()).toBe(component.overallTabId);
+    expect(component.categoryDragging()).toBeFalse();
+
+    component.startCategoryDrag(pointer(100));
+    component.endCategoryDrag(pointer(100));
+    component.selectCategoryTab('category-one', new MouseEvent('click', { detail: 1 }));
+    expect(component.activeCategoryTab()).toBe('category-one');
+    fixture.destroy();
+  });
 });

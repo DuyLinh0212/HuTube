@@ -13,8 +13,50 @@ namespace HuTube.Infrastructure.Videos;
 
 public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, INotificationService notifications,
     IAuthEmailSender emailSender, IObjectStorage storage, ILogger<AdminContentService> logger,
-    AuthOptions? authOptions = null)
+    AuthOptions? authOptions = null, TimeProvider? clock = null)
 {
+    public async Task UpdateChannelAsync(Guid actorId, Guid channelId, UpdateAdminChannelRequest request, CancellationToken ct)
+    {
+        ValidateReason(request.Reason);
+        var name = request.Name?.Trim() ?? "";
+        if (name.Length is < 1 or > 100 || request.Description?.Length > 5000)
+            throw new AuthException(400, "INVALID_CHANNEL_DETAILS", "Tên kênh cần 1–100 ký tự; mô tả tối đa 5.000 ký tự.");
+        var email = string.IsNullOrWhiteSpace(request.ContactEmail) ? null : request.ContactEmail.Trim();
+        if (email != null && (email.Length > 255 || !System.Net.Mail.MailAddress.TryCreate(email, out var address) || address.Address != email))
+            throw new AuthException(400, "INVALID_EMAIL", "Email liên hệ không hợp lệ.");
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var channel = await db.Channels.FirstOrDefaultAsync(c => c.ChannelId == channelId, ct)
+            ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
+        if (channel.Status == "deleted") throw new AuthException(409, "CHANNEL_DELETED", "Không thể sửa kênh đã xóa.");
+        var before = PersistenceJson.Serialize(new { channel.Name, channel.Description, channel.ContactEmail });
+        channel.Name = name;
+        channel.Description = request.Description?.Trim();
+        channel.ContactEmail = email;
+        channel.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await rbac.LogAuditAsync(new AuditLogEntry(actorId, "admin.channel.metadata_updated", "channel", channelId,
+            request.Reason.Trim(), OldValues: before,
+            NewValues: PersistenceJson.Serialize(new { channel.Name, channel.Description, channel.ContactEmail })), ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    public async Task<PageResult<T>> ExportAsync<T>(Func<int, Task<PageResult<T>>> readPage, CancellationToken ct)
+    {
+        // A consistent snapshot and stable page order prevent skipped/duplicated
+        // rows when records are edited while a multi-page export is being read.
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
+        var rows = new List<T>();
+        for (var page = 1; ; page++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var batch = await readPage(page);
+            rows.AddRange(batch.Items);
+            if (rows.Count >= batch.Total || batch.Items.Count == 0) break;
+        }
+        await transaction.CommitAsync(ct);
+        return new(rows, 1, rows.Count, rows.Count);
+    }
+
     public async Task<PageResult<AdminChannelListItem>> GetChannelsAsync(string? search, string? status,
         string? sortBy, bool? sortDescending, int page, int pageSize, CancellationToken ct)
     {
@@ -57,7 +99,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         var total = await query.CountAsync(ct);
 
         var isDesc = sortDescending ?? true;
-        query = (sortBy?.ToLowerInvariant()) switch
+        var ordered = (sortBy?.ToLowerInvariant()) switch
         {
             "name" => isDesc ? query.OrderByDescending(x => x.channel.Name) : query.OrderBy(x => x.channel.Name),
             "owner" => isDesc ? query.OrderByDescending(x => x.owner.DisplayName) : query.OrderBy(x => x.owner.DisplayName),
@@ -67,6 +109,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             "createdat" or "date" => isDesc ? query.OrderByDescending(x => x.channel.CreatedAt) : query.OrderBy(x => x.channel.CreatedAt),
             _ => isDesc ? query.OrderByDescending(x => x.channel.CreatedAt) : query.OrderBy(x => x.channel.CreatedAt)
         };
+        query = ordered.ThenBy(x => x.channel.ChannelId);
 
         var rows = await query.Skip((page - 1) * pageSize).Take(pageSize)
             .Select(x => new
@@ -76,7 +119,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
                  VideoCount = x.VideoCount ?? 0,
                  SubscriberCount = x.SubscriberCount ?? 0,
                  ActiveStrikeCount = x.ActiveStrikeCount ?? 0,
-                x.channel.StatusReason
+                x.channel.StatusReason, x.channel.SuspendedUntil
             }).ToListAsync(ct);
 
         var channelIds = rows.Select(x => x.ChannelId).ToList();
@@ -88,7 +131,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
 
         return new(rows.Select(x => new AdminChannelListItem(x.ChannelId, x.Name, x.Handle, x.OwnerUserId,
             x.OwnerName, x.OwnerEmail, x.Status, x.CreatedAt, x.VideoCount, x.SubscriberCount, x.ActiveStrikeCount,
-            channelViews.GetValueOrDefault(x.ChannelId, 0), x.StatusReason)).ToList(), page, pageSize, total);
+            channelViews.GetValueOrDefault(x.ChannelId, 0), x.StatusReason, x.SuspendedUntil)).ToList(), page, pageSize, total);
     }
 
     public async Task<AdminChannelDetailResponse> GetChannelAsync(Guid channelId, CancellationToken ct)
@@ -105,7 +148,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             await db.Subscriptions.CountAsync(s => s.ChannelId == channelId && s.Status == "active", ct),
             await db.ChannelStrikes.CountAsync(s => s.ChannelId == channelId && s.StrikeNumber > 0 && s.Status == "active" && s.ExpiresAt > DateTimeOffset.UtcNow, ct),
             totalChannelViews,
-            channel.StatusReason);
+            channel.StatusReason, channel.SuspendedUntil);
         var videoRows = await AdminVideoQuery(false).Where(x => x.ChannelId == channelId)
             .OrderByDescending(x => x.CreatedAt).Take(25).ToListAsync(ct);
         var videoIds = videoRows.Select(x => x.VideoId).ToList();
@@ -219,7 +262,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
         var total = await query.CountAsync(ct);
 
         var isDesc = sortDescending ?? true;
-        query = (sortBy?.ToLowerInvariant()) switch
+        var ordered = (sortBy?.ToLowerInvariant()) switch
         {
             "title" or "video" => isDesc ? query.OrderByDescending(x => x.Title) : query.OrderBy(x => x.Title),
             "channel" or "channelname" => isDesc ? query.OrderByDescending(x => x.ChannelName) : query.OrderBy(x => x.ChannelName),
@@ -231,6 +274,7 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
             "createdat" or "date" => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
             _ => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt)
         };
+        query = ordered.ThenBy(x => x.VideoId);
 
         var rows = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         var videoIds = rows.Select(x => x.VideoId).ToList();
@@ -428,18 +472,32 @@ public sealed class AdminContentService(HuTubeDbContext db, RbacService rbac, IN
     {
         ValidateReason(request.Reason);
         if (status is not ("active" or "suspended" or "banned" or "deleted")) throw new AuthException(400, "INVALID_CHANNEL_STATUS", "Trạng thái kênh không hợp lệ.");
+        var now = (clock ?? TimeProvider.System).GetUtcNow();
+        var suspendedUntil = request.SuspendedUntil?.ToUniversalTime();
+        if (suspendedUntil.HasValue && (status != "suspended" || suspendedUntil <= now))
+            throw new AuthException(400, "INVALID_SUSPENSION_EXPIRY", "Thời gian kết thúc tạm ngưng phải ở tương lai và chỉ áp dụng cho thao tác tạm ngưng.");
         var channel = await db.Channels.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.ChannelId == channelId, ct)
             ?? throw new AuthException(404, "CHANNEL_NOT_FOUND", "Không tìm thấy kênh.");
         var oldStatus = channel.Status;
-        if (oldStatus == status) return;
+        var oldSuspendedUntil = channel.SuspendedUntil;
+        if (oldStatus == status && oldSuspendedUntil == suspendedUntil) return;
         channel.Status = status;
+        channel.SuspendedUntil = status == "suspended" ? suspendedUntil : null;
+        // Write both fields even if the tracked value matched: expiry may restore the
+        // row between reading it and saving a new moderation decision.
+        db.Entry(channel).Property(c => c.Status).IsModified = true;
+        db.Entry(channel).Property(c => c.SuspendedUntil).IsModified = true;
         channel.StatusReason = status is "suspended" or "banned" ? request.Reason.Trim() : null;
-        channel.UpdatedAt = DateTimeOffset.UtcNow;
+        channel.UpdatedAt = now;
         await rbac.LogAuditAsync(new AuditLogEntry(actorId, $"admin.channel.{status}", "channel", channelId,
-            request.Reason.Trim(), OldValues: PersistenceJson.Serialize(new { status = oldStatus }), NewValues: PersistenceJson.Serialize(new { status })), ct);
+            request.Reason.Trim(), OldValues: PersistenceJson.Serialize(new { status = oldStatus, suspendedUntil = oldSuspendedUntil }),
+            NewValues: PersistenceJson.Serialize(new { status, suspendedUntil = channel.SuspendedUntil })), ct);
         if (request.NotifyOwner && (status is "suspended" or "banned"))
+        {
+            var deadline = suspendedUntil.HasValue ? $" đến {suspendedUntil.Value:dd/MM/yyyy HH:mm} UTC" : "";
             await notifications.PublishAsync(channel.OwnerUserId, "channel_status_changed", "Trạng thái kênh đã thay đổi",
-                $"Kênh của bạn đã bị { (status == "banned" ? "cấm" : "tạm ngưng") }. Lý do: {request.Reason.Trim()}", "/studio/channel", "channel", channelId, ct);
+                $"Kênh của bạn đã bị { (status == "banned" ? "cấm" : "tạm ngưng" + deadline) }. Lý do: {request.Reason.Trim()}", "/studio/channel", "channel", channelId, ct);
+        }
     }
 
     public async Task UpdateVideoAsync(Guid actorId, Guid videoId, UpdateAdminVideoRequest request, CancellationToken ct)

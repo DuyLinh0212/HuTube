@@ -87,7 +87,9 @@ class LocalDownload {
 class LocalDownloadManager extends ChangeNotifier {
   LocalDownloadManager._()
     : _rootDirectory = null,
-      _clientFactory = (() => http.Client());
+      _clientFactory = (() => http.Client()),
+      _connected = false,
+      _wifiOnly = true;
   @visibleForTesting
   LocalDownloadManager.test({
     required Future<Directory> Function() rootDirectory,
@@ -104,8 +106,47 @@ class LocalDownloadManager extends ChangeNotifier {
   Future<void>? _loading;
   Future<void> _writes = Future.value();
   Future<String?> Function(String)? _authorize;
+  bool _connected = true;
+  bool _wifi = false;
+  bool _wifiOnly = false;
+  static const _waiting = {'waiting_wifi', 'waiting_network'};
   List<LocalDownload> get items => List.unmodifiable(_items);
   String? get ownerId => _owner;
+
+  String? _blocked(LocalDownload item) {
+    if (!_connected) return 'waiting_network';
+    if (_wifiOnly && !_wifi) return 'waiting_wifi';
+    return null;
+  }
+
+  Future<void> configurePolicy({
+    required bool connected,
+    required bool wifi,
+    required bool wifiOnly,
+  }) async {
+    _connected = connected;
+    _wifi = wifi;
+    _wifiOnly = wifiOnly;
+    final generation = _generation;
+    await ensureLoaded();
+    if (generation != _generation) return;
+    for (final item in List<LocalDownload>.of(_items)) {
+      if (item.completed ||
+          item.status == 'paused' ||
+          item.status == 'failed') {
+        continue;
+      }
+      final blocked = _blocked(item);
+      if (blocked != null) {
+        _clients.remove(item.id)?.close();
+        if (item.status != blocked) {
+          _replace(item.id, item.copyWith(status: blocked, clearError: true));
+        }
+      } else if (_waiting.contains(item.status) || item.status == 'queued') {
+        unawaited(_start(item.id));
+      }
+    }
+  }
 
   Future<void> bindUser(
     String? owner, {
@@ -157,7 +198,11 @@ class LocalDownloadManager extends ChangeNotifier {
               status: 'failed',
               error: 'downloads.localMissing',
             );
-          } else if (item.active || item.status == 'queued') {
+          } else if (item.active ||
+              item.status == 'queued' ||
+              entry['smart'] == true ||
+              item.status == 'waiting_settings' ||
+              item.status == 'waiting_storage') {
             item = item.copyWith(
               status: 'paused',
               error: 'downloads.interrupted',
@@ -196,11 +241,11 @@ class LocalDownloadManager extends ChangeNotifier {
     return next;
   }
 
-  void _replace(String id, LocalDownload item) {
+  void _replace(String id, LocalDownload item, {bool persist = true}) {
     final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
     _items[index] = item;
-    unawaited(_persist().catchError((Object _) {}));
+    if (persist) unawaited(_persist().catchError((Object _) {}));
     notifyListeners();
   }
 
@@ -259,6 +304,11 @@ class LocalDownloadManager extends ChangeNotifier {
     final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
     final item = _items[index];
+    final blocked = _blocked(item);
+    if (blocked != null) {
+      _replace(id, item.copyWith(status: blocked, clearError: true));
+      return;
+    }
     final client = _clientFactory();
     _clients[id] = client;
     IOSink? sink;
@@ -296,17 +346,23 @@ class LocalDownloadManager extends ChangeNotifier {
       sink = temporary.openWrite();
       var received = 0;
       final expected = response.contentLength ?? item.totalBytes;
+      final progressClock = Stopwatch()..start();
+      var lastUpdate = 0;
       await for (final chunk in response.stream) {
         if (!current()) return;
         sink.add(chunk);
         received += chunk.length;
-        _replace(
-          id,
-          item.copyWith(
-            status: 'downloading',
-            progress: expected > 0 ? received / expected : 0,
-          ),
-        );
+        if (progressClock.elapsedMilliseconds - lastUpdate >= 200) {
+          lastUpdate = progressClock.elapsedMilliseconds;
+          _replace(
+            id,
+            item.copyWith(
+              status: 'downloading',
+              progress: expected > 0 ? (received / expected).clamp(0, 1) : 0,
+            ),
+            persist: false,
+          );
+        }
       }
       await sink.flush();
       await sink.close();

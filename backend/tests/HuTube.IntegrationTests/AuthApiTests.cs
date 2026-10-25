@@ -310,11 +310,15 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         await using var db = factory.CreateDb();
         const string tableQuery = "SELECT table_name::text AS \"Value\" FROM information_schema.tables WHERE table_schema='public' AND table_name <> '__EFMigrationsHistory' ORDER BY table_name";
         var before = await db.Database.SqlQueryRaw<string>(tableQuery).ToListAsync();
-        // Bootstrap has 48 tables; login history, strike policy and read cache add three more.
-        Assert.Equal(51, before.Count);
+        // 48 bootstrap tables, three existing additions and four messaging tables.
+        Assert.Equal(55, before.Count);
         Assert.Contains("login_history", before);
         Assert.Contains("strike_policy_settings", before);
         Assert.Contains("read_cache_revisions", before);
+        Assert.Contains("moderation_outbox_events", before);
+        Assert.Contains("notification_inbox_events", before);
+        Assert.Contains("notification_deliveries", before);
+        Assert.Contains("push_devices", before);
         await db.Database.MigrateAsync();
         var after = await db.Database.SqlQueryRaw<string>(tableQuery).ToListAsync();
         Assert.Equal(before, after);

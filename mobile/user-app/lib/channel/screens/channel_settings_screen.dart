@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
+import '../channel_handle.dart';
 
 typedef ChannelImagePicker = Future<XFile?> Function(bool avatar);
 
@@ -28,6 +30,7 @@ class ChannelSettingsScreen extends StatefulWidget {
 
 class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   late final TextEditingController _nameController;
+  late final TextEditingController _handleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _inviteEmailController;
   late final ChannelService _channelService;
@@ -45,6 +48,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   bool _uploadingWatermark = false;
   bool _loadingChannelSettings = true;
   String? _error;
+  Timer? _handleTimer;
+  int _handleGeneration = 0;
+  bool _checkingHandle = false;
+  bool? _handleAvailable;
+  String? _handleError;
 
   @override
   void initState() {
@@ -52,6 +60,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     _channel = widget.channel;
     _channelService = ChannelService(widget.auth);
     _nameController = TextEditingController(text: _channel.name);
+    _handleController = TextEditingController(text: _channel.handle);
     _descriptionController = TextEditingController(
       text: _channel.description ?? '',
     );
@@ -68,6 +77,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       setState(() {
         _channel = current;
         _nameController.text = current.name;
+        _handleController.text = current.handle;
         _descriptionController.text = current.description ?? '';
         _parseSettings();
         _loadingChannelSettings = false;
@@ -141,7 +151,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
 
   @override
   void dispose() {
+    _handleTimer?.cancel();
     _nameController.dispose();
+    _handleController.dispose();
     _descriptionController.dispose();
     _inviteEmailController.dispose();
     super.dispose();
@@ -395,8 +407,56 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     }
   }
 
+  void _onHandleChanged(String value) {
+    _handleTimer?.cancel();
+    final generation = ++_handleGeneration;
+    final clean = normalizeChannelHandle(value);
+    setState(() {
+      _checkingHandle = false;
+      _handleAvailable = null;
+      _handleError = null;
+    });
+    if (clean == _channel.handle.toLowerCase()) return;
+    if (!isValidChannelHandle(clean)) {
+      setState(() {
+        _handleAvailable = false;
+        _handleError = AppStrings.t('channel.handleInvalid');
+      });
+      return;
+    }
+    setState(() => _checkingHandle = true);
+    _handleTimer = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        final available = await _channelService.checkHandle(
+          clean,
+          currentChannelId: _channel.id,
+        );
+        if (!mounted || generation != _handleGeneration) return;
+        setState(() {
+          _checkingHandle = false;
+          _handleAvailable = available;
+          _handleError = available ? null : AppStrings.t('channel.handleTaken');
+        });
+      } catch (_) {
+        if (!mounted || generation != _handleGeneration) return;
+        setState(() {
+          _checkingHandle = false;
+          _handleError = AppStrings.t('channel.handleCheckError');
+        });
+      }
+    });
+  }
+
   Future<void> _save() async {
     final name = _nameController.text.trim();
+    final handle = normalizeChannelHandle(_handleController.text);
+    if (_checkingHandle) return;
+    if (!isValidChannelHandle(handle) || _handleAvailable == false) {
+      setState(
+        () => _error = _handleError ?? AppStrings.t('channel.handleInvalid'),
+      );
+      return;
+    }
     if (name.isEmpty) {
       setState(() => _error = AppStrings.t('channel.nameEmpty'));
       return;
@@ -446,6 +506,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       await _channelService.updateChannel(
         _channel.id,
         name: name,
+        handle: handle == _channel.handle.toLowerCase() ? null : handle,
         description: _descriptionController.text.trim(),
         settings: settingsJson,
       );
@@ -932,12 +993,18 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               ),
               const SizedBox(height: 6),
               TextFormField(
-                initialValue: '@${_channel.handle}',
-                readOnly: true,
-                enabled: false,
+                key: const ValueKey('channel-settings-handle'),
+                controller: _handleController,
+                onChanged: _onHandleChanged,
+                enabled: !_busy && !_loadingChannelSettings,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.alternate_email),
-                  helperText: AppStrings.t('channel.handleImmutable'),
+                  prefixIcon: const Icon(Icons.alternate_email),
+                  helperText: _checkingHandle
+                      ? AppStrings.t('channel.handleChecking')
+                      : _handleAvailable == true
+                      ? AppStrings.t('channel.handleAvailable')
+                      : AppStrings.t('channel.handleDescription'),
+                  errorText: _handleError,
                 ),
               ),
               const SizedBox(height: 16),
@@ -959,7 +1026,13 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
               const SizedBox(height: 24),
 
               FilledButton(
-                onPressed: _busy || _loadingChannelSettings ? null : _save,
+                onPressed:
+                    _busy ||
+                        _loadingChannelSettings ||
+                        _checkingHandle ||
+                        _handleAvailable == false
+                    ? null
+                    : _save,
                 child: _busy || _loadingChannelSettings
                     ? const SizedBox(
                         height: 20,
@@ -1004,6 +1077,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: _inviteRole,
                   decoration: InputDecoration(
                     labelText: AppStrings.t('channel.inviteRole'),
@@ -1076,12 +1150,14 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                             color: AppColors.dangerFor(context),
                           ),
                           SizedBox(width: 8),
-                          Text(
-                            AppStrings.t('channel.dangerTitle'),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.dangerFor(context),
-                              fontSize: 15,
+                          Expanded(
+                            child: Text(
+                              AppStrings.t('channel.dangerTitle'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.dangerFor(context),
+                                fontSize: 15,
+                              ),
                             ),
                           ),
                         ],
@@ -1115,6 +1191,21 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     );
   }
 
+  void _moveLink(int from, int to) {
+    if (_busy ||
+        from == to ||
+        from < 0 ||
+        to < 0 ||
+        from >= _links.length ||
+        to >= _links.length) {
+      return;
+    }
+    setState(() {
+      final item = _links.removeAt(from);
+      _links.insert(to, item);
+    });
+  }
+
   Widget _socialLinksSection() {
     final platforms = [
       {'id': 'facebook', 'name': AppStrings.t('channel.platformFacebook')},
@@ -1142,77 +1233,114 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         ),
         const SizedBox(height: 12),
         for (var i = 0; i < _links.length; i++)
-          Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: Theme.of(context).dividerColor.withValues(alpha: .2),
+          DragTarget<int>(
+            onWillAcceptWithDetails: (details) => !_busy && details.data != i,
+            onAcceptWithDetails: (details) => _moveLink(details.data, i),
+            builder: (context, candidates, rejected) => Card(
+              key: ObjectKey(_links[i]),
+              margin: const EdgeInsets.only(bottom: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).dividerColor.withValues(alpha: .2),
+                ),
               ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          key: ValueKey(
-                            'link-platform-$i-${_links[i]['platform']}',
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        LongPressDraggable<int>(
+                          data: i,
+                          feedback: Material(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(_links[i]['title'] ?? ''),
+                            ),
                           ),
-                          initialValue: _links[i]['platform'] ?? 'other',
-                          decoration: InputDecoration(
-                            labelText: AppStrings.t('channel.platformLabel'),
-                            isDense: true,
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(Icons.drag_handle),
                           ),
-                          items: platforms
-                              .map(
-                                (p) => DropdownMenuItem(
-                                  value: p['id'],
-                                  child: Text(p['name']!),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                _links[i]['platform'] = val;
-                                _links[i]['title'] = _platformTitle(val);
-                              });
-                            }
-                          },
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.redAccent,
+                        IconButton(
+                          tooltip: AppStrings.t('parity.moveUp'),
+                          icon: const Icon(Icons.arrow_upward),
+                          onPressed: i == 0 || _busy
+                              ? null
+                              : () => _moveLink(i, i - 1),
                         ),
-                        onPressed: () => setState(() => _links.removeAt(i)),
+                        IconButton(
+                          tooltip: AppStrings.t('parity.moveDown'),
+                          icon: const Icon(Icons.arrow_downward),
+                          onPressed: i == _links.length - 1 || _busy
+                              ? null
+                              : () => _moveLink(i, i + 1),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            key: ValueKey(
+                              'link-platform-${identityHashCode(_links[i])}-${_links[i]['platform']}',
+                            ),
+                            initialValue: _links[i]['platform'] ?? 'other',
+                            decoration: InputDecoration(
+                              labelText: AppStrings.t('channel.platformLabel'),
+                              isDense: true,
+                            ),
+                            items: platforms
+                                .map(
+                                  (p) => DropdownMenuItem(
+                                    value: p['id'],
+                                    child: Text(p['name']!),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _links[i]['platform'] = val;
+                                  _links[i]['title'] = _platformTitle(val);
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () => setState(() => _links.removeAt(i)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      initialValue: _links[i]['title'],
+                      decoration: InputDecoration(
+                        labelText: AppStrings.t('channel.linkTitle'),
+                        isDense: true,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    initialValue: _links[i]['title'],
-                    decoration: InputDecoration(
-                      labelText: AppStrings.t('channel.linkTitle'),
-                      isDense: true,
+                      onChanged: (val) => _links[i]['title'] = val,
                     ),
-                    onChanged: (val) => _links[i]['title'] = val,
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    initialValue: _links[i]['url'],
-                    keyboardType: TextInputType.url,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.t('channel.linkUrl'),
-                      isDense: true,
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      initialValue: _links[i]['url'],
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: AppStrings.t('channel.linkUrl'),
+                        isDense: true,
+                      ),
+                      onChanged: (val) => _links[i]['url'] = val,
                     ),
-                    onChanged: (val) => _links[i]['url'] = val,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

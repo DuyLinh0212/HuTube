@@ -1,3 +1,4 @@
+import '../../core/widgets/confirmation_dialog.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -42,6 +43,54 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
   List<LibraryVideo> _liked = [];
   List<PlaylistSummary> _playlists = [];
   int _downloadCount = 0;
+  String _librarySort = 'recent';
+  String get _librarySortLabel => switch (_librarySort) {
+    'name' => AppStrings.t('parity.libraryName'),
+    'videos' => AppStrings.t('parity.libraryVideos'),
+    _ => AppStrings.t('parity.libraryRecent'),
+  };
+
+  List<PlaylistSummary> get _sortedPlaylists {
+    final result = List<PlaylistSummary>.of(_playlists);
+    result.sort(
+      (a, b) => switch (_librarySort) {
+        'name' => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        'videos' => b.itemCount.compareTo(a.itemCount),
+        _ => (b.updatedAt ?? DateTime(1970)).compareTo(
+          a.updatedAt ?? DateTime(1970),
+        ),
+      },
+    );
+    return result;
+  }
+
+  Future<void> _showLibrarySort() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final entry in {
+                'recent': 'parity.libraryRecent',
+                'name': 'parity.libraryName',
+                'videos': 'parity.libraryVideos',
+              }.entries)
+                ListTile(
+                  title: Text(AppStrings.t(entry.value)),
+                  trailing: _librarySort == entry.key
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () => Navigator.pop(context, entry.key),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected != null && mounted) setState(() => _librarySort = selected);
+  }
 
   @override
   void initState() {
@@ -149,23 +198,14 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
   Future<void> _deletePlaylist(PlaylistSummary playlist) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppStrings.t('playlists.deleteTitle')),
-        content: Text(
-          AppStrings.format('playlists.deleteDescription', {
-            'name': playlist.name,
-          }),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (_) => ConfirmationDialog(
+        title: AppStrings.t('playlists.deleteTitle'),
+        message: AppStrings.format('playlists.deleteDescription', {
+          'name': playlist.name,
+        }),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
     if (confirmed != true) return;
@@ -326,8 +366,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
     }
 
     final user = widget.auth.user;
-    final name = (user?['displayName'] as String?) ?? 'Danh Ngô Công';
-    final username = (user?['username'] as String?) ?? 'danhcongngo6005';
+    final name =
+        (user?['displayName'] as String?) ?? AppStrings.t('common.account');
+    final username = (user?['username'] as String?) ?? '';
     final avatarUrl = user?['avatarUrl'] as String?;
     final hasPlan = user?['plan'] != null || user?['isPremium'] == true;
 
@@ -441,22 +482,21 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Row(
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
                               children: [
-                                Flexible(
-                                  child: Text(
-                                    '@$username',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isDark
-                                          ? const Color(0xFFAAAAAA)
-                                          : AppColors.textMuted,
-                                    ),
+                                Text(
+                                  '@$username',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark
+                                        ? const Color(0xFFAAAAAA)
+                                        : AppColors.textMuted,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
                                 Text(
                                   hasPlan
                                       ? 'Thành viên Premium'
@@ -478,7 +518,9 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                   ),
                   const SizedBox(height: 16),
                   // Action buttons: "Xem kênh" and "Các lợi ích của gói Premi..."
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       // Pill 1: Xem kênh / Tạo kênh
                       FilledButton(
@@ -519,7 +561,6 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       // Pill 2: Các lợi ích của gói
                       OutlinedButton(
                         onPressed: () => context.push('/plans'),
@@ -565,25 +606,29 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
             // ================= SECTION 1: VIDEO ĐÃ XEM =================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () => context.push('/library'),
+                    onTap: () => context.push('/history'),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            'Video đã xem',
-                            style: TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                              color: isDark
-                                  ? Colors.white
-                                  : AppColors.textPrimary,
+                          Flexible(
+                            child: Text(
+                              'Video đã xem',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -652,7 +697,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
               )
             else
               SizedBox(
-                height: 185,
+                height: 110 + MediaQuery.textScalerOf(context).scale(44) + 48,
                 child: ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   scrollDirection: Axis.horizontal,
@@ -687,10 +732,10 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
               child: Row(
                 children: [
                   _filterChip(
-                    label: 'Gần đây',
+                    label: _librarySortLabel,
                     hasDropdown: true,
                     isDark: isDark,
-                    onTap: () {},
+                    onTap: _showLibrarySort,
                   ),
                   const SizedBox(width: 8),
                   _filterChip(
@@ -728,11 +773,11 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                   : null,
               fallbackIcon: Icons.thumb_up_alt_rounded,
               isDark: isDark,
-              onTap: () => context.push('/library'),
+              onTap: () => context.push('/liked'),
             ),
 
             // Custom playlists from user
-            for (final p in _playlists)
+            for (final p in _sortedPlaylists)
               _buildPlaylistTile(
                 title: p.name,
                 subtitle: p.visibility == 'public' ? 'Công khai' : 'Riêng tư',
@@ -774,6 +819,8 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF272727) : AppColors.surfaceAlt,

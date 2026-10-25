@@ -1,6 +1,6 @@
 # HuTube Mobile — S4-01 / S4-02
 
-Ứng dụng Flutter dùng chung API với User Web và Admin Web. Mặc định bản mobile local nối tới backend trên máy phát triển qua `http://10.0.2.2:5080/api/v1` (Android Emulator); có thể ghi đè bằng `--dart-define=API_BASE_URL=...`. Build release/CI luôn truyền URL môi trường tương ứng.
+Ứng dụng Flutter dùng chung API với User Web và Admin Web. APK build trên PC mặc định dùng API `https://api.dalitu.app/api/v1`, recommendation `https://recommendation.dalitu.app/api/v1` và origin xác minh email `https://dalitu.app`. CI/CD tiếp tục xuất APK artifact với các URL môi trường tương ứng; không build APK trên EC2. Chạy USB/emulator local cần ghi đè bằng `--dart-define` hoặc dùng `scripts/run-local.ps1 -Component mobile`.
 
 ## Chạy local
 
@@ -10,14 +10,14 @@ Feed cá nhân hóa gọi trực tiếp FastAPI tại `RECOMMENDATION_BASE_URL`,
 
 ```powershell
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1 --dart-define=AUTH_WEB_BASE_URL=http://localhost:4200
 ```
 
-- Android Emulator: `10.0.2.2` là máy host; đây cũng là fallback Development khi không truyền biến.
+- Android Emulator: truyền `API_BASE_URL=http://10.0.2.2:5080/api/v1` để kết nối máy host.
 - Điện thoại Android nối USB: chạy `adb reverse tcp:5080 tcp:5080` rồi dùng `http://127.0.0.1:5080/api/v1`.
 - iOS Simulator: dùng `http://localhost:5080/api/v1` khi backend chạy trên máy Mac. iOS cần Xcode để build.
 - Điện thoại thật cùng LAN: truyền IP LAN máy backend và bind backend vào địa chỉ có thể truy cập. Không lưu URL vào source để chuyển môi trường.
-- Build release dùng HTTPS. Có thể truyền `--dart-define=API_BASE_URL=https://api.dalitu.app/api/v1` và `--dart-define=RECOMMENDATION_BASE_URL=https://recommendation.dalitu.app/api/v1`; Android chỉ cho HTTP ở debug/profile.
+- Build APK trên PC: `flutter build apk --release`. Có thể ghi đè `API_BASE_URL`, `RECOMMENDATION_BASE_URL` và `AUTH_WEB_BASE_URL` khi đổi môi trường; Android chỉ cho HTTP ở debug/profile.
 
 Biểu tượng kết nối trên thanh đầu trang gọi `GET /system/info`, hiện trạng thái thực từ backend.
 
@@ -53,13 +53,36 @@ Access token chỉ ở bộ nhớ. Refresh token nằm trong `flutter_secure_sto
 - `hutube://auth/verify-email?token=<url-encoded-token>`
 - `hutube://auth/reset-password?token=<url-encoded-token>`
 
-Email hiện mở trang web; trang xác minh/đặt lại có thể chuyển sang app bằng các URL trên. Mã thật lấy từ email do backend gửi (Development dùng pickup `.eml`); không có API giả trả mã và không có trường nhập token kỹ thuật trong UI. Trên Android có thể kiểm tra routing bằng `adb shell am start -a android.intent.action.VIEW -d "hutube://auth/account" com.hutube.user_app`.
+Email mở trang web; trang xác minh/đặt lại có thể chuyển sang app bằng các URL trên. Sau đăng ký, màn kiểm tra hộp thư cho phép gửi lại email hoặc dán liên kết xác minh. Mobile chỉ nhận liên kết web đúng origin `AUTH_WEB_BASE_URL` (mặc định `https://dalitu.app`) hoặc scheme đã khai báo, trích token rồi gửi tới API của app. Truyền `--dart-define=AUTH_WEB_BASE_URL=...` khớp `Auth__WebBaseUrl` của backend khi đổi môi trường, ví dụ `http://localhost:4200` cho local. CI dùng biến `MOBILE_AUTH_WEB_BASE_URL` trong environment `mobile`. Không có API giả trả mã. Chế độ gửi email phụ thuộc cấu hình backend (SMTP hoặc pickup). Trên Android có thể kiểm tra routing bằng `adb shell am start -a android.intent.action.VIEW -d "hutube://auth/account" com.hutube.user_app`.
 
 Custom scheme phục vụ local. Trước khi phát hành, cấu hình HTTPS App Links / Universal Links với domain đã sở hữu để xác minh chủ ứng dụng.
 
+## Phát nền và tải xuống
+
+Khi người dùng chọn một video mới, app tự phát sau khi tải nguồn thành công,
+không cần bấm Play. Lựa chọn tự phát video tiếp theo chỉ điều khiển chuyển
+video khi kết thúc; không chặn phát video được chọn thủ công. Mở lại video
+thông thường giữ tiến độ đã lưu; luồng chuyển tiếp bắt đầu video từ đầu.
+
+Cài đặt Wi-Fi only áp dụng cho tải thủ công; tải thông minh luôn yêu cầu Wi-Fi, tài khoản đủ quyền, tối đa 3 video và hạn mức dung lượng đã chọn. Chất lượng mặc định áp dụng khi tạo yêu cầu tải; Hỏi mỗi lần mở bộ chọn, còn tải thông minh dùng tối đa 480p cho lựa chọn này. Nếu không có chất lượng phù hợp, tải thủ công hỏi lại và tải thông minh bỏ qua. Đề xuất tải có thể ẩn độc lập.
+
+Phát nền kiểm tra quyền gói và chế độ Tắt / Chỉ tai nghe hoặc loa ngoài / Luôn bật; tháo thiết bị âm thanh ở nền sẽ dừng nếu chế độ yêu cầu. Tải file vẫn chạy trong tiến trình app, chưa bảo đảm tiếp tục khi hệ điều hành dừng tiến trình. Các ca chưa xác minh trên thiết bị được ghi trong [checklist](MANUAL_DEVICE_TEST_CHECKLIST.md).
+
+PiP thủ công yêu cầu quyền gói; bật cài đặt PiP chỉ quyết định tự mở khi ra
+Home, không cấp thêm quyền. Android dùng Activity và player đang có để vào
+PiP, giữ nguyên tiến độ. Phát nền ở chế độ tai nghe có trạng thái Chờ tai nghe
+và có thể tắt yêu cầu ngay từ player. Các ca PiP/khóa màn hình trên APK mới
+vẫn cần xác nhận bằng thiết bị theo checklist.
+
 ## Kiểm tra
 
+CI dùng Flutter **3.47.2 stable** (xem `.github/workflows/ci.yml` tại repo root).
+Nên chạy kiểm tra local cùng phiên bản: SDK cũ có thể chưa có các assertion
+Material/ListTile đang được CI kiểm tra. Các surface chứa hàng nhấn dùng
+`Material` để nền và hiệu ứng nhấn được vẽ đúng.
+
 ```powershell
+flutter --version
 flutter analyze
 flutter test --reporter expanded
 flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:5080/api/v1
@@ -78,3 +101,6 @@ flutter test test/api_smoke_test.dart --dart-define=LIVE_API_BASE_URL=http://loc
 Chỉ chạy với Development pickup email. Test tạo một tài khoản smoke có email duy nhất, kiểm tra Register → Verify → Login → Me → Refresh → Restore → Logout others → Forgot/Reset → từ chối phiên cũ → Login mới → Logout. Mặc định test được bỏ qua khi thiếu hai biến, nên unit/widget suite không đòi backend. HTTP và AuthController trong smoke là code thật; TokenStore thay bằng memory để chạy trên Windows, không thay cho kiểm thử Keychain/Android trên thiết bị.
 
 Dòng `flutter_secure_storage` 10 được khóa theo major vì tương thích compileSdk 36 của Flutter hiện tại; dòng 11 yêu cầu SDK 37. Khóa resolved dependencies trong `pubspec.lock` được commit để CI dùng cùng phiên bản.
+
+Báo cáo kiểm thử hiện tại: [FUNCTIONAL_TEST_REPORT.md](FUNCTIONAL_TEST_REPORT.md).
+Checklist tự kiểm trên máy thật: [MANUAL_DEVICE_TEST_CHECKLIST.md](MANUAL_DEVICE_TEST_CHECKLIST.md).

@@ -17,7 +17,12 @@ import 'creator_subtitles_screen.dart';
 import 'video_upload_screen.dart';
 
 class CreatorHubScreen extends StatefulWidget {
-  const CreatorHubScreen({super.key, required this.auth});
+  const CreatorHubScreen({
+    super.key,
+    required this.auth,
+    this.openUpload = false,
+  });
+  final bool openUpload;
   final AuthController auth;
   @override
   State<CreatorHubScreen> createState() => _CreatorHubScreenState();
@@ -28,6 +33,7 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
   List<ChannelDetail> _accessibleChannels = const [];
   bool _loading = true;
   String? _error;
+  bool _uploadOpened = false;
 
   @override
   void initState() {
@@ -57,6 +63,10 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
               selectedChannel ?? ownedChannel ?? accessibleChannels.firstOrNull;
           _loading = false;
         });
+        if (widget.openUpload && !_uploadOpened && _channel != null) {
+          _uploadOpened = true;
+          await _open(VideoUploadScreen(auth: widget.auth, channel: _channel!));
+        }
       }
     } on ApiFailure catch (error) {
       if (mounted) {
@@ -120,6 +130,7 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
       children: [
         if (_accessibleChannels.length > 1)
           DropdownButtonFormField<String>(
+            isExpanded: true,
             initialValue: channel.id,
             decoration: InputDecoration(
               labelText: AppStrings.t('creator.channelSelector'),

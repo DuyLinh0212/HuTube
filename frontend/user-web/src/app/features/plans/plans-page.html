@@ -79,8 +79,8 @@
         <div class="card-header">
           <div class="header-icon">📊</div>
           <div class="header-titles">
-            <h3>{{ 'plans.quotaTitle' | translate }}</h3>
-            <p>{{ 'plans.quotaDesc' | translate }}</p>
+            <h3>{{ (showFamilyStorage(plan) ? 'plans.familyStorageTitle' : 'plans.quotaTitle') | translate }}</h3>
+            <p>{{ (showFamilyStorage(plan) ? 'plans.familyStorageDesc' : 'plans.quotaDesc') | translate }}</p>
           </div>
           <div class="quota-numbers">
             <span class="used">{{ formatBytes(plan.usedStorage) }}</span>
@@ -90,16 +90,31 @@
         </div>
 
         <div class="progress-wrap">
-          <div class="progress-bar" [attr.aria-label]="'plans.usage' | translate">
+          @if (showFamilyStorage(plan)) {
+            <div class="progress-bar family-storage-bar" role="img" [attr.aria-label]="storageSummary(plan)">
+              @for (slice of storageSlices(plan); track slice.key) {
+                @if (slice.percent > 0) {
+                  <span class="storage-segment" [class.is-free]="slice.free" [style.width.%]="slice.percent" [style.background]="slice.color" [title]="slice.label + ': ' + formatBytes(slice.bytes)" aria-hidden="true"></span>
+                }
+              }
+            </div>
+            <ul class="storage-legend" [attr.aria-label]="'plans.storageBreakdown' | translate">
+              @for (slice of storageSlices(plan); track slice.key) {
+                <li><span class="storage-swatch" [style.background]="slice.color" aria-hidden="true"></span><span class="storage-label">{{ slice.label }}</span><strong>{{ formatBytes(slice.bytes) }}</strong></li>
+              }
+            </ul>
+          } @else {
+          <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="quotaPercent(plan)" [attr.aria-label]="'plans.usage' | translate">
             <div class="progress-fill" [style.width.%]="quotaPercent(plan)" [class.warning]="quotaPercent(plan) > 85" [class.danger]="quotaPercent(plan) >= 98"></div>
           </div>
+          }
           <div class="progress-footer">
             <span class="percent">{{ quotaPercent(plan) | localeNumber:'1.0-1' }}% {{ 'plans.used' | translate }}</span>
             <span class="remaining">{{ 'plans.remaining' | translate }} <strong>{{ formatBytes(plan.remainingStorage) }}</strong></span>
           </div>
         </div>
 
-        @if (!plan.isSharedMember) {
+        @if (showAllocation(plan)) {
         <div class="quota-allocation-bar">
           <div class="allocation-item">
             <span class="alloc-label">{{ 'plans.allocatedTotal' | translate }}</span>
@@ -129,7 +144,7 @@
             }
           </div>
         </div>
-        } @else {
+        } @else if (plan.isSharedMember) {
           <div class="shared-notice-box shared-member-quota-note">
             {{ 'plans.sharedMemberQuota' | translate }}
           </div>

@@ -45,12 +45,14 @@
     </nav>
 
     <div class="header-actions">
-      <button type="button" class="btn-export" (click)="exportData()">
+      @if (auth.hasPermission('channel.export')) {
+      <button type="button" class="btn-export" (click)="exportData()" [disabled]="busy()" data-testid="channel-export">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
         </svg>
         {{ 'channels.export' | translate }}
       </button>
+      }
     </div>
   </header>
 
@@ -519,6 +521,16 @@
             </div>
 
             <!-- Quick Action Buttons -->
+            @if (detail.channel.status === 'suspended') {
+              <p class="suspension-summary">
+                @if (detail.channel.suspendedUntil) {
+                  {{ 'channels.suspendedUntil' | translate }}
+                  <strong>{{ detail.channel.suspendedUntil | date:'short':undefined:dateLocale() }}</strong>
+                } @else {
+                  {{ 'channels.suspensionIndefinite' | translate }}
+                }
+              </p>
+            }
             <div class="drawer-actions">
               @if (detail.channel.status === 'active') {
                 <button type="button" class="btn-action-amber" [disabled]="!canSuspend()" (click)="openActionModal('suspend', detail.channel)">
@@ -539,6 +551,9 @@
                 {{ 'channels.delete' | translate }}
               </button>
             </div>
+
+            <app-admin-target-actions targetType="channel" [targetId]="detail.channel.channelId" [name]="detail.channel.name"
+              [description]="detail.description" [contactEmail]="detail.contactEmail" (changed)="load(); openDetail(detail.channel)" />
 
             <!-- Recent Videos -->
             <section class="drawer-sub-section">
@@ -587,12 +602,35 @@
 
   <!-- Action Modal -->
   @if (showActionModal()) {
-    <app-confirm-dialog [title]="actionLabel(actionModalType() || '')" [confirmLabel]="'channels.confirm' | translate" (cancelled)="closeActionModal()" (confirmed)="submitAction()" [tone]="['suspend', 'ban', 'delete', 'lock'].includes(actionModalType() || '') ? 'danger' : 'primary'" panelClass="modal-dialog" [busy]="busy()" [confirmDisabled]="actionModalReason().trim().length < 3" initialFocus="field">
+    <app-confirm-dialog [title]="actionLabel(actionModalType() || '')" [confirmLabel]="'channels.confirm' | translate" (cancelled)="closeActionModal()" (confirmed)="submitAction()" [tone]="['suspend', 'ban', 'delete', 'lock'].includes(actionModalType() || '') ? 'danger' : 'primary'" panelClass="modal-dialog" [busy]="busy()" [confirmDisabled]="actionModalReason().trim().length < 3 || suspensionInvalid()" initialFocus="field">
 <div class="modal-body">
  @if (error()) { <app-result-notice tone="error" [message]="error()" /> }
           <p class="modal-lead">
             {{ 'channels.confirmAction' | translate:{ action: actionLabel(actionModalType() || ''), name: actionModalChannel()?.name || '', handle: actionModalChannel()?.handle || '' } }}
           </p>
+
+          @if (actionModalType() === 'suspend') {
+            <div class="modal-form-label">
+              <label for="channel-suspension-duration">{{ 'channels.suspensionDuration' | translate }}</label>
+              <select id="channel-suspension-duration" class="modal-input" [ngModel]="suspensionDuration()" (ngModelChange)="suspensionDuration.set($event)" [disabled]="busy()" aria-describedby="suspension-help">
+                <option value="1">{{ 'channels.suspensionDays' | translate:{ count: 1 } }}</option>
+                <option value="3">{{ 'channels.suspensionDays' | translate:{ count: 3 } }}</option>
+                <option value="7">{{ 'channels.suspensionDays' | translate:{ count: 7 } }}</option>
+                <option value="30">{{ 'channels.suspensionDays' | translate:{ count: 30 } }}</option>
+                <option value="custom">{{ 'channels.suspensionCustom' | translate }}</option>
+                <option value="indefinite">{{ 'channels.suspensionIndefinite' | translate }}</option>
+              </select>
+            </div>
+            @if (suspensionDuration() === 'custom') {
+              <label class="modal-form-label">
+                <span>{{ 'channels.suspendedUntil' | translate }} <strong class="text-red">*</strong></span>
+                <input type="datetime-local" class="modal-input" [min]="suspensionMinDate()" [ngModel]="suspensionCustomUntil()" (ngModelChange)="suspensionCustomUntil.set($event)" [disabled]="busy()" [attr.aria-invalid]="suspensionInvalid()" aria-describedby="suspension-help" />
+              </label>
+            }
+            <p id="suspension-help" class="suspension-help">
+              {{ (suspensionDuration() === 'indefinite' ? 'channels.suspensionManualHint' : 'channels.suspensionHint') | translate }}
+            </p>
+          }
 
           <label class="modal-form-label">
             <span>{{ 'channels.reason' | translate }} <strong class="text-red">*</strong>:</span>

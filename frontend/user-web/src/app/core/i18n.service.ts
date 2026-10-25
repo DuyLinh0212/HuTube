@@ -514,15 +514,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.downloadQuality720p': 'Cao (720p)',
     'account.downloadQuality480p': 'Chuẩn (480p)',
     'account.downloadQuality144p': 'Thấp (144p)',
-    'account.smartDownloadsHeading': 'Tải xuống thông minh',
-    'account.smartDownloadsToggle': 'Bật tính năng tải xuống thông minh',
-    'account.smartDownloadsDesc': 'Chúng tôi sẽ tự động tải video đề xuất xuống cho bạn.',
     'account.deleteAllDownloadsHeading': 'Xóa tất cả video tải xuống',
     'account.deleteAllDownloadsDesc': 'Khi bạn xóa video tải xuống, thiết bị này sẽ có thêm dung lượng trống',
     'account.deleteAllDownloadsBtn': 'Xóa tất cả video tải xuống',
     'account.deleteAllDownloadsSuccess': 'Đã xóa tất cả video tải xuống trên thiết bị này',
     'account.downloadQualitySaved': 'Đã cập nhật chất lượng tải xuống',
-    'account.smartDownloadsSaved': 'Đã cập nhật tính năng tải xuống thông minh',
 
     // Tab Billing and Payments
     'account.billingHeroTitle': 'Lập hóa đơn và thanh toán',
@@ -1309,6 +1305,14 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.autoRenew': 'Tự động gia hạn',
     'plans.enabled': 'Đang bật',
     'plans.quotaTitle': 'Quota dung lượng kênh',
+    'plans.familyStorageTitle': 'Dung lượng gói gia đình / nhóm',
+    'plans.familyStorageDesc': 'Dung lượng thực tế đã dùng của từng người trong tổng dung lượng gói.',
+    'plans.storageBreakdown': 'Chi tiết dung lượng theo từng người',
+    'plans.storageOwner': 'Bạn (chủ gói)',
+    'plans.storageMember': 'Thành viên',
+    'plans.storageFormerMember': '{name} (đã rời nhóm)',
+    'plans.storageOther': 'Dung lượng khác trong gói',
+    'plans.storageFree': 'Còn trống',
     'plans.quotaDesc': 'Dung lượng video đã tải lên kênh hiện tại',
     'plans.usage': 'Mức sử dụng dung lượng',
     'plans.used': 'đã sử dụng',
@@ -1450,6 +1454,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.speed': 'Tốc độ',
     'watch.pictureInPicture': 'Phát trong cửa sổ nổi',
     'watch.exitPictureInPicture': 'Đóng cửa sổ nổi',
+    'watch.playingInPictureInPicture': 'Video đang phát trong cửa sổ nổi',
+    'watch.returnToPlayer': 'Quay lại trình phát lớn',
     'watch.fullscreen': 'Toàn màn hình',
     'watch.progress': 'Tiến trình video',
     'watch.actions': 'Tác vụ video',
@@ -1483,6 +1489,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.loginComment': 'Đăng nhập để tham gia bình luận về video này.',
     'watch.reply': 'Trả lời',
     'watch.replyPlaceholder': 'Viết câu trả lời…',
+    'watch.moreReplies': 'Xem thêm {count} câu trả lời',
+    'watch.replyInvalid': 'Nhập từ 1 đến 5.000 ký tự.',
+    'watch.replyLoadError': 'Không tải được câu trả lời. Vui lòng thử lại.',
     'watch.send': 'Gửi',
     'watch.likeComment': 'Thích',
     'watch.dislikeComment': 'Không thích',
@@ -1882,7 +1891,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.reportSent': 'Đã gửi báo cáo bình luận.'
     ,'watch.reportError': 'Không thể gửi báo cáo. Vui lòng thử lại.'
     ,'watch.downloadUnsupported': 'Gói hiện tại không hỗ trợ tải xuống video.'
-    ,'watch.downloadCreatedWithLink': 'Đã tạo bản tải xuống. Bạn có thể mở liên kết từ thông báo tải xuống.'
+    ,'watch.downloadSaved': 'Đã lưu video trên thiết bị.'
+    ,'watch.downloadStarted': 'Đã gửi video tới trình tải xuống của trình duyệt.'
     ,'watch.downloadCreated': 'Đã tạo bản tải xuống.'
     ,'watch.downloadError': 'Không thể tạo bản tải xuống.'
     ,'watch.noReplies': 'Chưa có câu trả lời.'
@@ -2657,15 +2667,11 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'account.downloadQuality720p': 'High (720p)',
     'account.downloadQuality480p': 'Standard (480p)',
     'account.downloadQuality144p': 'Low (144p)',
-    'account.smartDownloadsHeading': 'Smart downloads',
-    'account.smartDownloadsToggle': 'Turn on smart downloads',
-    'account.smartDownloadsDesc': "We'll automatically download recommended videos for you.",
     'account.deleteAllDownloadsHeading': 'Delete all downloads',
     'account.deleteAllDownloadsDesc': 'When you delete downloaded videos, this device will have more free storage',
     'account.deleteAllDownloadsBtn': 'Delete all downloads',
     'account.deleteAllDownloadsSuccess': 'All downloads have been deleted on this device',
     'account.downloadQualitySaved': 'Download quality updated',
-    'account.smartDownloadsSaved': 'Smart downloads setting updated',
 
     // Tab Billing and Payments
     'account.billingHeroTitle': 'Billing and payments',
@@ -3452,6 +3458,14 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'plans.autoRenew': 'Auto-renew',
     'plans.enabled': 'On',
     'plans.quotaTitle': 'Channel storage quota',
+    'plans.familyStorageTitle': 'Family / group storage',
+    'plans.familyStorageDesc': 'Actual storage used by each person within the total plan capacity.',
+    'plans.storageBreakdown': 'Storage breakdown by person',
+    'plans.storageOwner': 'You (plan owner)',
+    'plans.storageMember': 'Member',
+    'plans.storageFormerMember': '{name} (left the group)',
+    'plans.storageOther': 'Other plan storage',
+    'plans.storageFree': 'Free space',
     'plans.quotaDesc': 'Video storage currently used by this channel',
     'plans.usage': 'Storage usage',
     'plans.used': 'used',
@@ -3593,6 +3607,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.speed': 'Speed',
     'watch.pictureInPicture': 'Play in a floating window',
     'watch.exitPictureInPicture': 'Close floating window',
+    'watch.playingInPictureInPicture': 'Video is playing in the floating window',
+    'watch.returnToPlayer': 'Return to the main player',
     'watch.fullscreen': 'Fullscreen',
     'watch.progress': 'Video progress',
     'watch.actions': 'Video actions',
@@ -3626,6 +3642,9 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'watch.loginComment': 'Sign in to join the conversation about this video.',
     'watch.reply': 'Reply',
     'watch.replyPlaceholder': 'Write a reply…',
+    'watch.moreReplies': 'View {count} more replies',
+    'watch.replyInvalid': 'Enter between 1 and 5,000 characters.',
+    'watch.replyLoadError': 'Unable to load replies. Please try again.',
     'watch.send': 'Send',
     'watch.likeComment': 'Like',
     'watch.dislikeComment': 'Dislike',
@@ -4025,7 +4044,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'watch.reportSent': 'Comment report sent.'
     ,'watch.reportError': 'Unable to send the report. Please try again.'
     ,'watch.downloadUnsupported': 'The current plan does not support video downloads.'
-    ,'watch.downloadCreatedWithLink': 'Download created. You can open the link from the download notification.'
+    ,'watch.downloadSaved': 'Video saved on this device.'
+    ,'watch.downloadStarted': 'Video sent to your browser downloads.'
     ,'watch.downloadCreated': 'Download created.'
     ,'watch.downloadError': 'Unable to create the download.'
     ,'watch.noReplies': 'No replies yet.'
@@ -4378,7 +4398,7 @@ export class I18nService {
       maximumFractionDigits: 1,
     }).format(count / divisor);
 
-    return lang === 'vi' ? `${compactValue} ${suffix}` : `${compactValue}${suffix}`;
+    return `${compactValue}${suffix}`;
   }
 
   t(key: string, params?: TranslationParams): string {

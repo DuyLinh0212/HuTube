@@ -10,7 +10,7 @@ public sealed class User
     public string DisplayName { get; set; } = "";
     public string? AvatarUrl { get; set; }
     public string? Bio { get; set; }
-    public Guid RoleId { get; set; }
+    public Guid? RoleId { get; set; }
     public Guid? PlanId { get; set; }
     public string PreferredLanguage { get; set; } = "vi";
     public string Theme { get; set; } = "system";

@@ -47,6 +47,9 @@ public sealed record PlanSubscriptionInfo(
     bool AutoRenew,
     bool IsExpired);
 
+public sealed record PlanStorageUsageResponse(
+    Guid? UserId, string? DisplayName, long StorageUsed, bool IsOwner, bool IsFormerMember = false);
+
 public sealed record PlanDetailResponse(
     Guid? PlanId,
     string? Code,
@@ -70,7 +73,8 @@ public sealed record PlanDetailResponse(
     string? MaxDownloadQuality = null,
     long? OwnerAllocatedStorage = null,
     string? SharedOwnerDisplayName = null,
-    long? OwnerOwnStorageUsed = null);
+    long? OwnerOwnStorageUsed = null,
+    IReadOnlyList<PlanStorageUsageResponse>? StorageUsageBreakdown = null);
 
 public sealed record PlanSubscriptionRequest(
     string? PaymentMethod = null,

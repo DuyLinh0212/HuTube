@@ -9,6 +9,10 @@ if (-not $EnvironmentFile) {
     $EnvironmentFile = Join-Path $script:RepositoryRoot '.env.local'
 }
 Import-LocalEnvironment -Path $EnvironmentFile
+if ($Component -eq 'api' -and (Test-Path (Join-Path $script:RepositoryRoot '.env.messaging.local'))) {
+    & (Join-Path $PSScriptRoot 'setup-rabbitmq.ps1')
+    Import-LocalEnvironment -Path (Join-Path $script:RepositoryRoot '.env.messaging.local')
+}
 Push-Location $script:RepositoryRoot
 try {
     switch ($Component) {
@@ -48,14 +52,19 @@ try {
                     if ($recommendationUri.Host -in @('localhost', '127.0.0.1', '10.0.2.2', '::1')) {
                         $recommendationUri.Port = 8000
                         $recommendationUri.Uri.AbsoluteUri.TrimEnd('/')
-                    } else { 'https://hutube-recommendation-services.onrender.com/api/v1' }
+                    } else { 'https://recommendation.dalitu.app/api/v1' }
                 }
-                $arguments = @('run', "--dart-define=API_BASE_URL=$apiUrl", "--dart-define=RECOMMENDATION_BASE_URL=$recommendationUrl")
+                $authWebUrl = if ($env:MOBILE_AUTH_WEB_BASE_URL) { $env:MOBILE_AUTH_WEB_BASE_URL } elseif ($env:Auth__WebBaseUrl) { $env:Auth__WebBaseUrl } else { 'http://localhost:4200' }
+                $arguments = @('run', "--dart-define=API_BASE_URL=$apiUrl", "--dart-define=RECOMMENDATION_BASE_URL=$recommendationUrl", "--dart-define=AUTH_WEB_BASE_URL=$authWebUrl")
                 $googleWebClientId = $env:Google__ClientId
                 if (-not [string]::IsNullOrWhiteSpace($googleWebClientId) -and -not $googleWebClientId.Contains('REPLACE_WITH')) {
                     $arguments += "--dart-define=GOOGLE_WEB_CLIENT_ID=$googleWebClientId"
                 }
                 if ($Device) { $arguments += @('-d', $Device) }
+                foreach ($firebaseKey in @('FIREBASE_API_KEY', 'FIREBASE_APP_ID', 'FIREBASE_PROJECT_ID', 'FIREBASE_MESSAGING_SENDER_ID', 'FIREBASE_IOS_BUNDLE_ID')) {
+                    $firebaseValue = [Environment]::GetEnvironmentVariable($firebaseKey, 'Process')
+                    if ($firebaseValue) { $arguments += "--dart-define=$firebaseKey=$firebaseValue" }
+                }
                 Invoke-CheckedCommand flutter $arguments
             } finally { Pop-Location }
         }

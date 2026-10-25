@@ -21,7 +21,7 @@ public sealed record ChannelSearchResultResponse(Guid ChannelId, string Name, st
 public sealed record ChapterRequest(int StartSeconds, string Title);
 public sealed record VideoCardRequest(int StartSeconds, Guid VideoId);
 public sealed record VideoCardLinkResponse(Guid VideoId, int StartSeconds, string Title, string? ThumbnailUrl);
-public sealed record RenditionResponse(string Quality, int Width, int Height, long FileSize, string Url);
+public sealed record RenditionResponse(string Quality, int Width, int Height, long FileSize, string Url, string? FileExtension = null);
 public sealed record VideoStatsResponse(long Views, long Likes, long Dislikes, int Comments, decimal? AverageRating, int RatingCount, long Shares, long WatchSeconds = 0);
 public sealed record VideoViewerStateResponse(string? Reaction, int? Rating, int ResumeAtSeconds, decimal Progress);
 public sealed record VideoCardResponse(Guid VideoId, Guid ChannelId, string ChannelName, string ChannelHandle, string Title,
@@ -64,9 +64,10 @@ public sealed record ShareRequest(string? Method);
 public sealed record ShareResponse(string Url, long ShareCount);
 public sealed record CreateCommentRequest(string Content, Guid? ParentCommentId);
 public sealed record UpdateCommentRequest(string Content);
+public sealed record CommentCreatorStateRequest(bool Enabled);
 public sealed record CommentResponse(Guid CommentId, Guid VideoId, Guid UserId, string DisplayName, Guid? ParentCommentId,
     string Content, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, long Likes, long Dislikes,
-    string? MyReaction, int ReplyCount, string? VideoTitle = null);
+    string? MyReaction, int ReplyCount, string? VideoTitle = null, bool IsPinned = false, bool HasCreatorHeart = false);
 public sealed record ReportCommentRequest(Guid ViolationTypeId, string Description);
 public sealed record ReportResponse(Guid ReportId, string Status, DateTimeOffset CreatedAt);
 public sealed record ViolationTypeResponse(Guid ViolationTypeId, string Code, string Name, string? Description);
@@ -154,6 +155,7 @@ public interface IContentService
     Task<CommentResponse> UpdateCommentAsync(Guid userId, Guid commentId, UpdateCommentRequest request, CancellationToken ct = default);
     Task DeleteCommentAsync(Guid userId, Guid commentId, CancellationToken ct = default);
     Task<ReactionResponse> SetCommentReactionAsync(Guid userId, Guid commentId, string? reaction, CancellationToken ct = default);
+    Task<CommentResponse> SetCommentCreatorStateAsync(Guid actorId, Guid commentId, bool enabled, bool pin, CancellationToken ct = default);
     Task<CommentResponse> SetCommentHiddenAsync(Guid actorId, Guid commentId, bool hidden, string? reason, CancellationToken ct = default);
     Task<IReadOnlyList<RenditionResponse>> GetDownloadOptionsAsync(Guid userId, Guid videoId, CancellationToken ct = default);
     Task<DownloadResponse> CreateDownloadAsync(Guid userId, Guid videoId, string quality, CancellationToken ct = default);

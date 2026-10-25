@@ -35,10 +35,38 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Database: Host=postgres;Port=5432;Database=${POSTGRES_DB:-hutube};Username=${POSTGRES_USER:-hutube};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      RabbitMq__Enabled: "true"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__UserName: ${RABBITMQ_USER:-dalitu}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+      RabbitMq__VirtualHost: dalitu
     ports:
       - "5080:8080"
     depends_on:
       migrate:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+  rabbitmq:
+    image: rabbitmq:4.3.6-management
+    hostname: dalitu-rabbitmq-local
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-dalitu}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: dalitu
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2"
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
 volumes:
   postgres-data:
+  rabbitmq-data:

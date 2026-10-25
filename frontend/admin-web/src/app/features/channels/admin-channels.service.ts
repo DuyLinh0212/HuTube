@@ -15,6 +15,7 @@ export interface AdminPage<T> {
 export interface AdminContentAction {
   reason: string;
   notifyOwner?: boolean;
+  suspendedUntil?: string | null;
 }
 
 export interface AdminChannel {
@@ -28,6 +29,7 @@ export interface AdminChannel {
   ownerAvatarUrl?: string | null;
   status: string; // 'active' | 'suspended' | 'banned' | 'deleted'
   statusReason?: string | null;
+  suspendedUntil?: string | null;
   createdAt: string;
   videoCount: number;
   subscriberCount: number;
@@ -86,7 +88,7 @@ export class AdminChannelsService {
     sortDescending?: boolean;
     page?: number;
     pageSize?: number;
-  }): Observable<AdminPage<AdminChannel>> {
+  }, exportAll = false): Observable<AdminPage<AdminChannel>> {
     let params = new HttpParams()
       .set('page', options.page ?? 1)
       .set('pageSize', options.pageSize ?? 8);
@@ -104,7 +106,7 @@ export class AdminChannelsService {
       params = params.set('sortDescending', options.sortDescending.toString());
     }
 
-    return this.http.get<AdminPage<AdminChannel>>(`${this.base}/channels`, { params });
+    return this.http.get<AdminPage<AdminChannel>>(`${this.base}/channels${exportAll ? '/export' : ''}`, { params });
   }
 
   getChannelDetail(id: string): Observable<AdminChannelDetail> {

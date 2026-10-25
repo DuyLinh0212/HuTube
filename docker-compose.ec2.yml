@@ -15,17 +15,45 @@ services:
       ASPNETCORE_URLS: http://+:8080
       Recommendation__Enabled: "true"
       Recommendation__ServiceUrl: http://recommendation:8000
+      RabbitMq__Enabled: "true"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__VirtualHost: dalitu
     ports:
       - "127.0.0.1:${API_HOST_PORT:-5080}:8080"
     volumes:
       - hutube-work:/app/.work
       - hutube-uploads:/app/uploads
+      - ${DALITU_FIREBASE_DIRECTORY:-/home/ubuntu/.config/dalitu/firebase}:/run/secrets/firebase:ro
     restart: unless-stopped
     depends_on:
       migrate:
         condition: service_completed_successfully
       recommendation:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:4.3.6-management
+    container_name: dalitu-rabbitmq
+    hostname: dalitu-rabbitmq
+    env_file:
+      - ./.env.rabbitmq
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2"
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    mem_limit: 384m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
 
   migrate:
     image: ${DALITU_API_IMAGE:-dalitu-api:local}
@@ -77,3 +105,4 @@ volumes:
   hutube-uploads:
   caddy-data:
   caddy-config:
+  rabbitmq-data:

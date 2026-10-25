@@ -62,7 +62,7 @@
   cursor: grab;
   user-select: none;
 
-  &:active {
+  &.is-dragging {
     cursor: grabbing;
   }
 
@@ -315,30 +315,6 @@
   font-size: 1.05rem;
   font-weight: 750;
   color: var(--card-accent);
-}
-
-.view-all-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.8rem;
-  font-weight: 650;
-  color: #6366f1;
-  text-decoration: none;
-  transition: color 0.15s ease, transform 0.15s ease;
-
-  .arrow {
-    font-size: 0.95rem;
-    transition: transform 0.18s ease;
-  }
-
-  &:hover {
-    color: #4f46e5;
-
-    .arrow {
-      transform: translateX(3px);
-    }
-  }
 }
 
 .ranking-items-list {

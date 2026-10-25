@@ -854,6 +854,9 @@ public sealed class ReportService(
                 if (decision is "hide" or "remove" or "lock_channel")
                 {
                     channel.Status = "suspended";
+                    channel.SuspendedUntil = null;
+                    db.Entry(channel).Property(c => c.Status).IsModified = true;
+                    db.Entry(channel).Property(c => c.SuspendedUntil).IsModified = true;
                     channel.StatusReason = request.Reason.Trim();
                     channel.UpdatedAt = now;
                     message = $"Đã khóa kênh '{channel.Name}'.";

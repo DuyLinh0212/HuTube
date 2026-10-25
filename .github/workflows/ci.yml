@@ -31,7 +31,10 @@ jobs:
       - name: Verify EC2 deployment gates and recovery
         run: python -m unittest discover -s scripts/deploy/tests -v
       - name: Validate installer syntax
-        run: bash -n scripts/deploy/install-ec2-autodeploy.sh
+        run: |
+          for script in scripts/deploy/install-ec2-autodeploy.sh scripts/deploy/install-ec2-rabbitmq.sh scripts/deploy/install-ec2-fcm.sh scripts/deploy/install-local-rabbitmq-wsl.sh; do
+            bash -n "$script"
+          done
       - name: Verify Git owner transition with the service sandbox
         shell: bash
         run: |
@@ -63,6 +66,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
+      rabbitmq:
+        image: rabbitmq:4.3.6-management
+        env:
+          RABBITMQ_DEFAULT_USER: dalitu
+          RABBITMQ_DEFAULT_PASS: ci-only-isolated-broker-password
+          RABBITMQ_DEFAULT_VHOST: dalitu
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s --health-timeout 10s --health-retries 18
       postgres:
         image: postgres:18
         env:
@@ -76,6 +90,8 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       TEST_DATABASE_CONNECTION: Host=localhost;Port=5432;Database=hutube_test;Username=hutube_test;Password=ci-only-isolated-password
+      TEST_RABBITMQ_HOST: 127.0.0.1
+      TEST_RABBITMQ_PASSWORD: ci-only-isolated-broker-password
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -133,6 +149,11 @@ jobs:
       # Environment named `mobile` when either deployed service changes.
       MOBILE_API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://api.dalitu.app/api/v1' }}
       MOBILE_RECOMMENDATION_BASE_URL: ${{ vars.MOBILE_RECOMMENDATION_BASE_URL || 'https://recommendation.dalitu.app/api/v1' }}
+      MOBILE_AUTH_WEB_BASE_URL: ${{ vars.MOBILE_AUTH_WEB_BASE_URL || 'https://dalitu.app' }}
+      FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+      FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
       GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || '968220896298-or85f9g8ibu45tdbf0svsbiqt54g7iml.apps.googleusercontent.com' }}
     defaults:
       run:
@@ -156,6 +177,7 @@ jobs:
         run: |
           [[ "$MOBILE_API_BASE_URL" == https://* ]] || { echo 'MOBILE_API_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
           [[ "$MOBILE_RECOMMENDATION_BASE_URL" == https://* ]] || { echo 'MOBILE_RECOMMENDATION_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
+          [[ "$MOBILE_AUTH_WEB_BASE_URL" == https://* ]] || { echo 'MOBILE_AUTH_WEB_BASE_URL must use HTTPS for the CI APK.'; exit 1; }
           [[ "$GOOGLE_WEB_CLIENT_ID" == *.apps.googleusercontent.com ]] || { echo 'GOOGLE_WEB_CLIENT_ID is invalid.'; exit 1; }
       - name: Setup release keystore
         shell: bash
@@ -182,7 +204,7 @@ jobs:
         shell: bash
         run: |
           cat > "$RUNNER_TEMP/hutube-mobile-defines.json" <<EOF
-          {"API_BASE_URL":"$MOBILE_API_BASE_URL","RECOMMENDATION_BASE_URL":"$MOBILE_RECOMMENDATION_BASE_URL","GOOGLE_WEB_CLIENT_ID":"$GOOGLE_WEB_CLIENT_ID"}
+          {"API_BASE_URL":"$MOBILE_API_BASE_URL","RECOMMENDATION_BASE_URL":"$MOBILE_RECOMMENDATION_BASE_URL","AUTH_WEB_BASE_URL":"$MOBILE_AUTH_WEB_BASE_URL","GOOGLE_WEB_CLIENT_ID":"$GOOGLE_WEB_CLIENT_ID","FIREBASE_API_KEY":"$FIREBASE_API_KEY","FIREBASE_APP_ID":"$FIREBASE_APP_ID","FIREBASE_PROJECT_ID":"$FIREBASE_PROJECT_ID","FIREBASE_MESSAGING_SENDER_ID":"$FIREBASE_MESSAGING_SENDER_ID"}
           EOF
           flutter build apk --release --build-number=${{ github.run_number }} \
             --dart-define-from-file="$RUNNER_TEMP/hutube-mobile-defines.json"
@@ -260,6 +282,12 @@ jobs:
       - name: Run User and Admin Web functional E2E
         if: ${{ !cancelled() }}
         run: python frontend/e2e_testing/run_local.py --suite web --reuse-build
+      - name: Run all Admin permission allow and deny scenarios
+        if: ${{ !cancelled() }}
+        run: python frontend/e2e_testing/run_local.py --suite rbac --reuse-build
+      - name: Verify Admin permission matrix and browser evidence
+        if: ${{ !cancelled() }}
+        run: python frontend/e2e_testing/coverage/verify_rbac_evidence.py
       - name: Export User and Admin Excel report
         if: ${{ !cancelled() }}
         run: python frontend/e2e_testing/coverage/export_ci_report.py
@@ -275,6 +303,8 @@ jobs:
             frontend/e2e_testing/artifacts/runs/*/*.xlsx
             frontend/e2e_testing/artifacts/runs/*/downloads/*.csv
             frontend/e2e_testing/artifacts/web-latest.json
+            frontend/e2e_testing/artifacts/rbac-latest.json
+            frontend/e2e_testing/artifacts/runs/*/rbac-coverage.json
             frontend/e2e_testing/screenshots/20*/**
           if-no-files-found: warn
           retention-days: 14

@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../auth.dart';
 import 'content_models.dart';
 
@@ -9,9 +10,10 @@ class ContentService {
             client: auth.api.client,
             baseUrl: AppConfig.standard.recommendationBaseUrl,
             requestTimeout: const Duration(seconds: 105),
-            healthUrl: Uri.parse(
-              AppConfig.standard.recommendationBaseUrl,
-            ).replace(path: '/health').toString(),
+            // An inference outage is not evidence that the content API or the
+            // phone is offline. Probe the core API before showing that banner.
+            healthUrl:
+                '${auth.api.baseUrl.replaceAll(RegExp(r'/+$'), '')}/system/config',
           );
   final AuthController auth;
   final ApiClient recommendationApi;
@@ -34,6 +36,7 @@ class ContentService {
     String? categoryId,
     String? tag,
     String sort = 'newest',
+    Duration? recommendationBudget,
   }) async {
     // Send the user's access token directly to FastAPI. Token refresh continues
     // through the content API's existing session controller.
@@ -56,10 +59,22 @@ class ContentService {
     Map<String, dynamic> json;
     if (useRecommendations) {
       try {
-        json = await auth.protected(
+        final request = auth.protected(
           'GET',
           endpoint,
           apiClient: recommendationApi,
+        );
+        json = await (recommendationBudget == null
+            ? request
+            : request.timeout(recommendationBudget));
+      } on TimeoutException {
+        if (generation != auth.sessionGeneration) rethrow;
+        // Watch suggestions must not hold up the screen during inference/cold
+        // starts. Resolve the catalogue without invoking inference again.
+        json = await auth.protected(
+          'POST',
+          '/feed/resolve',
+          body: {'videoIds': <String>[], 'page': page, 'pageSize': pageSize},
         );
       } on ApiFailure catch (error) {
         if (generation != auth.sessionGeneration ||
@@ -92,6 +107,7 @@ class ContentService {
   Future<PageResult<VideoCard>> searchVideos({
     required String query,
     String? categoryId,
+    String? tag,
     String? channelId,
     String? dateRange,
     String? duration,
@@ -101,6 +117,7 @@ class ContentService {
   }) async {
     final endpoint = _query('/videos/search', {
       'q': query.trim(),
+      'tag': tag,
       'categoryId': categoryId,
       'channelId': channelId,
       'dateRange': dateRange,
@@ -182,8 +199,10 @@ class ContentService {
     int page = 1,
     String sort = 'newest',
   }) async {
-    final endpoint =
-        '/videos/${Uri.encodeComponent(videoId)}/comments?page=$page&pageSize=20&sort=${Uri.encodeQueryComponent(sort)}';
+    final endpoint = _query(
+      '/videos/${Uri.encodeComponent(videoId)}/comments',
+      {'page': page, 'pageSize': 20, 'sort': sort},
+    );
     final json = auth.authenticated
         ? await auth.protected('GET', endpoint)
         : await auth.api.request('GET', endpoint);
@@ -203,9 +222,10 @@ class ContentService {
   Future<PageResult<CommentItem>> replies(
     String commentId, {
     int page = 1,
+    int pageSize = 3,
   }) async {
     final endpoint =
-        '/comments/${Uri.encodeComponent(commentId)}/replies?page=$page&pageSize=50';
+        '/comments/${Uri.encodeComponent(commentId)}/replies?page=$page&pageSize=$pageSize';
     final json = auth.authenticated
         ? await auth.protected('GET', endpoint)
         : await auth.api.request('GET', endpoint);
@@ -216,8 +236,10 @@ class ContentService {
             (value) => CommentItem.fromJson(Map<String, dynamic>.from(value)),
           )
           .toList(),
-      page: asInt(json['page']) == 0 ? 1 : asInt(json['page']),
-      pageSize: asInt(json['pageSize']) == 0 ? 50 : asInt(json['pageSize']),
+      page: asInt(json['page']) == 0 ? page : asInt(json['page']),
+      pageSize: asInt(json['pageSize']) == 0
+          ? pageSize
+          : asInt(json['pageSize']),
       total: asInt(json['total']),
     );
   }
@@ -303,6 +325,18 @@ class ContentService {
           body: {'type': type},
         );
 
+  Future<CommentItem> setCommentCreatorState(
+    String id, {
+    required bool enabled,
+    required bool pin,
+  }) async => CommentItem.fromJson(
+    await auth.protected(
+      'PUT',
+      '/comments/${Uri.encodeComponent(id)}/${pin ? 'pin' : 'creator-heart'}',
+      body: {'enabled': enabled},
+    ),
+  );
+
   Future<CommentItem> setCommentVisibility(
     String id,
     bool hidden, {
@@ -374,8 +408,19 @@ class ContentService {
     body: {'violationTypeId': violationTypeId, 'description': description},
   );
 
-  Future<PageResult<LibraryVideo>> history({int page = 1}) =>
-      _library('history', page: page, fromHistory: true);
+  Future<PageResult<LibraryVideo>> history({
+    int page = 1,
+    String? query,
+    String sort = 'newest',
+    String dateRange = 'all',
+  }) => _library(
+    'history',
+    page: page,
+    fromHistory: true,
+    query: query,
+    sort: sort,
+    dateRange: dateRange,
+  );
 
   Future<PageResult<LibraryVideo>> liked({int page = 1, int? rating}) =>
       _library('liked', page: page, rating: rating);
@@ -385,11 +430,17 @@ class ContentService {
     required int page,
     int? rating,
     bool fromHistory = false,
+    String? query,
+    String? sort,
+    String? dateRange,
   }) async {
     final path = _query('/library/$kind', {
       'page': page,
       'pageSize': 20,
       'rating': rating,
+      'q': query,
+      'sort': sort,
+      'dateRange': dateRange,
     });
     final json = await auth.protected('GET', path);
     return PageResult(

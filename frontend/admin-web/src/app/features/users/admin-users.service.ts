@@ -11,8 +11,8 @@ export interface AdminUserItem {
   username: string;
   email: string;
   avatarUrl: string | null;
-  roleCode: string;
-  roleName: string;
+  roleCode: string | null;
+  roleName: string | null;
   planCode: string | null;
   planName: string | null;
   channelCount: number;

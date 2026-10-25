@@ -102,6 +102,42 @@ export class PlansPage {
     return plan.storageLimit ? Math.min(100, (plan.usedStorage / plan.storageLimit) * 100) : 0;
   }
 
+  showAllocation(plan: MyPlan): boolean {
+    return !plan.isSharedMember && plan.maxMembers > 1
+      && plan.members.some(member => member.status === 'pending' || member.status === 'accepted');
+  }
+
+  showFamilyStorage(plan: MyPlan): boolean {
+    return !plan.isSharedMember && !!plan.storageUsageBreakdown?.length
+      && (plan.members.some(member => member.status === 'accepted')
+        || plan.storageUsageBreakdown.some(item => !item.isOwner && item.storageUsed > 0));
+  }
+
+  storageSlices(plan: MyPlan) {
+    const colors = ['#2563eb', '#0d9488', '#b45309', '#7c3aed', '#be185d'];
+    const rows = (plan.storageUsageBreakdown ?? []).map((item, index) => {
+      const name = item.displayName || plan.members.find(member => member.memberUserId === item.userId)?.memberEmail
+        || this.i18n.t('plans.storageMember');
+      return {
+        key: item.userId ?? `other-${index}`,
+        label: item.isOwner ? this.i18n.t('plans.storageOwner')
+          : !item.userId ? this.i18n.t('plans.storageOther')
+          : item.isFormerMember ? this.i18n.t('plans.storageFormerMember', { name }) : name,
+        bytes: Math.max(0, item.storageUsed),
+        color: item.isOwner ? 'var(--primary, #ff2b66)' : colors[Math.max(0, index - 1) % colors.length],
+        free: false,
+      };
+    });
+    rows.push({ key: 'free', label: this.i18n.t('plans.storageFree'),
+      bytes: Math.max(0, plan.storageLimit - plan.usedStorage), color: 'var(--storage-free, #e2e8f0)', free: true });
+    const scale = Math.max(plan.storageLimit, rows.reduce((sum, row) => sum + row.bytes, 0), 1);
+    return rows.map(row => ({ ...row, percent: row.bytes / scale * 100 }));
+  }
+
+  storageSummary(plan: MyPlan): string {
+    return this.storageSlices(plan).map(row => `${row.label}: ${this.formatBytes(row.bytes)}`).join('; ');
+  }
+
   featureEnabled(plan: Plan, key: string): boolean {
     return plan.features?.[key] === true;
   }
@@ -263,7 +299,7 @@ export class PlansPage {
 
   startEditOwnerStorage() {
     const plan = this.myPlan();
-    if (!plan) return;
+    if (!plan || !this.showAllocation(plan)) return;
     this.editingOwnerStorage.set(true);
     this.ownerStorageGB.set(plan.ownerAllocatedStorage != null ? Math.round(plan.ownerAllocatedStorage / 1024 ** 3) : null);
   }
@@ -276,7 +312,7 @@ export class PlansPage {
   saveOwnerStorage() {
     if (this.busy()) return;
     const plan = this.myPlan();
-    if (!plan) return;
+    if (!plan || !this.showAllocation(plan)) return;
     const bytes = this.parseQuotaGb(this.ownerStorageGB());
     const validationError = this.quotaError(bytes) || this.ownerQuotaError(plan);
     if (validationError) {
@@ -307,7 +343,15 @@ export class PlansPage {
     this.error.set('');
     this.plansService.revoke(memberId).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: () => {
-        this.myPlan.update(plan => plan ? { ...plan, members: plan.members.filter(member => member.planMemberId !== memberId) } : plan);
+        this.myPlan.update(plan => {
+          if (!plan) return plan;
+          const member = plan.members.find(item => item.planMemberId === memberId);
+          return { ...plan, members: plan.members.filter(item => item.planMemberId !== memberId),
+            storageUsageBreakdown: plan.storageUsageBreakdown?.flatMap(item =>
+              member?.memberUserId && item.userId === member.memberUserId
+                ? item.storageUsed > 0 ? [{ ...item, isFormerMember: true }] : [] : [item]) };
+        });
+        if (this.myPlan() && !this.showAllocation(this.myPlan()!)) this.cancelEditOwnerStorage();
         this.message.set(this.i18n.t('plans.revokeSent'));
       },
       error: () => this.error.set(this.i18n.t('plans.revokeError'))

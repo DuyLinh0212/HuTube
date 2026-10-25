@@ -5,10 +5,14 @@ using System.Text.Json;
 using HuTube.Application.Auth;
 using HuTube.Application.Channels;
 using HuTube.Application.Rbac;
+using HuTube.Application.Videos;
 using HuTube.Domain.Channels;
 using HuTube.Domain.Rbac;
 using HuTube.Domain.Users;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using HuTube.Infrastructure.Videos;
 using Xunit;
 
 namespace HuTube.IntegrationTests;
@@ -16,6 +20,137 @@ namespace HuTube.IntegrationTests;
 public sealed class RbacAndChannelIntegrationTests(AuthApiFactory factory) : IClassFixture<AuthApiFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    private sealed class SuspensionClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now.ToUniversalTime();
+    }
+
+    private ChannelSuspensionExpirationWorker ExpiryWorker(DateTimeOffset now) => new(
+        factory.Services.GetRequiredService<IServiceScopeFactory>(), new SuspensionClock(now),
+        NullLogger<ChannelSuspensionExpirationWorker>.Instance);
+
+    [Fact]
+    public async Task TimedSuspension_PersistsUtcDeadline_ValidatesPermission_AndRestoresOnceAtExpiry()
+    {
+        var (admin, _, _) = await CreateUserAsync("suspend_admin", SystemRoles.SuperAdmin);
+        var (owner, ownerUser, _) = await CreateUserAsync("suspend_owner");
+        var create = await owner.PostAsJsonAsync("/api/v1/channels", new CreateChannelRequest("Timed channel", $"timed_{Guid.NewGuid():N}"[..25], null));
+        create.EnsureSuccessStatusCode();
+        var channel = (await create.Content.ReadFromJsonAsync<ChannelResponse>(JsonOptions))!;
+        var url = $"/api/v1/admin/channels/{channel.ChannelId}";
+        var until = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400).ToOffset(TimeSpan.FromHours(7));
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.PostAsJsonAsync(url + "/suspend", new AdminContentActionRequest("Test reason", false, until))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(url + "/suspend", new AdminContentActionRequest("Test reason", false, DateTimeOffset.UtcNow.AddMinutes(-1)))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync(url + "/ban", new AdminContentActionRequest("Test reason", false, until))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsJsonAsync(url + "/suspend", new AdminContentActionRequest("Timed reason", true, until))).StatusCode);
+
+        var detail = (await admin.GetFromJsonAsync<AdminChannelDetailResponse>(url, JsonOptions))!;
+        Assert.Equal("suspended", detail.Channel.Status);
+        Assert.Equal(until.ToUniversalTime(), detail.Channel.SuspendedUntil);
+        Assert.Equal(TimeSpan.Zero, detail.Channel.SuspendedUntil!.Value.Offset);
+        var list = await admin.GetFromJsonAsync<PageResult<AdminChannelListItem>>($"/api/v1/admin/channels?search={channel.Handle}", JsonOptions);
+        Assert.Equal(until.ToUniversalTime(), Assert.Single(list!.Items).SuspendedUntil);
+        await using (var db = factory.CreateDb())
+        {
+            Assert.Contains(await db.Notifications.Where(n => n.UserId == ownerUser.UserId && n.Type == "channel_status_changed").ToListAsync(),
+                n => n.Content.Contains($"{until.UtcDateTime:dd/MM/yyyy HH:mm} UTC"));
+            var audit = await db.AuditLogs.SingleAsync(a => a.ResourceId == channel.ChannelId && a.Action == "admin.channel.suspended");
+            Assert.Contains("suspendedUntil", audit.NewValues!);
+        }
+
+        using (var early = ExpiryWorker(until.AddSeconds(-1))) await early.RestoreExpiredChannelsAsync();
+        await using (var db = factory.CreateDb()) Assert.Equal("suspended", (await db.Channels.SingleAsync(c => c.ChannelId == channel.ChannelId)).Status);
+        using var first = ExpiryWorker(until);
+        using var second = ExpiryWorker(until);
+        await Task.WhenAll(first.RestoreExpiredChannelsAsync(), second.RestoreExpiredChannelsAsync());
+        await first.RestoreExpiredChannelsAsync();
+        await using (var db = factory.CreateDb())
+        {
+            var restored = await db.Channels.SingleAsync(c => c.ChannelId == channel.ChannelId);
+            Assert.Equal("active", restored.Status);
+            Assert.Null(restored.SuspendedUntil);
+            Assert.Null(restored.StatusReason);
+            Assert.Single(await db.AuditLogs.Where(a => a.ResourceId == channel.ChannelId && a.Action == "channel.suspension_expired").ToListAsync());
+        }
+    }
+
+    [Theory]
+    [InlineData("ban", "banned")]
+    [InlineData("delete", "deleted")]
+    [InlineData("restore", "active")]
+    public async Task TimedSuspension_LaterDecisionClearsTimer_AndCannotBeUndoneByExpiry(string action, string expected)
+    {
+        var (admin, _, _) = await CreateUserAsync("timer_admin", SystemRoles.SuperAdmin);
+        var (owner, _, _) = await CreateUserAsync("timer_owner");
+        var create = await owner.PostAsJsonAsync("/api/v1/channels", new CreateChannelRequest("Timer decisions", $"timer_{Guid.NewGuid():N}"[..25], null));
+        create.EnsureSuccessStatusCode();
+        var id = (await create.Content.ReadFromJsonAsync<ChannelResponse>(JsonOptions))!.ChannelId;
+        var url = $"/api/v1/admin/channels/{id}";
+        var until = DateTimeOffset.UtcNow.AddDays(2);
+        (await admin.PostAsJsonAsync(url + "/suspend", new AdminContentActionRequest("Initial timer", false, until))).EnsureSuccessStatusCode();
+        using var decision = action == "delete"
+            ? await admin.SendAsync(new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(new AdminContentActionRequest("New decision", false)) })
+            : await admin.PostAsJsonAsync(url + "/" + action, new AdminContentActionRequest("New decision", false));
+        decision.EnsureSuccessStatusCode();
+        using var worker = ExpiryWorker(until.AddMinutes(1));
+        await worker.RestoreExpiredChannelsAsync();
+        await using var db = factory.CreateDb();
+        var channel = await db.Channels.IgnoreQueryFilters().SingleAsync(c => c.ChannelId == id);
+        Assert.Equal(expected, channel.Status);
+        Assert.Null(channel.SuspendedUntil);
+        Assert.False(await db.AuditLogs.AnyAsync(a => a.ResourceId == id && a.Action == "channel.suspension_expired"));
+    }
+
+    [Fact]
+    public async Task TimedSuspension_ExtensionAndIndefiniteSuspensionAreNotReopenedByOldDeadline()
+    {
+        var (admin, _, _) = await CreateUserAsync("extend_admin", SystemRoles.SuperAdmin);
+        var (owner, _, _) = await CreateUserAsync("extend_owner");
+        var create = await owner.PostAsJsonAsync("/api/v1/channels", new CreateChannelRequest("Extended timer", $"extend_{Guid.NewGuid():N}"[..25], null));
+        create.EnsureSuccessStatusCode();
+        var id = (await create.Content.ReadFromJsonAsync<ChannelResponse>(JsonOptions))!.ChannelId;
+        var url = $"/api/v1/admin/channels/{id}/suspend";
+        var until = DateTimeOffset.UtcNow.AddDays(2);
+        (await admin.PostAsJsonAsync(url, new AdminContentActionRequest("Initial timer", false, until))).EnsureSuccessStatusCode();
+        (await admin.PostAsJsonAsync(url, new AdminContentActionRequest("Extended timer", false, until.AddDays(7)))).EnsureSuccessStatusCode();
+        using (var worker = ExpiryWorker(until.AddMinutes(1))) await worker.RestoreExpiredChannelsAsync();
+        await using (var db = factory.CreateDb()) Assert.Equal("suspended", (await db.Channels.SingleAsync(c => c.ChannelId == id)).Status);
+        (await admin.PostAsJsonAsync(url, new AdminContentActionRequest("Manual restore required", false))).EnsureSuccessStatusCode();
+        using (var worker = ExpiryWorker(until.AddYears(1))) await worker.RestoreExpiredChannelsAsync();
+        await using (var db = factory.CreateDb())
+        {
+            var channel = await db.Channels.SingleAsync(c => c.ChannelId == id);
+            Assert.Equal("suspended", channel.Status);
+            Assert.Null(channel.SuspendedUntil);
+        }
+    }
+
+    [Fact]
+    public async Task TimedSuspension_StrikeLockReplacesDeadlineWithIndefiniteSuspension()
+    {
+        var (admin, actor, _) = await CreateUserAsync("strike_timer_admin", SystemRoles.SuperAdmin);
+        var (owner, _, _) = await CreateUserAsync("strike_timer_owner");
+        var create = await owner.PostAsJsonAsync("/api/v1/channels", new CreateChannelRequest("Strike timer", $"strike_{Guid.NewGuid():N}"[..25], null));
+        create.EnsureSuccessStatusCode();
+        var id = (await create.Content.ReadFromJsonAsync<ChannelResponse>(JsonOptions))!.ChannelId;
+        var until = DateTimeOffset.UtcNow.AddDays(2);
+        (await admin.PostAsJsonAsync($"/api/v1/admin/channels/{id}/suspend", new AdminContentActionRequest("Timed suspension", false, until))).EnsureSuccessStatusCode();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var threshold = (await scope.ServiceProvider.GetRequiredService<StrikePolicySettingsService>().GetAsync()).SuspensionStrikeCount;
+            var strikes = scope.ServiceProvider.GetRequiredService<StrikeService>();
+            for (var i = 0; i < threshold; i++)
+                await strikes.CreateManualStrikeAsync(actor.UserId, new CreateStrikeRequest(id, null, "high", "Strike test", null));
+        }
+        using var worker = ExpiryWorker(until.AddDays(1));
+        await worker.RestoreExpiredChannelsAsync();
+        await using var db = factory.CreateDb();
+        var channel = await db.Channels.SingleAsync(c => c.ChannelId == id);
+        Assert.Equal("suspended", channel.Status);
+        Assert.Null(channel.SuspendedUntil);
+    }
 
     private async Task<(HttpClient Client, User User, string Token)> CreateUserAsync(string prefix, Guid? roleId = null)
     {

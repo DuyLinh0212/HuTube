@@ -1,3 +1,5 @@
+import '../../core/widgets/scrollable_sheet.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization/app_strings.dart';
@@ -5,20 +7,42 @@ import '../../core/storage/app_preferences.dart';
 import '../../core/theme/app_theme.dart';
 
 class PlaybackSettingsScreen extends StatefulWidget {
-  const PlaybackSettingsScreen({super.key});
+  const PlaybackSettingsScreen({
+    super.key,
+    this.preferences = const AppPreferencesStore(),
+  });
+  final AppPreferencesStore preferences;
 
   @override
   State<PlaybackSettingsScreen> createState() => _PlaybackSettingsScreenState();
 }
 
 class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
-  final _prefs = const AppPreferencesStore();
+  AppPreferencesStore get _prefs => widget.preferences;
 
   bool _autoplayNext = true;
   int _seekSeconds = 10;
   bool _zoomToFill = false;
   bool _pipEnabled = false;
   bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  Future<void> _save(Future<void> Function() write, VoidCallback apply) async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await write();
+      if (mounted) setState(apply);
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.t('prefs.saveError'));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   void initState() {
@@ -27,32 +51,42 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final autoplay = await _prefs.readAutoplayNext();
-    final seek = await _prefs.readDoubleTapSeek();
-    final zoom = await _prefs.readZoomToFill();
-    final pip = await _prefs.readPipEnabled();
-    if (mounted) {
-      setState(() {
-        _autoplayNext = autoplay;
-        _seekSeconds = seek;
-        _zoomToFill = zoom;
-        _pipEnabled = pip;
-        _loading = false;
-      });
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final autoplay = await _prefs.readAutoplayNext();
+      final seek = await _prefs.readDoubleTapSeek();
+      final zoom = await _prefs.readZoomToFill();
+      final pip = await _prefs.readPipEnabled();
+      if (mounted) {
+        setState(() {
+          _autoplayNext = autoplay;
+          _seekSeconds = seek;
+          _zoomToFill = zoom;
+          _pipEnabled = pip;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = AppStrings.t('prefs.loadError'));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _selectSeekSeconds() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final options = [5, 10, 15, 20, 30, 60];
 
     final selected = await showModalBottomSheet<int>(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      backgroundColor: AppColors.surfaceFor(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => ScrollableSheet(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Column(
@@ -60,13 +94,16 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Text(
                   AppStrings.t('playback.doubleTapSeek'),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : AppColors.textPrimary,
+                    color: AppColors.textPrimaryFor(context),
                   ),
                 ),
               ),
@@ -84,9 +121,10 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
                   title: Text(
                     AppStrings.format('playback.seconds', {'count': sec}),
                     style: TextStyle(
-                      color: isDark ? Colors.white : AppColors.textPrimary,
-                      fontWeight:
-                          sec == _seekSeconds ? FontWeight.bold : FontWeight.normal,
+                      color: AppColors.textPrimaryFor(context),
+                      fontWeight: sec == _seekSeconds
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                   onTap: () => Navigator.pop(ctx, sec),
@@ -99,8 +137,10 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
     );
 
     if (selected != null && mounted) {
-      setState(() => _seekSeconds = selected);
-      await _prefs.writeDoubleTapSeek(selected);
+      await _save(
+        () => _prefs.writeDoubleTapSeek(selected),
+        () => _seekSeconds = selected,
+      );
     }
   }
 
@@ -109,11 +149,10 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
     return ValueListenableBuilder<String>(
       valueListenable: AppStrings.currentLang,
       builder: (context, currentLang, _) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final textColor = isDark ? Colors.white : AppColors.textPrimary;
-        final mutedColor = isDark ? const Color(0xFFAAAAAA) : AppColors.textMuted;
-        final bgColor = isDark ? const Color(0xFF0F0F0F) : AppColors.background;
-        const activeToggleColor = AppColors.primaryPink;
+        final textColor = AppColors.textPrimaryFor(context);
+        final mutedColor = AppColors.textSecondaryFor(context);
+        final bgColor = Theme.of(context).scaffoldBackgroundColor;
+        final activeToggleColor = Theme.of(context).colorScheme.primary;
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -122,6 +161,7 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: IconButton(
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
               icon: Icon(Icons.arrow_back_rounded, color: textColor),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -135,107 +175,163 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
             ),
           ),
           body: _loading
-              ? const Center(child: CircularProgressIndicator(color: activeToggleColor))
+              ? Center(
+                  child: CircularProgressIndicator(color: activeToggleColor),
+                )
               : ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                   children: [
-                    SwitchListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      activeTrackColor: activeToggleColor,
-                      activeThumbColor: Colors.white,
-                      title: Text(
-                        AppStrings.t('playback.autoplayNext'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
+                    if (_error != null) ...[
+                      HuTubeNotice(
+                        message: _error!,
+                        actionLabel: AppStrings.t('common.retry'),
+                        onAction: _saving ? null : _loadSettings,
                       ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          AppStrings.t('playback.autoplayNextDesc'),
-                          style: TextStyle(fontSize: 13, color: mutedColor, height: 1.3),
-                        ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (_saving) const LinearProgressIndicator(),
+                    HuTubeSurface(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            activeTrackColor: activeToggleColor,
+                            activeThumbColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
+                            title: Text(
+                              AppStrings.t('playback.autoplayNext'),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                AppStrings.t('playback.autoplayNextDesc'),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: mutedColor,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                            value: _autoplayNext,
+                            onChanged: _saving
+                                ? null
+                                : (val) => _save(
+                                    () => _prefs.writeAutoplayNext(val),
+                                    () => _autoplayNext = val,
+                                  ),
+                          ),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            title: Text(
+                              AppStrings.t('playback.doubleTapSeek'),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                AppStrings.format('playback.seconds', {
+                                  'count': _seekSeconds,
+                                }),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: mutedColor,
+                                ),
+                              ),
+                            ),
+                            onTap: _saving ? null : _selectSeekSeconds,
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                          ),
+                          SwitchListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            activeTrackColor: activeToggleColor,
+                            activeThumbColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
+                            title: Text(
+                              AppStrings.t('playback.zoomToFill'),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                AppStrings.t('playback.zoomToFillDesc'),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: mutedColor,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                            value: _zoomToFill,
+                            onChanged: _saving
+                                ? null
+                                : (val) => _save(
+                                    () => _prefs.writeZoomToFill(val),
+                                    () => _zoomToFill = val,
+                                  ),
+                          ),
+                          SwitchListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            activeTrackColor: activeToggleColor,
+                            activeThumbColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
+                            title: Text(
+                              AppStrings.t('playback.pip'),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                AppStrings.t('playback.pipDesc'),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: mutedColor,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                            value: _pipEnabled,
+                            onChanged: _saving
+                                ? null
+                                : (val) => _save(
+                                    () => _prefs.writePipEnabled(val),
+                                    () => _pipEnabled = val,
+                                  ),
+                          ),
+                        ],
                       ),
-                      value: _autoplayNext,
-                      onChanged: (val) {
-                        setState(() => _autoplayNext = val);
-                        _prefs.writeAutoplayNext(val);
-                      },
-                    ),
-                    ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      title: Text(
-                        AppStrings.t('playback.doubleTapSeek'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          AppStrings.format('playback.seconds', {'count': _seekSeconds}),
-                          style: TextStyle(fontSize: 13, color: mutedColor),
-                        ),
-                      ),
-                      onTap: _selectSeekSeconds,
-                    ),
-                    SwitchListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      activeTrackColor: activeToggleColor,
-                      activeThumbColor: Colors.white,
-                      title: Text(
-                        AppStrings.t('playback.zoomToFill'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          AppStrings.t('playback.zoomToFillDesc'),
-                          style: TextStyle(fontSize: 13, color: mutedColor, height: 1.3),
-                        ),
-                      ),
-                      value: _zoomToFill,
-                      onChanged: (val) {
-                        setState(() => _zoomToFill = val);
-                        _prefs.writeZoomToFill(val);
-                      },
-                    ),
-                    SwitchListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      activeTrackColor: activeToggleColor,
-                      activeThumbColor: Colors.white,
-                      title: Text(
-                        AppStrings.t('playback.pip'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          AppStrings.t('playback.pipDesc'),
-                          style: TextStyle(fontSize: 13, color: mutedColor, height: 1.3),
-                        ),
-                      ),
-                      value: _pipEnabled,
-                      onChanged: (val) {
-                        setState(() => _pipEnabled = val);
-                        _prefs.writePipEnabled(val);
-                      },
                     ),
                   ],
                 ),

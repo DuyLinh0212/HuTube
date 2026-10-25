@@ -8,7 +8,7 @@
       @if (selectedRole(); as role) {
         @if (canDelete() && !role.isSystemRole && role.status !== 'deleted') {
           <button class="secondary-action danger-action" type="button" (click)="deleteSelectedRole()"
-            [disabled]="role.assignedUserCount > 0" [title]="role.assignedUserCount > 0 ? ('rbac.deleteDisabled' | translate) : ('rbac.softDelete' | translate)"><span aria-hidden="true">⌫</span> {{ 'rbac.deleteRole' | translate }}</button>
+            [disabled]="deleting()" [title]="'rbac.softDelete' | translate"><span aria-hidden="true">⌫</span> {{ 'rbac.deleteRole' | translate }}</button>
         }
       }
       <button class="secondary-action" type="button" (click)="load()" [disabled]="loading()">
@@ -249,12 +249,12 @@
 
     @if (pendingDeleteRole(); as role) {
       <app-confirm-dialog tone="danger" initialFocus="field" [title]="'rbac.deleteRole' | translate" [confirmLabel]="'rbac.deleteRole' | translate"
-        [description]="'rbac.deleteConfirm' | translate:{ name: role.name }" [busy]="deleting()"
+        [description]="(role.assignedUserCount > 0 ? 'rbac.deleteConfirmWithUsers' : 'rbac.deleteConfirm') | translate:{ name: role.name, count: role.assignedUserCount }" [busy]="deleting()"
         [confirmDisabled]="deleteReason().trim().length < 3 || deleteReason().trim().length > 300"
         (confirmed)="submitDeleteRole()" (cancelled)="pendingDeleteRole.set(null)">
         <app-result-notice tone="error" [message]="deleteError()" />
         <label><span>{{ 'rbac.deleteReasonPrompt' | translate:{ name: role.name } }}</span>
-          <textarea rows="3" maxlength="300" required [ngModel]="deleteReason()" (ngModelChange)="deleteReason.set($event)"></textarea>
+          <textarea rows="3" maxlength="300" required [disabled]="deleting()" [ngModel]="deleteReason()" (ngModelChange)="deleteReason.set($event)"></textarea>
         </label>
       </app-confirm-dialog>
     }

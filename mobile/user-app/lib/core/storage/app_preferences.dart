@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -18,11 +19,16 @@ class AppPreferencesStore {
   static const playbackZoomToFillKey = 'hutube.playback_zoom_to_fill';
   static const playbackPipKey = 'hutube.playback_pip';
   static const backgroundPlaybackModeKey = 'hutube.bg_playback_mode';
-  static const downloadSmartKey = 'hutube.download_smart';
   static const downloadQualityKey = 'hutube.download_quality';
   static const downloadWifiOnlyKey = 'hutube.download_wifi_only';
   static const downloadRecommendationsKey = 'hutube.download_recommendations';
   static const downloadUseSdKey = 'hutube.download_use_sd';
+  static final mediaChanges = ValueNotifier<int>(0);
+
+  Future<void> _writeMedia(String key, String value) async {
+    await _storage.write(key: key, value: value);
+    mediaChanges.value++;
+  }
 
   Future<String?> readLanguage() => _storage.read(key: languageKey);
 
@@ -42,7 +48,8 @@ class AppPreferencesStore {
 
   Future<int> readDoubleTapSeek() async {
     final raw = await _storage.read(key: playbackDoubleTapSeekKey);
-    return int.tryParse(raw ?? '') ?? 10;
+    final seconds = int.tryParse(raw ?? '');
+    return const [5, 10, 15, 20, 30, 60].contains(seconds) ? seconds! : 10;
   }
 
   Future<void> writeDoubleTapSeek(int seconds) =>
@@ -58,37 +65,41 @@ class AppPreferencesStore {
       (await _storage.read(key: playbackPipKey)) == 'true';
 
   Future<void> writePipEnabled(bool value) =>
-      _storage.write(key: playbackPipKey, value: '$value');
+      _writeMedia(playbackPipKey, '$value');
 
-  Future<String> readBackgroundPlaybackMode() async =>
-      (await _storage.read(key: backgroundPlaybackModeKey)) ?? 'off';
+  Future<String> readBackgroundPlaybackMode() async {
+    final mode = await _storage.read(key: backgroundPlaybackModeKey);
+    return const ['off', 'headphones', 'always'].contains(mode) ? mode! : 'off';
+  }
 
   Future<void> writeBackgroundPlaybackMode(String mode) =>
-      _storage.write(key: backgroundPlaybackModeKey, value: mode);
+      _writeMedia(backgroundPlaybackModeKey, mode);
 
-  Future<bool> readSmartDownload() async =>
-      (await _storage.read(key: downloadSmartKey)) == 'true';
-
-  Future<void> writeSmartDownload(bool value) =>
-      _storage.write(key: downloadSmartKey, value: '$value');
-
-  Future<String> readDownloadQuality() async =>
-      (await _storage.read(key: downloadQualityKey)) ?? 'Hỏi mỗi lần';
+  Future<String> readDownloadQuality() async {
+    final value = await _storage.read(key: downloadQualityKey);
+    return switch (value) {
+      '1080p' || 'Chất lượng cao (1080p)' => '1080p',
+      '720p' || 'Chất lượng tiêu chuẩn (720p)' => '720p',
+      '480p' || 'Chất lượng trung bình (480p)' => '480p',
+      '360p' || 'Chất lượng thấp (360p)' => '360p',
+      _ => 'ask',
+    };
+  }
 
   Future<void> writeDownloadQuality(String quality) =>
-      _storage.write(key: downloadQualityKey, value: quality);
+      _writeMedia(downloadQualityKey, quality);
 
   Future<bool> readDownloadWifiOnly() async =>
       (await _storage.read(key: downloadWifiOnlyKey)) == 'true';
 
   Future<void> writeDownloadWifiOnly(bool value) =>
-      _storage.write(key: downloadWifiOnlyKey, value: '$value');
+      _writeMedia(downloadWifiOnlyKey, '$value');
 
   Future<bool> readDownloadRecommendations() async =>
       (await _storage.read(key: downloadRecommendationsKey)) != 'false';
 
   Future<void> writeDownloadRecommendations(bool value) =>
-      _storage.write(key: downloadRecommendationsKey, value: '$value');
+      _writeMedia(downloadRecommendationsKey, '$value');
 
   Future<bool> readDownloadUseSd() async =>
       (await _storage.read(key: downloadUseSdKey)) != 'false';

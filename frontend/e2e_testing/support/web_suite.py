@@ -130,6 +130,10 @@ class WebSuite:
             entry['last_http_statuses'] = [item for item in self.report['http_statuses'] if item['actor'] == actor['name'] and item['path'].startswith('/api/v1/')][-8:]
             # Do not retain token-bearing requests, response bodies or passwords.
             entry['actual'] = 'Assertion/operation failed; inspect screenshot. ' + type(error).__name__
+            if self.report['suite'] == 'rbac':
+                # This suite uses only synthetic fixture payloads. Keep actionable
+                # assertion/locator diagnostics, without request headers or tokens.
+                entry['actual'] = str(error)[:1500]
         entry['duration_ms'] = round((time.monotonic() - started) * 1000)
         entry['viewport'] = actor['page'].viewport_size
         destination = self.root / 'screenshots' / self.run_id / actor['application'] / entry['module'] / 'functional' / case_id / (entry['status'] + '.png')
@@ -158,5 +162,6 @@ class WebSuite:
     def close(self):
         self.report['finished_at'] = now()
         self.flush()
-        atomic_json(self.root / 'artifacts/web-latest.json', {'run_dir': str(self.run_dir), **{key: self.report[key] for key in ('passed', 'failed', 'blocked', 'reused')}})
+        latest = 'rbac-latest.json' if self.report['suite'] == 'rbac' else 'web-latest.json'
+        atomic_json(self.root / 'artifacts' / latest, {'run_dir': str(self.run_dir), **{key: self.report[key] for key in ('passed', 'failed', 'blocked', 'reused')}})
         self.browser.close()

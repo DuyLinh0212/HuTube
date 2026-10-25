@@ -123,32 +123,34 @@ void main() {
   test(
     'recommendation URL follows local hosts and supports deployed overrides',
     () {
+      expect(const AppConfig().apiBaseUrl, 'https://api.dalitu.app/api/v1');
       expect(
-        const AppConfig().recommendationBaseUrl,
+        const AppConfig(apiBaseUrl: 'http://10.0.2.2:5080/api/v1')
+            .recommendationBaseUrl,
         'http://10.0.2.2:8000/api/v1',
       );
       expect(
-        const AppConfig(
-          apiBaseUrl: 'http://127.0.0.1:5080/api/v1',
-        ).recommendationBaseUrl,
-        'http://127.0.0.1:8000/api/v1',
-      );
-      expect(
-        const AppConfig(
-          apiBaseUrl: 'https://hutube.onrender.com/api/v1',
-        ).recommendationBaseUrl,
-        'https://hutube-recommendation-services.onrender.com/api/v1',
-      );
-      expect(
-        const AppConfig(
-          apiBaseUrl: 'https://api.dalitu.app/api/v1',
-        ).recommendationBaseUrl,
+        const AppConfig().recommendationBaseUrl,
         'https://recommendation.dalitu.app/api/v1',
       );
       expect(
-        const AppConfig(
-          recommendationBaseUrl: 'https://custom.test/api/v1',
-        ).recommendationBaseUrl,
+        const AppConfig(apiBaseUrl: 'http://127.0.0.1:5080/api/v1')
+            .recommendationBaseUrl,
+        'http://127.0.0.1:8000/api/v1',
+      );
+      expect(
+        const AppConfig(apiBaseUrl: 'https://hutube.onrender.com/api/v1')
+            .recommendationBaseUrl,
+        'https://hutube-recommendation-services.onrender.com/api/v1',
+      );
+      expect(
+        const AppConfig(apiBaseUrl: 'https://api.dalitu.app/api/v1')
+            .recommendationBaseUrl,
+        'https://recommendation.dalitu.app/api/v1',
+      );
+      expect(
+        const AppConfig(recommendationBaseUrl: 'https://custom.test/api/v1')
+            .recommendationBaseUrl,
         'https://custom.test/api/v1',
       );
     },

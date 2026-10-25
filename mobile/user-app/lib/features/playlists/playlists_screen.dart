@@ -1,6 +1,9 @@
+import '../../core/widgets/modal_header.dart';
+import '../../core/widgets/confirmation_dialog.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import '../../core/widgets/content_filters.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,7 +16,13 @@ import '../../core/widgets/scrollable_sheet.dart';
 import 'playlist_service.dart';
 
 class PlaylistsScreen extends StatefulWidget {
-  const PlaylistsScreen({super.key, required this.auth, this.playlistId});
+  const PlaylistsScreen({
+    super.key,
+    required this.auth,
+    this.playlistId,
+    this.openCreate = false,
+  });
+  final bool openCreate;
   final AuthController auth;
   final String? playlistId;
 
@@ -30,17 +39,37 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   bool _busy = false;
   bool _canManage = false;
   String? _error;
+  bool _createOpened = false;
+  String _query = '';
+  String _filterVisibility = 'all';
+  List<PlaylistSummary> get _visiblePlaylists => _playlists
+      .where(
+        (p) =>
+            normalizeContentText(
+              p.name,
+            ).contains(normalizeContentText(_query)) &&
+            (_filterVisibility == 'all' || p.visibility == _filterVisibility),
+      )
+      .toList();
 
   @override
   void initState() {
     super.initState();
     _load();
+    if (widget.openCreate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _createOpened) return;
+        _createOpened = true;
+        _edit();
+      });
+    }
   }
 
   bool _isOwner(String userId) =>
       userId.isNotEmpty && userId == '${widget.auth.user?['userId'] ?? ''}';
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -125,103 +154,19 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     PlaylistSummary? playlist,
     PlaylistDetail? detail,
   }) async {
-    final name = TextEditingController(
-      text: playlist?.name ?? detail?.name ?? '',
-    );
-    final description = TextEditingController(
-      text: playlist?.description ?? detail?.description ?? '',
-    );
-    var visibility = playlist?.visibility ?? detail?.visibility ?? 'private';
-    final values = await showModalBottomSheet<(String, String, String)?>(
+    if (_busy) return;
+    final values = await showModalBottomSheet<(String, String, String)>(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, refresh) => ScrollableSheet(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              MediaQuery.viewInsetsOf(context).bottom + 24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  AppStrings.t(
-                    playlist == null && detail == null
-                        ? 'playlists.create'
-                        : 'playlists.edit',
-                  ),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: name,
-                  autofocus: true,
-                  maxLength: 150,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('playlists.name'),
-                  ),
-                ),
-                TextField(
-                  controller: description,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('playlists.descriptionField'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: visibility,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('playlists.privacy'),
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'private',
-                      child: Text(AppStrings.t('playlists.private')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'public',
-                      child: Text(AppStrings.t('playlists.public')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'unlisted',
-                      child: Text(AppStrings.t('playlists.unlisted')),
-                    ),
-                  ],
-                  onChanged: (value) =>
-                      refresh(() => visibility = value ?? 'private'),
-                ),
-                const SizedBox(height: 18),
-                FilledButton(
-                  onPressed: () => Navigator.pop(sheetContext, (
-                    name.text.trim(),
-                    description.text.trim(),
-                    visibility,
-                  )),
-                  child: Text(
-                    AppStrings.t(
-                      playlist == null && detail == null
-                          ? 'playlists.create'
-                          : 'playlists.save',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      builder: (_) => _PlaylistForm(
+        name: playlist?.name ?? detail?.name ?? '',
+        description: playlist?.description ?? detail?.description ?? '',
+        visibility: playlist?.visibility ?? detail?.visibility ?? 'private',
+        creating: playlist == null && detail == null,
       ),
     );
-    name.dispose();
-    description.dispose();
-    if (values == null || values.$1.isEmpty) return;
+    if (values == null || values.$1.isEmpty || !mounted) return;
+    setState(() => _busy = true);
     try {
       if (playlist == null && detail == null) {
         final created = await _service.create(
@@ -248,42 +193,37 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       if (mounted && widget.playlistId == null) await _load();
     } on ApiFailure catch (error) {
       _message(AppStrings.apiError(error, fallback: 'common.error'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _delete(PlaylistSummary playlist) async {
+  Future<bool> _delete(PlaylistSummary playlist) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.t('playlists.deleteTitle')),
-        content: Text(
-          AppStrings.format('playlists.deleteDescription', {
-            'name': playlist.name,
-          }),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppStrings.t('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppStrings.t('common.delete')),
-          ),
-        ],
+      builder: (context) => ConfirmationDialog(
+        title: AppStrings.t('playlists.deleteTitle'),
+        message: AppStrings.format('playlists.deleteDescription', {
+          'name': playlist.name,
+        }),
+        confirmLabel: AppStrings.t('common.delete'),
+        destructive: true,
+        icon: Icons.delete_outline_rounded,
       ),
     );
-    if (confirm != true) return;
+    if (confirm != true) return false;
     try {
       await _service.delete(playlist.id);
-      await _load();
+      if (widget.playlistId == null) await _load();
+      return true;
     } on ApiFailure catch (error) {
       _message(AppStrings.apiError(error, fallback: 'playlists.deleteError'));
+      return false;
     }
   }
 
   Future<void> _deleteDetail(PlaylistDetail detail) async {
-    await _delete(
+    final removed = await _delete(
       PlaylistSummary(
         id: detail.id,
         name: detail.name,
@@ -293,7 +233,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         coverUrl: detail.coverUrl,
       ),
     );
-    if (mounted && widget.playlistId != null) context.pop();
+    if (removed && mounted && widget.playlistId != null) context.pop();
   }
 
   Future<void> _pickCover(PlaylistDetail detail) async {
@@ -399,6 +339,52 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.playlistId != null) return _buildResults(context);
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
+              children: [
+                Text(
+                  AppStrings.t('playlists.title'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                if (widget.auth.authenticated)
+                  OutlinedButton.icon(
+                    key: const ValueKey('playlist-create-always'),
+                    onPressed: _busy ? null : _edit,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(AppStrings.t('common.create')),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: ContentFilters(
+            options: const {
+              'visibility': ['all', 'public', 'unlisted', 'private'],
+            },
+            onChanged: (q, values) => setState(() {
+              _query = q;
+              _filterVisibility = values['visibility'] ?? 'all';
+            }),
+          ),
+        ),
+      ],
+      body: _buildResults(context),
+    );
+  }
+
+  Widget _buildResults(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return HuTubeStateView(
@@ -416,22 +402,17 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     }
     return RefreshIndicator(
       onRefresh: _load,
-      child: _playlists.isEmpty
+      child: _visiblePlaylists.isEmpty
           ? ListView(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
-                HuTubeSectionHeader(
-                  title: AppStrings.t('playlists.title'),
-                  subtitle: AppStrings.t('playlists.subtitle'),
-                  action: widget.auth.authenticated
-                      ? AppStrings.t('playlists.createAction')
-                      : null,
-                  onAction: _edit,
-                ),
-                const SizedBox(height: 18),
                 HuTubeStateView(
                   icon: Icons.playlist_add_rounded,
-                  title: AppStrings.t('playlists.emptyTitle'),
+                  title: AppStrings.t(
+                    _playlists.isEmpty
+                        ? 'playlists.emptyTitle'
+                        : 'parity.noResults',
+                  ),
                   message: AppStrings.t('playlists.createFirst'),
                   actionLabel: AppStrings.t('playlists.create'),
                   onAction: _edit,
@@ -442,14 +423,20 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             )
           : GridView.builder(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount:
+                    MediaQuery.textScalerOf(context).scale(14) > 20 ||
+                        MediaQuery.sizeOf(context).width < 360
+                    ? 1
+                    : 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: .82,
+                mainAxisExtent:
+                    260 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 5,
               ),
-              itemCount: _playlists.length,
-              itemBuilder: (_, index) => _playlistCard(_playlists[index]),
+              itemCount: _visiblePlaylists.length,
+              itemBuilder: (_, index) =>
+                  _playlistCard(_visiblePlaylists[index]),
             ),
     );
   }
@@ -843,4 +830,110 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     'unlisted' => AppStrings.t('playlists.visibility.unlisted'),
     _ => AppStrings.t('playlists.visibility.private'),
   };
+}
+
+class _PlaylistForm extends StatefulWidget {
+  const _PlaylistForm({
+    required this.name,
+    required this.description,
+    required this.visibility,
+    required this.creating,
+  });
+  final String name;
+  final String description;
+  final String visibility;
+  final bool creating;
+  @override
+  State<_PlaylistForm> createState() => _PlaylistFormState();
+}
+
+class _PlaylistFormState extends State<_PlaylistForm> {
+  final _form = GlobalKey<FormState>();
+  late final _name = TextEditingController(text: widget.name);
+  late final _description = TextEditingController(text: widget.description);
+  late String _visibility = widget.visibility;
+  @override
+  void dispose() {
+    _name.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScrollableSheet(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      child: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ModalHeader(
+              title: AppStrings.t(
+                widget.creating ? 'playlists.create' : 'playlists.edit',
+              ),
+              icon: Icons.playlist_add_rounded,
+              padding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              key: const ValueKey('playlist-name'),
+              controller: _name,
+              autofocus: true,
+              maxLength: 150,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('playlists.name'),
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? AppStrings.t('parity.playlistNameRequired')
+                  : null,
+            ),
+            TextFormField(
+              controller: _description,
+              minLines: 2,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('playlists.descriptionField'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _visibility,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('playlists.privacy'),
+              ),
+              items: [
+                for (final value in ['private', 'public', 'unlisted'])
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(AppStrings.t('playlists.$value')),
+                  ),
+              ],
+              onChanged: (value) =>
+                  setState(() => _visibility = value ?? 'private'),
+            ),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () {
+                if (_form.currentState!.validate()) {
+                  Navigator.pop(context, (
+                    _name.text.trim(),
+                    _description.text.trim(),
+                    _visibility,
+                  ));
+                }
+              },
+              child: Text(
+                AppStrings.t(
+                  widget.creating ? 'playlists.create' : 'playlists.save',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
