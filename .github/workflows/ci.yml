@@ -226,7 +226,7 @@ jobs:
 
   e2e:
     needs: [backend, web]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -245,13 +245,26 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: frontend/e2e_testing/requirements.txt
-      - name: Install PostgreSQL 18 binaries
+      - name: Install PostgreSQL 18 and media dependencies
+        timeout-minutes: 10
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes ca-certificates curl postgresql-common
+          # Apply bounded downloads to this step and Playwright's later apt installs.
+          sudo tee /etc/apt/apt.conf.d/99-hutube-ci > /dev/null <<'APT'
+          Acquire::Retries "3";
+          Acquire::http::Timeout "30";
+          Acquire::https::Timeout "30";
+          APT::Install-Recommends "false";
+          APT
+          # The Azure Ubuntu mirror has stalled downloads for the entire E2E job.
+          for source in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+            if [[ -f "$source" ]]; then
+              sudo sed -i -E 's#https?://azure\.archive\.ubuntu\.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' "$source"
+            fi
+          done
           sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
           sudo curl --fail --silent --show-error --location \
+            --connect-timeout 15 --max-time 60 --retry 3 \
             --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc
           . /etc/os-release
@@ -259,8 +272,12 @@ jobs:
             "$VERSION_CODENAME" "$(dpkg --print-architecture)" \
             | sudo tee /etc/apt/sources.list.d/pgdg.sources > /dev/null
           sudo apt-get update
-          sudo apt-get install --yes postgresql-18 ffmpeg
+          sudo apt-get install --yes --no-install-recommends postgresql-18 ffmpeg
           test -x /usr/lib/postgresql/18/bin/initdb
+          /usr/lib/postgresql/18/bin/initdb --version
+          /usr/lib/postgresql/18/bin/pg_ctl --version
+          ffmpeg -hide_banner -version
+          ffprobe -hide_banner -version
           echo 'E2E_POSTGRES_BIN=/usr/lib/postgresql/18/bin' >> "$GITHUB_ENV"
       - name: Install browser and project dependencies
         shell: bash
