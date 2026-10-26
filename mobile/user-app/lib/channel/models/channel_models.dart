@@ -66,6 +66,9 @@ class ChannelDetail {
     required this.createdAt,
     this.myRole,
     this.permissions = const [],
+    this.contactEmail,
+    this.status = 'active',
+    this.statusReason,
   });
 
   final String id;
@@ -84,6 +87,11 @@ class ChannelDetail {
   final String createdAt;
   final String? myRole;
   final List<String> permissions;
+  final String? contactEmail;
+  final String status;
+  final String? statusReason;
+  bool can(String permission) =>
+      status != 'suspended' && (isOwner || permissions.contains(permission));
 
   factory ChannelDetail.fromJson(Map<String, dynamic> json) {
     return ChannelDetail(
@@ -101,6 +109,9 @@ class ChannelDetail {
       isOwner: json['isOwner'] as bool? ?? false,
       isSubscribed: json['isSubscribed'] as bool? ?? false,
       createdAt: json['createdAt'] as String? ?? '',
+      contactEmail: json['contactEmail'] as String?,
+      status: json['status'] as String? ?? 'active',
+      statusReason: json['statusReason'] as String?,
       myRole: json['myRole'] as String?,
       permissions: (json['permissions'] as List<dynamic>? ?? const [])
           .whereType<String>()
@@ -125,6 +136,9 @@ class ChannelDetail {
     'createdAt': createdAt,
     'myRole': myRole,
     'permissions': permissions,
+    'contactEmail': contactEmail,
+    'status': status,
+    'statusReason': statusReason,
   };
 
   ChannelDetail copyWith({
@@ -136,6 +150,7 @@ class ChannelDetail {
     String? settings,
     bool? isSubscribed,
     int? subscriberCount,
+    String? contactEmail,
   }) {
     return ChannelDetail(
       id: id,
@@ -154,6 +169,9 @@ class ChannelDetail {
       createdAt: createdAt,
       myRole: myRole,
       permissions: permissions,
+      contactEmail: contactEmail ?? this.contactEmail,
+      status: status,
+      statusReason: statusReason,
     );
   }
 }

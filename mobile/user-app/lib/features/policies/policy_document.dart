@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'policy_catalog.dart';
 import 'package:flutter/services.dart';
 
 String policyDocumentText(
@@ -13,7 +14,14 @@ String policyDocumentText(
           if (policy['version'] != null)
             '${policy['code'] ?? ''} · ${policy['version']}',
           if (policy['effectiveAt'] != null) '${policy['effectiveAt']}',
-          '${policy['description'] ?? policy['content'] ?? ''}',
+          '${policy['content'] ?? policy['description'] ?? ''}',
+          if ((policy['rules'] as List? ?? []).isNotEmpty)
+            policyLabel('policies.mandatoryRules'),
+          for (final rule in policy['rules'] as List? ?? []) '• $rule',
+          if ((policy['exceptions'] as List? ?? []).isNotEmpty)
+            policyLabel('policies.exceptionsEdsa'),
+          for (final exception in policy['exceptions'] as List? ?? [])
+            '• $exception',
         ].join('\n'),
       )
       .join('\n\n');

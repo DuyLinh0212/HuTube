@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'appeal_evidence.dart';
+import 'appeal_composer.dart';
+import '../../channel/models/channel_models.dart';
 
 import '../../auth.dart';
 import '../../channel/services/channel_service.dart';
@@ -8,8 +11,9 @@ import '../../core/widgets/hutube_widgets.dart';
 import 'moderation_service.dart';
 
 class ModerationScreen extends StatefulWidget {
-  const ModerationScreen({super.key, required this.auth});
+  const ModerationScreen({super.key, required this.auth, this.channel});
   final AuthController auth;
+  final ChannelDetail? channel;
 
   @override
   State<ModerationScreen> createState() => _ModerationScreenState();
@@ -19,6 +23,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
   late final ModerationService _service = ModerationService(widget.auth);
   List<Map<String, dynamic>> _appeals = const [];
   Map<String, dynamic>? _strikes;
+  ChannelDetail? _channel;
   bool _loading = true;
   String? _error;
 
@@ -38,7 +43,9 @@ class _ModerationScreenState extends State<ModerationScreen> {
       final appeals = await _service.myAppeals();
       Map<String, dynamic>? strikes;
       try {
-        final channel = await ChannelService(widget.auth).getMyChannel();
+        final channel =
+            widget.channel ?? await ChannelService(widget.auth).getMyChannel();
+        _channel = channel;
         if (channel != null) {
           strikes = await _service.channelStrikes(channel.id);
         }
@@ -70,147 +77,19 @@ class _ModerationScreenState extends State<ModerationScreen> {
   }
 
   Future<void> _createAppeal() async {
-    final targetId = TextEditingController();
-    final reason = TextEditingController();
-    final evidenceUrl = TextEditingController();
-    final evidenceNote = TextEditingController();
-    var targetType = 'video';
-    final form = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<bool>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, refresh) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  AppStrings.t('moderation.sendAppeal'),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: targetType,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('moderation.targetType'),
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'video',
-                      child: Text(AppStrings.t('moderation.target.video')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'channel',
-                      child: Text(AppStrings.t('moderation.target.channel')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'comment',
-                      child: Text(AppStrings.t('moderation.target.comment')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'strike',
-                      child: Text(AppStrings.t('moderation.target.strike')),
-                    ),
-                  ],
-                  onChanged: (value) =>
-                      refresh(() => targetType = value ?? 'video'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: targetId,
-                  onChanged: (_) => refresh(() {}),
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('moderation.targetId'),
-                    hintText: AppStrings.t('moderation.targetIdHint'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: reason,
-                  minLines: 3,
-                  maxLines: 5,
-                  onChanged: (_) => refresh(() {}),
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('moderation.appealReason'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: evidenceUrl,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('moderation.evidenceUrl'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: evidenceNote,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.t('moderation.evidenceNote'),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed:
-                      targetId.text.trim().isEmpty || reason.text.trim().isEmpty
-                      ? null
-                      : () => Navigator.pop(sheetContext, true),
-                  child: Text(AppStrings.t('moderation.sendAppeal')),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(sheetContext, false),
-                  child: Text(AppStrings.t('common.cancel')),
-                ),
-              ],
-            ),
-          ),
-        ),
+      builder: (_) => AppealComposer(
+        auth: widget.auth,
+        targetId: (_channel ?? widget.channel)?.id ?? '',
+        targetLabel: (_channel ?? widget.channel)?.name ?? '',
+        targetType: (_channel ?? widget.channel) == null ? 'video' : 'channel',
       ),
     );
-    if (form != true) {
-      targetId.dispose();
-      reason.dispose();
-      evidenceUrl.dispose();
-      evidenceNote.dispose();
-      return;
-    }
-    try {
-      await _service.createAppeal(
-        targetType: targetType,
-        targetId: targetId.text.trim(),
-        reason: reason.text.trim(),
-        evidenceUrl: evidenceUrl.text,
-        evidenceNote: evidenceNote.text,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.t('moderation.appealSent'))),
-        );
-        await _load();
-      }
-    } on ApiFailure catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
-      }
-    } finally {
-      targetId.dispose();
-      reason.dispose();
-      evidenceUrl.dispose();
-      evidenceNote.dispose();
-    }
+    if (result == true && mounted) await _load();
   }
 
   @override
@@ -230,67 +109,50 @@ class _ModerationScreenState extends State<ModerationScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          HuTubeSectionHeader(
-            title: AppStrings.t('moderation.title'),
-            subtitle: AppStrings.t('moderation.subtitle'),
-            action: AppStrings.t('moderation.action'),
-            onAction: _createAppeal,
+          Text(
+            AppStrings.t('moderation.title'),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 18),
-          if (_strikes != null) ...[
-            HuTubeSurface(
-              color:
-                  (_strikes!['isSuspended'] == true
-                          ? AppColors.danger
-                          : AppColors.violet)
-                      .withValues(alpha: .08),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppStrings.t('moderation.channelStatus'),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    AppStrings.format('moderation.activeWarnings', {
-                      'count': AppStrings.number(
-                        _strikes!['activeStrikesCount'] is num
-                            ? _strikes!['activeStrikesCount'] as num
-                            : 0,
-                      ),
-                    }),
-                  ),
-                  Text(
-                    _strikes!['isSuspended'] == true
-                        ? AppStrings.t('moderation.suspended')
-                        : (_strikes!['hasWarning'] == true
-                              ? AppStrings.t('moderation.hasWarning')
-                              : AppStrings.t('moderation.noWarning')),
-                  ),
-                  if (_strikes!['strikes'] is List)
-                    for (final item
-                        in (_strikes!['strikes'] as List).whereType<Map>())
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Text(
-                          '• ${item['reason'] ?? AppStrings.t('moderation.warning')} · ${item['severity'] ?? ''} · ${_date(item['createdAt'])}',
-                        ),
-                      ),
-                ],
-              ),
+          const SizedBox(height: 6),
+          Text(
+            AppStrings.t('moderation.subtitle'),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textMutedFor(context),
+              height: 1.5,
             ),
-            const SizedBox(height: 18),
+          ),
+          const SizedBox(height: 24),
+          if (_strikes != null || _channel != null) ...[
+            _statusCard(),
+            const SizedBox(height: 24),
           ],
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                AppStrings.t('moderation.appealsHeading'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: _createAppeal,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text(AppStrings.t('moderation.sendAppeal')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           if (_appeals.isEmpty)
             HuTubeStateView(
               icon: Icons.fact_check_outlined,
               title: AppStrings.t('moderation.noAppeals'),
               message: AppStrings.t('moderation.noAppealsDescription'),
-              actionLabel: AppStrings.t('moderation.sendAppeal'),
-              onAction: _createAppeal,
               compact: true,
               accent: AppColors.violet,
             )
@@ -312,6 +174,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Chip(
                             label: Text(
                               _appealStatus('${appeal['status'] ?? 'pending'}'),
@@ -320,6 +183,12 @@ class _ModerationScreenState extends State<ModerationScreen> {
                         ],
                       ),
                       Text('${appeal['reason'] ?? ''}'),
+                      if ('${appeal['evidenceUrl'] ?? ''}'.isNotEmpty)
+                        AppealEvidence(
+                          key: ValueKey('evidence-${appeal['appealId']}'),
+                          auth: widget.auth,
+                          appealId: '${appeal['appealId']}',
+                        ),
                       const SizedBox(height: 5),
                       Text(
                         AppStrings.format('moderation.appealDate', {
@@ -342,6 +211,132 @@ class _ModerationScreenState extends State<ModerationScreen> {
         ],
       ),
     );
+  }
+
+  Widget _statusCard() {
+    final colors = Theme.of(context).colorScheme;
+    final suspended =
+        _strikes?['isSuspended'] == true || _channel?.status == 'suspended';
+    final strikes =
+        (_strikes?['strikes'] is List ? _strikes!['strikes'] as List : const [])
+            .whereType<Map>()
+            .toList();
+    final count = _strikes?['activeStrikesCount'] is num
+        ? _strikes!['activeStrikesCount'] as num
+        : 0;
+    final tint = suspended
+        ? colors.error
+        : count > 0
+        ? colors.tertiary
+        : colors.primary;
+    return HuTubeSurface(
+      color: colors.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  suspended
+                      ? Icons.pause_circle_outline_rounded
+                      : Icons.verified_user_outlined,
+                  color: tint,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppStrings.t('moderation.channelStatus'),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _channel?.name ?? '',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textMutedFor(context),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      AppStrings.t(
+                        suspended
+                            ? 'channel.suspendedTitle'
+                            : count > 0
+                            ? 'moderation.hasWarning'
+                            : 'moderation.status.active',
+                      ),
+                      style: TextStyle(
+                        color: tint,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+          Text(
+            AppStrings.format('moderation.activeWarnings', {
+              'count': AppStrings.number(count),
+            }),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          for (final item in strikes)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: tint),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${item['reason'] ?? AppStrings.t('moderation.warning')}',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${_severity('${item['severity'] ?? ''}')} · ${_date(item['createdAt'])}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.textMutedFor(context),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _severity(String value) {
+    final key = 'moderation.severity.${value.toLowerCase()}';
+    final translated = AppStrings.t(key);
+    return translated == key ? AppStrings.t('moderation.warning') : translated;
   }
 
   String _targetTypeLabel(String value) {

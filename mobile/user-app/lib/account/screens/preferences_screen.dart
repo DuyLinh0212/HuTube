@@ -39,6 +39,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
           _loading = false;
         });
         ThemeNotifier.setTheme(res.theme);
+        AppStrings.setLanguage(res.language);
       }
     } catch (_) {
       if (mounted) {
@@ -51,6 +52,8 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   }
 
   Future<void> _save(UserPreferencesModel updated) async {
+    if (_saving) return;
+    final previous = _preferences;
     setState(() {
       _preferences = updated;
       _saving = true;
@@ -63,7 +66,13 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       final res = await _accountService.updatePreferences(updated);
       if (mounted) setState(() => _preferences = res);
     } catch (_) {
-      if (mounted) setState(() => _error = AppStrings.t('prefs.saveError'));
+      ThemeNotifier.setTheme(previous.theme);
+      if (mounted) {
+        setState(() {
+          _preferences = previous;
+          _error = AppStrings.t('prefs.saveError');
+        });
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

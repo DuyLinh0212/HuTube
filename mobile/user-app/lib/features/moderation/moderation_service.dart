@@ -1,8 +1,51 @@
 import '../../auth.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../core/localization/app_strings.dart';
 
 class ModerationService {
   ModerationService(this.auth);
   final AuthController auth;
+
+  String evidenceMime(XFile file) {
+    final name = file.name.toLowerCase();
+    if (name.endsWith('.pdf')) return 'application/pdf';
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.webp')) return 'image/webp';
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+    throw ApiFailure(
+      400,
+      'EVIDENCE_INVALID',
+      AppStrings.t('moderation.evidenceInvalid'),
+    );
+  }
+
+  Future<void> validateEvidence(XFile file) async {
+    evidenceMime(file);
+    final length = await file.length();
+    if (length == 0 || length > 10 * 1024 * 1024) {
+      throw ApiFailure(
+        400,
+        'EVIDENCE_INVALID',
+        AppStrings.t('moderation.evidenceInvalid'),
+      );
+    }
+  }
+
+  Future<void> uploadEvidence(String appealId, XFile file) async {
+    await validateEvidence(file);
+    await auth.protectedUpload(
+      '/appeals/${Uri.encodeComponent(appealId)}/evidence',
+      UploadPayload(
+        bytes: await file.readAsBytes(),
+        fileName: file.name,
+        contentType: evidenceMime(file),
+      ),
+    );
+  }
+
+  Future<BinaryPayload> evidence(String appealId) => auth.protectedBinary(
+    '/appeals/${Uri.encodeComponent(appealId)}/evidence',
+  );
 
   Future<List<Map<String, dynamic>>> violationTypes() async =>
       (await auth.api.requestList('GET', '/violation-types'))

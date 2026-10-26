@@ -18,6 +18,7 @@ class AppPreferencesStore {
   static const playbackDoubleTapSeekKey = 'hutube.playback_double_tap_seek';
   static const playbackZoomToFillKey = 'hutube.playback_zoom_to_fill';
   static const playbackPipKey = 'hutube.playback_pip';
+  static const playbackQualityKey = 'hutube.playback_quality';
   static const backgroundPlaybackModeKey = 'hutube.bg_playback_mode';
   static const downloadQualityKey = 'hutube.download_quality';
   static const downloadWifiOnlyKey = 'hutube.download_wifi_only';
@@ -44,7 +45,24 @@ class AppPreferencesStore {
       (await _storage.read(key: playbackAutoplayNextKey)) != 'false';
 
   Future<void> writeAutoplayNext(bool value) =>
-      _storage.write(key: playbackAutoplayNextKey, value: '$value');
+      _writeMedia(playbackAutoplayNextKey, '$value');
+
+  Future<String> readPlaybackQuality() async {
+    final value = await _storage.read(key: playbackQualityKey);
+    return const [
+          'auto',
+          '1080p',
+          '720p',
+          '480p',
+          '360p',
+          '144p',
+        ].contains(value)
+        ? value!
+        : 'auto';
+  }
+
+  Future<void> writePlaybackQuality(String value) =>
+      _writeMedia(playbackQualityKey, value);
 
   Future<int> readDoubleTapSeek() async {
     final raw = await _storage.read(key: playbackDoubleTapSeekKey);

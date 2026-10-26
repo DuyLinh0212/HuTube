@@ -20,10 +20,13 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   final _nameController = TextEditingController();
   final _handleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _contactEmailController = TextEditingController();
 
   late final ChannelService _channelService;
 
   bool _busy = false;
+  bool _checkingExisting = true;
+  String? _existingError;
   bool _checkingHandle = false;
   bool? _handleAvailable;
   String? _error;
@@ -41,6 +44,37 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
     _nameController.text =
         '${widget.auth.user?['displayName'] ?? widget.auth.user?['username'] ?? ''}';
     _onNameChanged(_nameController.text);
+    _checkExistingChannel();
+  }
+
+  Future<void> _checkExistingChannel() async {
+    final session = widget.auth.sessionGeneration;
+    setState(() {
+      _checkingExisting = true;
+      _existingError = null;
+    });
+    try {
+      final channel = await _channelService.getMyChannel();
+      if (!mounted || session != widget.auth.sessionGeneration) return;
+      if (channel != null && channel.id.isNotEmpty) {
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                ChannelScreen(auth: widget.auth, channelOrHandle: channel.id),
+          ),
+        );
+        return;
+      }
+      setState(() => _checkingExisting = false);
+    } catch (error) {
+      if (!mounted || session != widget.auth.sessionGeneration) return;
+      setState(() {
+        _checkingExisting = false;
+        _existingError = error is ApiFailure
+            ? AppStrings.apiError(error)
+            : AppStrings.t('common.networkError');
+      });
+    }
   }
 
   void _onNameChanged(String name) {
@@ -55,6 +89,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
     _nameController.dispose();
     _handleController.dispose();
     _descriptionController.dispose();
+    _contactEmailController.dispose();
     super.dispose();
   }
 
@@ -107,6 +142,12 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   }
 
   Future<void> _submit() async {
+    final email = _contactEmailController.text.trim();
+    if (email.isNotEmpty &&
+        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      setState(() => _error = AppStrings.t('channel.contactEmailInvalid'));
+      return;
+    }
     final name = _nameController.text.trim();
     final handle = normalizeChannelHandle(_handleController.text);
     if (_busy || _checkingHandle) return;
@@ -134,6 +175,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
         name: name,
         handle: handle,
         description: _descriptionController.text.trim(),
+        contactEmail: email,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -171,6 +213,29 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingExisting || _existingError != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(AppStrings.t('channel.createTitle'))),
+        body: Center(
+          child: _checkingExisting
+              ? const CircularProgressIndicator()
+              : Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_existingError!, textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: _checkExistingChannel,
+                        child: Text(AppStrings.t('common.retry')),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(AppStrings.t('channel.createTitle')),
@@ -318,6 +383,18 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                 maxLines: 4,
                 decoration: InputDecoration(
                   hintText: AppStrings.t('channel.descriptionHint'),
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                key: const ValueKey('channel-contact-email'),
+                controller: _contactEmailController,
+                enabled: !_busy,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('channel.contactEmail'),
+                  helperText: AppStrings.t('channel.contactEmailHint'),
+                  prefixIcon: const Icon(Icons.mail_outline_rounded),
                 ),
               ),
               const SizedBox(height: 32),
