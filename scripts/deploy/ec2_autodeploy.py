@@ -140,11 +140,54 @@ class Deployer:
         expected = "https://github.com/" + self.config["repository"] + ".git"
         if self.git("remote", "get-url", "origin") != expected:
             raise ValueError("Unexpected deployment Git remote")
-        if shutil.disk_usage(self.repo).free < 3 * 1024 ** 3:
-            raise ValueError("At least 3 GiB of free disk is required before building")
         for path in (self.repo / ".env.ec2-api", self.repo / "recommendation-service/.env.ec2"):
             if not path.is_file():
                 raise ValueError("An EC2 environment file is missing")
+        self.cleanup_storage()
+        if shutil.disk_usage(self.repo).free < 3 * 1024 ** 3:
+            raise ValueError("At least 3 GiB of free disk is required after cleanup")
+
+    def cleanup_storage(self):
+        """Remove obsolete managed builds, preserving containers and recovery images."""
+        protected = set(self.image_ids().values())
+        containers = self.run("docker", "ps", "-aq", capture=True).splitlines()
+        if containers:
+            protected.update(self.run("docker", "inspect", "--format", "{{.Image}}",
+                                      *containers, capture=True).splitlines())
+        protected.update(self.state.get("images", {}).values())
+        snapshots = [self.state.get("baseline_snapshot"),
+                     self.state.get("pending", {}).get("snapshot")]
+        for snapshot in snapshots:
+            if snapshot:
+                protected.update(snapshot["images"].values())
+
+        inventory = [json.loads(line) for line in self.run(
+            "docker", "image", "ls", "--no-trunc", "--format", "{{json .}}",
+            capture=True).splitlines()]
+        by_tag = {item["Repository"] + ":" + item["Tag"]: item["ID"] for item in inventory}
+        rollback = self.state.get("rollback_directory")
+        if rollback:
+            directory = Path(rollback).resolve()
+            if not directory.is_relative_to(self.directory / "rollback"):
+                raise ValueError("Rollback directory is outside the managed directory")
+            # Resolve every retained rollback tag before removing anything. A
+            # missing checkpoint/image fails closed rather than pruning blindly.
+            override = json.loads((directory / "override.json").read_text())
+            for service in SERVICES:
+                protected.add(by_tag[override["services"][service]["image"]])
+
+        obsolete = sorted({item["Repository"] + ":" + item["Tag"] for item in inventory
+                           if item["ID"] not in protected and re.fullmatch(
+                               r"dalitu-(?:api|recommendation):git-[0-9a-f]{40}"
+                               r"|dalitu-(?:api|recommendation|caddy):rollback-[0-9]+-[0-9a-f]{12}",
+                               item["Repository"] + ":" + item["Tag"])})
+        for tag in obsolete:
+            # Never force removal, prune volumes, or remove unrelated images.
+            self.run("docker", "image", "rm", tag, capture=True)
+        self.run("docker", "builder", "prune", "--all", "--force",
+                 "--keep-storage", "512MB", capture=True, timeout=300)
+        log("storage_cleaned", removed_tags=len(obsolete),
+            free_bytes=shutil.disk_usage(self.repo).free)
 
     def image_ids(self, files=None):
         result = {}
@@ -317,12 +360,21 @@ class Deployer:
                       "rollback_directory": snapshot["directory"]}
         self.save()
         log("deployment_succeeded", sha=sha, run_id=run_id)
+        # The new release is already verified and committed to state. A cleanup
+        # problem must not trigger rollback of a healthy deployment.
+        try:
+            self.cleanup_storage()
+        except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            log("storage_cleanup_failed", error_type=type(error).__name__)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="/etc/dalitu-autodeploy.json")
-    parser.add_argument("--check-only", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check-only", action="store_true")
+    mode.add_argument("--cleanup-only", action="store_true",
+                      help="Prune obsolete managed builds without deploying or restarting services")
     parser.add_argument("--retry-failed", action="store_true")
     args = parser.parse_args()
     if os.geteuid() != 0:
@@ -340,6 +392,11 @@ def main():
             log("deployment_already_running")
             return
         deployer = Deployer(config)
+        if args.cleanup_only:
+            if deployer.state.get("pending"):
+                raise ValueError("Cannot run maintenance during an interrupted deployment")
+            deployer.cleanup_storage()
+            return
         if not args.check_only:
             deployer.recover_interrupted()
         candidate = deployer.eligible(args.retry_failed)

@@ -4,6 +4,7 @@ from io import StringIO
 import json
 import os
 import stat
+import subprocess
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -98,7 +99,8 @@ class RecoveryTests(unittest.TestCase):
                     "build": ({}, {"api": "new-api", "recommendation": "new-rec"}),
                     "prepare": None, "tip": SHA, "activate": None,
                     "verify": {"api": "new-api", "recommendation": "new-rec"}, "rollback": None,
-                    "eligible": (SHA, 123), "set_default_image_tags": None}
+                    "eligible": (SHA, 123), "set_default_image_tags": None,
+                    "cleanup_storage": None}
         self.mocks = {name: self.stack.enter_context(patch.object(self.deployer, name, return_value=value))
                       for name, value in defaults.items()}
 
@@ -174,6 +176,127 @@ class RecoveryTests(unittest.TestCase):
         self.deployer.recover_interrupted()
         self.mocks["rollback"].assert_not_called()
         self.assertEqual(SHA, self.deployer.state["failed_sha"])
+
+    def test_cleanup_failure_cannot_rollback_a_verified_release(self):
+        self.mocks["cleanup_storage"].side_effect = OSError("cleanup unavailable")
+        self.deployer.deploy(SHA, 123)
+        self.assertEqual(SHA, self.deployer.state["sha"])
+        self.assertNotIn("failed_sha", self.deployer.state)
+        self.mocks["rollback"].assert_not_called()
+
+
+class StorageCleanupTests(unittest.TestCase):
+    def setUp(self):
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        self.stack.enter_context(redirect_stdout(StringIO()))
+        directory = self.stack.enter_context(TemporaryDirectory())
+        self.deployer = Deployer({"repo_dir": directory, "state_dir": directory,
+                                  "repository": REPO})
+        self.active = {name: "sha256:active-" + name for name in ("api", "recommendation", "caddy")}
+        self.stack.enter_context(patch.object(self.deployer, "image_ids", return_value=self.active))
+        self.inventory = []
+        self.removed = []
+        self.cache_pruned = False
+        self.command = self.stack.enter_context(patch.object(self.deployer, "run", side_effect=self.docker_command))
+        for service, image in self.active.items():
+            self.add_image("dalitu-" + service + ":rollback-123-" + OLD[:12], image)
+        self.rollback = self.deployer.directory / "rollback" / "456-" / "snapshot"
+        self.rollback.mkdir(parents=True)
+        refs = {service: {"image": "dalitu-" + service + ":rollback-456-" + SHA[:12]}
+                for service in self.active}
+        for service, item in refs.items():
+            self.add_image(item["image"], "sha256:rollback-" + service)
+        (self.rollback / "override.json").write_text(json.dumps({"services": refs}))
+        self.deployer.state["rollback_directory"] = str(self.rollback)
+
+    def add_image(self, tag, image):
+        repository, version = tag.split(":", 1)
+        self.inventory.append({"Repository": repository, "Tag": version, "ID": image})
+
+    def docker_command(self, *args, **_kwargs):
+        if args == ("docker", "ps", "-aq"):
+            return "running\nstopped"
+        if args[:4] == ("docker", "inspect", "--format", "{{.Image}}"):
+            return self.active["api"] + "\nsha256:stopped-container"
+        if args[:3] == ("docker", "image", "ls"):
+            return "\n".join(json.dumps(item) for item in self.inventory)
+        if args[:3] == ("docker", "image", "rm"):
+            self.assertEqual(4, len(args), "Removal must target one tag without force")
+            self.removed.append(args[3])
+            return ""
+        if args[:3] == ("docker", "builder", "prune"):
+            self.cache_pruned = True
+            self.assertIn("--keep-storage", args)
+            return ""
+        self.fail("Unexpected cleanup command: " + repr(args))
+
+    def test_only_obsolete_managed_builds_are_removed(self):
+        obsolete = ["dalitu-api:git-" + "c" * 40,
+                    "dalitu-recommendation:rollback-100-" + "d" * 12]
+        for tag in obsolete:
+            self.add_image(tag, "sha256:obsolete")
+        self.add_image("dalitu-api:git-" + SHA, self.active["api"])
+        self.add_image("dalitu-api:git-" + OLD, "sha256:rollback-api")
+        self.add_image("dalitu-api:git-" + "e" * 40, "sha256:stopped-container")
+        self.add_image("rabbitmq:latest", "sha256:unrelated")
+        self.add_image("dalitu-api:operator-backup", "sha256:manual-backup")
+        self.add_image("<none>:<none>", "sha256:unmanaged-dangling")
+        self.deployer.cleanup_storage()
+        self.assertEqual(sorted(obsolete), self.removed)
+        self.assertTrue(self.cache_pruned)
+
+    def test_state_and_interrupted_deployment_images_remain_protected(self):
+        self.deployer.state.update({"images": {"api": "sha256:state"},
+                                    "baseline_snapshot": {"images": {"api": "sha256:baseline"}},
+                                    "pending": {"snapshot": {"images": {"api": "sha256:pending"}}}})
+        for marker, image in [("c", "state"), ("d", "baseline"), ("e", "pending")]:
+            self.add_image("dalitu-api:git-" + marker * 40, "sha256:" + image)
+        self.deployer.cleanup_storage()
+        self.assertEqual([], self.removed)
+
+    def test_missing_rollback_image_prevents_any_removal(self):
+        self.inventory = [item for item in self.inventory if item["ID"] != "sha256:rollback-api"]
+        with self.assertRaises(KeyError):
+            self.deployer.cleanup_storage()
+        self.assertEqual([], self.removed)
+        self.assertFalse(self.cache_pruned)
+
+    def test_missing_or_external_checkpoint_prevents_any_removal(self):
+        for directory in [self.deployer.directory / "rollback" / "missing", self.deployer.repo]:
+            with self.subTest(directory=directory):
+                self.deployer.state["rollback_directory"] = str(directory)
+                with self.assertRaises((OSError, ValueError)):
+                    self.deployer.cleanup_storage()
+        self.assertEqual([], self.removed)
+        self.assertFalse(self.cache_pruned)
+
+    def test_container_inventory_error_prevents_any_removal(self):
+        self.command.side_effect = subprocess.CalledProcessError(1, "docker")
+        with self.assertRaises(subprocess.SubprocessError):
+            self.deployer.cleanup_storage()
+        self.assertEqual([], self.removed)
+
+    def test_preflight_reclaims_space_before_checking_minimum(self):
+        for name in (".env.ec2-api", "recommendation-service/.env.ec2"):
+            path = self.deployer.repo / name
+            path.parent.mkdir(exist_ok=True)
+            path.touch()
+        def git(*args):
+            return {("branch", "--show-current"): "main",
+                    ("status", "--porcelain", "--untracked-files=no"): "",
+                    ("remote", "get-url", "origin"): "https://github.com/" + REPO + ".git"}[args]
+        disk = type("Disk", (), {"free": 4 * 1024 ** 3})()
+        with patch.object(self.deployer, "git", side_effect=git), \
+                patch.object(self.deployer, "cleanup_storage") as cleanup, \
+                patch("ec2_autodeploy.shutil.disk_usage", return_value=disk) as usage:
+            cleanup.side_effect = lambda: self.assertEqual(0, usage.call_count)
+            self.deployer.preflight()
+            cleanup.assert_called_once()
+            disk.free = 1024 ** 3
+            cleanup.side_effect = None
+            with self.assertRaisesRegex(ValueError, "after cleanup"):
+                self.deployer.preflight()
 
 
 class SnapshotTests(unittest.TestCase):

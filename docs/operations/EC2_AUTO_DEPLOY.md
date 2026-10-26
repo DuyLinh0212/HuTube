@@ -40,12 +40,12 @@ The controller runs as root to manage Docker and switches to the checkout owner 
 
 1. Lock the deployment to prevent overlapping runs. Recover an interrupted activation from its saved checkpoint.
 2. Check GitHub CI and Vercel for the exact `main` SHA.
-3. Require a clean tracked checkout, the expected remote, existing env files and at least 3 GiB free disk. Untracked configuration files are preserved; no reset or clean command is used.
+3. Require a clean tracked checkout, the expected remote and existing env files. Remove obsolete managed images and unused build cache, then require at least 3 GiB free disk. Untracked configuration files are preserved; no reset or clean command is used.
 4. Snapshot the Compose/Caddy configuration actually used by the running containers and pin their current image IDs with rollback tags.
 5. Fetch and fast-forward `main` to the verified SHA. Build API and Recommendation images sequentially, each tagged with that SHA. The API's diagnostic endpoint reports the embedded SHA.
 6. Validate Compose/Caddy and run the migration service while the old application containers are still running.
 7. Check GitHub again. Recreate API, Recommendation and Caddy with the built images and existing named volumes.
-8. Verify both loopback and public HTTPS health endpoints, the API SHA and running image IDs. Then write the successful deployment marker and update the default local image tags.
+8. Verify both loopback and public HTTPS health endpoints, the API SHA and running image IDs. Then write the successful deployment marker, update the default local image tags and clean obsolete builds again, retaining this release and its rollback images. Cleanup failure after success is logged without rolling back a healthy release.
 9. On activation or health failure, recreate the previous containers from the snapshot and pinned images, verify them, and quarantine the failed SHA. A later successful `main` SHA remains eligible.
 
 An interrupted activation is rolled back on the next service invocation. Build failures leave the existing application containers running. Deployment has a short interruption while containers are recreated on this single host.
@@ -62,6 +62,9 @@ sudo cat /var/lib/dalitu-autodeploy/state.json
 # Check eligibility without building or replacing containers.
 sudo python3 /usr/local/lib/dalitu-autodeploy/ec2_autodeploy.py --check-only
 
+# Reclaim build storage without deploying or restarting services.
+sudo python3 /usr/local/lib/dalitu-autodeploy/ec2_autodeploy.py --cleanup-only
+
 # Trigger the same checked deployment immediately.
 sudo systemctl start dalitu-autodeploy.service
 
@@ -75,7 +78,9 @@ sudo systemctl start dalitu-autodeploy.timer
 
 After changing env files, use the existing Compose recreation command. Default local image tags point to the last healthy deployment. The installed controller is upgraded with the installer when its source changes.
 
-The deployment keeps rollback images and the Docker build cache. Check disk usage periodically. The 3 GiB preflight prevents starting another build when space is low; remove only reviewed, unused images/cache while retaining the active and rollback images.
+Each eligible deployment cleans storage before building and after a healthy activation. Cleanup removes only obsolete `dalitu-api:git-*`, `dalitu-recommendation:git-*` and managed rollback tags. Images referenced by any existing container (including stopped containers), the recorded healthy release, the most recent rollback checkpoint and interrupted/deferred deployment snapshots are protected. Manually named backups and unrelated images are left alone; named volumes are never pruned and image removal never uses force. Older snapshot configuration files remain on disk but their obsolete images are no longer retained.
+
+Unused Docker build cache is pruned with `docker builder prune --all --force --keep-storage 512MB`. This bounds retained unused cache, at the cost of rebuilding evicted layers. Disk usage can exceed that cache allowance because active layers and protected images remain. The 3 GiB preflight still blocks a build if cleanup cannot free enough space. A missing rollback checkpoint/image aborts cleanup before any image is removed. Maintenance uses the same deployment lock and refuses an interrupted transaction; recover that transaction through the normal service first.
 
 ## Verification
 
