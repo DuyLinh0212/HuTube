@@ -879,99 +879,101 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   }
 
   Widget _brandingSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceFor(context),
+    return Material(
+      color: AppColors.surfaceFor(context),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderFor(context)),
+        side: BorderSide(color: AppColors.borderFor(context)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            AppStrings.t('channel.brandingTitle'),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            AppStrings.t('channel.brandingDescription'),
-            style: TextStyle(
-              color: AppColors.textSecondaryFor(context),
-              fontSize: 12,
-              height: 1.4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppStrings.t('channel.brandingTitle'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-          ),
-          const SizedBox(height: 16),
-          _bannerEditor(),
-          const SizedBox(height: 18),
-          _avatarEditor(),
-          const SizedBox(height: 20),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            leading: const Icon(Icons.branding_watermark_outlined),
-            title: Text(AppStrings.t('channel.watermarkTitle')),
-            subtitle: _channel.watermarkUrl?.isNotEmpty == true
-                ? null
-                : Text(AppStrings.t('channel.watermarkPreviewEmpty')),
-            children: [
-              Text(
-                AppStrings.t('channel.watermarkDescription'),
-                style: TextStyle(
-                  color: AppColors.textSecondaryFor(context),
-                  fontSize: 12,
-                  height: 1.4,
-                ),
+            const SizedBox(height: 5),
+            Text(
+              AppStrings.t('channel.brandingDescription'),
+              style: TextStyle(
+                color: AppColors.textSecondaryFor(context),
+                fontSize: 12,
+                height: 1.4,
               ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: _busy || _uploadingWatermark
-                      ? null
-                      : _pickAndUploadWatermark,
-                  icon: _uploadingWatermark
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(height: 16),
+            _bannerEditor(),
+            const SizedBox(height: 18),
+            _avatarEditor(),
+            const SizedBox(height: 20),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: const Icon(Icons.branding_watermark_outlined),
+              title: Text(AppStrings.t('channel.watermarkTitle')),
+              subtitle: _channel.watermarkUrl?.isNotEmpty == true
+                  ? null
+                  : Text(AppStrings.t('channel.watermarkPreviewEmpty')),
+              children: [
+                Text(
+                  AppStrings.t('channel.watermarkDescription'),
+                  style: TextStyle(
+                    color: AppColors.textSecondaryFor(context),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _busy || _uploadingWatermark
+                        ? null
+                        : _pickAndUploadWatermark,
+                    icon: _uploadingWatermark
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.branding_watermark_outlined),
+                    label: Text(AppStrings.t('channel.uploadWatermark')),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  height: 116,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF11131A),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Stack(
+                    children: [
+                      if (_channel.watermarkUrl?.isNotEmpty == true)
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: Image.network(
+                            _channel.watermarkUrl!,
+                            width: 48,
+                            height: 36,
+                            fit: BoxFit.contain,
+                          ),
                         )
-                      : const Icon(Icons.branding_watermark_outlined),
-                  label: Text(AppStrings.t('channel.uploadWatermark')),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                height: 116,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF11131A),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Stack(
-                  children: [
-                    if (_channel.watermarkUrl?.isNotEmpty == true)
-                      Positioned(
-                        right: 12,
-                        bottom: 12,
-                        child: Image.network(
-                          _channel.watermarkUrl!,
-                          width: 48,
-                          height: 36,
-                          fit: BoxFit.contain,
+                      else
+                        Center(
+                          child: Text(
+                            AppStrings.t('channel.watermarkPreviewEmpty'),
+                            style: const TextStyle(color: Colors.white60),
+                          ),
                         ),
-                      )
-                    else
-                      Center(
-                        child: Text(
-                          AppStrings.t('channel.watermarkPreviewEmpty'),
-                          style: const TextStyle(color: Colors.white60),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

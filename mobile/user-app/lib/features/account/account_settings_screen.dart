@@ -917,24 +917,27 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       ? Column(
                           children: channelLinks(_myChannel?.settings)
                               .map(
-                                (link) => ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.link_rounded),
-                                  title: Text(
-                                    link['title']!.isEmpty
-                                        ? Uri.parse(link['url']!).host
-                                        : link['title']!,
+                                (link) => Material(
+                                  type: MaterialType.transparency,
+                                  child: ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(Icons.link_rounded),
+                                    title: Text(
+                                      link['title']!.isEmpty
+                                          ? Uri.parse(link['url']!).host
+                                          : link['title']!,
+                                    ),
+                                    subtitle: Text(
+                                      link['url']!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.open_in_new_rounded,
+                                      size: 18,
+                                    ),
+                                    onTap: () => _openPublicLink(link['url']!),
                                   ),
-                                  subtitle: Text(
-                                    link['url']!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.open_in_new_rounded,
-                                    size: 18,
-                                  ),
-                                  onTap: () => _openPublicLink(link['url']!),
                                 ),
                               )
                               .toList(),
