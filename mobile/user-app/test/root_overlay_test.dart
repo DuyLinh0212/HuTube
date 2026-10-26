@@ -5,6 +5,7 @@ import 'package:http/testing.dart';
 import 'package:user_app/app/mobile_app.dart';
 import 'package:user_app/auth.dart';
 import 'package:user_app/core/localization/app_strings.dart';
+import 'package:user_app/core/media/picture_in_picture.dart';
 import 'package:user_app/core/network/network_status.dart';
 import 'package:user_app/core/widgets/network_fallback_overlay.dart';
 import 'package:user_app/features/creator/upload_controller.dart';
@@ -36,6 +37,12 @@ void main() {
       );
       expect(close, findsOneWidget);
       expect(Overlay.maybeOf(tester.element(close)), isNotNull);
+      AppPictureInPicture.active.value = true;
+      await tester.pump();
+      expect(close, findsNothing);
+      AppPictureInPicture.active.value = false;
+      await tester.pump();
+      expect(close, findsOneWidget);
       await tester.longPress(close);
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.text(AppStrings.t('common.close')), findsOneWidget);
@@ -65,6 +72,12 @@ void main() {
       uploads.fileName = 'test-video.mp4';
       uploads.phase = UploadPhase.uploading;
       uploads.cancel();
+      await tester.pump();
+      AppPictureInPicture.active.value = true;
+      await tester.pump();
+      expect(find.text('test-video.mp4'), findsNothing);
+      expect(uploads.visible, isTrue);
+      AppPictureInPicture.active.value = false;
       await tester.pump();
       expect(tester.takeException(), isNull);
       final close = find.descendant(

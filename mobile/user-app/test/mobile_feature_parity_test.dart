@@ -277,8 +277,20 @@ void main() {
             if (r.url.path.endsWith('/auth/refresh')) {
               return jsonResponse(session('2'));
             }
+            if (r.url.path.endsWith('/upload-sessions')) {
+              keys.add(jsonDecode(r.body)['uploadId'] as String);
+              return jsonResponse({
+                'uploadId': 'same-key',
+                'chunkSize': 4,
+                'nextChunk': 0,
+              });
+            }
+            if (r.url.path.endsWith('/chunks/0')) {
+              return jsonResponse({'nextChunk': 1});
+            }
+            expect(r.url.path, endsWith('/same-key/complete'));
+            expect(r.headers['prefer'], 'respond-async');
             uploads++;
-            keys.add(r.headers['idempotency-key']!);
             final body = utf8.decode(r.bodyBytes);
             expect(body, contains('name="ChaptersJson"'));
             expect(body, contains('{"startSeconds":0,"title":"Introduction"}'));
@@ -321,7 +333,8 @@ void main() {
         ),
       );
       expect(result.id, 'saved');
-      expect(keys, ['same-key', 'same-key']);
+      expect(keys, ['same-key']);
+      expect(uploads, 2);
       expect(progressCalls, greaterThan(2));
     },
   );
