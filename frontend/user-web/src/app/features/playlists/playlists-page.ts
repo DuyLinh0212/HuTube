@@ -9,10 +9,12 @@ import { ChannelService } from '../../core/channel.service';
 import { I18nService } from '../../core/i18n.service';
 import { Playlist, PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playlist.service';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { LocaleNumberPipe } from '../../core/locale-number.pipe';
+import { PLAYLIST_LIBRARY_TRANSLATIONS } from './playlists.translations';
 
 @Component({
   selector: 'app-playlists-page',
-  imports: [ResultNoticeComponent, FormsModule, RouterLink, TranslatePipe],
+  imports: [ResultNoticeComponent, FormsModule, RouterLink, TranslatePipe, LocaleNumberPipe],
   templateUrl: './playlists-page.html',
   styleUrl: './playlists-page.scss'
 })
@@ -28,13 +30,18 @@ export class PlaylistsPage {
   readonly lists = signal<PlaylistSummary[]>([]);
   readonly listQuery = signal('');
   readonly listVisibility = signal('all');
+  readonly listSort = signal('updated');
   readonly listPage = signal(1);
   readonly listPageSize = signal(20);
   readonly filteredLists = computed(() => {
     const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
     const query = normalize(this.listQuery().trim());
-    return this.lists().filter(item => (!query || normalize(item.name).includes(query)) &&
+    const items = this.lists().filter(item => (!query || normalize(item.name).includes(query)) &&
       (this.listVisibility() === 'all' || item.visibility === this.listVisibility()));
+    return items.sort((a, b) => this.listSort() === 'name'
+      ? a.name.localeCompare(b.name, this.i18n.currentLang(), { numeric: true, sensitivity: 'base' })
+      : this.listSort() === 'videos' ? b.itemCount - a.itemCount
+      : Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   });
   readonly listPageCount = computed(() => Math.max(1, Math.ceil(this.filteredLists().length / this.listPageSize())));
   readonly currentListPage = computed(() => Math.min(this.listPage(), this.listPageCount()));
@@ -54,10 +61,12 @@ export class PlaylistsPage {
   busy = false;
 
   constructor() {
+    this.i18n.registerTranslations(PLAYLIST_LIBRARY_TRANSLATIONS);
     this.route.queryParamMap.subscribe(params => {
       this.listQuery.set(params.get('q') ?? '');
       this.listVisibility.set(['public', 'unlisted', 'private'].includes(params.get('visibility') ?? '') ? params.get('visibility')! : 'all');
       this.listPageSize.set(params.get('pageSize') === '50' ? 50 : 20);
+      this.listSort.set(['name', 'videos'].includes(params.get('sort') ?? '') ? params.get('sort')! : 'updated');
       const page = Number(params.get('page'));
       this.listPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
     });
@@ -78,6 +87,11 @@ export class PlaylistsPage {
   changeListPage(page: number) {
     void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
       queryParams: { page: Math.max(1, Math.min(this.listPageCount(), page)) } });
+  }
+
+  sortLists(sort: string) {
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
+      queryParams: { sort: sort === 'updated' ? null : sort, page: 1 } });
   }
 
   loadMine() {
@@ -125,6 +139,7 @@ export class PlaylistsPage {
         this.description = value.description ?? '';
         this.visibility = value.visibility;
         this.loading.set(false);
+        if (this.canManage() && this.route.snapshot.queryParamMap.get('edit') === '1') this.openEditDialog();
       },
       error: () => { this.error.set(this.i18n.t('playlists.detailError')); this.loading.set(false); }
     });
@@ -144,7 +159,7 @@ export class PlaylistsPage {
     if (!value || !this.canManage() || this.busy) return;
     this.busy = true;
     this.service.update(value.playlistId, this.name, this.description, this.visibility).subscribe({
-      next: updated => { this.playlist.set(updated); this.busy = false; this.editOpen.set(false); },
+      next: updated => { this.playlist.set(updated); this.busy = false; this.closeEditDialog(); },
       error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.saveError')); }
     });
   }
@@ -159,15 +174,25 @@ export class PlaylistsPage {
   }
 
   closeEditDialog() {
-    if (!this.busy) this.editOpen.set(false);
+    if (this.busy) return;
+    this.editOpen.set(false);
+    if (this.route.snapshot.queryParamMap.has('edit')) {
+      void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
+        queryParams: { edit: null }, replaceUrl: true });
+    }
   }
 
-  async deletePlaylist() {
-    const value = this.playlist();
-    if (!value || !this.canManage() || this.busy || !(await this.feedback.confirm(this.i18n.t('playlists.deleteConfirm'), { tone: 'danger' }))) return;
+  async deletePlaylist(summary?: PlaylistSummary) {
+    const value = summary ?? this.playlist();
+    const canManage = summary ? summary.userId === this.auth.user()?.userId : this.canManage();
+    if (!value || !canManage || this.busy || !(await this.feedback.confirm(this.i18n.t('playlists.deleteConfirm'), { tone: 'danger' }))) return;
     this.busy = true;
     this.service.remove(value.playlistId).subscribe({
-      next: () => void this.router.navigate(['/playlists']),
+      next: () => {
+        this.busy = false;
+        if (summary) this.lists.update(items => items.filter(item => item.playlistId !== value.playlistId));
+        else void this.router.navigate(['/playlists']);
+      },
       error: () => { this.busy = false; this.error.set(this.i18n.t('playlists.deleteError')); }
     });
   }
@@ -218,6 +243,7 @@ export class PlaylistsPage {
   }
 
   previewItems(list: PlaylistSummary): PlaylistItem[] { return this.previewById()[list.playlistId]?.items.slice(0, 4) ?? []; }
+  coverUrl(list: PlaylistSummary): string | null { return list.coverUrl || this.previewItems(list).find(item => item.thumbnailUrl)?.thumbnailUrl || null; }
   heroItems(value: Playlist): PlaylistItem[] { return value.items.slice(0, 4); }
   totalDuration(items: PlaylistItem[]) { return items.reduce((total, item) => total + (item.duration || 0), 0); }
   formatDuration(seconds: number) { const total = Math.max(0, Math.round(seconds)); const hours = Math.floor(total / 3600); const minutes = Math.floor((total % 3600) / 60); const remainder = total % 60; return hours ? this.i18n.t('playlists.durationHoursMinutes', { hours, minutes }) : this.i18n.t('playlists.durationMinutesSeconds', { minutes, seconds: remainder }); }
@@ -235,5 +261,17 @@ export class PlaylistsPage {
   @HostListener('document:keydown.escape')
   closeDialogsOnEscape() {
     if (this.editOpen()) this.closeEditDialog();
+    document.querySelectorAll<HTMLDetailsElement>('.card-options[open]').forEach(menu => {
+      menu.open = false;
+      menu.querySelector<HTMLElement>('summary')?.focus();
+    });
+  }
+
+  @HostListener('document:click', ['$event'])
+  closeListMenus(event: MouseEvent) {
+    const target = event.target;
+    document.querySelectorAll<HTMLDetailsElement>('.card-options[open]').forEach(menu => {
+      if (!(target instanceof Node) || !menu.contains(target)) menu.open = false;
+    });
   }
 }

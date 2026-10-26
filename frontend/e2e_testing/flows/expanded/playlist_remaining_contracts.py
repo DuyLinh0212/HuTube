@@ -68,8 +68,8 @@ def run(suite,config,actors):
             expect(p.locator('[role=alert]')).to_be_visible();expect(p.locator('#playlist-name')).to_have_value(name)
             matches=count(name);assert len(matches)==1,'The API committed one record before the client acknowledgement was lost'
             value=matches[0];created.append(value['playlistId'])
-            p.reload();expect(p.locator('a.playlist-card[href="/playlists/'+value['playlistId']+'"]').first).to_be_visible()
-            expect(p.locator('a.playlist-card[href="/playlists/'+value['playlistId']+'"]').first).to_have_count(1)
+            p.reload();expect(p.locator('a.card-mosaic[href="/playlists/'+value['playlistId']+'"]').first).to_be_visible()
+            expect(p.locator('a.card-mosaic[href="/playlists/'+value['playlistId']+'"]').first).to_have_count(1)
             suite.api(owner,'get','/playlists/'+value['playlistId'])
             entry['resource_ids']=[value['playlistId']];entry['transport_fault']=fault
             entry['steps']=['Arm loopback proxy to drop only the real successful POST /playlists response after upstream commit','Browser observes request failure and shows recoverable error; no response body is synthesized','Real API list contains exactly one committed ID; browser reload exposes it, so no blind retry creates a duplicate','Request failure: '+str(request.failure)]
@@ -91,11 +91,11 @@ def run(suite,config,actors):
             for label in ['A','B']:
                 value=suite.api(owner,'post','/playlists',data={'name':'QC latest '+label+' '+suite.run_id,'visibility':'private','description':'Actual route overlap'},expected=200).json();ids.append(value['playlistId']);created.append(value['playlistId'])
             a,b=ids;name_b='QC latest B '+suite.run_id
-            suite.go(owner,'/playlists','app-playlists-page','/playlists');expect(p.locator('a.playlist-card[href="/playlists/'+a+'"]')).to_be_visible();p.wait_for_timeout(700)
+            suite.go(owner,'/playlists','app-playlists-page','/playlists');expect(p.locator('a.card-mosaic[href="/playlists/'+a+'"]')).to_be_visible();p.wait_for_timeout(700)
             token=uuid.uuid4().hex;arm.write_text(json.dumps({'id':token,'path':'/api/v1/playlists/'+a,'query':{},'delay_ms':5000}),encoding='utf-8')
-            p.locator('a.playlist-card[href="/playlists/'+a+'"]').click();fault=wait(applied,token);assert fault['origin_status']==200
-            p.go_back();expect(p.locator('a.playlist-card[href="/playlists/'+b+'"]')).to_be_visible()
-            suite.response(owner,'/playlists/'+b,lambda:p.locator('a.playlist-card[href="/playlists/'+b+'"]').click())
+            p.locator('a.card-mosaic[href="/playlists/'+a+'"]').click();fault=wait(applied,token);assert fault['origin_status']==200
+            p.go_back();expect(p.locator('a.card-mosaic[href="/playlists/'+b+'"]')).to_be_visible()
+            suite.response(owner,'/playlists/'+b,lambda:p.locator('a.card-mosaic[href="/playlists/'+b+'"]').click())
             expect(p.locator('.hero-copy h1')).to_contain_text(name_b)
             wait(released,token);p.wait_for_timeout(400)
             expect(p).to_have_url(owner['origin']+'/playlists/'+b);expect(p.locator('.hero-copy h1')).to_contain_text(name_b)

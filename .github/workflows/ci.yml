@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
-    inputs:
-      deploy_staging:
-        description: "Deploy develop to the configured Render staging service after all checks pass"
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -356,40 +351,3 @@ jobs:
           tags: dalitu-recommendation:ci-${{ github.sha }}
           cache-from: type=gha,scope=recommendation
           cache-to: type=gha,mode=max,scope=recommendation
-
-  deploy-staging:
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy_staging && github.ref == 'refs/heads/develop'
-    needs: [container]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: staging
-    env:
-      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
-      STAGING_API_URL: ${{ vars.STAGING_API_URL }}
-      EXPECTED_COMMIT: ${{ github.sha }}
-    steps:
-      - name: Validate staging settings
-        shell: bash
-        run: |
-          test -n "$RENDER_DEPLOY_HOOK" || { echo 'Configure the staging RENDER_DEPLOY_HOOK secret.'; exit 1; }
-          test -n "$STAGING_API_URL" || { echo 'Configure the staging STAGING_API_URL variable.'; exit 1; }
-          [[ "$RENDER_DEPLOY_HOOK" == https://api.render.com/deploy/* ]] || { echo 'Expected a Render HTTPS deploy hook.'; exit 1; }
-          [[ "$STAGING_API_URL" == https://* ]] || { echo 'Staging API requires HTTPS.'; exit 1; }
-      - name: Deploy (Render pre-deploy command applies migrations)
-        shell: bash
-        run: curl --fail --silent --show-error --max-time 30 --get --data-urlencode "ref=$EXPECTED_COMMIT" "$RENDER_DEPLOY_HOOK" > /dev/null
-      - name: Wait for expected revision and smoke test
-        shell: bash
-        run: |
-          for attempt in $(seq 1 90); do
-            if curl --fail --silent --max-time 10 "${STAGING_API_URL%/}/health" > /dev/null; then
-              actual=$(curl --fail --silent --max-time 10 "${STAGING_API_URL%/}/api/v1/system/info" | jq -r '.commitSha // empty') || actual=''
-              if [ "$actual" = "$EXPECTED_COMMIT" ]; then
-                echo 'Expected deployment is healthy and responds to the shared client diagnostic endpoint.'
-                exit 0
-              fi
-            fi
-            sleep 10
-          done
-          echo 'Expected staging revision did not become healthy. Inspect Render deploy and migration logs.'
-          exit 1

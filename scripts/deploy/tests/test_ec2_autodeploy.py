@@ -56,11 +56,12 @@ class GateTests(unittest.TestCase):
                     next(job for job in self.jobs if job["name"] == name)["conclusion"] = conclusion
                     self.assertIsNotNone(self.reason())
 
-    def test_only_expected_staging_skip_is_allowed(self):
-        self.jobs.append({"name": "deploy-staging", "status": "completed", "conclusion": "skipped"})
-        self.assertIsNone(self.reason())
-        self.jobs.append({"name": "future-check", "status": "completed", "conclusion": "skipped"})
-        self.assertIsNotNone(self.reason())
+    def test_any_additional_unsuccessful_job_blocks_deployment(self):
+        for conclusion in ("skipped", "failure", "cancelled", None):
+            with self.subTest(conclusion=conclusion):
+                self.jobs = [job for job in self.jobs if job["name"] != "future-check"]
+                self.jobs.append({"name": "future-check", "status": "completed", "conclusion": conclusion})
+                self.assertIsNotNone(self.reason())
 
     def test_duplicate_job_name_cannot_hide_failure(self):
         self.jobs.insert(0, {"name": "backend", "status": "completed", "conclusion": "failure"})

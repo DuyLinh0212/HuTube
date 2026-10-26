@@ -60,8 +60,6 @@ def gate_reason(run, sha, jobs, status, repository, required_statuses):
         return "A required CI job is missing"
     for job in jobs:
         name = job["name"]
-        if name == "deploy-staging" and job.get("conclusion") == "skipped":
-            continue
         if job.get("status") != "completed" or job.get("conclusion") != "success":
             return "A CI job has not succeeded: " + name
     statuses = {item["context"]: item["state"] for item in status.get("statuses", [])}

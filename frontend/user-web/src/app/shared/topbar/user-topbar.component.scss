@@ -1094,9 +1094,7 @@
 
 @media (max-width: 680px) {
   .account-drawer {
-    inset: 0;
-    width: 100vw;
-    max-width: 100vw;
+    width: 75vw;
     touch-action: pan-y;
   }
 

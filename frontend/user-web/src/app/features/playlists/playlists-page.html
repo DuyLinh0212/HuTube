@@ -9,45 +9,74 @@
       <p>{{ 'playlists.loading' | translate }}</p>
     </section>
   } @else if (!playlist()) {
+    <header class="page-heading">
+      <h1>{{ 'playlists.pageTitle' | translate }}</h1>
+      <button type="button" class="secondary-button create-shortcut" (click)="focusCreateForm()">
+        <span aria-hidden="true">＋</span> {{ 'playlists.createTitle' | translate }}
+      </button>
+    </header>
     <div class="library-layout">
       <section class="library-main" [attr.aria-label]="'playlists.yourPlaylists' | translate">
         <div class="collection-controls">
-          <label for="playlist-query">{{ 'collection.search' | translate }}<input id="playlist-query" type="search" [ngModel]="listQuery()" (ngModelChange)="filterLists($event)" /></label>
-          <label for="playlist-filter">{{ 'upload.step5' | translate }}<select id="playlist-filter" [ngModel]="listVisibility()" (ngModelChange)="filterLists(listQuery(), $event)">
-            <option value="all">{{ 'ui.all' | translate }}</option><option value="public">{{ 'studio.public' | translate }}</option><option value="unlisted">{{ 'playlists.unlisted' | translate }}</option><option value="private">{{ 'playlists.private' | translate }}</option>
-          </select></label>
-          <label for="playlist-page-size">{{ 'collection.pageSize' | translate }}<select id="playlist-page-size" [ngModel]="listPageSize()" (ngModelChange)="filterLists(listQuery(), listVisibility(), +$event)"><option [ngValue]="20">20</option><option [ngValue]="50">50</option></select></label>
+          <label class="playlist-sort" for="playlist-sort">
+            <span class="sr-only">{{ 'playlists.sort' | translate }}</span>
+            <select id="playlist-sort" [ngModel]="listSort()" (ngModelChange)="sortLists($event)">
+              <option value="updated">{{ 'playlists.sortUpdated' | translate }}</option>
+              <option value="name">{{ 'playlists.sortName' | translate }}</option>
+              <option value="videos">{{ 'playlists.sortVideos' | translate }}</option>
+            </select>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </label>
+          <div class="playlist-filters" role="group" [attr.aria-label]="'upload.step5' | translate">
+            <button type="button" [attr.aria-pressed]="listVisibility() === 'all'" (click)="filterLists(listQuery(), 'all')">{{ 'ui.all' | translate }}</button>
+            <button type="button" [attr.aria-pressed]="listVisibility() === 'private'" (click)="filterLists(listQuery(), 'private')">{{ 'playlists.private' | translate }}</button>
+            <button type="button" [attr.aria-pressed]="listVisibility() === 'public'" (click)="filterLists(listQuery(), 'public')">{{ 'studio.public' | translate }}</button>
+            <button type="button" [attr.aria-pressed]="listVisibility() === 'unlisted'" (click)="filterLists(listQuery(), 'unlisted')">{{ 'playlists.unlisted' | translate }}</button>
+          </div>
+          <label class="playlist-search" for="playlist-query">
+            <span class="sr-only">{{ 'collection.search' | translate }}</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg>
+            <input id="playlist-query" type="search" [placeholder]="'collection.search' | translate" [ngModel]="listQuery()" (ngModelChange)="filterLists($event)" />
+          </label>
         </div>
         @if (lists().length) {
-          <div class="section-heading">
-            <div><h2>{{ 'playlists.saved' | translate }}</h2><p>{{ filteredLists().length }} {{ 'playlists.playlistCount' | translate }}</p></div>
-          </div>
+          <p class="sr-only" role="status">{{ filteredLists().length | localeNumber }} {{ 'playlists.playlistCount' | translate }}</p>
           <div class="playlist-grid">
             @for (item of visibleLists(); track item.playlistId) {
-              <a class="playlist-card" [routerLink]="['/playlists', item.playlistId]">
-                <div class="card-mosaic" [class.card-mosaic--empty]="!item.coverUrl && !previewItems(item).length">
-                  @if (item.coverUrl) {
-                    <img class="playlist-cover-image" [src]="item.coverUrl" [alt]="item.name" />
-                  }
-                  @for (video of item.coverUrl ? [] : previewItems(item); track video.playlistVideoId) {
-                    @if (video.thumbnailUrl) { <img [src]="video.thumbnailUrl" [alt]="video.title || item.name" /> }
-                  }
-                  @if (!previewItems(item).length) {
-                    <span class="mosaic-line mosaic-line--one"></span><span class="mosaic-line mosaic-line--two"></span>
-                    <span class="mosaic-letter">{{ item.name.slice(0, 1).toUpperCase() }}</span>
-                  }
-                  <span class="card-count"><b aria-hidden="true">▣</b> {{ item.itemCount }}</span>
+              <article class="playlist-card">
+                <div class="playlist-cover">
+                  <a class="card-mosaic" [routerLink]="['/playlists', item.playlistId]" [attr.aria-label]="item.name">
+                    @if (coverUrl(item); as cover) {
+                      <img class="playlist-cover-image" [src]="cover" alt="" loading="lazy" decoding="async" />
+                    } @else {
+                      <span class="playlist-cover-placeholder" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M9 13h30M9 21h20M9 29h15" /><path d="m32 25 10 7-10 7z" /></svg></span>
+                    }
+                    <span class="card-count"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h15M3 10h11M3 15h7" /><path d="m15 13 6 4-6 4z" /></svg>{{ item.itemCount | localeNumber }} {{ 'playlists.videos' | translate }}</span>
+                  </a>
                 </div>
                 <div class="card-copy">
-                  <div class="card-title-row"><h3>{{ item.name }}</h3><span aria-hidden="true">›</span></div>
-                  <p>{{ item.description || ('playlists.discoveryFallback' | translate) }}</p>
-                  <div class="card-meta"><span>{{ visibilityLabel(item.visibility) }}</span><i aria-hidden="true"></i><span>{{ 'playlists.updatedAt' | translate }} {{ formatUpdatedAt(item.updatedAt) }}</span></div>
+                  <div class="card-title-row">
+                    <h3><a [routerLink]="['/playlists', item.playlistId]">{{ item.name }}</a></h3>
+                    @if (item.userId === auth.user()?.userId) {
+                      <details class="card-options">
+                        <summary [attr.aria-label]="('playlists.options' | translate) + ': ' + item.name"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg></summary>
+                        <div class="card-options-menu">
+                          <a [routerLink]="['/playlists', item.playlistId]" [queryParams]="{ edit: '1' }">{{ 'playlists.editInfo' | translate }}</a>
+                          <button type="button" class="menu-danger" [disabled]="busy" (click)="deletePlaylist(item)">{{ 'playlists.delete' | translate }}</button>
+                        </div>
+                      </details>
+                    }
+                  </div>
+                  <p class="card-meta">{{ visibilityLabel(item.visibility) }} <span>{{ 'playlists.pageTitle' | translate }}</span></p>
+                  <p class="card-updated">{{ 'playlists.updatedAt' | translate }} {{ formatUpdatedAt(item.updatedAt) }}</p>
+                  <a class="card-view-all" [routerLink]="['/playlists', item.playlistId]">{{ 'playlists.viewFull' | translate }}</a>
                 </div>
-              </a>
+              </article>
             }
           </div>
           @if (!filteredLists().length) { <p role="status">{{ 'collection.noResults' | translate }}</p> }
           <nav class="collection-pagination" [attr.aria-label]="'library.pagination' | translate">
+            <label for="playlist-page-size">{{ 'collection.pageSize' | translate }}<select id="playlist-page-size" [ngModel]="listPageSize()" (ngModelChange)="filterLists(listQuery(), listVisibility(), +$event)"><option [ngValue]="20">20</option><option [ngValue]="50">50</option></select></label>
             <button type="button" (click)="changeListPage(currentListPage() - 1)" [disabled]="currentListPage() === 1">{{ 'library.previous' | translate }}</button>
             <span>{{ currentListPage() }} / {{ listPageCount() }}</span>
             <button type="button" (click)="changeListPage(currentListPage() + 1)" [disabled]="currentListPage() === listPageCount()">{{ 'library.next' | translate }}</button>
