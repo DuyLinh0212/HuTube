@@ -44,7 +44,7 @@ interface Job {
 const MAX_SIMULATION_USERS = 200;
 const MAX_SIMULATION_VIDEOS = 10_000;
 const MAX_SIMULATION_ACTIONS_PER_USER = 1_000;
-const MAX_SIMULATION_ACTIONS = 10_000;
+const MAX_SIMULATION_ACTIONS = 50_000;
 
 type SimulatorTab = 'target' | 'cluster' | 'comments';
 type PageTab = 'model' | 'simulation';

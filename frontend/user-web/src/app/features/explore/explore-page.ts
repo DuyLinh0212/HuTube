@@ -1,4 +1,5 @@
 import { FeedbackService } from '@dalitu/ui/feedback.service';
+import { confirmChannelUnsubscribe } from '../../shared/subscription-confirmation';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -28,6 +29,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly destroy$ = new Subject<void>();
+  private destroyed = false;
   private readonly searchCancelled$ = new Subject<void>();
 
   @ViewChild('trendingCarousel') trendingCarouselRef?: ElementRef<HTMLDivElement>;
@@ -189,6 +191,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     this.searchRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
@@ -320,11 +323,16 @@ export class ExplorePage implements OnInit, OnDestroy {
     event.preventDefault();
     event.stopPropagation();
 
-    const run = () => {
+    const run = async () => {
       if (this.isOwnCreator(channelId) || (this.auth.user() && !this.ownChannelReady()) || this.isCreatorSubscriptionBusy(channelId)) return;
 
       const subscribed = this.isCreatorSubscribed(channelId);
       this.setCreatorSubscriptionBusy(channelId, true);
+      if (subscribed && (!(await confirmChannelUnsubscribe(this.feedback, this.i18n))
+          || this.destroyed || !this.auth.user() || !this.isCreatorSubscribed(channelId))) {
+        this.setCreatorSubscriptionBusy(channelId, false);
+        return;
+      }
       const request = subscribed
         ? this.channelService.unsubscribe(channelId).pipe(map(() => false))
         : this.channelService.subscribe(channelId).pipe(map(() => true));

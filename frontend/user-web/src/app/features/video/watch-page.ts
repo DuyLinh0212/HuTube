@@ -1,4 +1,5 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { confirmChannelUnsubscribe } from '../../shared/subscription-confirmation';
 import { NgTemplateOutlet } from '@angular/common';
 import { VideoDownloadService } from '../../core/video-download.service';
 import { FeedbackService } from '@dalitu/ui/feedback.service';
@@ -122,6 +123,7 @@ export class WatchPage {
   readonly playlistAddingId = signal<string | null>(null);
   readonly addedPlaylistIds = signal<Record<string, boolean>>({});
   readonly subscribed = signal(false);
+  readonly subscriptionBusy = signal(false);
   readonly subscriptionNotificationsEnabled = signal(false);
   readonly subscriberCount = signal(0);
   readonly visibleRelatedVideos = computed(() => {
@@ -1332,9 +1334,9 @@ export class WatchPage {
     event.stopPropagation();
   }
 
-  toggleSubscribe() {
+  async toggleSubscribe() {
     const channel = this.channel();
-    if (!channel) return;
+    if (!channel || this.subscriptionBusy()) return;
 
     if (!this.loginPrompt.require()) return;
 
@@ -1343,8 +1345,14 @@ export class WatchPage {
       return;
     }
 
+    this.subscriptionBusy.set(true);
     if (this.subscribed()) {
-      this.channels.unsubscribe(channel.channelId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
+      if (!(await confirmChannelUnsubscribe(this.feedback, this.i18n)) || this.destroyRef.destroyed
+          || this.channel()?.channelId !== channel.channelId || !this.subscribed()) {
+        this.subscriptionBusy.set(false);
+        return;
+      }
+      this.channels.unsubscribe(channel.channelId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef), finalize(() => this.subscriptionBusy.set(false))).subscribe({
         next: () => {
           this.subscribed.set(false);
           this.subscriptionNotificationsEnabled.set(false);
@@ -1353,7 +1361,7 @@ export class WatchPage {
         error: () => this.actionMessage.set(this.i18n.t('watch.unsubscribeError'))
       });
     } else {
-      this.channels.subscribe(channel.channelId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
+      this.channels.subscribe(channel.channelId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef), finalize(() => this.subscriptionBusy.set(false))).subscribe({
         next: sub => {
           this.subscribed.set(true);
           this.subscriptionNotificationsEnabled.set(sub.notificationsEnabled);

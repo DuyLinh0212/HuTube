@@ -61,6 +61,7 @@ public sealed class RecommendationAdminService(
 {
     private const int VideoPickerPageSize = 200;
     private const int MaxSimulationVideoCount = 10_000;
+    private const int MaxSimulationActionCount = 50_000;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] ScoreFeatures = ["rating", "like", "dislike", "watch", "comment", "subscribe"];
     private static readonly string[] ModelAlgorithms = [
@@ -508,8 +509,8 @@ public sealed class RecommendationAdminService(
             throw Error(400, "INVALID_SIMULATION_VIDEOS", $"Mô phỏng cần từ 1 đến {MaxSimulationVideoCount:N0} video.");
         if (request.ActionsPerUser is < 1 or > 1000)
             throw Error(400, "INVALID_SIMULATION_ACTIONS", "Số video tương tác mỗi user cần từ 1 đến 1.000.");
-        if ((long)request.UserIds.Count * request.ActionsPerUser > 10_000)
-            throw Error(400, "SIMULATION_ACTION_LIMIT", "Một lượt mô phỏng không thể vượt quá 10.000 hành động; hãy giảm số user hoặc số video mỗi user.");
+        if ((long)request.UserIds.Count * request.ActionsPerUser > MaxSimulationActionCount)
+            throw Error(400, "SIMULATION_ACTION_LIMIT", "Một lượt mô phỏng không thể vượt quá 50.000 hành động; hãy giảm số user hoặc số video mỗi user.");
         if (request.DelayMs is < 0 or > 5000)
             throw Error(400, "INVALID_SIMULATION_DELAY", "Độ trễ cần nằm trong khoảng 0 đến 5.000 ms.");
         if (request.Mode is not ("target" or "cluster"))

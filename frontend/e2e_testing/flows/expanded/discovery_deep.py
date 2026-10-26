@@ -1,4 +1,5 @@
 from playwright.sync_api import expect
+from support.subscription_confirmation import toggle_channel_subscription
 from flows.expanded.common import case,snapshot_module
 
 def run(suite,config,actors):
@@ -56,9 +57,9 @@ def run(suite,config,actors):
     def creator(entry):
         suite.go(member,'/explore','app-explore-page');card=p.locator('.creator-card').first;expect(card).to_be_visible();href=card.locator('a.creator-name').get_attribute('href');assert href.startswith('/channel/')
         card.locator('a.creator-name').click();expect(p.locator('app-channel-page')).to_be_visible()
-        state=p.locator('.btn-subscribe').inner_text();p.locator('.btn-subscribe').click()
+        state=p.locator('.btn-subscribe').inner_text();toggle_channel_subscription(p, '.btn-subscribe')
         expect(p.locator('.btn-subscribe')).not_to_have_text(state)
         p.reload();expect(p.locator('.btn-subscribe')).not_to_have_text(state)
-        p.locator('.btn-subscribe').click();expect(p.locator('.btn-subscribe')).to_have_text(state)
+        toggle_channel_subscription(p, '.btn-subscribe');expect(p.locator('.btn-subscribe')).to_have_text(state)
         entry['steps']=['Featured creator actual card → linked channel','Member toggles subscription through channel UI','Reload persists; restore original state']
     case(suite,member,'DISCOVERY-CREATOR-SUBSCRIBE','U-DISCOVERY.03','Creator card opens same channel and subscription persists',creator,'discovery')

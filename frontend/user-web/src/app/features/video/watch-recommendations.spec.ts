@@ -17,8 +17,14 @@ import { WatchPage } from './watch-page';
 describe('Watch recommendations', () => {
   let page: WatchPage;
   let content: jasmine.SpyObj<ContentService>;
+  let channels: jasmine.SpyObj<ChannelService>;
+  let feedback: jasmine.SpyObj<FeedbackService>;
   beforeEach(() => {
     content = jasmine.createSpyObj('ContentService', ['feed', 'search']);
+    channels = jasmine.createSpyObj('ChannelService', ['subscribe', 'unsubscribe']);
+    channels.unsubscribe.and.returnValue(of(undefined));
+    feedback = jasmine.createSpyObj('FeedbackService', ['confirm']);
+    feedback.confirm.and.resolveTo(true);
     TestBed.configureTestingModule({ providers: [
       { provide: ContentService, useValue: content },
       { provide: AuthService, useValue: { user: signal({ userId: 'viewer' }), restore: () => NEVER } },
@@ -27,9 +33,9 @@ describe('Watch recommendations', () => {
       { provide: LoginPromptService, useValue: { require: () => true } },
       { provide: PlayerPreferencesService, useValue: { preferences: () => ({ muted: false, volume: 1 }) } },
       { provide: PictureInPictureService, useValue: { active: signal(false), entering: signal(false) } },
-      { provide: ChannelService, useValue: {} }, { provide: PlaylistService, useValue: {} },
+      { provide: ChannelService, useValue: channels }, { provide: PlaylistService, useValue: {} },
       { provide: PlanService, useValue: {} }, { provide: VideoDownloadService, useValue: {} },
-      { provide: FeedbackService, useValue: { confirm: () => Promise.resolve(true) } },
+      { provide: FeedbackService, useValue: feedback },
     ] });
     TestBed.overrideComponent(WatchPage, { set: { template: '', imports: [] } });
     page = TestBed.createComponent(WatchPage).componentInstance;
@@ -40,6 +46,42 @@ describe('Watch recommendations', () => {
 
   const card = (videoId: string): VideoCard => ({ videoId, channelId: 'creator', channelName: 'Creator', channelHandle: 'creator', title: videoId, thumbnailUrl: null, duration: 30, visibility: 'public', publishedAt: null, views: 0 });
   const result = (items: VideoCard[]): PageResult<VideoCard> => ({ items, total: items.length, page: 1, pageSize: 20 });
+
+  it('keeps the subscription and count when unsubscribe confirmation is cancelled', async () => {
+    page.channel.set({ channelId: 'creator' } as any);
+    page.subscribed.set(true); page.subscriberCount.set(5);
+    feedback.confirm.and.resolveTo(false);
+    await page.toggleSubscribe();
+    expect(feedback.confirm).toHaveBeenCalled();
+    expect(channels.unsubscribe).not.toHaveBeenCalled();
+    expect(page.subscribed()).toBeTrue(); expect(page.subscriberCount()).toBe(5);
+    expect(page.subscriptionBusy()).toBeFalse();
+  });
+
+  it('waits for confirmation and prevents duplicate unsubscribe requests', async () => {
+    page.channel.set({ channelId: 'creator' } as any);
+    page.subscribed.set(true); page.subscriberCount.set(5);
+    let resolve!: (confirmed: boolean) => void;
+    feedback.confirm.and.returnValue(new Promise<boolean>(done => resolve = done));
+    const pending = page.toggleSubscribe();
+    await page.toggleSubscribe();
+    expect(feedback.confirm).toHaveBeenCalledTimes(1);
+    expect(channels.unsubscribe).not.toHaveBeenCalled();
+    resolve(true); await pending;
+    expect(channels.unsubscribe).toHaveBeenCalledOnceWith('creator');
+    expect(page.subscribed()).toBeFalse(); expect(page.subscriberCount()).toBe(4);
+  });
+
+  it('does not unsubscribe an old channel if the page changes during confirmation', async () => {
+    page.channel.set({ channelId: 'creator' } as any); page.subscribed.set(true);
+    let resolve!: (confirmed: boolean) => void;
+    feedback.confirm.and.returnValue(new Promise<boolean>(done => resolve = done));
+    const pending = page.toggleSubscribe();
+    page.channel.set({ channelId: 'another-channel' } as any);
+    resolve(true); await pending;
+    expect(channels.unsubscribe).not.toHaveBeenCalled();
+    expect(page.subscriptionBusy()).toBeFalse();
+  });
 
   it('fills a rare-tag result containing only the current video from its category', () => {
     content.search.and.returnValues(of(result([card('video')])), of(result([card('video'), card('related')])));

@@ -1,4 +1,5 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
+import { confirmChannelUnsubscribe } from '../../shared/subscription-confirmation';
 import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
@@ -351,7 +352,7 @@ export class ChannelPage {
     return minutes >= 60 ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${remainder}` : `${minutes}:${remainder}`;
   }
 
-  toggleSubscribe() {
+  async toggleSubscribe() {
     const ch = this.channel();
     if (!ch || this.subscriptionBusy() || this.subscriptionStatusLoading()) return;
     this.subscriptionMessage.set('');
@@ -368,6 +369,11 @@ export class ChannelPage {
 
     if (this.isSubscribed()) {
       this.subscriptionBusy.set(true);
+      if (!(await confirmChannelUnsubscribe(this.feedback, this.i18n)) || this.destroyRef.destroyed
+          || this.channel()?.channelId !== ch.channelId || !this.isSubscribed()) {
+        this.subscriptionBusy.set(false);
+        return;
+      }
       this.channelService.unsubscribe(ch.channelId).pipe(finalize(() => this.subscriptionBusy.set(false))).subscribe({
         next: () => {
           this.isSubscribed.set(false);

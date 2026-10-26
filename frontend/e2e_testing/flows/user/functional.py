@@ -1,4 +1,5 @@
 """User Web functional cases; mutations only use managed E2E fixtures."""
+from support.subscription_confirmation import toggle_channel_subscription
 from playwright.sync_api import expect
 
 
@@ -46,12 +47,12 @@ def run(suite, owner, member):
             original = status.status == 200 and status.json()['status'] == 'active'
             method = 'DELETE' if original else 'POST'
             with target.expect_response(lambda r: r.request.method == method and r.url.endswith('/subscribe')) as response:
-                target.locator('.btn-subscribe').click()
+                toggle_channel_subscription(target, '.btn-subscribe')
             assert response.value.status in (200, 204)
             changed = suite.api(member, 'get', '/channels/' + channel['channelId'] + '/subscribe-status')
             assert (changed.status == 200 and changed.json()['status'] == 'active') != original
             with target.expect_response(lambda r: r.request.method != method and r.url.endswith('/subscribe')) as response:
-                target.locator('.btn-subscribe').click()
+                toggle_channel_subscription(target, '.btn-subscribe')
             assert response.value.status in (200, 204)
             restored = suite.api(member, 'get', '/channels/' + channel['channelId'] + '/subscribe-status')
             assert (restored.status == 200 and restored.json()['status'] == 'active') == original

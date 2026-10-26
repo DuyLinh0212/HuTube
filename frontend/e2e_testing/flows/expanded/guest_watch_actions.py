@@ -1,4 +1,5 @@
 """Uncovered Watch/channel login-return context, actual share and Watch subscription UI."""
+from support.subscription_confirmation import toggle_channel_subscription
 from urllib.parse import urlsplit, parse_qs
 from playwright.sync_api import expect
 from flows.expanded.common import case, snapshot_module
@@ -60,14 +61,14 @@ def run(suite, config, actors, only_failed=False):
                 before = suite.api(member, 'get', endpoint + '/subscribe-status').json()['isSubscribed']
                 for _ in range(2):
                     method = 'DELETE' if before else 'POST'
-                    suite.response(member, endpoint + '/subscribe', lambda: q.locator('.channel-actions .primary-button').click(), method=method, status=(200, 204))
+                    suite.response(member, endpoint + '/subscribe', lambda: toggle_channel_subscription(q, '.channel-actions .primary-button'), method=method, status=(200, 204))
                     persisted = suite.api(member, 'get', endpoint + '/subscribe-status').json()
                     assert persisted['isSubscribed'] is not before
                     before = persisted['isSubscribed']
                     q.reload()
                     expect(q.locator('.channel-actions .primary-button')).to_have_class(__import__('re').compile('is-subscribed') if before else __import__('re').compile(r'^(?!.*is-subscribed).*$'))
                 if not before:
-                    suite.response(member, endpoint + '/subscribe', lambda: q.locator('.channel-actions .primary-button').click(), method='POST')
+                    suite.response(member, endpoint + '/subscribe', lambda: toggle_channel_subscription(q, '.channel-actions .primary-button'), method='POST')
                 for _ in range(2):
                     baseline = suite.api(member, 'get', endpoint + '/subscribe-status').json()['notificationsEnabled']
                     suite.response(member, endpoint + '/subscribe-notifications', lambda: q.locator('.channel-notification-button').click(), method='PATCH')

@@ -247,6 +247,7 @@
                   type="button"
                   class="primary-button"
                   [class.is-subscribed]="subscribed()"
+                  [disabled]="subscriptionBusy()"
                   appRequireLogin (click)="toggleSubscribe()">
                   {{ (subscribed() ? 'watch.subscribed' : 'watch.subscribe') | translate }}
                 </button>

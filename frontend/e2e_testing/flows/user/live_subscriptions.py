@@ -1,4 +1,5 @@
 """Public channel data, guest CTA and subscription mutations with restoration."""
+from support.subscription_confirmation import toggle_channel_subscription
 from urllib.parse import parse_qs,urlsplit
 from playwright.sync_api import expect
 
@@ -46,9 +47,9 @@ def run(suite,owner,other):
         def subscribe(case):
             page=other['page']; navigate()
             if status()['status']=='active':
-                suite.response(other,'/channels/'+channel_id+'/subscribe',lambda:page.locator('.btn-subscribe').click(),method='DELETE',status=(200,204))
+                suite.response(other,'/channels/'+channel_id+'/subscribe',lambda:toggle_channel_subscription(page, '.btn-subscribe'),method='DELETE',status=(200,204))
             before=suite.api(other,'get','/channels/handle/'+handle).json()['subscriberCount']
-            suite.response(other,'/channels/'+channel_id+'/subscribe',lambda:page.locator('.btn-subscribe').click(),method='POST',status=(200,201))
+            suite.response(other,'/channels/'+channel_id+'/subscribe',lambda:toggle_channel_subscription(page, '.btn-subscribe'),method='POST',status=(200,201))
             expect(page.locator('.btn-subscribe')).to_have_class(__import__('re').compile('is-subscribed'))
             assert status()['status']=='active'
             assert suite.api(other,'get','/channels/handle/'+handle).json()['subscriberCount']==before+1
@@ -91,7 +92,7 @@ def run(suite,owner,other):
         def unsubscribe(case):
             page=other['page']; navigate()
             before=suite.api(other,'get','/channels/handle/'+handle).json()['subscriberCount']
-            suite.response(other,'/channels/'+channel_id+'/subscribe',lambda:page.locator('.btn-subscribe').click(),method='DELETE',status=(200,204))
+            suite.response(other,'/channels/'+channel_id+'/subscribe',lambda:toggle_channel_subscription(page, '.btn-subscribe'),method='DELETE',status=(200,204))
             assert status()['status']!='active'
             assert suite.api(other,'get','/channels/handle/'+handle).json()['subscriberCount']==max(0,before-1)
             navigate()
