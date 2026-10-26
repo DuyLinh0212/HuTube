@@ -9,15 +9,18 @@ class MobilePlansScreen extends StatelessWidget {
     required this.auth,
     this.invitationId,
     this.invitationToken,
+    this.initialPlanId,
   });
   final AuthController auth;
   final String? invitationId;
   final String? invitationToken;
+  final String? initialPlanId;
 
   @override
   Widget build(BuildContext context) => PlansScreen(
     auth: auth,
     invitationId: invitationId,
     invitationToken: invitationToken,
+    initialPlanId: initialPlanId,
   );
 }

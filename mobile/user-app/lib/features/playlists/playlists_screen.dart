@@ -157,6 +157,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     if (_busy) return;
     final values = await showModalBottomSheet<(String, String, String)>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       isScrollControlled: true,
       builder: (_) => _PlaylistForm(
         name: playlist?.name ?? detail?.name ?? '',
@@ -358,7 +360,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 if (widget.auth.authenticated)
-                  OutlinedButton.icon(
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
                     key: const ValueKey('playlist-create-always'),
                     onPressed: _busy ? null : _edit,
                     icon: const Icon(Icons.add_rounded),
@@ -370,6 +376,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         ),
         SliverToBoxAdapter(
           child: ContentFilters(
+            compact: true,
             options: const {
               'visibility': ['all', 'public', 'unlisted', 'private'],
             },
@@ -421,20 +428,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 ),
               ],
             )
-          : GridView.builder(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount:
-                    MediaQuery.textScalerOf(context).scale(14) > 20 ||
-                        MediaQuery.sizeOf(context).width < 360
-                    ? 1
-                    : 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                mainAxisExtent:
-                    260 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 5,
-              ),
+          : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
               itemCount: _visiblePlaylists.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 14),
               itemBuilder: (_, index) =>
                   _playlistCard(_visiblePlaylists[index]),
             ),
@@ -443,68 +441,160 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
   Widget _playlistCard(PlaylistSummary playlist) {
     final preview = _previews[playlist.id];
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => context.push('/playlists/${playlist.id}'),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceFor(context),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.borderFor(context)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: _playlistCover(
-                playlist.coverUrl ?? preview?.coverUrl,
-                preview?.items ?? const [],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(13, 10, 10, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => context.push('/playlists/${playlist.id}'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: LayoutBuilder(
+            builder: (context, bounds) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: (bounds.maxWidth * .38).clamp(96.0, 210.0),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 3,
+                        margin: const EdgeInsets.symmetric(horizontal: 9),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              _playlistCover(
+                                playlist.coverUrl ?? preview?.coverUrl,
+                                preview?.items ?? const [],
+                              ),
+                              Positioned(
+                                right: 5,
+                                bottom: 5,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: .75),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 3,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.playlist_play_rounded,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          AppStrings.number(playlist.itemCount),
+                                          textScaler: TextScaler.noScaling,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 5),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           playlist.name,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                height: 1.4,
+                              ),
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 7),
                         Text(
-                          '${playlist.itemCount} video · ${_visibility(playlist.visibility)}',
-                          style: Theme.of(context).textTheme.bodySmall,
+                          AppStrings.format('channel.videoCount', {
+                            'count': AppStrings.number(playlist.itemCount),
+                          }),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.textMutedFor(context),
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              playlist.visibility == 'public'
+                                  ? Icons.public_rounded
+                                  : playlist.visibility == 'private'
+                                  ? Icons.lock_outline_rounded
+                                  : Icons.link_rounded,
+                              size: 14,
+                              color: AppColors.textMutedFor(context),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                _visibility(playlist.visibility),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: AppColors.textMutedFor(context),
+                                    ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    padding: EdgeInsets.zero,
-                    onSelected: (value) {
-                      if (value == 'edit') _edit(playlist: playlist);
-                      if (value == 'delete') _delete(playlist);
-                    },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Text(AppStrings.t('common.edit')),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text(AppStrings.t('common.delete')),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: AppStrings.t('common.moreOptions'),
+                  onSelected: (value) {
+                    if (value == 'edit') _edit(playlist: playlist);
+                    if (value == 'delete') _delete(playlist);
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Text(AppStrings.t('common.edit')),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Text(AppStrings.t('common.delete')),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -513,7 +603,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   Widget _playlistCover(String? coverUrl, List<PlaylistItem> items) {
     if (coverUrl != null && coverUrl.isNotEmpty) {
       return ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.circular(12),
         child: Image.network(
           coverUrl,
           fit: BoxFit.cover,
@@ -530,7 +620,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         .take(3)
         .toList();
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: BorderRadius.circular(12),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -542,6 +632,12 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       child: Image.network(
                         item.thumbnailUrl!,
                         fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => ColoredBox(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          child: const Icon(Icons.play_circle_outline_rounded),
+                        ),
                       ),
                     ),
                   )
@@ -565,26 +661,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 ),
               ),
             ),
-          Positioned(
-            right: 9,
-            bottom: 9,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: .72),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                child: Text(
-                  '${items.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -880,15 +956,19 @@ class _PlaylistFormState extends State<_PlaylistForm> {
             TextFormField(
               key: const ValueKey('playlist-name'),
               controller: _name,
-              autofocus: true,
+              autofocus: false,
               maxLength: 150,
+              textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 labelText: AppStrings.t('playlists.name'),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
               ),
               validator: (value) => value == null || value.trim().isEmpty
                   ? AppStrings.t('parity.playlistNameRequired')
                   : null,
             ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _description,
               minLines: 2,
@@ -915,19 +995,26 @@ class _PlaylistFormState extends State<_PlaylistForm> {
                   setState(() => _visibility = value ?? 'private'),
             ),
             const SizedBox(height: 18),
-            FilledButton(
-              onPressed: () {
-                if (_form.currentState!.validate()) {
-                  Navigator.pop(context, (
-                    _name.text.trim(),
-                    _description.text.trim(),
-                    _visibility,
-                  ));
-                }
-              },
-              child: Text(
-                AppStrings.t(
-                  widget.creating ? 'playlists.create' : 'playlists.save',
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(88, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                ),
+                onPressed: () {
+                  if (_form.currentState!.validate()) {
+                    Navigator.pop(context, (
+                      _name.text.trim(),
+                      _description.text.trim(),
+                      _visibility,
+                    ));
+                  }
+                },
+                child: Text(
+                  AppStrings.t(
+                    widget.creating ? 'common.create' : 'playlists.save',
+                  ),
                 ),
               ),
             ),

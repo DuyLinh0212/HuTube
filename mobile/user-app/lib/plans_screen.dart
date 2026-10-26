@@ -43,11 +43,13 @@ class PlansScreen extends StatefulWidget {
     required this.auth,
     this.invitationId,
     this.invitationToken,
+    this.initialPlanId,
   });
 
   final AuthController auth;
   final String? invitationId;
   final String? invitationToken;
+  final String? initialPlanId;
 
   @override
   State<PlansScreen> createState() => _PlansScreenState();
@@ -73,6 +75,24 @@ class _PlansScreenState extends State<PlansScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvitation());
     }
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant PlansScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialPlanId != widget.initialPlanId && !_loading) {
+      final index = _plans.indexWhere(
+        (plan) => plan['planId'] == widget.initialPlanId,
+      );
+      if (index >= 0) {
+        setState(() => _selectedPlanIndex = index);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _planController.hasClients) {
+            _planController.jumpToPage(index);
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -104,10 +124,18 @@ class _PlansScreenState extends State<PlansScreen> {
       }
       setState(() {
         _plans = plans;
-        _selectedPlanIndex = 0;
+        final requested = plans.indexWhere(
+          (plan) => plan['planId'] == widget.initialPlanId,
+        );
+        _selectedPlanIndex = requested < 0 ? 0 : requested;
         _myPlan = myPlan;
         _payments = payments;
         _loading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _planController.hasClients) {
+          _planController.jumpToPage(_selectedPlanIndex);
+        }
       });
     } on ApiFailure catch (error) {
       if (mounted) {

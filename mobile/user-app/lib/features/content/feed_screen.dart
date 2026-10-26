@@ -307,7 +307,7 @@ class _FilterRow extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text(category.name),
+                    label: Text(category.displayName),
                     selected: categoryId == category.id,
                     showCheckmark: false,
                     shape: const StadiumBorder(),
