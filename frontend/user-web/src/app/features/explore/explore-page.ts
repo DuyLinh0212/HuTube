@@ -3,11 +3,11 @@ import { confirmChannelUnsubscribe } from '../../shared/subscription-confirmatio
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of, Subject, Subscription } from 'rxjs';
+import { of, Subject, Subscription } from 'rxjs';
 import { catchError, finalize, map, takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 import { ChannelService } from '../../core/channel.service';
-import { CategoryRankingGroup, ContentService, FeaturedCreator, SearchChannel, VideoCard } from '../../core/content.service';
+import { Category, CategoryRankingGroup, ContentService, FeaturedCreator, SearchChannel, VideoCard } from '../../core/content.service';
 import { I18nService } from '../../core/i18n.service';
 import { LocaleDatePipe } from '../../core/locale-date.pipe';
 import { LocaleNumberPipe } from '../../core/locale-number.pipe';
@@ -29,6 +29,7 @@ export class ExplorePage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly i18n = inject(I18nService);
   private readonly destroy$ = new Subject<void>();
+  private readonly hubCancelled$ = new Subject<void>();
   private destroyed = false;
   private readonly searchCancelled$ = new Subject<void>();
 
@@ -195,43 +196,43 @@ export class ExplorePage implements OnInit, OnDestroy {
     this.searchRequest?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
+    this.hubCancelled$.complete();
     this.searchCancelled$.complete();
   }
 
   loadHub() {
+    this.hubCancelled$.next();
     this.hubLoading.set(true);
     this.hubError.set('');
-    forkJoin({
-      hub: this.content.exploreHub(),
-      // The tabs are driven by the active category records in the database.
-      // Keep the hub usable if a transient categories request fails.
-      categories: this.content.categories().pipe(catchError(() => of([]))),
-    }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: ({ hub, categories }) => {
-        const rankingGroups = hub.rankings ?? [];
-        const databaseCategories = categories ?? [];
-        const databaseTabs = databaseCategories.length > 0
-          ? databaseCategories.map(category => ({
-            id: category.categoryId,
-            slug: category.slug,
-            name: category.name,
-          }))
-          : rankingGroups.map(group => ({
-            id: group.categoryId,
-            slug: group.slug,
-            name: group.categoryName,
-          }));
-        const tabs = [{ id: this.overallTabId, slug: '', name: '' }, ...databaseTabs];
-        this.categoryTabs.set(tabs);
-        const requestedTab = this.activeCategoryTab();
-        const matchedTab = tabs.find(tab => tab.id === requestedTab || tab.slug === requestedTab);
-        if (matchedTab) {
-          this.activeCategoryTab.set(matchedTab.id);
-          if (this.selectedCategoryId() === requestedTab && requestedTab !== matchedTab.id) {
-            this.selectedCategoryId.set(matchedTab.id);
-          }
+    let databaseCategories: Category[] = [];
+    let rankingGroups: CategoryRankingGroup[] = [];
+    const updateTabs = () => {
+      const databaseTabs = databaseCategories.length > 0
+        ? databaseCategories.map(category => ({ id: category.categoryId, slug: category.slug, name: category.name }))
+        : rankingGroups.map(group => ({ id: group.categoryId, slug: group.slug, name: group.categoryName }));
+      const tabs = [{ id: this.overallTabId, slug: '', name: '' }, ...databaseTabs];
+      this.categoryTabs.set(tabs);
+      const requestedTab = this.activeCategoryTab();
+      const matchedTab = tabs.find(tab => tab.id === requestedTab || tab.slug === requestedTab);
+      if (matchedTab) {
+        this.activeCategoryTab.set(matchedTab.id);
+        if (this.selectedCategoryId() === requestedTab && requestedTab !== matchedTab.id) {
+          this.selectedCategoryId.set(matchedTab.id);
         }
+      }
+    };
+    // Categories are optional metadata: neither their latency nor failure
+    // should hold back the independently loaded hub and its video shelves.
+    this.content.categories().pipe(catchError(() => of([] as Category[])),
+      takeUntil(this.hubCancelled$), takeUntil(this.destroy$)).subscribe(categories => {
+        databaseCategories = categories;
+        updateTabs();
+      });
+    this.content.exploreHub().pipe(takeUntil(this.hubCancelled$), takeUntil(this.destroy$)).subscribe({
+      next: hub => {
+        rankingGroups = hub.rankings ?? [];
         this.rankingGroups.set(rankingGroups);
+        updateTabs();
         this.featuredCreators.set(hub.creators ?? []);
         this.trendingVideos.set(hub.trending ?? []);
         this.loadSubscriptionStates();
@@ -245,7 +246,8 @@ export class ExplorePage implements OnInit, OnDestroy {
         // Older API instances do not expose topVideos yet. Use the public
         // search endpoint as a compatible global-ranking fallback instead of
         // rebuilding the list from per-category top-three results.
-        this.content.search({ sort: 'views', page: 1, pageSize: 12 }).pipe(takeUntil(this.destroy$)).subscribe({
+        this.content.search({ sort: 'views', page: 1, pageSize: 12 })
+          .pipe(takeUntil(this.hubCancelled$), takeUntil(this.destroy$)).subscribe({
           next: result => {
             this.overallRankingVideos.set((result.items ?? []).slice(0, 12));
             this.hubLoading.set(false);

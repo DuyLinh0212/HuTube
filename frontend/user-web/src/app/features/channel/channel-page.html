@@ -116,7 +116,7 @@
     <div class="channel-tab-content">
       @if (activeTab() === 'home') {
         <div class="channel-home">
-          @if (videosLoading()) {
+          @if (videosLoading() && popularLoading()) {
             <div class="channel-home-skeleton" role="status" [attr.aria-label]="'common.loading' | translate">
               <div class="skeleton-spotlight"></div>
               <div class="channel-home-grid">@for (item of [1, 2, 3, 4]; track item) { <div class="skeleton-video"></div> }</div>
@@ -160,7 +160,7 @@
               </section>
             }
 
-            @if (!videos().length && !popularVideos().length && !videosError() && !popularError()) { <ng-container [ngTemplateOutlet]="emptyVideos" /> }
+            @if (!videosLoading() && !popularLoading() && !videos().length && !popularVideos().length && !videosError() && !popularError()) { <ng-container [ngTemplateOutlet]="emptyVideos" /> }
           }
 
           @if (featuredPlaylists().length) {

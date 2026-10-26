@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ChannelService } from '../../core/channel.service';
-import { ContentService, PageResult, VideoCard } from '../../core/content.service';
+import { Category, ContentService, ExploreHub, PageResult, VideoCard } from '../../core/content.service';
 import { ExplorePage } from './explore-page';
 
 describe('Explore search filters', () => {
@@ -39,6 +39,39 @@ describe('Explore search filters', () => {
     fixture.detectChanges();
     return fixture;
   }
+
+  it('renders hub videos while optional categories are still pending and updates tabs when they arrive', () => {
+    const categories = new Subject<Category[]>(), hub = new Subject<ExploreHub>();
+    content.categories.and.returnValue(categories); content.exploreHub.and.returnValue(hub);
+    const fixture = TestBed.createComponent(ExplorePage), component = fixture.componentInstance;
+    component.loadHub(); expect(categories.observed && hub.observed).toBeTrue();
+    hub.next({ rankings: [], creators: [], trending: [], topVideos: [card] }); hub.complete();
+    expect(component.overallRankingVideos()).toEqual([card]); expect(component.hubLoading()).toBeFalse();
+    categories.next([{ categoryId: 'music', name: 'Music', slug: 'music', description: null }]); categories.complete();
+    expect(component.categoryTabs().some(tab => tab.id === 'music')).toBeTrue();
+    expect(content.exploreHub.calls.count()).toBe(1); expect(content.search).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it('keeps category ranking tabs and successful hub data if optional categories fail', () => {
+    const categories = new Subject<Category[]>(); content.categories.and.returnValue(categories);
+    content.exploreHub.and.returnValue(of({ rankings: [{ categoryId: 'music', categoryName: 'Music', slug: 'music', videos: [card] }],
+      creators: [], trending: [], topVideos: [card] }));
+    const fixture = TestBed.createComponent(ExplorePage), component = fixture.componentInstance;
+    component.loadHub(); categories.error(new Error('Unavailable'));
+    expect(component.overallRankingVideos()).toEqual([card]); expect(component.hubError()).toBe('');
+    expect(component.categoryTabs().some(tab => tab.id === 'music')).toBeTrue(); fixture.destroy();
+  });
+
+  it('cancels both previous hub requests when retrying', () => {
+    const categories = new Subject<Category[]>(), hub = new Subject<ExploreHub>();
+    content.categories.and.returnValue(categories); content.exploreHub.and.returnValue(hub);
+    const fixture = TestBed.createComponent(ExplorePage), component = fixture.componentInstance;
+    component.loadHub();
+    content.categories.and.returnValue(of([])); content.exploreHub.and.returnValue(of({ rankings: [], creators: [], trending: [], topVideos: [card] }));
+    component.loadHub(); expect(categories.observed || hub.observed).toBeFalse();
+    expect(component.overallRankingVideos()).toEqual([card]); fixture.destroy();
+  });
 
   it('restores channel result mode from the URL and searches channels instead of videos', () => {
     params.next(convertToParamMap({ q: 'nhạc', type: 'channels', page: '3', duration: 'short' }));

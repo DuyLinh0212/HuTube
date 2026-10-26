@@ -5,7 +5,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subscription, catchError, finalize, forkJoin, of } from 'rxjs';
+import { Subscription, catchError, finalize, from, map, mergeMap, of } from 'rxjs';
 import { ChannelDetail, ChannelService } from '../../core/channel.service';
 import { LoginPromptService } from '../../core/login-prompt.service';
 import { RequireLoginDirective } from '../../shared/login-prompt/require-login.directive';
@@ -59,6 +59,7 @@ export class ChannelPage {
   readonly videos = signal<VideoCard[]>([]);
   readonly popularVideos = signal<VideoCard[]>([]);
   readonly videosLoading = signal(true);
+  readonly popularLoading = signal(true);
   readonly videosError = signal(false);
   readonly popularError = signal(false);
   readonly playlistsLoading = signal(true);
@@ -192,6 +193,7 @@ export class ChannelPage {
     this.playlists.set([]);
     this.playlistPreviewById.set({});
     this.videosLoading.set(true);
+    this.popularLoading.set(true);
     this.playlistsLoading.set(true);
     this.videosError.set(false);
     this.popularError.set(false);
@@ -221,20 +223,24 @@ export class ChannelPage {
         // processing videos for Studio, so using it here would expose moderation
         // outcomes in the public catalogue. The search endpoint applies the
         // published + public + approved visibility contract on the server.
-        this.channelRequests.add(forkJoin({
-          latest: this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
-            .pipe(catchError(() => { this.videosError.set(true); return of(null); })),
-          popular: this.contentService.search({ channelId: ch.channelId, sort: 'views', page: 1, pageSize: 50 })
-            .pipe(catchError(() => { this.popularError.set(true); return of(null); })),
-        }).pipe(finalize(() => this.videosLoading.set(false))).subscribe(({ latest, popular }) => {
-          this.videos.set(latest?.items ?? []);
-          this.popularVideos.set(popular?.items ?? []);
-          const featured = popular?.items[0];
-          if (featured) {
-            this.channelRequests.add(this.contentService.detail(featured.videoId).pipe(catchError(() => of(null)))
-              .subscribe(detail => this.featuredDescription.set(detail?.description?.trim() ?? '')));
-          }
-        }));
+        // Independent shelves render immediately and keep separate failures.
+        this.channelRequests.add(this.contentService.search({ channelId: ch.channelId, sort: 'newest', page: 1, pageSize: 50 })
+          .pipe(finalize(() => this.videosLoading.set(false))).subscribe({
+            next: latest => this.videos.set(latest.items),
+            error: () => this.videosError.set(true),
+          }));
+        this.channelRequests.add(this.contentService.search({ channelId: ch.channelId, sort: 'views', page: 1, pageSize: 50 })
+          .pipe(finalize(() => this.popularLoading.set(false))).subscribe({
+            next: popular => {
+              this.popularVideos.set(popular.items);
+              const featured = popular.items[0];
+              if (featured) {
+                this.channelRequests.add(this.contentService.detail(featured.videoId).pipe(catchError(() => of(null)))
+                  .subscribe(detail => this.featuredDescription.set(detail?.description?.trim() ?? '')));
+              }
+            },
+            error: () => this.popularError.set(true),
+          }));
         if (this.activeTab() === 'videos') this.loadVideos();
 
       },
@@ -272,25 +278,18 @@ export class ChannelPage {
   }
 
   private loadPlaylistPreviews(playlists: PlaylistSummary[]) {
-    if (playlists.every(list => Array.isArray(list.previewItems))) {
-      this.playlistPreviewById.set(Object.fromEntries(playlists.map(list => [list.playlistId, list.previewItems!])));
-      return;
-    }
-    const previewPlaylists = playlists.filter(playlist => playlist.itemCount > 0).slice(0, 12);
-    this.playlistPreviewById.set({});
+    this.playlistPreviewById.set(Object.fromEntries(playlists
+      .filter(list => Array.isArray(list.previewItems) || list.itemCount === 0)
+      .map(list => [list.playlistId, list.previewItems ?? []])));
+    const previewPlaylists = playlists.filter(playlist => !Array.isArray(playlist.previewItems) && playlist.itemCount > 0).slice(0, 12);
     if (!previewPlaylists.length) return;
 
-    this.channelRequests.add(forkJoin(previewPlaylists.map(playlist =>
-      this.playlistService.get(playlist.playlistId).pipe(catchError(() => of(null)))
-    )).subscribe(details => {
-      const previews: Record<string, PlaylistItem[]> = {};
-      previewPlaylists.forEach((playlist, index) => {
-        previews[playlist.playlistId] = details[index]?.items
-          .filter(item => !!item.thumbnailUrl)
-          .slice(0, 4) ?? [];
-      });
-      this.playlistPreviewById.set(previews);
-    }));
+    // Settle each preview independently; cap fan-out on channels with many lists.
+    this.channelRequests.add(from(previewPlaylists).pipe(mergeMap(playlist =>
+      this.playlistService.get(playlist.playlistId).pipe(
+        map(detail => ({ id: playlist.playlistId, items: detail.items.filter(item => !!item.thumbnailUrl).slice(0, 4) })),
+        catchError(() => of({ id: playlist.playlistId, items: [] as PlaylistItem[] }))), 4)
+    ).subscribe(({ id, items }) => this.playlistPreviewById.update(current => ({ ...current, [id]: items }))));
   }
 
   playlistPreviewItems(playlist: PlaylistSummary): PlaylistItem[] {

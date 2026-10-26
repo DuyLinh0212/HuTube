@@ -1,9 +1,10 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { Observable, finalize, forkJoin } from 'rxjs';
+import { Observable, Subject, finalize, firstValueFrom, takeUntil } from 'rxjs';
 import { ChannelDetail, ChannelInvitation, ChannelRole, ChannelService } from '../../core/channel.service';
 import { NotificationService } from '../../core/notification.service';
 import { I18nService } from '../../core/i18n.service';
@@ -21,6 +22,9 @@ import { TranslatePipe } from '../../core/translate.pipe';
 export class ChannelInvitationsPage implements OnInit {
   private readonly channelService = inject(ChannelService);
   private readonly notifications = inject(NotificationService);
+  private readonly destroyRef = inject(DestroyRef);
+  private loadVersion = 0;
+  private readonly loadCancelled$ = new Subject<void>();
   readonly i18n = inject(I18nService);
   private readonly invitationRefresh = effect(() => {
     if (this.notifications.invitationVersion() > 0) this.load();
@@ -30,29 +34,44 @@ export class ChannelInvitationsPage implements OnInit {
   readonly accessibleChannels = signal<ChannelDetail[]>([]);
   readonly collaboratingChannels = computed(() => this.accessibleChannels().filter(channel => !channel.isOwner));
   readonly roles = signal<ChannelRole[]>([]);
-  readonly loading = signal(true);
+  readonly invitationsLoading = signal(true);
+  readonly channelsLoading = signal(true);
+  readonly loading = computed(() => this.invitationsLoading() || this.channelsLoading());
   readonly busyId = signal<string | null>(null);
   readonly error = signal('');
   readonly success = signal('');
 
-  ngOnInit(): void {
-    this.load();
-    this.channelService.getRoles().subscribe({ next: roles => this.roles.set(roles) });
+  constructor() {
+    this.destroyRef.onDestroy(() => { ++this.loadVersion; this.loadCancelled$.complete(); });
   }
 
-  load(): void {
-    this.loading.set(true);
-    this.error.set('');
-    forkJoin({
-      invitations: this.channelService.getMyInvitations(),
-      channels: this.channelService.getAccessibleChannels()
-    }).pipe(finalize(() => this.loading.set(false))).subscribe({
-      next: result => {
-        this.invitations.set(result.invitations);
-        this.accessibleChannels.set(result.channels);
-      },
-      error: error => this.error.set(this.message(error, this.i18n.t('channel.loadInvitationsError')))
+  ngOnInit(): void {
+    void this.load();
+    this.channelService.getRoles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: roles => this.roles.set(roles), error: () => this.roles.set([]),
     });
+  }
+
+  async load(): Promise<void> {
+    const version = ++this.loadVersion;
+    this.loadCancelled$.next();
+    this.invitationsLoading.set(true);
+    this.channelsLoading.set(true);
+    this.error.set('');
+    const failed = (error: unknown): never => {
+      if (version === this.loadVersion) this.error.set(this.message(error, this.i18n.t('channel.loadInvitationsError')));
+      throw error;
+    };
+    await Promise.allSettled([
+      firstValueFrom(this.channelService.getMyInvitations().pipe(takeUntil(this.loadCancelled$), takeUntilDestroyed(this.destroyRef)))
+        .then(items => { if (version === this.loadVersion) this.invitations.set(items); })
+        .catch(failed)
+        .finally(() => { if (version === this.loadVersion) this.invitationsLoading.set(false); }),
+      firstValueFrom(this.channelService.getAccessibleChannels().pipe(takeUntil(this.loadCancelled$), takeUntilDestroyed(this.destroyRef)))
+        .then(items => { if (version === this.loadVersion) this.accessibleChannels.set(items); })
+        .catch(failed)
+        .finally(() => { if (version === this.loadVersion) this.channelsLoading.set(false); }),
+    ]);
   }
 
   accept(invitation: ChannelInvitation): void {

@@ -69,7 +69,7 @@
     </div>
   </section>
 
-  @if (loading()) {
+  @if (activeTab() === 'topics' ? topicsLoading() : tagsLoading()) {
     <section class="table-card loading-state"><span class="spinner"></span><p>{{ 'common.loading' | translate }}</p></section>
   } @else if (activeTab() === 'topics') {
     <section class="table-card">

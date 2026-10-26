@@ -1,9 +1,10 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { Subject, firstValueFrom, takeUntil } from 'rxjs';
 import { AuthService, errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
@@ -34,12 +35,17 @@ const emptyTopicDraft = (): TopicRequest => ({
 export class AdminTopicsPage implements OnInit {
   private readonly feedback = inject(FeedbackService);
   private readonly service = inject(AdminTopicsService);
+  private readonly destroyRef = inject(DestroyRef);
+  private loadVersion = 0;
+  private readonly loadCancelled$ = new Subject<void>();
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
 
   readonly topics = signal<AdminTopic[]>([]);
   readonly tags = signal<AdminTag[]>([]);
-  readonly loading = signal(true);
+  readonly topicsLoading = signal(true);
+  readonly tagsLoading = signal(true);
+  readonly loading = computed(() => this.topicsLoading() || this.tagsLoading());
   readonly saving = signal(false);
   readonly error = signal('');
   readonly success = signal('');
@@ -75,27 +81,34 @@ export class AdminTopicsPage implements OnInit {
   readonly categorizedVideoCount = computed(() => this.topics().reduce((total, topic) => total + topic.videoCount, 0));
   readonly usedTagCount = computed(() => this.tags().filter(tag => tag.videoCount > 0).length);
 
-  ngOnInit(): void {
-    this.load();
+  constructor() {
+    this.destroyRef.onDestroy(() => { ++this.loadVersion; this.loadCancelled$.complete(); });
   }
 
-  load(): void {
-    this.loading.set(true);
+  ngOnInit(): void { void this.load(); }
+
+  async load(): Promise<void> {
+    const version = ++this.loadVersion;
+    this.loadCancelled$.next();
+    this.topicsLoading.set(true);
+    this.tagsLoading.set(true);
     this.error.set('');
-    forkJoin({
-      topics: this.service.getTopics('all'),
-      tags: this.service.getTags(),
-    }).subscribe({
-      next: result => {
-        this.topics.set(result.topics);
-        this.tags.set(result.tags);
-        this.loading.set(false);
-      },
-      error: err => {
-        this.error.set(errorMessage(err, this.i18n));
-        this.loading.set(false);
-      },
-    });
+    const failed = (error: unknown): never => {
+      if (version === this.loadVersion) this.error.set(errorMessage(error, this.i18n));
+      throw error;
+    };
+    // Independent panels paint as each request finishes. A failure must not
+    // cancel the other panel, unlike an all-or-nothing forkJoin/Promise.all.
+    await Promise.allSettled([
+      firstValueFrom(this.service.getTopics('all').pipe(takeUntil(this.loadCancelled$), takeUntilDestroyed(this.destroyRef)))
+        .then(topics => { if (version === this.loadVersion) this.topics.set(topics); })
+        .catch(failed)
+        .finally(() => { if (version === this.loadVersion) this.topicsLoading.set(false); }),
+      firstValueFrom(this.service.getTags().pipe(takeUntil(this.loadCancelled$), takeUntilDestroyed(this.destroyRef)))
+        .then(tags => { if (version === this.loadVersion) this.tags.set(tags); })
+        .catch(failed)
+        .finally(() => { if (version === this.loadVersion) this.tagsLoading.set(false); }),
+    ]);
   }
 
   openCreateTopic(): void {

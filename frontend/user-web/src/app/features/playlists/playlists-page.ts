@@ -1,9 +1,10 @@
 import { ResultNoticeComponent } from '@dalitu/ui/result-notice.component';
 import { FeedbackService } from '@dalitu/ui/feedback.service';
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, forkJoin, of, switchMap } from 'rxjs';
+import { Subscription, catchError, from, map, mergeMap, of, switchMap } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ChannelService } from '../../core/channel.service';
 import { I18nService } from '../../core/i18n.service';
@@ -26,6 +27,7 @@ export class PlaylistsPage {
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private listRequests = new Subscription();
 
   readonly lists = signal<PlaylistSummary[]>([]);
   readonly listQuery = signal('');
@@ -61,8 +63,9 @@ export class PlaylistsPage {
   busy = false;
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.listRequests.unsubscribe());
     this.i18n.registerTranslations(PLAYLIST_LIBRARY_TRANSLATIONS);
-    this.route.queryParamMap.subscribe(params => {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
       this.listQuery.set(params.get('q') ?? '');
       this.listVisibility.set(['public', 'unlisted', 'private'].includes(params.get('visibility') ?? '') ? params.get('visibility')! : 'all');
       this.listPageSize.set(params.get('pageSize') === '50' ? 50 : 20);
@@ -70,7 +73,7 @@ export class PlaylistsPage {
       const page = Number(params.get('page'));
       this.listPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
     });
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe(params => {
       this.channelHandle = params.get('handle');
       const id = params.get('id');
       this.error.set('');
@@ -95,43 +98,44 @@ export class PlaylistsPage {
   }
 
   loadMine() {
+    this.listRequests.unsubscribe();
+    this.listRequests = new Subscription();
     this.loading.set(true);
     this.playlist.set(null);
+    this.previewById.set({});
     const request = this.channelHandle
       ? this.channels.getChannel(this.channelHandle).pipe(switchMap(channel => {
         this.channelId = channel.channelId;
         return this.service.channelMine(channel.channelId);
       }))
       : this.service.mine();
-    request.subscribe({
+    this.listRequests.add(request.subscribe({
       next: value => {
         this.lists.set(value);
         this.loading.set(false);
         this.loadPreviews(value);
       },
       error: () => { this.error.set(this.i18n.t('playlists.loadError')); this.loading.set(false); }
-    });
+    }));
   }
 
   private loadPreviews(lists: PlaylistSummary[]) {
-    if (lists.every(list => Array.isArray(list.previewItems))) {
-      this.previewById.set(Object.fromEntries(lists.map(list => [list.playlistId,
-        { ...list, createdAt: list.updatedAt, items: list.previewItems! }])));
-      return;
-    }
-    if (!lists.length) { this.previewById.set({}); return; }
-    const requests = lists.slice(0, 12).map(list => this.service.get(list.playlistId).pipe(catchError(() => of(null))));
-    forkJoin(requests).subscribe(details => {
-      const previews: Record<string, Playlist | null> = {};
-      lists.slice(0, 12).forEach((list, index) => previews[list.playlistId] = details[index]);
-      this.previewById.set(previews);
-    });
+    this.previewById.set(Object.fromEntries(lists
+      .filter(list => Array.isArray(list.previewItems) || list.itemCount === 0)
+      .map(list => [list.playlistId, { ...list, createdAt: list.updatedAt, items: list.previewItems ?? [] }])));
+    const missing = lists.filter(list => !Array.isArray(list.previewItems) && list.itemCount > 0).slice(0, 12);
+    this.listRequests.add(from(missing).pipe(mergeMap(list => this.service.get(list.playlistId).pipe(
+      map(detail => ({ id: list.playlistId, detail })),
+      catchError(() => of({ id: list.playlistId, detail: null }))), 4)
+    ).subscribe(({ id, detail }) => this.previewById.update(current => ({ ...current, [id]: detail }))));
   }
 
   loadDetail(id: string) {
+    this.listRequests.unsubscribe();
+    this.listRequests = new Subscription();
     this.loading.set(true);
     this.playlist.set(null);
-    this.auth.restore().pipe(switchMap(() => this.service.get(id))).subscribe({
+    this.listRequests.add(this.auth.restore().pipe(switchMap(() => this.service.get(id))).subscribe({
       next: value => {
         this.playlist.set(value);
         this.canManage.set(this.auth.user()?.userId === value.userId);
@@ -142,7 +146,7 @@ export class PlaylistsPage {
         if (this.canManage() && this.route.snapshot.queryParamMap.get('edit') === '1') this.openEditDialog();
       },
       error: () => { this.error.set(this.i18n.t('playlists.detailError')); this.loading.set(false); }
-    });
+    }));
   }
 
   create() {
