@@ -90,7 +90,7 @@
               </div>
             </header>
 
-            <div class="account-drawer__body">
+            <div class="account-drawer__body" (scroll)="closeChannelPicker()">
               @if (myChannel(); as ch) {
                 <section class="account-drawer__channel-block" aria-labelledby="drawer-channel-title">
                   <h2 id="drawer-channel-title" class="drawer-section-label">{{ 'nav.yourChannel' | translate }}</h2>
@@ -107,17 +107,11 @@
               @if (collaborationChannels().length > 0) {
                 <section class="account-drawer__channel-block" aria-labelledby="drawer-collaboration-title">
                   <h2 id="drawer-collaboration-title" class="drawer-section-label">{{ 'ui.collaborationChannel' | translate }}</h2>
-                  <div class="drawer-channel-list">
-                    @for (channel of collaborationChannels(); track channel.channelId) {
-                      <a class="drawer-channel-link" routerLink="/studio/overview" [queryParams]="{ channelId: channel.channelId }" (click)="closeAccountDrawer()">
-                        <span class="drawer-channel-avatar">
-                          @if (channel.avatarUrl) { <img [src]="channel.avatarUrl" alt="" /> } @else { {{ channel.name.slice(0, 1).toUpperCase() }} }
-                        </span>
-                      <span class="drawer-channel-copy"><strong>{{ channel.name }}</strong><small>&#64;{{ channel.handle }} · {{ channelRole(channel.myRole) }}</small></span>
-                        <span class="drawer-arrow" aria-hidden="true">›</span>
-                      </a>
-                    }
-                  </div>
+                  @defer (when accountDrawerOpen()) {
+                    <app-collaboration-channel-picker [channels]="collaborationChannels()" (channelOpened)="closeAccountDrawer()" />
+                  } @placeholder {
+                    <div class="drawer-channel-link" aria-busy="true">{{ 'common.loading' | translate }}</div>
+                  }
                 </section>
               } @else if (!myChannel() && pendingInvitations().length > 0) {
                 <section class="account-drawer__channel-block" aria-labelledby="drawer-channel-title">

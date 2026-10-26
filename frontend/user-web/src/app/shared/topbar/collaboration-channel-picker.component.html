@@ -1,0 +1,32 @@
+@if (items()[0]; as channel) {
+  @if (items().length === 1) {
+    <a class="drawer-channel-link" routerLink="/studio/overview" [queryParams]="{ channelId: channel.channelId }" (click)="navigate()">
+      <span class="drawer-channel-avatar">@if (channel.avatarUrl) { <img [src]="channel.avatarUrl" alt="" /> } @else { {{ channel.name.slice(0, 1).toUpperCase() }} }</span>
+      <span class="drawer-channel-copy"><strong>{{ channel.name }}</strong><small>&#64;{{ channel.handle }} · {{ role(channel.myRole) }}</small></span>
+      <span class="drawer-arrow" aria-hidden="true">›</span>
+    </a>
+  } @else {
+    <button #trigger class="drawer-channel-link drawer-channel-selector" type="button" popovertarget="collaboration-channel-picker" aria-haspopup="dialog" [attr.aria-expanded]="open()">
+      <span class="drawer-channel-avatar">@if (channel.avatarUrl) { <img [src]="channel.avatarUrl" alt="" /> } @else { {{ channel.name.slice(0, 1).toUpperCase() }} }</span>
+      <span class="drawer-channel-copy"><strong>{{ channel.name }}</strong><small>&#64;{{ channel.handle }} · {{ role(channel.myRole) }}</small></span>
+      <span class="drawer-channel-count">{{ items().length | localeNumber }}</span>
+      <svg class="drawer-channel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+    </button>
+    <div #picker id="collaboration-channel-picker" class="drawer-channel-picker" popover="auto" role="dialog" aria-labelledby="collaboration-picker-title" (beforetoggle)="positionPicker($event)" (keydown.escape)="escape($event)"
+      [style.left.px]="position().left" [style.top.px]="position().top" [style.width.px]="position().width" [style.max-height.px]="position().maxHeight" [class.drawer-channel-picker--above]="position().above">
+      <div class="drawer-channel-picker__header">
+        <strong id="collaboration-picker-title">{{ tx('Chọn kênh cộng tác', 'Choose a collaboration channel') }}</strong>
+        <input type="search" autofocus autocomplete="off" [attr.aria-label]="tx('Tìm tên hoặc @kênh', 'Search name or @handle')" [placeholder]="tx('Tìm tên hoặc @kênh', 'Search name or @handle')" [ngModel]="query()" (ngModelChange)="query.set($event)" />
+      </div>
+      <nav class="drawer-channel-picker__list" [attr.aria-label]="tx('Kênh cộng tác', 'Collaboration channels')">
+        @for (option of filtered(); track option.channelId) {
+          <a class="drawer-channel-link" routerLink="/studio/overview" [queryParams]="{ channelId: option.channelId }" (click)="navigate()">
+            <span class="drawer-channel-avatar">@if (option.avatarUrl) { <img [src]="option.avatarUrl" alt="" loading="lazy" /> } @else { {{ option.name.slice(0, 1).toUpperCase() }} }</span>
+            <span class="drawer-channel-copy"><strong>{{ option.name }}</strong><small>&#64;{{ option.handle }} · {{ role(option.myRole) }}</small></span>
+            <span class="drawer-arrow" aria-hidden="true">›</span>
+          </a>
+        } @empty { <p class="drawer-channel-picker__empty" role="status">{{ tx('Không tìm thấy kênh', 'No channels found') }}</p> }
+      </nav>
+    </div>
+  }
+}

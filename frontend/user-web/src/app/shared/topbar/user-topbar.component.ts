@@ -14,10 +14,11 @@ import { ContentService } from '../../core/content.service';
 import { NotificationService } from '../../core/notification.service';
 import { NotificationPanelComponent } from '../notifications/notification-panel.component';
 import { PlaylistService } from '../../core/playlist.service';
+import { CollaborationChannelPickerComponent } from './collaboration-channel-picker.component';
 
 @Component({
   selector: 'app-user-topbar',
-  imports: [LocaleNumberPipe, RouterLink, TranslatePipe, NotificationPanelComponent, FormsModule],
+  imports: [LocaleNumberPipe, RouterLink, TranslatePipe, NotificationPanelComponent, FormsModule, CollaborationChannelPickerComponent],
   templateUrl: './user-topbar.component.html',
   styleUrl: './user-topbar.component.scss'
 })
@@ -183,6 +184,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   toggleNotifications() { this.closeAccountDrawer(); this.notificationsOpen.set(!this.notificationsOpen()); if (this.notificationsOpen()) this.notifications.loadInitial(); }
 
   closeAccountDrawer() {
+    this.closeChannelPicker();
     this.resetDrawerGesture();
     this.accountDrawerOpen.set(false);
     this.shortcutsDialogOpen.set(false);
@@ -197,6 +199,7 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   }
 
   onDrawerPointerDown(event: PointerEvent) {
+    if (this.elRef.nativeElement.querySelector('.drawer-channel-picker:popover-open')) return;
     if (!this.accountDrawerOpen() || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest('a, button, input, select, textarea, label, [role="button"], [role="link"], [contenteditable="true"]')) return;
@@ -355,15 +358,8 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
   }
 
   channelRole(role: string | null | undefined): string {
-    if (role === 'owner') return this.i18n.t('studio.roleOwner');
-    return ({
-      manager: 'studio.roleManager',
-      editor: 'studio.roleEditor',
-      moderator: 'studio.roleModerator',
-      viewer: 'studio.roleViewer'
-    } as Record<string, string>)[role ?? '']
-      ? this.i18n.t(({ manager: 'studio.roleManager', editor: 'studio.roleEditor', moderator: 'studio.roleModerator', viewer: 'studio.roleViewer' } as Record<string, string>)[role ?? ''])
-      : this.i18n.t('studio.roleContributor');
+    const suffix = ({ owner: 'Owner', manager: 'Manager', editor: 'Editor', moderator: 'Moderator', viewer: 'Viewer' } as Record<string, string>)[role ?? ''] ?? 'Contributor';
+    return this.i18n.t('studio.role' + suffix);
   }
 
   logout() {
@@ -384,12 +380,19 @@ export class UserTopbarComponent implements OnDestroy, OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape() {
+    if (this.elRef.nativeElement.querySelector('.drawer-channel-picker:popover-open')) {
+      this.closeChannelPicker(); return;
+    }
     if (this.shortcutsDialogOpen()) {
       this.closeShortcutsDialog();
       return;
     }
     this.closeAccountDrawer();
     this.notificationsOpen.set(false);
+  }
+
+  closeChannelPicker() {
+    (this.elRef.nativeElement.querySelector('.drawer-channel-picker:popover-open') as HTMLElement | null)?.hidePopover();
   }
 
   socialPlatform(url: string, platform?: string): 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'link' {
