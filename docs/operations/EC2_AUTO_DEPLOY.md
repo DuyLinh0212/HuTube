@@ -6,7 +6,7 @@ The EC2 host checks the public GitHub repository every five minutes with a syste
 
 1. It is the current tip of `main` in the configured repository.
 2. Its latest push run of `.github/workflows/ci.yml` completed successfully.
-3. Backend, both Web clients, Recommendation, Mobile, E2E, container builds and `deployment-checks` all succeeded. The expected `deploy-staging` skip on `main` is allowed; other unsuccessful jobs block deployment.
+3. Backend, both Web clients, Recommendation, Mobile, E2E, container builds and `deployment-checks` all succeeded. Any unsuccessful or skipped job blocks deployment.
 4. Both Vercel deployment contexts succeeded, and the combined commit status is successful.
 
 The gate is checked again after the EC2 builds, immediately before replacing containers. A newer `main` or a changed check postpones activation. GitHub failures, rate limits and unavailable checks leave the running services in place.
