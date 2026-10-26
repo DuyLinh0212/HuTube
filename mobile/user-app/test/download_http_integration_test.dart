@@ -59,7 +59,11 @@ void main() {
             } else {
               request.response.add(bytes);
             }
-            await request.response.close();
+            // On Linux a paused client can disconnect while the response is
+            // buffered. Its close future may never settle, even after the
+            // server is force-closed. Bound fixture cleanup; the downloaded
+            // bytes and retry count are still asserted below.
+            await request.response.close().timeout(const Duration(seconds: 5));
           } catch (_) {
             // A client pause deliberately closes the in-flight connection.
           }
