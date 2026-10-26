@@ -21,27 +21,27 @@ def run(suite,config,actors):
                 value=suite.api(owner,'post','/playlists',data={'name':'QC '+tag+' Danh sách đích '+str(i),'visibility':'private' if i%2 else 'public'},expected=200).json()
                 lists.append(value['playlistId'])
             all_items=suite.go(owner,'/playlists','app-playlists-page','/playlists');p=owner['page']
-            expected=[x for x in all_items if x['playlistId'] in lists];assert len(expected)==25
+            expected=sorted([x for x in all_items if x['playlistId'] in lists],key=lambda x:x['updatedAt'],reverse=True);assert len(expected)==25
             p.locator('#playlist-query').fill(tag)
-            exact_cards(p,'a.playlist-card',[x['playlistId'] for x in expected[:20]])
+            exact_cards(p,'a.card-mosaic',[x['playlistId'] for x in expected[:20]])
             suite.evidence(owner,entry,'filtered-first-twenty')
             p.locator('.collection-pagination button').last.click()
-            exact_cards(p,'a.playlist-card',[x['playlistId'] for x in expected[20:]])
+            exact_cards(p,'a.card-mosaic',[x['playlistId'] for x in expected[20:]])
             assert parse_qs(urlsplit(p.url).query)['page']==['2']
             suite.evidence(owner,entry,'second-page-exact-five')
-            p.locator('#playlist-filter').select_option('private')
+            p.locator('.playlist-filters button').nth(1).click()
             private=[x['playlistId'] for x in expected if x['visibility']=='private']
-            exact_cards(p,'a.playlist-card',private)
+            exact_cards(p,'a.card-mosaic',private)
             assert parse_qs(urlsplit(p.url).query)['page']==['1']
             p.locator('#playlist-page-size').select_option(label='50')
             p.wait_for_function('()=>new URLSearchParams(location.search).get("pageSize")==="50"')
-            p.reload();expect(p.locator('#playlist-query')).to_have_value(tag);expect(p.locator('#playlist-filter')).to_have_value('private')
-            exact_cards(p,'a.playlist-card',private)
-            p.locator('#playlist-query').fill('Khong_co_'+tag);expect(p.locator('a.playlist-card')).to_have_count(0)
-            expect(p.locator('.library-main [role=status]')).to_be_visible()
-            p.locator('#playlist-query').fill('danh sach dich');p.locator('#playlist-filter').select_option('all')
+            p.reload();expect(p.locator('#playlist-query')).to_have_value(tag);expect(p.locator('.playlist-filters button').nth(1)).to_have_attribute('aria-pressed','true')
+            exact_cards(p,'a.card-mosaic',private)
+            p.locator('#playlist-query').fill('Khong_co_'+tag);expect(p.locator('a.card-mosaic')).to_have_count(0)
+            expect(p.locator('.library-main [role=status]').last).to_be_visible()
+            p.locator('#playlist-query').fill('danh sach dich');p.locator('.playlist-filters button').first.click()
             # Diacritic-insensitive matching is scoped to the complete owned list.
-            p.wait_for_function('(expected)=>expected.every(id=>[...document.querySelectorAll("a.playlist-card")].some(a=>a.pathname.endsWith("/"+id)))',arg=lists)
+            p.wait_for_function('(expected)=>expected.every(id=>[...document.querySelectorAll("a.card-mosaic")].some(a=>a.pathname.endsWith("/"+id)))',arg=lists)
             other=suite.api(foreign,'get','/playlists').json();assert not set(private)&{x['playlistId'] for x in other}
             entry['resource_ids']=lists[:];entry['steps']=['Create 25 disposable actual playlists, not metadata injected into the UI','Search isolates exact IDs, first 20 then final 5 without duplication','Visibility resets page; page size 50 and reload preserve query/filter','Unmatched query is empty; Vietnamese diacritics normalize correctly','Foreign collection never contains owned private playlists']
         case(suite,owner,'PLAYLIST-LIST-FILTER-CONTRACT','U-PLAYLIST.04','Playlist collection filters and paginates complete owned data',playlists,'playlists')

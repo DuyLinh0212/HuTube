@@ -41,8 +41,8 @@ def run(suite,config,actors):
             suite.api(owner,'get',path,expected=404)
             assert suite.api(owner,'get','/playlists/'+kept).json()['playlistId']==kept
             assert suite.api(owner,'get','/videos/'+vid).json()['videoId']==vid
-            p.reload();expect(p.locator('a.playlist-card[href="'+path+'"]')).to_have_count(0)
-            expect(p.locator('a.playlist-card[href="/playlists/'+kept+'"]')).to_be_visible()
+            p.reload();expect(p.locator('a.card-mosaic[href="'+path+'"]')).to_have_count(0)
+            expect(p.locator('a.card-mosaic[href="/playlists/'+kept+'"]')).to_be_visible()
             entry['resource_ids']=[target,kept,vid]
             entry['steps']=['Create two disposable private playlists through actual API','Add real source video to target','Actual delete confirmation cancelled; target survives API read','Actual confirmation accepted; target 404 after reload','Second playlist and source video remain unchanged']
         case(suite,owner,'PLAYLIST-DELETE-CANCEL-CONFIRM-SOURCE-SAFE','U-PLAYLIST.04','Delete only the confirmed disposable playlist',delete,'playlists')
