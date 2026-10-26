@@ -1,3 +1,5 @@
+import '../../auth.dart';
+import '../content/media_feature_gate.dart';
 import '../../core/widgets/scrollable_sheet.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +11,10 @@ import '../../core/theme/app_theme.dart';
 class BackgroundDownloadSettingsScreen extends StatefulWidget {
   const BackgroundDownloadSettingsScreen({
     super.key,
+    this.auth,
     this.preferences = const AppPreferencesStore(),
   });
+  final AuthController? auth;
   final AppPreferencesStore preferences;
 
   @override
@@ -25,6 +29,7 @@ class _BackgroundDownloadSettingsScreenState
   String _bgMode = 'off';
   String _downloadQuality = 'ask';
   bool _wifiOnly = false;
+  bool _pipEnabled = false;
   bool _recommendations = true;
   bool _loading = true;
   bool _saving = false;
@@ -63,6 +68,7 @@ class _BackgroundDownloadSettingsScreenState
       final quality = await _prefs.readDownloadQuality();
       final wifi = await _prefs.readDownloadWifiOnly();
       final rec = await _prefs.readDownloadRecommendations();
+      final pip = await _prefs.readPipEnabled();
 
       if (mounted) {
         setState(() {
@@ -70,6 +76,7 @@ class _BackgroundDownloadSettingsScreenState
           _downloadQuality = quality;
           _wifiOnly = wifi;
           _recommendations = rec;
+          _pipEnabled = pip;
           _loading = false;
         });
       }
@@ -122,6 +129,8 @@ class _BackgroundDownloadSettingsScreenState
 
     final selected = await showModalBottomSheet<String>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       backgroundColor: AppColors.surfaceFor(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -176,6 +185,16 @@ class _BackgroundDownloadSettingsScreenState
     );
 
     if (selected != null && mounted) {
+      if (selected != 'off' &&
+          widget.auth != null &&
+          !await requireMediaFeature(
+            context,
+            widget.auth!,
+            PlanMediaFeature.background,
+          )) {
+        return;
+      }
+      if (!mounted) return;
       await _save(
         () => _prefs.writeBackgroundPlaybackMode(selected),
         () => _bgMode = selected,
@@ -194,6 +213,8 @@ class _BackgroundDownloadSettingsScreenState
 
     final selected = await showModalBottomSheet<String>(
       context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
       backgroundColor: AppColors.surfaceFor(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -257,188 +278,163 @@ class _BackgroundDownloadSettingsScreenState
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<String>(
-      valueListenable: AppStrings.currentLang,
-      builder: (context, currentLang, _) {
-        final textColor = AppColors.textPrimaryFor(context);
-        final mutedColor = AppColors.textSecondaryFor(context);
-        final bgColor = Theme.of(context).scaffoldBackgroundColor;
-        final activeToggleColor = Theme.of(context).colorScheme.primary;
+  Future<void> _togglePip(bool value) async {
+    if (value &&
+        widget.auth != null &&
+        !await requireMediaFeature(
+          context,
+          widget.auth!,
+          PlanMediaFeature.pip,
+        )) {
+      return;
+    }
+    if (!mounted) return;
+    await _save(() => _prefs.writePipEnabled(value), () => _pipEnabled = value);
+  }
 
-        return Scaffold(
-          backgroundColor: bgColor,
-          appBar: AppBar(
-            backgroundColor: bgColor,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            leading: IconButton(
-              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              icon: Icon(Icons.arrow_back_rounded, color: textColor),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            title: Text(
-              AppStrings.t('bgDownload.title'),
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
+  Widget _heading(String key, IconData icon) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
+    child: Row(
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            AppStrings.t(key),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
-          body: _loading
-              ? Center(
-                  child: CircularProgressIndicator(color: activeToggleColor),
-                )
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                  children: [
-                    if (_error != null) ...[
-                      HuTubeNotice(
-                        message: _error!,
-                        actionLabel: AppStrings.t('common.retry'),
-                        onAction: _saving ? null : _loadSettings,
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<String>(
+    valueListenable: AppStrings.currentLang,
+    builder: (context, _, _) => Scaffold(
+      appBar: AppBar(title: Text(AppStrings.t('media.settingsTitle'))),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+              children: [
+                if (_error != null)
+                  HuTubeNotice(
+                    message: _error!,
+                    actionLabel: AppStrings.t('common.retry'),
+                    onAction: _saving ? null : _loadSettings,
+                  ),
+                if (_saving) const LinearProgressIndicator(),
+                _heading(
+                  'media.playbackSection',
+                  Icons.play_circle_outline_rounded,
+                ),
+                HuTubeSurface(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      SwitchListTile.adaptive(
+                        key: const ValueKey('automatic-pip-toggle'),
+                        title: Text(AppStrings.t('playback.pip')),
+                        subtitle: Text(AppStrings.t('media.pipAutomatic')),
+                        value: _pipEnabled,
+                        onChanged: _saving ? null : _togglePip,
                       ),
-                      const SizedBox(height: 16),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      ListTile(
+                        title: Text(AppStrings.t('bgDownload.sectionBg')),
+                        subtitle: Text(_bgModeLabel(_bgMode)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: _saving ? null : _selectBgMode,
+                      ),
                     ],
-                    if (_saving) const LinearProgressIndicator(),
-                    HuTubeSurface(
-                      padding: EdgeInsets.zero,
-                      child: Column(
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // SECTION: Phát trong nền
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                          const Icon(
+                            Icons.workspace_premium_outlined,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
                             child: Text(
-                              AppStrings.t('bgDownload.sectionBg'),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: mutedColor,
-                              ),
+                              AppStrings.t('media.premiumHint'),
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(height: 1.5),
                             ),
-                          ),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 2,
-                            ),
-                            title: Text(
-                              AppStrings.t('bgDownload.playback'),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${_bgModeLabel(_bgMode)}\n${AppStrings.t('bgDownload.backgroundRequirements')}',
-                              style: TextStyle(fontSize: 14, color: mutedColor),
-                            ),
-                            onTap: _saving ? null : _selectBgMode,
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // SECTION: Tải xuống
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                            child: Text(
-                              AppStrings.t('bgDownload.sectionDownload'),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: mutedColor,
-                              ),
-                            ),
-                          ),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            title: Text(
-                              AppStrings.t('bgDownload.quality'),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                _qualityLabel(_downloadQuality),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: mutedColor,
-                                ),
-                              ),
-                            ),
-                            onTap: _saving ? null : _selectDownloadQuality,
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                          ),
-                          SwitchListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            activeTrackColor: activeToggleColor,
-                            activeThumbColor: Theme.of(
-                              context,
-                            ).colorScheme.onPrimary,
-                            title: Text(
-                              AppStrings.t('bgDownload.wifiOnly'),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                            ),
-                            value: _wifiOnly,
-                            onChanged: _saving
-                                ? null
-                                : (val) => _save(
-                                    () => _prefs.writeDownloadWifiOnly(val),
-                                    () => _wifiOnly = val,
-                                  ),
-                          ),
-                          SwitchListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 4,
-                            ),
-                            activeTrackColor: activeToggleColor,
-                            activeThumbColor: Theme.of(
-                              context,
-                            ).colorScheme.onPrimary,
-                            title: Text(
-                              AppStrings.t('bgDownload.recommendations'),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                            ),
-                            value: _recommendations,
-                            onChanged: _saving
-                                ? null
-                                : (val) => _save(
-                                    () => _prefs.writeDownloadRecommendations(
-                                      val,
-                                    ),
-                                    () => _recommendations = val,
-                                  ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      if (widget.auth != null)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () =>
+                                openMediaPlans(context, widget.auth!),
+                            child: Text(AppStrings.t('media.viewPlans')),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-        );
-      },
-    );
-  }
+                _heading('bgDownload.sectionDownload', Icons.download_outlined),
+                HuTubeSurface(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        title: Text(AppStrings.t('bgDownload.quality')),
+                        subtitle: Text(_qualityLabel(_downloadQuality)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: _saving ? null : _selectDownloadQuality,
+                      ),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      SwitchListTile.adaptive(
+                        title: Text(AppStrings.t('bgDownload.wifiOnly')),
+                        subtitle: Text(AppStrings.t('media.wifiHint')),
+                        value: _wifiOnly,
+                        onChanged: _saving
+                            ? null
+                            : (value) => _save(
+                                () => _prefs.writeDownloadWifiOnly(value),
+                                () => _wifiOnly = value,
+                              ),
+                      ),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      SwitchListTile.adaptive(
+                        title: Text(AppStrings.t('bgDownload.recommendations')),
+                        subtitle: Text(
+                          AppStrings.t('media.recommendationsHint'),
+                        ),
+                        value: _recommendations,
+                        onChanged: _saving
+                            ? null
+                            : (value) => _save(
+                                () =>
+                                    _prefs.writeDownloadRecommendations(value),
+                                () => _recommendations = value,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    ),
+  );
 }

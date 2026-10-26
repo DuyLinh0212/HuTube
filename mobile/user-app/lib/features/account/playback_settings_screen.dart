@@ -1,3 +1,5 @@
+import '../../auth.dart';
+import '../content/media_feature_gate.dart';
 import '../../core/widgets/scrollable_sheet.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +11,10 @@ import '../../core/theme/app_theme.dart';
 class PlaybackSettingsScreen extends StatefulWidget {
   const PlaybackSettingsScreen({
     super.key,
+    this.auth,
     this.preferences = const AppPreferencesStore(),
   });
+  final AuthController? auth;
   final AppPreferencesStore preferences;
 
   @override
@@ -314,7 +318,7 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                AppStrings.t('playback.pipDesc'),
+                                '${AppStrings.t('media.pipAutomatic')}\n${AppStrings.t('media.pipPlanHint')}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: mutedColor,
@@ -325,10 +329,22 @@ class _PlaybackSettingsScreenState extends State<PlaybackSettingsScreen> {
                             value: _pipEnabled,
                             onChanged: _saving
                                 ? null
-                                : (val) => _save(
-                                    () => _prefs.writePipEnabled(val),
-                                    () => _pipEnabled = val,
-                                  ),
+                                : (val) async {
+                                    if (val &&
+                                        widget.auth != null &&
+                                        !await requireMediaFeature(
+                                          context,
+                                          widget.auth!,
+                                          PlanMediaFeature.pip,
+                                        )) {
+                                      return;
+                                    }
+                                    if (!mounted) return;
+                                    await _save(
+                                      () => _prefs.writePipEnabled(val),
+                                      () => _pipEnabled = val,
+                                    );
+                                  },
                           ),
                         ],
                       ),

@@ -1,8 +1,36 @@
 import 'dart:async';
 import '../../auth.dart';
+import '../../core/localization/app_strings.dart';
+import '../../channel/models/channel_models.dart';
 import 'content_models.dart';
 
 class ContentService {
+  Future<PageResult<ChannelDetail>> searchChannels({
+    required String query,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final json = await auth.api.request(
+      'GET',
+      _query('/channels/search', {
+        'q': query.trim().replaceFirst(RegExp(r'^@'), ''),
+        'page': page,
+        'pageSize': pageSize,
+      }),
+    );
+    return PageResult(
+      items: (json['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (entry) => ChannelDetail.fromJson(Map<String, dynamic>.from(entry)),
+          )
+          .toList(),
+      page: asInt(json['page']) > 0 ? asInt(json['page']) : page,
+      pageSize: pageSize,
+      total: asInt(json['total']),
+    );
+  }
+
   ContentService(this.auth, {ApiClient? recommendationApi})
     : recommendationApi =
           recommendationApi ??
@@ -354,10 +382,18 @@ class ContentService {
     final items = await auth.protectedList(
       '/videos/${Uri.encodeComponent(videoId)}/download-options',
     );
-    return items
+    final options = items
         .whereType<Map>()
         .map((value) => Rendition.fromJson(Map<String, dynamic>.from(value)))
         .toList();
+    if (options.isEmpty) {
+      throw ApiFailure(
+        409,
+        'DOWNLOAD_NOT_READY',
+        AppStrings.t('downloads.notReady'),
+      );
+    }
+    return options;
   }
 
   Future<Map<String, dynamic>> createDownload(String videoId, String quality) =>

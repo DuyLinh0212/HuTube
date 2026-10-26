@@ -25,11 +25,15 @@ class MediaTools(private val activity: Activity, messenger: BinaryMessenger) {
     init {
         channel.setMethodCallHandler { call, result ->
             val args = call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()
-            if (call.method !in listOf("inspectVideo", "exportPolicy", "printPolicy")) {
+            if (call.method !in listOf("inspectVideo", "extractFrame", "exportPolicy", "printPolicy")) {
                 result.notImplemented()
             } else executor.execute {
                 try {
                     when (call.method) {
+                        "extractFrame" -> {
+                            val path = frame(args["source"] as String, (args["seconds"] as Number).toDouble())
+                            activity.runOnUiThread { result.success(path) }
+                        }
                         "inspectVideo" -> {
                             val data = inspect(args["path"] as String)
                             activity.runOnUiThread { result.success(data) }
@@ -88,6 +92,29 @@ class MediaTools(private val activity: Activity, messenger: BinaryMessenger) {
                 } catch (_: Exception) { /* Metadata is still usable; custom thumbnail remains available. */ }
             }
             return mapOf("durationMs" to duration, "width" to width, "height" to height, "rotation" to rotation, "thumbnails" to frames)
+        } finally { retriever.release() }
+    }
+
+    private fun frame(source: String, seconds: Double): String {
+        require(seconds.isFinite() && seconds >= 0) { "Invalid frame time" }
+        val retriever = MediaMetadataRetriever()
+        try {
+            if (source.startsWith("https://") || source.startsWith("http://")) {
+                retriever.setDataSource(source, emptyMap<String, String>())
+            } else retriever.setDataSource(source)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            val time = (seconds * 1_000_000).toLong().coerceAtMost((durationMs * 1000 - 1).coerceAtLeast(0L))
+            val bitmap = retriever.getFrameAtTime(time, MediaMetadataRetriever.OPTION_CLOSEST)
+                ?: throw IllegalStateException("Frame unavailable")
+            try {
+                val factor = minOf(1.0, 1280.0 / bitmap.width)
+                val scaled = Bitmap.createScaledBitmap(bitmap, (bitmap.width * factor).toInt().coerceAtLeast(1), (bitmap.height * factor).toInt().coerceAtLeast(1), true)
+                try {
+                    val file = File(activity.cacheDir, "hutube-frame-${UUID.randomUUID()}.jpg")
+                    FileOutputStream(file).use { require(scaled.compress(Bitmap.CompressFormat.JPEG, 90, it)) }
+                    return file.absolutePath
+                } finally { if (scaled !== bitmap) scaled.recycle() }
+            } finally { bitmap.recycle() }
         } finally { retriever.release() }
     }
 

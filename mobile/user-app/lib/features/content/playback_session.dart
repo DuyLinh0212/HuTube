@@ -230,6 +230,7 @@ class PlaybackSession extends ChangeNotifier with WidgetsBindingObserver {
       _observingPolicy = true;
       WidgetsBinding.instance.addObserver(this);
       conditions.addListener(_applyBackgroundPolicy);
+      AppPictureInPicture.active.addListener(_applyBackgroundPolicy);
       AppPreferencesStore.mediaChanges.addListener(_reloadBackgroundPolicy);
     }
 
@@ -458,36 +459,59 @@ class PlaybackSession extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(() async {
       String mode;
       bool automaticPip;
+      bool autoplay;
+      final auth = _auth;
+      final session = auth?.sessionGeneration;
+      MediaEntitlements? refreshed;
       try {
         mode = await preferences.readBackgroundPlaybackMode();
         automaticPip = await preferences.readPipEnabled();
+        autoplay = await preferences.readAutoplayNext();
+        if (auth?.authenticated == true) {
+          refreshed = await MediaEntitlements.load(auth!);
+        }
       } catch (_) {
         mode = 'off';
         automaticPip = false;
+        autoplay = autoplayNext;
       }
-      if (_disposed || request != _policyRequest) return;
+      if (_disposed ||
+          request != _policyRequest ||
+          session != _auth?.sessionGeneration) {
+        return;
+      }
+      if (refreshed != null) entitlements = refreshed;
       if (mode != _backgroundMode) _backgroundOverride = null;
       _backgroundMode = mode;
       _automaticPip = automaticPip;
+      if (autoplayNext != autoplay) {
+        autoplayNext = autoplay;
+        notifyListeners();
+      }
       _configurePip();
       _applyBackgroundPolicy();
     }());
   }
 
+  void updateMediaEntitlements(MediaEntitlements next) {
+    entitlements = next;
+    _configurePip();
+    _applyBackgroundPolicy();
+    if (!_disposed) notifyListeners();
+  }
+
+  bool get automaticPipEligible =>
+      !_disposed &&
+      ready &&
+      isPlaying &&
+      _automaticPip &&
+      entitlements.pictureInPicture &&
+      _auth?.authenticated == true &&
+      _auth?.sessionGeneration == _authGeneration;
+
   void _configurePip() {
     if (Platform.isAndroid) {
-      unawaited(
-        AppPictureInPicture.configure(
-          automatic:
-              !_disposed &&
-              ready &&
-              isPlaying &&
-              _automaticPip &&
-              entitlements.pictureInPicture &&
-              _auth?.authenticated == true &&
-              _auth?.sessionGeneration == _authGeneration,
-        ),
-      );
+      unawaited(AppPictureInPicture.configure(automatic: automaticPipEligible));
     }
   }
 
@@ -500,10 +524,16 @@ class PlaybackSession extends ChangeNotifier with WidgetsBindingObserver {
         _auth?.authenticated == true &&
         _auth?.sessionGeneration == _authGeneration &&
         (_backgroundMode != 'headphones' || conditions.externalAudio);
-    _backgroundGuard?.pauseInBackground = !enabled;
+    final pipActive =
+        AppPictureInPicture.active.value &&
+        entitlements.pictureInPicture &&
+        _auth?.authenticated == true &&
+        _auth?.sessionGeneration == _authGeneration;
+    _backgroundGuard?.pauseInBackground = !(enabled || pipActive);
     final changed = backgroundPlaybackEnabled != enabled;
     backgroundPlaybackEnabled = enabled;
     if (!enabled &&
+        !pipActive &&
         changed &&
         (_lifecycle == AppLifecycleState.paused ||
             _lifecycle == AppLifecycleState.hidden)) {
@@ -623,6 +653,7 @@ class PlaybackSession extends ChangeNotifier with WidgetsBindingObserver {
     if (_observingPolicy) {
       WidgetsBinding.instance.removeObserver(this);
       conditions.removeListener(_applyBackgroundPolicy);
+      AppPictureInPicture.active.removeListener(_applyBackgroundPolicy);
       AppPreferencesStore.mediaChanges.removeListener(_reloadBackgroundPolicy);
     }
     ++_generation;

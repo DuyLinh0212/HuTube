@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:image_picker/image_picker.dart';
 
@@ -7,6 +6,7 @@ import '../../auth.dart';
 import '../../core/network/upload_control.dart';
 import '../../core/localization/app_strings.dart';
 import '../content/content_models.dart';
+import 'video_upload_transport.dart';
 
 class UploadPreflight {
   const UploadPreflight({
@@ -114,9 +114,7 @@ class CreatorService {
     required MultipartFilePayload video,
     MultipartFilePayload? thumbnail,
   }) async {
-    final requestKey =
-        idempotencyKey ??
-        '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    final requestKey = idempotencyKey ?? newUploadId();
     final fields = <String, String>{
       'ChannelId': channelId,
       'Title': title.trim(),
@@ -135,12 +133,15 @@ class CreatorService {
       fields['Tags[$index]'] = tags[index];
     }
     fields['ChaptersJson'] = jsonEncode(chapters);
-    final json = await auth.protectedMultipart(
-      '/videos',
+    final json = await VideoUploadTransport(auth).upload(
+      uploadId: requestKey,
+      channelId: channelId,
+      duration: duration,
+      quality: quality,
       fields: fields,
-      files: [video, ?thumbnail],
-      headers: {'Idempotency-Key': requestKey},
-      uploadControl: uploadControl,
+      video: video,
+      thumbnail: thumbnail,
+      control: uploadControl ?? UploadControl(),
       onProgress: onProgress,
     );
     return VideoDetail.fromJson(json);

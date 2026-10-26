@@ -17,6 +17,7 @@ import '../plans/plan_service.dart';
 import 'creator_service.dart';
 import 'video_metadata.dart';
 import 'upload_controller.dart';
+import '../moderation/moderation_screen.dart';
 import 'upload_draft_store.dart';
 import '../playlists/playlist_selector.dart';
 
@@ -212,6 +213,7 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.channel.status == 'suspended') return;
     _loadCategories();
     _loadRelatedVideos();
     _loadPromotionEntitlement();
@@ -594,506 +596,597 @@ class _VideoUploadScreenState extends State<VideoUploadScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(AppStrings.t('upload.title')),
-      actions: [
-        PopupMenuButton<String>(
-          onSelected: _uploading ? null : _draftAction,
-          itemBuilder: (_) => [
-            for (final action in ['save', 'restore', 'discard'])
-              PopupMenuItem(
-                value: action,
-                child: Text(AppStrings.t('parity.${action}Draft')),
-              ),
-          ],
-        ),
-      ],
-    ),
-    body: SafeArea(
-      child: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.violetContainerFor(context),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppColors.violet.withValues(alpha: .15),
+  Widget build(BuildContext context) => widget.channel.status == 'suspended'
+      ? Scaffold(
+          appBar: AppBar(title: Text(AppStrings.t('upload.title'))),
+          body: HuTubeStateView(
+            icon: Icons.pause_circle_outline_rounded,
+            title: AppStrings.t('channel.suspendedTitle'),
+            message: AppStrings.t('creator.uploadSuspended'),
+            actionLabel: AppStrings.t('channel.statusAndAppeal'),
+            onAction: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(
+                    title: Text(AppStrings.t('channel.statusAndAppeal')),
+                  ),
+                  body: ModerationScreen(
+                    auth: widget.auth,
+                    channel: widget.channel,
+                  ),
                 ),
               ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: AppColors.violet,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      AppStrings.t('upload.videoQuotaHint'),
-                      style: const TextStyle(
-                        height: 1.35,
-                        fontWeight: FontWeight.w700,
-                      ),
+            ),
+          ),
+        )
+      : Scaffold(
+          appBar: AppBar(
+            title: Text(AppStrings.t('upload.title')),
+            actions: [
+              PopupMenuButton<String>(
+                onSelected: _uploading ? null : _draftAction,
+                itemBuilder: (_) => [
+                  for (final action in ['save', 'restore', 'discard'])
+                    PopupMenuItem(
+                      value: action,
+                      child: Text(AppStrings.t('parity.${action}Draft')),
                     ),
-                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
-            _FilePicker(
-              customIcon: AppIcons.asset(AppIcons.upload, size: 24),
-              title: _video?.name ?? AppStrings.t('upload.chooseVideo'),
-              subtitle: _video == null
-                  ? AppStrings.t('upload.videoQuotaHint')
-                  : AppStrings.t('upload.selectedVideo'),
-              onTap: _uploading ? null : _pickVideo,
-            ),
-            if (_video != null) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _previewPlayer == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : NativeVideoPlayer(controller: _previewPlayer!),
+            ],
+          ),
+          bottomNavigationBar: Material(
+            color: Theme.of(context).colorScheme.surface,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: FilledButton.icon(
+                  onPressed: _uploading ? null : _upload,
+                  icon: _uploading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.cloud_upload_outlined),
+                  label: Text(
+                    _uploading
+                        ? AppStrings.t('upload.uploading')
+                        : AppStrings.t('upload.uploadAction'),
+                  ),
                 ),
               ),
-            ],
-            const SizedBox(height: 12),
-            _FilePicker(
-              icon: Icons.image_outlined,
-              title: _thumbnail?.name ?? AppStrings.t('upload.chooseThumbnail'),
-              subtitle: _thumbnail == null
-                  ? AppStrings.t('upload.thumbnailHint')
-                  : AppStrings.t('upload.selectedThumbnail'),
-              onTap: _uploading ? null : _pickThumbnail,
             ),
-            if (_preparing) const LinearProgressIndicator(),
-            if (_metadata != null) ...[
-              if (_metadata!.thumbnails.isNotEmpty) ...[
-                Text(AppStrings.t('parity.thumbnail')),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final path in _metadata!.thumbnails)
-                      Semantics(
-                        button: true,
-                        selected: _thumbnail?.path == path,
-                        label: AppStrings.t('parity.thumbnail'),
-                        child: InkWell(
-                          onTap: _uploading
-                              ? null
-                              : () => setState(() => _thumbnail = XFile(path)),
-                          child: Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                width: 3,
-                                color: _thumbnail?.path == path
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.transparent,
-                              ),
-                            ),
-                            child: Image.file(
-                              File(path),
-                              width: 86,
-                              height: 60,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
+          ),
+          body: SafeArea(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  _FilePicker(
+                    customIcon: AppIcons.asset(AppIcons.upload, size: 24),
+                    title: _video?.name ?? AppStrings.t('upload.chooseVideo'),
+                    subtitle: _video == null
+                        ? AppStrings.t('upload.videoQuotaHint')
+                        : AppStrings.t('upload.selectedVideo'),
+                    onTap: _uploading ? null : _pickVideo,
+                  ),
+                  if (_video != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: _previewPlayer == null
+                            ? const Center(child: CircularProgressIndicator())
+                            : NativeVideoPlayer(controller: _previewPlayer!),
                       ),
+                    ),
                   ],
-                ),
-              ],
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                key: ValueKey('quality-$_fileGeneration-$_sourceQuality'),
-                initialValue: _sourceQuality,
-                decoration: InputDecoration(
-                  labelText: AppStrings.t('parity.quality'),
-                  helperText: AppStrings.t('parity.sourceHint'),
-                  helperMaxLines: 2,
-                ),
-                items: _metadata!.qualities
-                    .map((q) => DropdownMenuItem(value: q, child: Text(q)))
-                    .toList(),
-                onChanged: _uploading
-                    ? null
-                    : (q) => setState(() => _sourceQuality = q),
-              ),
-            ],
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              key: ValueKey('language-$_languageCode'),
-              initialValue: _languageCode,
-              decoration: InputDecoration(
-                labelText: AppStrings.t('parity.language'),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'vi', child: Text('Tiếng Việt')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-                DropdownMenuItem(value: 'ja', child: Text('日本語')),
-                DropdownMenuItem(value: 'ko', child: Text('한국어')),
-                DropdownMenuItem(value: 'zh', child: Text('中文')),
-                DropdownMenuItem(value: 'other', child: Text('Other')),
-              ],
-              onChanged: _uploading
-                  ? null
-                  : (value) => setState(() => _languageCode = value!),
-            ),
-            SwitchListTile(
-              value: _allowComments,
-              title: Text(AppStrings.t('parity.comments')),
-              onChanged: _uploading
-                  ? null
-                  : (v) => setState(() => _allowComments = v),
-            ),
-            PlaylistSelector(
-              auth: widget.auth,
-              selected: _playlistIds,
-              enabled: !_uploading,
-              onChanged: (values) => setState(() => _playlistIds = values),
-            ),
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: _title,
-              enabled: !_uploading,
-              maxLength: 100,
-              decoration: InputDecoration(
-                labelText: AppStrings.t('upload.titleField'),
-              ),
-              validator: (value) => (value ?? '').trim().isEmpty
-                  ? AppStrings.t('upload.titleRequired')
-                  : null,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _description,
-              enabled: !_uploading,
-              minLines: 3,
-              maxLines: 6,
-              maxLength: 5000,
-              decoration: InputDecoration(
-                labelText: AppStrings.t('creator.descriptionField'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            InputDecorator(
-              decoration: InputDecoration(
-                labelText: AppStrings.t('upload.durationField'),
-                helperText: AppStrings.t('upload.durationHint'),
-              ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _durationSeconds > 0
-                      ? _formatVideoCardTime(_durationSeconds)
-                      : _video == null
-                      ? AppStrings.t('upload.durationWaitingForVideo')
-                      : AppStrings.t('upload.preparing'),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String?>(
-              key: ValueKey('upload-category-$_categoryId'),
-              initialValue: _categoryId,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: AppStrings.t('upload.topic'),
-              ),
-              items: [
-                DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text(AppStrings.t('upload.none')),
-                ),
-                ..._categories.map(
-                  (category) => DropdownMenuItem<String?>(
-                    value: category.id,
-                    child: Text(category.name),
-                  ),
-                ),
-              ],
-              onChanged: _loadingCategories || _uploading
-                  ? null
-                  : (value) => setState(() => _categoryId = value),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _tags,
-              enabled: !_uploading,
-              decoration: InputDecoration(
-                labelText: AppStrings.t('upload.tags'),
-                helperText: AppStrings.t('upload.tagsHint'),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                const Text(
-                  'Chương video (Chapters)',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                ),
-                TextButton.icon(
-                  onPressed: _uploading ? null : _addChapter,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Thêm chương'),
-                ),
-              ],
-            ),
-            if (_chapters.isNotEmpty)
-              ..._chapters.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final ch = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 80,
-                        child: TextFormField(
-                          initialValue: '${ch['startSeconds']}',
-                          enabled: !_uploading,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Giây',
-                            isDense: true,
-                          ),
-                          onChanged: (val) {
-                            ch['startSeconds'] = int.tryParse(val) ?? 0;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: '${ch['title']}',
-                          enabled: !_uploading,
-                          decoration: const InputDecoration(
-                            labelText: 'Tiêu đề chương',
-                            isDense: true,
-                          ),
-                          onChanged: (val) {
-                            ch['title'] = val.trim();
-                          },
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20),
-                        onPressed: _uploading
-                            ? null
-                            : () => setState(() => _chapters.removeAt(idx)),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            const SizedBox(height: 14),
-            Text(
-              AppStrings.t('upload.relatedVideos'),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              AppStrings.t('upload.relatedVideosHint'),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (_loadingRelatedVideos)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: LinearProgressIndicator(),
-              )
-            else if (_availableRelatedVideos.isNotEmpty &&
-                _videoCards.length < 5) ...[
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedRelatedVideoId,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: AppStrings.t('upload.relatedVideoSelect'),
-                ),
-                items: _availableRelatedVideos
-                    .map(
-                      (item) => DropdownMenuItem(
-                        value: item.id,
-                        child: Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: _uploading || _durationSeconds <= 0
-                    ? null
-                    : (value) =>
-                          setState(() => _selectedRelatedVideoId = value),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _relatedTime,
-                      enabled: !_uploading,
-                      keyboardType: TextInputType.datetime,
-                      decoration: InputDecoration(
-                        labelText: AppStrings.t('upload.relatedVideoTime'),
-                        hintText: '0:00',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed:
-                        _uploading ||
-                            _durationSeconds <= 0 ||
-                            _selectedRelatedVideoId == null
-                        ? null
-                        : _addVideoCard,
-                    icon: const Icon(Icons.add),
-                    label: Text(AppStrings.t('upload.addRelatedVideo')),
-                  ),
-                ],
-              ),
-            ] else if (_relatedVideos.isEmpty && !_loadingRelatedVideos)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(AppStrings.t('upload.noRelatedVideos')),
-              ),
-            if (_videoCards.isNotEmpty)
-              ..._videoCards.map((card) {
-                final relatedVideo = _relatedVideos
-                    .where((item) => item.id == card['videoId'])
-                    .firstOrNull;
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text(
-                    relatedVideo?.title ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    _formatVideoCardTime(card['startSeconds'] as int),
-                  ),
-                  trailing: IconButton(
-                    tooltip: AppStrings.t('upload.removeRelatedVideo'),
-                    icon: const Icon(Icons.close),
-                    onPressed: _uploading
-                        ? null
-                        : () => setState(() => _videoCards.remove(card)),
-                  ),
-                );
-              }),
-            if (_canPromote)
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: _promotionEnabled,
-                onChanged: _uploading
-                    ? null
-                    : (value) => setState(() => _promotionEnabled = value),
-                title: Text(AppStrings.t('upload.promoteVideo')),
-                subtitle: Text(AppStrings.t('upload.promoteVideoHint')),
-              ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              key: ValueKey('upload-visibility-$_visibility'),
-              initialValue: _visibility,
-              decoration: InputDecoration(
-                labelText: AppStrings.t('upload.visibility'),
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: 'private',
-                  child: Text(AppStrings.t('upload.private')),
-                ),
-                DropdownMenuItem(
-                  value: 'unlisted',
-                  child: Text(AppStrings.t('upload.unlisted')),
-                ),
-                DropdownMenuItem(
-                  value: 'public',
-                  child: Text(AppStrings.t('upload.public')),
-                ),
-              ],
-              onChanged: _uploading
-                  ? null
-                  : (value) => setState(() => _visibility = value!),
-            ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              value: _ageRestricted,
-              onChanged: _uploading
-                  ? null
-                  : (value) => setState(() => _ageRestricted = value),
-              title: Text(AppStrings.t('upload.ageLimit')),
-              subtitle: Text(AppStrings.t('upload.ageRestrictionDescription')),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _policyAccepted,
-              onChanged: _uploading
-                  ? null
-                  : (value) => setState(() => _policyAccepted = value ?? false),
-              title: Text(AppStrings.t('upload.policyAgreement')),
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: HuTubeSurface(
-                  padding: const EdgeInsets.all(13),
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  border: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.error.withValues(alpha: .25),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onErrorContainer,
+                  const SizedBox(height: 12),
+                  Text(
+                    AppStrings.t('upload.detailsSection'),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-              ),
-            FilledButton.icon(
-              onPressed: _uploading ? null : _upload,
-              icon: _uploading
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _title,
+                    enabled: !_uploading,
+                    maxLength: 100,
+                    decoration: InputDecoration(
+                      labelText: AppStrings.t('upload.titleField'),
+                    ),
+                    validator: (value) => (value ?? '').trim().isEmpty
+                        ? AppStrings.t('upload.titleRequired')
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _description,
+                    enabled: !_uploading,
+                    minLines: 3,
+                    maxLines: 6,
+                    maxLength: 5000,
+                    decoration: InputDecoration(
+                      labelText: AppStrings.t('creator.descriptionField'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _FilePicker(
+                    icon: Icons.image_outlined,
+                    title:
+                        _thumbnail?.name ??
+                        AppStrings.t('upload.chooseThumbnail'),
+                    subtitle: _thumbnail == null
+                        ? AppStrings.t('upload.thumbnailHint')
+                        : AppStrings.t('upload.selectedThumbnail'),
+                    onTap: _uploading ? null : _pickThumbnail,
+                  ),
+                  if (_preparing) const LinearProgressIndicator(),
+                  if (_metadata != null) ...[
+                    if (_metadata!.thumbnails.isNotEmpty) ...[
+                      Text(AppStrings.t('parity.thumbnail')),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final path in _metadata!.thumbnails)
+                            Semantics(
+                              button: true,
+                              selected: _thumbnail?.path == path,
+                              label: AppStrings.t('parity.thumbnail'),
+                              child: InkWell(
+                                onTap: _uploading
+                                    ? null
+                                    : () => setState(
+                                        () => _thumbnail = XFile(path),
+                                      ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      width: 3,
+                                      color: _thumbnail?.path == path
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : Colors.transparent,
+                                    ),
+                                  ),
+                                  child: Image.file(
+                                    File(path),
+                                    width: 86,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    )
-                  : const Icon(Icons.cloud_upload_outlined),
-              label: Text(
-                _uploading
-                    ? AppStrings.t('upload.uploading')
-                    : AppStrings.t('upload.uploadAction'),
+                    ],
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      key: ValueKey('quality-$_fileGeneration-$_sourceQuality'),
+                      initialValue: _sourceQuality,
+                      decoration: InputDecoration(
+                        labelText: AppStrings.t('parity.quality'),
+                        helperText: AppStrings.t('parity.sourceHint'),
+                        helperMaxLines: 2,
+                      ),
+                      items: _metadata!.qualities
+                          .map(
+                            (q) => DropdownMenuItem(value: q, child: Text(q)),
+                          )
+                          .toList(),
+                      onChanged: _uploading
+                          ? null
+                          : (q) => setState(() => _sourceQuality = q),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ExpansionTile(
+                      maintainState: true,
+                      leading: const Icon(Icons.tune_rounded),
+                      title: Text(AppStrings.t('upload.optionsSection')),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      children: [
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          key: ValueKey('language-$_languageCode'),
+                          initialValue: _languageCode,
+                          decoration: InputDecoration(
+                            labelText: AppStrings.t('parity.language'),
+                          ),
+                          items: [
+                            DropdownMenuItem(
+                              value: 'vi',
+                              child: Text('Tiếng Việt'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'en',
+                              child: Text('English'),
+                            ),
+                            DropdownMenuItem(value: 'ja', child: Text('日本語')),
+                            DropdownMenuItem(value: 'ko', child: Text('한국어')),
+                            DropdownMenuItem(value: 'zh', child: Text('中文')),
+                            DropdownMenuItem(
+                              value: 'other',
+                              child: Text(AppStrings.t('upload.otherLanguage')),
+                            ),
+                          ],
+                          onChanged: _uploading
+                              ? null
+                              : (value) =>
+                                    setState(() => _languageCode = value!),
+                        ),
+                        SwitchListTile(
+                          value: _allowComments,
+                          title: Text(AppStrings.t('parity.comments')),
+                          onChanged: _uploading
+                              ? null
+                              : (v) => setState(() => _allowComments = v),
+                        ),
+                        PlaylistSelector(
+                          auth: widget.auth,
+                          selected: _playlistIds,
+                          enabled: !_uploading,
+                          onChanged: (values) =>
+                              setState(() => _playlistIds = values),
+                        ),
+                        const SizedBox(height: 20),
+                        InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: AppStrings.t('upload.durationField'),
+                            helperText: AppStrings.t('upload.durationHint'),
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _durationSeconds > 0
+                                  ? _formatVideoCardTime(_durationSeconds)
+                                  : _video == null
+                                  ? AppStrings.t(
+                                      'upload.durationWaitingForVideo',
+                                    )
+                                  : AppStrings.t('upload.preparing'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<String?>(
+                          key: ValueKey('upload-category-$_categoryId'),
+                          initialValue: _categoryId,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: AppStrings.t('upload.topic'),
+                          ),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text(AppStrings.t('upload.none')),
+                            ),
+                            ..._categories.map(
+                              (category) => DropdownMenuItem<String?>(
+                                value: category.id,
+                                child: Text(category.displayName),
+                              ),
+                            ),
+                          ],
+                          onChanged: _loadingCategories || _uploading
+                              ? null
+                              : (value) => setState(() => _categoryId = value),
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _tags,
+                          enabled: !_uploading,
+                          decoration: InputDecoration(
+                            labelText: AppStrings.t('upload.tags'),
+                            helperText: AppStrings.t('upload.tagsHint'),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ExpansionTile(
+                      maintainState: true,
+                      leading: const Icon(Icons.video_settings_outlined),
+                      title: Text(AppStrings.t('upload.advancedSection')),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      children: [
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            const Text(
+                              'Chương video (Chapters)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: _uploading ? null : _addChapter,
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Thêm chương'),
+                            ),
+                          ],
+                        ),
+                        if (_chapters.isNotEmpty)
+                          ..._chapters.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final ch = entry.value;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 80,
+                                    child: TextFormField(
+                                      initialValue: '${ch['startSeconds']}',
+                                      enabled: !_uploading,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Giây',
+                                        isDense: true,
+                                      ),
+                                      onChanged: (val) {
+                                        ch['startSeconds'] =
+                                            int.tryParse(val) ?? 0;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: '${ch['title']}',
+                                      enabled: !_uploading,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Tiêu đề chương',
+                                        isDense: true,
+                                      ),
+                                      onChanged: (val) {
+                                        ch['title'] = val.trim();
+                                      },
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 20,
+                                    ),
+                                    onPressed: _uploading
+                                        ? null
+                                        : () => setState(
+                                            () => _chapters.removeAt(idx),
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 14),
+                        Text(
+                          AppStrings.t('upload.relatedVideos'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          AppStrings.t('upload.relatedVideosHint'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (_loadingRelatedVideos)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: LinearProgressIndicator(),
+                          )
+                        else if (_availableRelatedVideos.isNotEmpty &&
+                            _videoCards.length < 5) ...[
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedRelatedVideoId,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: AppStrings.t(
+                                'upload.relatedVideoSelect',
+                              ),
+                            ),
+                            items: _availableRelatedVideos
+                                .map(
+                                  (item) => DropdownMenuItem(
+                                    value: item.id,
+                                    child: Text(
+                                      item.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: _uploading || _durationSeconds <= 0
+                                ? null
+                                : (value) => setState(
+                                    () => _selectedRelatedVideoId = value,
+                                  ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _relatedTime,
+                                  enabled: !_uploading,
+                                  keyboardType: TextInputType.datetime,
+                                  decoration: InputDecoration(
+                                    labelText: AppStrings.t(
+                                      'upload.relatedVideoTime',
+                                    ),
+                                    hintText: '0:00',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed:
+                                    _uploading ||
+                                        _durationSeconds <= 0 ||
+                                        _selectedRelatedVideoId == null
+                                    ? null
+                                    : _addVideoCard,
+                                icon: const Icon(Icons.add),
+                                label: Text(
+                                  AppStrings.t('upload.addRelatedVideo'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (_relatedVideos.isEmpty &&
+                            !_loadingRelatedVideos)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(AppStrings.t('upload.noRelatedVideos')),
+                          ),
+                        if (_videoCards.isNotEmpty)
+                          ..._videoCards.map((card) {
+                            final relatedVideo = _relatedVideos
+                                .where((item) => item.id == card['videoId'])
+                                .firstOrNull;
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              title: Text(
+                                relatedVideo?.title ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                _formatVideoCardTime(
+                                  card['startSeconds'] as int,
+                                ),
+                              ),
+                              trailing: IconButton(
+                                tooltip: AppStrings.t(
+                                  'upload.removeRelatedVideo',
+                                ),
+                                icon: const Icon(Icons.close),
+                                onPressed: _uploading
+                                    ? null
+                                    : () => setState(
+                                        () => _videoCards.remove(card),
+                                      ),
+                              ),
+                            );
+                          }),
+                        if (_canPromote)
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            value: _promotionEnabled,
+                            onChanged: _uploading
+                                ? null
+                                : (value) =>
+                                      setState(() => _promotionEnabled = value),
+                            title: Text(AppStrings.t('upload.promoteVideo')),
+                            subtitle: Text(
+                              AppStrings.t('upload.promoteVideoHint'),
+                            ),
+                          ),
+                        const SizedBox(height: 14),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    key: ValueKey('upload-visibility-$_visibility'),
+                    initialValue: _visibility,
+                    decoration: InputDecoration(
+                      labelText: AppStrings.t('upload.visibility'),
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: 'private',
+                        child: Text(AppStrings.t('upload.private')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'unlisted',
+                        child: Text(AppStrings.t('upload.unlisted')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'public',
+                        child: Text(AppStrings.t('upload.public')),
+                      ),
+                    ],
+                    onChanged: _uploading
+                        ? null
+                        : (value) => setState(() => _visibility = value!),
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: _ageRestricted,
+                    onChanged: _uploading
+                        ? null
+                        : (value) => setState(() => _ageRestricted = value),
+                    title: Text(AppStrings.t('upload.ageLimit')),
+                    subtitle: Text(
+                      AppStrings.t('upload.ageRestrictionDescription'),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _policyAccepted,
+                    onChanged: _uploading
+                        ? null
+                        : (value) =>
+                              setState(() => _policyAccepted = value ?? false),
+                    title: Text(AppStrings.t('upload.policyAgreement')),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: HuTubeSurface(
+                        padding: const EdgeInsets.all(13),
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        border: BorderSide(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.error.withValues(alpha: .25),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onErrorContainer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-    ),
-  );
+          ),
+        );
 }
 
 class _FilePicker extends StatelessWidget {

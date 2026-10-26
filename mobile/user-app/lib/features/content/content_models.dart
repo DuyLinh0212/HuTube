@@ -1,3 +1,5 @@
+import '../../core/localization/app_strings.dart';
+
 /// Consume the server's bounded pages without silently truncating a collection.
 Future<PageResult<T>> loadAllPages<T>(
   Future<PageResult<T>> Function(int) fetch,
@@ -46,6 +48,7 @@ class Category {
   final String id;
   final String name;
   final String slug;
+  String get displayName => AppStrings.categoryLabel(name, slug);
 
   factory Category.fromJson(Map<String, dynamic> json) => Category(
     id: '${json['categoryId'] ?? ''}',
@@ -65,6 +68,7 @@ class CategoryRankingGroup {
   final String id;
   final String name;
   final String slug;
+  String get displayName => AppStrings.categoryLabel(name, slug);
   final List<VideoCard> videos;
 
   factory CategoryRankingGroup.fromJson(Map<String, dynamic> json) =>

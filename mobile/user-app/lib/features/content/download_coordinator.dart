@@ -199,6 +199,9 @@ class DownloadCoordinator extends ChangeNotifier {
       quality: '${record['quality'] ?? chosen.quality}',
       url: '${record['fileUrl'] ?? ''}',
       fileSize: size,
+      thumbnailUrl: video.thumbnailUrl,
+      channelName: video.channelName,
+      duration: video.duration,
     );
     return true;
   }

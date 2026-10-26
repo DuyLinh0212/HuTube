@@ -1,5 +1,4 @@
 import '../../core/widgets/confirmation_dialog.dart';
-import '../../core/widgets/text_entry_dialog.dart';
 import '../../account/services/account_service.dart';
 import '../../core/widgets/scrollable_sheet.dart';
 
@@ -28,9 +27,11 @@ import 'content_service.dart';
 import 'local_download_manager.dart';
 import 'download_preferences.dart';
 import 'media_entitlements.dart';
+import 'media_feature_gate.dart';
 import 'playback_session.dart';
 import 'video_card.dart';
 import 'widgets/playlist_queue_sheet.dart';
+import 'widgets/comment_sheets.dart';
 import 'widgets/video_description.dart';
 import 'widgets/rating_sheet.dart';
 import 'widgets/autoplay_next_notice.dart';
@@ -96,6 +97,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   bool _zoomToFill = false;
   bool _pipEnabled = false;
   bool _pipEntering = false;
+  final _videoStageKey = GlobalKey();
+  Timer? _pipRestoreTimer;
+  bool _restoringPip = false;
   bool _backgroundPlaybackEnabled = false;
   String _commentSort = 'top';
   String? _error;
@@ -105,6 +109,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppPictureInPicture.active.addListener(_onPipModeChanged);
     if (Platform.isAndroid) AppPictureInPicture.bind(this, _prepareForPip);
     _commentFocus.addListener(() {
       if (_commentFocus.hasFocus && _commentSheetController.isAttached) {
@@ -131,10 +136,20 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    if (!mounted || _changingFullScreen) return;
+    if (!mounted ||
+        _changingFullScreen ||
+        _restoringPip ||
+        AppPictureInPicture.active.value) {
+      return;
+    }
     _metricsDebounce?.cancel();
     _metricsDebounce = Timer(const Duration(milliseconds: 60), () {
-      if (!mounted || _changingFullScreen) return;
+      if (!mounted ||
+          _changingFullScreen ||
+          _restoringPip ||
+          AppPictureInPicture.active.value) {
+        return;
+      }
       final view = View.of(context);
       if (view.physicalSize.width <= 0 || view.physicalSize.height <= 0) return;
       final isLandscapeNow = view.physicalSize.width > view.physicalSize.height;
@@ -148,6 +163,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _pipRestoreTimer?.cancel();
+    AppPictureInPicture.active.removeListener(_onPipModeChanged);
     AppPictureInPicture.unbind(this);
     WidgetsBinding.instance.removeObserver(this);
     _metricsDebounce?.cancel();
@@ -338,7 +355,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                   .getPreferences()
                   .then((value) => value.defaultPlaybackQuality)
                   .catchError((Object _) => 'auto')
-            : Future<String>.value('auto'),
+            : _prefs.readPlaybackQuality().catchError((Object _) => 'auto'),
       ]);
       final detail = results[0] as VideoDetail;
       final playback = results[1] as Playback;
@@ -491,11 +508,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         return;
       }
       setState(
-        () => _isOwner =
-            channel != null &&
-            (channel.id == detail.channelId ||
-                channel.handle == detail.channelHandle ||
-                widget.auth.user?['userId'] == detail.channelId),
+        () => _isOwner = channel != null && channel.id == detail.channelId,
       );
     } catch (_) {
       // A failed ownership lookup never grants creator controls.
@@ -593,24 +606,56 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   Future<bool> _prepareForPip() async {
     if (!mounted ||
         ModalRoute.of(context)?.isCurrent != true ||
-        !_entitlements.pictureInPicture ||
+        !widget.playback.entitlements.pictureInPicture ||
+        !widget.auth.authenticated ||
         !widget.playback.ready ||
         widget.playback.videoId != widget.videoId) {
       return false;
     }
     // Keep the current player mounted, and show only its surface inside PiP.
-    await _toggleFullScreen(toFullScreen: true, userInitiated: false);
+    _pipRestoreTimer?.cancel();
+    _restoringPip = true;
+    AppPictureInPicture.active.value = true;
     try {
+      WidgetsBinding.instance.scheduleFrame();
       await WidgetsBinding.instance.endOfFrame.timeout(
         const Duration(milliseconds: 500),
       );
     } on TimeoutException {
+      AppPictureInPicture.active.value = false;
       return false;
     }
     return mounted && widget.playback.videoId == widget.videoId;
   }
 
+  void _onPipModeChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (!AppPictureInPicture.active.value) {
+      _restoringPip = true;
+      _pipRestoreTimer?.cancel();
+      _pipRestoreTimer = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) _restoringPip = false;
+      });
+    }
+  }
+
   Future<void> _enterPictureInPicture() async {
+    if (!_entitlements.pictureInPicture) {
+      if (!await requireMediaFeature(
+            context,
+            widget.auth,
+            PlanMediaFeature.pip,
+          ) ||
+          !mounted) {
+        return;
+      }
+      _entitlements = MediaEntitlements(
+        pictureInPicture: true,
+        backgroundPlayback: _entitlements.backgroundPlayback,
+      );
+      widget.playback.updateMediaEntitlements(_entitlements);
+    }
     final player = widget.playback.player;
     if (_pipEntering ||
         player == null ||
@@ -636,6 +681,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
     if (!mounted) return;
     if (!started) {
+      AppPictureInPicture.active.value = false;
       if (!wasFullScreen && _isFullScreen) {
         await _toggleFullScreen(toFullScreen: false, userInitiated: false);
       }
@@ -955,10 +1001,15 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       return;
     }
     if (!mounted || generation != _generation) return;
+    final session = widget.auth.sessionGeneration;
+    bool current() =>
+        mounted &&
+        generation == _generation &&
+        session == widget.auth.sessionGeneration;
     try {
       final options = await _content.downloadOptions(videoId);
       final preference = await _prefs.readDownloadQuality();
-      if (!mounted || generation != _generation) return;
+      if (!mounted || !current()) return;
       final chosen =
           selectDownloadRendition(options, preference) ??
           await showModalBottomSheet<Rendition>(
@@ -983,8 +1034,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
               ),
             ),
           );
-      if (chosen == null) return;
-      final session = widget.auth.sessionGeneration;
+      if (chosen == null || !current()) return;
       final record = await _content.createDownload(videoId, chosen.quality);
       if (!mounted ||
           generation != _generation ||
@@ -999,16 +1049,28 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         quality: '${record['quality'] ?? chosen.quality}',
         url: '${record['fileUrl'] ?? chosen.url}',
         fileSize: asInt(record['fileSize']),
+        thumbnailUrl: _video?.thumbnailUrl,
+        channelName: _video?.channelName ?? '',
+        duration: _video?.duration ?? 0,
       );
-      if (mounted && generation == _generation) {
+      if (current()) {
         setState(() => _actionMessage = AppStrings.t('watch.downloadAdded'));
       }
     } on ApiFailure catch (error) {
-      if (mounted && generation == _generation) {
-        setState(() => _actionMessage = AppStrings.apiError(error));
+      if (current()) {
+        if (error.code == 'DOWNLOAD_NOT_INCLUDED') {
+          if (!mounted) return;
+          await showMediaPlanRequirement(
+            context,
+            widget.auth,
+            PlanMediaFeature.download,
+          );
+        } else {
+          setState(() => _actionMessage = AppStrings.apiError(error));
+        }
       }
     } catch (_) {
-      if (mounted && generation == _generation) {
+      if (current()) {
         setState(() => _actionMessage = AppStrings.t('downloads.error'));
       }
     }
@@ -1267,12 +1329,19 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 
   Future<void> _toggleBackgroundPlayback() async {
     if (!_entitlements.backgroundPlayback) {
-      if (mounted) {
-        setState(
-          () => _actionMessage = AppStrings.t('watch.backgroundUnavailable'),
-        );
+      if (!await requireMediaFeature(
+            context,
+            widget.auth,
+            PlanMediaFeature.background,
+          ) ||
+          !mounted) {
+        return;
       }
-      return;
+      _entitlements = MediaEntitlements(
+        pictureInPicture: _entitlements.pictureInPicture,
+        backgroundPlayback: true,
+      );
+      widget.playback.updateMediaEntitlements(_entitlements);
     }
     final enabled = !widget.playback.backgroundPlaybackRequested;
     final changed = await widget.playback.setBackgroundPlaybackEnabled(enabled);
@@ -1331,15 +1400,49 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                 color: Colors.white70,
                 size: 20,
               ),
-              title: const Text(
-                'Hình trong hình',
+              subtitle: Text(
+                AppStrings.t('media.pipAutomatic'),
+                style: const TextStyle(color: Colors.white70),
+              ),
+              title: Text(
+                AppStrings.t('playback.pip'),
                 style: TextStyle(color: Colors.white, fontSize: 14),
               ),
               value: _pipEnabled,
               onChanged: (value) {
-                setSheetState(() => _pipEnabled = value);
-                setState(() => _pipEnabled = value);
-                unawaited(_prefs.writePipEnabled(value));
+                unawaited(() async {
+                  if (value &&
+                      !await requireMediaFeature(
+                        this.context,
+                        widget.auth,
+                        PlanMediaFeature.pip,
+                      )) {
+                    return;
+                  }
+                  if (!mounted || !context.mounted) return;
+                  try {
+                    if (value) {
+                      _entitlements = MediaEntitlements(
+                        pictureInPicture: true,
+                        backgroundPlayback: _entitlements.backgroundPlayback,
+                      );
+                      widget.playback.updateMediaEntitlements(_entitlements);
+                    }
+                    await _prefs.writePipEnabled(value);
+                    if (mounted && context.mounted) {
+                      setSheetState(() => _pipEnabled = value);
+                      setState(() => _pipEnabled = value);
+                    }
+                  } catch (_) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        SnackBar(
+                          content: Text(AppStrings.t('prefs.saveError')),
+                        ),
+                      );
+                    }
+                  }
+                }());
               },
             ),
           ],
@@ -1932,9 +2035,11 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       );
     }
     final video = _video!;
+    final renderFullscreen = _isFullScreen || AppPictureInPicture.active.value;
     final videoStage = _CustomVideoStage(
+      key: _videoStageKey,
       session: widget.playback,
-      isFullScreen: _isFullScreen,
+      isFullScreen: renderFullscreen,
       controlsLocked: _controlsLocked,
       onUnlockControls: () => setState(() => _controlsLocked = false),
       zoomToFill: _zoomToFill,
@@ -1957,7 +2062,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       },
       onSettings: _showPlaybackSettings,
       onPictureInPicture: _enterPictureInPicture,
-      showPictureInPicture: _entitlements.pictureInPicture,
+      showPictureInPicture: true,
+      systemPip: AppPictureInPicture.active.value,
     );
 
     return PopScope(
@@ -1973,13 +2079,13 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         }
       },
       child: Scaffold(
-        backgroundColor: _isFullScreen
+        backgroundColor: renderFullscreen
             ? Colors.black
             : Theme.of(context).scaffoldBackgroundColor,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            _isFullScreen
+            renderFullscreen
                 ? ColoredBox(
                     color: Colors.black,
                     child: SizedBox.expand(child: videoStage),
@@ -2059,25 +2165,17 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                                             'like',
                                         onTap: () => _react('like'),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 8,
+                                      _ActionChip(
+                                        icon: Icons.thumb_down_outlined,
+                                        semanticLabel:
+                                            '${AppStrings.t('watch.dislike')}: ${AppStrings.number(video.stats.dislikes)}',
+                                        label: AppStrings.compactLikeCount(
+                                          video.stats.dislikes,
                                         ),
-                                        child: IconButton.outlined(
-                                          tooltip: AppStrings.t(
-                                            'watch.dislike',
-                                          ),
-                                          isSelected:
-                                              video.viewerState.reaction ==
-                                              'dislike',
-                                          icon: const Icon(
-                                            Icons.thumb_down_outlined,
-                                          ),
-                                          selectedIcon: const Icon(
-                                            Icons.thumb_down_rounded,
-                                          ),
-                                          onPressed: () => _react('dislike'),
-                                        ),
+                                        active:
+                                            video.viewerState.reaction ==
+                                            'dislike',
+                                        onTap: () => _react('dislike'),
                                       ),
                                       _ActionChip(
                                         icon: Icons.star_border_rounded,
@@ -2126,35 +2224,29 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                                           targetId: video.id,
                                         ),
                                       ),
-                                      if (_entitlements.pictureInPicture)
-                                        _ActionChip(
-                                          icon: Icons
-                                              .picture_in_picture_alt_outlined,
-                                          label: AppStrings.t(
-                                            'watch.pipAction',
-                                          ),
-                                          onTap: _enterPictureInPicture,
-                                        ),
-                                      if (_entitlements.backgroundPlayback)
-                                        _ActionChip(
-                                          icon: Icons.headphones_outlined,
-                                          label:
-                                              widget
-                                                  .playback
-                                                  .waitingForExternalAudio
-                                              ? AppStrings.t(
-                                                  'watch.backgroundWaitingAudio',
-                                                )
-                                              : _backgroundPlaybackEnabled
-                                              ? AppStrings.t(
-                                                  'watch.backgroundEnabledShort',
-                                                )
-                                              : AppStrings.t(
-                                                  'watch.background',
-                                                ),
-                                          active: _backgroundPlaybackEnabled,
-                                          onTap: _toggleBackgroundPlayback,
-                                        ),
+                                      _ActionChip(
+                                        icon: Icons
+                                            .picture_in_picture_alt_outlined,
+                                        label: AppStrings.t('watch.pipAction'),
+                                        onTap: _enterPictureInPicture,
+                                      ),
+                                      _ActionChip(
+                                        icon: Icons.headphones_outlined,
+                                        label:
+                                            widget
+                                                .playback
+                                                .waitingForExternalAudio
+                                            ? AppStrings.t(
+                                                'watch.backgroundWaitingAudio',
+                                              )
+                                            : _backgroundPlaybackEnabled
+                                            ? AppStrings.t(
+                                                'watch.backgroundEnabledShort',
+                                              )
+                                            : AppStrings.t('watch.background'),
+                                        active: _backgroundPlaybackEnabled,
+                                        onTap: _toggleBackgroundPlayback,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -2213,8 +2305,20 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                                                 spacing: 6,
                                                 children: video.tags
                                                     .map(
-                                                      (tag) => Chip(
+                                                      (tag) => ActionChip(
                                                         label: Text('#$tag'),
+                                                        onPressed: () =>
+                                                            context.push(
+                                                              Uri(
+                                                                path: '/search',
+                                                                queryParameters:
+                                                                    {
+                                                                      'q': tag,
+                                                                      'tag':
+                                                                          tag,
+                                                                    },
+                                                              ).toString(),
+                                                            ),
                                                       ),
                                                     )
                                                     .toList(),
@@ -2342,6 +2446,7 @@ class _ActionChip extends StatelessWidget {
   const _ActionChip({
     this.icon,
     this.iconAsset,
+    this.semanticLabel,
     required this.label,
     required this.onTap,
     this.active = false,
@@ -2349,6 +2454,7 @@ class _ActionChip extends StatelessWidget {
   final IconData? icon;
   final String? iconAsset;
   final String label;
+  final String? semanticLabel;
   final VoidCallback onTap;
   final bool active;
 
@@ -2358,22 +2464,25 @@ class _ActionChip extends StatelessWidget {
     final foreground = active ? colors.primary : colors.onSurface;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: ActionChip(
-        avatar: iconAsset != null
-            ? AppIcons.asset(iconAsset!, size: 18, color: foreground)
-            : (icon == null ? null : Icon(icon, size: 18, color: foreground)),
-        label: Text(label),
-        labelStyle: TextStyle(color: foreground, fontWeight: FontWeight.w700),
-        backgroundColor: active
-            ? colors.primary.withValues(alpha: .12)
-            : colors.surface,
-        side: BorderSide(
-          color: active
-              ? colors.primary.withValues(alpha: .5)
-              : AppColors.borderFor(context),
+      child: Tooltip(
+        message: semanticLabel ?? label,
+        child: ActionChip(
+          avatar: iconAsset != null
+              ? AppIcons.asset(iconAsset!, size: 18, color: foreground)
+              : (icon == null ? null : Icon(icon, size: 18, color: foreground)),
+          label: Text(label),
+          labelStyle: TextStyle(color: foreground, fontWeight: FontWeight.w700),
+          backgroundColor: active
+              ? colors.primary.withValues(alpha: .12)
+              : colors.surface,
+          side: BorderSide(
+            color: active
+                ? colors.primary.withValues(alpha: .5)
+                : AppColors.borderFor(context),
+          ),
+          shape: const StadiumBorder(),
+          onPressed: onTap,
         ),
-        shape: const StadiumBorder(),
-        onPressed: onTap,
       ),
     );
   }
@@ -2444,12 +2553,14 @@ class _PlaybackSettingTile extends StatelessWidget {
 
 class _CustomVideoStage extends StatefulWidget {
   const _CustomVideoStage({
+    super.key,
     required this.session,
     required this.onMinimize,
     required this.onSettings,
     required this.onPictureInPicture,
     required this.showPictureInPicture,
     this.isFullScreen = false,
+    this.systemPip = false,
     this.controlsLocked = false,
     this.onUnlockControls,
     this.zoomToFill = false,
@@ -2463,6 +2574,7 @@ class _CustomVideoStage extends StatefulWidget {
   final VoidCallback onPictureInPicture;
   final bool showPictureInPicture;
   final bool isFullScreen;
+  final bool systemPip;
   final bool controlsLocked;
   final VoidCallback? onUnlockControls;
   final bool zoomToFill;
@@ -2835,10 +2947,15 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                   ),
                 Positioned.fill(
                   child: AnimatedOpacity(
-                    opacity: _controlsVisible ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 180),
+                    opacity: _controlsVisible && !widget.systemPip ? 1.0 : 0.0,
+                    duration: widget.systemPip
+                        ? Duration.zero
+                        : const Duration(milliseconds: 180),
                     child: IgnorePointer(
-                      ignoring: !_controlsVisible || widget.controlsLocked,
+                      ignoring:
+                          !_controlsVisible ||
+                          widget.controlsLocked ||
+                          widget.systemPip,
                       child: DecoratedBox(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
@@ -3093,7 +3210,7 @@ class _CustomVideoStageState extends State<_CustomVideoStage> {
                     ),
                   ),
                 ),
-                if (widget.controlsLocked)
+                if (widget.controlsLocked && !widget.systemPip)
                   Positioned(
                     top: widget.isFullScreen ? 12 : 4,
                     left: 8,
@@ -3141,25 +3258,81 @@ class _ChannelSummary extends StatefulWidget {
 class _ChannelSummaryState extends State<_ChannelSummary> {
   late final ChannelService _channels = ChannelService(widget.auth);
   bool _subscribed = false;
+  bool _notificationsEnabled = false;
   bool _busy = false;
+  bool _isOwner = false;
+  bool _ownershipReady = false;
+  int _request = 0;
+  late int _session;
+  late bool _authenticated;
 
   @override
   void initState() {
     super.initState();
+    _session = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    widget.auth.addListener(_identityChanged);
     _loadSubscription();
   }
 
+  void _identityChanged() {
+    if (_session == widget.auth.sessionGeneration &&
+        _authenticated == widget.auth.authenticated) {
+      return;
+    }
+    _session = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    _loadSubscription();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChannelSummary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.video.channelId != widget.video.channelId) {
+      _loadSubscription();
+    }
+  }
+
+  @override
+  void dispose() {
+    ++_request;
+    widget.auth.removeListener(_identityChanged);
+    super.dispose();
+  }
+
   Future<void> _loadSubscription() async {
+    final request = ++_request;
+    setState(() {
+      _subscribed = false;
+      _notificationsEnabled = false;
+      _isOwner = false;
+      _busy = false;
+      _ownershipReady = !widget.auth.authenticated;
+    });
     if (!widget.auth.authenticated) return;
     try {
+      final own = await _channels.getMyChannel();
+      if (!mounted || request != _request) return;
+      setState(() {
+        _isOwner = own?.id == widget.video.channelId;
+        _ownershipReady = true;
+      });
+      if (_isOwner) return;
       final status = await _channels.getSubscriptionStatus(
         widget.video.channelId,
       );
-      if (mounted) setState(() => _subscribed = status?['status'] == 'active');
+      if (mounted && request == _request) {
+        setState(() {
+          _subscribed = status?['status'] == 'active';
+          _notificationsEnabled =
+              _subscribed && status?['notificationsEnabled'] == true;
+        });
+      }
     } catch (_) {}
   }
 
   Future<void> _toggleSubscription() async {
+    if (!_ownershipReady || _isOwner) return;
     if (!widget.auth.authenticated) {
       final proceed = await showModalBottomSheet<bool>(
         context: context,
@@ -3234,68 +3407,144 @@ class _ChannelSummaryState extends State<_ChannelSummary> {
       return;
     }
     if (_busy) return;
+    final request = _request;
     setState(() => _busy = true);
     try {
       if (_subscribed) {
         await _channels.unsubscribe(widget.video.channelId);
       } else {
-        await _channels.subscribe(widget.video.channelId);
+        final result = await _channels.subscribe(widget.video.channelId);
+        if (mounted && request == _request) {
+          _notificationsEnabled = result['notificationsEnabled'] == true;
+        }
       }
-      if (mounted) setState(() => _subscribed = !_subscribed);
+      if (mounted && request == _request) {
+        setState(() => _subscribed = !_subscribed);
+      }
     } on ApiFailure catch (error) {
-      if (mounted) {
+      if (mounted && request == _request) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && request == _request) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _toggleNotifications() async {
+    if (_busy || !_subscribed || _isOwner) return;
+    final request = _request;
+    setState(() => _busy = true);
+    try {
+      final result = await _channels.updateSubscriptionNotifications(
+        widget.video.channelId,
+        !_notificationsEnabled,
+      );
+      if (mounted && request == _request) {
+        setState(
+          () => _notificationsEnabled = result['notificationsEnabled'] == true,
+        );
+      }
+    } on ApiFailure catch (e) {
+      if (mounted && request == _request) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(e))));
+      }
+    } finally {
+      if (mounted && request == _request) setState(() => _busy = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      HuTubeAvatar(label: widget.video.channelName, radius: 22),
-      const SizedBox(width: 11),
-      Expanded(
-        child: InkWell(
-          onTap: () => context.push('/channels/${widget.video.channelHandle}'),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.video.channelName,
-                style: const TextStyle(fontWeight: FontWeight.w900),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final identity = Row(
+        children: [
+          HuTubeAvatar(label: widget.video.channelName, radius: 22),
+          const SizedBox(width: 11),
+          Expanded(
+            child: InkWell(
+              onTap: () =>
+                  context.push('/channels/${widget.video.channelHandle}'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.video.channelName,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '@${widget.video.channelHandle}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-              const SizedBox(height: 3),
-              Text(
-                '@${widget.video.channelHandle}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-      OutlinedButton(
-        onPressed: _busy ? null : _toggleSubscription,
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 42),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          backgroundColor: _subscribed
-              ? AppColors.surfaceAltFor(context)
-              : null,
-        ),
-        child: Text(
-          _busy
-              ? '…'
-              : (_subscribed
-                    ? AppStrings.t('watch.following')
-                    : AppStrings.t('watch.follow')),
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-      ),
-    ],
+        ],
+      );
+      final actions = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton(
+            onPressed: !_ownershipReady || _busy
+                ? null
+                : _isOwner
+                ? () => context.push('/channels/${widget.video.channelHandle}')
+                : _toggleSubscription,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              backgroundColor: _subscribed
+                  ? AppColors.surfaceAltFor(context)
+                  : null,
+            ),
+            child: Text(
+              _busy
+                  ? '…'
+                  : (_isOwner
+                        ? AppStrings.t('channel.yourChannel')
+                        : _subscribed
+                        ? AppStrings.t('watch.following')
+                        : AppStrings.t('watch.follow')),
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          if (_subscribed && !_isOwner)
+            IconButton(
+              key: const ValueKey('watch-subscription-notifications'),
+              tooltip: AppStrings.t(
+                _notificationsEnabled
+                    ? 'channel.notificationsOff'
+                    : 'channel.notificationsOn',
+              ),
+              onPressed: _busy ? null : _toggleNotifications,
+              icon: Icon(
+                _notificationsEnabled
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_none_rounded,
+              ),
+            ),
+        ],
+      );
+      if (constraints.maxWidth < 350 ||
+          MediaQuery.textScalerOf(context).scale(14) > 19) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [identity, const SizedBox(height: 12), actions],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: identity),
+          const SizedBox(width: 8),
+          actions,
+        ],
+      );
+    },
   );
 }
 
@@ -3350,6 +3599,8 @@ class _CommentTile extends StatefulWidget {
     this.onUpdated,
     this.onSignIn,
     this.depth = 0,
+    this.showReplies = true,
+    this.onReplyRequest,
   });
   final CommentItem item;
   final ContentService content;
@@ -3365,6 +3616,8 @@ class _CommentTile extends StatefulWidget {
   final ValueChanged<CommentItem>? onUpdated;
   final VoidCallback? onSignIn;
   final int depth;
+  final bool showReplies;
+  final VoidCallback? onReplyRequest;
 
   @override
   State<_CommentTile> createState() => _CommentTileState();
@@ -3377,27 +3630,15 @@ class _CommentTileState extends State<_CommentTile> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.id != widget.item.id) {
       ++_generation;
-      _replies = null;
-      _loading = false;
-      _repliesPage = 0;
-      _visibleReplyCount = 3;
-      _expandedReplies = false;
-      _repliesError = null;
       _replyDraft = '';
-      _sendingReply = _reacting = false;
+      _reacting = false;
     }
     if (!identical(oldWidget.item, widget.item)) _item = widget.item;
   }
 
   late CommentItem _item;
-  List<CommentItem>? _replies;
-  bool _loading = false;
-  int _repliesPage = 0;
-  int _visibleReplyCount = 3;
-  bool _expandedReplies = false;
-  String? _repliesError;
   String _replyDraft = '';
-  bool _sendingReply = false;
+  bool _threadOpen = false;
   bool _reacting = false;
 
   @override
@@ -3451,145 +3692,23 @@ class _CommentTileState extends State<_CommentTile> {
   }
 
   Future<void> _reply() async {
-    if (_sendingReply) return;
     if (!widget.signedIn) {
       widget.onSignIn?.call();
       return;
     }
-    final generation = _generation;
-    HapticFeedback.lightImpact();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (_) => TextEntryDialog(
-        title: AppStrings.format('watch.replyTitle', {
-          'name': _item.displayName,
-        }),
-        hint: AppStrings.t('watch.replyHint'),
-        initialValue: _replyDraft,
-        submitLabel: AppStrings.t('common.send'),
-      ),
-    );
-    if (text == null ||
-        text.trim().isEmpty ||
-        !mounted ||
-        generation != _generation) {
+    if (widget.onReplyRequest != null) {
+      widget.onReplyRequest!();
       return;
     }
-    setState(() {
-      _replyDraft = text.trim();
-      _sendingReply = true;
-    });
-    try {
-      final reply = await widget.content.createComment(
-        _item.videoId,
-        _replyDraft,
-        parentCommentId: _item.id,
-      );
-      if (!mounted || generation != _generation) return;
-      setState(() {
-        _replies = [...?_replies, reply];
-        _item = _item.copyWith(replyCount: _item.replyCount + 1);
-        _expandedReplies = true;
-        _replyDraft = '';
-      });
-      widget.onUpdated?.call(_item);
-      if (_repliesPage == 0 && _item.replyCount > 1) await _loadReplies();
-      if (mounted && generation == _generation) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.t('watch.replySent'))),
-        );
-      }
-    } catch (error) {
-      if (mounted && generation == _generation) _showError(error);
-    } finally {
-      if (mounted && generation == _generation) {
-        setState(() => _sendingReply = false);
-      }
-    }
+    await _openThread(compose: true);
   }
 
-  Future<void> _loadReplies({bool reset = false}) async {
-    if (_loading) return;
-    final generation = _generation;
-    setState(() {
-      _loading = true;
-      _expandedReplies = true;
-      _repliesError = null;
-    });
-    try {
-      final page = reset ? 1 : _repliesPage + 1;
-      final result = await widget.content.replies(
-        _item.id,
-        page: page,
-        pageSize: 3,
-      );
-      if (!mounted || generation != _generation) return;
-      setState(() {
-        _replies =
-            {
-              if (!reset)
-                for (final item in _replies ?? <CommentItem>[]) item.id: item,
-              for (final item in result.items) item.id: item,
-            }.values.toList()..sort((a, b) {
-              final date = (a.createdAt ?? DateTime(0)).compareTo(
-                b.createdAt ?? DateTime(0),
-              );
-              return date == 0 ? a.id.compareTo(b.id) : date;
-            });
-        _repliesPage = page;
-        _item = _item.copyWith(replyCount: result.total);
-      });
-    } catch (_) {
-      if (mounted && generation == _generation) {
-        setState(() => _repliesError = AppStrings.t('watch.replyLoadError'));
-      }
-    } finally {
-      if (mounted && generation == _generation) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  void _toggleReplies() {
-    setState(() {
-      _expandedReplies = !_expandedReplies;
-      if (!_expandedReplies) _visibleReplyCount = 3;
-    });
-    if (_expandedReplies && _repliesPage == 0 && _replies == null) {
-      _loadReplies();
-    }
-  }
-
-  void _moreReplies() {
-    if (_loading) return;
-    setState(() => _visibleReplyCount += 3);
-    if ((_replies?.length ?? 0) < _visibleReplyCount &&
-        (_replies?.length ?? 0) < _item.replyCount) {
-      _loadReplies();
-    }
-  }
-
-  void _onReplyUpdated(CommentItem updated) {
-    setState(() {
-      if (updated.status == 'deleted') {
-        _replies?.removeWhere((item) => item.id == updated.id);
-        _item = _item.copyWith(
-          replyCount: (_item.replyCount - 1).clamp(0, 1 << 31),
-        );
-        _visibleReplyCount = 3;
-      } else {
-        _replies = _replies
-            ?.map((item) => item.id == updated.id ? updated : item)
-            .toList();
-      }
-    });
-    widget.onUpdated?.call(_item);
-    if (updated.status == 'deleted' && _repliesPage > 0) {
-      _loadReplies(reset: true);
-    }
-  }
-
-  Future<void> _changeReplyState(CommentItem item, {bool hide = false}) async {
+  Future<void> _threadCreatorState(
+    CommentItem item,
+    ValueChanged<CommentItem> onUpdated, {
+    bool pin = false,
+    bool hide = false,
+  }) async {
     final generation = _generation;
     try {
       final updated = hide
@@ -3599,43 +3718,87 @@ class _CommentTileState extends State<_CommentTile> {
             )
           : await widget.content.setCommentCreatorState(
               item.id,
-              enabled: !item.hasCreatorHeart,
-              pin: false,
+              enabled: pin ? !item.isPinned : !item.hasCreatorHeart,
+              pin: pin,
             );
-      if (mounted && generation == _generation) _onReplyUpdated(updated);
+      if (mounted && generation == _generation) onUpdated(updated);
     } catch (error) {
       if (mounted && generation == _generation) _showError(error);
     }
   }
 
-  Future<void> _edit() async {
+  Future<void> _openThread({bool compose = false}) async {
+    if (_threadOpen) return;
     final generation = _generation;
-    final updatedText = await showDialog<String>(
+    _threadOpen = true;
+    HapticFeedback.lightImpact();
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (_) => TextEntryDialog(
-        title: AppStrings.t('watch.editComment'),
-        initialValue: _item.content,
-        submitLabel: AppStrings.t('common.save'),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      barrierColor: Colors.transparent,
+      showDragHandle: false,
+      builder: (_) => CommentThreadSheet(
+        auth: widget.auth,
+        content: widget.content,
+        parent: _item,
+        focusComposer: compose,
+        initialDraft: _replyDraft,
+        onDraftChanged: (value) => _replyDraft = value,
+        onParentChanged: (item) {
+          if (!mounted || generation != _generation) return;
+          setState(() => _item = item);
+          widget.onUpdated?.call(item);
+        },
+        tileBuilder: (item, onUpdated, onReply) => _CommentTile(
+          key: ValueKey(
+            item.id == _item.id ? 'thread-parent-${item.id}' : item.id,
+          ),
+          item: item,
+          content: widget.content,
+          signedIn: widget.signedIn,
+          auth: widget.auth,
+          channelName: widget.channelName,
+          isOwner: widget.isOwner,
+          isPinned: item.isPinned,
+          isHearted: item.hasCreatorHeart,
+          showReplies: item.id != _item.id,
+          onReplyRequest: onReply,
+          depth: item.id == _item.id ? widget.depth : widget.depth + 1,
+          onUpdated: onUpdated,
+          onSignIn: widget.onSignIn,
+          onTogglePin: () => _threadCreatorState(item, onUpdated, pin: true),
+          onToggleHeart: () => _threadCreatorState(item, onUpdated),
+          onToggleHide: () => _threadCreatorState(item, onUpdated, hide: true),
+        ),
       ),
     );
-    if (updatedText == null ||
-        updatedText.trim().isEmpty ||
-        generation != _generation) {
-      return;
-    }
-    try {
-      final updated = await widget.content.updateComment(_item.id, updatedText);
-      if (mounted && generation == _generation) {
-        setState(() => _item = updated);
-        widget.onUpdated?.call(_item);
-      }
-    } on ApiFailure catch (error) {
-      if (mounted && generation == _generation) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.apiError(error))));
-      }
-    }
+    _threadOpen = false;
+  }
+
+  Future<void> _edit() async {
+    final generation = _generation;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => CommentEditorSheet(
+        initialValue: _item.content,
+        onSubmit: (text) async {
+          final updated = await widget.content.updateComment(_item.id, text);
+          if (!mounted || generation != _generation) {
+            throw ApiFailure(
+              401,
+              'SESSION_EXPIRED',
+              AppStrings.t('auth.sessionExpired'),
+            );
+          }
+          setState(() => _item = updated);
+          widget.onUpdated?.call(_item);
+        },
+      ),
+    );
   }
 
   Future<void> _delete() async {
@@ -3824,7 +3987,7 @@ class _CommentTileState extends State<_CommentTile> {
                           onPressed: _reacting ? null : () => _react('dislike'),
                         ),
                         TextButton(
-                          onPressed: _sendingReply ? null : _reply,
+                          onPressed: _reply,
                           child: Text(AppStrings.t('common.reply')),
                         ),
                         if (widget.isHearted || _item.hasCreatorHeart)
@@ -3995,85 +4158,21 @@ class _CommentTileState extends State<_CommentTile> {
             ),
           ],
         ),
-        if (_item.replyCount > 0)
-          TextButton(
-            key: ValueKey('comment-replies-${_item.id}'),
-            onPressed: _toggleReplies,
-            child: Text(
-              _expandedReplies
-                  ? AppStrings.t('watch.hideReplies')
-                  : AppStrings.format('watch.replies', {
-                      'count': AppStrings.number(_item.replyCount),
-                    }),
-            ),
-          ),
-        if (_expandedReplies)
-          Container(
-            key: ValueKey('comment-thread-${_item.id}'),
-            margin: EdgeInsets.only(left: widget.depth < 3 ? 16 : 0),
-            padding: EdgeInsets.only(left: widget.depth < 3 ? 8 : 0),
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
+        if (widget.showReplies && _item.replyCount > 0)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: ValueKey('comment-replies-${_item.id}'),
+              onPressed: () => _openThread(),
+              icon: const Icon(
+                Icons.subdirectory_arrow_right_rounded,
+                size: 20,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final reply in (_replies ?? <CommentItem>[]).take(
-                  _visibleReplyCount,
-                ))
-                  _CommentTile(
-                    key: ValueKey(reply.id),
-                    item: reply,
-                    content: widget.content,
-                    signedIn: widget.signedIn,
-                    auth: widget.auth,
-                    channelName: widget.channelName,
-                    isOwner: widget.isOwner,
-                    isPinned: false,
-                    isHearted: reply.hasCreatorHeart,
-                    depth: widget.depth + 1,
-                    onUpdated: _onReplyUpdated,
-                    onSignIn: widget.onSignIn,
-                    onTogglePin: () {},
-                    onToggleHeart: () => _changeReplyState(reply),
-                    onToggleHide: () => _changeReplyState(reply, hide: true),
-                  ),
-                if (_loading)
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(AppStrings.t('watch.repliesLoading')),
-                  ),
-                if (_repliesError != null) ...[
-                  Text(
-                    _repliesError!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _loading ? null : _loadReplies,
-                    child: Text(AppStrings.t('common.retry')),
-                  ),
-                ] else if (!_loading &&
-                    _item.replyCount >
-                        (_replies?.take(_visibleReplyCount).length ?? 0))
-                  TextButton(
-                    key: ValueKey('comment-more-${_item.id}'),
-                    onPressed: _moreReplies,
-                    child: Text(
-                      AppStrings.format('watch.moreReplies', {
-                        'count': AppStrings.number(
-                          _item.replyCount -
-                              (_replies?.take(_visibleReplyCount).length ?? 0),
-                        ),
-                      }),
-                    ),
-                  ),
-              ],
+              label: Text(
+                AppStrings.format('watch.replies', {
+                  'count': AppStrings.number(_item.replyCount),
+                }),
+              ),
             ),
           ),
       ],
