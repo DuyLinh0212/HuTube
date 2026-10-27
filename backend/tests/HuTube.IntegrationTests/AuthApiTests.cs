@@ -310,8 +310,17 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         await using var db = factory.CreateDb();
         const string tableQuery = "SELECT table_name::text AS \"Value\" FROM information_schema.tables WHERE table_schema='public' AND table_name <> '__EFMigrationsHistory' ORDER BY table_name";
         var before = await db.Database.SqlQueryRaw<string>(tableQuery).ToListAsync();
-        // 48 bootstrap tables, three existing additions and four messaging tables.
-        Assert.Equal(55, before.Count);
+        // New migrations may add tables, but must not remove the existing schema.
+        Assert.True(before.Count >= 56, $"Expected at least 56 tables, found {before.Count}.");
+        await using var bootstrap = typeof(HuTube.Infrastructure.Persistence.Migrations.BootstrapMigration).Assembly
+            .GetManifestResourceStream("HuTube.Infrastructure.Persistence.Migrations.Bootstrap.sql");
+        Assert.NotNull(bootstrap);
+        using var reader = new StreamReader(bootstrap!);
+        var bootstrapTables = System.Text.RegularExpressions.Regex.Matches(await reader.ReadToEndAsync(),
+            @"(?im)^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([a-z][a-z0-9_]*)\s*\(")
+            .Select(match => match.Groups[1].Value).Distinct().ToArray();
+        Assert.True(bootstrapTables.Length >= 40, "Failed to read the baseline table names.");
+        Assert.All(bootstrapTables, table => Assert.Contains(table, before));
         Assert.Contains("login_history", before);
         Assert.Contains("strike_policy_settings", before);
         Assert.Contains("read_cache_revisions", before);
@@ -319,6 +328,7 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         Assert.Contains("notification_inbox_events", before);
         Assert.Contains("notification_deliveries", before);
         Assert.Contains("push_devices", before);
+        Assert.Contains("channel_analytics_events", before);
         await db.Database.MigrateAsync();
         var after = await db.Database.SqlQueryRaw<string>(tableQuery).ToListAsync();
         Assert.Equal(before, after);
