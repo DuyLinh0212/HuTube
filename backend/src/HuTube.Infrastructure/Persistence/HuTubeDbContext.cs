@@ -73,6 +73,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.Metric).HasColumnName("metric").HasMaxLength(24);
             b.Property(x => x.Value).HasColumnName("value");
             b.HasIndex(x => new { x.ChannelId, x.OccurredAt }).HasDatabaseName("ix_channel_analytics_channel_time");
+            b.HasOne<Channel>().WithMany().HasForeignKey(x => x.ChannelId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_channel_analytics_events_channels");
+            b.HasOne<Video>().WithMany().HasForeignKey(x => x.VideoId).OnDelete(DeleteBehavior.SetNull).HasConstraintName("fk_channel_analytics_events_videos");
         });
         model.HasPostgresExtension("citext");
         model.HasPostgresExtension("unaccent");
@@ -260,6 +262,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.Payload).HasColumnType("jsonb");
             b.HasIndex(x => new { x.EventId, x.UserId, x.Type }).IsUnique();
             b.HasIndex(x => x.AvailableAt).HasFilter("completed_at IS NULL");
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_notification_deliveries_users");
+            b.HasOne<Notification>().WithMany().HasForeignKey(x => x.NotificationId).OnDelete(DeleteBehavior.SetNull).HasConstraintName("fk_notification_deliveries_notifications");
         });
         model.Entity<PushDevice>(b => {
             b.ToTable("push_devices"); b.HasKey(x => x.PushDeviceId);
