@@ -398,13 +398,22 @@
                 </select>
               </label>
               <p class="pool-caption">{{ 'recommendations.commentPoolDescription' | translate }}</p>
+              <div class="comment-import-actions">
+                <button type="button" class="secondary" aria-describedby="comment-csv-help" [disabled]="importingComments() || !categories().length" (click)="commentCsvInput.click()">{{ (importingComments() ? 'recommendations.commentCsvImporting' : 'recommendations.commentCsvImport') | translate }}</button>
+                <button type="button" class="secondary" (click)="downloadCommentCsv()">{{ 'recommendations.commentCsvDownload' | translate }}</button>
+                <input #commentCsvInput type="file" accept=".csv,text/csv" hidden (change)="importCommentCsv($event)" />
+                <span>{{ commentsForActiveCategory().length }}/100 {{ 'recommendations.commentCount' | translate }}</span>
+              </div>
+              <p class="pool-caption" id="comment-csv-help">{{ 'recommendations.commentCsvHelp' | translate }}</p>
+              @if (commentImportError()) { <app-result-notice tone="error" [message]="commentImportError()" /> }
+              @if (commentImportMessage()) { <p class="comment-import-result" role="status">{{ commentImportMessage() }}</p> }
               <div class="comment-list" role="list">
                 @for (comment of commentsForActiveCategory(); track $index) {
                   <div class="comment-option" role="listitem"><span>{{ comment }}</span><button type="button" [attr.aria-label]="'recommendations.removeComment' | translate" (click)="removeCommentTemplate($index)">×</button></div>
                 } @empty { <p class="list-empty">{{ 'recommendations.noComments' | translate }}</p> }
               </div>
               <label class="field-label" for="new-comment">{{ 'recommendations.addComment' | translate }}</label>
-              <div class="add-comment-row"><input id="new-comment" [(ngModel)]="newCommentTemplate" [placeholder]="'recommendations.commentPlaceholder' | translate" (keyup.enter)="addCommentTemplate()" /><button type="button" class="green-button" (click)="addCommentTemplate()">＋ {{ 'recommendations.add' | translate }}</button></div>
+              <div class="add-comment-row"><input id="new-comment" maxlength="5000" [(ngModel)]="newCommentTemplate" [placeholder]="'recommendations.commentPlaceholder' | translate" (keyup.enter)="addCommentTemplate()" /><button type="button" class="green-button" (click)="addCommentTemplate()">＋ {{ 'recommendations.add' | translate }}</button></div>
               <p class="pool-footnote">{{ 'recommendations.commentLocalStorage' | translate }}</p>
             </div>
           }

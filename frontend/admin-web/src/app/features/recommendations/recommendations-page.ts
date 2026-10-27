@@ -10,6 +10,7 @@ import { errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { RuntimeConfig } from '../../core/runtime-config';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { MAX_COMMENT_TEMPLATES, mergeCommentTemplates, parseCommentCsv } from './comment-bank';
 
 interface Counts { pairs: number; users: number; videos: number; }
 interface MatrixPreview {
@@ -106,6 +107,9 @@ export class RecommendationsPage implements OnInit, OnDestroy {
   readonly activeSimulatorTab = signal<SimulatorTab>('target');
   readonly commentCategory = signal('default');
   readonly commentBanks = signal<Record<string, string[]>>({});
+  readonly importingComments = signal(false);
+  readonly commentImportMessage = signal('');
+  readonly commentImportError = signal('');
   readonly logClearOffset = signal(0);
   readonly busy = signal(false);
   readonly stopping = signal(false);
@@ -451,20 +455,62 @@ export class RecommendationsPage implements OnInit, OnDestroy {
 
   commentsForActiveCategory(): string[] {
     const category = this.commentCategory();
-    return this.commentBanks()[category] ?? this.commentBanks()['default'] ?? [];
+    return this.commentBanks()[category] ?? [];
   }
 
   addCommentTemplate(): void {
-    const value = this.newCommentTemplate.trim();
-    if (value.length < 3) return;
+    const result = mergeCommentTemplates(this.commentsForActiveCategory(), [[this.newCommentTemplate]]);
+    if (!result.added) {
+      this.commentImportError.set(this.i18n.t('recommendations.commentInvalid'));
+      return;
+    }
     const category = this.commentCategory();
     const next = {
       ...this.commentBanks(),
-      [category]: [...this.commentsForActiveCategory(), value].slice(0, 100),
+      [category]: result.templates,
     };
     this.commentBanks.set(next);
     this.persistCommentBank(next);
     this.newCommentTemplate = '';
+    this.commentImportError.set('');
+  }
+
+  async importCommentCsv(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || this.importingComments()) return;
+    const category = this.commentCategory();
+    const categoryName = this.categories().find(item => item.slug === category)?.name ?? category;
+    this.commentImportError.set(''); this.commentImportMessage.set('');
+    if (!file.name.toLowerCase().endsWith('.csv') || file.size > 1024 * 1024) {
+      this.commentImportError.set(this.i18n.t('recommendations.commentCsvFileError'));
+      return;
+    }
+    this.importingComments.set(true);
+    try {
+      const rows = parseCommentCsv(await file.text());
+      const result = mergeCommentTemplates(this.commentBanks()[category] ?? [], rows);
+      const next = { ...this.commentBanks(), [category]: result.templates };
+      // Persist before reporting success, so browser quota errors do not lose imported data silently.
+      localStorage.setItem(this.commentBankStorageKey, JSON.stringify(next));
+      this.commentBanks.set(next);
+      this.commentImportMessage.set(this.i18n.t('recommendations.commentCsvImported', {
+        category: categoryName, added: String(result.added), duplicates: String(result.duplicates),
+        invalid: String(result.invalid), overflow: String(result.overflow),
+      }));
+    } catch (error) {
+      this.commentImportError.set(this.i18n.t(error instanceof Error && error.message === 'INVALID_COMMENT_CSV'
+        ? 'recommendations.commentCsvFormatError' : 'recommendations.commentCsvReadError'));
+    } finally { this.importingComments.set(false); }
+  }
+
+  downloadCommentCsv(): void {
+    const blob = new Blob(['\uFEFFcomment\r\n"', this.i18n.t('recommendations.commentCsvExample').replaceAll('"', '""'), '"\r\n'], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = 'comment-templates.csv'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   removeCommentTemplate(index: number): void {
@@ -717,7 +763,10 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       viewRate: this.viewRate, likeRate: this.likeRate, dislikeRate: this.dislikeRate,
       ratingRate: this.ratingRate, commentRate: this.commentRate, subscribeRate: this.subscribeRate,
       videoSkipRate: this.videoSkipRate,
-      commentTemplates: this.commentsForActiveCategory().slice(0, 100),
+      commentTemplates: [],
+      categoryComments: this.categories().filter(category => this.selectedCategoryIds.has(category.categoryId)).map(category => ({
+        categoryId: category.categoryId, templates: (this.commentBanks()[category.slug] ?? []).slice(0, MAX_COMMENT_TEMPLATES),
+      })),
       confirmRealUsers: mode === 'target' && this.confirmRealUsers,
       categoryRates: this.categoryRatesPayload(),
     }).subscribe({
@@ -913,7 +962,8 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       if (!stored || typeof stored !== 'object') { this.commentBanks.set(defaults); return; }
       const merged = { ...defaults } as Record<string, string[]>;
       for (const [category, value] of Object.entries(stored as Record<string, unknown>)) {
-        if (Array.isArray(value)) merged[category] = value.filter((item): item is string => typeof item === 'string').slice(0, 100);
+        if (Array.isArray(value)) merged[category] = mergeCommentTemplates([], value
+          .filter((item): item is string => typeof item === 'string').map(item => [item])).templates;
       }
       this.commentBanks.set(merged);
     } catch { this.commentBanks.set(defaults); }

@@ -266,6 +266,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .simulator-panel input[type=range] { accent-color:var(--primary); }
 .simulator-panel .confirmation { border-color:color-mix(in srgb,#f59e0b 34%,var(--line)); color:#8b5b0b!important; background:color-mix(in srgb,#f59e0b 8%,var(--surface)); }
 .simulator-panel .persona-note,.simulator-panel .pool-footnote { color:var(--muted); }
+.comment-import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 0; }
+.simulator-panel .comment-import-actions input[type=file] { display:none; }
+.comment-import-actions span { margin-left:auto; color:var(--muted); font-size:.75rem; }
+.comment-import-result { margin:6px 0 12px; color:var(--ink); font-size:.8rem; line-height:1.5; }
+.comment-option span { white-space:pre-wrap; overflow-wrap:anywhere; }
 .simulator-panel .comment-option button { color:var(--danger); }
 .simulator-panel .green-button { border-color:var(--success); color:#fff; background:var(--success); }
 .simulator-panel .output-heading { border-color:var(--line); background:var(--card-hover); }

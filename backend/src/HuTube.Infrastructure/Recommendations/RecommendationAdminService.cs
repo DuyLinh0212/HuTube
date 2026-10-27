@@ -30,6 +30,7 @@ public sealed record AdminVideoOption(Guid VideoId, Guid ChannelId, string Title
 public sealed record AdminVideoPage(IReadOnlyList<AdminVideoOption> Items, int Page, int PageSize, int Total);
 public sealed record CreateBotsRequest(int Count, string Prefix, string? DisplayName = null);
 public sealed record SimulationCategoryRate(Guid CategoryId, int Rate);
+public sealed record SimulationCategoryComments(Guid CategoryId, IReadOnlyList<string> Templates);
 // Nullable for compatibility with queued payloads from the previous fixed-percent UI;
 // new simulations ignore this legacy value and sample 1–100% per watched video.
 public sealed record SimulatorRequest(IReadOnlyList<Guid> UserIds, IReadOnlyList<Guid> VideoIds,
@@ -38,7 +39,7 @@ public sealed record SimulatorRequest(IReadOnlyList<Guid> UserIds, IReadOnlyList
     int SubscribeRate, IReadOnlyList<string> CommentTemplates, bool ConfirmRealUsers,
     Guid? PreferredCategoryId = null, int PreferredCategoryRatio = 80,
     IReadOnlyList<SimulationCategoryRate>? CategoryRates = null,
-    int VideoSkipRate = 0);
+    int VideoSkipRate = 0, IReadOnlyList<SimulationCategoryComments>? CategoryComments = null);
 public sealed record ModelUpdateRequest(string? Mode = null, Dictionary<string, decimal>? Weights = null,
     string? ModelAlgorithm = null);
 public sealed record ScoreAggregationConfig(string Mode, Dictionary<string, decimal> Weights);
@@ -518,6 +519,18 @@ public sealed class RecommendationAdminService(
         if (request.CommentTemplates is null || request.CommentTemplates.Count > 100
             || request.CommentTemplates.Any(x => x is null || x.Length is < 3 or > 5000))
             throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mỗi mẫu bình luận cần từ 3 đến 5.000 ký tự và tối đa 100 mẫu.");
+        var categoryComments = request.CategoryComments ?? [];
+        if (categoryComments.Count > 20 || categoryComments.Any(x => x is null || x.CategoryId == Guid.Empty
+                || x.Templates is null || x.Templates.Count > 100
+                || x.Templates.Any(text => text is null || text.Trim().Length is < 3 or > 5000))
+            || categoryComments.GroupBy(x => x.CategoryId).Any(group => group.Count() > 1))
+            throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mỗi danh mục cần tối đa 100 mẫu bình luận, mỗi mẫu từ 3 đến 5.000 ký tự; tối đa 20 danh mục khác nhau.");
+        if (categoryComments.Count > 0)
+        {
+            var commentCategoryIds = categoryComments.Select(x => x.CategoryId).ToArray();
+            if (await db.Categories.CountAsync(x => commentCategoryIds.Contains(x.CategoryId) && x.Status == "active", ct) != categoryComments.Count)
+                throw Error(400, "CATEGORY_NOT_ACTIVE", "Danh mục bình luận không hoạt động hoặc không tồn tại.");
+        }
         if (new[] { request.ViewRate, request.LikeRate, request.DislikeRate, request.RatingRate,
                 request.CommentRate, request.SubscribeRate, request.VideoSkipRate }.Any(x => x is < 0 or > 100))
             throw Error(400, "INVALID_SIMULATION_RATE", "Tỷ lệ hành vi phải từ 0 đến 100.");
@@ -552,6 +565,10 @@ public sealed class RecommendationAdminService(
             .Select(x => x.VideoId).ToListAsync(ct);
         if (videos.Count != request.VideoIds.Distinct().Count())
             throw Error(400, "VIDEO_NOT_PUBLIC", "Danh sách có video không công khai hoặc không tồn tại.");
+        if (request.CategoryComments is null && request.CommentTemplates.Count > 0
+            && await VideoAccessPolicy.Catalogue(db).Where(x => request.VideoIds.Contains(x.VideoId))
+                .Select(x => x.CategoryId).Distinct().CountAsync(ct) > 1)
+            throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mô phỏng nhiều danh mục cần mẫu bình luận riêng theo danh mục. Vui lòng tải lại trang quản trị.");
         if (categoryRates.Count > 0)
         {
             var videoCategoryIds = await VideoAccessPolicy.Catalogue(db)
@@ -757,6 +774,11 @@ public sealed class RecommendationAdminService(
         var videos = await VideoAccessPolicy.Catalogue(db).Where(x => request.VideoIds.Contains(x.VideoId))
             .Select(x => new SimulationVideo(x.VideoId, x.ChannelId, x.UploadedByUserId, x.Duration, x.CategoryId)).ToListAsync(ct);
         var videosById = videos.ToDictionary(x => x.VideoId);
+        var commentsByCategory = (request.CategoryComments ?? []).ToDictionary(x => x.CategoryId, x => x.Templates);
+        // Old queued jobs only have one shared bank. It is safe for a single category;
+        // mixed-category jobs must never reuse it across unrelated videos.
+        var legacyComments = request.CategoryComments is null && videos.Select(x => x.CategoryId).Distinct().Count() == 1
+            ? request.CommentTemplates : [];
         var videoChannelIds = videos.Select(video => video.ChannelId).Distinct().ToArray();
         var channelOwners = await db.Channels.AsNoTracking()
             .Where(x => videoChannelIds.Contains(x.ChannelId))
@@ -890,9 +912,11 @@ public sealed class RecommendationAdminService(
                     if (await Act("rating", async () => await content.SetRatingAsync(userId, video.VideoId, rating, ct)))
                         ratingByPair[pair] = rating;
                 }
-                if (Hit(request.CommentRate) && request.CommentTemplates.Count > 0)
+                var commentTemplates = video.CategoryId is { } categoryId && commentsByCategory.TryGetValue(categoryId, out var templates)
+                    ? templates : legacyComments;
+                if (Hit(request.CommentRate) && commentTemplates.Count > 0)
                     await Act("comment", async () => { await content.CreateCommentAsync(userId, video.VideoId,
-                        new CreateCommentRequest(request.CommentTemplates[Random.Shared.Next(request.CommentTemplates.Count)], null), ct); });
+                        new CreateCommentRequest(commentTemplates[Random.Shared.Next(commentTemplates.Count)], null), ct); });
                 var subscriptionKey = (userId, video.ChannelId);
                 var hasNegativeRating = ratingByPair.TryGetValue(pair, out var currentRating) && currentRating <= 2;
                 if (!isOwnContent && !hadReaction && reaction != "dislike"
